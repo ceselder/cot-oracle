@@ -72,7 +72,7 @@ def load_dual_model(model_name, checkpoint_path, device="cuda"):
     return model, tokenizer
 
 
-def generate_cot_base(model, tokenizer, question, max_new_tokens=1024, device="cuda"):
+def generate_cot_base(model, tokenizer, question, max_new_tokens=4096, device="cuda"):
     """Generate CoT with adapters disabled."""
     messages = [{"role": "user", "content": question}]
     formatted = tokenizer.apply_chat_template(
@@ -297,7 +297,7 @@ def main():
             try:
                 cot_response = generate_cot_base(
                     model, tokenizer, current_question,
-                    max_new_tokens=1024, device=args.device,
+                    max_new_tokens=4096, device=args.device,
                 )
             except Exception as e:
                 print(f"  Generation failed: {e}")
