@@ -352,20 +352,21 @@ def main():
         prompt_key = user_input.lower().strip()
         if prompt_key in ("domain",):
             trained_prompt = TASK_PROMPTS["domain"].format(N=n_boundaries)
+            ao_prompt = "Can you predict the next 10 tokens that come after this?"
         elif prompt_key in ("correct", "correctness"):
             trained_prompt = TASK_PROMPTS["correctness"].format(N=n_boundaries)
+            ao_prompt = "Can you predict the next 10 tokens that come after this?"
         elif prompt_key in ("decorative", "load_bearing", "load-bearing"):
             trained_prompt = TASK_PROMPTS["decorative"].format(N=n_boundaries)
+            ao_prompt = "Can you predict the next 10 tokens that come after this?"
         elif prompt_key in ("summary", "summarize"):
             trained_prompt = TASK_PROMPTS["summary"].format(N=n_boundaries)
+            ao_prompt = "Can you predict the next 10 tokens that come after this?"
         else:
-            # Free-form: same prompt to both
-            trained_prompt = user_input
-
-        # Original AO always gets the same prompt (it wasn't trained on our task prompts)
-        ao_prompt = user_input if prompt_key not in TASK_PROMPTS else (
-            f"Can you predict the next 10 tokens that come after this?"
-        )
+            # Free-form: prepend the sentence-boundary preamble for the trained oracle
+            # (all its training data used this format) but send raw to original AO
+            trained_prompt = f"Activations from {n_boundaries} sentence boundaries. {user_input}"
+            ao_prompt = user_input
 
         print()
 
