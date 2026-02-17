@@ -13,6 +13,7 @@ Usage:
 """
 
 import json
+import os
 import random
 import re
 import sys
@@ -369,7 +370,7 @@ def main():
 
     # Login to wandb
     import wandb
-    wandb.login(key="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")
+    wandb.login(key=os.environ.get("WANDB_API_KEY", ""))
 
     cfg = SelfInterpTrainingConfig(
         model_name=MODEL_NAME,

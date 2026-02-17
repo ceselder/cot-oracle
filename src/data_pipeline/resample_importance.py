@@ -23,6 +23,7 @@ Usage:
 import argparse
 import asyncio
 import json
+import os
 import random
 import re
 import sys
@@ -32,7 +33,7 @@ from pathlib import Path
 import aiohttp
 from tqdm import tqdm
 
-OPENROUTER_API_KEY = "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"
+OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY", "")
 MODEL = "qwen/qwen3-8b"
 BASE_URL = "https://openrouter.ai/api/v1/chat/completions"
 

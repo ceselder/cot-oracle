@@ -861,7 +861,7 @@ def main():
         import os
         api_key = args.openrouter_key or os.environ.get("OPENROUTER_API_KEY")
         if not api_key:
-            api_key = "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"
+            raise ValueError("Set OPENROUTER_API_KEY env var or pass --openrouter-key")
 
         # Try loading tokenizer for boundary position computation (no GPU needed).
         # Falls back gracefully — boundary_positions will be computed on GPU later.
