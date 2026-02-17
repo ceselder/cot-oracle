@@ -895,7 +895,7 @@ def main():
 
     # Login to wandb via env var (newer wandb requires 40-char key format)
     import os
-    os.environ["WANDB_API_KEY"] = "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"
+    assert os.environ.get("WANDB_API_KEY"), "Set WANDB_API_KEY env var"
     import wandb
 
     # Shuffle training data!

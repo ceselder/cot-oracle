@@ -13,8 +13,8 @@ CORPUS="data/cot_corpus/corpus.jsonl"
 LABELS_DIR="data/cot_corpus"
 CHECKPOINT_DIR="checkpoints/cot_oracle"
 
-export OPENROUTER_API_KEY="${OPENROUTER_API_KEY:-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}"
-export WANDB_API_KEY="${WANDB_API_KEY:-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}"
+export OPENROUTER_API_KEY="${OPENROUTER_API_KEY:?Set OPENROUTER_API_KEY}"
+export WANDB_API_KEY="${WANDB_API_KEY:?Set WANDB_API_KEY}"
 
 echo "============================================"
 echo "CoT Oracle Training Pipeline"
