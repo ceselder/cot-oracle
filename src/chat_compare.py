@@ -6,8 +6,18 @@ Key difference in input format:
   - Trained oracle: multi-layer (L25%+L50%+L75%), sentence-boundary prefix
     ("Layer: 9, 18, 27\n @ ? # @ ? # ...\n") with task-specific prompts
 
+Supports an optional --cot-adapter for "model organism" experiments: a LoRA
+that alters the model's reasoning (e.g. rot13 encoded CoT). The organism
+adapter is used for CoT generation and activation collection, then the
+oracles read those activations to see if they can understand the altered reasoning.
+
 Usage:
+    # Normal mode (base model generates CoT):
     python3 src/chat_compare.py --checkpoint checkpoints/cot_oracle_v4/step_28000
+
+    # Model organism mode (rot13 LoRA generates CoT):
+    python3 src/chat_compare.py --checkpoint checkpoints/cot_oracle_v4/step_28000 \\
+        --cot-adapter ceselder/rot13-qwen3-8b-lora
 """
 
 import argparse
@@ -37,8 +47,13 @@ from signs_of_life.ao_lib import (
 LAYER_TOKENS = [" @", " ?", " #"]  # L25%, L50%, L75%
 
 
-def load_dual_model(model_name, checkpoint_path, device="cuda"):
-    """Load model with both original AO adapter and trained adapter."""
+def load_dual_model(model_name, checkpoint_path, cot_adapter=None, device="cuda"):
+    """Load model with original AO adapter, trained adapter, and optional CoT adapter.
+
+    If cot_adapter is provided, it's loaded as a "model organism" — a LoRA that
+    alters how the model reasons (e.g. rot13 CoT) so we can test whether the
+    oracle can read through the altered reasoning.
+    """
     dtype = torch.bfloat16
 
     tokenizer = AutoTokenizer.from_pretrained(model_name)
@@ -67,26 +82,40 @@ def load_dual_model(model_name, checkpoint_path, device="cuda"):
     print(f"Loading original AO from {ao_path}...")
     model.load_adapter(ao_path, adapter_name="original_ao", is_trainable=False)
 
+    # Optionally load a "model organism" adapter for CoT generation
+    if cot_adapter:
+        print(f"Loading model organism LoRA from {cot_adapter}...")
+        model.load_adapter(cot_adapter, adapter_name="organism", is_trainable=False)
+
     model.eval()
     print(f"  Adapters: {list(model.peft_config.keys())}")
     return model, tokenizer
 
 
-def generate_cot_base(model, tokenizer, question, max_new_tokens=4096, device="cuda"):
-    """Generate CoT with adapters disabled."""
+def generate_cot_base(model, tokenizer, question, max_new_tokens=4096, device="cuda",
+                      use_organism=False):
+    """Generate CoT. Uses organism adapter if use_organism=True, else base model."""
     messages = [{"role": "user", "content": question}]
     formatted = tokenizer.apply_chat_template(
         messages, tokenize=False, add_generation_prompt=True,
         enable_thinking=True,
     )
     inputs = tokenizer(formatted, return_tensors="pt").to(device)
-    with model.disable_adapter():
+    if use_organism and "organism" in model.peft_config:
+        model.set_adapter("organism")
         output = model.generate(**inputs, max_new_tokens=max_new_tokens, do_sample=False)
+    else:
+        with model.disable_adapter():
+            output = model.generate(**inputs, max_new_tokens=max_new_tokens, do_sample=False)
     return tokenizer.decode(output[0][inputs["input_ids"].shape[1]:], skip_special_tokens=False)
 
 
-def collect_multilayer_activations(model, tokenizer, text, layers, positions, device="cuda"):
+def collect_multilayer_activations(model, tokenizer, text, layers, positions,
+                                    use_organism=False, device="cuda"):
     """Collect activations from multiple layers at given positions.
+
+    When use_organism=True, collects with organism adapter enabled so we read
+    the model's actual internal representations during altered reasoning.
 
     Returns dict[layer -> Tensor[num_positions, d_model]].
     """
@@ -94,12 +123,20 @@ def collect_multilayer_activations(model, tokenizer, text, layers, positions, de
     acts_by_layer = {}
 
     model.eval()
-    with model.disable_adapter():
+    if use_organism and "organism" in model.peft_config:
+        model.set_adapter("organism")
         for layer in layers:
             acts_BLD = collect_activations(
                 model, layer, inputs["input_ids"], inputs["attention_mask"],
             )
             acts_by_layer[layer] = acts_BLD[0, positions, :].detach()
+    else:
+        with model.disable_adapter():
+            for layer in layers:
+                acts_BLD = collect_activations(
+                    model, layer, inputs["input_ids"], inputs["attention_mask"],
+                )
+                acts_by_layer[layer] = acts_BLD[0, positions, :].detach()
 
     return acts_by_layer
 
@@ -239,13 +276,16 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--model", default="Qwen/Qwen3-8B")
     parser.add_argument("--checkpoint", required=True, help="Trained LoRA checkpoint path")
+    parser.add_argument("--cot-adapter", default=None,
+                        help="Model organism LoRA for CoT generation (e.g. ceselder/rot13-qwen3-8b-lora)")
     parser.add_argument("--device", default="cuda")
     parser.add_argument("--max-tokens", type=int, default=150)
     parser.add_argument("--per-layer-tokens", action="store_true", default=False,
                         help="Use @?# tokens (must match how the oracle was trained)")
     args = parser.parse_args()
 
-    model, tokenizer = load_dual_model(args.model, args.checkpoint, args.device)
+    model, tokenizer = load_dual_model(args.model, args.checkpoint,
+                                       cot_adapter=args.cot_adapter, device=args.device)
 
     layers = [
         layer_percent_to_layer(args.model, 25),
@@ -258,9 +298,15 @@ def main():
     acts_by_layer = None
     n_boundaries = 0
 
+    use_organism = args.cot_adapter is not None
+
     print("=" * 80)
     print("  CoT Oracle A/B Comparison")
     print()
+    if use_organism:
+        print(f"  CoT generation: organism adapter ({args.cot_adapter})")
+    else:
+        print("  CoT generation: base model (no adapter)")
     print("  Original AO: single-layer L50%, standard PastLens format")
     print("  Trained oracle: 3-layer sentence boundaries, task-specific prompts")
     print()
@@ -292,12 +338,16 @@ def main():
 
         if acts_by_layer is None:
             current_question = user_input
-            print(f"\nGenerating CoT...")
+            if use_organism:
+                print(f"\nGenerating CoT with organism adapter...")
+            else:
+                print(f"\nGenerating CoT...")
 
             try:
                 cot_response = generate_cot_base(
                     model, tokenizer, current_question,
                     max_new_tokens=4096, device=args.device,
+                    use_organism=use_organism,
                 )
             except Exception as e:
                 print(f"  Generation failed: {e}")
@@ -329,10 +379,12 @@ def main():
             boundary_positions = boundary_positions[:15]
             n_boundaries = len(boundary_positions)
 
-            print(f"\nCollecting activations at {n_boundaries} boundaries, 3 layers...")
+            print(f"\nCollecting activations at {n_boundaries} boundaries, 3 layers"
+                  f"{' (organism adapter)' if use_organism else ''}...")
             try:
                 acts_by_layer = collect_multilayer_activations(
-                    model, tokenizer, full_text, layers, boundary_positions, device=args.device,
+                    model, tokenizer, full_text, layers, boundary_positions,
+                    use_organism=use_organism, device=args.device,
                 )
             except Exception as e:
                 print(f"  Failed: {e}")
