@@ -15,6 +15,7 @@ import json
 import random
 from pathlib import Path
 
+from tqdm.auto import tqdm
 from transformers import AutoTokenizer
 
 
@@ -66,6 +67,7 @@ def load_cot_context_prediction_data(
     layers = [layer_percent_to_layer(model_name, lp) for lp in layer_percents]
 
     datapoints = []
+    pbar = tqdm(total=num_examples, desc="  context_prediction", leave=False)
 
     while len(datapoints) < num_examples:
         entry = random.choice(corpus)
@@ -141,5 +143,7 @@ def load_cot_context_prediction_data(
             "context_input_ids": context_input_ids_slice,
             "context_positions": all_positions,
         })
+        pbar.update(1)
 
+    pbar.close()
     return datapoints[:num_examples]

@@ -11,6 +11,7 @@ Ground truth: the system prompt used (known by construction).
 import json
 import random
 
+from tqdm.auto import tqdm
 from transformers import AutoTokenizer
 
 
@@ -64,6 +65,7 @@ def load_cot_persona_data(
         print(f"    {p}: {len(by_persona[p])} entries")
 
     datapoints = []
+    pbar = tqdm(total=num_examples, desc="  persona", leave=False)
 
     while len(datapoints) < num_examples:
         # Cycle through personas for balance
@@ -110,5 +112,7 @@ def load_cot_persona_data(
             "context_input_ids": context_slice,
             "context_positions": list(positions),
         })
+        pbar.update(1)
 
+    pbar.close()
     return datapoints[:num_examples]

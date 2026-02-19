@@ -11,6 +11,7 @@ Question: "Activations from {N} sentence boundaries.
 import json
 import random
 
+from tqdm.auto import tqdm
 from transformers import AutoTokenizer
 
 
@@ -52,6 +53,7 @@ def load_cot_sentence_prediction_data(
     datapoints = []
     attempts = 0
     max_attempts = num_examples * 10
+    pbar = tqdm(total=num_examples, desc="  sentence_prediction", leave=False)
 
     while len(datapoints) < num_examples and attempts < max_attempts:
         attempts += 1
@@ -132,5 +134,7 @@ def load_cot_sentence_prediction_data(
             "context_input_ids": context_input_ids_slice,
             "context_positions": list(boundary_positions),
         })
+        pbar.update(1)
 
+    pbar.close()
     return datapoints[:num_examples]

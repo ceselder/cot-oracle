@@ -1,0 +1,31 @@
+[project]
+name = "cot-oracle"
+version = "0.1.0"
+description = "Detect unfaithful chain-of-thought reasoning via activation trajectory oracles"
+requires-python = ">=3.10"
+dependencies = [
+    "torch",
+    "transformers",
+    "peft",
+    "bitsandbytes",
+    "accelerate",
+    "datasets",
+    "numpy",
+    "pandas",
+    "tqdm",
+    "scikit-learn",
+    "scipy",
+    "matplotlib",
+    "seaborn",
+    "huggingface_hub",
+    "wandb",
+    "jiter",
+    "anthropic",
+    "openai",
+    "slist",
+    "tenacity",
+    "python-dotenv",
+    "einops",
+    "jupyterlab",
+    "ipywidgets",
+]

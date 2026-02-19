@@ -11,6 +11,7 @@ Labels: "correct" or "incorrect"
 import json
 import random
 
+from tqdm.auto import tqdm
 from transformers import AutoTokenizer
 
 
@@ -56,6 +57,7 @@ def load_cot_correctness_data(
     layers = [layer_percent_to_layer(model_name, lp) for lp in layer_percents]
 
     datapoints = []
+    pbar = tqdm(total=num_examples, desc="  correctness", leave=False)
 
     while len(datapoints) < num_examples:
         # Alternate 50/50
@@ -105,5 +107,7 @@ def load_cot_correctness_data(
             "context_input_ids": context_slice,
             "context_positions": list(positions),
         })
+        pbar.update(1)
 
+    pbar.close()
     return datapoints[:num_examples]

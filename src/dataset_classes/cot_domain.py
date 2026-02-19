@@ -11,6 +11,7 @@ Classes: math, science, logic, commonsense, reading, medical, multi_domain
 import json
 import random
 
+from tqdm.auto import tqdm
 from transformers import AutoTokenizer
 
 
@@ -66,6 +67,7 @@ def load_cot_domain_data(
         print(f"    {d}: {len(by_domain[d])} entries")
 
     datapoints = []
+    pbar = tqdm(total=num_examples, desc="  domain", leave=False)
 
     while len(datapoints) < num_examples:
         # Cycle through domains for balance
@@ -112,5 +114,7 @@ def load_cot_domain_data(
             "context_input_ids": context_slice,
             "context_positions": list(positions),
         })
+        pbar.update(1)
 
+    pbar.close()
     return datapoints[:num_examples]
