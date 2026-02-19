@@ -742,10 +742,10 @@ async def openrouter_generate_single(
     api_key: str,
     semaphore: asyncio.Semaphore,
     system_prompt: str | None = None,
-    max_tokens: int = 2048,
+    max_tokens: int | None = None,
     enable_thinking: bool = True,
-) -> str:
-    """Single OpenRouter API call for CoT generation."""
+) -> dict:
+    """Single OpenRouter API call. Returns dict with 'reasoning' and 'content' fields."""
     global _completed_count, _failed_count
     async with semaphore:
         messages = []
@@ -756,10 +756,11 @@ async def openrouter_generate_single(
         body = {
             "model": "qwen/qwen3-8b",
             "messages": messages,
-            "max_tokens": max_tokens,
             "temperature": 0.6,
             "top_p": 0.95,
         }
+        if max_tokens is not None:
+            body["max_tokens"] = max_tokens
 
         headers = {
             "Authorization": f"Bearer {api_key}",
@@ -779,24 +780,26 @@ async def openrouter_generate_single(
                         continue
                     resp.raise_for_status()
                     data = await resp.json()
-                    content = data["choices"][0]["message"]["content"]
+                    msg = data["choices"][0]["message"]
+                    reasoning = msg.get("reasoning") or msg.get("reasoning_content") or ""
+                    content = msg.get("content", "")
                     _completed_count += 1
-                    if _completed_count % 100 == 0:
+                    if _completed_count % 25 == 0:
                         print(f"  Progress: {_completed_count}/{_total_count} done, {_failed_count} failed")
-                    return content
+                    return {"reasoning": reasoning, "content": content}
             except asyncio.TimeoutError:
                 if attempt == 2:
                     _failed_count += 1
-                    return ""
+                    return {"reasoning": "", "content": ""}
                 await asyncio.sleep(2 ** attempt)
             except Exception as e:
                 if attempt == 2:
                     _failed_count += 1
                     if _failed_count <= 10:
                         print(f"  OpenRouter error: {e}")
-                    return ""
+                    return {"reasoning": "", "content": ""}
                 await asyncio.sleep(2 ** attempt)
-        return ""
+        return {"reasoning": "", "content": ""}
 
 
 async def openrouter_generate_batch(
@@ -807,19 +810,21 @@ async def openrouter_generate_batch(
     persona_name: str | None = None,
     n_rollouts: int = 1,
     skip_direct_sources: set[str] | None = None,
-) -> tuple[list[list[str]], list[str]]:
+) -> tuple[list[list[dict]], list[dict]]:
     """Generate CoT and direct responses for all problems via OpenRouter.
 
     Returns (cot_responses_per_rollout, direct_responses).
-    cot_responses_per_rollout is a list of lists: [rollout_idx][problem_idx].
-    direct_responses is generated once per problem (skipped for sources in skip_direct_sources).
+    Each response is a dict with 'reasoning' (CoT text) and 'content' (answer text).
+    cot_responses_per_rollout: [rollout_idx][problem_idx] -> dict.
+    direct_responses: generated once per problem (skipped for sources in skip_direct_sources).
     """
     global _completed_count, _failed_count, _total_count
     semaphore = asyncio.Semaphore(concurrency)
     if skip_direct_sources is None:
         skip_direct_sources = set()
 
-    all_cot_rollouts: list[list[str]] = []
+    empty_response = {"reasoning": "", "content": ""}
+    all_cot_rollouts: list[list[dict]] = []
 
     async with aiohttp.ClientSession() as session:
         for rollout_idx in range(n_rollouts):
@@ -831,7 +836,7 @@ async def openrouter_generate_batch(
                 openrouter_generate_single(
                     session, p["question"], api_key, semaphore,
                     system_prompt=system_prompt,
-                    max_tokens=2048, enable_thinking=True,
+                    max_tokens=16384, enable_thinking=True,
                 )
                 for p in problems
             ]))
@@ -844,7 +849,7 @@ async def openrouter_generate_batch(
         problems_needing_direct = [
             p for p in problems if p["source"] not in skip_direct_sources
         ]
-        direct_responses_map: dict[int, str] = {}
+        direct_responses_map: dict[int, dict] = {}
         if problems_needing_direct:
             print(f"  Generating {len(problems_needing_direct)} direct responses (skipping {len(problems) - len(problems_needing_direct)} without ground truth)...")
             direct_results = list(await asyncio.gather(*[
@@ -863,7 +868,7 @@ async def openrouter_generate_batch(
                     direct_responses_map[i] = direct_results[direct_idx]
                     direct_idx += 1
 
-        direct_responses = [direct_responses_map.get(i, "") for i in range(len(problems))]
+        direct_responses = [direct_responses_map.get(i, empty_response) for i in range(len(problems))]
 
     return all_cot_rollouts, direct_responses
 
@@ -874,14 +879,15 @@ async def openrouter_generate_batch(
 
 def process_results_openrouter(
     problems: list[dict],
-    all_cot_rollouts: list[list[str]],
-    direct_responses: list[str],
+    all_cot_rollouts: list[list[dict]],
+    direct_responses: list[dict],
     tokenizer=None,
     persona: str | None = None,
 ) -> list[dict]:
     """Post-process OpenRouter responses into corpus entries.
 
-    all_cot_rollouts: list of rollouts, each a list of responses per problem.
+    all_cot_rollouts: list of rollouts, each a list of response dicts per problem.
+    Each response dict has 'reasoning' (CoT text) and 'content' (answer text).
     If tokenizer is provided, computes boundary_positions.
     """
     results = []
@@ -890,22 +896,30 @@ def process_results_openrouter(
     for i, problem in enumerate(problems):
         question = problem["question"]
         has_ground_truth = problem["correct_answer"] is not None
-        direct_response = direct_responses[i]
+
+        # Direct response: extract content (no reasoning for direct calls)
+        direct_result = direct_responses[i]
+        direct_content = direct_result["content"] if isinstance(direct_result, dict) else str(direct_result)
 
         if has_ground_truth:
-            direct_answer = extract_answer(direct_response)
+            direct_answer = extract_answer(direct_content)
             direct_correct = answers_match(direct_answer, problem["correct_answer"])
         else:
             direct_answer = None
             direct_correct = None
 
         for rollout_idx in range(n_rollouts):
-            cot_response = all_cot_rollouts[rollout_idx][i]
-            if not cot_response:
+            cot_result = all_cot_rollouts[rollout_idx][i]
+            # Extract reasoning (the actual CoT) and content (the answer after thinking)
+            cot_reasoning = cot_result["reasoning"] if isinstance(cot_result, dict) else str(cot_result)
+            cot_content = cot_result["content"] if isinstance(cot_result, dict) else ""
+
+            if not cot_reasoning and not cot_content:
                 continue
 
             if has_ground_truth:
-                cot_answer = extract_answer(cot_response)
+                # Extract answer from content (the post-thinking answer), not from reasoning
+                cot_answer = extract_answer(cot_content) if cot_content else extract_answer(cot_reasoning)
                 cot_correct = answers_match(cot_answer, problem["correct_answer"])
                 if cot_correct and not direct_correct:
                     category = "load_bearing"
@@ -919,6 +933,9 @@ def process_results_openrouter(
                 cot_answer = None
                 cot_correct = None
                 category = None
+
+            # cot_response = the actual chain-of-thought reasoning
+            cot_response = cot_reasoning
 
             sentences = split_cot_into_sentences(cot_response)
             if len(sentences) < 2:
@@ -947,7 +964,8 @@ def process_results_openrouter(
                 "subject": problem.get("subject", ""),
                 "level": problem.get("level", ""),
                 "cot_response": cot_response,
-                "direct_response": direct_response if rollout_idx == 0 else None,
+                "cot_content": cot_content,
+                "direct_response": direct_content if rollout_idx == 0 else None,
                 "cot_answer": cot_answer,
                 "direct_answer": direct_answer if rollout_idx == 0 else None,
                 "cot_correct": cot_correct,
@@ -1033,7 +1051,7 @@ def process_results(
 # Preset corpus configurations
 # ============================================================
 
-# Full scale: 125K problems × 2 rollouts ≈ 94M CoT tokens
+# Full scale: 125K problems × 2 rollouts ≈ 200M CoT tokens (~$120)
 FULL_SPLIT = {
     "math": 8000,
     "gsm8k": 8800,
@@ -1046,6 +1064,21 @@ FULL_SPLIT = {
     "medqa": 1273,
     "mmlu_pro": 12000,
     "lmsys": 49927,
+}
+
+# Medium scale: 50K problems × 1 rollout ≈ 97M CoT tokens (~$25)
+MEDIUM_SPLIT = {
+    "math": 3200,
+    "gsm8k": 3520,
+    "aqua_rat": 10000,
+    "asdiv": 920,
+    "arc_challenge": 469,
+    "arc_easy": 950,
+    "commonsenseqa": 4000,
+    "scienceqa": 1680,
+    "medqa": 509,
+    "mmlu_pro": 4800,
+    "lmsys": 19971,
 }
 
 # Mini scale: 1/200th for testing (~625 problems × 2 rollouts ≈ 500K CoT tokens)
@@ -1073,8 +1106,8 @@ NO_GROUND_TRUTH_SOURCES = {"LMSYS"}
 
 def main():
     parser = argparse.ArgumentParser(description="Generate CoT corpus v5")
-    parser.add_argument("--preset", choices=["full", "mini"], default=None,
-                        help="Use preset split (full=125K, mini=625 problems)")
+    parser.add_argument("--preset", choices=["full", "medium", "mini"], default=None,
+                        help="Use preset split (full=125K, medium=50K, mini=625 problems)")
     parser.add_argument("--sources", nargs="+", default=None,
                         help="Override sources (default: from preset or all)")
     parser.add_argument("--n-problems", type=int, default=500,
@@ -1105,6 +1138,9 @@ def main():
     if args.preset == "full":
         split = FULL_SPLIT
         default_output = "data/cot_corpus_v5/corpus.jsonl"
+    elif args.preset == "medium":
+        split = MEDIUM_SPLIT
+        default_output = "data/cot_corpus_v5/corpus_medium.jsonl"
     elif args.preset == "mini":
         split = MINI_SPLIT
         default_output = "data/cot_corpus_v5/mini_corpus.jsonl"
