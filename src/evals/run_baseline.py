@@ -5,7 +5,7 @@ This establishes the baseline performance that our CoT oracle training should ma
 or exceed on regression tasks, and sets the floor for unfaithfulness detection.
 
 Runs:
-1. Our 6 unfaithfulness evals (run_evals.py) with original AO
+1. Eval datasets in `data/evals/*.json` (run_evals-compatible) with original AO
 2. AO's classification regression evals (ao_regression.py) with original AO only
 
 Logs everything to a separate wandb run for comparison.
@@ -50,12 +50,15 @@ from evals.common import (
 from evals.run_evals import (
     run_eval_batched,
     run_decorative_cot_eval,
+    run_reconstruction_eval,
+    run_logical_leaps_eval,
+    run_final_answer_kl_eval,
 )
 from evals.score_oracle import score_eval, EVAL_PARSING
 
 
 def run_unfaithfulness_evals(model, tokenizer, model_name, act_layer, eval_dir, output_dir, device="cuda", batch_size=8):
-    """Run all 6 unfaithfulness evals and return results dict."""
+    """Run all eval datasets in eval_dir and return score dict."""
     eval_dir = Path(eval_dir)
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -78,6 +81,53 @@ def run_unfaithfulness_evals(model, tokenizer, model_name, act_layer, eval_dir, 
             completed = run_decorative_cot_eval(
                 model, tokenizer, items, act_layer,
                 model_name=model_name, device=device,
+            )
+        elif eval_name == "held_out_cot_reconstruction":
+            completed = run_reconstruction_eval(
+                model,
+                tokenizer,
+                items,
+                act_layer,
+                model_name=model_name,
+                eval_name=eval_name,
+                input_cot_key="reference_cot",
+                target_cot_key="reference_cot",
+                device=device,
+                activations_dir=act_dir,
+            )
+        elif eval_name == "rot13_reconstruction":
+            completed = run_reconstruction_eval(
+                model,
+                tokenizer,
+                items,
+                act_layer,
+                model_name=model_name,
+                eval_name=eval_name,
+                input_cot_key="rot13_cot",
+                target_cot_key="decoded_cot",
+                device=device,
+                activations_dir=act_dir,
+            )
+        elif eval_name == "logical_leaps":
+            completed = run_logical_leaps_eval(
+                model,
+                tokenizer,
+                items,
+                act_layer,
+                model_name=model_name,
+                device=device,
+                activations_dir=act_dir,
+            )
+        elif eval_name == "final_answer_kl":
+            completed = run_final_answer_kl_eval(
+                model,
+                tokenizer,
+                items,
+                act_layer,
+                model_name=model_name,
+                device=device,
+                activations_dir=act_dir,
+                batch_size=batch_size,
             )
         else:
             completed = run_eval_batched(

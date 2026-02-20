@@ -114,7 +114,17 @@ torchrun --nproc_per_node=1 src/train_mixed.py \
 ### Run eval suite
 ```bash
 python3 src/evals/generate_datasets.py --output-dir data/evals
+# optional one-time cache build (recommended for ROT13 organism evals)
+python3 src/evals/precompute_activations.py \
+  --eval-dir data/evals \
+  --output-dir data/eval_precomputed \
+  --generator-adapter ceselder/rot13-qwen3-8b-lora \
+  --evals rot13_reconstruction held_out_cot_reconstruction logical_leaps
+# consume cached activations/responses
 python3 src/evals/run_evals.py --eval-dir data/evals --output-dir data/eval_results
+# or:
+# python3 src/evals/run_evals.py --eval-dir data/evals --output-dir data/eval_results \
+#   --precomputed-activations-dir data/eval_precomputed
 python3 src/evals/score_oracle.py --results-dir data/eval_results
 ```
 
