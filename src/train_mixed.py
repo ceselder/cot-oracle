@@ -1,17 +1,18 @@
 """
 Train CoT Oracle: Single-Run Mixed Training
 
-Mixes up to 7 tasks (all shuffled together):
-  1. Context prediction — random positions (100K) — 1 random layer
-  2. Context prediction — sentence boundaries (30K) — 3 layers per boundary
-  3. Decorative CoT (10K, binary) — 3 layers per boundary
-  4. Domain classification (15K, multi-class) — 3 layers per boundary
-  5. Correctness prediction (15K, binary) — 3 layers per boundary
-  6. Persona detection (15K, multi-class) — 3 layers per boundary
-  7. CoT Summary (15K, free-text) — 3 layers per boundary
+Configurable task mixture (via --tasks / --task-size), including:
+  - Context prediction — random positions
+  - Context prediction — sentence boundaries
+  - Decorative CoT
+  - Correctness prediction
+  - Conversational CoT Q/A
+  - Domain classification (optional)
+  - Persona detection (optional)
+  - CoT summary (optional)
 
-Task 1 uses 1 random layer per example (standard AO pretraining format).
-Tasks 2-7 use 3 activations per sentence boundary (L25%, L50%, L75%).
+Context-prediction random-position items use 1 random layer per example.
+Sentence-structured items use 3 activations per boundary (L25%, L50%, L75%).
 Each sentence-structured example is DOUBLED: once with all 3 layers,
 once with L50% only. This teaches the oracle to work with both formats.
 
@@ -30,7 +31,7 @@ Usage:
     # Train (requires torchrun even on single GPU)
     torchrun --nproc_per_node=1 src/train_mixed.py \
         --corpus data/cot_corpus_v4/corpus.jsonl \
-        --persona-corpus data/cot_corpus_v4/corpus_persona.jsonl \
+        --tasks cot_context_prediction,cot_sentence_prediction,cot_decorative,cot_correctness,cot_conversation \
         --model Qwen/Qwen3-8B
 """
 
@@ -38,6 +39,7 @@ import argparse
 import random
 import sys
 from collections import Counter, defaultdict
+from dataclasses import dataclass
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
@@ -73,6 +75,7 @@ from dataset_classes.cot_domain import load_cot_domain_data
 from dataset_classes.cot_correctness import load_cot_correctness_data
 from dataset_classes.cot_persona import load_cot_persona_data
 from dataset_classes.cot_summary import load_cot_summary_data
+from dataset_classes.cot_conversation import load_cot_conversation_data
 
 # Held-out eval tasks
 from dataset_classes.cot_answer_tracking import load_cot_answer_tracking_data
@@ -138,6 +141,293 @@ def ensure_boundary_positions(corpus_path: str, tokenizer) -> str:
     print(f"  Updated {updated} entries with boundary_positions")
     return corpus_path
 
+
+@dataclass(frozen=True)
+class TaskSpec:
+    name: str
+    title: str
+    default_size: int
+    requires_persona_corpus: bool = False
+    requires_summaries: bool = False
+
+
+def _load_task_context_prediction(
+    corpus_path: str,
+    persona_corpus_path: str | None,
+    summaries_path: str | None,
+    tokenizer,
+    model_name: str,
+    layer_percents: list[int],
+    num_examples: int,
+) -> list[dict]:
+    del persona_corpus_path, summaries_path
+    return load_cot_context_prediction_data(
+        corpus_path, tokenizer, model_name, layer_percents, num_examples=num_examples
+    )
+
+
+def _load_task_sentence_prediction(
+    corpus_path: str,
+    persona_corpus_path: str | None,
+    summaries_path: str | None,
+    tokenizer,
+    model_name: str,
+    layer_percents: list[int],
+    num_examples: int,
+) -> list[dict]:
+    del persona_corpus_path, summaries_path
+    return load_cot_sentence_prediction_data(
+        corpus_path, tokenizer, model_name, layer_percents, num_examples=num_examples
+    )
+
+
+def _load_task_decorative(
+    corpus_path: str,
+    persona_corpus_path: str | None,
+    summaries_path: str | None,
+    tokenizer,
+    model_name: str,
+    layer_percents: list[int],
+    num_examples: int,
+) -> list[dict]:
+    del persona_corpus_path, summaries_path
+    return load_cot_decorative_data(
+        corpus_path, tokenizer, model_name, layer_percents, num_examples=num_examples
+    )
+
+
+def _load_task_domain(
+    corpus_path: str,
+    persona_corpus_path: str | None,
+    summaries_path: str | None,
+    tokenizer,
+    model_name: str,
+    layer_percents: list[int],
+    num_examples: int,
+) -> list[dict]:
+    del persona_corpus_path, summaries_path
+    return load_cot_domain_data(
+        corpus_path, tokenizer, model_name, layer_percents, num_examples=num_examples
+    )
+
+
+def _load_task_correctness(
+    corpus_path: str,
+    persona_corpus_path: str | None,
+    summaries_path: str | None,
+    tokenizer,
+    model_name: str,
+    layer_percents: list[int],
+    num_examples: int,
+) -> list[dict]:
+    del persona_corpus_path, summaries_path
+    return load_cot_correctness_data(
+        corpus_path, tokenizer, model_name, layer_percents, num_examples=num_examples
+    )
+
+
+def _load_task_persona(
+    corpus_path: str,
+    persona_corpus_path: str | None,
+    summaries_path: str | None,
+    tokenizer,
+    model_name: str,
+    layer_percents: list[int],
+    num_examples: int,
+) -> list[dict]:
+    del corpus_path, summaries_path
+    if not persona_corpus_path:
+        raise ValueError("persona corpus missing")
+    return load_cot_persona_data(
+        persona_corpus_path, tokenizer, model_name, layer_percents, num_examples=num_examples
+    )
+
+
+def _load_task_summary(
+    corpus_path: str,
+    persona_corpus_path: str | None,
+    summaries_path: str | None,
+    tokenizer,
+    model_name: str,
+    layer_percents: list[int],
+    num_examples: int,
+) -> list[dict]:
+    del persona_corpus_path
+    if not summaries_path:
+        raise ValueError("summaries missing")
+    return load_cot_summary_data(
+        corpus_path,
+        summaries_path,
+        tokenizer,
+        model_name,
+        layer_percents,
+        num_examples=num_examples,
+    )
+
+
+def _load_task_conversation(
+    corpus_path: str,
+    persona_corpus_path: str | None,
+    summaries_path: str | None,
+    tokenizer,
+    model_name: str,
+    layer_percents: list[int],
+    num_examples: int,
+) -> list[dict]:
+    del persona_corpus_path, summaries_path
+    return load_cot_conversation_data(
+        corpus_path, tokenizer, model_name, layer_percents, num_examples=num_examples
+    )
+
+
+TASK_SPECS: dict[str, TaskSpec] = {
+    "cot_context_prediction": TaskSpec(
+        name="cot_context_prediction",
+        title="Context Prediction — Random Positions",
+        default_size=100000,
+    ),
+    "cot_sentence_prediction": TaskSpec(
+        name="cot_sentence_prediction",
+        title="Context Prediction — Sentence Boundaries",
+        default_size=30000,
+    ),
+    "cot_decorative": TaskSpec(
+        name="cot_decorative",
+        title="Decorative CoT",
+        default_size=10000,
+    ),
+    "cot_domain": TaskSpec(
+        name="cot_domain",
+        title="Domain Classification",
+        default_size=15000,
+    ),
+    "cot_correctness": TaskSpec(
+        name="cot_correctness",
+        title="Correctness Prediction",
+        default_size=15000,
+    ),
+    "cot_persona": TaskSpec(
+        name="cot_persona",
+        title="Persona Detection",
+        default_size=15000,
+        requires_persona_corpus=True,
+    ),
+    "cot_summary": TaskSpec(
+        name="cot_summary",
+        title="CoT Summary",
+        default_size=15000,
+        requires_summaries=True,
+    ),
+    "cot_conversation": TaskSpec(
+        name="cot_conversation",
+        title="Conversational CoT Q/A",
+        default_size=20000,
+    ),
+}
+
+TASK_LOADERS = {
+    "cot_context_prediction": _load_task_context_prediction,
+    "cot_sentence_prediction": _load_task_sentence_prediction,
+    "cot_decorative": _load_task_decorative,
+    "cot_domain": _load_task_domain,
+    "cot_correctness": _load_task_correctness,
+    "cot_persona": _load_task_persona,
+    "cot_summary": _load_task_summary,
+    "cot_conversation": _load_task_conversation,
+}
+
+TASK_ORDER = [
+    "cot_context_prediction",
+    "cot_sentence_prediction",
+    "cot_decorative",
+    "cot_domain",
+    "cot_correctness",
+    "cot_persona",
+    "cot_summary",
+    "cot_conversation",
+]
+
+# Opinionated default set for the current sprint.
+DEFAULT_ENABLED_TASKS = [
+    "cot_context_prediction",
+    "cot_sentence_prediction",
+    "cot_decorative",
+    "cot_correctness",
+    "cot_conversation",
+]
+
+
+def parse_enabled_tasks(tasks_arg: str) -> list[str]:
+    raw = (tasks_arg or "").strip()
+    if not raw or raw.lower() == "default":
+        return list(DEFAULT_ENABLED_TASKS)
+    if raw.lower() == "all":
+        return list(TASK_ORDER)
+
+    tasks = [t.strip() for t in raw.split(",") if t.strip()]
+    unknown = [t for t in tasks if t not in TASK_SPECS]
+    if unknown:
+        raise ValueError(f"Unknown tasks: {unknown}. Valid tasks: {TASK_ORDER}")
+
+    deduped = []
+    for t in tasks:
+        if t not in deduped:
+            deduped.append(t)
+    return deduped
+
+
+def parse_task_size_overrides(task_size_args: list[str]) -> dict[str, int]:
+    overrides: dict[str, int] = {}
+    for raw in task_size_args:
+        if "=" not in raw:
+            raise ValueError(f"Invalid --task-size '{raw}'. Expected format task_name=count")
+        task_name, value_str = raw.split("=", 1)
+        task_name = task_name.strip()
+        value_str = value_str.strip()
+        if task_name not in TASK_SPECS:
+            raise ValueError(f"Unknown task in --task-size: {task_name}")
+        try:
+            value = int(value_str)
+        except ValueError as exc:
+            raise ValueError(f"Invalid count in --task-size '{raw}'") from exc
+        if value < 0:
+            raise ValueError(f"Task size must be >= 0: {raw}")
+        overrides[task_name] = value
+    return overrides
+
+
+def resolve_task_sizes(
+    enabled_tasks: list[str],
+    task_size_overrides: dict[str, int] | None = None,
+    legacy_task_sizes: dict[str, int] | None = None,
+) -> dict[str, int]:
+    task_sizes = {task: TASK_SPECS[task].default_size for task in enabled_tasks}
+
+    # Keep backwards compatibility with old --n-* flags.
+    if legacy_task_sizes:
+        for task, size in legacy_task_sizes.items():
+            if task in task_sizes and size >= 0:
+                task_sizes[task] = size
+
+    if task_size_overrides:
+        for task, size in task_size_overrides.items():
+            if task in task_sizes:
+                task_sizes[task] = size
+
+    return task_sizes
+
+
+def print_task_help() -> None:
+    print("Available tasks:")
+    for task in TASK_ORDER:
+        spec = TASK_SPECS[task]
+        reqs = []
+        if spec.requires_persona_corpus:
+            reqs.append("needs --persona-corpus")
+        if spec.requires_summaries:
+            reqs.append("needs summaries.jsonl")
+        req_str = f" ({', '.join(reqs)})" if reqs else ""
+        print(f"  {task:<24} default={spec.default_size:<6} {spec.title}{req_str}")
 
 def _find_mixed_token_positions(
     token_ids: list[int],
@@ -332,120 +622,62 @@ def build_training_mixture(
     tokenizer,
     model_name: str,
     layer_percents: list[int],
+    enabled_tasks: list[str] | None = None,
     task_sizes: dict[str, int] | None = None,
     use_per_layer_tokens: bool = True,
 ) -> list[TrainingDataPoint]:
-    """Build the mixed training data from 6 tasks."""
+    """Build mixed training data from enabled task registry."""
+    del labels_dir  # kept for call-site compatibility
 
+    if enabled_tasks is None:
+        enabled_tasks = list(DEFAULT_ENABLED_TASKS)
     if task_sizes is None:
-        task_sizes = {
-            "cot_context_prediction": 100000,
-            "cot_sentence_prediction": 30000,
-            "cot_decorative": 10000,
-            "cot_domain": 15000,
-            "cot_correctness": 15000,
-            "cot_persona": 15000,
-        }
+        task_sizes = resolve_task_sizes(enabled_tasks)
 
     all_data = []
-
-    # Task 1: Context Prediction — Random Positions
-    print("\n=== Task 1: Context Prediction — Random Positions ===")
-    try:
-        raw = load_cot_context_prediction_data(
-            corpus_path, tokenizer, model_name, layer_percents,
-            num_examples=task_sizes.get("cot_context_prediction", 100000),
-        )
-        data = dicts_to_training_data(raw, tokenizer, use_per_layer_tokens=use_per_layer_tokens)
-        print(f"  Generated {len(data)} examples")
-        all_data.extend(data)
-    except Exception as e:
-        print(f"  FAILED: {e}")
-
-    # Task 2: Context Prediction — Sentence Boundaries
-    print("\n=== Task 2: Context Prediction — Sentence Boundaries ===")
-    try:
-        raw = load_cot_sentence_prediction_data(
-            corpus_path, tokenizer, model_name, layer_percents,
-            num_examples=task_sizes.get("cot_sentence_prediction", 30000),
-        )
-        data = dicts_to_training_data(raw, tokenizer, use_per_layer_tokens=use_per_layer_tokens)
-        print(f"  Generated {len(data)} examples")
-        all_data.extend(data)
-    except Exception as e:
-        print(f"  FAILED: {e}")
-
-    # Task 3: Decorative CoT
-    print("\n=== Task 3: Decorative CoT ===")
-    try:
-        raw = load_cot_decorative_data(
-            corpus_path, tokenizer, model_name, layer_percents,
-            num_examples=task_sizes.get("cot_decorative", 10000),
-        )
-        data = dicts_to_training_data(raw, tokenizer, use_per_layer_tokens=use_per_layer_tokens)
-        print(f"  Generated {len(data)} examples")
-        all_data.extend(data)
-    except ValueError as e:
-        print(f"  Skipped ({e})")
-
-    # Task 4: Domain Classification
-    print("\n=== Task 4: Domain Classification ===")
-    try:
-        raw = load_cot_domain_data(
-            corpus_path, tokenizer, model_name, layer_percents,
-            num_examples=task_sizes.get("cot_domain", 15000),
-        )
-        data = dicts_to_training_data(raw, tokenizer, use_per_layer_tokens=use_per_layer_tokens)
-        print(f"  Generated {len(data)} examples")
-        all_data.extend(data)
-    except Exception as e:
-        print(f"  FAILED: {e}")
-
-    # Task 5: Correctness Prediction
-    print("\n=== Task 5: Correctness Prediction ===")
-    try:
-        raw = load_cot_correctness_data(
-            corpus_path, tokenizer, model_name, layer_percents,
-            num_examples=task_sizes.get("cot_correctness", 15000),
-        )
-        data = dicts_to_training_data(raw, tokenizer, use_per_layer_tokens=use_per_layer_tokens)
-        print(f"  Generated {len(data)} examples")
-        all_data.extend(data)
-    except Exception as e:
-        print(f"  FAILED: {e}")
-
-    # Task 6: Persona Detection (requires persona corpus)
-    if persona_corpus_path and Path(persona_corpus_path).exists():
-        print("\n=== Task 6: Persona Detection ===")
-        try:
-            raw = load_cot_persona_data(
-                persona_corpus_path, tokenizer, model_name, layer_percents,
-                num_examples=task_sizes.get("cot_persona", 15000),
-            )
-            data = dicts_to_training_data(raw, tokenizer, use_per_layer_tokens=use_per_layer_tokens)
-            print(f"  Generated {len(data)} examples")
-            all_data.extend(data)
-        except Exception as e:
-            print(f"  FAILED: {e}")
-    else:
-        print(f"\n  Skipping Task 6 (no persona corpus at {persona_corpus_path})")
-
-    # Task 7: CoT Summary (uses LLM-generated summaries)
     summaries_path = str(Path(corpus_path).parent / "summaries.jsonl")
-    if Path(summaries_path).exists():
-        print("\n=== Task 7: CoT Summary ===")
+    summaries_exists = Path(summaries_path).exists()
+    persona_exists = bool(persona_corpus_path and Path(persona_corpus_path).exists())
+
+    print("\nSelected tasks:")
+    for task in enabled_tasks:
+        print(f"  - {task} (n={task_sizes.get(task, 0)})")
+
+    for task_idx, task_name in enumerate(enabled_tasks, start=1):
+        spec = TASK_SPECS[task_name]
+        num_examples = task_sizes.get(task_name, spec.default_size)
+        if num_examples <= 0:
+            print(f"\n=== Task {task_idx}: {spec.title} ===")
+            print("  Skipped (size set to 0)")
+            continue
+
+        if spec.requires_persona_corpus and not persona_exists:
+            print(f"\n=== Task {task_idx}: {spec.title} ===")
+            print(f"  Skipped (no persona corpus at {persona_corpus_path})")
+            continue
+        if spec.requires_summaries and not summaries_exists:
+            print(f"\n=== Task {task_idx}: {spec.title} ===")
+            print(f"  Skipped (no summaries at {summaries_path})")
+            continue
+
+        print(f"\n=== Task {task_idx}: {spec.title} ===")
         try:
-            raw = load_cot_summary_data(
-                corpus_path, summaries_path, tokenizer, model_name, layer_percents,
-                num_examples=task_sizes.get("cot_summary", 15000),
+            raw = TASK_LOADERS[task_name](
+                corpus_path=corpus_path,
+                persona_corpus_path=persona_corpus_path,
+                summaries_path=summaries_path if summaries_exists else None,
+                tokenizer=tokenizer,
+                model_name=model_name,
+                layer_percents=layer_percents,
+                num_examples=num_examples,
             )
             data = dicts_to_training_data(raw, tokenizer, use_per_layer_tokens=use_per_layer_tokens)
             print(f"  Generated {len(data)} examples")
             all_data.extend(data)
+        except ValueError as e:
+            print(f"  Skipped ({e})")
         except Exception as e:
             print(f"  FAILED: {e}")
-    else:
-        print(f"\n  Skipping Task 7 (no summaries at {summaries_path})")
 
     print(f"\n{'=' * 60}")
     print(f"Total training examples: {len(all_data)}")
@@ -784,6 +1016,21 @@ def main():
     parser.add_argument("--eval-dir", default="data/evals")
     parser.add_argument("--fast-eval-n", type=int, default=10)
     parser.add_argument("--no-unfaith-evals", action="store_true")
+    parser.add_argument(
+        "--tasks",
+        default="default",
+        help=(
+            "Comma-separated task list, or 'default', or 'all'. "
+            "Example: cot_context_prediction,cot_sentence_prediction,cot_decorative,cot_correctness,cot_conversation"
+        ),
+    )
+    parser.add_argument(
+        "--task-size",
+        action="append",
+        default=[],
+        help="Per-task size override. Format: task_name=count. Repeatable.",
+    )
+    parser.add_argument("--list-tasks", action="store_true", help="Print available tasks and exit.")
     parser.add_argument("--per-layer-tokens", action="store_true", default=False,
                         help="Use distinct placeholder tokens per layer (@?#) instead of all ?")
     # Task size overrides
@@ -794,12 +1041,18 @@ def main():
     parser.add_argument("--n-correctness", type=int, default=15000)
     parser.add_argument("--n-persona", type=int, default=15000)
     parser.add_argument("--n-summary", type=int, default=15000)
+    parser.add_argument("--n-conversation", type=int, default=20000)
     args = parser.parse_args()
+
+    if args.list_tasks:
+        print_task_help()
+        return
 
     tokenizer = load_tokenizer(args.model)
     layer_percents = [25, 50, 75]
 
-    task_sizes = {
+    enabled_tasks = parse_enabled_tasks(args.tasks)
+    legacy_task_sizes = {
         "cot_context_prediction": args.n_context_pred,
         "cot_sentence_prediction": args.n_sentence_pred,
         "cot_decorative": args.n_decorative,
@@ -807,7 +1060,14 @@ def main():
         "cot_correctness": args.n_correctness,
         "cot_persona": args.n_persona,
         "cot_summary": args.n_summary,
+        "cot_conversation": args.n_conversation,
     }
+    task_size_overrides = parse_task_size_overrides(args.task_size)
+    task_sizes = resolve_task_sizes(
+        enabled_tasks,
+        task_size_overrides=task_size_overrides,
+        legacy_task_sizes=legacy_task_sizes,
+    )
 
     # Ensure boundary_positions are computed (needed for sentence-structured tasks)
     print("Ensuring boundary_positions are computed...")
@@ -819,7 +1079,9 @@ def main():
     print(f"Building mixed training data (per_layer_tokens={args.per_layer_tokens})...")
     training_data = build_training_mixture(
         args.corpus, args.persona_corpus, args.labels_dir,
-        tokenizer, args.model, layer_percents, task_sizes,
+        tokenizer, args.model, layer_percents,
+        enabled_tasks=enabled_tasks,
+        task_sizes=task_sizes,
         use_per_layer_tokens=args.per_layer_tokens,
     )
 

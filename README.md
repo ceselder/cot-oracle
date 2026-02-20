@@ -24,10 +24,15 @@ We are prioritizing:
   - `cot_context_prediction`
   - `cot_sentence_prediction`
   - `cot_decorative`
-  - `cot_domain`
   - `cot_correctness`
+  - `cot_conversation` (instruction-style CoT Q/A, calibrated refusal cases)
+  - `cot_domain` (optional)
   - `cot_persona` (optional)
   - `cot_summary` (optional)
+
+- Task selection is now configurable at runtime:
+  - `--tasks default|all|task_a,task_b,...`
+  - `--task-size task_name=count` (repeatable overrides)
 
 ### Evals
 - Dataset generation and eval runs in `src/evals/`

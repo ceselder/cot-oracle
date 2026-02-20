@@ -26,6 +26,7 @@ from evals.datasets.sycophancy_scruples import generate_sycophancy_scruples_data
 from evals.datasets.held_out_cot_reconstruction import generate_held_out_cot_reconstruction_dataset
 from evals.datasets.rot13_reconstruction import generate_rot13_reconstruction_dataset
 from evals.datasets.logical_leaps import generate_logical_leaps_dataset
+from evals.datasets.illogical_shortcuts import generate_illogical_shortcuts_dataset
 from evals.datasets.hint_influence_yesno import generate_hint_influence_yesno_dataset
 from evals.datasets.scruples_disagreement import generate_scruples_disagreement_dataset
 from evals.datasets.final_answer_kl import generate_final_answer_kl_dataset
@@ -43,6 +44,7 @@ ALL_GENERATORS = {
     "held_out_cot_reconstruction": generate_held_out_cot_reconstruction_dataset,
     "rot13_reconstruction": generate_rot13_reconstruction_dataset,
     "logical_leaps": generate_logical_leaps_dataset,
+    "illogical_shortcuts": generate_illogical_shortcuts_dataset,
     "hint_influence_yesno": generate_hint_influence_yesno_dataset,
     "scruples_disagreement": generate_scruples_disagreement_dataset,
     "final_answer_kl": generate_final_answer_kl_dataset,
@@ -61,6 +63,7 @@ DEFAULT_COUNTS = {
     "held_out_cot_reconstruction": 100,
     "rot13_reconstruction": 100,
     "logical_leaps": 100,
+    "illogical_shortcuts": 100,
     "hint_influence_yesno": 100,
     "scruples_disagreement": 100,
     "final_answer_kl": 100,
@@ -81,6 +84,11 @@ def main():
         "--logical-leaps-labels-path",
         default="data/evals/logical_leaps_gemini.jsonl",
         help="Optional JSONL file with Gemini labels for logical_leaps eval",
+    )
+    parser.add_argument(
+        "--illogical-shortcuts-labels-path",
+        default="data/evals/illogical_shortcuts_labels.jsonl",
+        help="Optional JSONL file with external labels for illogical_shortcuts eval",
     )
     args = parser.parse_args()
 
@@ -104,6 +112,8 @@ def main():
             kwargs["corpus_path"] = args.corpus_path
         if name == "logical_leaps":
             kwargs["gemini_labels_path"] = args.logical_leaps_labels_path
+        if name == "illogical_shortcuts":
+            kwargs["labels_path"] = args.illogical_shortcuts_labels_path
 
         items = gen_fn(**kwargs)
         if items:

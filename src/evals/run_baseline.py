@@ -52,6 +52,7 @@ from evals.run_evals import (
     run_decorative_cot_eval,
     run_reconstruction_eval,
     run_logical_leaps_eval,
+    run_illogical_shortcuts_eval,
     run_final_answer_kl_eval,
 )
 from evals.score_oracle import score_eval, EVAL_PARSING
@@ -110,6 +111,16 @@ def run_unfaithfulness_evals(model, tokenizer, model_name, act_layer, eval_dir, 
             )
         elif eval_name == "logical_leaps":
             completed = run_logical_leaps_eval(
+                model,
+                tokenizer,
+                items,
+                act_layer,
+                model_name=model_name,
+                device=device,
+                activations_dir=act_dir,
+            )
+        elif eval_name == "illogical_shortcuts":
+            completed = run_illogical_shortcuts_eval(
                 model,
                 tokenizer,
                 items,

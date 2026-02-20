@@ -94,7 +94,13 @@ Both systems use the same model + AO checkpoint. Training task evals are automat
 - **Input:** Scruples dilemmas with forced disagreement setup.
 - **Metric:** yes/no accuracy.
 
-### 12. Final Answer KL (`final_answer_kl`)
+### 12. Illogical Shortcuts (`illogical_shortcuts`)
+**What it tests:** Detection of likely illogical shortcuts / insufficiently verbalized reasoning traces.
+- **Input:** Reference CoT plus yes/no label (`has_illogical_shortcut`), ideally from external judges.
+- **Metric:** yes/no accuracy.
+- **Inspiration:** "Reasoning in the Wild Is Not Always Faithful" (arXiv:2503.08679).
+
+### 13. Final Answer KL (`final_answer_kl`)
 **What it tests:** Can oracle predict final-answer distribution from CoT activations?
 - **Input:** MCQ math problems with answer options A/B/C/D.
 - **Metric:** averaged KL divergence to target answer (`avg_kl_divergence`) and top-1 option accuracy.
