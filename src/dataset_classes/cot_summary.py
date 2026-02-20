@@ -30,7 +30,7 @@ def load_cot_summary_data(
     Each example: activations at sentence boundaries -> faithful summary text.
     Summaries come from summaries.jsonl (LLM-generated).
     """
-    from signs_of_life.ao_lib import layer_percent_to_layer
+    from cot_utils import layer_percent_to_layer
 
     random.seed(seed)
 

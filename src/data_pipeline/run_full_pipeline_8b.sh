@@ -1,22 +1,15 @@
 #!/bin/bash
-# Full pipeline for Qwen3-8B CoT Oracle training on vast.ai H100
-#
-# Prerequisites:
-#   - Corpus already generated: data/cot_corpus_8b/corpus.jsonl
-#   - Eval datasets already generated: data/evals/*.json
-#   - AO repo installed: pip3 install -e /workspace/ao_reference
-#   - datasets symlinked: ln -s /workspace/ao_reference/datasets datasets
-#   - API keys in .bashrc (WANDB_API_KEY, HF_TOKEN, OPENROUTER_API_KEY)
+# Full mixed-pipeline for Qwen3-8B on a single GPU.
 #
 # Usage:
 #   cd /workspace/cot-oracle
 #   bash src/data_pipeline/run_full_pipeline_8b.sh
 
-set -e
+set -euo pipefail
 
 MODEL="Qwen/Qwen3-8B"
-CORPUS="data/cot_corpus_8b/corpus.jsonl"
-LABELS_DIR="data/cot_corpus_8b"
+CORPUS="data/cot_corpus_v5/corpus_8b.jsonl"
+CHECKPOINT_DIR="checkpoints/cot_oracle_mixed_8b"
 
 echo "============================================================"
 echo "CoT Oracle 8B Pipeline"
@@ -28,46 +21,45 @@ echo ""
 # Source API keys
 source /root/.bashrc 2>/dev/null || true
 
-# Step 1: Extract GPU labels (importance + answer_tracking)
+# Step 1: Generate corpus (if missing)
 echo ""
 echo "============================================================"
-echo "Step 1: Extract GPU labels"
+echo "Step 1: Generate corpus (if missing)"
 echo "============================================================"
-python3 src/data_pipeline/extract_labels.py \
-    --corpus "$CORPUS" \
-    --model "$MODEL" \
-    --importance --answer-tracking \
-    --device cuda
+if [ -f "$CORPUS" ]; then
+    echo "Corpus already exists at $CORPUS, skipping."
+else
+    python3 src/data_pipeline/generate_cots.py \
+        --openrouter \
+        --n-problems 1000 \
+        --model "$MODEL" \
+        --output "$CORPUS"
+fi
 
-# Step 2: Extract API labels (taxonomy + summary) — runs in background
+# Step 2: Generate eval datasets (if missing)
 echo ""
 echo "============================================================"
-echo "Step 2: Extract API labels (background)"
+echo "Step 2: Generate eval datasets (if missing)"
 echo "============================================================"
-python3 src/data_pipeline/extract_labels.py \
-    --corpus "$CORPUS" \
-    --model "$MODEL" \
-    --taxonomy --summary &
-API_PID=$!
-echo "API label extraction running in background (PID: $API_PID)"
+if [ ! -d "data/evals" ] || [ -z "$(ls -A data/evals 2>/dev/null)" ]; then
+    python3 src/evals/generate_datasets.py --n 50 --output-dir data/evals
+else
+    echo "Eval datasets already exist, skipping."
+fi
 
-# Step 3: Train (starts with whatever labels are available)
-# API labels will be missing initially — taxonomy and summary tasks will be skipped
+# Step 3: Train
 echo ""
 echo "============================================================"
 echo "Step 3: Train CoT Oracle"
 echo "============================================================"
-echo "Training with available labels. Taxonomy/summary will be skipped until API labels complete."
-echo ""
 
-torchrun --nproc_per_node=1 src/train_cot_oracle.py \
+torchrun --nproc_per_node=1 src/train_mixed.py \
     --corpus "$CORPUS" \
-    --labels-dir "$LABELS_DIR" \
     --model "$MODEL" \
     --lr 1e-5 \
     --batch-size 16 \
     --epochs 1 \
-    --save-dir checkpoints/cot_oracle_8b \
+    --save-dir "$CHECKPOINT_DIR" \
     --wandb-project cot_oracle \
     --wandb-run "cot_oracle_8B" \
     --eval-steps 500 \
@@ -76,9 +68,22 @@ torchrun --nproc_per_node=1 src/train_cot_oracle.py \
     --fast-eval-n 5 \
     --gradient-checkpointing
 
+# Step 4: Run evals
+echo ""
+echo "============================================================"
+echo "Step 4: Run evals"
+echo "============================================================"
+python3 src/evals/run_evals.py \
+    --eval-dir data/evals \
+    --output-dir data/eval_results \
+    --model "$MODEL"
+
+python3 src/evals/score_oracle.py \
+    --results-dir data/eval_results
+
 echo ""
 echo "============================================================"
 echo "Pipeline complete!"
 echo "============================================================"
-echo "Checkpoints saved to: checkpoints/cot_oracle_8b/"
+echo "Checkpoints saved to: $CHECKPOINT_DIR"
 echo "Check wandb for training curves + eval results"

@@ -35,7 +35,7 @@ def load_cot_importance_data(
         anchor_percentile: Sentences at or above this percentile are thought anchors.
             Default 0.70 means top 30% are anchors.
     """
-    from signs_of_life.ao_lib import layer_percent_to_layer
+    from cot_utils import layer_percent_to_layer
 
     random.seed(seed)
 

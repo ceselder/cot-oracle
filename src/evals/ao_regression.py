@@ -16,22 +16,18 @@ Usage:
 """
 
 import argparse
-import gc
 import json
-import os
 import sys
 from pathlib import Path
 
 import torch
 from peft import LoraConfig
 
-# Add AO repo to path
-_ao_candidates = [
-    Path("/workspace/ao_reference"),
-    Path("/home/celeste/Documents/side-projects/full-stack-ao/ao_reference"),
-]
-AO_REPO = next((p for p in _ao_candidates if p.exists()), _ao_candidates[-1])
-sys.path.insert(0, str(AO_REPO))
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
+from core.ao_repo import ensure_ao_repo_on_path
+
+ensure_ao_repo_on_path()
 
 from nl_probes.dataset_classes.act_dataset_manager import DatasetLoaderConfig
 from nl_probes.dataset_classes.classification import (
@@ -41,7 +37,6 @@ from nl_probes.dataset_classes.classification import (
 from nl_probes.utils.activation_utils import get_hf_submodule
 from nl_probes.utils.common import load_model, load_tokenizer
 from nl_probes.utils.eval import run_evaluation, parse_answer
-from nl_probes.base_experiment import sanitize_lora_name
 
 # AO's original checkpoints
 AO_CHECKPOINTS = {

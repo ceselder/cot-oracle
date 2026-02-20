@@ -29,7 +29,7 @@ def load_cot_domain_data(
     Each example: sentence-boundary activations -> domain label.
     Domain labels come from SOURCE_TO_DOMAIN mapping in generate_cots.py.
     """
-    from signs_of_life.ao_lib import layer_percent_to_layer
+    from cot_utils import layer_percent_to_layer
 
     # Inline mapping to avoid import chain that requires peft
     _SOURCE_TO_DOMAIN = {

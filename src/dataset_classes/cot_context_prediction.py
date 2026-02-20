@@ -49,7 +49,7 @@ def load_cot_context_prediction_data(
         datapoint_type, prompt, target_response, layer, num_positions,
         context_input_ids, context_positions
     """
-    from signs_of_life.ao_lib import layer_percent_to_layer
+    from cot_utils import layer_percent_to_layer
 
     random.seed(seed)
 

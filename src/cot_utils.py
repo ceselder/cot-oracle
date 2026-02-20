@@ -4,6 +4,7 @@ Lightweight CoT utilities (no peft/torch dependency).
 Extracted from ao_lib.py for use in CPU-only scripts like corpus generation.
 """
 
+import bisect
 import re
 
 
@@ -23,6 +24,8 @@ def find_sentence_boundary_positions(
     """
     Find the token positions of the last token of each sentence in the formatted text.
     Returns a list of token positions (indices into the tokenized sequence).
+
+    Uses a single pass to build char→token mapping instead of per-token decode.
     """
     tokens = tokenizer(formatted_text, add_special_tokens=False)
     token_ids = tokens["input_ids"]
@@ -32,6 +35,13 @@ def find_sentence_boundary_positions(
         token_ids = token_ids[0]
 
     full_text_decoded = tokenizer.decode(token_ids)
+
+    # Build cumulative char offsets in ONE pass (the old code re-scanned per sentence)
+    cum_chars = []
+    char_count = 0
+    for t_id in token_ids:
+        char_count += len(tokenizer.decode([t_id]))
+        cum_chars.append(char_count)
 
     positions = []
     search_start = 0
@@ -48,16 +58,9 @@ def find_sentence_boundary_positions(
         char_end = idx + len(anchor)
         search_start = char_end
 
-        char_count = 0
-        token_pos = -1
-        for t_idx, t_id in enumerate(token_ids):
-            decoded = tokenizer.decode([t_id])
-            char_count += len(decoded)
-            if char_count >= char_end:
-                token_pos = t_idx
-                break
-
-        if token_pos >= 0:
+        # Binary search for the token whose cumulative chars >= char_end
+        token_pos = bisect.bisect_left(cum_chars, char_end)
+        if token_pos < len(token_ids):
             positions.append(token_pos)
 
     return positions
