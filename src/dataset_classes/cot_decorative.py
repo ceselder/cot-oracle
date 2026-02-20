@@ -34,7 +34,7 @@ def load_cot_decorative_data(
 
     Requires corpus generated with --keep-all.
     """
-    from signs_of_life.ao_lib import layer_percent_to_layer
+    from cot_utils import layer_percent_to_layer
 
     random.seed(seed)
 

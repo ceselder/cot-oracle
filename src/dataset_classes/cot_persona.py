@@ -30,7 +30,7 @@ def load_cot_persona_data(
     Requires persona corpus (generated with --personas).
     Balanced sampling across personas.
     """
-    from signs_of_life.ao_lib import layer_percent_to_layer
+    from cot_utils import layer_percent_to_layer
 
     random.seed(seed)
 

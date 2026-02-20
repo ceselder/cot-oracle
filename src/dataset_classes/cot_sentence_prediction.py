@@ -34,7 +34,7 @@ def load_cot_sentence_prediction_data(
 
     Returns list of dicts for create_training_datapoint().
     """
-    from signs_of_life.ao_lib import layer_percent_to_layer
+    from cot_utils import layer_percent_to_layer
 
     random.seed(seed)
 

@@ -1,15 +1,14 @@
 """
 Extract training labels for CoT corpus.
 
-Five label types, each saved as separate JSONL:
+Four label types, each saved as separate JSONL:
 1. Importance: Attention suppression KL divergence per sentence (GPU)
 2. Answer tracking: Logit lens at 75% depth per sentence boundary (GPU)
 3. Taxonomy: LLM-classified sentence type (via OpenRouter)
 4. Summary: LLM-generated reasoning summary (via OpenRouter)
-5. SAE unverbalized: Top-K SAE latents + Gemini-generated unverbalized descriptions (GPU + API)
 
 Usage:
-    # All labels (importance + answer_tracking + sae need GPU, taxonomy + summary need API key)
+    # All labels (importance + answer_tracking need GPU, taxonomy + summary need API key)
     python src/data_pipeline/extract_labels.py --corpus data/cot_corpus/corpus.jsonl --all
 
     # Individual label types
@@ -17,7 +16,6 @@ Usage:
     python src/data_pipeline/extract_labels.py --corpus data/cot_corpus/corpus.jsonl --answer-tracking
     python src/data_pipeline/extract_labels.py --corpus data/cot_corpus/corpus.jsonl --taxonomy
     python src/data_pipeline/extract_labels.py --corpus data/cot_corpus/corpus.jsonl --summary
-    python src/data_pipeline/extract_labels.py --corpus data/cot_corpus/corpus.jsonl --sae-labels
 """
 
 import argparse
@@ -44,7 +42,6 @@ def extract_importance_labels(corpus: list[dict], model, tokenizer, device: str 
     """
     import torch
     import torch.nn.functional as F
-    from signs_of_life.ao_lib import layer_percent_to_layer
 
     labels = []
 
@@ -422,19 +419,15 @@ def main():
     parser.add_argument("--answer-tracking", action="store_true")
     parser.add_argument("--taxonomy", action="store_true")
     parser.add_argument("--summary", action="store_true")
-    parser.add_argument("--sae-labels", action="store_true",
-                        help="Extract SAE latents + Gemini unverbalized descriptions")
-    parser.add_argument("--sae-repo", default="adamkarvonen/qwen3-8b-saes",
-                        help="HuggingFace repo for SAE weights")
-    parser.add_argument("--sae-layer", type=int, default=18,
-                        help="Layer to extract SAE features from (default: 18 = 50%% depth for 8B)")
     args = parser.parse_args()
 
     if args.all:
-        args.importance = args.answer_tracking = args.taxonomy = args.summary = args.sae_labels = True
+        args.importance = args.answer_tracking = args.taxonomy = args.summary = True
 
-    if not any([args.importance, args.answer_tracking, args.taxonomy, args.summary, args.sae_labels]):
-        parser.error("Specify at least one label type (--importance, --answer-tracking, --taxonomy, --summary, --sae-labels, or --all)")
+    if not any([args.importance, args.answer_tracking, args.taxonomy, args.summary]):
+        parser.error(
+            "Specify at least one label type (--importance, --answer-tracking, --taxonomy, --summary, or --all)"
+        )
 
     corpus = load_corpus(args.corpus)
     output_dir = Path(args.output_dir or Path(args.corpus).parent)
@@ -460,70 +453,6 @@ def main():
         if args.answer_tracking:
             labels = extract_answer_tracking_labels(corpus, model, tokenizer, args.device)
             save_labels(labels, output_dir / "labels_answer_tracking.jsonl")
-
-    # SAE-dependent labels (GPU + API)
-    if args.sae_labels:
-        api_key_sae = os.environ.get("OPENROUTER_API_KEY", "")
-        if not api_key_sae:
-            print("Warning: OPENROUTER_API_KEY not set, skipping SAE labels")
-        else:
-            # SAE extraction needs model/tokenizer even if --importance/--answer-tracking are not set.
-            if model is None or tokenizer is None:
-                import torch
-                from transformers import AutoModelForCausalLM, AutoTokenizer
-                print(f"Loading {args.model} (bf16) for SAE label extraction...")
-                tokenizer = AutoTokenizer.from_pretrained(args.model)
-                model = AutoModelForCausalLM.from_pretrained(
-                    args.model,
-                    torch_dtype=torch.bfloat16,
-                    device_map=args.device,
-                )
-
-            # Load SAE
-            try:
-                # Try loading from AO repo
-                _ao_candidates = [
-                    Path("/workspace/ao_reference"),
-                    Path("/home/celeste/Documents/side-projects/full-stack-ao/ao_reference"),
-                ]
-                ao_repo = next((p for p in _ao_candidates if p.exists()), None)
-                if ao_repo:
-                    sys.path.insert(0, str(ao_repo))
-                    from nl_probes.sae import load_sae
-                    sae = load_sae(args.sae_repo, layer=args.sae_layer, device=args.device)
-                    print(f"Loaded SAE from {args.sae_repo} layer {args.sae_layer}")
-
-                    # Load feature descriptions (from max activating examples)
-                    feature_descriptions = {}
-                    try:
-                        from huggingface_hub import hf_hub_download
-                        desc_path = hf_hub_download(
-                            "adamkarvonen/sae_max_acts",
-                            filename=f"layer_{args.sae_layer}_descriptions.json",
-                        )
-                        with open(desc_path) as f:
-                            feature_descriptions = json.load(f)
-                        feature_descriptions = {int(k): v for k, v in feature_descriptions.items()}
-                        print(f"Loaded {len(feature_descriptions)} feature descriptions")
-                    except Exception as e:
-                        print(f"Warning: couldn't load feature descriptions ({e}), using indices only")
-                        # Generate placeholder descriptions
-                        feature_descriptions = {}
-
-                    # Import and run extraction
-                    from dataset_classes.cot_unverbalized import extract_sae_labels as _extract_sae
-                    labels = _extract_sae(
-                        corpus, model, tokenizer, sae, feature_descriptions,
-                        api_key_sae, device=args.device,
-                        top_k=10, sae_layer=args.sae_layer,
-                    )
-                    save_labels(labels, output_dir / "labels_sae_unverbalized.jsonl")
-                else:
-                    print("Warning: AO repo not found, skipping SAE labels")
-            except Exception as e:
-                import traceback
-                print(f"Warning: SAE label extraction failed ({e})")
-                traceback.print_exc()
 
     # API-dependent labels
     api_key = os.environ.get("OPENROUTER_API_KEY", "")

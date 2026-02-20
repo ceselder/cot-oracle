@@ -29,7 +29,7 @@ def load_cot_correctness_data(
     Each example: sentence-boundary activations -> correct / incorrect.
     Ground truth from corpus (cot_correct field). Balanced 50/50.
     """
-    from signs_of_life.ao_lib import layer_percent_to_layer
+    from cot_utils import layer_percent_to_layer
 
     random.seed(seed)
 

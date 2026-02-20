@@ -60,14 +60,13 @@ echo "============================================================"
 echo "Training with available labels. Taxonomy/summary will be skipped until API labels complete."
 echo ""
 
-torchrun --nproc_per_node=1 src/train_cot_oracle.py \
+torchrun --nproc_per_node=1 src/train_mixed.py \
     --corpus "$CORPUS" \
-    --labels-dir "$LABELS_DIR" \
     --model "$MODEL" \
     --lr 1e-5 \
     --batch-size 16 \
     --epochs 1 \
-    --save-dir checkpoints/cot_oracle_8b \
+    --save-dir checkpoints/cot_oracle_mixed_8b \
     --wandb-project cot_oracle \
     --wandb-run "cot_oracle_8B" \
     --eval-steps 500 \

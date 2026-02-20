@@ -22,8 +22,9 @@ from tqdm import tqdm
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from signs_of_life.ao_lib import (
+from core.ao import (
     layer_percent_to_layer,
+    choose_attn_implementation,
     collect_activations_at_positions,
     run_oracle_on_activations,
     generate_cot,
@@ -51,13 +52,8 @@ def load_model_with_checkpoint(
     kwargs = {
         "device_map": "auto",
         "torch_dtype": dtype,
+        "attn_implementation": choose_attn_implementation(model_name),
     }
-    try:
-        import flash_attn  # noqa: F401
-        if "Qwen" in model_name:
-            kwargs["attn_implementation"] = "flash_attention_2"
-    except ImportError:
-        kwargs["attn_implementation"] = "sdpa"
 
     print(f"Loading {model_name}...")
     model = AutoModelForCausalLM.from_pretrained(model_name, **kwargs)

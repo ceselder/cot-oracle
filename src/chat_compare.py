@@ -30,9 +30,10 @@ from peft import PeftModel, LoraConfig
 
 sys.path.insert(0, str(Path(__file__).parent))
 
-from signs_of_life.ao_lib import (
+from core.ao import (
     layer_percent_to_layer,
     collect_activations,
+    choose_attn_implementation,
     split_cot_into_sentences,
     find_sentence_boundary_positions,
     get_hf_submodule,
@@ -62,12 +63,7 @@ def load_dual_model(model_name, checkpoint_path, cot_adapter=None, device="cuda"
         tokenizer.pad_token_id = tokenizer.eos_token_id
 
     kwargs = {"device_map": "auto", "torch_dtype": dtype}
-    try:
-        import flash_attn
-        if "Qwen" in model_name:
-            kwargs["attn_implementation"] = "flash_attention_2"
-    except ImportError:
-        kwargs["attn_implementation"] = "sdpa"
+    kwargs["attn_implementation"] = choose_attn_implementation(model_name)
 
     print(f"Loading {model_name}...")
     model = AutoModelForCausalLM.from_pretrained(model_name, **kwargs)

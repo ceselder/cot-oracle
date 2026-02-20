@@ -42,13 +42,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 
-# AO repo imports -- detect environment
-_ao_candidates = [
-    Path("/workspace/ao_reference"),  # vast.ai
-    Path("/home/celeste/Documents/side-projects/full-stack-ao/ao_reference"),  # local
-]
-AO_REPO = next((p for p in _ao_candidates if p.exists()), _ao_candidates[-1])
-sys.path.insert(0, str(AO_REPO))
+from core.ao_repo import ensure_ao_repo_on_path
+
+ensure_ao_repo_on_path()
 
 import torch
 
@@ -57,7 +53,6 @@ from nl_probes.utils.dataset_utils import (
     TrainingDataPoint,
     SPECIAL_TOKEN,
     find_pattern_in_tokens,
-    materialize_missing_steering_vectors as _original_materialize,
 )
 
 # Per-layer placeholder tokens: each layer gets a distinct token so the model
@@ -82,8 +77,11 @@ from dataset_classes.cot_summary import load_cot_summary_data
 # Held-out eval tasks
 from dataset_classes.cot_answer_tracking import load_cot_answer_tracking_data
 
-from signs_of_life.ao_lib import layer_percent_to_layer
-from cot_utils import split_cot_into_sentences, find_sentence_boundary_positions
+from cot_utils import (
+    find_sentence_boundary_positions,
+    layer_percent_to_layer,
+    split_cot_into_sentences,
+)
 
 
 def ensure_boundary_positions(corpus_path: str, tokenizer) -> str:
@@ -466,6 +464,7 @@ def build_eval_datasets(
     tokenizer,
     model_name: str,
     layer_percents: list[int],
+    use_per_layer_tokens: bool = True,
 ) -> dict[str, list[TrainingDataPoint]]:
     """Build held-out eval datasets."""
     eval_datasets = {}
@@ -480,7 +479,11 @@ def build_eval_datasets(
                     corpus_path, str(tracking_path), tokenizer, model_name, layer_percents,
                     num_examples=100,
                 )
-                data = dicts_to_training_data(raw, tokenizer)
+                data = dicts_to_training_data(
+                    raw,
+                    tokenizer,
+                    use_per_layer_tokens=use_per_layer_tokens,
+                )
                 eval_datasets["cot_answer_tracking"] = data
                 print(f"  Generated {len(data)} eval examples")
             except Exception as e:
@@ -495,7 +498,11 @@ def build_eval_datasets(
                 corpus_path, summaries_path, tokenizer, model_name, layer_percents,
                 num_examples=100, seed=999,  # Different seed for eval split
             )
-            data = dicts_to_training_data(raw, tokenizer)
+            data = dicts_to_training_data(
+                raw,
+                tokenizer,
+                use_per_layer_tokens=use_per_layer_tokens,
+            )
             eval_datasets["cot_summary"] = data
             print(f"  Generated {len(data)} eval examples")
         except Exception as e:
@@ -822,7 +829,12 @@ def main():
 
     # Build eval datasets
     eval_datasets = build_eval_datasets(
-        args.corpus, args.labels_dir, tokenizer, args.model, layer_percents,
+        args.corpus,
+        args.labels_dir,
+        tokenizer,
+        args.model,
+        layer_percents,
+        use_per_layer_tokens=args.per_layer_tokens,
     )
 
     # Split off 100 examples per training task as eval

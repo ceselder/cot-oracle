@@ -1130,6 +1130,40 @@ NO_GROUND_TRUTH_SOURCES = {"LMSYS"}
 # Main
 # ============================================================
 
+def _is_blackwell_gpu() -> bool:
+    """Best-effort Blackwell detection (compute capability >= 12)."""
+    try:
+        import torch
+    except Exception:
+        return False
+
+    if not torch.cuda.is_available():
+        return False
+
+    try:
+        majors = [torch.cuda.get_device_capability(i)[0] for i in range(torch.cuda.device_count())]
+    except Exception:
+        return False
+
+    return bool(majors) and max(majors) >= 12
+
+
+def _should_enforce_vllm_eager(args) -> bool:
+    """Decide whether to set vLLM enforce_eager=True."""
+    import os
+
+    if getattr(args, "vllm_enforce_eager", False):
+        return True
+    if getattr(args, "no_vllm_eager_auto", False):
+        return False
+
+    if os.environ.get("COT_ORACLE_VLLM_ENFORCE_EAGER") == "1":
+        return True
+    if os.environ.get("COT_ORACLE_VLLM_NO_EAGER_AUTO") == "1":
+        return False
+
+    return _is_blackwell_gpu()
+
 def main():
     parser = argparse.ArgumentParser(description="Generate CoT corpus v5")
     parser.add_argument("--preset", choices=["full", "medium", "mini"], default=None,
@@ -1146,6 +1180,12 @@ def main():
                         help="Output path (default: auto from preset)")
     parser.add_argument("--device", default="cuda")
     parser.add_argument("--batch-size", type=int, default=8)
+    parser.add_argument("--engine", choices=["auto", "vllm", "sglang"], default="auto",
+                        help="Inference engine for local GPU mode (default: auto = try vLLM then SGLang)")
+    parser.add_argument("--vllm-enforce-eager", action="store_true",
+                        help="Force vLLM enforce_eager=True (recommended on Blackwell/RTX 5090)")
+    parser.add_argument("--no-vllm-eager-auto", action="store_true",
+                        help="Disable automatic Blackwell -> enforce_eager behavior for vLLM")
     # OpenRouter mode
     parser.add_argument("--openrouter", action="store_true",
                         help="Use OpenRouter API instead of local GPU")
@@ -1288,40 +1328,72 @@ def main():
             print(f"\n  Output: {output_path}")
 
     else:
-        # vLLM local GPU mode — aggressive batching
-        from vllm import LLM, SamplingParams
+        # Local GPU mode — try vLLM first, fall back to SGLang
         from transformers import AutoTokenizer
         import time
 
         print(f"Loading tokenizer for {args.model}...")
         tokenizer = AutoTokenizer.from_pretrained(args.model)
 
-        print(f"Loading {args.model} with vLLM (bf16)...")
-        llm = LLM(
-            model=args.model,
-            dtype="bfloat16",
-            tensor_parallel_size=1,
-            max_model_len=8192,  # input + output budget
-            gpu_memory_utilization=0.95,
-            enable_prefix_caching=True,
-        )
+        engine_choice = getattr(args, "engine", "auto")
+        use_sglang = False
 
-        cot_params = SamplingParams(
-            temperature=0.6,
-            top_p=0.95,
-            max_tokens=4096,
-        )
-        direct_params = SamplingParams(
-            temperature=0.6,
-            top_p=0.95,
-            max_tokens=200,
-        )
+        if engine_choice in ("auto", "vllm"):
+            try:
+                from vllm import LLM, SamplingParams
+                print(f"Loading {args.model} with vLLM (bf16)...")
+                llm_kwargs = dict(
+                    model=args.model,
+                    dtype="bfloat16",
+                    tensor_parallel_size=1,
+                    max_model_len=8192,
+                    gpu_memory_utilization=0.95,
+                    enable_prefix_caching=True,
+                )
+                eager_mode = _should_enforce_vllm_eager(args)
+                if eager_mode:
+                    llm_kwargs["enforce_eager"] = True
+                    print("vLLM eager mode enabled (Blackwell-safe).")
+                try:
+                    llm = LLM(**llm_kwargs)
+                except TypeError as te:
+                    if eager_mode and "enforce_eager" in str(te):
+                        print("vLLM build does not support enforce_eager; retrying without it.")
+                        llm_kwargs.pop("enforce_eager", None)
+                        llm = LLM(**llm_kwargs)
+                    else:
+                        raise
+                # Quick smoke test to catch PTX/CUDA errors early
+                from vllm import SamplingParams as _SP
+                _test = llm.generate(["test"], _SP(max_tokens=1))
+                del _test
+                cot_params = SamplingParams(temperature=0.6, top_p=0.95, max_tokens=4096)
+                direct_params = SamplingParams(temperature=0.6, top_p=0.95, max_tokens=200)
+                print("vLLM loaded and verified.")
+            except Exception as e:
+                if engine_choice == "vllm":
+                    raise
+                print(f"vLLM failed ({e}), falling back to SGLang...")
+                use_sglang = True
+
+        if engine_choice == "sglang" or use_sglang:
+            use_sglang = True
+            import sglang as sgl
+            print(f"Loading {args.model} with SGLang (bf16)...")
+            llm = sgl.Engine(
+                model_path=args.model,
+                dtype="bfloat16",
+                mem_fraction_static=0.85,
+            )
+            cot_params = {"temperature": 0.6, "top_p": 0.95, "max_new_tokens": 4096}
+            direct_params = {"temperature": 0.6, "top_p": 0.95, "max_new_tokens": 200}
+            print("SGLang loaded successfully.")
 
         # Format all prompts
         print("Formatting prompts...")
         cot_prompts = []
         direct_prompts = []
-        direct_indices = []  # track which problems need direct responses
+        direct_indices = []
         for i, p in enumerate(problems):
             msgs = [{"role": "user", "content": p["question"]}]
             cot_prompts.append(tokenizer.apply_chat_template(
@@ -1333,9 +1405,19 @@ def main():
                 ))
                 direct_indices.append(i)
 
-        n_rollouts = args.n_rollouts
-        checkpoint_path = output_path.with_suffix(".checkpoint.jsonl")
+        def run_generate(prompts, params):
+            """Run generation with either vLLM or SGLang."""
+            if use_sglang:
+                outputs = llm.generate(prompts, sampling_params=params)
+                return [o["text"] for o in outputs]
+            else:
+                outputs = llm.generate(prompts, params)
+                return [o.outputs[0].text for o in outputs]
 
+        def count_tokens(texts):
+            return sum(len(tokenizer.encode(t, add_special_tokens=False)) for t in texts)
+
+        n_rollouts = args.n_rollouts
         all_cot_rollouts: list[list[dict]] = []
 
         for rollout_idx in range(n_rollouts):
@@ -1343,15 +1425,14 @@ def main():
             print(f"CoT rollout {rollout_idx + 1}/{n_rollouts}: {len(cot_prompts)} prompts")
             print(f"{'=' * 60}")
             t0 = time.time()
-            outputs = llm.generate(cot_prompts, cot_params)
+            raw_texts = run_generate(cot_prompts, cot_params)
             elapsed = time.time() - t0
-            total_toks = sum(len(o.outputs[0].token_ids) for o in outputs)
+            total_toks = count_tokens(raw_texts)
             print(f"  Done in {elapsed:.1f}s — {total_toks:,} tokens — {total_toks/elapsed:.0f} tok/s")
 
             # Parse <think>...</think> to split reasoning from content
             rollout_results = []
-            for output in outputs:
-                text = output.outputs[0].text
+            for text in raw_texts:
                 if "</think>" in text:
                     parts = text.split("</think>", 1)
                     reasoning = parts[0].lstrip("<think>").strip()
@@ -1365,16 +1446,15 @@ def main():
         # Direct responses
         print(f"\nDirect responses: {len(direct_prompts)} prompts (skipping {len(problems) - len(direct_prompts)} no-ground-truth)...")
         t0 = time.time()
-        direct_outputs = llm.generate(direct_prompts, direct_params)
+        raw_direct = run_generate(direct_prompts, direct_params)
         elapsed = time.time() - t0
-        total_toks = sum(len(o.outputs[0].token_ids) for o in direct_outputs)
+        total_toks = count_tokens(raw_direct)
         print(f"  Done in {elapsed:.1f}s — {total_toks:,} tokens — {total_toks/elapsed:.0f} tok/s")
 
         empty_response = {"reasoning": "", "content": ""}
         direct_responses_map: dict[int, dict] = {}
         for j, idx in enumerate(direct_indices):
-            text = direct_outputs[j].outputs[0].text
-            direct_responses_map[idx] = {"reasoning": "", "content": text.strip()}
+            direct_responses_map[idx] = {"reasoning": "", "content": raw_direct[j].strip()}
         direct_responses = [direct_responses_map.get(i, empty_response) for i in range(len(problems))]
 
         # Process results

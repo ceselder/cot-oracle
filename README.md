@@ -1,160 +1,137 @@
-# CoT Oracle: Reading Chain-of-Thought from Activations
+# CoT Oracle
 
-An activation oracle that reads a language model's internal representations during chain-of-thought reasoning and answers questions about what was actually computed — without seeing any text.
+White-box chain-of-thought (CoT) monitoring built on Activation Oracles.
 
-Built on [Activation Oracles](https://github.com/adamkarvonen/activation_oracles) (Karvonen et al., 2024). The oracle is Qwen3-8B reading its own activations via LoRA fine-tuning.
+## North Star
+Chain-of-thought text is often unfaithful. The goal is to read reasoning from activations and outperform black-box CoT monitoring for behavior prediction.
 
-## How It Works
+Project plan and priorities: `plan.md`.
 
-1. **Generate a CoT** from Qwen3-8B (base model, no adapter)
-2. **Extract activations** at each sentence boundary from 3 layers (25%, 50%, 75% depth)
-3. **Inject activations** into placeholder tokens via norm-matched addition at layer 1
-4. **Ask the oracle** questions — it answers from activations alone, never sees the CoT text
+## What Is Implemented Now
 
-```
-"Layer: 9, 18, 27\n ? ? ? ? ? ? ? ? ? \n Activations from 3 sentence boundaries. What domain is this?"
-                    ^^^   ^^^   ^^^
-                    S1    S2    S3    (3 activations each: L25%, L50%, L75%)
-```
+### Core method
+- Start from Adam Karvonen's AO checkpoint
+- Inject activation vectors into placeholder tokens (norm-matched addition at layer 1)
+- Read CoT trajectories by extracting activations at sentence boundaries
+- Support single-layer (AO-compatible) and multi-layer (25/50/75%) formats
 
-The oracle sees only the layer metadata, placeholder tokens (with injected activations), and the question. The original problem and chain-of-thought are never in the prompt.
+### Training pipeline (`src/train_mixed.py`)
+Current mixed run supports:
+- `cot_context_prediction` (random positions)
+- `cot_sentence_prediction` (sentence-boundary reconstruction)
+- `cot_decorative` (load-bearing vs decorative)
+- `cot_domain`
+- `cot_correctness`
+- `cot_persona` (if persona corpus is provided)
+- `cot_summary` (if summaries file exists)
 
-## Results (v4, 1 epoch on H100)
+### Eval suite (`src/evals/`)
+- hinted MCQ
+- sycophancy
+- authority bias
+- decorative CoT
+- answer correctness
+- contradictory comparison
+- sentence insertion
+- sycophancy on Scruples
 
-| Task | Accuracy | Description |
-|------|----------|-------------|
-| **Domain classification** | **100%** | 7-class: math, science, logic, commonsense, reading, multi_domain, medical |
-| **Correctness prediction** | **91%** | Binary: did the CoT reach the correct answer? |
-| **Decorative detection** | **71%** (peak) | Binary: was the reasoning load-bearing or decorative? |
-| **Context prediction (sentences)** | **11%** | Predict tokens near sentence boundaries (exact match) |
-| **Context prediction (random)** | **8%** | Standard AO pretraining task (exact match) |
-
-Correctness prediction at 91% is notable — the oracle determines whether the model's answer is correct purely from activation patterns, without seeing the problem or the answer.
+## What Was Removed
+To keep the repo focused on the current sprint scope:
+- old `signs_of_life` experiments
+- SAE/unverbalized label extraction path
+- legacy single-purpose training/analysis scripts not used by the mixed pipeline
 
 ## Setup
 
-Requires a CUDA GPU with enough VRAM for Qwen3-8B in bf16 (~16GB). An H100 or A100 works well.
-
+### 1) Install dependencies
 ```bash
-git clone https://github.com/ceselder/cot-oracle
-cd cot-oracle
 pip install -r requirements.txt
+```
 
-# Activation oracles library (needed for the injection/steering infrastructure)
+### 2) Make AO (`nl_probes`) importable
+Clone Activation Oracles and set one of:
+- `AO_REPO_PATH=/path/to/activation_oracles`
+- clone it to `./activation_oracles`
+
+```bash
 git clone https://github.com/adamkarvonen/activation_oracles
-cd activation_oracles && pip install -e . && cd ..
+export AO_REPO_PATH="$PWD/activation_oracles"
 ```
 
-Download a trained checkpoint (or use your own):
+### 3) Optional API keys
 ```bash
-# v4 checkpoints on HuggingFace
-huggingface-cli download ceselder/cot-oracle-v4-checkpoints \
-    --local-dir checkpoints/cot_oracle_v4
+export OPENROUTER_API_KEY=...
+export WANDB_API_KEY=...
 ```
 
-## Usage
+## Quickstart
 
-`chat_compare.py` is the main interface — an interactive REPL that generates chain-of-thought, extracts activations, and queries two oracles side-by-side.
-
+### Generate corpus
 ```bash
-python3 src/chat_compare.py --checkpoint checkpoints/cot_oracle_v4/step_30000
+python3 src/data_pipeline/generate_cots.py \
+  --openrouter \
+  --n-problems 1000 \
+  --output data/cot_corpus_v5/corpus.jsonl
 ```
 
-1. Type a reasoning question at `Question>` — the base model generates a CoT and collects activations at sentence boundaries
-2. At `Ask oracles>`, query the activations:
-   - `domain` — what domain of reasoning?
-   - `correct` — is the answer correct?
-   - `decorative` — load-bearing or decorative reasoning?
-   - `summary` — summarize the thought process
-   - Any free-form question about the reasoning
-3. `new` to start over, `quit` to exit
-
-Both the original AO (single-layer context prediction) and trained CoT oracle (multi-layer, task-specific) answer side-by-side.
-
-### Model Organisms
-
-You can pass a separate LoRA adapter for CoT generation with `--cot-adapter`. This lets you test whether the oracle can read through altered reasoning — for example, a model fine-tuned to reason in rot13:
-
+### Train mixed oracle
 ```bash
-python3 src/chat_compare.py \
-    --checkpoint checkpoints/cot_oracle_v4/step_30000 \
-    --cot-adapter ceselder/rot13-qwen3-8b-lora
+torchrun --nproc_per_node=1 src/train_mixed.py \
+  --corpus data/cot_corpus_v5/corpus.jsonl \
+  --model Qwen/Qwen3-8B \
+  --save-dir checkpoints/cot_oracle_mixed
 ```
 
-This loads three adapters on the same Qwen3-8B:
-- **organism** (`--cot-adapter`): generates the CoT (e.g. in rot13)
-- **original_ao**: baseline activation oracle for comparison
-- **trained**: the trained CoT oracle
-
-The CoT text may be unreadable, but the activations still encode the model's actual reasoning. The oracle reads those activations and reports what it sees.
-
-## Training
-
-### Architecture
-- **Model:** Qwen3-8B (36 layers, bf16)
-- **Base checkpoint:** [adamkarvonen/checkpoints_latentqa_cls_past_lens_addition_Qwen3-8B](https://huggingface.co/adamkarvonen/checkpoints_latentqa_cls_past_lens_addition_Qwen3-8B)
-- **LoRA:** rank 64, alpha 128, dropout 0.05, all-linear
-- **Injection:** norm-matched addition at layer 1: `h' = h + ||h|| * v/||v||`
-- **Layers:** 9 (25%), 18 (50%), 27 (75%)
-
-### Training Tasks (6 tasks, all shuffled together)
-
-| # | Task | Examples | Format |
-|---|------|----------|--------|
-| 1 | Context prediction (random) | 100K | 1 random layer, random positions |
-| 2 | Context prediction (sentences) | 30K (x2) | 3 layers, all sentence boundaries |
-| 3 | Decorative detection | 500 (x2) | 3 layers, binary classification |
-| 4 | Domain classification | 15K (x2) | 3 layers, 7-class |
-| 5 | Correctness prediction | 15K (x2) | 3 layers, binary classification |
-| 6 | Summary prediction | 15K (x2) | 3 layers, free-text generation |
-
-**Total: ~221K examples, 1 epoch, ~4.5h on H100.**
-
-Sentence-structured tasks (2-6) are each created twice: once with all 3 layers interleaved, once with L50% only. This teaches the oracle to work with both multi-layer and single-layer inputs.
-
-### Data Doubling
-
-Each sentence-structured example is duplicated:
-1. **Multi-layer:** `"Layer: 9, 18, 27"` prefix, 3N placeholder tokens
-2. **Single-layer:** `"Layer: 18"` prefix, N placeholder tokens (standard AO format)
-
-### Corpus
-CoT traces generated by Qwen3-8B across 12 reasoning benchmarks: MATH, GSM8K, GPQA, BBH, ARC, StrategyQA, DROP, LogiQA, MMLU-Pro, CommonsenseQA, AQUA-RAT, MedQA.
-
-Each problem gets a CoT response and a direct response. Categories are assigned automatically:
-- **load_bearing**: CoT correct, direct wrong (reasoning was necessary)
-- **both_correct** (decorative): both correct (model already knew)
-- **both_wrong** / **cot_hurt**: failure cases
-
-### v1 Lessons
-v1 trained tasks sequentially (not shuffled) — what looked like "grokking" at step 3000 was actually just the model seeing importance data for the first time, followed by catastrophic forgetting. Fix: `random.shuffle()` before training.
-
-## Links
-
-- **Checkpoints:** [ceselder/cot-oracle-v4-checkpoints](https://huggingface.co/ceselder/cot-oracle-v4-checkpoints) (16 checkpoints, step 2K-30K)
-- **Training data:** [ceselder/cot-oracle-data](https://huggingface.co/datasets/ceselder/cot-oracle-data)
-- **Activation Oracles:** [adamkarvonen/activation_oracles](https://github.com/adamkarvonen/activation_oracles)
-
-## Project Structure
-
+### Generate eval datasets and run evals
+```bash
+python3 src/evals/generate_datasets.py --output-dir data/evals
+python3 src/evals/run_evals.py --eval-dir data/evals --output-dir data/eval_results
+python3 src/evals/score_oracle.py --results-dir data/eval_results
 ```
+
+## RTX 5090 / Blackwell Notes
+This repo now defaults to Blackwell-safe behavior:
+- AO/chat/eval model loading uses `sdpa` on Blackwell by default
+- local vLLM rollout generation auto-enables eager mode on Blackwell GPUs (`enforce_eager=True`)
+
+Runtime knobs:
+- Force SDPA everywhere:
+```bash
+export COT_ORACLE_FORCE_SDPA=1
+```
+- If you explicitly want to try FlashAttention2 anyway:
+```bash
+export COT_ORACLE_ALLOW_FLASH2=1
+```
+- Force eager mode for vLLM local rollout generation:
+```bash
+export COT_ORACLE_VLLM_ENFORCE_EAGER=1
+```
+- Disable Blackwell auto-eager in vLLM (not recommended on 5090):
+```bash
+export COT_ORACLE_VLLM_NO_EAGER_AUTO=1
+```
+
+CLI equivalents for local rollout generation:
+```bash
+python3 src/data_pipeline/generate_cots.py --engine vllm --vllm-enforce-eager
+python3 src/data_pipeline/generate_cots.py --engine vllm --no-vllm-eager-auto
+```
+
+If runs fail on 5090, keep `COT_ORACLE_FORCE_SDPA=1` and avoid FA2-specific builds.
+
+## Repository Layout
+
+```text
 src/
-├── chat_compare.py                # Interactive A/B comparison tool (main interface)
-├── train_mixed.py                 # Training script (6 tasks, shuffled)
-├── data_pipeline/
-│   └── generate_cots.py           # CoT corpus generation
-├── dataset_classes/               # Task-specific dataset loaders for training
-├── evals/                         # Unfaithfulness evaluation suite
-└── signs_of_life/
-    └── ao_lib.py                  # Inlined AO library (activation collection, injection, hooks)
+  core/                 # AO runtime wrappers + AO repo path resolver
+  data_pipeline/        # corpus generation + label extraction
+  dataset_classes/      # training dataset builders
+  evals/                # eval generation, execution, scoring
+  chat_compare.py       # interactive AO vs trained-oracle comparison
+  train_mixed.py        # main training entrypoint
 ```
 
-## Related Work
-
-- [Activation Oracles](https://arxiv.org/abs/2512.15674) (Karvonen et al., 2024)
-- [Thought Anchors](https://arxiv.org/abs/2506.19143) (Bogdan et al., 2025)
-- [Thought Branches](https://arxiv.org/abs/2510.27484) (Macar, Bogdan et al., 2025)
-
-## License
-
-Apache 2.0
+## Scripts
+- `scripts/generate_qwen_rollouts.sh`: helper for generating and analyzing rollouts in the `thought-anchors` repo.
+- `scripts/upload_corpus.py`: upload generated corpus files to HuggingFace.

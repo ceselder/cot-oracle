@@ -11,7 +11,7 @@ set -euo pipefail
 MODEL="Qwen/Qwen3-1.7B"
 CORPUS="data/cot_corpus/corpus.jsonl"
 LABELS_DIR="data/cot_corpus"
-CHECKPOINT_DIR="checkpoints/cot_oracle"
+CHECKPOINT_DIR="checkpoints/cot_oracle_mixed"
 
 export OPENROUTER_API_KEY="${OPENROUTER_API_KEY:?Set OPENROUTER_API_KEY}"
 export WANDB_API_KEY="${WANDB_API_KEY:?Set WANDB_API_KEY}"
@@ -82,14 +82,15 @@ fi
 # ---- Step 4: Train ----
 echo ""
 echo "==== Step 6: Training CoT Oracle ===="
-torchrun --nproc_per_node=1 src/train_cot_oracle.py \
+torchrun --nproc_per_node=1 src/train_mixed.py \
     --corpus "$CORPUS" \
-    --labels-dir "$LABELS_DIR" \
     --model "$MODEL" \
     --lr 1e-5 \
     --batch-size 16 \
     --save-dir "$CHECKPOINT_DIR" \
     --wandb-project cot_oracle \
+    --eval-dir data/evals \
+    --fast-eval-n 5 \
     --gradient-checkpointing
 
 echo ""

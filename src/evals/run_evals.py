@@ -25,7 +25,7 @@ import torch
 # Ensure src/ is importable
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from signs_of_life.ao_lib import (
+from core.ao import (
     load_model_with_ao,
     generate_cot,
     batch_generate_cot,
