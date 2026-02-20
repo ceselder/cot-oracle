@@ -1,106 +1,123 @@
-# CoT Oracle Plan (v5, living)
+# CoT Oracle Plan (Living)
 
 Last updated: 2026-02-20
 
+## Source Context
+This plan is synchronized with the shared brainstorming/living document from this thread.
+- Shared doc link: `<ADD_SHARED_DOC_LINK_HERE>`
+
 ## North Star
-Chain-of-thought text is often unfaithful. We want a white-box monitor that reads CoT-relevant activations and predicts model behavior better than black-box CoT monitoring and better than simple probes.
+Chain-of-thought text is often unfaithful. We want a white-box activation monitor that:
+1. predicts model behavior better than black-box CoT monitoring,
+2. beats simple probe baselines where possible,
+3. produces non-obvious, testable hypotheses about internal reasoning.
 
-Primary objective:
-- Build a generalist activation oracle that can produce non-obvious, testable hypotheses about what happened in a model's reasoning.
+## Strategy
+1. Scale task diversity more than raw dataset size.
+2. Train on both semantic reconstruction and computational properties.
+3. Keep architecture changes simple, ablatable, and measurable.
 
-## Current Scope (Sprint)
-The sprint focus is to scale Activation Oracles to chain-of-thought trajectories while staying compute-pragmatic:
-- Scale across task diversity, not just dataset size.
-- Train on both semantic reconstruction and computational/behavioral properties.
-- Keep architecture changes simple and measurable.
+## In Scope (Current Sprint)
+- Activation-oracle style CoT reconstruction from trajectory activations.
+- Multi-task mixed training focused on behavior-relevant labels.
+- Evals for unfaithfulness-adjacent behavior (hints, sycophancy, load-bearing proxies).
+- Short architecture sweeps: temporal feed-in + layer choices + marker schemes.
 
-## What Is Implemented In This Repo
+## Out of Scope (For Now)
+- SAE-driven unverbalized supervision pipeline.
+- Legacy signs-of-life branch.
+- RL-heavy post-training loops.
 
-### Core AO runtime
-- AO repo discovery without machine-specific paths (`AO_REPO_PATH` or `./activation_oracles`).
-- Shared AO utilities in `src/core/ao.py`.
-- Blackwell-safe attention backend selection (default SDPA on RTX 5090-class GPUs unless explicitly overridden).
+## Current Implementation Status
+
+### Core runtime
+- [x] AO repo discovery without machine-specific path assumptions.
+- [x] Shared AO runtime helpers in `src/core/ao.py`.
+- [x] Blackwell-safe attention defaulting (SDPA on RTX 5090 class).
 
 ### Training pipeline
-- Main trainer: `src/train_mixed.py`.
-- Current mixed tasks:
-  - CoT context prediction
-  - sentence-boundary prediction
-  - decorative/load-bearing label prediction
-  - domain prediction
-  - correctness prediction
-  - persona prediction (when persona corpus provided)
-  - optional summary prediction (if `summaries.jsonl` exists)
-- Multi-layer activation ingestion with sentence-boundary trajectories.
+- [x] Mixed training entrypoint in `src/train_mixed.py`.
+- [x] Context + sentence reconstruction tasks.
+- [x] Decorative/domain/correctness auxiliary tasks.
+- [x] Optional persona + summary tasks.
+- [ ] Add explicit thought-anchor/load-bearing training task.
+- [ ] Add contrastive influenced-vs-uninfluenced pair training.
 
 ### Eval pipeline
-- Dataset generation + run + scoring under `src/evals/`.
-- Current eval families:
-  - hinted MCQ
-  - sycophancy
-  - authority bias
-  - decorative CoT
-  - answer correctness
-  - contradictory comparison
-  - sentence insertion
-  - scruples sycophancy
+- [x] Dataset generation + run + scoring flow in `src/evals/`.
+- [x] Hinted/sycophancy/authority/decorative/correctness eval families.
+- [ ] Held-out CoT reconstruction metric (KL based) as first-class report.
+- [ ] ROT13/obfuscated holdout eval integrated into default suite.
+- [ ] Load-bearingness metric integrated into default suite.
+- [ ] Strong AO/probe/black-box baseline comparison table.
 
-### Repository cleanup done
-- Removed legacy `signs_of_life` experiments.
-- Removed SAE/unverbalized extraction path and unused SAE dataset class.
-- Removed stale one-off scripts not used by current pipeline.
+## Priority Evals (Mapped From Brainstorm Doc)
 
-## Priority Experiments (From Brainstorming Doc)
+### Tier 1 (implement first)
+- Held-out CoT reconstruction.
+  - Baseline: AO / null reconstruction.
+  - Metric: token-level KL / reconstruction quality.
+- Hint influence detection.
+  - Baseline: probes / black-box monitor.
+  - Metric: yes/no accuracy and calibration.
+- Scruples disagreement slice.
+  - Baseline: probes / black-box monitor.
+  - Metric: agreement-with-human-judgment classification.
+- Final answer prediction from CoT activations.
+  - Baseline: AO + lightweight probes.
+  - Metric: KL / accuracy on answer distribution.
 
-### 1) Architecture ablations
-- Sentence boundaries vs fixed-token striding.
-- Discrete striding vs pooling.
-- 3-layer feed-in (25/50/75) vs alternatives.
-- Per-layer placeholder tokens (`? ? ?` vs `? # !`-style distinction).
+### Tier 2 (next)
+- ROT13 or obfuscated CoT reconstruction.
+  - Baseline: patchscopes-like decode baseline.
+  - Metric: recoverable token rate / sequence accuracy.
+- Thought-anchor proxy eval.
+  - Baseline: probe + black-box monitor.
+  - Metric: load-bearing step detection quality.
 
-### 2) Training objective ablations
-- CoT reconstruction quality on held-out traces.
-- Influence detection (hint framing / prompt framing).
-- Sycophancy detection on disagreement-focused slices (e.g., Scruples splits).
-- Answer prediction from CoT activations.
+## Architecture Ablation Matrix
+- [ ] Sentence boundaries vs fixed-token stride (e.g., every 25 tokens).
+- [ ] Discrete striding vs pooled activation summaries.
+- [ ] 1-layer vs 3-layer feed-in (e.g., 25/50/75 depth).
+- [ ] Shared placeholder token vs per-layer marker tokens (`? ? ?` vs `? # !` style).
 
-### 3) Model-organism evals
-- ROT13 / obfuscated CoT reconstruction as explicit holdout.
-- Load-bearingness approximations (thought-anchor-style labels where feasible).
+## Training Data Roadmap
 
-### 4) Calibration and failure handling
-- Evaluate "no signal present" behavior.
-- Add checks for hallucinated explanations when activations do not support a query.
+### Definitely
+- [x] Start from AO checkpoint.
+- [x] Mixed on-policy CoT reconstruction corpus flow.
+- [ ] Diverse CoT datasets composed into balanced training mix.
+- [ ] Train next-step reconstruction conditioned on prefix activations.
+- [ ] Train full-CoT reconstruction from all trajectory activations.
+- [ ] Add answer-from-CoT objective explicitly in mixed loop.
+- [ ] Add conversational IT set for monitor Q/A + calibrated refusals.
 
-## Explicitly Out Of Scope (For Now)
-- SAE-driven unverbalized supervision.
-- Old signs-of-life experiment track.
-- RL-heavy post-training for this sprint.
+### Promising (time permitting)
+- [ ] Unsampled-high-probability concept supervision.
+- [ ] Token-ban counterfactual supervision.
+- [ ] LLM-labeled fallacy/untruth spans for auxiliary detection.
+- [ ] Robustness to inserted off-policy sentence/activation perturbations.
 
-## Execution Plan
-1. Stabilize and benchmark the cleaned mixed pipeline.
-2. Run baseline AO and mixed checkpoints on current eval suite.
-3. Add/expand held-out evals directly tied to north-star claims:
-   - CoT reconstruction holdout metric
-   - influence/unfaithfulness metrics
-   - answer prediction metric
-4. Run architecture/task ablations and keep only robust improvements.
-5. Prepare sprint write-up with explicit baseline comparisons and failure cases.
+## 5090 / Blackwell Compatibility Plan (Best-Guess)
+- [x] Default AO loading path to SDPA on Blackwell.
+- [x] Provide vLLM eager-mode controls for Blackwell.
+- [ ] Add explicit troubleshooting section with known torch/vLLM/fa2 combinations after more runs.
 
-## Directory Structure (Target)
-- `src/core/`: AO runtime wrappers and compatibility utilities.
-- `src/data_pipeline/`: corpus generation and label extraction.
-- `src/dataset_classes/`: task-specific training dataset builders.
-- `src/evals/`: eval generation, execution, and scoring.
-- `src/train_mixed.py`: primary training entrypoint.
-- `scripts/`: operational helpers (rollouts, corpus upload).
+Current recommended runtime knobs:
+```bash
+export COT_ORACLE_FORCE_SDPA=1
+export COT_ORACLE_VLLM_ENFORCE_EAGER=1
+```
+
+## Near-Term Execution TODO
+1. Add held-out reconstruction + answer-pred metrics to `run_evals.py` output schema.
+2. Add ROT13/obfuscated eval generator + scorer.
+3. Add first load-bearing proxy metric (sentence ablation or early-answer-shift proxy).
+4. Run architecture sweep on one base model and lock defaults.
+5. Add final baseline table (AO, probes, black-box monitor) to report artifacts.
+6. Update README examples once eval schema is finalized.
 
 ## Success Criteria
-Minimum:
-- Beat baseline AO on at least one unfaithfulness-relevant eval family without regressions on core tasks.
-
-Strong:
-- Consistent gains across multiple eval families and robust behavior under model-organism stress tests.
-
-Stretch:
-- Reliable generation of non-obvious, verifiable hypotheses about hidden or implicit reasoning signals.
+- Minimum: beat AO baseline on at least one unfaithfulness-relevant eval without harming core reconstruction.
+- Strong: consistent uplift across multiple eval families and at least one model-organism stress test.
+- Stretch: monitor outputs non-obvious hypotheses that are later behaviorally validated.
