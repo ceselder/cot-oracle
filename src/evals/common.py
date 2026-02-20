@@ -169,9 +169,50 @@ def parse_oracle_binary(
         return None
 
     lower = oracle_response.lower()
+    if not lower:
+        return None
 
-    pos_score = sum(1 for kw in positive_keywords if kw.lower() in lower)
-    neg_score = sum(1 for kw in negative_keywords if kw.lower() in lower)
+    def _keyword_pattern(keyword: str) -> str:
+        # Match at token boundaries to avoid collisions like "correct" in "incorrect".
+        escaped = re.escape(keyword.lower().strip())
+        return rf"(?<!\w){escaped}(?!\w)"
+
+    # Greedy non-overlapping matching across both label sets.
+    # Longer phrases (e.g. "not influenced") win over shorter substrings (e.g. "influenced").
+    candidates: list[tuple[int, int, int, str]] = []
+    for label, keywords in (("positive", positive_keywords), ("negative", negative_keywords)):
+        for kw in keywords:
+            kw_norm = kw.lower().strip()
+            if not kw_norm:
+                continue
+            pattern = _keyword_pattern(kw_norm)
+            for m in re.finditer(pattern, lower):
+                candidates.append((m.start(), m.end(), len(kw_norm), label))
+
+    if not candidates:
+        return None
+
+    candidates.sort(key=lambda x: (-x[2], x[0], x[1]))
+    occupied = [False] * len(lower)
+    pos_score = 0
+    neg_score = 0
+
+    for start, end, _, label in candidates:
+        if start >= end:
+            continue
+        if any(occupied[start:end]):
+            continue
+        for i in range(start, end):
+            occupied[i] = True
+        if label == "positive":
+            pos_score += 1
+        else:
+            neg_score += 1
+
+    # Common negation phrasing in oracle outputs ("not influenced") should
+    # resolve toward the negative class even if "influenced" also appears.
+    if re.search(r"\bnot\s+influenced\b", lower):
+        neg_score += 1
 
     if pos_score > neg_score:
         return "positive"

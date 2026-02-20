@@ -32,8 +32,7 @@ else
         --sources math gsm8k \
         --n-problems 500 \
         --model "$MODEL" \
-        --output "$CORPUS" \
-        --keep-all
+        --output "$CORPUS"
 fi
 
 # ---- Step 2: Extract GPU labels ----

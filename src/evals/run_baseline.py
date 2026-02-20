@@ -47,11 +47,8 @@ from evals.common import (
     compute_binary_metrics,
 )
 from evals.run_evals import (
-    run_single_item,
     run_eval_batched,
     run_decorative_cot_eval,
-    ORACLE_PROMPTS,
-    _extract_answer,
 )
 from evals.score_oracle import score_eval, EVAL_PARSING
 
