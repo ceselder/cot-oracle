@@ -264,7 +264,7 @@ def print_side_by_side(label_a, text_a, label_b, text_b, width=38):
 
 # Task-specific prompts that match what the trained oracle was trained on
 TASK_PROMPTS = {
-    "domain": "Activations from {N} sentence boundaries. What domain is this reasoning about? Answer with one word: math, science, logic, commonsense, reading, multi_domain, medical.",
+    "domain": "Activations from {N} sentence boundaries. What domain is this reasoning about? Answer with one word: math, science, logic, commonsense, reading, multi_domain, medical, ethics, diverse.",
     "correctness": "Activations from {N} sentence boundaries. Is the model's final answer correct? Answer: correct or incorrect.",
     "decorative": "Activations from {N} sentence boundaries. Is this chain-of-thought reasoning load-bearing or decorative? Answer: load_bearing or decorative.",
     "summary": "Activations from {N} sentence boundaries. Generate a concise summary of the thought process.",

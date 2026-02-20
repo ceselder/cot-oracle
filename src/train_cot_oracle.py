@@ -73,11 +73,21 @@ def dicts_to_training_data(
 
     for item in raw_data:
         try:
+            layer = item.get("layer")
+            if layer is None:
+                # Backward compatibility: some loaders now emit multi-layer metadata.
+                # v3 trainer is single-layer only, so use the midpoint layer (50% depth).
+                layers = item.get("layers")
+                if layers:
+                    layer = layers[len(layers) // 2]
+                else:
+                    raise KeyError("missing both 'layer' and 'layers'")
+
             dp = create_training_datapoint(
                 datapoint_type=item["datapoint_type"],
                 prompt=item["prompt"],
                 target_response=item["target_response"],
-                layer=item["layer"],
+                layer=layer,
                 num_positions=item["num_positions"],
                 tokenizer=tokenizer,
                 acts_BD=None,  # On-the-fly collection
@@ -321,7 +331,7 @@ def install_unfaithfulness_eval_hook(model_name, eval_dir="data/evals", fast_n=5
     from evals.common import load_eval_items, determine_ground_truth
     from evals.score_oracle import score_eval, EVAL_PARSING
     from evals.run_evals import (
-        run_single_item, ORACLE_PROMPTS, _extract_answer,
+        run_single_item,
     )
 
     eval_dir = Path(eval_dir)

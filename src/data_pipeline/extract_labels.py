@@ -438,6 +438,8 @@ def main():
 
     corpus = load_corpus(args.corpus)
     output_dir = Path(args.output_dir or Path(args.corpus).parent)
+    model = None
+    tokenizer = None
 
     # GPU-dependent labels
     if args.importance or args.answer_tracking:
@@ -465,6 +467,18 @@ def main():
         if not api_key_sae:
             print("Warning: OPENROUTER_API_KEY not set, skipping SAE labels")
         else:
+            # SAE extraction needs model/tokenizer even if --importance/--answer-tracking are not set.
+            if model is None or tokenizer is None:
+                import torch
+                from transformers import AutoModelForCausalLM, AutoTokenizer
+                print(f"Loading {args.model} (bf16) for SAE label extraction...")
+                tokenizer = AutoTokenizer.from_pretrained(args.model)
+                model = AutoModelForCausalLM.from_pretrained(
+                    args.model,
+                    torch_dtype=torch.bfloat16,
+                    device_map=args.device,
+                )
+
             # Load SAE
             try:
                 # Try loading from AO repo

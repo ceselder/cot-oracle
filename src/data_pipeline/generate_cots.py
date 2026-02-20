@@ -504,6 +504,36 @@ def load_arc_easy_problems(n: int) -> list[dict]:
     return problems
 
 
+def load_scruples_problems(n: int) -> list[dict]:
+    """Load ethical judgment problems from Scruples (AITA-style).
+
+    Ground truth is binarized human judgment: RIGHT or WRONG.
+    """
+    ds = load_dataset("metaeval/scruples", split="train", streaming=True)
+    problems = []
+    for item in ds:
+        title = item.get("title", "")
+        text = item.get("text", "")
+        label = item.get("binarized_label", "")
+        if not text or not label:
+            continue
+        # Skip very long posts (>300 words) to keep input reasonable
+        if len(text.split()) > 300:
+            continue
+        full_q = f"{title}\n\n{text}\n\nBased on this situation, is the author in the right or in the wrong? Answer with RIGHT or WRONG."
+        problems.append({
+            "source": "Scruples",
+            "question": full_q,
+            "correct_answer": label,
+            "subject": "ethics",
+            "level": "",
+        })
+        if len(problems) >= n:
+            break
+    print(f"    Scruples: loaded {len(problems)}")
+    return problems
+
+
 def load_lmsys_problems(n: int) -> list[dict]:
     """Load filtered questions from LMSYS-Chat-1M.
 
@@ -583,6 +613,7 @@ DATASET_LOADERS = {
     "medqa": lambda n, levels: load_medqa_problems(n),
     "asdiv": lambda n, levels: load_asdiv_problems(n),
     "scienceqa": lambda n, levels: load_scienceqa_problems(n),
+    "scruples": lambda n, levels: load_scruples_problems(n),
     "lmsys": lambda n, levels: load_lmsys_problems(n),
 }
 
@@ -603,6 +634,7 @@ SOURCE_TO_DOMAIN = {
     "MedQA": "medical",
     "ASDiv": "math",
     "ScienceQA": "science",
+    "Scruples": "ethics",
     "LMSYS": "diverse",
 }
 
@@ -758,6 +790,9 @@ async def openrouter_generate_single(
             "messages": messages,
             "temperature": 0.6,
             "top_p": 0.95,
+            # OpenRouter reasoning controls:
+            # enable_thinking=True keeps reasoning content, False requests direct answers.
+            "reasoning": {"enabled": bool(enable_thinking), "exclude": not enable_thinking},
         }
         if max_tokens is not None:
             body["max_tokens"] = max_tokens
@@ -941,17 +976,9 @@ def process_results_openrouter(
             if len(sentences) < 2:
                 continue
 
+            # boundary_positions deferred — too slow during generation.
+            # Compute later with: find_sentence_boundary_positions(tokenizer, full_text, sentences)
             boundary_positions = []
-            if tokenizer is not None:
-                messages = [{"role": "user", "content": question}]
-                formatted = tokenizer.apply_chat_template(
-                    messages, tokenize=False, add_generation_prompt=True,
-                    enable_thinking=True,
-                )
-                full_text = formatted + cot_response
-                boundary_positions = find_sentence_boundary_positions(
-                    tokenizer, full_text, sentences,
-                )
 
             domain = SOURCE_TO_DOMAIN.get(problem["source"], "unknown")
 
@@ -1015,12 +1042,8 @@ def process_results(
         if len(sentences) < 2:
             continue
 
-        messages = [{"role": "user", "content": question}]
-        formatted = tokenizer.apply_chat_template(
-            messages, tokenize=False, add_generation_prompt=True, enable_thinking=True,
-        )
-        full_text = formatted + cot_response
-        boundary_positions = find_sentence_boundary_positions(tokenizer, full_text, sentences)
+        # boundary_positions deferred — too slow during generation.
+        boundary_positions = []
 
         domain = SOURCE_TO_DOMAIN.get(problem["source"], "unknown")
 
@@ -1063,7 +1086,8 @@ FULL_SPLIT = {
     "scienceqa": 4200,
     "medqa": 1273,
     "mmlu_pro": 12000,
-    "lmsys": 49927,
+    "scruples": 12000,
+    "lmsys": 37927,
 }
 
 # Medium scale: 50K problems × 1 rollout ≈ 97M CoT tokens (~$25)
@@ -1078,7 +1102,8 @@ MEDIUM_SPLIT = {
     "scienceqa": 1680,
     "medqa": 509,
     "mmlu_pro": 4800,
-    "lmsys": 19971,
+    "scruples": 5000,
+    "lmsys": 14971,
 }
 
 # Mini scale: 1/200th for testing (~625 problems × 2 rollouts ≈ 500K CoT tokens)
@@ -1093,6 +1118,7 @@ MINI_SPLIT = {
     "scienceqa": 21,
     "medqa": 7,
     "mmlu_pro": 60,
+    "scruples": 25,
     "lmsys": 250,
 }
 
@@ -1262,63 +1288,130 @@ def main():
             print(f"\n  Output: {output_path}")
 
     else:
-        # Local GPU mode (original)
-        import torch
-        from transformers import AutoModelForCausalLM, AutoTokenizer
+        # vLLM local GPU mode — aggressive batching
+        from vllm import LLM, SamplingParams
+        from transformers import AutoTokenizer
+        import time
 
-        print(f"Loading {args.model} (bf16, no AO)...")
+        print(f"Loading tokenizer for {args.model}...")
         tokenizer = AutoTokenizer.from_pretrained(args.model)
-        model = AutoModelForCausalLM.from_pretrained(
-            args.model,
-            torch_dtype=torch.bfloat16,
-            device_map=args.device,
+
+        print(f"Loading {args.model} with vLLM (bf16)...")
+        llm = LLM(
+            model=args.model,
+            dtype="bfloat16",
+            tensor_parallel_size=1,
+            max_model_len=8192,  # input + output budget
+            gpu_memory_utilization=0.95,
+            enable_prefix_caching=True,
         )
 
-        print(f"\nGenerating CoTs (batch_size={args.batch_size})...")
-        questions = [p["question"] for p in problems]
+        cot_params = SamplingParams(
+            temperature=0.6,
+            top_p=0.95,
+            max_tokens=4096,
+        )
+        direct_params = SamplingParams(
+            temperature=0.6,
+            top_p=0.95,
+            max_tokens=200,
+        )
 
-        all_cot = []
-        all_direct = []
-        for i in tqdm(range(0, len(questions), args.batch_size), desc="Batches"):
-            batch_q = questions[i:i + args.batch_size]
-
-            cot_prompts = []
-            direct_prompts = []
-            for q in batch_q:
-                msgs = [{"role": "user", "content": q}]
-                cot_prompts.append(tokenizer.apply_chat_template(
-                    msgs, tokenize=False, add_generation_prompt=True, enable_thinking=True,
-                ))
+        # Format all prompts
+        print("Formatting prompts...")
+        cot_prompts = []
+        direct_prompts = []
+        direct_indices = []  # track which problems need direct responses
+        for i, p in enumerate(problems):
+            msgs = [{"role": "user", "content": p["question"]}]
+            cot_prompts.append(tokenizer.apply_chat_template(
+                msgs, tokenize=False, add_generation_prompt=True, enable_thinking=True,
+            ))
+            if p["source"] not in NO_GROUND_TRUTH_SOURCES:
                 direct_prompts.append(tokenizer.apply_chat_template(
                     msgs, tokenize=False, add_generation_prompt=True, enable_thinking=False,
                 ))
+                direct_indices.append(i)
 
-            cot_responses = batch_generate(model, tokenizer, cot_prompts, max_new_tokens=1024)
-            all_cot.extend(cot_responses)
+        n_rollouts = args.n_rollouts
+        checkpoint_path = output_path.with_suffix(".checkpoint.jsonl")
 
-            direct_responses = batch_generate(model, tokenizer, direct_prompts, max_new_tokens=100)
-            all_direct.extend(direct_responses)
+        all_cot_rollouts: list[list[dict]] = []
 
+        for rollout_idx in range(n_rollouts):
+            print(f"\n{'=' * 60}")
+            print(f"CoT rollout {rollout_idx + 1}/{n_rollouts}: {len(cot_prompts)} prompts")
+            print(f"{'=' * 60}")
+            t0 = time.time()
+            outputs = llm.generate(cot_prompts, cot_params)
+            elapsed = time.time() - t0
+            total_toks = sum(len(o.outputs[0].token_ids) for o in outputs)
+            print(f"  Done in {elapsed:.1f}s — {total_toks:,} tokens — {total_toks/elapsed:.0f} tok/s")
+
+            # Parse <think>...</think> to split reasoning from content
+            rollout_results = []
+            for output in outputs:
+                text = output.outputs[0].text
+                if "</think>" in text:
+                    parts = text.split("</think>", 1)
+                    reasoning = parts[0].lstrip("<think>").strip()
+                    content = parts[1].strip() if len(parts) > 1 else ""
+                else:
+                    reasoning = text.strip()
+                    content = ""
+                rollout_results.append({"reasoning": reasoning, "content": content})
+            all_cot_rollouts.append(rollout_results)
+
+        # Direct responses
+        print(f"\nDirect responses: {len(direct_prompts)} prompts (skipping {len(problems) - len(direct_prompts)} no-ground-truth)...")
+        t0 = time.time()
+        direct_outputs = llm.generate(direct_prompts, direct_params)
+        elapsed = time.time() - t0
+        total_toks = sum(len(o.outputs[0].token_ids) for o in direct_outputs)
+        print(f"  Done in {elapsed:.1f}s — {total_toks:,} tokens — {total_toks/elapsed:.0f} tok/s")
+
+        empty_response = {"reasoning": "", "content": ""}
+        direct_responses_map: dict[int, dict] = {}
+        for j, idx in enumerate(direct_indices):
+            text = direct_outputs[j].outputs[0].text
+            direct_responses_map[idx] = {"reasoning": "", "content": text.strip()}
+        direct_responses = [direct_responses_map.get(i, empty_response) for i in range(len(problems))]
+
+        # Process results
         print("\nProcessing results...")
-        results = process_results(problems, all_cot, all_direct, tokenizer)
+        results = process_results_openrouter(
+            problems, all_cot_rollouts, direct_responses, tokenizer=tokenizer,
+        )
 
-        stats = {"load_bearing": 0, "both_correct": 0, "both_wrong": 0, "cot_hurt": 0}
+        # Save with stats
+        stats: dict[str, int] = {}
+        source_counts: dict[str, int] = {}
         saved = 0
         with open(output_path, "w") as f:
             for r in results:
-                stats[r["category"]] += 1
+                cat = r["category"] or "no_ground_truth"
+                stats[cat] = stats.get(cat, 0) + 1
+                source_counts[r["source"]] = source_counts.get(r["source"], 0) + 1
                 f.write(json.dumps(r) + "\n")
                 saved += 1
+
+        total_cot_chars = sum(len(r.get("cot_response", "")) for r in results)
 
         print(f"\n{'=' * 60}")
         print(f"FINAL STATS")
         print(f"{'=' * 60}")
-        total = sum(stats.values())
-        for k, v in stats.items():
-            pct = v / total * 100 if total > 0 else 0
-            print(f"  {k}: {v} ({pct:.1f}%)")
-        print(f"  Total saved: {saved}")
-        print(f"  Output: {output_path}")
+        print(f"  Problems loaded: {len(problems)}")
+        print(f"  Rollouts per problem: {n_rollouts}")
+        print(f"  Total entries saved: {saved}")
+        print(f"  Est. CoT tokens: {total_cot_chars // 4:,}")
+        print(f"\n  By category:")
+        for k, v in sorted(stats.items()):
+            pct = v / saved * 100 if saved > 0 else 0
+            print(f"    {k}: {v} ({pct:.1f}%)")
+        print(f"\n  By source:")
+        for k, v in sorted(source_counts.items(), key=lambda x: -x[1]):
+            print(f"    {k}: {v}")
+        print(f"\n  Output: {output_path}")
 
 
 if __name__ == "__main__":

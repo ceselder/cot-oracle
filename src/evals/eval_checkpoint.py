@@ -31,8 +31,8 @@ from signs_of_life.ao_lib import (
     find_sentence_boundary_positions,
     AO_CHECKPOINTS,
 )
-from evals.common import load_eval_items
-from evals.run_evals import _extract_answer, determine_ground_truth, ORACLE_PROMPTS
+from evals.common import load_eval_items, determine_ground_truth
+from evals.run_evals import _extract_answer, ORACLE_PROMPTS_TEMPLATES, _oracle_prompt
 
 
 def load_model_with_checkpoint(
@@ -111,7 +111,8 @@ def run_single_eval_item(model, tokenizer, item, act_layer, model_name, device="
                     model, tokenizer, full_text, act_layer,
                     positions_to_use, device=device,
                 )
-                oracle_prompt = ORACLE_PROMPTS.get(item.eval_name, "What is this model doing?")
+                template = ORACLE_PROMPTS_TEMPLATES.get(item.eval_name, "What is this model doing?")
+                oracle_prompt = _oracle_prompt(len(positions_to_use), template)
                 oracle_response = run_oracle_on_activations(
                     model, tokenizer, activations, oracle_prompt,
                     model_name=model_name, act_layer=act_layer,
