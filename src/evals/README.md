@@ -103,7 +103,8 @@ Both systems use the same model + AO checkpoint. Training task evals are automat
 
 ```
 Phase A (CPU): generate_datasets.py → data/evals/*.json (EvalItem)
-Phase B (GPU): run_evals.py → data/eval_results/*_completed.json (CompletedEvalItem)
+Phase B (GPU, optional): precompute_activations.py → cached activation bundles
+Phase C (GPU): run_evals.py → data/eval_results/*_completed.json (CompletedEvalItem)
 Scoring:       score_oracle.py → metrics (accuracy, precision, recall, F1)
 Baseline:      run_baseline.py → runs all evals with original AO, logs to wandb
 ```
@@ -181,11 +182,25 @@ EVAL_PARSING["my_eval"] = {
 # Generate eval datasets (CPU, one-time)
 python3 src/evals/generate_datasets.py --output-dir data/evals
 
+# Optional: precompute activations/responses once (useful for expensive organism adapters)
+python3 src/evals/precompute_activations.py \
+  --eval-dir data/evals \
+  --output-dir data/eval_precomputed \
+  --model Qwen/Qwen3-8B \
+  --generator-adapter ceselder/rot13-qwen3-8b-lora \
+  --evals rot13_reconstruction held_out_cot_reconstruction logical_leaps
+
 # Run baseline (original AO, no fine-tuning)
 python3 src/evals/run_baseline.py --model Qwen/Qwen3-8B
 
 # Run on specific checkpoint
 python3 src/evals/run_evals.py --model Qwen/Qwen3-8B --eval-dir data/evals
+
+# Run from precomputed activation bundles (skips regeneration when cache exists)
+python3 src/evals/run_evals.py \
+  --model Qwen/Qwen3-8B \
+  --eval-dir data/evals \
+  --precomputed-activations-dir data/eval_precomputed
 
 # Score results
 python3 src/evals/score_oracle.py --results-dir data/eval_results
@@ -200,6 +215,8 @@ python3 src/evals/ao_regression.py --model Qwen/Qwen3-8B --our-checkpoint /path/
 |------|---------|
 | `common.py` | Shared data structures (EvalItem, CompletedEvalItem), answer extraction, ground truth logic, binary metrics |
 | `generate_datasets.py` | CPU-only dataset generation, calls individual generators |
+| `precompute_activations.py` | Optional activation/response caching pass for fast repeated eval runs |
+| `activation_cache.py` | Canonical extraction + load/save path for CoT activation bundles |
 | `run_evals.py` | GPU eval runner — generates CoTs, extracts activations, queries oracle |
 | `run_baseline.py` | Runs all evals with original AO checkpoint as baseline |
 | `score_oracle.py` | Scores oracle predictions against ground truth |

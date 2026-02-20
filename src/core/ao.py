@@ -37,6 +37,56 @@ class EarlyStopException(Exception):
     pass
 
 
+def _active_adapter_name(model: PeftModel) -> str | None:
+    """Return active adapter name when available."""
+    active = getattr(model, "active_adapter", None)
+    if isinstance(active, str):
+        return active
+    if isinstance(active, (list, tuple)) and active:
+        if isinstance(active[0], str):
+            return active[0]
+    return None
+
+
+@contextlib.contextmanager
+def using_adapter(model: PeftModel, adapter_name: str | None):
+    """Temporarily run with a specific adapter, or with adapters disabled."""
+    previous_adapter = _active_adapter_name(model)
+    if adapter_name is None:
+        with model.disable_adapter():
+            yield
+        return
+
+    if adapter_name not in getattr(model, "peft_config", {}):
+        available = list(getattr(model, "peft_config", {}).keys())
+        raise ValueError(f"Adapter '{adapter_name}' is not loaded. Available adapters: {available}")
+
+    model.set_adapter(adapter_name)
+    try:
+        yield
+    finally:
+        if previous_adapter and previous_adapter in getattr(model, "peft_config", {}):
+            model.set_adapter(previous_adapter)
+
+
+def load_extra_adapter(
+    model: PeftModel,
+    adapter_path: str,
+    adapter_name: str = "generator",
+) -> str:
+    """Load an extra inference-only LoRA adapter and return its adapter name."""
+    if adapter_name in model.peft_config:
+        return adapter_name
+    print(f"Loading extra LoRA adapter '{adapter_name}' from: {adapter_path}")
+    model.load_adapter(
+        adapter_path,
+        adapter_name=adapter_name,
+        is_trainable=False,
+        low_cpu_mem_usage=True,
+    )
+    return adapter_name
+
+
 def _is_blackwell_gpu() -> bool:
     if not torch.cuda.is_available():
         return False
@@ -166,13 +216,14 @@ def collect_activations_at_positions(
     layer: int,
     positions: list[int],
     device: str = "cuda",
+    adapter_name: str | None = None,
 ) -> torch.Tensor:
     """Extract activations at token positions. Returns [K, D]."""
     inputs = tokenizer(text, return_tensors="pt", add_special_tokens=False).to(device)
 
     was_training = model.training
     model.eval()
-    with model.disable_adapter():
+    with using_adapter(model, adapter_name):
         acts_BLD = collect_activations(
             model,
             layer,
@@ -272,11 +323,13 @@ def run_oracle_on_activations(
 
     ao_path = AO_CHECKPOINTS[model_name]
     sanitized = ao_path.replace(".", "_")
+    previous_adapter = _active_adapter_name(model)
     try:
         model.set_adapter(sanitized)
     except ValueError:
         try:
             model.set_adapter("default")
+            sanitized = "default"
         except ValueError as exc:
             if hasattr(model, "peft_config"):
                 available = list(model.peft_config.keys())
@@ -292,13 +345,17 @@ def run_oracle_on_activations(
 
     injection_submodule = get_hf_submodule(model, injection_layer, use_lora=True)
 
-    with add_hook(injection_submodule, hook_fn):
-        output = model.generate(
-            input_ids=input_tensor,
-            attention_mask=attn_mask,
-            max_new_tokens=max_new_tokens,
-            do_sample=False,
-        )
+    try:
+        with add_hook(injection_submodule, hook_fn):
+            output = model.generate(
+                input_ids=input_tensor,
+                attention_mask=attn_mask,
+                max_new_tokens=max_new_tokens,
+                do_sample=False,
+            )
+    finally:
+        if previous_adapter and previous_adapter in getattr(model, "peft_config", {}) and previous_adapter != sanitized:
+            model.set_adapter(previous_adapter)
 
     return tokenizer.decode(output[0][len(input_ids) :], skip_special_tokens=True)
 
@@ -309,6 +366,7 @@ def generate_cot(
     question: str,
     max_new_tokens: int = 1024,
     device: str = "cuda",
+    adapter_name: str | None = None,
 ) -> str:
     """Generate CoT text from base model (adapter disabled)."""
     messages = [{"role": "user", "content": question}]
@@ -319,7 +377,7 @@ def generate_cot(
         enable_thinking=True,
     )
     inputs = tokenizer(formatted, return_tensors="pt").to(device)
-    with model.disable_adapter():
+    with using_adapter(model, adapter_name):
         output = model.generate(
             **inputs,
             max_new_tokens=max_new_tokens,
@@ -336,11 +394,12 @@ def batch_generate_cot(
     device: str = "cuda",
     batch_size: int = 8,
     enable_thinking: bool = True,
+    adapter_name: str | None = None,
 ) -> list[str]:
     """Batch CoT generation."""
     all_responses: list[str] = []
 
-    with model.disable_adapter():
+    with using_adapter(model, adapter_name):
         for i in range(0, len(questions), batch_size):
             batch_questions = questions[i : i + batch_size]
             formatted = []
@@ -386,6 +445,7 @@ def generate_direct_answer(
     question: str,
     max_new_tokens: int = 50,
     device: str = "cuda",
+    adapter_name: str | None = None,
 ) -> str:
     """Generate answer with thinking disabled."""
     messages = [{"role": "user", "content": question}]
@@ -396,7 +456,7 @@ def generate_direct_answer(
         enable_thinking=False,
     )
     inputs = tokenizer(formatted, return_tensors="pt").to(device)
-    with model.disable_adapter():
+    with using_adapter(model, adapter_name):
         output = model.generate(
             **inputs,
             max_new_tokens=max_new_tokens,
