@@ -3,16 +3,16 @@ Train CoT Oracle: Single-Run Mixed Training
 
 Mixes up to 7 tasks (all shuffled together):
   1. Context prediction — random positions (100K) — 1 random layer
-  2. Context prediction — sentence boundaries (30K) — 3 layers per boundary
-  3. Decorative CoT (10K, binary) — 3 layers per boundary
-  4. Domain classification (15K, multi-class) — 3 layers per boundary
-  5. Correctness prediction (15K, binary) — 3 layers per boundary
-  6. Persona detection (15K, multi-class) — 3 layers per boundary
-  7. CoT Summary (15K, free-text) — 3 layers per boundary
+  2. Context prediction — 25-token CoT stride (30K) — 3 layers per position
+  3. Decorative CoT (10K, binary) — 3 layers per strided position
+  4. Domain classification (15K, multi-class) — 3 layers per strided position
+  5. Correctness prediction (15K, binary) — 3 layers per strided position
+  6. Persona detection (15K, multi-class) — 3 layers per strided position
+  7. CoT Summary (15K, free-text) — 3 layers per strided position
 
 Task 1 uses 1 random layer per example (standard AO pretraining format).
-Tasks 2-7 use 3 activations per sentence boundary (L25%, L50%, L75%).
-Each sentence-structured example is DOUBLED: once with all 3 layers,
+Tasks 2-7 use 3 activations per 25-token stride position (L25%, L50%, L75%).
+Each strided-position example is DOUBLED: once with all 3 layers,
 once with L50% only. This teaches the oracle to work with both formats.
 
 Monkey-patches AO's materialize_missing_steering_vectors for multi-layer.
@@ -262,13 +262,13 @@ def dicts_to_training_data(
     """Convert dataset loader output to AO TrainingDataPoint objects.
 
     Handles both single-layer (context prediction) and multi-layer
-    (sentence-structured tasks) formats.
+    (strided-position tasks) formats.
 
     Single-layer items have 'layer' (int) — standard AO format.
     Multi-layer items have 'layers' (list[int]) — for each, we create:
       1. A 3-layer version with per-layer tokens (@?#) and 3*N placeholder tokens
       2. A single-layer L50% duplicate with standard "Layer: 18" prefix and N ? tokens
-    This effectively doubles the sentence-structured training data.
+    This effectively doubles the strided-position training data.
     """
     training_data = []
     skipped = 0
@@ -362,8 +362,8 @@ def build_training_mixture(
     except Exception as e:
         print(f"  FAILED: {e}")
 
-    # Task 2: Context Prediction — Sentence Boundaries
-    print("\n=== Task 2: Context Prediction — Sentence Boundaries ===")
+    # Task 2: Context Prediction — 25-token CoT Stride
+    print("\n=== Task 2: Context Prediction — 25-token CoT Stride ===")
     try:
         raw = load_cot_sentence_prediction_data(
             corpus_path, tokenizer, model_name, layer_percents,

@@ -2,7 +2,7 @@
 Task 6: Persona Detection (~15K examples)
 
 What persona/system prompt was the model given? Tests reading unverbalized context.
-Uses sentence-structured format with 3 acts per sentence boundary.
+Uses fixed 25-token stride positions with 3 acts per position.
 
 Requires corpus generated with --personas flag (each entry has a "persona" field).
 Ground truth: the system prompt used (known by construction).
@@ -26,11 +26,11 @@ def load_cot_persona_data(
     """
     Generate persona detection training data.
 
-    Each example: sentence-boundary activations -> persona label.
+    Each example: strided-position activations -> persona label.
     Requires persona corpus (generated with --personas).
     Balanced sampling across personas.
     """
-    from cot_utils import layer_percent_to_layer
+    from cot_utils import layer_percent_to_layer, get_cot_stride_positions
 
     random.seed(seed)
 
@@ -70,10 +70,6 @@ def load_cot_persona_data(
         persona = personas[len(datapoints) % len(personas)]
         entry = random.choice(by_persona[persona])
 
-        boundary_positions = entry.get("boundary_positions", [])
-        if len(boundary_positions) < 2:
-            continue
-
         messages = [{"role": "user", "content": entry["question"]}]
         formatted = tokenizer.apply_chat_template(
             messages, tokenize=False, add_generation_prompt=True,
@@ -85,9 +81,14 @@ def load_cot_persona_data(
             cot_text = cot_text[:think_end]
         full_text = formatted + cot_text
         context_ids = tokenizer(full_text, add_special_tokens=False)["input_ids"]
+        prompt_len = len(tokenizer(formatted, add_special_tokens=False)["input_ids"])
 
-        positions = boundary_positions[:max_sentences]
-        positions = [p for p in positions if p < len(context_ids)]
+        positions = get_cot_stride_positions(
+            prompt_token_count=prompt_len,
+            total_token_count=len(context_ids),
+            stride=25,
+            max_positions=max_sentences,
+        )
         if len(positions) < 2:
             continue
 
@@ -96,7 +97,7 @@ def load_cot_persona_data(
         context_slice = context_ids[:positions[-1] + 1]
 
         prompt = (
-            f"Activations from {N} sentence boundaries. "
+            f"Activations from {N} strided CoT positions (every 25 tokens). "
             f"What persona was the model given? "
             f"Answer with one: {', '.join(personas)}."
         )

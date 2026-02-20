@@ -2,7 +2,7 @@
 Task 3: Decorative CoT Detection (~10K examples, self-supervised)
 
 Binary classification: is this CoT load_bearing or decorative?
-Uses sentence-structured format with 3 acts per sentence boundary (L25%, L50%, L75%).
+Uses fixed 25-token stride positions with 3 acts per position (L25%, L50%, L75%).
 
 Ground truth comes from the corpus itself:
 - load_bearing: CoT correct, direct answer wrong -> reasoning was necessary
@@ -27,14 +27,14 @@ def load_cot_decorative_data(
     seed: int = 42,
 ) -> list[dict]:
     """
-    Generate decorative CoT detection training data with sentence-structured format.
+    Generate decorative CoT detection training data with fixed-stride positions.
 
-    Each example: activations at ALL sentence boundaries (3 per boundary, one per layer)
+    Each example: activations at all strided CoT positions (3 per position, one per layer)
     -> load_bearing / decorative.
 
     Requires corpus generated with --keep-all.
     """
-    from cot_utils import layer_percent_to_layer
+    from cot_utils import layer_percent_to_layer, get_cot_stride_positions
 
     random.seed(seed)
 
@@ -68,10 +68,6 @@ def load_cot_decorative_data(
             entry = random.choice(decorative)
             target = "decorative"
 
-        boundary_positions = entry.get("boundary_positions", [])
-        if len(boundary_positions) < 2:
-            continue
-
         messages = [{"role": "user", "content": entry["question"]}]
         formatted = tokenizer.apply_chat_template(
             messages, tokenize=False, add_generation_prompt=True,
@@ -83,10 +79,15 @@ def load_cot_decorative_data(
             cot_text = cot_text[:think_end]
         full_text = formatted + cot_text
         context_ids = tokenizer(full_text, add_special_tokens=False)["input_ids"]
+        prompt_len = len(tokenizer(formatted, add_special_tokens=False)["input_ids"])
 
-        # Cap and validate positions
-        positions = boundary_positions[:max_sentences]
-        positions = [p for p in positions if p < len(context_ids)]
+        # Fixed 25-token stride over CoT region.
+        positions = get_cot_stride_positions(
+            prompt_token_count=prompt_len,
+            total_token_count=len(context_ids),
+            stride=25,
+            max_positions=max_sentences,
+        )
         if len(positions) < 2:
             continue
 
@@ -95,7 +96,7 @@ def load_cot_decorative_data(
         context_slice = context_ids[:positions[-1] + 1]
 
         prompt = (
-            f"Activations from {N} sentence boundaries. "
+            f"Activations from {N} strided CoT positions (every 25 tokens). "
             f"Is this chain-of-thought reasoning load-bearing or decorative? "
             f"Answer: load_bearing or decorative."
         )

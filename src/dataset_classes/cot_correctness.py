@@ -2,7 +2,7 @@
 Task 5: Correctness Prediction (~15K examples)
 
 Binary classification: is the model's final answer correct?
-Uses sentence-structured format with 3 acts per sentence boundary.
+Uses fixed 25-token stride positions with 3 acts per position.
 
 Ground truth: compare extracted answer to ground truth from corpus.
 Labels: "correct" or "incorrect"
@@ -26,10 +26,10 @@ def load_cot_correctness_data(
     """
     Generate correctness prediction training data.
 
-    Each example: sentence-boundary activations -> correct / incorrect.
+    Each example: strided-position activations -> correct / incorrect.
     Ground truth from corpus (cot_correct field). Balanced 50/50.
     """
-    from cot_utils import layer_percent_to_layer
+    from cot_utils import layer_percent_to_layer, get_cot_stride_positions
 
     random.seed(seed)
 
@@ -66,10 +66,6 @@ def load_cot_correctness_data(
             entry = random.choice(incorrect_pool)
             target = "incorrect"
 
-        boundary_positions = entry.get("boundary_positions", [])
-        if len(boundary_positions) < 2:
-            continue
-
         messages = [{"role": "user", "content": entry["question"]}]
         formatted = tokenizer.apply_chat_template(
             messages, tokenize=False, add_generation_prompt=True,
@@ -81,9 +77,14 @@ def load_cot_correctness_data(
             cot_text = cot_text[:think_end]
         full_text = formatted + cot_text
         context_ids = tokenizer(full_text, add_special_tokens=False)["input_ids"]
+        prompt_len = len(tokenizer(formatted, add_special_tokens=False)["input_ids"])
 
-        positions = boundary_positions[:max_sentences]
-        positions = [p for p in positions if p < len(context_ids)]
+        positions = get_cot_stride_positions(
+            prompt_token_count=prompt_len,
+            total_token_count=len(context_ids),
+            stride=25,
+            max_positions=max_sentences,
+        )
         if len(positions) < 2:
             continue
 
@@ -92,7 +93,7 @@ def load_cot_correctness_data(
         context_slice = context_ids[:positions[-1] + 1]
 
         prompt = (
-            f"Activations from {N} sentence boundaries. "
+            f"Activations from {N} strided CoT positions (every 25 tokens). "
             f"Is the model's final answer correct? Answer: correct or incorrect."
         )
 

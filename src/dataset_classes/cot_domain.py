@@ -2,7 +2,7 @@
 Task 4: Domain Classification (~15K examples)
 
 Classify what domain/topic the problem is from. Labels are FREE from corpus metadata.
-One random layer per example from [25%, 50%, 75%] depth.
+Uses fixed 25-token stride positions and 3 layers per position [25%, 50%, 75%].
 
 Ground truth: source dataset name -> domain label.
 Classes: math, science, logic, commonsense, reading, medical, multi_domain
@@ -26,10 +26,10 @@ def load_cot_domain_data(
     """
     Generate domain classification training data.
 
-    Each example: sentence-boundary activations -> domain label.
+    Each example: strided-position activations -> domain label.
     Domain labels come from SOURCE_TO_DOMAIN mapping in generate_cots.py.
     """
-    from cot_utils import layer_percent_to_layer
+    from cot_utils import layer_percent_to_layer, get_cot_stride_positions
 
     # Inline mapping to avoid import chain that requires peft
     _SOURCE_TO_DOMAIN = {
@@ -72,10 +72,6 @@ def load_cot_domain_data(
         domain = domains[len(datapoints) % len(domains)]
         entry = random.choice(by_domain[domain])
 
-        boundary_positions = entry.get("boundary_positions", [])
-        if len(boundary_positions) < 2:
-            continue
-
         messages = [{"role": "user", "content": entry["question"]}]
         formatted = tokenizer.apply_chat_template(
             messages, tokenize=False, add_generation_prompt=True,
@@ -87,9 +83,14 @@ def load_cot_domain_data(
             cot_text = cot_text[:think_end]
         full_text = formatted + cot_text
         context_ids = tokenizer(full_text, add_special_tokens=False)["input_ids"]
+        prompt_len = len(tokenizer(formatted, add_special_tokens=False)["input_ids"])
 
-        positions = boundary_positions[:max_sentences]
-        positions = [p for p in positions if p < len(context_ids)]
+        positions = get_cot_stride_positions(
+            prompt_token_count=prompt_len,
+            total_token_count=len(context_ids),
+            stride=25,
+            max_positions=max_sentences,
+        )
         if len(positions) < 2:
             continue
 
@@ -98,7 +99,7 @@ def load_cot_domain_data(
         context_slice = context_ids[:positions[-1] + 1]
 
         prompt = (
-            f"Activations from {N} sentence boundaries. "
+            f"Activations from {N} strided CoT positions (every 25 tokens). "
             f"What domain is this reasoning about? "
             f"Answer with one word: {', '.join(domains)}."
         )

@@ -66,6 +66,46 @@ def find_sentence_boundary_positions(
     return positions
 
 
+def get_cot_stride_positions(
+    prompt_token_count: int,
+    total_token_count: int,
+    stride: int = 25,
+    max_positions: int | None = None,
+    include_last: bool = True,
+) -> list[int]:
+    """Get fixed-stride positions over the CoT token region.
+
+    Positions start right after the prompt tokens and proceed every `stride` tokens.
+    Optionally includes the last token to keep late-CoT signal.
+    """
+    cot_start = max(0, prompt_token_count)
+    cot_end = total_token_count - 1
+
+    if cot_end - cot_start + 1 < 2:
+        return []
+
+    positions = list(range(cot_start, cot_end + 1, max(1, stride)))
+    if include_last and positions and positions[-1] != cot_end:
+        positions.append(cot_end)
+
+    # Deduplicate while preserving order.
+    deduped = []
+    seen = set()
+    for pos in positions:
+        if pos not in seen:
+            deduped.append(pos)
+            seen.add(pos)
+    positions = deduped
+
+    if max_positions is not None and len(positions) > max_positions:
+        # Keep strict fixed-stride spacing; do not subsample/warp spacing.
+        positions = positions[:max_positions]
+
+    if len(positions) < 2:
+        return [cot_start, cot_end]
+    return positions
+
+
 # Layer count lookup (no torch dependency)
 LAYER_COUNTS = {
     "Qwen/Qwen3-0.6B": 28,
