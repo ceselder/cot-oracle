@@ -24,15 +24,8 @@ def load_cot_domain_data(
     max_sentences: int = 15,
     seed: int = 42,
 ) -> list[dict]:
-    """
-    Generate domain classification training data.
-
-    Each example: sentence-boundary activations -> domain label.
-    Domain labels come from SOURCE_TO_DOMAIN mapping in generate_cots.py.
-    """
     from signs_of_life.ao_lib import layer_percent_to_layer
 
-    # Inline mapping to avoid import chain that requires peft
     _SOURCE_TO_DOMAIN = {
         "MATH": "math", "GSM8K": "math", "GPQA": "science", "BBH": "logic",
         "ARC": "science", "StrategyQA": "commonsense", "DROP": "reading",
@@ -53,13 +46,31 @@ def load_cot_domain_data(
 
     layers = [layer_percent_to_layer(model_name, lp) for lp in layer_percents]
 
-    # Group by domain for balanced sampling
-    by_domain = {}
-    for entry in corpus:
+    # Pre-tokenize and group by domain
+    by_domain: dict[str, list[tuple]] = {}
+    for entry in tqdm(corpus, desc="  domain: tokenizing corpus", leave=False):
         domain = entry.get("domain") or _SOURCE_TO_DOMAIN.get(entry["source"], "unknown")
+        boundary_positions = entry.get("boundary_positions", [])
+        if len(boundary_positions) < 2:
+            continue
+
+        messages = [{"role": "user", "content": entry["question"]}]
+        formatted = tokenizer.apply_chat_template(
+            messages, tokenize=False, add_generation_prompt=True, enable_thinking=True,
+        )
+        cot_text = entry["cot_response"]
+        think_end = cot_text.find("</think>")
+        if think_end != -1:
+            cot_text = cot_text[:think_end]
+        context_ids = tokenizer(formatted + cot_text, add_special_tokens=False)["input_ids"]
+
+        positions = [p for p in boundary_positions[:max_sentences] if p < len(context_ids)]
+        if len(positions) < 2:
+            continue
+
         if domain not in by_domain:
             by_domain[domain] = []
-        by_domain[domain].append(entry)
+        by_domain[domain].append((context_ids, positions))
 
     domains = sorted(by_domain.keys())
     print(f"  Domains: {domains}")
@@ -67,36 +78,13 @@ def load_cot_domain_data(
         print(f"    {d}: {len(by_domain[d])} entries")
 
     datapoints = []
-    pbar = tqdm(total=num_examples, desc="  domain", leave=False)
+    pbar = tqdm(total=num_examples, desc="  domain: sampling", leave=False)
 
     while len(datapoints) < num_examples:
-        # Cycle through domains for balance
         domain = domains[len(datapoints) % len(domains)]
-        entry = random.choice(by_domain[domain])
-
-        boundary_positions = entry.get("boundary_positions", [])
-        if len(boundary_positions) < 2:
-            continue
-
-        messages = [{"role": "user", "content": entry["question"]}]
-        formatted = tokenizer.apply_chat_template(
-            messages, tokenize=False, add_generation_prompt=True,
-            enable_thinking=True,
-        )
-        cot_text = entry["cot_response"]
-        think_end = cot_text.find("</think>")
-        if think_end != -1:
-            cot_text = cot_text[:think_end]
-        full_text = formatted + cot_text
-        context_ids = tokenizer(full_text, add_special_tokens=False)["input_ids"]
-
-        positions = boundary_positions[:max_sentences]
-        positions = [p for p in positions if p < len(context_ids)]
-        if len(positions) < 2:
-            continue
+        context_ids, positions = random.choice(by_domain[domain])
 
         N = len(positions)
-
         context_slice = context_ids[:positions[-1] + 1]
 
         prompt = (
@@ -109,7 +97,7 @@ def load_cot_domain_data(
             "datapoint_type": "cot_domain",
             "prompt": prompt,
             "target_response": domain,
-            "layers": layers,  # Multi-layer: [L25%, L50%, L75%]
+            "layers": layers,
             "num_positions": N,
             "context_input_ids": context_slice,
             "context_positions": list(positions),

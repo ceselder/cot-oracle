@@ -66,37 +66,36 @@ def load_cot_context_prediction_data(
 
     layers = [layer_percent_to_layer(model_name, lp) for lp in layer_percents]
 
-    datapoints = []
-    pbar = tqdm(total=num_examples, desc="  context_prediction", leave=False)
-
-    while len(datapoints) < num_examples:
-        entry = random.choice(corpus)
-
-        # Tokenize only the CoT thinking portion (NOT the final answer)
+    # Pre-tokenize corpus (each entry tokenized once, not 500x)
+    cached = []
+    for entry in tqdm(corpus, desc="  context_prediction: tokenizing corpus", leave=False):
         messages = [{"role": "user", "content": entry["question"]}]
         formatted = tokenizer.apply_chat_template(
-            messages, tokenize=False, add_generation_prompt=True,
-            enable_thinking=True,
+            messages, tokenize=False, add_generation_prompt=True, enable_thinking=True,
         )
         cot_text = entry["cot_response"]
-        # Truncate at </think> to exclude final answer
         think_end = cot_text.find("</think>")
         if think_end != -1:
             cot_text = cot_text[:think_end]
         full_text = formatted + cot_text
         context_ids = tokenizer(full_text, add_special_tokens=False)["input_ids"]
-        L = len(context_ids)
-
-        # Compute where the prompt ends and CoT begins
         formatted_ids = tokenizer(formatted, add_special_tokens=False)["input_ids"]
         prompt_len = len(formatted_ids)
+        prompt_positions = _get_prompt_positions(prompt_len, n_prompt_positions)
+        cached.append((context_ids, prompt_len, prompt_positions))
 
-        # Random parameters
+    datapoints = []
+    pbar = tqdm(total=num_examples, desc="  context_prediction: sampling", leave=False)
+
+    while len(datapoints) < num_examples:
+        idx = random.randint(0, len(cached) - 1)
+        context_ids, prompt_len, prompt_positions = cached[idx]
+        L = len(context_ids)
+
         k_tokens = random.randint(min_k_tokens, max_k_tokens)
         k_acts = random.randint(min_k_activations, max_k_activations)
         direction = random.choice(["past", "future"])
 
-        # Get CoT activation positions
         if direction == "past":
             act_begin_min = max(k_tokens, prompt_len)
             act_begin_max = L - k_acts - 1
@@ -121,16 +120,8 @@ def load_cot_context_prediction_data(
             target_text = tokenizer.decode(target_tokens, skip_special_tokens=True)
             prompt_text = f"Can you predict the next {k_tokens} tokens that come after this?"
 
-        # Get prompt positions (evenly spaced in the prompt region)
-        prompt_positions = _get_prompt_positions(prompt_len, n_prompt_positions)
-
-        # Combine: prompt positions first, then CoT positions
         all_positions = prompt_positions + cot_act_positions
-
-        # Pick one random layer for this example
         layer = random.choice(layers)
-
-        # Context for on-the-fly collection: tokens up through last activation position
         context_cutoff = max(all_positions)
         context_input_ids_slice = context_ids[:context_cutoff + 1]
 

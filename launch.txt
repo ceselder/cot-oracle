@@ -4,4 +4,4 @@ srun --time=00:10:00 --mem=32G --partition=gpu_lowp --nodelist=gpu-sr675-34 bash
 # Random layer subset training (4x H100)
 tmux new -s train
 srun --time=04:00:00 --mem=128G --partition=gpu_lowp --nodelist=gpu-sr675-34 --gpus=h100:4 --pty bash
-cd ~/cot-oracle && source $VENV_LOCAL/${PWD##*/}/bin/activate && torchrun --nproc_per_node=4 src/train_random_layers.py --corpus data/cot_corpus_v4/corpus.jsonl --model Qwen/Qwen3-8B --batch-size 8 --epochs 1 --save-dir checkpoints/cot_oracle_randlayer --eval-steps 500 --save-steps 1000
+cd ~/cot-oracle && source $VENV_LOCAL/${PWD##*/}/bin/activate && torchrun --nproc_per_node=2 src/train_random_layers.py --corpus data/cot_corpus_v4/corpus.jsonl --model Qwen/Qwen3-8B --batch-size 8 --epochs 1 --save-dir checkpoints/cot_oracle_randlayer --eval-steps 500 --save-steps 1000

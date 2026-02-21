@@ -14,6 +14,8 @@ import random
 from tqdm.auto import tqdm
 from transformers import AutoTokenizer
 
+from dataset_classes.cot_decorative import _pretokenize_boundary_entries
+
 
 def load_cot_correctness_data(
     corpus_path: str,
@@ -24,12 +26,6 @@ def load_cot_correctness_data(
     max_sentences: int = 15,
     seed: int = 42,
 ) -> list[dict]:
-    """
-    Generate correctness prediction training data.
-
-    Each example: sentence-boundary activations -> correct / incorrect.
-    Ground truth from corpus (cot_correct field). Balanced 50/50.
-    """
     from signs_of_life.ao_lib import layer_percent_to_layer
 
     random.seed(seed)
@@ -43,7 +39,6 @@ def load_cot_correctness_data(
     if not corpus:
         raise ValueError(f"Empty corpus at {corpus_path}")
 
-    # Split into correct/incorrect pools
     correct_pool = [e for e in corpus if e.get("cot_correct")]
     incorrect_pool = [e for e in corpus if not e.get("cot_correct")]
 
@@ -56,41 +51,21 @@ def load_cot_correctness_data(
 
     layers = [layer_percent_to_layer(model_name, lp) for lp in layer_percents]
 
+    cached_correct = _pretokenize_boundary_entries(correct_pool, tokenizer, max_sentences, "correctness/correct")
+    cached_incorrect = _pretokenize_boundary_entries(incorrect_pool, tokenizer, max_sentences, "correctness/incorrect")
+
     datapoints = []
-    pbar = tqdm(total=num_examples, desc="  correctness", leave=False)
+    pbar = tqdm(total=num_examples, desc="  correctness: sampling", leave=False)
 
     while len(datapoints) < num_examples:
-        # Alternate 50/50
         if len(datapoints) % 2 == 0:
-            entry = random.choice(correct_pool)
+            context_ids, positions = random.choice(cached_correct)
             target = "correct"
         else:
-            entry = random.choice(incorrect_pool)
+            context_ids, positions = random.choice(cached_incorrect)
             target = "incorrect"
 
-        boundary_positions = entry.get("boundary_positions", [])
-        if len(boundary_positions) < 2:
-            continue
-
-        messages = [{"role": "user", "content": entry["question"]}]
-        formatted = tokenizer.apply_chat_template(
-            messages, tokenize=False, add_generation_prompt=True,
-            enable_thinking=True,
-        )
-        cot_text = entry["cot_response"]
-        think_end = cot_text.find("</think>")
-        if think_end != -1:
-            cot_text = cot_text[:think_end]
-        full_text = formatted + cot_text
-        context_ids = tokenizer(full_text, add_special_tokens=False)["input_ids"]
-
-        positions = boundary_positions[:max_sentences]
-        positions = [p for p in positions if p < len(context_ids)]
-        if len(positions) < 2:
-            continue
-
         N = len(positions)
-
         context_slice = context_ids[:positions[-1] + 1]
 
         prompt = (
@@ -102,7 +77,7 @@ def load_cot_correctness_data(
             "datapoint_type": "cot_correctness",
             "prompt": prompt,
             "target_response": target,
-            "layers": layers,  # Multi-layer: [L25%, L50%, L75%]
+            "layers": layers,
             "num_positions": N,
             "context_input_ids": context_slice,
             "context_positions": list(positions),

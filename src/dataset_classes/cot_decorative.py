@@ -18,6 +18,29 @@ from tqdm.auto import tqdm
 from transformers import AutoTokenizer
 
 
+def _pretokenize_boundary_entries(entries, tokenizer, max_sentences=15, desc=""):
+    """Pre-tokenize corpus entries and cache boundary positions + context_ids."""
+    cached = []
+    for entry in tqdm(entries, desc=f"  {desc}: tokenizing corpus", leave=False):
+        boundary_positions = entry.get("boundary_positions", [])
+        if len(boundary_positions) < 2:
+            continue
+        messages = [{"role": "user", "content": entry["question"]}]
+        formatted = tokenizer.apply_chat_template(
+            messages, tokenize=False, add_generation_prompt=True, enable_thinking=True,
+        )
+        cot_text = entry["cot_response"]
+        think_end = cot_text.find("</think>")
+        if think_end != -1:
+            cot_text = cot_text[:think_end]
+        context_ids = tokenizer(formatted + cot_text, add_special_tokens=False)["input_ids"]
+        positions = [p for p in boundary_positions[:max_sentences] if p < len(context_ids)]
+        if len(positions) < 2:
+            continue
+        cached.append((context_ids, positions))
+    return cached
+
+
 def load_cot_decorative_data(
     corpus_path: str,
     tokenizer: AutoTokenizer,
@@ -27,14 +50,6 @@ def load_cot_decorative_data(
     max_sentences: int = 15,
     seed: int = 42,
 ) -> list[dict]:
-    """
-    Generate decorative CoT detection training data with sentence-structured format.
-
-    Each example: activations at ALL sentence boundaries (3 per boundary, one per layer)
-    -> load_bearing / decorative.
-
-    Requires corpus generated with --keep-all.
-    """
     from signs_of_life.ao_lib import layer_percent_to_layer
 
     random.seed(seed)
@@ -45,7 +60,6 @@ def load_cot_decorative_data(
             if line.strip():
                 corpus.append(json.loads(line))
 
-    # Split into load-bearing and decorative pools
     load_bearing = [e for e in corpus if e.get("category") == "load_bearing"]
     decorative = [e for e in corpus if e.get("category") == "both_correct"]
 
@@ -58,42 +72,21 @@ def load_cot_decorative_data(
 
     layers = [layer_percent_to_layer(model_name, lp) for lp in layer_percents]
 
+    cached_lb = _pretokenize_boundary_entries(load_bearing, tokenizer, max_sentences, "decorative/load_bearing")
+    cached_dec = _pretokenize_boundary_entries(decorative, tokenizer, max_sentences, "decorative/decorative")
+
     datapoints = []
-    pbar = tqdm(total=num_examples, desc="  decorative", leave=False)
+    pbar = tqdm(total=num_examples, desc="  decorative: sampling", leave=False)
 
     while len(datapoints) < num_examples:
-        # Alternate 50/50
         if len(datapoints) % 2 == 0:
-            entry = random.choice(load_bearing)
+            context_ids, positions = random.choice(cached_lb)
             target = "load_bearing"
         else:
-            entry = random.choice(decorative)
+            context_ids, positions = random.choice(cached_dec)
             target = "decorative"
 
-        boundary_positions = entry.get("boundary_positions", [])
-        if len(boundary_positions) < 2:
-            continue
-
-        messages = [{"role": "user", "content": entry["question"]}]
-        formatted = tokenizer.apply_chat_template(
-            messages, tokenize=False, add_generation_prompt=True,
-            enable_thinking=True,
-        )
-        cot_text = entry["cot_response"]
-        think_end = cot_text.find("</think>")
-        if think_end != -1:
-            cot_text = cot_text[:think_end]
-        full_text = formatted + cot_text
-        context_ids = tokenizer(full_text, add_special_tokens=False)["input_ids"]
-
-        # Cap and validate positions
-        positions = boundary_positions[:max_sentences]
-        positions = [p for p in positions if p < len(context_ids)]
-        if len(positions) < 2:
-            continue
-
         N = len(positions)
-
         context_slice = context_ids[:positions[-1] + 1]
 
         prompt = (
@@ -106,7 +99,7 @@ def load_cot_decorative_data(
             "datapoint_type": "cot_decorative",
             "prompt": prompt,
             "target_response": target,
-            "layers": layers,  # Multi-layer: [L25%, L50%, L75%]
+            "layers": layers,
             "num_positions": N,
             "context_input_ids": context_slice,
             "context_positions": list(positions),

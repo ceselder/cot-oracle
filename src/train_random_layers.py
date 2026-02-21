@@ -18,11 +18,15 @@ Usage:
 """
 
 import argparse
+import os
 import random
 import sys
 from collections import Counter, defaultdict
 from pathlib import Path
 from tqdm.auto import tqdm
+
+def _is_rank0():
+    return os.environ.get("LOCAL_RANK", "0") == "0"
 
 sys.path.insert(0, str(Path(__file__).parent))
 
@@ -157,7 +161,7 @@ def dicts_to_multilayer_training_data(
     training_data = []
     skipped = 0
 
-    for item in tqdm(raw_data, desc="  Converting to TrainingDataPoints", leave=False):
+    for item in raw_data:
         layers_field = item.get("layers")  # list[int] for multi-layer, None for single
         if layers_field and len(layers_field) > 1:
             # Multi-layer item: sample random layers
@@ -342,35 +346,19 @@ def install_multilayer_materialization():
 
 
 def install_quartile_eval_hook(max_layers: int = 36):
-    """Monkey-patch eval_all_datasets to add quartile-binned accuracy logging.
-
-    After standard eval scoring, groups results by layers_to_quartile_bin()
-    and logs eval_quartile/{ds}/{bin}/accuracy to wandb.
-
-    Uses a fixed seed so layer subsets in eval data are reproducible across
-    checkpoints (the layers are baked into the TrainingDataPoint meta_info
-    at dataset creation time, so this is already deterministic).
+    """Replace eval_all_datasets with a version that:
+    1. Runs eval once per dataset (not twice)
+    2. Logs standard accuracy + quartile-binned accuracy
+    3. Logs a wandb Table with eval traces (prompt, label, prediction, layers, etc.)
     """
+    import gc
     import wandb
     from nl_probes.utils.eval import run_evaluation, score_eval_responses, parse_answer
 
-    _original_eval = sft_module.eval_all_datasets
-
     def patched_eval_all_datasets(cfg, eval_datasets, model, tokenizer, submodule, device, dtype, global_step):
-        # Run standard eval first
-        _original_eval(cfg, eval_datasets, model, tokenizer, submodule, device, dtype, global_step)
-
-        # Re-run eval to get feature results for quartile binning
-        # (original eval doesn't return results, so we need another pass)
-        # Actually — re-running is expensive. Instead, replicate the scoring
-        # logic inline but with quartile grouping.
-        #
-        # To avoid a second forward pass, we hook into the eval that just ran.
-        # Unfortunately eval_all_datasets doesn't return results.
-        # Compromise: run a lightweight re-eval only for quartile analysis.
-
         model.eval()
-        quartile_results = {}
+        eval_metrics = {}
+        table_rows = []
 
         for ds in eval_datasets:
             eval_data = eval_datasets[ds]
@@ -389,33 +377,64 @@ def install_quartile_eval_hook(max_layers: int = 36):
                 generation_kwargs=cfg.generation_kwargs,
             )
 
-            # Group by quartile bin
+            # Standard accuracy
+            percent_format_correct, percent_ans_correct = score_eval_responses(eval_responses, eval_data)
+            eval_metrics[f"eval_format_correct/{ds}"] = percent_format_correct
+            eval_metrics[f"eval_ans_correct/{ds}"] = percent_ans_correct
+            print(f"Step {global_step} {ds} format correct: {percent_format_correct}, ans correct: {percent_ans_correct}")
+
+            # Quartile-binned accuracy + table rows
             by_bin = defaultdict(lambda: {"correct": 0, "total": 0})
             for resp, dp in zip(eval_responses, eval_data, strict=True):
                 multi_layers = dp.meta_info.get("multi_layers", [dp.layer])
                 qbin = layers_to_quartile_bin(multi_layers, max_layers)
 
-                cleaned = resp.api_response.rstrip(".!?,;:").strip().lower()
-                target = dp.target_output.rstrip(".!?,;:").strip().lower()
+                cleaned = parse_answer(resp.api_response)
+                target = parse_answer(dp.target_output)
+                correct = cleaned == target
                 by_bin[qbin]["total"] += 1
-                if cleaned == target:
+                if correct:
                     by_bin[qbin]["correct"] += 1
+
+                # Build the masked prompt (what AO actually sees — input_ids with labels=-100 kept)
+                ao_prompt = resp.prompt  # decoded prompt from eval (already stripped of target)
+
+                table_rows.append([
+                    global_step,
+                    ds,
+                    dp.target_output,
+                    resp.api_response.strip(),
+                    correct,
+                    str(multi_layers),
+                    qbin,
+                    ao_prompt,
+                ])
 
             for qbin, counts in sorted(by_bin.items()):
                 n = counts["total"]
                 acc = counts["correct"] / n if n > 0 else 0.0
-                quartile_results[f"eval_quartile/{ds}/{qbin}/accuracy"] = acc
-                quartile_results[f"eval_quartile/{ds}/{qbin}/n"] = n
+                eval_metrics[f"eval_quartile/{ds}/{qbin}/accuracy"] = acc
+                eval_metrics[f"eval_quartile/{ds}/{qbin}/n"] = n
 
-        if quartile_results and wandb.run is not None:
-            wandb.log(quartile_results, step=global_step)
-            print(f"  Logged {len(quartile_results)} quartile metrics at step {global_step}")
+        # Log metrics
+        if wandb.run is not None:
+            wandb.log(eval_metrics, step=global_step)
+            wandb.summary.update(eval_metrics)
+
+            # Log eval traces table
+            table = wandb.Table(columns=[
+                "step", "task", "label", "prediction", "correct",
+                "layers", "quartile_bin", "ao_prompt",
+            ], data=table_rows)
+            wandb.log({f"eval_traces/step_{global_step}": table}, step=global_step)
+            print(f"  Logged {len(table_rows)} eval traces + {sum(1 for k in eval_metrics if 'quartile' in k)} quartile metrics")
 
         model.train()
         torch.cuda.empty_cache()
+        gc.collect()
 
     sft_module.eval_all_datasets = patched_eval_all_datasets
-    print("Installed quartile eval hook")
+    print("Installed quartile eval hook (with trace table)")
 
 
 def install_quartile_task_loss_hook(max_layers: int = 36):
@@ -494,6 +513,10 @@ def install_quartile_task_loss_hook(max_layers: int = 36):
                 log_dict[f"train/loss_{key}"] = sum(losses) / len(losses)
             for qbin, losses in quartile_losses.items():
                 log_dict[f"train/loss_quartile/{qbin}"] = sum(losses) / len(losses)
+
+            # Stage indicator: 1 if all tasks are stage 1, 2 if any stage 2 present
+            has_stage2 = any(t in STAGE2_TASKS for t in batch_types)
+            log_dict["train/stage"] = 2 if has_stage2 else 1
 
             if wandb.run is not None:
                 wandb.log(log_dict, commit=False)
@@ -749,46 +772,72 @@ def main():
         "cot_summary": args.n_summary,
     }
 
-    # Ensure boundary_positions are computed
-    print("Ensuring boundary_positions are computed...")
-    ensure_boundary_positions(args.corpus, tokenizer)
-    if args.persona_corpus and Path(args.persona_corpus).exists():
-        ensure_boundary_positions(args.persona_corpus, tokenizer)
+    # Initialize distributed early so we can gate data building on rank 0
+    import torch.distributed as dist
+    if not dist.is_initialized():
+        dist.init_process_group(backend="nccl")
+    rank = int(os.environ.get("LOCAL_RANK", 0))
 
-    # Build training data
-    print(f"Building random-layer training data (layer_mean={args.layer_mean}, max_layers={max_layers})...")
-    training_data = build_training_mixture(
-        args.corpus, args.persona_corpus, args.labels_dir,
-        tokenizer, args.model, layer_percents, max_layers, args.layer_mean,
-        task_sizes,
-    )
+    # Suppress tqdm on non-rank-0 processes
+    if rank != 0:
+        os.environ["TQDM_DISABLE"] = "1"
 
-    if not training_data:
-        print("ERROR: No training data generated!")
-        return
+    # Build data on rank 0, save to temp pickle, other ranks load it
+    import pickle
+    import tempfile
+    data_pickle = Path(args.save_dir) / "_data_cache.pkl"
+    data_pickle.parent.mkdir(parents=True, exist_ok=True)
 
-    # Build eval datasets
-    eval_datasets = build_eval_datasets(
-        args.corpus, args.labels_dir, tokenizer, args.model, layer_percents,
-        max_layers, args.layer_mean,
-    )
+    if rank == 0:
+        print("Ensuring boundary_positions are computed...")
+        ensure_boundary_positions(args.corpus, tokenizer)
+        if args.persona_corpus and Path(args.persona_corpus).exists():
+            ensure_boundary_positions(args.persona_corpus, tokenizer)
 
-    # Split off 100 examples per training task as eval
-    by_type = defaultdict(list)
-    for dp in training_data:
-        by_type[dp.datapoint_type].append(dp)
+        print(f"Building random-layer training data (layer_mean={args.layer_mean}, max_layers={max_layers})...")
+        training_data = build_training_mixture(
+            args.corpus, args.persona_corpus, args.labels_dir,
+            tokenizer, args.model, layer_percents, max_layers, args.layer_mean,
+            task_sizes,
+        )
 
-    final_training = []
-    for dtype, dps in by_type.items():
-        if len(dps) > 100:
-            eval_datasets[dtype] = dps[-100:]
-            final_training.extend(dps[:-100])
-        else:
-            final_training.extend(dps)
+        assert training_data, "No training data generated!"
 
-    print(f"\nTraining: {len(final_training)}, Eval: {sum(len(v) for v in eval_datasets.values())}")
-    for name, items in eval_datasets.items():
-        print(f"  eval/{name}: {len(items)} items")
+        eval_datasets = build_eval_datasets(
+            args.corpus, args.labels_dir, tokenizer, args.model, layer_percents,
+            max_layers, args.layer_mean,
+        )
+
+        # Split off 100 examples per training task as eval
+        by_type = defaultdict(list)
+        for dp in training_data:
+            by_type[dp.datapoint_type].append(dp)
+
+        final_training = []
+        for dtype, dps in by_type.items():
+            if len(dps) > 100:
+                eval_datasets[dtype] = dps[-100:]
+                final_training.extend(dps[:-100])
+            else:
+                final_training.extend(dps)
+
+        print(f"\nTraining: {len(final_training)}, Eval: {sum(len(v) for v in eval_datasets.values())}")
+        for name, items in eval_datasets.items():
+            print(f"  eval/{name}: {len(items)} items")
+
+        with open(data_pickle, "wb") as f:
+            pickle.dump((final_training, eval_datasets), f)
+        print(f"Saved data cache to {data_pickle}")
+
+    dist.barrier()  # wait for rank 0 to finish
+
+    if rank != 0:
+        with open(data_pickle, "rb") as f:
+            final_training, eval_datasets = pickle.load(f)
+
+    dist.barrier()  # all ranks loaded
+    if rank == 0:
+        data_pickle.unlink(missing_ok=True)
 
     # Download AO checkpoint
     ao_checkpoints = {
@@ -831,11 +880,6 @@ def main():
         model_kwargs["quantization_config"] = BitsAndBytesConfig(
             load_in_4bit=True, bnb_4bit_compute_dtype=torch.bfloat16,
         )
-
-    # Initialize distributed (required by AO's train_model)
-    import torch.distributed as dist
-    if not dist.is_initialized():
-        dist.init_process_group(backend="nccl")
 
     # Install hooks
     install_multilayer_materialization()
