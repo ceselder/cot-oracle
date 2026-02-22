@@ -25,9 +25,10 @@ def sample_num_layers(max_layers: int = 36, mean: int = 5) -> int:
 
 
 def sample_layers(max_layers: int = 36, mean: int = 5) -> list[int]:
-    """Sample a random subset of layers, sorted ascending."""
-    k = sample_num_layers(max_layers, mean)
-    return sorted(random.sample(range(max_layers), k))
+    """Sample a random subset of layers from [0, 75% depth), sorted ascending."""
+    effective_max = max_layers * 3 // 4
+    k = sample_num_layers(effective_max, mean)
+    return sorted(random.sample(range(effective_max), k))
 
 
 def build_random_layer_prefix(layers: list[int], num_positions_per_layer: int) -> str:
@@ -62,19 +63,19 @@ def find_all_special_positions(
     return positions[:expected_count]
 
 
-def layers_to_quartile_bin(layers: list[int], max_layers: int = 36) -> str:
-    """Map a layer set to a 4-char quartile string like '1010'.
+def layers_to_third_bin(layers: list[int], max_layers: int = 36) -> str:
+    """Map a layer set to a 3-char third string like '101'.
 
-    Q1: layers 0..max_layers//4-1
-    Q2: layers max_layers//4..max_layers//2-1
-    Q3: layers max_layers//2..3*max_layers//4-1
-    Q4: layers 3*max_layers//4..max_layers-1
+    Bins cover [0, 75% depth) split into thirds:
+      T1: layers 0..max_layers//4-1
+      T2: layers max_layers//4..max_layers//2-1
+      T3: layers max_layers//2..3*max_layers//4-1
 
-    Each char is '1' if any layer falls in that quartile, '0' otherwise.
+    Each char is '1' if any layer falls in that third, '0' otherwise.
     """
-    q_size = max_layers / 4
-    bits = ['0', '0', '0', '0']
+    t_size = max_layers / 4  # each third = 25% of total depth
+    bits = ['0', '0', '0']
     for layer in layers:
-        q = min(int(layer / q_size), 3)
-        bits[q] = '1'
+        t = min(int(layer / t_size), 2)
+        bits[t] = '1'
     return "".join(bits)

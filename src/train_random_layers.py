@@ -7,8 +7,8 @@ Like train_mixed.py but samples random subsets of all 36 layers per example
 New prefix format: "L5: ? ? ? ? L11: ? ? ? ?\n" (grouped per layer)
 instead of "Layer: 9, 18, 27\n @ ? # @ ? # @ ? # \n" (cycling per position).
 
-Quartile-binned eval: accuracy broken down by which depth quartiles are
-present, logged as eval_quartile/{ds}/{bin}/accuracy to wandb.
+Third-binned eval: accuracy broken down by which depth thirds are
+present, logged as eval_third/{ds}/{bin}/accuracy to wandb.
 
 Usage:
     torchrun --nproc_per_node=1 src/train_random_layers.py \
@@ -71,7 +71,7 @@ from layer_utils import (
     sample_layers,
     build_random_layer_prefix,
     find_all_special_positions,
-    layers_to_quartile_bin,
+    layers_to_third_bin,
 )
 from train_mixed import install_unfaithfulness_eval_hook
 from corpus_tokenize import load_corpus, pretokenize_corpus, ensure_boundary_positions
@@ -212,19 +212,29 @@ def _prepare_items(
     raw_data: list[dict],
     max_layers: int,
     layer_mean: int,
-    position_strides: list[int] | None,
+    position_stride: int | None,
     max_positions: int,
+    layer_repeats: int = 1,
 ) -> list[tuple]:
     """Pre-compute random decisions for all items (sequential, deterministic).
 
+    A fixed pool of layer_repeats layer sets is generated once, then every
+    item cycles through the same pool. This guarantees every layer set sees
+    every example.
+
     Returns list of (item_dict, layers_list, is_multi) tuples ready for conversion.
     """
+    # Pre-generate fixed layer set pools (one for multi-layer, one for single-layer items)
+    effective_max = max_layers * 3 // 4
+    multi_pool = [sample_layers(max_layers, layer_mean) for _ in range(layer_repeats)]
+    single_pool = [random.randint(0, effective_max - 1) for _ in range(layer_repeats)]
+
     prepared = []
     for item in raw_data:
-        # Stride-based position resampling for eligible tasks
-        if position_strides and item["datapoint_type"] not in _STRIDE_EXEMPT_TASKS:
+        # Stride-based position resampling for eligible tasks (applied once per item)
+        if position_stride and item["datapoint_type"] not in _STRIDE_EXEMPT_TASKS:
             total_length = len(item["context_input_ids"])
-            stride = random.choice(position_strides)
+            stride = position_stride
             positions = list(range(0, total_length, stride))
             if len(positions) > max_positions:
                 positions = positions[:max_positions]
@@ -242,13 +252,14 @@ def _prepare_items(
         else:
             item["_stride"] = None
 
+        # Cycle through fixed layer set pool
         layers_field = item.get("layers")
-        if layers_field and len(layers_field) > 1:
-            layers = sample_layers(max_layers, layer_mean)
-            prepared.append((item, layers, True))
-        else:
-            layer = random.randint(0, max_layers - 1)
-            prepared.append((item, [layer], False))
+        is_multi = layers_field and len(layers_field) > 1
+        for r in range(layer_repeats):
+            if is_multi:
+                prepared.append((item, multi_pool[r], True))
+            else:
+                prepared.append((item, [single_pool[r]], False))
 
     return prepared
 
@@ -258,22 +269,25 @@ def dicts_to_multilayer_training_data(
     tokenizer,
     max_layers: int = 36,
     layer_mean: int = 5,
-    position_strides: list[int] | None = None,
+    position_stride: int | None = None,
     max_positions: int = 50,
     model_name: str | None = None,
     num_workers: int | None = None,
+    layer_repeats: int = 1,
 ) -> list[TrainingDataPoint]:
     """Convert dataset dicts to TrainingDataPoints with random layer subsets.
 
     Multi-layer items ('layers' key): sample random layers via Poisson.
     Single-layer items ('layer' key, e.g. context prediction): sample 1 random
-    layer from the full range [0, max_layers) instead of the fixed 3 percentiles.
+    layer from the full range [0, 75% depth) instead of the fixed 3 percentiles.
+
+    Each item is replicated layer_repeats times with different layer sets.
 
     When model_name is provided and num_workers > 1, conversion runs in parallel
     using multiprocessing (each worker loads its own tokenizer).
     """
     # Step 1: pre-compute random decisions (sequential, preserves determinism)
-    prepared = _prepare_items(raw_data, max_layers, layer_mean, position_strides, max_positions)
+    prepared = _prepare_items(raw_data, max_layers, layer_mean, position_stride, max_positions, layer_repeats)
 
     if num_workers is None:
         num_workers = min(os.cpu_count() or 1, 8)
@@ -447,10 +461,59 @@ def install_multilayer_materialization():
     print("Installed multi-layer materialization patch (grouped ordering)")
 
 
-def install_quartile_eval_hook(max_layers: int = 36):
+def _build_full_text_with_source(dp: TrainingDataPoint, tokenizer) -> str:
+    """Build full prompt text with ? placeholders replaced by actual source tokens.
+
+    Each placeholder block 'L{n}: ? ? ? ?' becomes 'L{n}: <<tok1>> <<tok2>> ...'
+    so wandb shows what text the activations came from.
+    """
+    if dp.context_input_ids is None or dp.context_positions is None:
+        return tokenizer.decode(dp.input_ids, skip_special_tokens=False)
+
+    num_pos_per_layer = dp.meta_info.get("num_pos_per_layer", len(dp.context_positions))
+    multi_layers = dp.meta_info.get("multi_layers", [dp.layer])
+
+    # Decode each source token individually
+    ctx_ids = dp.context_input_ids
+    # Group context_positions by layer — each layer block repeats the same positions
+    positions_per_layer = dp.context_positions[:num_pos_per_layer]
+
+    source_tokens = []
+    for pos in positions_per_layer:
+        if pos < len(ctx_ids):
+            tok_text = tokenizer.decode([ctx_ids[pos]], skip_special_tokens=False).strip()
+            source_tokens.append(tok_text if tok_text else "∅")
+        else:
+            source_tokens.append("∅")
+
+    # Build the replacement prefix: L{n}: <<tok1>> <<tok2>> ...
+    parts = []
+    for layer in multi_layers:
+        highlighted = " ".join(f"<<{t}>>" for t in source_tokens)
+        parts.append(f"L{layer}: {highlighted}")
+    new_prefix = " ".join(parts) + " \n"
+
+    # Decode the full prompt and replace the original prefix
+    full_text = tokenizer.decode(dp.input_ids, skip_special_tokens=False)
+
+    # Find and replace the L{n}: ? ? ? ... pattern
+    # The original prefix looks like "L5: ? ? ? ? L11: ? ? ? ?\n"
+    placeholder_block = SPECIAL_TOKEN * num_pos_per_layer  # " ? ? ? ?"
+    old_parts = []
+    for layer in multi_layers:
+        old_parts.append(f"L{layer}:{placeholder_block}")
+    old_prefix = " ".join(old_parts) + " \n"
+
+    if old_prefix in full_text:
+        full_text = full_text.replace(old_prefix, new_prefix, 1)
+
+    return full_text
+
+
+def install_third_eval_hook(max_layers: int = 36):
     """Replace eval_all_datasets with a version that:
     1. Runs eval once per dataset (not twice)
-    2. Logs standard accuracy + quartile-binned accuracy
+    2. Logs standard accuracy + third-binned accuracy
     3. Logs a wandb Table with eval traces (prompt, label, prediction, layers, etc.)
     """
     import gc
@@ -485,12 +548,12 @@ def install_quartile_eval_hook(max_layers: int = 36):
             eval_metrics[f"eval_ans_correct/{ds}"] = percent_ans_correct
             print(f"Step {global_step} {ds} format correct: {percent_format_correct}, ans correct: {percent_ans_correct}")
 
-            # Quartile-binned + stride-binned accuracy + table rows
+            # Third-binned + stride-binned accuracy + table rows
             by_bin = defaultdict(lambda: {"correct": 0, "total": 0})
             by_stride = defaultdict(lambda: {"correct": 0, "total": 0})
             for resp, dp in zip(eval_responses, eval_data, strict=True):
                 multi_layers = dp.meta_info.get("multi_layers", [dp.layer])
-                qbin = layers_to_quartile_bin(multi_layers, max_layers)
+                qbin = layers_to_third_bin(multi_layers, max_layers)
 
                 cleaned = parse_answer(resp.api_response)
                 target = parse_answer(dp.target_output)
@@ -505,8 +568,8 @@ def install_quartile_eval_hook(max_layers: int = 36):
                 if correct:
                     by_stride[stride_label]["correct"] += 1
 
-                # Build the masked prompt (what AO actually sees — input_ids with labels=-100 kept)
-                ao_prompt = resp.prompt  # decoded prompt from eval (already stripped of target)
+                ao_prompt = resp.prompt
+                full_text = _build_full_text_with_source(dp, tokenizer)
 
                 table_rows.append([
                     global_step,
@@ -517,13 +580,14 @@ def install_quartile_eval_hook(max_layers: int = 36):
                     str(multi_layers),
                     qbin,
                     ao_prompt,
+                    full_text,
                 ])
 
             for qbin, counts in sorted(by_bin.items()):
                 n = counts["total"]
                 acc = counts["correct"] / n if n > 0 else 0.0
-                eval_metrics[f"eval_quartile/{ds}/{qbin}/accuracy"] = acc
-                eval_metrics[f"eval_quartile/{ds}/{qbin}/n"] = n
+                eval_metrics[f"eval_third/{ds}/{qbin}/accuracy"] = acc
+                eval_metrics[f"eval_third/{ds}/{qbin}/n"] = n
 
             for slabel, counts in sorted(by_stride.items()):
                 n = counts["total"]
@@ -539,26 +603,26 @@ def install_quartile_eval_hook(max_layers: int = 36):
             # Log eval traces table
             table = wandb.Table(columns=[
                 "step", "task", "label", "prediction", "correct",
-                "layers", "quartile_bin", "ao_prompt",
+                "layers", "third_bin", "ao_prompt", "full_prompt",
             ], data=table_rows)
             wandb.log({f"eval_traces/step_{global_step}": table}, step=global_step)
-            print(f"  Logged {len(table_rows)} eval traces + {sum(1 for k in eval_metrics if 'quartile' in k)} quartile metrics")
+            print(f"  Logged {len(table_rows)} eval traces + {sum(1 for k in eval_metrics if 'third' in k)} third metrics")
 
         model.train()
         torch.cuda.empty_cache()
         gc.collect()
 
     sft_module.eval_all_datasets = patched_eval_all_datasets
-    print("Installed quartile eval hook (with trace table)")
+    print("Installed third eval hook (with trace table)")
 
 
-def install_quartile_task_loss_hook(max_layers: int = 36):
-    """Monkey-patch AO's training loop to log per-task AND per-quartile loss to wandb.
+def install_third_task_loss_hook(max_layers: int = 36):
+    """Monkey-patch AO's training loop to log per-task AND per-third loss to wandb.
 
     Logs:
       train/loss_{task}           — per-task average loss (as before)
-      train/loss_{task}/{qbin}    — per-task × per-quartile-bin loss
-      train/loss_quartile/{qbin}  — per-quartile average loss (across all tasks)
+      train/loss_{task}/{qbin}    — per-task × per-third-bin loss
+      train/loss_third/{qbin}  — per-third average loss (across all tasks)
     """
     import wandb
     import torch.nn.functional as F
@@ -606,10 +670,10 @@ def install_quartile_task_loss_hook(max_layers: int = 36):
 
             # Per-task losses
             task_losses = defaultdict(list)
-            # Per-task × per-quartile losses
-            task_quartile_losses = defaultdict(list)
-            # Per-quartile losses (across all tasks)
-            quartile_losses = defaultdict(list)
+            # Per-task × per-third losses
+            task_third_losses = defaultdict(list)
+            # Per-third losses (across all tasks)
+            third_losses = defaultdict(list)
             # Per-stride losses
             stride_losses = defaultdict(list)
 
@@ -620,9 +684,9 @@ def install_quartile_task_loss_hook(max_layers: int = 36):
                 meta = meta_infos[i]
                 multi_layers = meta.get("multi_layers", [])
                 if multi_layers:
-                    qbin = layers_to_quartile_bin(multi_layers, max_layers)
-                    task_quartile_losses[f"{task_type}/{qbin}"].append(loss_val)
-                    quartile_losses[qbin].append(loss_val)
+                    qbin = layers_to_third_bin(multi_layers, max_layers)
+                    task_third_losses[f"{task_type}/{qbin}"].append(loss_val)
+                    third_losses[qbin].append(loss_val)
 
                 stride_val = meta.get("stride")
                 if stride_val is not None:
@@ -631,16 +695,22 @@ def install_quartile_task_loss_hook(max_layers: int = 36):
             log_dict = {}
             for task, losses in task_losses.items():
                 log_dict[f"train/loss_{task}"] = sum(losses) / len(losses)
-            for key, losses in task_quartile_losses.items():
+            for key, losses in task_third_losses.items():
                 log_dict[f"train/loss_{key}"] = sum(losses) / len(losses)
-            for qbin, losses in quartile_losses.items():
-                log_dict[f"train/loss_quartile/{qbin}"] = sum(losses) / len(losses)
+            for qbin, losses in third_losses.items():
+                log_dict[f"train/loss_third/{qbin}"] = sum(losses) / len(losses)
             for slabel, losses in stride_losses.items():
                 log_dict[f"train/loss_stride/{slabel}"] = sum(losses) / len(losses)
 
-            # Stage indicator: 1 if all tasks are stage 1, 2 if any stage 2 present
-            has_stage2 = any(t in STAGE2_TASKS for t in batch_types)
-            log_dict["train/stage"] = 2 if has_stage2 else 1
+            # Stage indicator based on which tasks are present in batch
+            stage2_tasks_present = [t for t in batch_types if t in STAGE2_TASKS]
+            if not stage2_tasks_present:
+                log_dict["train/stage"] = 1
+            else:
+                # Use the highest-index stage2 task as the stage number
+                order = STAGE2_ORDER_DEFAULT
+                max_idx = max(order.index(t) for t in stage2_tasks_present if t in order)
+                log_dict["train/stage"] = max_idx + 2
 
             if wandb.run is not None:
                 wandb.log(log_dict, commit=False)
@@ -648,7 +718,10 @@ def install_quartile_task_loss_hook(max_layers: int = 36):
         return outputs.loss
 
     sft_module.train_features_batch = patched_train_features_batch
-    print("Installed per-task × per-quartile loss logging hook")
+    print("Installed per-task × per-third loss logging hook")
+
+
+STAGE2_ORDER_DEFAULT = ["cot_decorative", "cot_domain", "cot_correctness", "cot_persona", "cot_summary"]
 
 
 def build_curriculum(
@@ -656,31 +729,51 @@ def build_curriculum(
     stage2_data: list[TrainingDataPoint],
     stage1_reg: float = 0.2,
     seed: int = 42,
-) -> list[TrainingDataPoint]:
-    """Build a two-stage curriculum: stage 1 (token prediction) then stage 2 (classification).
+    stage2_order: list[str] | None = None,
+) -> tuple[list[TrainingDataPoint], list[int]]:
+    """Build a multi-stage curriculum: stage 1 (token prediction), then one stage per classification task.
 
     Stage 1: only stage1_data (context pred, sentence pred), shuffled.
-    Stage 2: all stage2_data + a random subset of stage1_data as regularization, shuffled.
+    Stage 2+: each classification task in order, with regularization from all prior stages.
 
-    Returns a single list where stage 1 examples come first, then stage 2.
-    The AO training loop will iterate through them in order.
+    Returns (ordered_data, stage_boundaries) where stage_boundaries[i] is the
+    index where stage i+1 starts (i.e. stage_boundaries[0] = start of stage 2).
     """
+    if stage2_order is None:
+        stage2_order = STAGE2_ORDER_DEFAULT
+
     rng = random.Random(seed)
 
+    # Group stage 2 data by task
+    by_task: dict[str, list] = defaultdict(list)
+    for dp in stage2_data:
+        by_task[dp.datapoint_type].append(dp)
+
+    # Stage 1
     s1 = list(stage1_data)
     rng.shuffle(s1)
 
-    # Stage 2: classification tasks + some stage 1 for regularization
-    n_reg = int(len(stage2_data) * stage1_reg)
-    reg_subset = rng.sample(stage1_data, min(n_reg, len(stage1_data)))
-    s2 = list(stage2_data) + reg_subset
-    rng.shuffle(s2)
+    ordered = list(s1)
+    stage_boundaries = [len(ordered)]  # boundary between stage 1 and first stage-2 sub-stage
+    prior_pool = list(stage1_data)  # pool of all prior-stage data for regularization
 
     print(f"\nCurriculum staging:")
     print(f"  Stage 1: {len(s1)} examples (token prediction)")
-    print(f"  Stage 2: {len(s2)} examples ({len(stage2_data)} classification + {len(reg_subset)} regularization)")
 
-    return s1 + s2
+    for i, task in enumerate(stage2_order):
+        task_data = by_task.get(task, [])
+        if not task_data:
+            continue
+        n_reg = int(len(task_data) * stage1_reg)
+        reg_subset = rng.sample(prior_pool, min(n_reg, len(prior_pool)))
+        stage = list(task_data) + reg_subset
+        rng.shuffle(stage)
+        ordered.extend(stage)
+        stage_boundaries.append(len(ordered))
+        prior_pool.extend(task_data)
+        print(f"  Stage {i + 2}: {len(stage)} examples ({len(task_data)} {task} + {len(reg_subset)} reg)")
+
+    return ordered, stage_boundaries
 
 
 # ---------------------------------------------------------------------------
@@ -697,11 +790,12 @@ def build_training_mixture(
     max_layers: int,
     layer_mean: int,
     task_sizes: dict[str, int] | None = None,
-    position_strides: list[int] | None = None,
+    position_stride: int | None = None,
     max_positions: int = 50,
     num_workers: int | None = None,
     corpus_entries: list[dict] | None = None,
     persona_entries: list[dict] | None = None,
+    layer_repeats: int = 1,
 ) -> list[TrainingDataPoint]:
     """Build the mixed training data from up to 7 tasks, with random layer subsets.
 
@@ -810,8 +904,9 @@ def build_training_mixture(
     print(f"Converting {len(all_raw)} raw dicts to TrainingDataPoints...")
     all_data = dicts_to_multilayer_training_data(
         all_raw, tokenizer, max_layers, layer_mean,
-        position_strides, max_positions,
+        position_stride, max_positions,
         model_name=model_name, num_workers=num_workers,
+        layer_repeats=layer_repeats,
     )
 
     print(f"Total training examples: {len(all_data)}")
@@ -831,7 +926,7 @@ def build_eval_datasets(
     layer_percents: list[int],
     max_layers: int,
     layer_mean: int,
-    position_strides: list[int] | None = None,
+    position_stride: int | None = None,
     max_positions: int = 50,
     corpus_entries: list[dict] | None = None,
 ) -> dict[str, list[TrainingDataPoint]]:
@@ -851,7 +946,7 @@ def build_eval_datasets(
                 corpus_path, str(tracking_path), tokenizer, model_name, layer_percents,
                 num_examples=100, corpus_entries=corpus_entries,
             )
-            data = dicts_to_multilayer_training_data(raw, tokenizer, max_layers, layer_mean, position_strides, max_positions)
+            data = dicts_to_multilayer_training_data(raw, tokenizer, max_layers, layer_mean, position_stride, max_positions)
             eval_datasets["cot_answer_tracking"] = data
             print(f"  Generated {len(data)} eval examples")
 
@@ -863,7 +958,7 @@ def build_eval_datasets(
             corpus_path, summaries_path, tokenizer, model_name, layer_percents,
             num_examples=100, seed=999, corpus_entries=corpus_entries,
         )
-        data = dicts_to_multilayer_training_data(raw, tokenizer, max_layers, layer_mean, position_strides, max_positions)
+        data = dicts_to_multilayer_training_data(raw, tokenizer, max_layers, layer_mean, position_stride, max_positions)
         eval_datasets["cot_summary"] = data
         print(f"  Generated {len(data)} eval examples")
 
@@ -889,18 +984,20 @@ def main():
     parser.add_argument("--save-dir", default="checkpoints/cot_oracle_randlayer")
     parser.add_argument("--wandb-project", default="cot_oracle")
     parser.add_argument("--wandb-run", default="")
-    parser.add_argument("--eval-steps", type=int, default=50)
+    parser.add_argument("--eval-steps", type=int, default=100)
     parser.add_argument("--save-steps", type=int, default=1000)
     parser.add_argument("--gradient-checkpointing", action="store_true", default=True)
     parser.add_argument("--eval-dir", default="data/evals")
     parser.add_argument("--fast-eval-n", type=int, default=10)
     parser.add_argument("--no-unfaith-evals", action="store_true")
     parser.add_argument("--layer-mean", type=int, default=5, help="Poisson mean for number of layers per example")
+    parser.add_argument("--layer-repeats", type=int, default=3, help="Replicate each example N times with different layer sets")
     parser.add_argument("--quantize-4bit", action="store_true", help="Load model in 4-bit (for <24GB GPUs)")
     parser.add_argument("--no-curriculum", action="store_true", help="Disable 2-stage curriculum (shuffle all tasks together)")
     parser.add_argument("--stage1-reg", type=float, default=0.2, help="Fraction of stage 2 size to mix in as stage 1 regularization")
-    parser.add_argument("--position-strides", type=int, nargs="+", default=[4, 16, 64], help="Stride values for position sampling from whole sequence")
+    parser.add_argument("--position-stride", type=int, default=5, help="Fixed stride for position sampling from whole sequence")
     parser.add_argument("--max-positions", type=int, default=50, help="Cap positions per example (prevents huge prefixes)")
+    parser.add_argument("--stage2-order", nargs="+", default=STAGE2_ORDER_DEFAULT, help="Order of stage-2 tasks (each becomes its own sub-stage)")
     parser.add_argument("--no-data-cache", action="store_true", help="Force rebuild training data (ignore persistent cache)")
     parser.add_argument("--num-workers", type=int, default=None, help="Workers for parallel data conversion (default: min(cpu_count, 8))")
     # Task size overrides
@@ -951,9 +1048,10 @@ def main():
         layer_mean=args.layer_mean,
         max_layers=max_layers,
         layer_percents=layer_percents,
-        position_strides=args.position_strides,
+        position_stride=args.position_stride,
         max_positions=args.max_positions,
         labels_dir=args.labels_dir,
+        layer_repeats=args.layer_repeats,
     )
 
     # Build data on rank 0, share via temp pickle to other ranks
@@ -986,16 +1084,17 @@ def main():
             training_data = build_training_mixture(
                 args.corpus, args.persona_corpus, args.labels_dir,
                 tokenizer, args.model, layer_percents, max_layers, args.layer_mean,
-                task_sizes, args.position_strides, args.max_positions,
+                task_sizes, args.position_stride, args.max_positions,
                 num_workers=args.num_workers,
                 corpus_entries=corpus_entries, persona_entries=persona_entries,
+                layer_repeats=args.layer_repeats,
             )
 
             assert training_data, "No training data generated!"
 
             eval_datasets = build_eval_datasets(
                 args.corpus, args.labels_dir, tokenizer, args.model, layer_percents,
-                max_layers, args.layer_mean, args.position_strides, args.max_positions,
+                max_layers, args.layer_mean, args.position_stride, args.max_positions,
                 corpus_entries=corpus_entries,
             )
 
@@ -1081,7 +1180,7 @@ def main():
 
     # Install hooks
     install_multilayer_materialization()
-    install_quartile_eval_hook(max_layers)
+    install_third_eval_hook(max_layers)
 
     if not args.no_unfaith_evals and Path(args.eval_dir).exists():
         install_unfaithfulness_eval_hook(
@@ -1090,14 +1189,14 @@ def main():
             fast_n=args.fast_eval_n,
         )
 
-    install_quartile_task_loss_hook(max_layers)
+    install_third_task_loss_hook(max_layers)
 
     # Login to wandb (supports WANDB_API_KEY env var or .netrc)
     import wandb
     wandb.login()
 
     # Build curriculum or shuffle
-    stage_transition_step = None
+    stage_boundaries = []
     if args.no_curriculum:
         random.seed(42)
         random.shuffle(final_training)
@@ -1105,8 +1204,9 @@ def main():
     else:
         stage1 = [dp for dp in final_training if dp.datapoint_type in STAGE1_TASKS]
         stage2 = [dp for dp in final_training if dp.datapoint_type in STAGE2_TASKS]
-        final_training = build_curriculum(stage1, stage2, stage1_reg=args.stage1_reg)
-        stage_transition_step = len(stage1) // (args.batch_size * world_size * grad_accum)
+        final_training, stage_boundaries = build_curriculum(
+            stage1, stage2, stage1_reg=args.stage1_reg, stage2_order=args.stage2_order,
+        )
 
     # Print training summary
     print(f"\nStarting training:")
@@ -1119,15 +1219,14 @@ def main():
     effective_bs = args.batch_size * world_size * grad_accum
     print(f"  Total steps: ~{len(final_training) // effective_bs}")
     print(f"  Save dir: {cfg.save_dir}")
-    print(f"  Layer mean: {args.layer_mean}, Max layers: {max_layers}")
-    print(f"  Position strides: {args.position_strides}, Max positions: {args.max_positions}")
+    print(f"  Layer mean: {args.layer_mean}, Max layers: {max_layers}, Layer repeats: {args.layer_repeats}")
+    print(f"  Position stride: {args.position_stride}, Max positions: {args.max_positions}")
     print(f"  Tasks: {sorted(set(dp.datapoint_type for dp in final_training))}")
 
-    # Stride distribution
-    stride_dist = Counter(dp.meta_info.get("stride") for dp in final_training)
-    print(f"  Stride distribution: {dict(sorted((k, v) for k, v in stride_dist.items() if k is not None))}")
-    if stage_transition_step is not None:
-        print(f"  Curriculum: stage 1→2 at ~step {stage_transition_step}")
+    if stage_boundaries:
+        for i, boundary in enumerate(stage_boundaries):
+            step = boundary // effective_bs
+            print(f"  Curriculum: stage {i+1}→{i+2} at ~step {step}")
 
     train_model(
         cfg=cfg,
