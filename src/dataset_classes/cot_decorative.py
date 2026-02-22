@@ -25,15 +25,18 @@ def _pretokenize_boundary_entries(entries, tokenizer, max_sentences=15, desc="")
         boundary_positions = entry.get("boundary_positions", [])
         if len(boundary_positions) < 2:
             continue
-        messages = [{"role": "user", "content": entry["question"]}]
-        formatted = tokenizer.apply_chat_template(
-            messages, tokenize=False, add_generation_prompt=True, enable_thinking=True,
-        )
-        cot_text = entry["cot_response"]
-        think_end = cot_text.find("</think>")
-        if think_end != -1:
-            cot_text = cot_text[:think_end]
-        context_ids = tokenizer(formatted + cot_text, add_special_tokens=False)["input_ids"]
+        if "_ctx_ids" in entry:
+            context_ids = entry["_ctx_ids"]
+        else:
+            messages = [{"role": "user", "content": entry["question"]}]
+            formatted = tokenizer.apply_chat_template(
+                messages, tokenize=False, add_generation_prompt=True, enable_thinking=True,
+            )
+            cot_text = entry["cot_response"]
+            think_end = cot_text.find("</think>")
+            if think_end != -1:
+                cot_text = cot_text[:think_end]
+            context_ids = tokenizer(formatted + cot_text, add_special_tokens=False)["input_ids"]
         positions = [p for p in boundary_positions[:max_sentences] if p < len(context_ids)]
         if len(positions) < 2:
             continue
@@ -49,16 +52,20 @@ def load_cot_decorative_data(
     num_examples: int = 10000,
     max_sentences: int = 15,
     seed: int = 42,
+    corpus_entries: list[dict] | None = None,
 ) -> list[dict]:
     from signs_of_life.ao_lib import layer_percent_to_layer
 
     random.seed(seed)
 
-    corpus = []
-    with open(corpus_path) as f:
-        for line in f:
-            if line.strip():
-                corpus.append(json.loads(line))
+    if corpus_entries is not None:
+        corpus = corpus_entries
+    else:
+        corpus = []
+        with open(corpus_path) as f:
+            for line in f:
+                if line.strip():
+                    corpus.append(json.loads(line))
 
     load_bearing = [e for e in corpus if e.get("category") == "load_bearing"]
     decorative = [e for e in corpus if e.get("category") == "both_correct"]
@@ -87,7 +94,6 @@ def load_cot_decorative_data(
             target = "decorative"
 
         N = len(positions)
-        context_slice = context_ids[:positions[-1] + 1]
 
         prompt = (
             f"Activations from {N} sentence boundaries. "
@@ -101,7 +107,7 @@ def load_cot_decorative_data(
             "target_response": target,
             "layers": layers,
             "num_positions": N,
-            "context_input_ids": context_slice,
+            "context_input_ids": list(context_ids),
             "context_positions": list(positions),
         })
         pbar.update(1)

@@ -25,23 +25,25 @@ def load_cot_sentence_prediction_data(
     min_k_tokens: int = 1,
     max_k_tokens: int = 15,
     seed: int = 42,
+    corpus_entries: list[dict] | None = None,
 ) -> list[dict]:
     from signs_of_life.ao_lib import layer_percent_to_layer
 
     random.seed(seed)
 
-    corpus = []
-    with open(corpus_path) as f:
-        for line in f:
-            if line.strip():
-                corpus.append(json.loads(line))
+    if corpus_entries is not None:
+        corpus = corpus_entries
+    else:
+        corpus = []
+        with open(corpus_path) as f:
+            for line in f:
+                if line.strip():
+                    corpus.append(json.loads(line))
 
-    if not corpus:
-        raise ValueError(f"Empty corpus at {corpus_path}")
+    assert corpus, f"Empty corpus at {corpus_path}"
 
     layers = [layer_percent_to_layer(model_name, lp) for lp in layer_percents]
 
-    # Pre-tokenize corpus and cache boundary info
     cached = []
     for entry in tqdm(corpus, desc="  sentence_prediction: tokenizing corpus", leave=False):
         boundary_positions = entry.get("boundary_positions", [])
@@ -49,17 +51,19 @@ def load_cot_sentence_prediction_data(
         if len(boundary_positions) < 2 or len(sentences) < 2:
             continue
 
-        messages = [{"role": "user", "content": entry["question"]}]
-        formatted = tokenizer.apply_chat_template(
-            messages, tokenize=False, add_generation_prompt=True, enable_thinking=True,
-        )
-        cot_text = entry["cot_response"]
-        think_end = cot_text.find("</think>")
-        if think_end != -1:
-            cot_text = cot_text[:think_end]
-        full_ids = tokenizer(formatted + cot_text, add_special_tokens=False)["input_ids"]
+        if "_ctx_ids" in entry:
+            full_ids = entry["_ctx_ids"]
+        else:
+            messages = [{"role": "user", "content": entry["question"]}]
+            formatted = tokenizer.apply_chat_template(
+                messages, tokenize=False, add_generation_prompt=True, enable_thinking=True,
+            )
+            cot_text = entry["cot_response"]
+            think_end = cot_text.find("</think>")
+            if think_end != -1:
+                cot_text = cot_text[:think_end]
+            full_ids = tokenizer(formatted + cot_text, add_special_tokens=False)["input_ids"]
 
-        # Filter valid boundary positions
         valid_bp = [p for p in boundary_positions if p < len(full_ids)]
         if len(valid_bp) < 2:
             continue

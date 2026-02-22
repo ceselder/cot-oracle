@@ -55,10 +55,11 @@ def find_all_special_positions(
     the 'L{n}:' labels between blocks break the consecutive run.
     """
     positions = [i for i, tid in enumerate(token_ids) if tid == special_token_id]
-    assert len(positions) == expected_count, (
+    # Target response may contain the special token; take only the first expected_count
+    assert len(positions) >= expected_count, (
         f"Expected {expected_count} special tokens, found {len(positions)}"
     )
-    return positions
+    return positions[:expected_count]
 
 
 def layers_to_quartile_bin(layers: list[int], max_layers: int = 36) -> str:

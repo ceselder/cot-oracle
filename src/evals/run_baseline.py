@@ -235,7 +235,7 @@ def main():
     parser.add_argument("--eval-dir", default="data/evals")
     parser.add_argument("--output-dir", default="data/eval_results/baseline")
     parser.add_argument("--skip-regression", action="store_true", help="Skip AO classification regression evals")
-    parser.add_argument("--batch-size", type=int, default=8, help="Batch size for generation")
+    parser.add_argument("--batch-size", type=int, default=16, help="Batch size for generation")
     parser.add_argument("--skip-unfaithfulness", action="store_true", help="Skip unfaithfulness evals")
     parser.add_argument("--device", default="cuda")
     parser.add_argument("--wandb-project", default="cot_oracle")

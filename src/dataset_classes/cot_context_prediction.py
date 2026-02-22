@@ -39,6 +39,7 @@ def load_cot_context_prediction_data(
     max_k_activations: int = 20,
     n_prompt_positions: int = 5,
     seed: int = 42,
+    corpus_entries: list[dict] | None = None,
 ) -> list[dict]:
     """
     Generate PastLens-style training data from CoT corpus.
@@ -46,41 +47,42 @@ def load_cot_context_prediction_data(
     Each example randomly picks one layer from layer_percents.
     AO handles heterogeneous batches (different layers per example).
 
-    Returns list of dicts with keys needed for create_training_datapoint():
-        datapoint_type, prompt, target_response, layer, num_positions,
-        context_input_ids, context_positions
+    If corpus_entries is provided (with _ctx_ids/_fmt_len from pretokenize_corpus),
+    skips file reading and tokenization entirely.
     """
     from signs_of_life.ao_lib import layer_percent_to_layer
 
     random.seed(seed)
 
-    # Load corpus
-    corpus = []
-    with open(corpus_path) as f:
-        for line in f:
-            if line.strip():
-                corpus.append(json.loads(line))
+    if corpus_entries is not None:
+        corpus = corpus_entries
+    else:
+        corpus = []
+        with open(corpus_path) as f:
+            for line in f:
+                if line.strip():
+                    corpus.append(json.loads(line))
 
-    if not corpus:
-        raise ValueError(f"Empty corpus at {corpus_path}")
+    assert corpus, f"Empty corpus at {corpus_path}"
 
     layers = [layer_percent_to_layer(model_name, lp) for lp in layer_percents]
 
-    # Pre-tokenize corpus (each entry tokenized once, not 500x)
     cached = []
     for entry in tqdm(corpus, desc="  context_prediction: tokenizing corpus", leave=False):
-        messages = [{"role": "user", "content": entry["question"]}]
-        formatted = tokenizer.apply_chat_template(
-            messages, tokenize=False, add_generation_prompt=True, enable_thinking=True,
-        )
-        cot_text = entry["cot_response"]
-        think_end = cot_text.find("</think>")
-        if think_end != -1:
-            cot_text = cot_text[:think_end]
-        full_text = formatted + cot_text
-        context_ids = tokenizer(full_text, add_special_tokens=False)["input_ids"]
-        formatted_ids = tokenizer(formatted, add_special_tokens=False)["input_ids"]
-        prompt_len = len(formatted_ids)
+        if "_ctx_ids" in entry:
+            context_ids, prompt_len = entry["_ctx_ids"], entry["_fmt_len"]
+        else:
+            messages = [{"role": "user", "content": entry["question"]}]
+            formatted = tokenizer.apply_chat_template(
+                messages, tokenize=False, add_generation_prompt=True, enable_thinking=True,
+            )
+            cot_text = entry["cot_response"]
+            think_end = cot_text.find("</think>")
+            if think_end != -1:
+                cot_text = cot_text[:think_end]
+            context_ids = tokenizer(formatted + cot_text, add_special_tokens=False)["input_ids"]
+            formatted_ids = tokenizer(formatted, add_special_tokens=False)["input_ids"]
+            prompt_len = len(formatted_ids)
         prompt_positions = _get_prompt_positions(prompt_len, n_prompt_positions)
         cached.append((context_ids, prompt_len, prompt_positions))
 

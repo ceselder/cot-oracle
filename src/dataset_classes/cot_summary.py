@@ -24,17 +24,21 @@ def load_cot_summary_data(
     num_examples: int = 15000,
     max_sentences: int = 15,
     seed: int = 42,
+    corpus_entries: list[dict] | None = None,
 ) -> list[dict]:
     from signs_of_life.ao_lib import layer_percent_to_layer
 
     random.seed(seed)
 
-    corpus = {}
-    with open(corpus_path) as f:
-        for line in f:
-            if line.strip():
-                entry = json.loads(line)
-                corpus[entry["id"]] = entry
+    if corpus_entries is not None:
+        corpus = {e["id"]: e for e in corpus_entries}
+    else:
+        corpus = {}
+        with open(corpus_path) as f:
+            for line in f:
+                if line.strip():
+                    entry = json.loads(line)
+                    corpus[entry["id"]] = entry
 
     summaries = {}
     with open(summaries_path) as f:
@@ -46,24 +50,25 @@ def load_cot_summary_data(
 
     layers = [layer_percent_to_layer(model_name, lp) for lp in layer_percents]
 
-    # Pre-tokenize matched entries
     cached = []
     matched_entries = [(corpus[eid], summaries[eid]) for eid in corpus if eid in summaries and len(corpus[eid].get("boundary_positions", [])) >= 2]
     print(f"  Matched corpus+summary entries: {len(matched_entries)}")
 
-    if not matched_entries:
-        raise ValueError("No matched entries found. Check summaries_path.")
+    assert matched_entries, "No matched entries found. Check summaries_path."
 
     for entry, summary in tqdm(matched_entries, desc="  summary: tokenizing corpus", leave=False):
-        messages = [{"role": "user", "content": entry["question"]}]
-        formatted = tokenizer.apply_chat_template(
-            messages, tokenize=False, add_generation_prompt=True, enable_thinking=True,
-        )
-        cot_text = entry["cot_response"]
-        think_end = cot_text.find("</think>")
-        if think_end != -1:
-            cot_text = cot_text[:think_end]
-        context_ids = tokenizer(formatted + cot_text, add_special_tokens=False)["input_ids"]
+        if "_ctx_ids" in entry:
+            context_ids = entry["_ctx_ids"]
+        else:
+            messages = [{"role": "user", "content": entry["question"]}]
+            formatted = tokenizer.apply_chat_template(
+                messages, tokenize=False, add_generation_prompt=True, enable_thinking=True,
+            )
+            cot_text = entry["cot_response"]
+            think_end = cot_text.find("</think>")
+            if think_end != -1:
+                cot_text = cot_text[:think_end]
+            context_ids = tokenizer(formatted + cot_text, add_special_tokens=False)["input_ids"]
 
         positions = [p for p in entry["boundary_positions"][:max_sentences] if p < len(context_ids)]
         if len(positions) < 2:
@@ -77,7 +82,6 @@ def load_cot_summary_data(
         context_ids, positions, summary = random.choice(cached)
 
         N = len(positions)
-        context_slice = context_ids[:positions[-1] + 1]
 
         prompt = (
             f"Activations from {N} sentence boundaries. "
@@ -90,7 +94,7 @@ def load_cot_summary_data(
             "target_response": summary,
             "layers": layers,
             "num_positions": N,
-            "context_input_ids": context_slice,
+            "context_input_ids": list(context_ids),
             "context_positions": list(positions),
         })
         pbar.update(1)

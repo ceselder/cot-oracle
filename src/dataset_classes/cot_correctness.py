@@ -25,19 +25,22 @@ def load_cot_correctness_data(
     num_examples: int = 15000,
     max_sentences: int = 15,
     seed: int = 42,
+    corpus_entries: list[dict] | None = None,
 ) -> list[dict]:
     from signs_of_life.ao_lib import layer_percent_to_layer
 
     random.seed(seed)
 
-    corpus = []
-    with open(corpus_path) as f:
-        for line in f:
-            if line.strip():
-                corpus.append(json.loads(line))
+    if corpus_entries is not None:
+        corpus = corpus_entries
+    else:
+        corpus = []
+        with open(corpus_path) as f:
+            for line in f:
+                if line.strip():
+                    corpus.append(json.loads(line))
 
-    if not corpus:
-        raise ValueError(f"Empty corpus at {corpus_path}")
+    assert corpus, f"Empty corpus at {corpus_path}"
 
     correct_pool = [e for e in corpus if e.get("cot_correct")]
     incorrect_pool = [e for e in corpus if not e.get("cot_correct")]
@@ -66,7 +69,6 @@ def load_cot_correctness_data(
             target = "incorrect"
 
         N = len(positions)
-        context_slice = context_ids[:positions[-1] + 1]
 
         prompt = (
             f"Activations from {N} sentence boundaries. "
@@ -79,7 +81,7 @@ def load_cot_correctness_data(
             "target_response": target,
             "layers": layers,
             "num_positions": N,
-            "context_input_ids": context_slice,
+            "context_input_ids": list(context_ids),
             "context_positions": list(positions),
         })
         pbar.update(1)

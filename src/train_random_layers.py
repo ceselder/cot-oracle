@@ -18,8 +18,10 @@ Usage:
 """
 
 import argparse
+import multiprocessing as mp
 import os
 import random
+import re
 import sys
 from collections import Counter, defaultdict
 from pathlib import Path
@@ -71,10 +73,9 @@ from layer_utils import (
     find_all_special_positions,
     layers_to_quartile_bin,
 )
-from train_mixed import (
-    ensure_boundary_positions,
-    install_unfaithfulness_eval_hook,
-)
+from train_mixed import install_unfaithfulness_eval_hook
+from corpus_tokenize import load_corpus, pretokenize_corpus, ensure_boundary_positions
+from data_cache import load_cached_data, save_cached_data
 
 STAGE1_TASKS = {"cot_context_prediction", "cot_sentence_prediction"}
 STAGE2_TASKS = {"cot_decorative", "cot_domain", "cot_correctness", "cot_persona", "cot_summary"}
@@ -130,6 +131,12 @@ def _create_random_layer_datapoint(
     for _ in layers:
         expanded_ctx_positions.extend(orig_positions)
 
+    meta = {"multi_layers": layers, "num_pos_per_layer": num_pos_per_layer}
+    stride_val = item.get("_stride")
+    if stride_val is not None:
+        meta["stride"] = stride_val
+        meta["n_positions"] = num_pos_per_layer
+
     return TrainingDataPoint(
         input_ids=full_prompt_ids,
         labels=labels,
@@ -142,35 +149,41 @@ def _create_random_layer_datapoint(
         context_input_ids=item["context_input_ids"],
         context_positions=expanded_ctx_positions,
         ds_label=None,
-        meta_info={"multi_layers": layers, "num_pos_per_layer": num_pos_per_layer},
+        meta_info=meta,
     )
 
 
-def dicts_to_multilayer_training_data(
-    raw_data: list[dict],
-    tokenizer,
-    max_layers: int = 36,
-    layer_mean: int = 5,
-) -> list[TrainingDataPoint]:
-    """Convert dataset dicts to TrainingDataPoints with random layer subsets.
+_STRIDE_EXEMPT_TASKS = {"cot_context_prediction", "cot_sentence_prediction"}
 
-    Multi-layer items ('layers' key): sample random layers via Poisson.
-    Single-layer items ('layer' key, e.g. context prediction): sample 1 random
-    layer from the full range [0, max_layers) instead of the fixed 3 percentiles.
-    """
-    training_data = []
-    skipped = 0
 
-    for item in raw_data:
-        layers_field = item.get("layers")  # list[int] for multi-layer, None for single
-        if layers_field and len(layers_field) > 1:
-            # Multi-layer item: sample random layers
-            layers = sample_layers(max_layers, layer_mean)
+# ---------------------------------------------------------------------------
+# Parallel conversion workers
+# ---------------------------------------------------------------------------
+
+_worker_tokenizer = None
+
+
+def _init_convert_worker(model_name):
+    """Pool initializer: each worker loads its own tokenizer."""
+    os.environ["TOKENIZERS_PARALLELISM"] = "false"
+    global _worker_tokenizer
+    _worker_tokenizer = load_tokenizer(model_name)
+
+
+def _convert_chunk(prepared_items):
+    """Worker function: convert prepared (item, layers, is_multi) tuples to TrainingDataPoints."""
+    tokenizer = _worker_tokenizer
+    results = []
+    for item, layers, is_multi in prepared_items:
+        if is_multi:
             dp = _create_random_layer_datapoint(item, tokenizer, layers)
-            training_data.append(dp)
         else:
-            # Single-layer item: sample 1 random layer from full range
-            layer = random.randint(0, max_layers - 1)
+            layer = layers[0]
+            meta = {"multi_layers": [layer], "num_pos_per_layer": item["num_positions"]}
+            stride_val = item.get("_stride")
+            if stride_val is not None:
+                meta["stride"] = stride_val
+                meta["n_positions"] = item["num_positions"]
             dp = create_training_datapoint(
                 datapoint_type=item["datapoint_type"],
                 prompt=item["prompt"],
@@ -182,12 +195,101 @@ def dicts_to_multilayer_training_data(
                 feature_idx=-1,
                 context_input_ids=item["context_input_ids"],
                 context_positions=item["context_positions"],
-                meta_info={"multi_layers": [layer], "num_pos_per_layer": item["num_positions"]},
+                meta_info=meta,
             )
-            training_data.append(dp)
+        results.append(dp)
+    return results
 
-    if skipped > 0:
-        print(f"  Skipped {skipped} datapoints during conversion")
+
+def _convert_chunk_sequential(prepared_items, tokenizer):
+    """Sequential fallback: same as _convert_chunk but uses passed tokenizer."""
+    global _worker_tokenizer
+    _worker_tokenizer = tokenizer
+    return _convert_chunk(prepared_items)
+
+
+def _prepare_items(
+    raw_data: list[dict],
+    max_layers: int,
+    layer_mean: int,
+    position_strides: list[int] | None,
+    max_positions: int,
+) -> list[tuple]:
+    """Pre-compute random decisions for all items (sequential, deterministic).
+
+    Returns list of (item_dict, layers_list, is_multi) tuples ready for conversion.
+    """
+    prepared = []
+    for item in raw_data:
+        # Stride-based position resampling for eligible tasks
+        if position_strides and item["datapoint_type"] not in _STRIDE_EXEMPT_TASKS:
+            total_length = len(item["context_input_ids"])
+            stride = random.choice(position_strides)
+            positions = list(range(0, total_length, stride))
+            if len(positions) > max_positions:
+                positions = positions[:max_positions]
+            if len(positions) < 2:
+                positions = list(range(0, total_length, max(1, total_length // 4)))
+            item["prompt"] = re.sub(
+                r'Activations from \d+ sentence boundaries',
+                f'Activations from {len(positions)} positions',
+                item["prompt"],
+            )
+            item["context_input_ids"] = item["context_input_ids"][:positions[-1] + 1]
+            item["context_positions"] = positions
+            item["num_positions"] = len(positions)
+            item["_stride"] = stride
+        else:
+            item["_stride"] = None
+
+        layers_field = item.get("layers")
+        if layers_field and len(layers_field) > 1:
+            layers = sample_layers(max_layers, layer_mean)
+            prepared.append((item, layers, True))
+        else:
+            layer = random.randint(0, max_layers - 1)
+            prepared.append((item, [layer], False))
+
+    return prepared
+
+
+def dicts_to_multilayer_training_data(
+    raw_data: list[dict],
+    tokenizer,
+    max_layers: int = 36,
+    layer_mean: int = 5,
+    position_strides: list[int] | None = None,
+    max_positions: int = 50,
+    model_name: str | None = None,
+    num_workers: int | None = None,
+) -> list[TrainingDataPoint]:
+    """Convert dataset dicts to TrainingDataPoints with random layer subsets.
+
+    Multi-layer items ('layers' key): sample random layers via Poisson.
+    Single-layer items ('layer' key, e.g. context prediction): sample 1 random
+    layer from the full range [0, max_layers) instead of the fixed 3 percentiles.
+
+    When model_name is provided and num_workers > 1, conversion runs in parallel
+    using multiprocessing (each worker loads its own tokenizer).
+    """
+    # Step 1: pre-compute random decisions (sequential, preserves determinism)
+    prepared = _prepare_items(raw_data, max_layers, layer_mean, position_strides, max_positions)
+
+    if num_workers is None:
+        num_workers = min(os.cpu_count() or 1, 8)
+
+    # Step 2: convert to TrainingDataPoints
+    if num_workers > 1 and model_name and len(prepared) > 1000:
+        chunk_size = max(1, len(prepared) // num_workers)
+        chunks = [prepared[i:i + chunk_size] for i in range(0, len(prepared), chunk_size)]
+        print(f"  Converting {len(prepared)} items with {len(chunks)} workers...")
+        with mp.Pool(num_workers, initializer=_init_convert_worker, initargs=(model_name,)) as pool:
+            chunk_results = pool.map(_convert_chunk, chunks)
+        training_data = []
+        for chunk in chunk_results:
+            training_data.extend(chunk)
+    else:
+        training_data = _convert_chunk_sequential(prepared, tokenizer)
 
     return training_data
 
@@ -383,8 +485,9 @@ def install_quartile_eval_hook(max_layers: int = 36):
             eval_metrics[f"eval_ans_correct/{ds}"] = percent_ans_correct
             print(f"Step {global_step} {ds} format correct: {percent_format_correct}, ans correct: {percent_ans_correct}")
 
-            # Quartile-binned accuracy + table rows
+            # Quartile-binned + stride-binned accuracy + table rows
             by_bin = defaultdict(lambda: {"correct": 0, "total": 0})
+            by_stride = defaultdict(lambda: {"correct": 0, "total": 0})
             for resp, dp in zip(eval_responses, eval_data, strict=True):
                 multi_layers = dp.meta_info.get("multi_layers", [dp.layer])
                 qbin = layers_to_quartile_bin(multi_layers, max_layers)
@@ -395,6 +498,12 @@ def install_quartile_eval_hook(max_layers: int = 36):
                 by_bin[qbin]["total"] += 1
                 if correct:
                     by_bin[qbin]["correct"] += 1
+
+                stride_val = dp.meta_info.get("stride")
+                stride_label = f"s{stride_val}" if stride_val is not None else "none"
+                by_stride[stride_label]["total"] += 1
+                if correct:
+                    by_stride[stride_label]["correct"] += 1
 
                 # Build the masked prompt (what AO actually sees — input_ids with labels=-100 kept)
                 ao_prompt = resp.prompt  # decoded prompt from eval (already stripped of target)
@@ -415,6 +524,12 @@ def install_quartile_eval_hook(max_layers: int = 36):
                 acc = counts["correct"] / n if n > 0 else 0.0
                 eval_metrics[f"eval_quartile/{ds}/{qbin}/accuracy"] = acc
                 eval_metrics[f"eval_quartile/{ds}/{qbin}/n"] = n
+
+            for slabel, counts in sorted(by_stride.items()):
+                n = counts["total"]
+                acc = counts["correct"] / n if n > 0 else 0.0
+                eval_metrics[f"eval_stride/{ds}/{slabel}/accuracy"] = acc
+                eval_metrics[f"eval_stride/{ds}/{slabel}/n"] = n
 
         # Log metrics
         if wandb.run is not None:
@@ -495,16 +610,23 @@ def install_quartile_task_loss_hook(max_layers: int = 36):
             task_quartile_losses = defaultdict(list)
             # Per-quartile losses (across all tasks)
             quartile_losses = defaultdict(list)
+            # Per-stride losses
+            stride_losses = defaultdict(list)
 
             for i, task_type in enumerate(batch_types):
                 loss_val = per_item_loss[i].item()
                 task_losses[task_type].append(loss_val)
 
-                multi_layers = meta_infos[i].get("multi_layers", [])
+                meta = meta_infos[i]
+                multi_layers = meta.get("multi_layers", [])
                 if multi_layers:
                     qbin = layers_to_quartile_bin(multi_layers, max_layers)
                     task_quartile_losses[f"{task_type}/{qbin}"].append(loss_val)
                     quartile_losses[qbin].append(loss_val)
+
+                stride_val = meta.get("stride")
+                if stride_val is not None:
+                    stride_losses[f"s{stride_val}"].append(loss_val)
 
             log_dict = {}
             for task, losses in task_losses.items():
@@ -513,6 +635,8 @@ def install_quartile_task_loss_hook(max_layers: int = 36):
                 log_dict[f"train/loss_{key}"] = sum(losses) / len(losses)
             for qbin, losses in quartile_losses.items():
                 log_dict[f"train/loss_quartile/{qbin}"] = sum(losses) / len(losses)
+            for slabel, losses in stride_losses.items():
+                log_dict[f"train/loss_stride/{slabel}"] = sum(losses) / len(losses)
 
             # Stage indicator: 1 if all tasks are stage 1, 2 if any stage 2 present
             has_stage2 = any(t in STAGE2_TASKS for t in batch_types)
@@ -555,7 +679,6 @@ def build_curriculum(
     print(f"\nCurriculum staging:")
     print(f"  Stage 1: {len(s1)} examples (token prediction)")
     print(f"  Stage 2: {len(s2)} examples ({len(stage2_data)} classification + {len(reg_subset)} regularization)")
-    print(f"  Stage transition at step ~{len(s1) // 8}")  # rough, depends on batch size and DDP
 
     return s1 + s2
 
@@ -574,8 +697,18 @@ def build_training_mixture(
     max_layers: int,
     layer_mean: int,
     task_sizes: dict[str, int] | None = None,
+    position_strides: list[int] | None = None,
+    max_positions: int = 50,
+    num_workers: int | None = None,
+    corpus_entries: list[dict] | None = None,
+    persona_entries: list[dict] | None = None,
 ) -> list[TrainingDataPoint]:
-    """Build the mixed training data from up to 7 tasks, with random layer subsets."""
+    """Build the mixed training data from up to 7 tasks, with random layer subsets.
+
+    If corpus_entries (pre-tokenized with _ctx_ids) is provided, skips all corpus
+    loading and tokenization. Otherwise loads and pre-tokenizes internally.
+    Then converts everything to TrainingDataPoints in one parallel batch.
+    """
 
     if task_sizes is None:
         task_sizes = {
@@ -587,88 +720,101 @@ def build_training_mixture(
             "cot_persona": 15000,
         }
 
-    all_data = []
+    # --- Pre-tokenize corpus once if not already done ---
+    if corpus_entries is None:
+        print("\nPre-tokenizing main corpus...")
+        corpus_entries = load_corpus(corpus_path)
+        pretokenize_corpus(corpus_entries, model_name, num_workers=num_workers)
 
-    # Task 1: Context Prediction — Random Positions
+    if persona_entries is None and persona_corpus_path and Path(persona_corpus_path).exists():
+        print("Pre-tokenizing persona corpus...")
+        persona_entries = load_corpus(persona_corpus_path)
+        pretokenize_corpus(persona_entries, model_name, num_workers=num_workers)
+
+    all_raw = []
+
+    # --- Load raw dicts from each task (fast: no tokenization, just sampling) ---
+
     print("\n=== Task 1: Context Prediction — Random Positions ===")
     raw = load_cot_context_prediction_data(
         corpus_path, tokenizer, model_name, layer_percents,
         num_examples=task_sizes.get("cot_context_prediction", 100000),
+        corpus_entries=corpus_entries,
     )
-    data = dicts_to_multilayer_training_data(raw, tokenizer, max_layers, layer_mean)
-    print(f"  Generated {len(data)} examples")
-    all_data.extend(data)
+    print(f"  Loaded {len(raw)} raw examples")
+    all_raw.extend(raw)
 
-    # Task 2: Context Prediction — Sentence Boundaries
     print("\n=== Task 2: Context Prediction — Sentence Boundaries ===")
     raw = load_cot_sentence_prediction_data(
         corpus_path, tokenizer, model_name, layer_percents,
         num_examples=task_sizes.get("cot_sentence_prediction", 30000),
+        corpus_entries=corpus_entries,
     )
-    data = dicts_to_multilayer_training_data(raw, tokenizer, max_layers, layer_mean)
-    print(f"  Generated {len(data)} examples")
-    all_data.extend(data)
+    print(f"  Loaded {len(raw)} raw examples")
+    all_raw.extend(raw)
 
-    # Task 3: Decorative CoT
     print("\n=== Task 3: Decorative CoT ===")
     raw = load_cot_decorative_data(
         corpus_path, tokenizer, model_name, layer_percents,
         num_examples=task_sizes.get("cot_decorative", 10000),
+        corpus_entries=corpus_entries,
     )
-    data = dicts_to_multilayer_training_data(raw, tokenizer, max_layers, layer_mean)
-    print(f"  Generated {len(data)} examples")
-    all_data.extend(data)
+    print(f"  Loaded {len(raw)} raw examples")
+    all_raw.extend(raw)
 
-    # Task 4: Domain Classification
     print("\n=== Task 4: Domain Classification ===")
     raw = load_cot_domain_data(
         corpus_path, tokenizer, model_name, layer_percents,
         num_examples=task_sizes.get("cot_domain", 15000),
+        corpus_entries=corpus_entries,
     )
-    data = dicts_to_multilayer_training_data(raw, tokenizer, max_layers, layer_mean)
-    print(f"  Generated {len(data)} examples")
-    all_data.extend(data)
+    print(f"  Loaded {len(raw)} raw examples")
+    all_raw.extend(raw)
 
-    # Task 5: Correctness Prediction
     print("\n=== Task 5: Correctness Prediction ===")
     raw = load_cot_correctness_data(
         corpus_path, tokenizer, model_name, layer_percents,
         num_examples=task_sizes.get("cot_correctness", 15000),
+        corpus_entries=corpus_entries,
     )
-    data = dicts_to_multilayer_training_data(raw, tokenizer, max_layers, layer_mean)
-    print(f"  Generated {len(data)} examples")
-    all_data.extend(data)
+    print(f"  Loaded {len(raw)} raw examples")
+    all_raw.extend(raw)
 
-    # Task 6: Persona Detection
-    if persona_corpus_path and Path(persona_corpus_path).exists():
+    if persona_entries is not None or (persona_corpus_path and Path(persona_corpus_path).exists()):
         print("\n=== Task 6: Persona Detection ===")
         raw = load_cot_persona_data(
             persona_corpus_path, tokenizer, model_name, layer_percents,
             num_examples=task_sizes.get("cot_persona", 15000),
+            corpus_entries=persona_entries,
         )
-        data = dicts_to_multilayer_training_data(raw, tokenizer, max_layers, layer_mean)
-        print(f"  Generated {len(data)} examples")
-        all_data.extend(data)
+        print(f"  Loaded {len(raw)} raw examples")
+        all_raw.extend(raw)
     else:
         print(f"\n  Skipping Task 6 (no persona corpus at {persona_corpus_path})")
 
-    # Task 7: CoT Summary
     summaries_path = str(Path(corpus_path).parent / "summaries.jsonl")
     if Path(summaries_path).exists():
         print("\n=== Task 7: CoT Summary ===")
         raw = load_cot_summary_data(
             corpus_path, summaries_path, tokenizer, model_name, layer_percents,
             num_examples=task_sizes.get("cot_summary", 15000),
+            corpus_entries=corpus_entries,
         )
-        data = dicts_to_multilayer_training_data(raw, tokenizer, max_layers, layer_mean)
-        print(f"  Generated {len(data)} examples")
-        all_data.extend(data)
+        print(f"  Loaded {len(raw)} raw examples")
+        all_raw.extend(raw)
     else:
         print(f"\n  Skipping Task 7 (no summaries at {summaries_path})")
 
+    # --- Convert all at once (parallel) ---
     print(f"\n{'=' * 60}")
-    print(f"Total training examples: {len(all_data)}")
+    print(f"Converting {len(all_raw)} raw dicts to TrainingDataPoints...")
+    all_data = dicts_to_multilayer_training_data(
+        all_raw, tokenizer, max_layers, layer_mean,
+        position_strides, max_positions,
+        model_name=model_name, num_workers=num_workers,
+    )
 
+    print(f"Total training examples: {len(all_data)}")
     type_counts = Counter(dp.datapoint_type for dp in all_data)
     for dtype, count in sorted(type_counts.items()):
         pct = count / len(all_data) * 100
@@ -685,6 +831,9 @@ def build_eval_datasets(
     layer_percents: list[int],
     max_layers: int,
     layer_mean: int,
+    position_strides: list[int] | None = None,
+    max_positions: int = 50,
+    corpus_entries: list[dict] | None = None,
 ) -> dict[str, list[TrainingDataPoint]]:
     """Build held-out eval datasets with random layer subsets (fixed seed for reproducibility)."""
     eval_datasets = {}
@@ -700,9 +849,9 @@ def build_eval_datasets(
             print("\n=== Eval: Answer Tracking (zero-shot, 100 items) ===")
             raw = load_cot_answer_tracking_data(
                 corpus_path, str(tracking_path), tokenizer, model_name, layer_percents,
-                num_examples=100,
+                num_examples=100, corpus_entries=corpus_entries,
             )
-            data = dicts_to_multilayer_training_data(raw, tokenizer, max_layers, layer_mean)
+            data = dicts_to_multilayer_training_data(raw, tokenizer, max_layers, layer_mean, position_strides, max_positions)
             eval_datasets["cot_answer_tracking"] = data
             print(f"  Generated {len(data)} eval examples")
 
@@ -712,9 +861,9 @@ def build_eval_datasets(
         print("\n=== Eval: CoT Summary (100 items) ===")
         raw = load_cot_summary_data(
             corpus_path, summaries_path, tokenizer, model_name, layer_percents,
-            num_examples=100, seed=999,
+            num_examples=100, seed=999, corpus_entries=corpus_entries,
         )
-        data = dicts_to_multilayer_training_data(raw, tokenizer, max_layers, layer_mean)
+        data = dicts_to_multilayer_training_data(raw, tokenizer, max_layers, layer_mean, position_strides, max_positions)
         eval_datasets["cot_summary"] = data
         print(f"  Generated {len(data)} eval examples")
 
@@ -727,18 +876,20 @@ def build_eval_datasets(
 # ---------------------------------------------------------------------------
 
 def main():
+    os.environ["TOKENIZERS_PARALLELISM"] = "false"  # avoid fork warning from HF tokenizers
     parser = argparse.ArgumentParser(description="Train CoT Oracle — Random Layer Subsets")
     parser.add_argument("--corpus", required=True, help="Path to corpus.jsonl")
     parser.add_argument("--persona-corpus", default=None, help="Path to persona corpus.jsonl")
     parser.add_argument("--labels-dir", default=None, help="Directory with label files (for eval)")
     parser.add_argument("--model", default="Qwen/Qwen3-8B")
     parser.add_argument("--lr", type=float, default=1e-5)
-    parser.add_argument("--batch-size", type=int, default=8)
+    parser.add_argument("--batch-size", type=int, default=16, help="Per-GPU micro-batch size")
+    parser.add_argument("--effective-batch-size", type=int, default=128, help="Global effective batch size (controls gradient accumulation)")
     parser.add_argument("--epochs", type=int, default=1)
     parser.add_argument("--save-dir", default="checkpoints/cot_oracle_randlayer")
     parser.add_argument("--wandb-project", default="cot_oracle")
     parser.add_argument("--wandb-run", default="")
-    parser.add_argument("--eval-steps", type=int, default=500)
+    parser.add_argument("--eval-steps", type=int, default=50)
     parser.add_argument("--save-steps", type=int, default=1000)
     parser.add_argument("--gradient-checkpointing", action="store_true", default=True)
     parser.add_argument("--eval-dir", default="data/evals")
@@ -748,6 +899,10 @@ def main():
     parser.add_argument("--quantize-4bit", action="store_true", help="Load model in 4-bit (for <24GB GPUs)")
     parser.add_argument("--no-curriculum", action="store_true", help="Disable 2-stage curriculum (shuffle all tasks together)")
     parser.add_argument("--stage1-reg", type=float, default=0.2, help="Fraction of stage 2 size to mix in as stage 1 regularization")
+    parser.add_argument("--position-strides", type=int, nargs="+", default=[4, 16, 64], help="Stride values for position sampling from whole sequence")
+    parser.add_argument("--max-positions", type=int, default=50, help="Cap positions per example (prevents huge prefixes)")
+    parser.add_argument("--no-data-cache", action="store_true", help="Force rebuild training data (ignore persistent cache)")
+    parser.add_argument("--num-workers", type=int, default=None, help="Workers for parallel data conversion (default: min(cpu_count, 8))")
     # Task size overrides
     parser.add_argument("--n-context-pred", type=int, default=100000)
     parser.add_argument("--n-sentence-pred", type=int, default=30000)
@@ -774,60 +929,102 @@ def main():
 
     # Initialize distributed early so we can gate data building on rank 0
     import torch.distributed as dist
+    from datetime import timedelta
     if not dist.is_initialized():
-        dist.init_process_group(backend="nccl")
+        dist.init_process_group(backend="nccl", timeout=timedelta(minutes=60))
     rank = int(os.environ.get("LOCAL_RANK", 0))
+    world_size = dist.get_world_size()
+
+    # Compute gradient accumulation to keep effective batch size constant across GPU counts
+    grad_accum = args.effective_batch_size // (args.batch_size * world_size)
+    grad_accum = max(1, grad_accum)
+    if rank == 0:
+        print(f"GPU-independent training: effective_batch={args.effective_batch_size}, "
+              f"micro_batch={args.batch_size}, world_size={world_size}, grad_accum={grad_accum}")
 
     # Suppress tqdm on non-rank-0 processes
     if rank != 0:
         os.environ["TQDM_DISABLE"] = "1"
 
-    # Build data on rank 0, save to temp pickle, other ranks load it
+    # Persistent data cache params (everything that affects generated data)
+    cache_extra = dict(
+        layer_mean=args.layer_mean,
+        max_layers=max_layers,
+        layer_percents=layer_percents,
+        position_strides=args.position_strides,
+        max_positions=args.max_positions,
+        labels_dir=args.labels_dir,
+    )
+
+    # Build data on rank 0, share via temp pickle to other ranks
     import pickle
-    import tempfile
     data_pickle = Path(args.save_dir) / "_data_cache.pkl"
     data_pickle.parent.mkdir(parents=True, exist_ok=True)
 
     if rank == 0:
-        print("Ensuring boundary_positions are computed...")
-        ensure_boundary_positions(args.corpus, tokenizer)
-        if args.persona_corpus and Path(args.persona_corpus).exists():
-            ensure_boundary_positions(args.persona_corpus, tokenizer)
+        # Try persistent cache first
+        cached = None
+        if not args.no_data_cache:
+            cached = load_cached_data(
+                args.corpus, args.persona_corpus, task_sizes, args.model, **cache_extra,
+            )
 
-        print(f"Building random-layer training data (layer_mean={args.layer_mean}, max_layers={max_layers})...")
-        training_data = build_training_mixture(
-            args.corpus, args.persona_corpus, args.labels_dir,
-            tokenizer, args.model, layer_percents, max_layers, args.layer_mean,
-            task_sizes,
-        )
+        if cached is not None:
+            final_training, eval_datasets = cached
+        else:
+            # Ensure boundary positions + pre-tokenize once
+            print("Ensuring boundary_positions are computed...")
+            corpus_entries = ensure_boundary_positions(args.corpus, args.model, num_workers=args.num_workers)
+            pretokenize_corpus(corpus_entries, args.model, num_workers=args.num_workers)
 
-        assert training_data, "No training data generated!"
+            persona_entries = None
+            if args.persona_corpus and Path(args.persona_corpus).exists():
+                persona_entries = ensure_boundary_positions(args.persona_corpus, args.model, num_workers=args.num_workers)
+                pretokenize_corpus(persona_entries, args.model, num_workers=args.num_workers)
 
-        eval_datasets = build_eval_datasets(
-            args.corpus, args.labels_dir, tokenizer, args.model, layer_percents,
-            max_layers, args.layer_mean,
-        )
+            print(f"Building random-layer training data (layer_mean={args.layer_mean}, max_layers={max_layers})...")
+            training_data = build_training_mixture(
+                args.corpus, args.persona_corpus, args.labels_dir,
+                tokenizer, args.model, layer_percents, max_layers, args.layer_mean,
+                task_sizes, args.position_strides, args.max_positions,
+                num_workers=args.num_workers,
+                corpus_entries=corpus_entries, persona_entries=persona_entries,
+            )
 
-        # Split off 100 examples per training task as eval
-        by_type = defaultdict(list)
-        for dp in training_data:
-            by_type[dp.datapoint_type].append(dp)
+            assert training_data, "No training data generated!"
 
-        final_training = []
-        for dtype, dps in by_type.items():
-            if len(dps) > 100:
-                eval_datasets[dtype] = dps[-100:]
-                final_training.extend(dps[:-100])
-            else:
-                final_training.extend(dps)
+            eval_datasets = build_eval_datasets(
+                args.corpus, args.labels_dir, tokenizer, args.model, layer_percents,
+                max_layers, args.layer_mean, args.position_strides, args.max_positions,
+                corpus_entries=corpus_entries,
+            )
 
-        print(f"\nTraining: {len(final_training)}, Eval: {sum(len(v) for v in eval_datasets.values())}")
-        for name, items in eval_datasets.items():
-            print(f"  eval/{name}: {len(items)} items")
+            # Split off 100 examples per training task as eval
+            by_type = defaultdict(list)
+            for dp in training_data:
+                by_type[dp.datapoint_type].append(dp)
 
+            final_training = []
+            for dtype, dps in by_type.items():
+                if len(dps) > 100:
+                    eval_datasets[dtype] = dps[-100:]
+                    final_training.extend(dps[:-100])
+                else:
+                    final_training.extend(dps)
+
+            print(f"\nTraining: {len(final_training)}, Eval: {sum(len(v) for v in eval_datasets.values())}")
+            for name, items in eval_datasets.items():
+                print(f"  eval/{name}: {len(items)} items")
+
+            # Save to persistent cache
+            save_cached_data(
+                final_training, eval_datasets,
+                args.corpus, args.persona_corpus, task_sizes, args.model, **cache_extra,
+            )
+
+        # Share with other ranks via temp pickle
         with open(data_pickle, "wb") as f:
             pickle.dump((final_training, eval_datasets), f)
-        print(f"Saved data cache to {data_pickle}")
 
     dist.barrier()  # wait for rank 0 to finish
 
@@ -860,7 +1057,8 @@ def main():
         lr=args.lr,
         num_epochs=args.epochs,
         train_batch_size=args.batch_size,
-        gradient_accumulation_steps=1,
+        eval_batch_size=args.batch_size,
+        gradient_accumulation_steps=grad_accum,
         eval_steps=args.eval_steps,
         save_steps=args.save_steps,
         save_dir=args.save_dir,
@@ -908,20 +1106,26 @@ def main():
         stage1 = [dp for dp in final_training if dp.datapoint_type in STAGE1_TASKS]
         stage2 = [dp for dp in final_training if dp.datapoint_type in STAGE2_TASKS]
         final_training = build_curriculum(stage1, stage2, stage1_reg=args.stage1_reg)
-        # Approximate step where stage 2 begins (before DDP sharding, so rough)
-        stage_transition_step = len(stage1) // args.batch_size
+        stage_transition_step = len(stage1) // (args.batch_size * world_size * grad_accum)
 
     # Print training summary
     print(f"\nStarting training:")
     print(f"  Model: {cfg.model_name}")
     print(f"  AO checkpoint: {cfg.load_lora_path}")
     print(f"  LR: {cfg.lr}")
-    print(f"  Batch size: {cfg.train_batch_size}")
+    print(f"  Micro-batch size: {cfg.train_batch_size}")
+    print(f"  Effective batch size: {args.effective_batch_size} (micro={args.batch_size} × gpus={world_size} × accum={grad_accum})")
     print(f"  Epochs: {cfg.num_epochs}")
-    print(f"  Total steps: ~{len(final_training) // cfg.train_batch_size}")
+    effective_bs = args.batch_size * world_size * grad_accum
+    print(f"  Total steps: ~{len(final_training) // effective_bs}")
     print(f"  Save dir: {cfg.save_dir}")
     print(f"  Layer mean: {args.layer_mean}, Max layers: {max_layers}")
+    print(f"  Position strides: {args.position_strides}, Max positions: {args.max_positions}")
     print(f"  Tasks: {sorted(set(dp.datapoint_type for dp in final_training))}")
+
+    # Stride distribution
+    stride_dist = Counter(dp.meta_info.get("stride") for dp in final_training)
+    print(f"  Stride distribution: {dict(sorted((k, v) for k, v in stride_dist.items() if k is not None))}")
     if stage_transition_step is not None:
         print(f"  Curriculum: stage 1→2 at ~step {stage_transition_step}")
 

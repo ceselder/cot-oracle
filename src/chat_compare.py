@@ -42,6 +42,7 @@ from signs_of_life.ao_lib import (
     SPECIAL_TOKEN,
     EarlyStopException,
 )
+from position_encoding import apply_position_encoding
 
 # Per-layer tokens matching train_mixed.py
 LAYER_TOKENS = [" @", " ?", " #"]  # L25%, L50%, L75%
@@ -121,6 +122,7 @@ def collect_multilayer_activations(model, tokenizer, text, layers, positions,
     """
     inputs = tokenizer(text, return_tensors="pt", add_special_tokens=False).to(device)
     acts_by_layer = {}
+    total_length = inputs["input_ids"].shape[1]
 
     model.eval()
     if use_organism and "organism" in model.peft_config:
@@ -129,14 +131,16 @@ def collect_multilayer_activations(model, tokenizer, text, layers, positions,
             acts_BLD = collect_activations(
                 model, layer, inputs["input_ids"], inputs["attention_mask"],
             )
-            acts_by_layer[layer] = acts_BLD[0, positions, :].detach()
+            acts = acts_BLD[0, positions, :].detach()
+            acts_by_layer[layer] = apply_position_encoding(acts, positions, total_length)
     else:
         with model.disable_adapter():
             for layer in layers:
                 acts_BLD = collect_activations(
                     model, layer, inputs["input_ids"], inputs["attention_mask"],
                 )
-                acts_by_layer[layer] = acts_BLD[0, positions, :].detach()
+                acts = acts_BLD[0, positions, :].detach()
+                acts_by_layer[layer] = apply_position_encoding(acts, positions, total_length)
 
     return acts_by_layer
 

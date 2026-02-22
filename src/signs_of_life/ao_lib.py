@@ -16,10 +16,16 @@ from dataclasses import dataclass
 os.environ["TORCHDYNAMO_DISABLE"] = "1"
 os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
 
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
 import torch
 import torch._dynamo as dynamo
 from peft import LoraConfig, PeftModel
 from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
+
+from position_encoding import apply_position_encoding
 
 # ============================================================
 # Constants
@@ -179,7 +185,10 @@ def collect_activations_at_positions(
         model.train()
 
     # Index specific positions
-    return acts_BLD[0, positions, :].detach()  # [num_positions, d_model]
+    acts = acts_BLD[0, positions, :].detach()  # [num_positions, d_model]
+    total_length = inputs["input_ids"].shape[1]
+    acts = apply_position_encoding(acts, positions, total_length)
+    return acts
 
 
 # ============================================================

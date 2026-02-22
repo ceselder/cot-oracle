@@ -834,7 +834,7 @@ def main():
     parser.add_argument("--model", default="Qwen/Qwen3-8B")
     parser.add_argument("--output", default="data/cot_corpus/corpus.jsonl")
     parser.add_argument("--device", default="cuda")
-    parser.add_argument("--batch-size", type=int, default=8)
+    parser.add_argument("--batch-size", type=int, default=16)
     parser.add_argument("--keep-all", action="store_true", default=True,
                         help="Keep all CoTs, not just load-bearing (default: True)")
     # OpenRouter mode

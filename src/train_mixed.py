@@ -84,6 +84,8 @@ from dataset_classes.cot_answer_tracking import load_cot_answer_tracking_data
 
 from signs_of_life.ao_lib import layer_percent_to_layer
 from cot_utils import split_cot_into_sentences, find_sentence_boundary_positions
+from position_encoding import apply_position_encoding
+from data_cache import load_cached_data, save_cached_data
 
 
 def ensure_boundary_positions(corpus_path: str, tokenizer) -> str:
@@ -615,6 +617,10 @@ def install_multilayer_materialization():
                         )
                     vectors_list.append(acts_BLD[b, adj_pos, :])
                 vectors = torch.stack(vectors_list, dim=0).detach().contiguous()
+                # Apply position encoding
+                source_positions = positions_per_item[b]
+                total_length = len(dp.context_input_ids)
+                vectors = apply_position_encoding(vectors, source_positions, total_length)
             else:
                 # Single-layer: standard behavior
                 layer = dp.layer
@@ -626,6 +632,10 @@ def install_multilayer_materialization():
                         f"Act index out of range for item {b}: {idxs} with L={L}"
                     )
                 vectors = acts_BLD[b, idxs, :].detach().contiguous()
+                # Apply position encoding
+                source_positions = positions_per_item[b]
+                total_length = len(dp.context_input_ids)
+                vectors = apply_position_encoding(vectors, source_positions, total_length)
 
             assert len(vectors.shape) == 2
             dp_new = dp.model_copy(deep=True)
@@ -765,7 +775,7 @@ def main():
     parser.add_argument("--labels-dir", default=None, help="Directory with label files (for eval)")
     parser.add_argument("--model", default="Qwen/Qwen3-8B")
     parser.add_argument("--lr", type=float, default=1e-5)
-    parser.add_argument("--batch-size", type=int, default=8)
+    parser.add_argument("--batch-size", type=int, default=16)
     parser.add_argument("--epochs", type=int, default=1)
     parser.add_argument("--save-dir", default="checkpoints/cot_oracle_mixed")
     parser.add_argument("--wandb-project", default="cot_oracle")
@@ -778,6 +788,7 @@ def main():
     parser.add_argument("--no-unfaith-evals", action="store_true")
     parser.add_argument("--per-layer-tokens", action="store_true", default=False,
                         help="Use distinct placeholder tokens per layer (@?#) instead of all ?")
+    parser.add_argument("--no-data-cache", action="store_true", help="Force rebuild training data (ignore persistent cache)")
     # Task size overrides
     parser.add_argument("--n-context-pred", type=int, default=100000)
     parser.add_argument("--n-sentence-pred", type=int, default=30000)
@@ -801,45 +812,64 @@ def main():
         "cot_summary": args.n_summary,
     }
 
-    # Ensure boundary_positions are computed (needed for sentence-structured tasks)
-    print("Ensuring boundary_positions are computed...")
-    ensure_boundary_positions(args.corpus, tokenizer)
-    if args.persona_corpus and Path(args.persona_corpus).exists():
-        ensure_boundary_positions(args.persona_corpus, tokenizer)
-
-    # Build training data
-    print(f"Building mixed training data (per_layer_tokens={args.per_layer_tokens})...")
-    training_data = build_training_mixture(
-        args.corpus, args.persona_corpus, args.labels_dir,
-        tokenizer, args.model, layer_percents, task_sizes,
-        use_per_layer_tokens=args.per_layer_tokens,
+    # Try persistent cache first
+    cache_extra = dict(
+        per_layer_tokens=args.per_layer_tokens,
+        layer_percents=layer_percents,
+        labels_dir=args.labels_dir,
     )
+    cached = None
+    if not args.no_data_cache:
+        cached = load_cached_data(
+            args.corpus, args.persona_corpus, task_sizes, args.model, **cache_extra,
+        )
 
-    if not training_data:
-        print("ERROR: No training data generated!")
-        return
+    if cached is not None:
+        final_training, eval_datasets = cached
+    else:
+        # Ensure boundary_positions are computed (needed for sentence-structured tasks)
+        print("Ensuring boundary_positions are computed...")
+        ensure_boundary_positions(args.corpus, tokenizer)
+        if args.persona_corpus and Path(args.persona_corpus).exists():
+            ensure_boundary_positions(args.persona_corpus, tokenizer)
 
-    # Build eval datasets
-    eval_datasets = build_eval_datasets(
-        args.corpus, args.labels_dir, tokenizer, args.model, layer_percents,
-    )
+        # Build training data
+        print(f"Building mixed training data (per_layer_tokens={args.per_layer_tokens})...")
+        training_data = build_training_mixture(
+            args.corpus, args.persona_corpus, args.labels_dir,
+            tokenizer, args.model, layer_percents, task_sizes,
+            use_per_layer_tokens=args.per_layer_tokens,
+        )
 
-    # Split off 100 examples per training task as eval
-    by_type = defaultdict(list)
-    for dp in training_data:
-        by_type[dp.datapoint_type].append(dp)
+        assert training_data, "No training data generated!"
 
-    final_training = []
-    for dtype, dps in by_type.items():
-        if len(dps) > 100:
-            eval_datasets[dtype] = dps[-100:]
-            final_training.extend(dps[:-100])
-        else:
-            final_training.extend(dps)
+        # Build eval datasets
+        eval_datasets = build_eval_datasets(
+            args.corpus, args.labels_dir, tokenizer, args.model, layer_percents,
+        )
 
-    print(f"\nTraining: {len(final_training)}, Eval: {sum(len(v) for v in eval_datasets.values())}")
-    for name, items in eval_datasets.items():
-        print(f"  eval/{name}: {len(items)} items")
+        # Split off 100 examples per training task as eval
+        by_type = defaultdict(list)
+        for dp in training_data:
+            by_type[dp.datapoint_type].append(dp)
+
+        final_training = []
+        for dtype, dps in by_type.items():
+            if len(dps) > 100:
+                eval_datasets[dtype] = dps[-100:]
+                final_training.extend(dps[:-100])
+            else:
+                final_training.extend(dps)
+
+        print(f"\nTraining: {len(final_training)}, Eval: {sum(len(v) for v in eval_datasets.values())}")
+        for name, items in eval_datasets.items():
+            print(f"  eval/{name}: {len(items)} items")
+
+        # Save to persistent cache
+        save_cached_data(
+            final_training, eval_datasets,
+            args.corpus, args.persona_corpus, task_sizes, args.model, **cache_extra,
+        )
 
     # Download AO checkpoint
     ao_checkpoints = {

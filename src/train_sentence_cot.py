@@ -280,7 +280,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--corpus", default=CORPUS_PATH)
     parser.add_argument("--num-examples", type=int, default=NUM_EXAMPLES)
-    parser.add_argument("--batch-size", type=int, default=BATCH_SIZE)
+    parser.add_argument("--batch-size", type=int, default=16)
     parser.add_argument("--lr", type=float, default=LR)
     parser.add_argument("--save-dir", default=SAVE_DIR)
     parser.add_argument("--wandb-run", default="cot_oracle_sentence_v1")

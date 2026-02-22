@@ -418,7 +418,7 @@ def main():
     parser.add_argument("--model", default="Qwen/Qwen3-8B")
     parser.add_argument("--evals", nargs="*", default=None)
     parser.add_argument("--device", default="cuda")
-    parser.add_argument("--batch-size", type=int, default=8, help="Batch size for generation")
+    parser.add_argument("--batch-size", type=int, default=16, help="Batch size for generation")
     args = parser.parse_args()
 
     eval_dir = Path(args.eval_dir)

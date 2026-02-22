@@ -23,28 +23,30 @@ def load_cot_persona_data(
     num_examples: int = 15000,
     max_sentences: int = 15,
     seed: int = 42,
+    corpus_entries: list[dict] | None = None,
 ) -> list[dict]:
     from signs_of_life.ao_lib import layer_percent_to_layer
 
     random.seed(seed)
 
-    corpus = []
-    with open(corpus_path) as f:
-        for line in f:
-            if line.strip():
-                entry = json.loads(line)
-                if "persona" in entry:
-                    corpus.append(entry)
+    if corpus_entries is not None:
+        corpus = [e for e in corpus_entries if "persona" in e]
+    else:
+        corpus = []
+        with open(corpus_path) as f:
+            for line in f:
+                if line.strip():
+                    entry = json.loads(line)
+                    if "persona" in entry:
+                        corpus.append(entry)
 
-    if not corpus:
-        raise ValueError(
-            f"No persona entries in {corpus_path}. "
-            f"Generate with: python generate_cots.py --openrouter --personas"
-        )
+    assert corpus, (
+        f"No persona entries in {corpus_path}. "
+        f"Generate with: python generate_cots.py --openrouter --personas"
+    )
 
     layers = [layer_percent_to_layer(model_name, lp) for lp in layer_percents]
 
-    # Pre-tokenize and group by persona
     by_persona: dict[str, list[tuple]] = {}
     for entry in tqdm(corpus, desc="  persona: tokenizing corpus", leave=False):
         persona = entry["persona"]
@@ -52,15 +54,18 @@ def load_cot_persona_data(
         if len(boundary_positions) < 2:
             continue
 
-        messages = [{"role": "user", "content": entry["question"]}]
-        formatted = tokenizer.apply_chat_template(
-            messages, tokenize=False, add_generation_prompt=True, enable_thinking=True,
-        )
-        cot_text = entry["cot_response"]
-        think_end = cot_text.find("</think>")
-        if think_end != -1:
-            cot_text = cot_text[:think_end]
-        context_ids = tokenizer(formatted + cot_text, add_special_tokens=False)["input_ids"]
+        if "_ctx_ids" in entry:
+            context_ids = entry["_ctx_ids"]
+        else:
+            messages = [{"role": "user", "content": entry["question"]}]
+            formatted = tokenizer.apply_chat_template(
+                messages, tokenize=False, add_generation_prompt=True, enable_thinking=True,
+            )
+            cot_text = entry["cot_response"]
+            think_end = cot_text.find("</think>")
+            if think_end != -1:
+                cot_text = cot_text[:think_end]
+            context_ids = tokenizer(formatted + cot_text, add_special_tokens=False)["input_ids"]
 
         positions = [p for p in boundary_positions[:max_sentences] if p < len(context_ids)]
         if len(positions) < 2:
@@ -83,7 +88,6 @@ def load_cot_persona_data(
         context_ids, positions = random.choice(by_persona[persona])
 
         N = len(positions)
-        context_slice = context_ids[:positions[-1] + 1]
 
         prompt = (
             f"Activations from {N} sentence boundaries. "
@@ -97,7 +101,7 @@ def load_cot_persona_data(
             "target_response": persona,
             "layers": layers,
             "num_positions": N,
-            "context_input_ids": context_slice,
+            "context_input_ids": list(context_ids),
             "context_positions": list(positions),
         })
         pbar.update(1)
