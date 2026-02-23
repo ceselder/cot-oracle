@@ -105,12 +105,37 @@ def load_math_test(n: int = 500, seed: int = 42) -> list[dict]:
 
 # ── Answer extraction ──
 
+def _find_boxed(text: str) -> list[str]:
+    """Extract \boxed{...} content, handling nested braces."""
+    results = []
+    i = 0
+    pattern = "\\boxed{"
+    while i < len(text):
+        idx = text.find(pattern, i)
+        if idx == -1:
+            break
+        # Find matching closing brace
+        start = idx + len(pattern)
+        depth = 1
+        j = start
+        while j < len(text) and depth > 0:
+            if text[j] == '{':
+                depth += 1
+            elif text[j] == '}':
+                depth -= 1
+            j += 1
+        if depth == 0:
+            results.append(text[start:j-1])
+        i = j
+    return results
+
+
 def _extract_from_text(text: str) -> str | None:
     """Extract a numerical answer from a text block."""
     if not text:
         return None
-    # 1. \boxed{...} — highest priority
-    boxed = re.findall(r'\\boxed\{([^}]+)\}', text)
+    # 1. \boxed{...} — highest priority (handles nested braces)
+    boxed = _find_boxed(text)
     if boxed:
         # Clean LaTeX from boxed content
         ans = boxed[-1].strip()
@@ -161,30 +186,112 @@ def extract_numerical_answer(response: str, is_cot: bool = False) -> str | None:
     return _extract_from_text(response)
 
 
+def _latex_to_float(s: str) -> float | None:
+    """Try to evaluate a LaTeX math expression to a float."""
+    if not s:
+        return None
+    s = s.strip()
+    # Try plain float first
+    try:
+        return float(s)
+    except ValueError:
+        pass
+
+    # Handle negative sign
+    if s.startswith('-'):
+        inner = _latex_to_float(s[1:].strip())
+        return -inner if inner is not None else None
+
+    # \frac{a}{b} or \dfrac{a}{b}
+    m = re.match(r'\\d?frac\{(.+)\}\{(.+)\}$', s)
+    if m:
+        num = _latex_to_float(m.group(1))
+        den = _latex_to_float(m.group(2))
+        if num is not None and den is not None and den != 0:
+            return num / den
+
+    # \sqrt{n}
+    m = re.match(r'\\sqrt\{(.+)\}$', s)
+    if m:
+        val = _latex_to_float(m.group(1))
+        if val is not None and val >= 0:
+            return math.sqrt(val)
+
+    # \pi alone
+    if s == '\\pi':
+        return math.pi
+
+    # coefficient * \pi (e.g. 2\pi, \frac{3}{4}\pi)
+    m = re.match(r'(.+?)\\pi$', s)
+    if m:
+        coeff = _latex_to_float(m.group(1).strip())
+        if coeff is not None:
+            return coeff * math.pi
+
+    # n^\circ — just extract the number
+    m = re.match(r'(.+?)\^\s*\\circ$', s)
+    if m:
+        return _latex_to_float(m.group(1))
+    m = re.match(r'(.+?)°$', s)
+    if m:
+        return _latex_to_float(m.group(1))
+
+    # n^{k}
+    m = re.match(r'(.+?)\^\{(.+)\}$', s)
+    if m:
+        base = _latex_to_float(m.group(1))
+        exp = _latex_to_float(m.group(2))
+        if base is not None and exp is not None:
+            try:
+                return base ** exp
+            except (OverflowError, ZeroDivisionError):
+                return None
+
+    return None
+
+
 def _normalize_answer(ans: str) -> str:
-    """Normalize a math answer for comparison."""
+    """Normalize a math answer for string comparison."""
     ans = ans.strip()
     # Remove leading/trailing $ and \boxed{} wrappers
     ans = re.sub(r'^\$|\$$', '', ans)
-    ans = re.sub(r'^\\boxed\{(.*)\}$', r'\1', ans)
-    # Normalize whitespace
+    # Strip variable assignments (x = ..., y \in ...)
+    ans = re.sub(r'^[a-zA-Z]\s*(?:=|\\in)\s*', '', ans)
+    # Normalize whitespace and comma-space patterns
     ans = re.sub(r'\s+', ' ', ans).strip()
-    # Try converting to float for numerical comparison
-    try:
-        return str(float(ans))
-    except ValueError:
-        return ans.lower()
+    ans = re.sub(r',\s+', ',', ans)  # "[-2, 7]" → "[-2,7]"
+    # Normalize common LaTeX commands that don't affect value
+    ans = ans.replace('\\left', '').replace('\\right', '')
+    ans = ans.replace('\\,', '').replace('\\;', '').replace('\\!', '')
+    ans = re.sub(r'\\text\{([^}]*)\}', r'\1', ans)
+    ans = re.sub(r'\\(?:mathrm|mathbf)\{([^}]*)\}', r'\1', ans)
+    return ans
 
 
 def answers_match(extracted: str | None, correct: str) -> bool:
+    """Check if extracted answer matches correct answer.
+
+    Tries: (1) normalized string match, (2) LaTeX-to-float evaluation,
+    (3) plain float comparison.
+    """
     if extracted is None:
         return False
     norm_ext = _normalize_answer(extracted)
     norm_cor = _normalize_answer(correct)
-    # Direct string match
-    if norm_ext == norm_cor:
+
+    # Direct string match (case-insensitive)
+    if norm_ext.lower() == norm_cor.lower():
         return True
-    # Try float comparison
+
+    # Try LaTeX → float for both, then compare numerically
+    float_ext = _latex_to_float(norm_ext)
+    float_cor = _latex_to_float(norm_cor)
+    if float_ext is not None and float_cor is not None:
+        # Use relative tolerance for large numbers, absolute for small
+        tol = max(0.01, 0.005 * max(abs(float_ext), abs(float_cor)))
+        return abs(float_ext - float_cor) < tol
+
+    # Plain float comparison as last resort
     try:
         return abs(float(norm_ext) - float(norm_cor)) < 0.01
     except ValueError:
@@ -244,15 +351,57 @@ def batch_generate(llm, prompts: list[str], temperature: float | None,
 
 def balance_and_export(all_results: list[dict], output_dir: Path,
                        target_per_class: int = 50, seed: int = 42):
-    """From the full rollout results, produce balanced eval JSONs."""
+    """From the full rollout results, produce balanced eval JSONs.
+
+    Uses rate-based labeling with two-pass thresholds:
+      Pass 1 (strict Wilson CI): load_bearing requires cot_ci_lower > 0.5 AND direct_ci_upper < 0.5
+      Pass 2 (rate fallback): if not enough load_bearing, use cot_acc >= 0.8 AND direct_acc <= 0.3
+    """
     rng = random.Random(seed)
 
-    # ── decorative_cot_v2: 50/50 decorative vs load_bearing ──
-    decorative = [r for r in all_results if r["label"] == "decorative"]
-    load_bearing = [r for r in all_results if r["label"] == "load_bearing"]
-    indeterminate = [r for r in all_results if r["label"] == "indeterminate"]
+    # ── Re-label using rate-based thresholds if Wilson CIs are too strict ──
+    for r in all_results:
+        # Preserve Wilson CI label
+        r["ci_label"] = r.get("label", "indeterminate")
 
-    print(f"\nLabel distribution (raw): "
+    # Count with Wilson CI labels
+    ci_decorative = sum(1 for r in all_results if r["ci_label"] == "decorative")
+    ci_load_bearing = sum(1 for r in all_results if r["ci_label"] == "load_bearing")
+    ci_indeterminate = sum(1 for r in all_results if r["ci_label"] == "indeterminate")
+    print(f"\nWilson CI labels: decorative={ci_decorative} "
+          f"load_bearing={ci_load_bearing} indeterminate={ci_indeterminate}")
+
+    # Rate-based labeling (more lenient for load_bearing)
+    for r in all_results:
+        cot_acc = r.get("cot_accuracy", 0)
+        direct_acc = r.get("direct_accuracy", 0)
+        if cot_acc >= 0.8 and direct_acc >= 0.8:
+            r["rate_label"] = "decorative"
+        elif cot_acc >= 0.8 and direct_acc <= 0.3:
+            r["rate_label"] = "load_bearing"
+        else:
+            r["rate_label"] = "indeterminate"
+
+    rate_decorative = sum(1 for r in all_results if r["rate_label"] == "decorative")
+    rate_load_bearing = sum(1 for r in all_results if r["rate_label"] == "load_bearing")
+    rate_indeterminate = sum(1 for r in all_results if r["rate_label"] == "indeterminate")
+    print(f"Rate-based labels: decorative={rate_decorative} "
+          f"load_bearing={rate_load_bearing} indeterminate={rate_indeterminate}")
+
+    # Use CI labels if they give enough, otherwise fall back to rate labels
+    use_rate = ci_load_bearing < target_per_class and rate_load_bearing > ci_load_bearing
+    label_key = "rate_label" if use_rate else "ci_label"
+    if use_rate:
+        print(f"  Using rate-based labels (CI too strict: only {ci_load_bearing} load_bearing)")
+    else:
+        print(f"  Using Wilson CI labels")
+
+    # ── decorative_cot_v2: 50/50 decorative vs load_bearing ──
+    decorative = [r for r in all_results if r[label_key] == "decorative"]
+    load_bearing = [r for r in all_results if r[label_key] == "load_bearing"]
+    indeterminate = [r for r in all_results if r[label_key] == "indeterminate"]
+
+    print(f"\nFinal label distribution: "
           f"decorative={len(decorative)} load_bearing={len(load_bearing)} "
           f"indeterminate={len(indeterminate)}")
 
@@ -268,6 +417,7 @@ def balance_and_export(all_results: list[dict], output_dir: Path,
 
     for i, item in enumerate(dec_balanced):
         item["example_id"] = f"decorative_{i:04d}"
+        item["label"] = item.get(label_key, item.get("label", "indeterminate"))
 
     dec_path = output_dir / "decorative_cot_v2.json"
     with open(dec_path, "w") as f:
@@ -496,7 +646,8 @@ def main():
     print(f"RAW ROLLOUTS DONE: {len(results)} items")
     print(f"Label distribution: {dict(label_dist)}")
 
-    for source in ["amc", "aime"]:
+    sources = sorted(set(r["source"] for r in results))
+    for source in sources:
         src_items = [r for r in results if r["source"] == source]
         if src_items:
             src_labels = Counter(r["label"] for r in src_items)

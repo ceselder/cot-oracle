@@ -293,8 +293,42 @@ TASK_REGISTRY = {
 }
 
 
+def load_precomputed_tasks(precomputed_dir: str, args) -> list[dict]:
+    """Load training data from precomputed JSONL files."""
+    pdir = Path(precomputed_dir)
+    all_data = []
+    enabled = []
+
+    for task_name, info in TASK_REGISTRY.items():
+        n = getattr(args, info["arg"], 0)
+        if n <= 0:
+            continue
+
+        jsonl_path = pdir / f"{task_name}.jsonl"
+        if not jsonl_path.exists():
+            print(f"  WARNING: {jsonl_path} not found, skipping {task_name}")
+            continue
+
+        print(f"  Loading {task_name} from {jsonl_path}...")
+        data = []
+        with open(jsonl_path) as f:
+            for line in f:
+                if line.strip():
+                    data.append(json.loads(line))
+                    if len(data) >= n:
+                        break
+
+        all_data.extend(data)
+        enabled.append(f"{task_name}({len(data)})")
+        print(f"    -> {len(data)} examples")
+
+    print(f"\n  Enabled tasks: {', '.join(enabled)}")
+    print(f"  Total: {len(all_data)} examples")
+    return all_data
+
+
 def load_all_tasks(args, tokenizer) -> list[dict]:
-    """Load all enabled tasks. A task is enabled if its --*-n arg > 0."""
+    """Load all enabled tasks via dataset loaders (fallback if no precomputed dir)."""
     import importlib
 
     all_data = []
@@ -313,7 +347,6 @@ def load_all_tasks(args, tokenizer) -> list[dict]:
             loader_fn = getattr(mod, info["loader"])
 
             if info["corpus"] == "concept":
-                # Conv QA uses concept corpus + cotqa path
                 concept_corpus = args.concept_corpus
                 if not Path(concept_corpus).exists():
                     print(f"    Warning: concept corpus not found, using main corpus")
@@ -677,10 +710,87 @@ def train(
     return global_step
 
 
+# ── Config loading ──
+def load_config(config_path: str) -> dict:
+    """Load YAML config file."""
+    import yaml
+    with open(config_path) as f:
+        return yaml.safe_load(f)
+
+
+def apply_config(args, config: dict):
+    """Apply config values to args, CLI flags override config."""
+    # Task counts
+    if "tasks" in config:
+        for task_name, task_cfg in config["tasks"].items():
+            arg_name = f"{task_name}_n"
+            if hasattr(args, arg_name) and getattr(args, f"_cli_{arg_name}", False) is False:
+                setattr(args, arg_name, task_cfg.get("n", 0))
+
+    # Training params
+    if "training" in config:
+        t = config["training"]
+        for key in ["lr", "batch_size", "eval_batch_size", "epochs",
+                     "warmup_fraction", "max_grad_norm", "steering_coefficient",
+                     "gradient_checkpointing"]:
+            if key in t and not getattr(args, f"_cli_{key}", False):
+                setattr(args, key, t[key])
+
+    # Activations
+    if "activations" in config:
+        a = config["activations"]
+        for key in ["stride", "max_positions_per_layer"]:
+            if key in a and not getattr(args, f"_cli_{key}", False):
+                setattr(args, key, a[key])
+
+    # Eval
+    if "eval" in config:
+        e = config["eval"]
+        for key in ["eval_steps", "save_steps", "unfaith_eval_steps", "unfaith_eval_items"]:
+            if key in e and not getattr(args, f"_cli_{key}", False):
+                setattr(args, key, e[key])
+
+    # Data paths
+    if "data" in config:
+        d = config["data"]
+        if "corpus" in d and not getattr(args, "_cli_corpus", False):
+            args.corpus = d["corpus"]
+        if "precomputed_dir" in d and not getattr(args, "_cli_precomputed_dir", False):
+            args.precomputed_dir = d["precomputed_dir"]
+        if "concept_corpus" in d and not getattr(args, "_cli_concept_corpus", False):
+            args.concept_corpus = d["concept_corpus"]
+        if "cotqa_path" in d and not getattr(args, "_cli_cotqa_path", False):
+            args.cotqa_path = d["cotqa_path"]
+
+    # Model
+    if "model" in config:
+        m = config["model"]
+        if "name" in m and not getattr(args, "_cli_model", False):
+            args.model = m["name"]
+        if "ao_checkpoint" in m and not getattr(args, "_cli_ao_checkpoint", False):
+            args.ao_checkpoint = m["ao_checkpoint"]
+        if "fresh_lora" in m and not getattr(args, "_cli_fresh_lora", False):
+            args.fresh_lora = m["fresh_lora"]
+
+    # Output
+    if "output" in config:
+        o = config["output"]
+        if "save_dir" in o and not getattr(args, "_cli_save_dir", False):
+            args.save_dir = o["save_dir"]
+        if "wandb_project" in o and not getattr(args, "_cli_wandb_project", False):
+            args.wandb_project = o["wandb_project"]
+        if "wandb_entity" in o and not getattr(args, "_cli_wandb_entity", False):
+            args.wandb_entity = o["wandb_entity"]
+        if "wandb_run" in o and o.get("wandb_run") and not getattr(args, "_cli_wandb_run", False):
+            args.wandb_run = o["wandb_run"]
+
+
 # ── Main ──
 def main():
     parser = argparse.ArgumentParser(description="Train CoT Oracle")
-    parser.add_argument("--corpus", required=True, help="Path to corpus.jsonl")
+    parser.add_argument("--config", default=None, help="YAML config file")
+    parser.add_argument("--corpus", default="data/cot_corpus_v5/corpus_medium.jsonl",
+                        help="Path to corpus.jsonl")
     parser.add_argument("--model", default="Qwen/Qwen3-8B")
 
     # Checkpoint control
@@ -746,11 +856,19 @@ def main():
                         help="Wandb entity (team/org)")
     parser.add_argument("--wandb-run", default=None)
 
-    # Data caching
+    # Data loading
+    parser.add_argument("--precomputed-dir", default=None,
+                        help="Dir with precomputed JSONL files (skips dataset loaders)")
     parser.add_argument("--data-cache-dir", default=None,
                         help="Directory to cache preprocessed training data")
 
     args = parser.parse_args()
+
+    # Apply config file (CLI flags override config values)
+    if args.config:
+        config = load_config(args.config)
+        apply_config(args, config)
+        print(f"Loaded config from {args.config}")
 
     set_seed(args.seed)
 
@@ -809,27 +927,17 @@ def main():
     model.print_trainable_parameters()
 
     # ── Load data ──
-    cache_path = None
-    if args.data_cache_dir:
-        cache_dir = Path(args.data_cache_dir)
-        cache_dir.mkdir(parents=True, exist_ok=True)
-        cache_path = cache_dir / "training_data.json"
+    print(f"\n{'=' * 60}")
+    print("LOADING TRAINING DATA")
+    print(f"{'=' * 60}")
 
-    if cache_path and cache_path.exists():
-        print(f"\nLoading cached training data from {cache_path}...")
-        with open(cache_path) as f:
-            raw_data = json.load(f)
-        print(f"  Loaded {len(raw_data)} cached examples")
+    if args.precomputed_dir and Path(args.precomputed_dir).exists():
+        print(f"  Using precomputed data from {args.precomputed_dir}")
+        raw_data = load_precomputed_tasks(args.precomputed_dir, args)
     else:
-        print(f"\n{'=' * 60}")
-        print("LOADING TRAINING DATA")
-        print(f"{'=' * 60}")
+        if args.precomputed_dir:
+            print(f"  WARNING: --precomputed-dir={args.precomputed_dir} not found, using loaders")
         raw_data = load_all_tasks(args, tokenizer)
-
-        if cache_path and raw_data:
-            print(f"\n  Caching {len(raw_data)} examples to {cache_path}...")
-            with open(cache_path, "w") as f:
-                json.dump(raw_data, f)
 
     if not raw_data:
         print("ERROR: No training data loaded!")

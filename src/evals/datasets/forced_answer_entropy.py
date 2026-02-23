@@ -9,7 +9,8 @@ Compute entropy H(p) = -sum(p_i * log(p_i)) of the softmax distribution.
 This is a REGRESSION task: the oracle predicts the entropy value (float),
 not a class label. The metric is R^2 (coefficient of determination).
 
-Sources: GPQA Diamond (graduate-level 4-choice science MCQ, NOT in training data).
+Sources: ARC-Challenge (4-choice science MCQ, NOT in training data).
+Falls back to GPQA Diamond if available.
 
 The actual entropy values are computed during GPU precompute (see
 scripts/precompute_forced_entropy.py). This generator creates the skeleton
@@ -28,34 +29,70 @@ from evals.common import EvalItem
 from evals.datasets.test_splits import _hf_load_dataset
 
 
-def _load_gpqa_diamond(n: int, seed: int = 42) -> list[dict]:
-    """Load GPQA Diamond questions with 4 answer choices."""
+def _load_mcq_questions(n: int, seed: int = 42) -> list[dict]:
+    """Load 4-choice MCQ questions. Tries GPQA Diamond first, falls back to ARC-Challenge."""
     rng = random.Random(seed)
-
-    ds = _hf_load_dataset("Idavidrein/gpqa", "gpqa_diamond", split="train")
-
     items = []
+
+    # Try GPQA Diamond first (gated — requires HF auth)
+    try:
+        ds = _hf_load_dataset("Idavidrein/gpqa", "gpqa_diamond", split="train")
+        for row in ds:
+            question = row.get("Question", "")
+            correct = row.get("Correct Answer", "")
+            choices_raw = [
+                row.get("Correct Answer", ""),
+                row.get("Incorrect Answer 1", ""),
+                row.get("Incorrect Answer 2", ""),
+                row.get("Incorrect Answer 3", ""),
+            ]
+            choices_raw = [c for c in choices_raw if c and c.strip()]
+            if len(choices_raw) < 4 or not question or not correct:
+                continue
+            items.append({
+                "question": question.strip(),
+                "correct_answer": correct.strip(),
+                "choices_raw": choices_raw,
+                "source": "gpqa_diamond",
+            })
+        if items:
+            print(f"  Loaded {len(items)} GPQA Diamond questions")
+            rng.shuffle(items)
+            return items[:n]
+    except Exception as e:
+        print(f"  GPQA Diamond unavailable ({e}), falling back to ARC-Challenge")
+
+    # Fallback: ARC-Challenge (open, 4-choice science MCQ)
+    ds = _hf_load_dataset("allenai/ai2_arc", "ARC-Challenge", split="test")
     for row in ds:
-        question = row.get("Question", "")
-        correct = row.get("Correct Answer", "")
-        choices_raw = [
-            row.get("Correct Answer", ""),
-            row.get("Incorrect Answer 1", ""),
-            row.get("Incorrect Answer 2", ""),
-            row.get("Incorrect Answer 3", ""),
-        ]
-        # Filter out empty choices
-        choices_raw = [c for c in choices_raw if c and c.strip()]
-        if len(choices_raw) < 4 or not question or not correct:
+        question = row.get("question", "")
+        choices_obj = row.get("choices", {})
+        labels = choices_obj.get("label", [])
+        texts = choices_obj.get("text", [])
+        answer_key = row.get("answerKey", "")
+
+        if len(labels) != 4 or len(texts) != 4:
+            continue
+        if not question or not answer_key:
+            continue
+
+        # Find correct answer text
+        correct_text = None
+        for lbl, txt in zip(labels, texts):
+            if lbl == answer_key:
+                correct_text = txt
+                break
+        if correct_text is None:
             continue
 
         items.append({
             "question": question.strip(),
-            "correct_answer": correct.strip(),
-            "choices_raw": choices_raw,
-            "source": "gpqa_diamond",
+            "correct_answer": correct_text.strip(),
+            "choices_raw": [t.strip() for t in texts],
+            "source": "arc_challenge",
         })
 
+    print(f"  Loaded {len(items)} ARC-Challenge questions")
     rng.shuffle(items)
     return items[:n]
 
@@ -77,7 +114,7 @@ def generate_forced_answer_entropy_dataset(
     rng = random.Random(seed)
     options = ["A", "B", "C", "D"]
 
-    raw = _load_gpqa_diamond(n * 2, seed=seed)
+    raw = _load_mcq_questions(n * 2, seed=seed)
     if not raw:
         print("WARNING: Could not load GPQA Diamond dataset. Returning empty list.")
         return []
