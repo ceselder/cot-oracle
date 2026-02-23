@@ -649,13 +649,14 @@ def install_multilayer_materialization():
 
 
 def install_per_task_loss_hook():
-    """Monkey-patch AO's training loop to log per-task loss to wandb."""
+    """Monkey-patch AO's training loop to log per-task loss and wallclock time to wandb."""
+    import time
     import wandb
     import torch.nn.functional as F
     from nl_probes.sft import train_features_batch as _original_train
     from nl_probes.utils.steering_hooks import get_hf_activation_steering_hook, add_hook
 
-    _batch_state = {"types": []}
+    _batch_state = {"types": [], "start_time": time.time(), "last_time": time.time()}
 
     from nl_probes.sft import construct_batch as _original_construct
     def patched_construct_batch(batch_list, tokenizer, device):
@@ -696,9 +697,13 @@ def install_per_task_loss_hook():
             for i, task_type in enumerate(batch_types):
                 task_losses[task_type].append(per_item_loss[i].item())
 
+            now = time.time()
             log_dict = {}
             for task, losses in task_losses.items():
                 log_dict[f"train/loss_{task}"] = sum(losses) / len(losses)
+            log_dict["train/step_time"] = now - _batch_state["last_time"]
+            log_dict["train/wallclock_hours"] = (now - _batch_state["start_time"]) / 3600
+            _batch_state["last_time"] = now
             if wandb.run is not None:
                 wandb.log(log_dict, commit=False)
 
