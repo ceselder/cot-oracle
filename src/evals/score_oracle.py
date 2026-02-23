@@ -206,6 +206,7 @@ EVAL_PARSING = {
         "positive_label": "influenced",
         "negative_label": "independent",
     },
+    # ood_topic removed — no adversarial validation
     "ood_topic": {
         "positive_keywords": [
             "yes", "mathematical", "math", "scientific", "computation",

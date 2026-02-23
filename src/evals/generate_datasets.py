@@ -56,7 +56,7 @@ ALL_GENERATORS = {
     "correct_authority": generate_correct_authority_dataset,
     "step_counting": generate_step_counting_dataset,
     "anchoring_bias": generate_anchoring_bias_dataset,
-    "ood_topic": generate_ood_topic_eval,
+    # "ood_topic": generate_ood_topic_eval,  # Removed: no adversarial validation that oracle reads activations vs decoding tokens
     "reasoning_termination": generate_reasoning_termination_dataset,
     "forced_answer_entropy": generate_forced_answer_entropy_dataset,
     "sycophancy_v2": generate_sycophancy_v2_dataset,
@@ -81,7 +81,7 @@ DEFAULT_COUNTS = {
     "correct_authority": 100,
     "step_counting": 100,
     "anchoring_bias": 100,
-    "ood_topic": 100,
+    # "ood_topic": 100,
     "reasoning_termination": 100,
     "forced_answer_entropy": 100,
     "sycophancy_v2": 100,

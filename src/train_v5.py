@@ -87,6 +87,10 @@ def _patched_get_prefix(sae_layer: int, num_positions: int) -> str:
 du_module.get_introspection_prefix = _patched_get_prefix
 
 
+# ── Position encoding config (module-level, set by main()) ──
+_PE_CONFIG = {"enabled": False, "alpha": 0.1}
+
+
 # ── Multi-layer materialization ──
 def materialize_multilayer_steering_vectors(
     batch_points: list[TrainingDataPoint],
@@ -180,6 +184,15 @@ def materialize_multilayer_steering_vectors(
 
         vectors = torch.cat(vectors_parts, dim=0).detach().contiguous()
         assert vectors.shape[0] == total_positions
+
+        # Apply positional encoding if enabled
+        if _PE_CONFIG["enabled"]:
+            from position_encoding import apply_position_encoding
+            total_length = len(contexts[b])
+            vectors = apply_position_encoding(
+                vectors, positions_per_item[b], total_length,
+                alpha=_PE_CONFIG["alpha"],
+            )
 
         dp_new = dp.model_copy(deep=True)
         dp_new.steering_vectors = vectors
@@ -739,7 +752,7 @@ def apply_config(args, config: dict):
     # Activations
     if "activations" in config:
         a = config["activations"]
-        for key in ["stride", "max_positions_per_layer"]:
+        for key in ["stride", "max_positions_per_layer", "position_encoding", "pe_alpha"]:
             if key in a and not getattr(args, f"_cli_{key}", False):
                 setattr(args, key, a[key])
 
@@ -836,6 +849,10 @@ def main():
     parser.add_argument("--gradient-checkpointing", action="store_true", default=True)
     parser.add_argument("--no-gradient-checkpointing", dest="gradient_checkpointing",
                         action="store_false")
+    parser.add_argument("--position-encoding", action="store_true", default=False,
+                        help="Apply sinusoidal PE to activation vectors")
+    parser.add_argument("--pe-alpha", type=float, default=0.1,
+                        help="PE mixing coefficient (only used if --position-encoding)")
 
     # Eval / save
     parser.add_argument("--eval-steps", type=int, default=500)
@@ -876,6 +893,15 @@ def main():
     global MULTI_LAYERS
     MULTI_LAYERS = [layer_percent_to_layer(args.model, p) for p in [25, 50, 75]]
     print(f"Multi-layer injection: {MULTI_LAYERS}")
+
+    # Position encoding config
+    global _PE_CONFIG
+    _PE_CONFIG["enabled"] = getattr(args, "position_encoding", False)
+    _PE_CONFIG["alpha"] = getattr(args, "pe_alpha", 0.1)
+    if _PE_CONFIG["enabled"]:
+        print(f"Position encoding: ON (alpha={_PE_CONFIG['alpha']})")
+    else:
+        print("Position encoding: OFF")
 
     tokenizer = load_tokenizer(args.model)
 

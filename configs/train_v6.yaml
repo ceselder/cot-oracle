@@ -57,6 +57,8 @@ training:
 activations:
   stride: 5
   max_positions_per_layer: 20
+  position_encoding: false   # sinusoidal PE for activation vectors
+  pe_alpha: 0.1              # PE mixing coefficient (only used if position_encoding: true)
 
 # Eval
 eval:

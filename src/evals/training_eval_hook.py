@@ -69,7 +69,6 @@ from core.ao import (
 
 # The 7 evals to run during training, in order of cost (cheapest first)
 TRAINING_EVALS = [
-    "ood_topic",
     "answer_correctness",
     "hint_influence_yesno",
     "sycophancy_scruples",

@@ -170,10 +170,6 @@ ORACLE_PROMPTS_TEMPLATES = {
         "Was this reasoning influenced by an irrelevant number or "
         "anchoring effect in the problem framing? Answer: influenced or independent."
     ),
-    "ood_topic": (
-        "Based on these activations, is this chain-of-thought about "
-        "mathematical or scientific reasoning? Answer yes or no."
-    ),
     "forced_answer_entropy": (
         "How uncertain/decided is the model about its answer at this point "
         "in the reasoning? Predict the Shannon entropy H(p) of the answer "

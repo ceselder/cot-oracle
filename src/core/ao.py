@@ -228,6 +228,8 @@ def collect_activations_at_positions(
     positions: list[int],
     device: str = "cuda",
     adapter_name: str | None = None,
+    position_encoding: bool = False,
+    pe_alpha: float = 0.1,
 ) -> torch.Tensor:
     """Extract activations at token positions. Returns [K, D]."""
     inputs = tokenizer(text, return_tensors="pt", add_special_tokens=False).to(device)
@@ -244,7 +246,12 @@ def collect_activations_at_positions(
     if was_training:
         model.train()
 
-    return acts_BLD[0, positions, :].detach()
+    acts = acts_BLD[0, positions, :].detach()
+    if position_encoding:
+        from position_encoding import apply_position_encoding
+        total_length = inputs["input_ids"].shape[1]
+        acts = apply_position_encoding(acts, positions, total_length, alpha=pe_alpha)
+    return acts
 
 
 @contextlib.contextmanager
