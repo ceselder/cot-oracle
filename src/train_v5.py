@@ -562,7 +562,26 @@ def train(
     final_training = []
     for items in train_per_type.values():
         final_training.extend(items)
-    random.shuffle(final_training)
+
+    task_order = getattr(args, "task_order", "shuffled")
+
+    if task_order == "sequential":
+        # Group by task, preserve order from config
+        task_blocks = []
+        for task_type in sorted(train_per_type.keys()):
+            items = train_per_type[task_type]
+            random.shuffle(items)
+            task_blocks.append((task_type, items))
+        # Flatten in task order (task A then task B then ...)
+        final_training = []
+        for _, items in task_blocks:
+            final_training.extend(items)
+        print(f"  Task order: SEQUENTIAL")
+        for task_name, items in task_blocks:
+            print(f"    {task_name}: {len(items)} examples")
+    else:
+        random.shuffle(final_training)
+        print(f"  Task order: SHUFFLED")
 
     eval_datasets = eval_per_type
     print(f"  Training: {len(final_training)}, Eval: {sum(len(v) for v in eval_datasets.values())}")
@@ -578,12 +597,19 @@ def train(
         optimizer, num_warmup_steps=warmup_steps, num_training_steps=total_steps,
     )
 
+    # Task index mapping for wandb (so we can plot which task is active)
+    all_task_types = sorted(type_counts.keys())
+    task_to_idx = {t: i for i, t in enumerate(all_task_types)}
+
     wandb.log({
         "total_steps": total_steps,
         "n_examples": len(final_training),
         "n_eval": sum(len(v) for v in eval_datasets.values()),
         "n_tasks": len(eval_datasets),
     }, step=global_step)
+
+    # Log task index legend to wandb config
+    wandb.config.update({"task_index_legend": task_to_idx}, allow_val_change=True)
 
     save_dir.mkdir(parents=True, exist_ok=True)
 
@@ -601,7 +627,8 @@ def train(
     total_tokens = 0
 
     for epoch in range(args.epochs):
-        random.shuffle(final_training)
+        if task_order != "sequential":
+            random.shuffle(final_training)
         optimizer.zero_grad()
 
         pbar = tqdm(
@@ -672,6 +699,16 @@ def train(
             }
             for task, ema_val in task_loss_ema.items():
                 log_dict[f"train/loss_{task}"] = ema_val
+
+            # Log batch task composition (what fraction of this batch is each task)
+            batch_task_counts = defaultdict(int)
+            for t in batch_types:
+                batch_task_counts[t] += 1
+            dominant_task = max(batch_task_counts, key=batch_task_counts.get)
+            log_dict["train/active_task_idx"] = task_to_idx.get(dominant_task, -1)
+            for t, count in batch_task_counts.items():
+                log_dict[f"train/batch_frac_{t}"] = count / len(batch_types)
+
             wandb.log(log_dict, step=global_step)
 
             pbar.set_postfix(loss=f"{loss.item():.4f}")
@@ -745,7 +782,7 @@ def apply_config(args, config: dict):
         t = config["training"]
         for key in ["lr", "batch_size", "eval_batch_size", "epochs",
                      "warmup_fraction", "max_grad_norm", "steering_coefficient",
-                     "gradient_checkpointing"]:
+                     "gradient_checkpointing", "task_order", "seed"]:
             if key in t and not getattr(args, f"_cli_{key}", False):
                 setattr(args, key, t[key])
 
@@ -853,6 +890,8 @@ def main():
                         help="Apply sinusoidal PE to activation vectors")
     parser.add_argument("--pe-alpha", type=float, default=0.1,
                         help="PE mixing coefficient (only used if --position-encoding)")
+    parser.add_argument("--task-order", choices=["shuffled", "sequential"], default="shuffled",
+                        help="'shuffled' mixes all tasks; 'sequential' trains tasks one at a time")
 
     # Eval / save
     parser.add_argument("--eval-steps", type=int, default=500)

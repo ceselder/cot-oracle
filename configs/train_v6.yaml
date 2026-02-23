@@ -52,11 +52,14 @@ training:
   max_grad_norm: 1.0
   steering_coefficient: 1.0
   gradient_checkpointing: true
+  task_order: shuffled    # "shuffled" (default) or "sequential" (train tasks one at a time)
+  seed: 42
 
 # Activation extraction
 activations:
   stride: 5
   max_positions_per_layer: 20
+  n_prompt_positions: 5
   position_encoding: false   # sinusoidal PE for activation vectors
   pe_alpha: 0.1              # PE mixing coefficient (only used if position_encoding: true)
 
