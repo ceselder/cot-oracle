@@ -646,7 +646,7 @@ def install_third_task_loss_hook(max_layers: int = 36):
     from nl_probes.utils.steering_hooks import get_hf_activation_steering_hook, add_hook
 
     import time
-    _batch_state = {"types": [], "meta_infos": [], "last_time": time.time()}
+    _batch_state = {"types": [], "meta_infos": [], "start_time": time.time(), "last_time": time.time()}
 
     from nl_probes.sft import construct_batch as _original_construct
     def patched_construct_batch(batch_list, tokenizer, device):
@@ -731,6 +731,7 @@ def install_third_task_loss_hook(max_layers: int = 36):
 
             now = time.time()
             log_dict["train/step_time"] = now - _batch_state["last_time"]
+            log_dict["train/wallclock_hours"] = (now - _batch_state["start_time"]) / 3600
             _batch_state["last_time"] = now
 
             if wandb.run is not None:
