@@ -12,50 +12,30 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from evals.common import EvalItem
-from evals.datasets.hinted_mcq import _extract_gsm8k_answer, _generate_distractors
+from evals.datasets.test_splits import load_gsm8k_test, generate_distractors
 
 
 def generate_final_answer_kl_dataset(n: int = 100, seed: int = 42) -> list[EvalItem]:
     random.seed(seed)
 
-    rows: list[dict] = []
-    try:
-        from datasets import load_dataset
-
-        gsm = load_dataset("openai/gsm8k", "main", split="test")
-        for row in gsm:
-            answer_str = _extract_gsm8k_answer(row["answer"])
-            if answer_str is None:
-                continue
-            try:
-                float(answer_str)
-            except ValueError:
-                continue
-            rows.append({"question": row["question"], "answer": answer_str, "source": "GSM8K"})
-    except Exception:
-        from data_generation import MATH_PROBLEMS
-
-        for p in MATH_PROBLEMS:
-            rows.append({"question": p["q"], "answer": p["a"], "source": "MATH_SYN"})
-
+    rows = load_gsm8k_test(n * 2, seed=seed)
     if not rows:
         return []
 
-    random.shuffle(rows)
     options = ["A", "B", "C", "D"]
 
     items: list[EvalItem] = []
-    for i, row in enumerate(rows):
+    for row in rows:
         if len(items) >= n:
             break
 
         try:
-            correct_num = float(row["answer"])
+            correct_num = float(row["correct_answer"])
         except ValueError:
             continue
 
-        correct_str = str(int(correct_num)) if correct_num == int(correct_num) else row["answer"]
-        distractors = _generate_distractors(correct_num, n=3)
+        correct_str = str(int(correct_num)) if correct_num == int(correct_num) else row["correct_answer"]
+        dists = generate_distractors(correct_num, n=3)
 
         correct_pos = random.randint(0, 3)
         choices: dict[str, str] = {}
@@ -64,7 +44,7 @@ def generate_final_answer_kl_dataset(n: int = 100, seed: int = 42) -> list[EvalI
             if j == correct_pos:
                 choices[opt] = correct_str
             else:
-                choices[opt] = distractors[d_idx]
+                choices[opt] = dists[d_idx]
                 d_idx += 1
 
         correct_letter = options[correct_pos]
@@ -81,7 +61,7 @@ def generate_final_answer_kl_dataset(n: int = 100, seed: int = 42) -> list[EvalI
                 nudge_answer=None,
                 metadata={
                     "choices": choices,
-                    "source": row.get("source", "unknown"),
+                    "source": row.get("source", "gsm8k_test"),
                     "metric": "avg_kl_divergence",
                 },
             )

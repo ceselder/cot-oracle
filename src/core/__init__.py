@@ -3,6 +3,7 @@
 from .ao import (
     AO_CHECKPOINTS,
     SPECIAL_TOKEN,
+    TRAINED_PLACEHOLDER,
     EarlyStopException,
     add_hook,
     batch_generate_cot,
@@ -26,6 +27,7 @@ from .ao_repo import ensure_ao_repo_on_path
 __all__ = [
     "AO_CHECKPOINTS",
     "SPECIAL_TOKEN",
+    "TRAINED_PLACEHOLDER",
     "EarlyStopException",
     "add_hook",
     "batch_generate_cot",

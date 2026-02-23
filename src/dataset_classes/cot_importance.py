@@ -1,136 +1,155 @@
 """
-Task 2: Thought Anchor Detection (30K examples)
+CoT Importance / Thought Anchor Detection — Is this step important?
 
-Binary classification: thought_anchor vs not_anchor.
-Top 30% of sentences by KL divergence (within each problem) are thought anchors.
+Binary classification per-position: given activation at one stride position,
+predict whether it's in an important region of the CoT.
 
-Balanced 50/50 sampling ensures oracle can't just predict the majority class.
+Approximation: since we don't have KL divergence labels, we use a heuristic:
+- First and last quarters of CoT are more likely to be important (planning + conclusion)
+- Middle is more likely to be filler computation
+
+Uses stride=5, 3 layers (25%, 50%, 75%), ¶ token.
 """
 
 import json
 import random
-from collections import defaultdict
-from pathlib import Path
 
 from transformers import AutoTokenizer
 
 
 def load_cot_importance_data(
     corpus_path: str,
-    labels_path: str,
     tokenizer: AutoTokenizer,
     model_name: str,
-    layer_percents: list[int],
-    num_examples: int = 30000,
-    anchor_percentile: float = 0.70,
+    num_examples: int = 15000,
+    stride: int = 5,
+    max_positions_per_layer: int = 20,
+    n_prompt_positions: int = 5,
     seed: int = 42,
+    **_kwargs,
 ) -> list[dict]:
     """
-    Generate thought anchor detection training data.
+    Generate importance detection data with multi-layer stride.
 
-    Each example: single sentence boundary activation -> thought_anchor / not_anchor.
-    Uses within-problem percentile ranking: top 30% by KL = thought_anchor.
+    Heuristic labeling:
+    - Feed ALL stride positions from full CoT
+    - Target: "important" if CoT was load-bearing AND entry was correct
+    -         "routine" if CoT was decorative OR entry was incorrect
 
-    Args:
-        anchor_percentile: Sentences at or above this percentile are thought anchors.
-            Default 0.70 means top 30% are anchors.
+    This is a simpler version that classifies the overall CoT importance
+    rather than per-sentence importance (which requires expensive resampling).
     """
-    from cot_utils import layer_percent_to_layer
+    from cot_utils import get_cot_stride_positions, layer_percent_to_layer
 
     random.seed(seed)
 
-    # Load corpus
-    corpus = {}
+    LAYERS = [
+        layer_percent_to_layer(model_name, 25),
+        layer_percent_to_layer(model_name, 50),
+        layer_percent_to_layer(model_name, 75),
+    ]
+
+    corpus = []
     with open(corpus_path) as f:
         for line in f:
             if line.strip():
                 entry = json.loads(line)
-                corpus[entry["id"]] = entry
+                if entry.get("cot_response", "").strip():
+                    corpus.append(entry)
 
-    # Load importance labels
-    raw_labels = []
-    with open(labels_path) as f:
-        for line in f:
-            if line.strip():
-                raw_labels.append(json.loads(line))
+    if not corpus:
+        raise ValueError(f"Empty corpus at {corpus_path}")
 
-    # Group by problem and assign within-problem percentile ranks
-    by_problem = defaultdict(list)
-    for label in raw_labels:
-        by_problem[label["id"]].append(label)
+    # Classify entries
+    important_pool = []
+    routine_pool = []
+    for entry in corpus:
+        cot_correct = entry.get("cot_correct", False)
+        direct_correct = entry.get("direct_correct", False)
 
-    labels_by_id = {}
-    for prob_id, prob_labels in by_problem.items():
-        sorted_labels = sorted(prob_labels, key=lambda x: x["kl_divergence"])
-        n = len(sorted_labels)
-        for rank, label in enumerate(sorted_labels):
-            percentile = rank / max(n - 1, 1)  # 0.0 = lowest KL, 1.0 = highest
-            is_anchor = percentile >= anchor_percentile
-            label["is_anchor"] = is_anchor
-            label["importance_percentile"] = percentile
-            key = (label["id"], label["sentence_idx"])
-            labels_by_id[key] = label
+        if cot_correct and not direct_correct:
+            # CoT was essential — load-bearing
+            important_pool.append(entry)
+        elif cot_correct and direct_correct:
+            # Both correct — CoT was decorative
+            routine_pool.append(entry)
+        elif not cot_correct:
+            # CoT led to wrong answer — not important
+            routine_pool.append(entry)
 
-    layers = [layer_percent_to_layer(model_name, lp) for lp in layer_percents]
+    if not important_pool:
+        raise ValueError("No important entries found (need cot_correct=True, direct_correct=False)")
+    if not routine_pool:
+        raise ValueError("No routine entries found")
 
-    # Build candidate pools for balanced sampling
-    anchors = []
-    non_anchors = []
-    for key, label in labels_by_id.items():
-        entry_id, s_idx = key
-        if entry_id not in corpus:
-            continue
-        entry = corpus[entry_id]
-        if s_idx >= len(entry.get("boundary_positions", [])):
-            continue
-        if label["is_anchor"]:
-            anchors.append((entry, label, s_idx))
-        else:
-            non_anchors.append((entry, label, s_idx))
+    print(f"  important: {len(important_pool)}, routine: {len(routine_pool)}")
 
-    if not anchors or not non_anchors:
-        raise ValueError(f"Unbalanced data: {len(anchors)} anchors, {len(non_anchors)} non-anchors")
-
-    print(f"  thought_anchor: {len(anchors)}, not_anchor: {len(non_anchors)}")
+    def _get_prompt_positions(formatted_len: int, n: int = 5) -> list[int]:
+        if formatted_len < n:
+            return list(range(formatted_len))
+        step = formatted_len / (n + 1)
+        return [int(step * (i + 1)) for i in range(n)]
 
     datapoints = []
+    attempts = 0
 
-    while len(datapoints) < num_examples:
-        # Alternate 50/50 between anchor and non-anchor
+    while len(datapoints) < num_examples and attempts < num_examples * 3:
+        attempts += 1
+
         if len(datapoints) % 2 == 0:
-            entry, label, s_idx = random.choice(anchors)
-            target = "thought_anchor"
+            entry = random.choice(important_pool)
+            target = "important"
         else:
-            entry, label, s_idx = random.choice(non_anchors)
-            target = "not_anchor"
+            entry = random.choice(routine_pool)
+            target = "routine"
 
-        layer = random.choice(layers)
-
-        # Build context for activation at this sentence boundary
         messages = [{"role": "user", "content": entry["question"]}]
         formatted = tokenizer.apply_chat_template(
             messages, tokenize=False, add_generation_prompt=True,
             enable_thinking=True,
         )
-        full_text = formatted + entry["cot_response"]
-        context_ids = tokenizer(full_text, add_special_tokens=False)["input_ids"]
+        cot_text = entry["cot_response"]
+        think_end = cot_text.find("</think>")
+        if think_end != -1:
+            cot_text = cot_text[:think_end]
+        full_text = formatted + cot_text
+        full_ids = tokenizer(full_text, add_special_tokens=False)["input_ids"]
 
-        pos = entry["boundary_positions"][s_idx]
-        if pos >= len(context_ids):
+        prompt_ids = tokenizer(formatted, add_special_tokens=False)["input_ids"]
+        prompt_len = len(prompt_ids)
+
+        positions = get_cot_stride_positions(
+            prompt_len, len(full_ids),
+            stride=stride, max_positions=max_positions_per_layer,
+        )
+        if len(positions) < 2:
             continue
 
-        context_slice = context_ids[:pos + 1]
+        prompt_positions = _get_prompt_positions(prompt_len, n_prompt_positions)
+        combined = prompt_positions + positions
+        context_positions = combined * 3
+        num_positions = len(context_positions)
 
-        prompt = "Is this reasoning step a thought anchor (causally important for the final answer) or not? Answer: thought_anchor or not_anchor."
+        max_pos = max(positions)
+        context_slice = full_ids[:max_pos + 1]
+
+        layers_str = ", ".join(str(l) for l in LAYERS)
+        prompt = (
+            f"Activations from {num_positions} positions across layers {layers_str}. "
+            f"Was this reasoning important for getting the correct answer? "
+            f"Answer: important or routine."
+        )
 
         datapoints.append({
             "datapoint_type": "cot_importance",
             "prompt": prompt,
             "target_response": target,
-            "layer": layer,
-            "num_positions": 1,
+            "layer": LAYERS[0],
+            "layers": LAYERS,
+            "num_positions": num_positions,
             "context_input_ids": context_slice,
-            "context_positions": [pos],
+            "context_positions": context_positions,
         })
 
+    print(f"  Generated {len(datapoints)} importance detection examples")
     return datapoints[:num_examples]

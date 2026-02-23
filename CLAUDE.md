@@ -1,5 +1,9 @@
 # CoT Trajectory Oracle
 
+**EVERY EVAL DATASET MUST BE PUBLISHED ON HUGGINGFACE.** All eval datasets live in the `ceselder/cot-oracle-evals` collection: https://huggingface.co/collections/ceselder/cot-oracle-evals-699a2d31f652864af01d40dd — If you add or modify an eval dataset, re-upload it. If you create a new eval, upload it. No exceptions. Run `python3 scripts/upload_eval_datasets.py` to sync all datasets.
+
+**EVERY EVAL DATASET MUST HAVE A COMPLETE HUGGINGFACE MODEL CARD** with: description, source datasets, schema table, oracle prompt template, source model prompt format, metrics, and usage example. See existing cards in `scripts/upload_model_cards.py` for the spec.
+
 A system to detect unfaithful chain-of-thought reasoning by analyzing activation trajectories rather than text.
 
 ## Goal

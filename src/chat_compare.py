@@ -3,8 +3,8 @@ Side-by-side comparison: Original AO vs Trained CoT Oracle.
 
 Key difference in input format:
   - Original AO: single layer (L50%), standard PastLens prefix ("Layer: 18\n ? ? ? ...\n")
-  - Trained oracle: multi-layer (L25%+L50%+L75%), sentence-boundary prefix
-    ("Layer: 9, 18, 27\n @ ? # @ ? # ...\n") with task-specific prompts
+  - Trained oracle: single layer (L50%), 5-token stride prefix
+    ("Layer: 18\n ¶ ¶ ¶ ...\n") with task-specific prompts
 
 Supports an optional --cot-adapter for "model organism" experiments: a LoRA
 that alters the model's reasoning (e.g. rot13 encoded CoT). The organism
@@ -13,10 +13,10 @@ oracles read those activations to see if they can understand the altered reasoni
 
 Usage:
     # Normal mode (base model generates CoT):
-    python3 src/chat_compare.py --checkpoint checkpoints/cot_oracle_v4/step_28000
+    python3 src/chat_compare.py --checkpoint checkpoints/cot_oracle_v3b/step_4000
 
     # Model organism mode (rot13 LoRA generates CoT):
-    python3 src/chat_compare.py --checkpoint checkpoints/cot_oracle_v4/step_28000 \\
+    python3 src/chat_compare.py --checkpoint checkpoints/cot_oracle_v3b/step_4000 \\
         --cot-adapter ceselder/rot13-qwen3-8b-lora
 """
 
@@ -30,12 +30,11 @@ from peft import PeftModel, LoraConfig
 
 sys.path.insert(0, str(Path(__file__).parent))
 
+from cot_utils import get_cot_stride_positions
 from core.ao import (
     layer_percent_to_layer,
     collect_activations,
     choose_attn_implementation,
-    split_cot_into_sentences,
-    find_sentence_boundary_positions,
     get_hf_submodule,
     get_steering_hook,
     add_hook,
@@ -44,8 +43,9 @@ from core.ao import (
     EarlyStopException,
 )
 
-# Per-layer tokens matching train_mixed.py
-LAYER_TOKENS = [" @", " ?", " #"]  # L25%, L50%, L75%
+# Trained oracle uses ¶ placeholder (token ID 78846 in Qwen3-8B)
+TRAINED_PLACEHOLDER = " ¶"
+STRIDE = 5
 
 
 def load_dual_model(model_name, checkpoint_path, cot_adapter=None, device="cuda"):
@@ -106,35 +106,30 @@ def generate_cot_base(model, tokenizer, question, max_new_tokens=4096, device="c
     return tokenizer.decode(output[0][inputs["input_ids"].shape[1]:], skip_special_tokens=False)
 
 
-def collect_multilayer_activations(model, tokenizer, text, layers, positions,
-                                    use_organism=False, device="cuda"):
-    """Collect activations from multiple layers at given positions.
+def collect_single_layer_activations(model, tokenizer, text, layer, positions,
+                                     use_organism=False, device="cuda"):
+    """Collect activations from a single layer at given positions.
 
     When use_organism=True, collects with organism adapter enabled so we read
     the model's actual internal representations during altered reasoning.
 
-    Returns dict[layer -> Tensor[num_positions, d_model]].
+    Returns Tensor[num_positions, d_model].
     """
     inputs = tokenizer(text, return_tensors="pt", add_special_tokens=False).to(device)
-    acts_by_layer = {}
 
     model.eval()
     if use_organism and "organism" in model.peft_config:
         model.set_adapter("organism")
-        for layer in layers:
+        acts_BLD = collect_activations(
+            model, layer, inputs["input_ids"], inputs["attention_mask"],
+        )
+    else:
+        with model.disable_adapter():
             acts_BLD = collect_activations(
                 model, layer, inputs["input_ids"], inputs["attention_mask"],
             )
-            acts_by_layer[layer] = acts_BLD[0, positions, :].detach()
-    else:
-        with model.disable_adapter():
-            for layer in layers:
-                acts_BLD = collect_activations(
-                    model, layer, inputs["input_ids"], inputs["attention_mask"],
-                )
-                acts_by_layer[layer] = acts_BLD[0, positions, :].detach()
 
-    return acts_by_layer
+    return acts_BLD[0, positions, :].detach()
 
 
 def query_original_ao(model, tokenizer, acts_l50, prompt, model_name,
@@ -172,35 +167,14 @@ def query_original_ao(model, tokenizer, acts_l50, prompt, model_name,
     return tokenizer.decode(output[0][len(input_ids):], skip_special_tokens=True)
 
 
-def query_trained_oracle(model, tokenizer, acts_by_layer, layers, prompt, model_name,
-                         use_per_layer_tokens=False,
+def query_trained_oracle(model, tokenizer, acts_l50, prompt, model_name,
                          injection_layer=1, max_new_tokens=150, device="cuda"):
-    """Query trained oracle with multi-layer sentence-boundary format.
-
-    Interleaves activations: [L25_s1, L50_s1, L75_s1, L25_s2, L50_s2, L75_s2, ...]
-    Prefix: "Layer: 9, 18, 27\n @ ? # @ ? # ...\n" (or all ? if not per_layer_tokens)
-    """
+    """Query trained oracle with single-layer L50%, ¶ placeholders, 5-token stride format."""
     dtype = torch.bfloat16
-    n_boundaries = acts_by_layer[layers[0]].shape[0]
-    num_positions = n_boundaries * len(layers)
+    num_positions = acts_l50.shape[0]
+    act_layer = layer_percent_to_layer(model_name, 50)
 
-    # Interleave activations: [L25_s1, L50_s1, L75_s1, L25_s2, ...]
-    interleaved = []
-    for s in range(n_boundaries):
-        for layer in layers:
-            interleaved.append(acts_by_layer[layer][s])
-    acts_interleaved = torch.stack(interleaved)  # [num_positions, d_model]
-
-    # Build prefix
-    layers_str = ", ".join(str(l) for l in layers)
-    prefix = f"Layer: {layers_str}\n"
-    if use_per_layer_tokens:
-        for i in range(num_positions):
-            prefix += LAYER_TOKENS[i % len(layers)]
-    else:
-        prefix += SPECIAL_TOKEN * num_positions
-    prefix += " \n"
-
+    prefix = f"Layer: {act_layer}\n" + TRAINED_PLACEHOLDER * num_positions + " \n"
     full_prompt = prefix + prompt
     messages = [{"role": "user", "content": full_prompt}]
     formatted = tokenizer.apply_chat_template(
@@ -209,28 +183,15 @@ def query_trained_oracle(model, tokenizer, acts_by_layer, layers, prompt, model_
     )
     input_ids = tokenizer.encode(formatted, add_special_tokens=False)
 
-    # Find placeholder positions
-    if use_per_layer_tokens:
-        layer_token_ids = [tokenizer.encode(lt, add_special_tokens=False)[0] for lt in LAYER_TOKENS]
-        token_set = set(layer_token_ids)
-        positions = []
-        for i, tid in enumerate(input_ids):
-            if len(positions) == num_positions:
-                break
-            expected_tid = layer_token_ids[len(positions) % len(layers)]
-            if tid == expected_tid:
-                positions.append(i)
-    else:
-        special_id = tokenizer.encode(SPECIAL_TOKEN, add_special_tokens=False)[0]
-        positions = [i for i, tid in enumerate(input_ids) if tid == special_id][:num_positions]
-
-    assert len(positions) == num_positions, f"Found {len(positions)}, expected {num_positions}"
+    placeholder_id = tokenizer.encode(TRAINED_PLACEHOLDER, add_special_tokens=False)[0]
+    positions = [i for i, tid in enumerate(input_ids) if tid == placeholder_id][:num_positions]
+    assert len(positions) == num_positions, f"Found {len(positions)} ¶ tokens, expected {num_positions}"
 
     input_tensor = torch.tensor([input_ids], device=device)
     attn_mask = torch.ones_like(input_tensor)
     model.set_adapter("trained")
 
-    hook_fn = get_steering_hook(vectors=acts_interleaved, positions=positions, device=device, dtype=dtype)
+    hook_fn = get_steering_hook(vectors=acts_l50, positions=positions, device=device, dtype=dtype)
     injection_submodule = get_hf_submodule(model, injection_layer, use_lora=True)
 
     with torch.no_grad(), add_hook(injection_submodule, hook_fn):
@@ -260,11 +221,11 @@ def print_side_by_side(label_a, text_a, label_b, text_b, width=38):
 
 # Task-specific prompts that match what the trained oracle was trained on
 TASK_PROMPTS = {
-    "domain": "Activations from {N} sentence boundaries. What domain is this reasoning about? Answer with one word: math, science, logic, commonsense, reading, multi_domain, medical, ethics, diverse.",
-    "correctness": "Activations from {N} sentence boundaries. Is the model's final answer correct? Answer: correct or incorrect.",
-    "decorative": "Activations from {N} sentence boundaries. Is this chain-of-thought reasoning load-bearing or decorative? Answer: load_bearing or decorative.",
-    "summary": "Activations from {N} sentence boundaries. Generate a concise summary of the thought process.",
-    "predict": "Activations from {N} sentence boundaries. Predict the next {K} tokens following sentence {T}.",
+    "domain": "Activations from {N} positions (5-token stride). What domain is this reasoning about? Answer with one word: math, science, logic, commonsense, reading, multi_domain, medical, ethics, diverse.",
+    "correctness": "Activations from {N} positions (5-token stride). Is the model's final answer correct? Answer: correct or incorrect.",
+    "decorative": "Activations from {N} positions (5-token stride). Is this chain-of-thought reasoning load-bearing or decorative? Answer: load_bearing or decorative.",
+    "summary": "Activations from {N} positions (5-token stride). Generate a concise summary of the thought process.",
+    "predict": "Activations from {N} positions (5-token stride). Predict the next {K} tokens following position {T}.",
 }
 
 
@@ -276,23 +237,16 @@ def main():
                         help="Model organism LoRA for CoT generation (e.g. ceselder/rot13-qwen3-8b-lora)")
     parser.add_argument("--device", default="cuda")
     parser.add_argument("--max-tokens", type=int, default=150)
-    parser.add_argument("--per-layer-tokens", action="store_true", default=False,
-                        help="Use @?# tokens (must match how the oracle was trained)")
     args = parser.parse_args()
 
     model, tokenizer = load_dual_model(args.model, args.checkpoint,
                                        cot_adapter=args.cot_adapter, device=args.device)
 
-    layers = [
-        layer_percent_to_layer(args.model, 25),
-        layer_percent_to_layer(args.model, 50),
-        layer_percent_to_layer(args.model, 75),
-    ]
-    layer_50 = layers[1]
-    print(f"  Layers: {layers} (L25%, L50%, L75%)")
+    layer_50 = layer_percent_to_layer(args.model, 50)
+    print(f"  Layer: {layer_50} (L50%)")
 
-    acts_by_layer = None
-    n_boundaries = 0
+    acts_l50 = None
+    n_positions = 0
 
     use_organism = args.cot_adapter is not None
 
@@ -303,8 +257,8 @@ def main():
         print(f"  CoT generation: organism adapter ({args.cot_adapter})")
     else:
         print("  CoT generation: base model (no adapter)")
-    print("  Original AO: single-layer L50%, standard PastLens format")
-    print("  Trained oracle: 3-layer sentence boundaries, task-specific prompts")
+    print("  Original AO: single-layer L50%, ? placeholders (PastLens)")
+    print(f"  Trained oracle: single-layer L50%, ¶ placeholders, stride={STRIDE}")
     print()
     print("  Commands:")
     print("    <question>  = generate CoT and collect activations")
@@ -317,7 +271,7 @@ def main():
     print("=" * 80)
 
     while True:
-        if acts_by_layer is None:
+        if acts_l50 is None:
             user_input = input("\nQuestion> ").strip()
         else:
             user_input = input("\nAsk oracles> ").strip()
@@ -327,12 +281,12 @@ def main():
         if user_input.lower() in ("quit", "exit", "q"):
             break
         if user_input.lower() == "new":
-            acts_by_layer = None
-            n_boundaries = 0
+            acts_l50 = None
+            n_positions = 0
             print("\nStarting fresh.")
             continue
 
-        if acts_by_layer is None:
+        if acts_l50 is None:
             current_question = user_input
             if use_organism:
                 print(f"\nGenerating CoT with organism adapter...")
@@ -355,43 +309,42 @@ def main():
                 print(f"  ... ({len(cot_response)} chars total)")
             print("--- End ---")
 
-            sentences = split_cot_into_sentences(cot_response)
-            if len(sentences) < 2:
-                print("  Not enough sentences.")
-                continue
-
+            # Tokenize to compute stride positions
             messages = [{"role": "user", "content": current_question}]
             formatted = tokenizer.apply_chat_template(
                 messages, tokenize=False, add_generation_prompt=True,
                 enable_thinking=True,
             )
             full_text = formatted + cot_response
-            boundary_positions = find_sentence_boundary_positions(tokenizer, full_text, sentences)
 
-            if len(boundary_positions) < 2:
-                print("  Not enough boundary positions.")
+            prompt_ids = tokenizer.encode(formatted, add_special_tokens=False)
+            all_ids = tokenizer.encode(full_text, add_special_tokens=False)
+            prompt_len = len(prompt_ids)
+            total_len = len(all_ids)
+
+            stride_positions = get_cot_stride_positions(prompt_len, total_len, stride=STRIDE)
+            if len(stride_positions) < 2:
+                print("  CoT too short for stride positions.")
                 continue
 
-            boundary_positions = boundary_positions[:15]
-            n_boundaries = len(boundary_positions)
+            n_positions = len(stride_positions)
 
-            print(f"\nCollecting activations at {n_boundaries} boundaries, 3 layers"
+            print(f"\nCollecting activations at {n_positions} positions (stride={STRIDE}), L50%"
                   f"{' (organism adapter)' if use_organism else ''}...")
             try:
-                acts_by_layer = collect_multilayer_activations(
-                    model, tokenizer, full_text, layers, boundary_positions,
+                acts_l50 = collect_single_layer_activations(
+                    model, tokenizer, full_text, layer_50, stride_positions,
                     use_organism=use_organism, device=args.device,
                 )
             except Exception as e:
                 print(f"  Failed: {e}")
-                acts_by_layer = None
+                acts_l50 = None
                 continue
 
-            print(f"\n  CoT: {len(sentences)} sentences, {n_boundaries} boundaries")
-            for i, s in enumerate(sentences[:8]):
-                print(f"    [{i+1}] {s[:90]}{'...' if len(s) > 90 else ''}")
-            if len(sentences) > 8:
-                print(f"    ... and {len(sentences) - 8} more")
+            cot_tokens = total_len - prompt_len
+            print(f"\n  CoT: {cot_tokens} tokens, {n_positions} stride positions")
+            cot_snippet = cot_response[:500]
+            print(f"  {cot_snippet}{'...' if len(cot_response) > 500 else ''}")
 
             print(f"\n  Ready. Try: domain, correct, decorative, summary, or free-form question")
             continue
@@ -399,21 +352,20 @@ def main():
         # Map shortcuts to task prompts
         prompt_key = user_input.lower().strip()
         if prompt_key in ("domain",):
-            trained_prompt = TASK_PROMPTS["domain"].format(N=n_boundaries)
+            trained_prompt = TASK_PROMPTS["domain"].format(N=n_positions)
             ao_prompt = "Can you predict the next 10 tokens that come after this?"
         elif prompt_key in ("correct", "correctness"):
-            trained_prompt = TASK_PROMPTS["correctness"].format(N=n_boundaries)
+            trained_prompt = TASK_PROMPTS["correctness"].format(N=n_positions)
             ao_prompt = "Can you predict the next 10 tokens that come after this?"
         elif prompt_key in ("decorative", "load_bearing", "load-bearing"):
-            trained_prompt = TASK_PROMPTS["decorative"].format(N=n_boundaries)
+            trained_prompt = TASK_PROMPTS["decorative"].format(N=n_positions)
             ao_prompt = "Can you predict the next 10 tokens that come after this?"
         elif prompt_key in ("summary", "summarize"):
-            trained_prompt = TASK_PROMPTS["summary"].format(N=n_boundaries)
+            trained_prompt = TASK_PROMPTS["summary"].format(N=n_positions)
             ao_prompt = "Can you predict the next 10 tokens that come after this?"
         else:
-            # Free-form: prepend the sentence-boundary preamble for the trained oracle
-            # (all its training data used this format) but send raw to original AO
-            trained_prompt = f"Activations from {n_boundaries} sentence boundaries. {user_input}"
+            # Free-form: prepend the stride preamble for the trained oracle
+            trained_prompt = f"Activations from {n_positions} positions (5-token stride). {user_input}"
             ao_prompt = user_input
 
         print()
@@ -421,19 +373,18 @@ def main():
         # Query original AO (single-layer L50%)
         try:
             resp_original = query_original_ao(
-                model, tokenizer, acts_by_layer[layer_50],
+                model, tokenizer, acts_l50,
                 ao_prompt, model_name=args.model,
                 max_new_tokens=args.max_tokens, device=args.device,
             )
         except Exception as e:
             resp_original = f"ERROR: {e}"
 
-        # Query trained oracle (multi-layer, task prompt)
+        # Query trained oracle (single-layer L50%, ¶ tokens, task prompt)
         try:
             resp_trained = query_trained_oracle(
-                model, tokenizer, acts_by_layer, layers,
+                model, tokenizer, acts_l50,
                 trained_prompt, model_name=args.model,
-                use_per_layer_tokens=args.per_layer_tokens,
                 max_new_tokens=args.max_tokens, device=args.device,
             )
         except Exception as e:

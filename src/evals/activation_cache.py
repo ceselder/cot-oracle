@@ -9,9 +9,8 @@ import torch
 
 from core.ao import (
     collect_activations_at_positions,
-    find_sentence_boundary_positions,
-    split_cot_into_sentences,
 )
+from cot_utils import get_cot_stride_positions
 
 
 @dataclass
@@ -51,32 +50,39 @@ def extract_activation_bundle(
     cot_text: str,
     act_layer: int,
     device: str = "cuda",
-    max_boundaries: int = 10,
     generation_adapter_name: str | None = None,
+    stride: int = 5,
+    **_kwargs,
 ) -> ActivationBundle | None:
-    """Extract activations at sentence boundaries from a CoT trace."""
+    """Extract activations from a CoT trace using fixed-stride positions.
+
+    Args:
+        stride: Stride size in tokens (default 5).
+    """
     cot_text = (cot_text or "").strip()
     if not cot_text:
         return None
 
-    sentences = split_cot_into_sentences(cot_text)
-    if len(sentences) < 2:
-        return None
-
     full_text = build_full_text_from_prompt_and_cot(tokenizer, prompt, cot_text)
-    boundary_positions = find_sentence_boundary_positions(tokenizer, full_text, sentences)
-    if len(boundary_positions) < 2:
-        return None
 
-    if max_boundaries > 0:
-        boundary_positions = boundary_positions[:max_boundaries]
+    # Tokenize to get prompt/total lengths for stride computation
+    messages = [{"role": "user", "content": prompt}]
+    formatted = tokenizer.apply_chat_template(
+        messages, tokenize=False, add_generation_prompt=True, enable_thinking=True,
+    )
+    prompt_ids = tokenizer.encode(formatted, add_special_tokens=False)
+    all_ids = tokenizer.encode(full_text, add_special_tokens=False)
+    positions = get_cot_stride_positions(len(prompt_ids), len(all_ids), stride=stride)
+
+    if len(positions) < 2:
+        return None
 
     activations = collect_activations_at_positions(
         model,
         tokenizer,
         full_text,
         act_layer,
-        boundary_positions,
+        positions,
         device=device,
         adapter_name=generation_adapter_name,
     )
@@ -87,8 +93,8 @@ def extract_activation_bundle(
         prompt=prompt,
         cot_text=cot_text,
         activations=activations,
-        boundary_positions=boundary_positions,
-        sentences=sentences,
+        boundary_positions=positions,
+        sentences=[],
     )
 
 
@@ -146,4 +152,3 @@ def maybe_load_cached_bundle(
     if not path.exists():
         return None
     return load_bundle(path, map_location=map_location)
-

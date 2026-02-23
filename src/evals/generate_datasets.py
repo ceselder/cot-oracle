@@ -29,6 +29,13 @@ from evals.datasets.logical_leaps import generate_logical_leaps_dataset
 from evals.datasets.hint_influence_yesno import generate_hint_influence_yesno_dataset
 from evals.datasets.scruples_disagreement import generate_scruples_disagreement_dataset
 from evals.datasets.final_answer_kl import generate_final_answer_kl_dataset
+from evals.datasets.correct_authority import generate_correct_authority_dataset
+from evals.datasets.step_counting import generate_step_counting_dataset
+from evals.datasets.anchoring_bias import generate_anchoring_bias_dataset
+from evals.datasets.ood_topic import generate_ood_topic_eval
+from evals.datasets.reasoning_termination import generate_reasoning_termination_dataset
+from evals.datasets.forced_answer_entropy import generate_forced_answer_entropy_dataset
+from evals.datasets.sycophancy_v2 import generate_sycophancy_v2_dataset
 
 
 ALL_GENERATORS = {
@@ -46,6 +53,13 @@ ALL_GENERATORS = {
     "hint_influence_yesno": generate_hint_influence_yesno_dataset,
     "scruples_disagreement": generate_scruples_disagreement_dataset,
     "final_answer_kl": generate_final_answer_kl_dataset,
+    "correct_authority": generate_correct_authority_dataset,
+    "step_counting": generate_step_counting_dataset,
+    "anchoring_bias": generate_anchoring_bias_dataset,
+    "ood_topic": generate_ood_topic_eval,
+    "reasoning_termination": generate_reasoning_termination_dataset,
+    "forced_answer_entropy": generate_forced_answer_entropy_dataset,
+    "sycophancy_v2": generate_sycophancy_v2_dataset,
 }
 
 # Default item counts per eval (some evals have specific defaults)
@@ -53,8 +67,8 @@ DEFAULT_COUNTS = {
     "hinted_mcq": 100,
     "sycophancy": 100,
     "authority_bias": 100,
-    "decorative_cot": 20,
-    "answer_correctness": 20,
+    "decorative_cot": 100,
+    "answer_correctness": 100,
     "contradictory_comparison": 50,
     "sentence_insertion": 100,
     "sycophancy_scruples": 100,
@@ -64,6 +78,13 @@ DEFAULT_COUNTS = {
     "hint_influence_yesno": 100,
     "scruples_disagreement": 100,
     "final_answer_kl": 100,
+    "correct_authority": 100,
+    "step_counting": 100,
+    "anchoring_bias": 100,
+    "ood_topic": 100,
+    "reasoning_termination": 100,
+    "forced_answer_entropy": 100,
+    "sycophancy_v2": 100,
 }
 
 
@@ -75,8 +96,8 @@ def main():
     parser.add_argument("--evals", nargs="*", default=None,
                         help="Specific evals to generate (default: all)")
     parser.add_argument("--seed", type=int, default=42)
-    parser.add_argument("--corpus-path", default="data/cot_corpus/corpus.jsonl",
-                        help="Path to corpus for sentence_insertion eval")
+    parser.add_argument("--corpus-path", default="data/cot_corpus_v5/corpus_medium.jsonl",
+                        help="Path to corpus for corpus-dependent evals")
     parser.add_argument(
         "--logical-leaps-labels-path",
         default="data/evals/logical_leaps_gemini.jsonl",
@@ -100,10 +121,15 @@ def main():
         kwargs = {"n": count, "seed": args.seed}
         if name == "sentence_insertion":
             kwargs["corpus_path"] = args.corpus_path
-        if name in ("held_out_cot_reconstruction", "rot13_reconstruction", "logical_leaps"):
+        if name in ("held_out_cot_reconstruction", "logical_leaps", "step_counting"):
             kwargs["corpus_path"] = args.corpus_path
         if name == "logical_leaps":
             kwargs["gemini_labels_path"] = args.logical_leaps_labels_path
+        if name == "sycophancy_scruples":
+            kwargs["use_llm"] = True
+            kwargs["cache_path"] = str(Path(output_dir).parent / "sycophancy_scruples_rephrases.json")
+        if name == "sycophancy_v2":
+            kwargs["precomputed_path"] = str(output_dir / "sycophancy_v2_rollouts_raw.json")
 
         items = gen_fn(**kwargs)
         if items:

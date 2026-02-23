@@ -66,8 +66,15 @@ def load_cot_context_prediction_data(
     layers = [layer_percent_to_layer(model_name, lp) for lp in layer_percents]
 
     datapoints = []
+    attempts = 0
 
     while len(datapoints) < num_examples:
+        attempts += 1
+        if attempts % 10000 == 0:
+            print(f"  context_pred: {len(datapoints)}/{num_examples} after {attempts} attempts")
+        if attempts > num_examples * 20:
+            print(f"  WARNING: Too many skips ({attempts} attempts for {len(datapoints)} examples), stopping")
+            break
         entry = random.choice(corpus)
 
         # Tokenize only the CoT thinking portion (NOT the final answer)

@@ -1,11 +1,10 @@
 """
-Task 5: Correctness Prediction (~15K examples)
+CoT Correctness Prediction — Is the model's final answer correct?
 
-Binary classification: is the model's final answer correct?
-Uses sentence-structured format with 3 acts per sentence boundary.
+Binary classification: given CoT activations, predict whether the
+model's final answer is correct or incorrect.
 
-Ground truth: compare extracted answer to ground truth from corpus.
-Labels: "correct" or "incorrect"
+Uses stride=5, 3 layers (25%, 50%, 75%), ¶ token.
 """
 
 import json
@@ -18,31 +17,37 @@ def load_cot_correctness_data(
     corpus_path: str,
     tokenizer: AutoTokenizer,
     model_name: str,
-    layer_percents: list[int],
     num_examples: int = 15000,
-    max_sentences: int = 15,
+    stride: int = 5,
+    max_positions_per_layer: int = 20,
+    n_prompt_positions: int = 5,
     seed: int = 42,
+    **_kwargs,
 ) -> list[dict]:
     """
-    Generate correctness prediction training data.
+    Generate correctness prediction training data with multi-layer stride.
 
-    Each example: sentence-boundary activations -> correct / incorrect.
+    Each example: stride activations from CoT -> correct / incorrect.
     Ground truth from corpus (cot_correct field). Balanced 50/50.
     """
-    from cot_utils import layer_percent_to_layer
+    from cot_utils import get_cot_stride_positions, layer_percent_to_layer
 
     random.seed(seed)
+
+    LAYERS = [
+        layer_percent_to_layer(model_name, 25),
+        layer_percent_to_layer(model_name, 50),
+        layer_percent_to_layer(model_name, 75),
+    ]
 
     corpus = []
     with open(corpus_path) as f:
         for line in f:
             if line.strip():
-                corpus.append(json.loads(line))
+                entry = json.loads(line)
+                if entry.get("cot_response", "").strip():
+                    corpus.append(entry)
 
-    if not corpus:
-        raise ValueError(f"Empty corpus at {corpus_path}")
-
-    # Split into correct/incorrect pools
     correct_pool = [e for e in corpus if e.get("cot_correct")]
     incorrect_pool = [e for e in corpus if not e.get("cot_correct")]
 
@@ -53,22 +58,24 @@ def load_cot_correctness_data(
 
     print(f"  correct: {len(correct_pool)}, incorrect: {len(incorrect_pool)}")
 
-    layers = [layer_percent_to_layer(model_name, lp) for lp in layer_percents]
+    def _get_prompt_positions(formatted_len: int, n: int = 5) -> list[int]:
+        if formatted_len < n:
+            return list(range(formatted_len))
+        step = formatted_len / (n + 1)
+        return [int(step * (i + 1)) for i in range(n)]
 
     datapoints = []
+    attempts = 0
 
-    while len(datapoints) < num_examples:
-        # Alternate 50/50
+    while len(datapoints) < num_examples and attempts < num_examples * 3:
+        attempts += 1
+
         if len(datapoints) % 2 == 0:
             entry = random.choice(correct_pool)
             target = "correct"
         else:
             entry = random.choice(incorrect_pool)
             target = "incorrect"
-
-        boundary_positions = entry.get("boundary_positions", [])
-        if len(boundary_positions) < 2:
-            continue
 
         messages = [{"role": "user", "content": entry["question"]}]
         formatted = tokenizer.apply_chat_template(
@@ -80,19 +87,30 @@ def load_cot_correctness_data(
         if think_end != -1:
             cot_text = cot_text[:think_end]
         full_text = formatted + cot_text
-        context_ids = tokenizer(full_text, add_special_tokens=False)["input_ids"]
+        full_ids = tokenizer(full_text, add_special_tokens=False)["input_ids"]
 
-        positions = boundary_positions[:max_sentences]
-        positions = [p for p in positions if p < len(context_ids)]
+        prompt_ids = tokenizer(formatted, add_special_tokens=False)["input_ids"]
+        prompt_len = len(prompt_ids)
+
+        positions = get_cot_stride_positions(
+            prompt_len, len(full_ids),
+            stride=stride,
+            max_positions=max_positions_per_layer,
+        )
         if len(positions) < 2:
             continue
 
-        N = len(positions)
+        prompt_positions = _get_prompt_positions(prompt_len, n_prompt_positions)
+        combined = prompt_positions + positions
+        context_positions = combined * 3
+        num_positions = len(context_positions)
 
-        context_slice = context_ids[:positions[-1] + 1]
+        max_pos = max(positions)
+        context_slice = full_ids[:max_pos + 1]
 
+        layers_str = ", ".join(str(l) for l in LAYERS)
         prompt = (
-            f"Activations from {N} sentence boundaries. "
+            f"Activations from {num_positions} positions across layers {layers_str}. "
             f"Is the model's final answer correct? Answer: correct or incorrect."
         )
 
@@ -100,10 +118,12 @@ def load_cot_correctness_data(
             "datapoint_type": "cot_correctness",
             "prompt": prompt,
             "target_response": target,
-            "layers": layers,  # Multi-layer: [L25%, L50%, L75%]
-            "num_positions": N,
+            "layer": LAYERS[0],
+            "layers": LAYERS,
+            "num_positions": num_positions,
             "context_input_ids": context_slice,
-            "context_positions": list(positions),
+            "context_positions": context_positions,
         })
 
+    print(f"  Generated {len(datapoints)} correctness examples")
     return datapoints[:num_examples]

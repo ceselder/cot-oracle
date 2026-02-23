@@ -29,9 +29,7 @@ from core.ao import (
     load_model_with_ao,
     generate_cot,
     generate_direct_answer,
-    split_cot_into_sentences,
     collect_activations_at_positions,
-    find_sentence_boundary_positions,
     run_oracle_on_activations,
     layer_percent_to_layer,
 )

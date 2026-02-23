@@ -31,6 +31,7 @@ AO_CHECKPOINTS = {
 }
 
 SPECIAL_TOKEN = " ?"
+TRAINED_PLACEHOLDER = " ¶"
 
 
 class EarlyStopException(Exception):
@@ -53,8 +54,18 @@ def using_adapter(model: PeftModel, adapter_name: str | None):
     """Temporarily run with a specific adapter, or with adapters disabled."""
     previous_adapter = _active_adapter_name(model)
     if adapter_name is None:
-        with model.disable_adapter():
-            yield
+        # peft API varies: disable_adapter() (context mgr) vs disable_adapters()
+        if hasattr(model, "disable_adapter"):
+            with model.disable_adapter():
+                yield
+        elif hasattr(model, "disable_adapters"):
+            model.disable_adapters()
+            try:
+                yield
+            finally:
+                model.enable_adapters()
+        else:
+            yield  # no adapter machinery — just run as-is
         return
 
     if adapter_name not in getattr(model, "peft_config", {}):
@@ -286,15 +297,27 @@ def run_oracle_on_activations(
     act_layer: int | None = None,
     max_new_tokens: int = 100,
     device: str = "cuda",
+    placeholder_token: str | None = None,
+    oracle_adapter_name: str | None = None,
 ) -> str:
-    """Run the oracle adapter on provided activation vectors."""
+    """Run an oracle adapter on provided activation vectors.
+
+    Args:
+        placeholder_token: Token to use for activation injection positions.
+            Default (None) uses SPECIAL_TOKEN (" ?") for original AO.
+            Pass TRAINED_PLACEHOLDER (" ¶") for trained oracle.
+        oracle_adapter_name: Adapter name to activate for oracle inference.
+            Default (None) auto-detects original AO adapter.
+            Pass "default" or "trained" for trained oracle during training/eval.
+    """
     dtype = torch.bfloat16
     num_positions = activations.shape[0]
+    ph_token = placeholder_token or SPECIAL_TOKEN
 
     if act_layer is None:
         act_layer = layer_percent_to_layer(model_name, 50)
 
-    prefix = f"Layer: {act_layer}\n" + SPECIAL_TOKEN * num_positions + " \n"
+    prefix = f"Layer: {act_layer}\n" + ph_token * num_positions + " \n"
     full_prompt = prefix + oracle_prompt
 
     messages = [{"role": "user", "content": full_prompt}]
@@ -306,35 +329,40 @@ def run_oracle_on_activations(
     )
     input_ids = tokenizer.encode(formatted, add_special_tokens=False)
 
-    special_id = tokenizer.encode(SPECIAL_TOKEN, add_special_tokens=False)
-    assert len(special_id) == 1, f"Expected single token for '{SPECIAL_TOKEN}', got {len(special_id)}"
-    special_id = special_id[0]
+    ph_id = tokenizer.encode(ph_token, add_special_tokens=False)
+    assert len(ph_id) == 1, f"Expected single token for '{ph_token}', got {len(ph_id)}"
+    ph_id = ph_id[0]
 
     positions = []
     for i, tid in enumerate(input_ids):
-        if tid == special_id and len(positions) < num_positions:
+        if tid == ph_id and len(positions) < num_positions:
             positions.append(i)
     assert len(positions) == num_positions, (
-        f"Found {len(positions)} placeholder positions, expected {num_positions}"
+        f"Found {len(positions)} placeholder positions for '{ph_token}', expected {num_positions}"
     )
 
     input_tensor = torch.tensor([input_ids], device=device)
     attn_mask = torch.ones_like(input_tensor)
 
-    ao_path = AO_CHECKPOINTS[model_name]
-    sanitized = ao_path.replace(".", "_")
     previous_adapter = _active_adapter_name(model)
-    try:
-        model.set_adapter(sanitized)
-    except ValueError:
+    active_adapter = oracle_adapter_name
+    if oracle_adapter_name is not None:
+        model.set_adapter(oracle_adapter_name)
+    else:
+        # Auto-detect original AO adapter
+        ao_path = AO_CHECKPOINTS[model_name]
+        active_adapter = ao_path.replace(".", "_")
         try:
-            model.set_adapter("default")
-            sanitized = "default"
-        except ValueError as exc:
-            if hasattr(model, "peft_config"):
-                available = list(model.peft_config.keys())
-                raise RuntimeError(f"Cannot set adapter. Available: {available}") from exc
-            raise
+            model.set_adapter(active_adapter)
+        except ValueError:
+            try:
+                model.set_adapter("default")
+                active_adapter = "default"
+            except ValueError as exc:
+                if hasattr(model, "peft_config"):
+                    available = list(model.peft_config.keys())
+                    raise RuntimeError(f"Cannot set adapter. Available: {available}") from exc
+                raise
 
     hook_fn = get_steering_hook(
         vectors=activations,
@@ -345,6 +373,8 @@ def run_oracle_on_activations(
 
     injection_submodule = get_hf_submodule(model, injection_layer, use_lora=True)
 
+    was_training = model.training
+    model.eval()
     try:
         with add_hook(injection_submodule, hook_fn):
             output = model.generate(
@@ -354,7 +384,9 @@ def run_oracle_on_activations(
                 do_sample=False,
             )
     finally:
-        if previous_adapter and previous_adapter in getattr(model, "peft_config", {}) and previous_adapter != sanitized:
+        if was_training:
+            model.train()
+        if previous_adapter and previous_adapter in getattr(model, "peft_config", {}) and previous_adapter != active_adapter:
             model.set_adapter(previous_adapter)
 
     return tokenizer.decode(output[0][len(input_ids) :], skip_special_tokens=True)
@@ -367,8 +399,13 @@ def generate_cot(
     max_new_tokens: int = 1024,
     device: str = "cuda",
     adapter_name: str | None = None,
+    temperature: float | None = None,
 ) -> str:
-    """Generate CoT text from base model (adapter disabled)."""
+    """Generate CoT text from base model (adapter disabled).
+
+    Args:
+        temperature: If set, use sampling with this temperature. None = greedy.
+    """
     messages = [{"role": "user", "content": question}]
     formatted = tokenizer.apply_chat_template(
         messages,
@@ -377,12 +414,21 @@ def generate_cot(
         enable_thinking=True,
     )
     inputs = tokenizer(formatted, return_tensors="pt").to(device)
+    gen_kwargs: dict[str, Any] = {"max_new_tokens": max_new_tokens}
+    if temperature is not None and temperature > 0:
+        gen_kwargs["do_sample"] = True
+        gen_kwargs["temperature"] = temperature
+    else:
+        gen_kwargs["do_sample"] = False
+    was_training = model.training
+    model.eval()
     with using_adapter(model, adapter_name):
         output = model.generate(
             **inputs,
-            max_new_tokens=max_new_tokens,
-            do_sample=False,
+            **gen_kwargs,
         )
+    if was_training:
+        model.train()
     return tokenizer.decode(output[0][inputs["input_ids"].shape[1] :], skip_special_tokens=False)
 
 
@@ -398,6 +444,8 @@ def batch_generate_cot(
 ) -> list[str]:
     """Batch CoT generation."""
     all_responses: list[str] = []
+    was_training = model.training
+    model.eval()
 
     with using_adapter(model, adapter_name):
         for i in range(0, len(questions), batch_size):
@@ -436,6 +484,8 @@ def batch_generate_cot(
                 )
                 all_responses.append(response)
 
+    if was_training:
+        model.train()
     return all_responses
 
 
@@ -446,8 +496,13 @@ def generate_direct_answer(
     max_new_tokens: int = 50,
     device: str = "cuda",
     adapter_name: str | None = None,
+    temperature: float | None = None,
 ) -> str:
-    """Generate answer with thinking disabled."""
+    """Generate answer with thinking disabled.
+
+    Args:
+        temperature: If set, use sampling with this temperature. None = greedy.
+    """
     messages = [{"role": "user", "content": question}]
     formatted = tokenizer.apply_chat_template(
         messages,
@@ -456,10 +511,15 @@ def generate_direct_answer(
         enable_thinking=False,
     )
     inputs = tokenizer(formatted, return_tensors="pt").to(device)
+    gen_kwargs: dict[str, Any] = {"max_new_tokens": max_new_tokens}
+    if temperature is not None and temperature > 0:
+        gen_kwargs["do_sample"] = True
+        gen_kwargs["temperature"] = temperature
+    else:
+        gen_kwargs["do_sample"] = False
     with using_adapter(model, adapter_name):
         output = model.generate(
             **inputs,
-            max_new_tokens=max_new_tokens,
-            do_sample=False,
+            **gen_kwargs,
         )
     return tokenizer.decode(output[0][inputs["input_ids"].shape[1] :], skip_special_tokens=True)

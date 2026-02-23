@@ -1,8 +1,14 @@
-"""ROT13 model-organism reconstruction eval dataset."""
+"""ROT13 model-organism reconstruction eval dataset.
+
+Provides math problems for the ROT13 model organism eval. At eval time:
+1. The ROT13 LoRA adapter generates obfuscated CoT
+2. Activations are extracted from the base model (adapters disabled)
+3. The oracle reconstructs the plain-English reasoning from activations
+4. A normal (non-ROT13) CoT is generated as ground truth for scoring
+"""
 
 from __future__ import annotations
 
-import codecs
 import random
 import sys
 from pathlib import Path
@@ -10,54 +16,35 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from evals.common import EvalItem
-from evals.datasets.corpus_helpers import load_corpus_rows, get_cot_text
-
-
-def _rot13(text: str) -> str:
-    return codecs.decode(text, "rot_13")
+from evals.datasets.test_splits import load_math_test
 
 
 def generate_rot13_reconstruction_dataset(
     n: int = 100,
     seed: int = 42,
-    corpus_path: str = "data/cot_corpus_v5/corpus_medium.jsonl",
+    **_kwargs,
 ) -> list[EvalItem]:
-    random.seed(seed)
-    rows = load_corpus_rows(corpus_path)
-    if not rows:
-        return []
+    """Generate eval items for ROT13 model organism reconstruction.
 
-    random.shuffle(rows)
+    Each item is a math problem. The model organism (ROT13 LoRA) generates
+    obfuscated CoT at eval time; no pre-encoding needed here.
+    """
+    problems = load_math_test(n, seed=seed)
 
     items: list[EvalItem] = []
-    for row in rows:
-        if len(items) >= n:
-            break
-
-        question = str(row.get("question", "")).strip()
-        decoded_cot = get_cot_text(row)
-        if len(decoded_cot) < 32:
-            continue
-
-        rot13_cot = _rot13(decoded_cot)
-        if rot13_cot == decoded_cot:
-            continue
-
+    for i, prob in enumerate(problems):
         items.append(
             EvalItem(
                 eval_name="rot13_reconstruction",
-                example_id=f"rot13_{len(items):04d}",
-                clean_prompt=question,
-                test_prompt=question,
-                correct_answer=str(row.get("correct_answer", "")),
+                example_id=f"rot13_{i:04d}",
+                clean_prompt=prob["question"],
+                test_prompt=prob["question"],
+                correct_answer=str(prob["correct_answer"]),
                 nudge_answer=None,
                 metadata={
-                    "decoded_cot": decoded_cot,
-                    "rot13_cot": rot13_cot,
-                    "source": row.get("source"),
-                    "domain": row.get("domain"),
-                    "row_id": row.get("id"),
-                    "metric": "tokens_successfully_inverted",
+                    "source": prob.get("source", ""),
+                    "subject": prob.get("subject", ""),
+                    "metric": "token_match_rate",
                 },
             )
         )
