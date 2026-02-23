@@ -24,6 +24,12 @@ from evals.datasets.contradictory_comparison import generate_contradictory_compa
 from evals.datasets.sentence_insertion import generate_sentence_insertion_dataset
 from evals.datasets.sycophancy_scruples import generate_sycophancy_scruples_dataset
 from evals.datasets.step_importance import generate_step_importance_dataset
+from evals.datasets.held_out_cot_reconstruction import generate_held_out_cot_reconstruction_dataset
+from evals.datasets.rot13_reconstruction import generate_rot13_reconstruction_dataset
+from evals.datasets.logical_leaps import generate_logical_leaps_dataset
+from evals.datasets.hint_influence_yesno import generate_hint_influence_yesno_dataset
+from evals.datasets.scruples_disagreement import generate_scruples_disagreement_dataset
+from evals.datasets.final_answer_kl import generate_final_answer_kl_dataset
 
 
 ALL_GENERATORS = {
@@ -36,6 +42,12 @@ ALL_GENERATORS = {
     "sentence_insertion": generate_sentence_insertion_dataset,
     "sycophancy_scruples": generate_sycophancy_scruples_dataset,
     "step_importance": generate_step_importance_dataset,
+    "held_out_cot_reconstruction": generate_held_out_cot_reconstruction_dataset,
+    "rot13_reconstruction": generate_rot13_reconstruction_dataset,
+    "logical_leaps": generate_logical_leaps_dataset,
+    "hint_influence_yesno": generate_hint_influence_yesno_dataset,
+    "scruples_disagreement": generate_scruples_disagreement_dataset,
+    "final_answer_kl": generate_final_answer_kl_dataset,
 }
 
 # Default item counts per eval (some evals have specific defaults)
@@ -49,6 +61,12 @@ DEFAULT_COUNTS = {
     "sentence_insertion": 100,
     "sycophancy_scruples": 100,
     "step_importance": 50,
+    "held_out_cot_reconstruction": 100,
+    "rot13_reconstruction": 100,
+    "logical_leaps": 100,
+    "hint_influence_yesno": 100,
+    "scruples_disagreement": 100,
+    "final_answer_kl": 100,
 }
 
 
@@ -62,6 +80,11 @@ def main():
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--corpus-path", default="data/cot_corpus/corpus.jsonl",
                         help="Path to corpus for sentence_insertion eval")
+    parser.add_argument(
+        "--logical-leaps-labels-path",
+        default="data/evals/logical_leaps_gemini.jsonl",
+        help="Optional JSONL file with Gemini labels for logical_leaps eval",
+    )
     args = parser.parse_args()
 
     output_dir = Path(args.output_dir)
@@ -80,6 +103,10 @@ def main():
         kwargs = {"n": count, "seed": args.seed}
         if name == "sentence_insertion":
             kwargs["corpus_path"] = args.corpus_path
+        if name in ("held_out_cot_reconstruction", "rot13_reconstruction", "logical_leaps"):
+            kwargs["corpus_path"] = args.corpus_path
+        if name == "logical_leaps":
+            kwargs["gemini_labels_path"] = args.logical_leaps_labels_path
 
         items = gen_fn(**kwargs)
         if items:

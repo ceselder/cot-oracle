@@ -27,7 +27,7 @@ def load_cot_taxonomy_data(
 
     Each example: single sentence boundary activation → category name.
     """
-    from signs_of_life.ao_lib import layer_percent_to_layer
+    from cot_utils import layer_percent_to_layer
 
     random.seed(seed)
 

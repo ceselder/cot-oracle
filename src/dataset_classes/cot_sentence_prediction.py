@@ -27,7 +27,16 @@ def load_cot_sentence_prediction_data(
     seed: int = 42,
     corpus_entries: list[dict] | None = None,
 ) -> list[dict]:
-    from signs_of_life.ao_lib import layer_percent_to_layer
+    """
+    Generate sentence-boundary context prediction training data.
+
+    Each example injects activations from ALL sentence boundaries (up to max_sentences),
+    3 per boundary (one per layer). The oracle predicts tokens near a randomly
+    chosen boundary.
+
+    Returns list of dicts for create_training_datapoint().
+    """
+    from cot_utils import layer_percent_to_layer
 
     random.seed(seed)
 

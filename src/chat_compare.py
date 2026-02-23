@@ -30,9 +30,10 @@ from peft import PeftModel, LoraConfig
 
 sys.path.insert(0, str(Path(__file__).parent))
 
-from signs_of_life.ao_lib import (
+from core.ao import (
     layer_percent_to_layer,
     collect_activations,
+    choose_attn_implementation,
     split_cot_into_sentences,
     find_sentence_boundary_positions,
     get_hf_submodule,
@@ -63,12 +64,7 @@ def load_dual_model(model_name, checkpoint_path, cot_adapter=None, device="cuda"
         tokenizer.pad_token_id = tokenizer.eos_token_id
 
     kwargs = {"device_map": "auto", "torch_dtype": dtype}
-    try:
-        import flash_attn
-        if "Qwen" in model_name:
-            kwargs["attn_implementation"] = "flash_attention_2"
-    except ImportError:
-        kwargs["attn_implementation"] = "sdpa"
+    kwargs["attn_implementation"] = choose_attn_implementation(model_name)
 
     print(f"Loading {model_name}...")
     model = AutoModelForCausalLM.from_pretrained(model_name, **kwargs)
@@ -268,7 +264,7 @@ def print_side_by_side(label_a, text_a, label_b, text_b, width=38):
 
 # Task-specific prompts that match what the trained oracle was trained on
 TASK_PROMPTS = {
-    "domain": "Activations from {N} sentence boundaries. What domain is this reasoning about? Answer with one word: math, science, logic, commonsense, reading, multi_domain, medical.",
+    "domain": "Activations from {N} sentence boundaries. What domain is this reasoning about? Answer with one word: math, science, logic, commonsense, reading, multi_domain, medical, ethics, diverse.",
     "correctness": "Activations from {N} sentence boundaries. Is the model's final answer correct? Answer: correct or incorrect.",
     "decorative": "Activations from {N} sentence boundaries. Is this chain-of-thought reasoning load-bearing or decorative? Answer: load_bearing or decorative.",
     "summary": "Activations from {N} sentence boundaries. Generate a concise summary of the thought process.",

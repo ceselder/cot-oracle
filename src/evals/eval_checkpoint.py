@@ -16,23 +16,21 @@ import sys
 from pathlib import Path
 
 import torch
-from peft import PeftModel, LoraConfig
+from peft import PeftModel
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from tqdm import tqdm
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from signs_of_life.ao_lib import (
+from core.ao import (
     layer_percent_to_layer,
-    collect_activations_at_positions,
+    choose_attn_implementation,
     run_oracle_on_activations,
     generate_cot,
-    split_cot_into_sentences,
-    find_sentence_boundary_positions,
-    AO_CHECKPOINTS,
 )
-from evals.common import load_eval_items
-from evals.run_evals import _extract_answer, determine_ground_truth, ORACLE_PROMPTS
+from evals.common import load_eval_items, determine_ground_truth
+from evals.run_evals import _extract_answer, ORACLE_PROMPTS_TEMPLATES, _oracle_prompt
+from evals.activation_cache import extract_activation_bundle
 
 
 def load_model_with_checkpoint(
@@ -51,13 +49,8 @@ def load_model_with_checkpoint(
     kwargs = {
         "device_map": "auto",
         "torch_dtype": dtype,
+        "attn_implementation": choose_attn_implementation(model_name),
     }
-    try:
-        import flash_attn  # noqa: F401
-        if "Qwen" in model_name:
-            kwargs["attn_implementation"] = "flash_attention_2"
-    except ImportError:
-        kwargs["attn_implementation"] = "sdpa"
 
     print(f"Loading {model_name}...")
     model = AutoModelForCausalLM.from_pretrained(model_name, **kwargs)
@@ -91,34 +84,30 @@ def run_single_eval_item(model, tokenizer, item, act_layer, model_name, device="
 
     # Extract activations and run oracle
     oracle_response = ""
-    sentences = split_cot_into_sentences(test_response)
-
-    if len(sentences) >= 2:
-        messages = [{"role": "user", "content": item.test_prompt}]
-        formatted = tokenizer.apply_chat_template(
-            messages, tokenize=False, add_generation_prompt=True,
-            enable_thinking=True,
+    bundle = None
+    try:
+        bundle = extract_activation_bundle(
+            model,
+            tokenizer,
+            eval_name=item.eval_name,
+            example_id=item.example_id,
+            prompt=item.test_prompt,
+            cot_text=test_response,
+            act_layer=act_layer,
+            device=device,
+            max_boundaries=10,
+            generation_adapter_name=None,
         )
-        full_text = formatted + test_response
-
-        boundary_positions = find_sentence_boundary_positions(
-            tokenizer, full_text, sentences,
-        )
-        if len(boundary_positions) >= 2:
-            positions_to_use = boundary_positions[:10]
-            try:
-                activations = collect_activations_at_positions(
-                    model, tokenizer, full_text, act_layer,
-                    positions_to_use, device=device,
-                )
-                oracle_prompt = ORACLE_PROMPTS.get(item.eval_name, "What is this model doing?")
-                oracle_response = run_oracle_on_activations(
-                    model, tokenizer, activations, oracle_prompt,
-                    model_name=model_name, act_layer=act_layer,
-                    max_new_tokens=150, device=device,
-                )
-            except Exception as e:
-                oracle_response = f"ERROR: {e}"
+        if bundle is not None and bundle.activations is not None:
+            template = ORACLE_PROMPTS_TEMPLATES.get(item.eval_name, "What is this model doing?")
+            oracle_prompt = _oracle_prompt(len(bundle.boundary_positions), template)
+            oracle_response = run_oracle_on_activations(
+                model, tokenizer, bundle.activations, oracle_prompt,
+                model_name=model_name, act_layer=act_layer,
+                max_new_tokens=150, device=device,
+            )
+    except Exception as e:
+        oracle_response = f"ERROR: {e}"
 
     ground_truth = determine_ground_truth(item, clean_answer, test_answer)
 
@@ -132,7 +121,7 @@ def run_single_eval_item(model, tokenizer, item, act_layer, model_name, device="
         "nudge_answer": item.nudge_answer,
         "oracle_response": oracle_response,
         "test_response_snippet": test_response[:300],
-        "n_sentences": len(sentences),
+        "n_sentences": len(bundle.sentences) if bundle is not None else 0,
     }
 
 

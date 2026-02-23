@@ -1,160 +1,152 @@
-# CoT Oracle: Reading Chain-of-Thought from Activations
+# CoT Oracle
 
-An activation oracle that reads a language model's internal representations during chain-of-thought reasoning and answers questions about what was actually computed — without seeing any text.
+White-box chain-of-thought (CoT) monitoring built on Activation Oracles (AO).
 
-Built on [Activation Oracles](https://github.com/adamkarvonen/activation_oracles) (Karvonen et al., 2024). The oracle is Qwen3-8B reading its own activations via LoRA fine-tuning.
+## Planning Source
+This repo is now aligned to the shared brainstorming/living plan document from this project thread.
+- Brainstorm doc link: `<ADD_SHARED_DOC_LINK_HERE>`
+- In-repo execution plan: `plan.md`
 
-## How It Works
+## North Star
+CoT text is often unfaithful. The goal is to read reasoning from activations and beat black-box CoT monitoring (and probes) on behavior prediction.
 
-1. **Generate a CoT** from Qwen3-8B (base model, no adapter)
-2. **Extract activations** at each sentence boundary from 3 layers (25%, 50%, 75% depth)
-3. **Inject activations** into placeholder tokens via norm-matched addition at layer 1
-4. **Ask the oracle** questions — it answers from activations alone, never sees the CoT text
+## Current Scope
+We are prioritizing:
+1. A generalist CoT activation monitor trained on diverse tasks (not just more tokens).
+2. Better eval coverage for unfaithfulness-like behavior (hints, sycophancy, load-bearingness).
+3. Fast architecture ablations that are likely to matter (multi-layer feed-in, temporal striding).
 
+## What Is Implemented
+
+### Training
+- Main entrypoint: `src/train_mixed.py`
+- Mixed training tasks currently wired:
+  - `cot_context_prediction`
+  - `cot_sentence_prediction`
+  - `cot_decorative`
+  - `cot_domain`
+  - `cot_correctness`
+  - `cot_persona` (optional)
+  - `cot_summary` (optional)
+
+### Evals
+- Dataset generation and eval runs in `src/evals/`
+- Current eval families:
+  - hinted MCQ
+  - sycophancy
+  - authority bias
+  - decorative CoT
+  - answer correctness
+  - contradictory comparison
+  - sentence insertion
+  - Scruples-style sycophancy
+
+### Runtime / Infra
+- AO repo path resolution in `src/core/ao_repo.py`
+- Shared AO/attention utilities in `src/core/ao.py`
+- Legacy unused tracks removed (`signs_of_life`, SAE-specific unused path, stale scripts)
+
+## RTX 5090 (Blackwell) Best-Guess Setup
+This is the recommended compatibility path (documentation-only; designed to be robust on Blackwell):
+
+1. Prefer SDPA over FlashAttention2 for AO/training/eval loading.
+2. For local vLLM generation, force eager mode on Blackwell.
+3. Only re-enable FA2 after confirming exact torch/cuda/fa2 compatibility.
+
+Recommended env:
+
+```bash
+export COT_ORACLE_FORCE_SDPA=1
+export COT_ORACLE_VLLM_ENFORCE_EAGER=1
+# optional safety: keep auto-eager enabled (default)
+unset COT_ORACLE_VLLM_NO_EAGER_AUTO
 ```
-"Layer: 9, 18, 27\n ? ? ? ? ? ? ? ? ? \n Activations from 3 sentence boundaries. What domain is this?"
-                    ^^^   ^^^   ^^^
-                    S1    S2    S3    (3 activations each: L25%, L50%, L75%)
+
+If you explicitly want to try FlashAttention2 anyway:
+
+```bash
+export COT_ORACLE_ALLOW_FLASH2=1
 ```
 
-The oracle sees only the layer metadata, placeholder tokens (with injected activations), and the question. The original problem and chain-of-thought are never in the prompt.
+Equivalent vLLM CLI flags:
 
-## Results (v4, 1 epoch on H100)
-
-| Task | Accuracy | Description |
-|------|----------|-------------|
-| **Domain classification** | **100%** | 7-class: math, science, logic, commonsense, reading, multi_domain, medical |
-| **Correctness prediction** | **91%** | Binary: did the CoT reach the correct answer? |
-| **Decorative detection** | **71%** (peak) | Binary: was the reasoning load-bearing or decorative? |
-| **Context prediction (sentences)** | **11%** | Predict tokens near sentence boundaries (exact match) |
-| **Context prediction (random)** | **8%** | Standard AO pretraining task (exact match) |
-
-Correctness prediction at 91% is notable — the oracle determines whether the model's answer is correct purely from activation patterns, without seeing the problem or the answer.
+```bash
+python3 src/data_pipeline/generate_cots.py --engine vllm --vllm-enforce-eager
+```
 
 ## Setup
 
-Requires a CUDA GPU with enough VRAM for Qwen3-8B in bf16 (~16GB). An H100 or A100 works well.
-
+### 1) Install deps
 ```bash
-git clone https://github.com/ceselder/cot-oracle
-cd cot-oracle
 pip install -r requirements.txt
+```
 
-# Activation oracles library (needed for the injection/steering infrastructure)
+### 2) Make AO importable
+```bash
 git clone https://github.com/adamkarvonen/activation_oracles
-cd activation_oracles && pip install -e . && cd ..
+export AO_REPO_PATH="$PWD/activation_oracles"
 ```
 
-Download a trained checkpoint (or use your own):
+### 3) Optional keys
 ```bash
-# v4 checkpoints on HuggingFace
-huggingface-cli download ceselder/cot-oracle-v4-checkpoints \
-    --local-dir checkpoints/cot_oracle_v4
+export OPENROUTER_API_KEY=...
+export WANDB_API_KEY=...
 ```
 
-## Usage
+## Quickstart
 
-`chat_compare.py` is the main interface — an interactive REPL that generates chain-of-thought, extracts activations, and queries two oracles side-by-side.
-
+### Generate CoT corpus
 ```bash
-python3 src/chat_compare.py --checkpoint checkpoints/cot_oracle_v4/step_30000
+python3 src/data_pipeline/generate_cots.py \
+  --openrouter \
+  --n-problems 1000 \
+  --output data/cot_corpus_v5/corpus.jsonl
 ```
 
-1. Type a reasoning question at `Question>` — the base model generates a CoT and collects activations at sentence boundaries
-2. At `Ask oracles>`, query the activations:
-   - `domain` — what domain of reasoning?
-   - `correct` — is the answer correct?
-   - `decorative` — load-bearing or decorative reasoning?
-   - `summary` — summarize the thought process
-   - Any free-form question about the reasoning
-3. `new` to start over, `quit` to exit
-
-Both the original AO (single-layer context prediction) and trained CoT oracle (multi-layer, task-specific) answer side-by-side.
-
-### Model Organisms
-
-You can pass a separate LoRA adapter for CoT generation with `--cot-adapter`. This lets you test whether the oracle can read through altered reasoning — for example, a model fine-tuned to reason in rot13:
-
+### Train mixed oracle
 ```bash
-python3 src/chat_compare.py \
-    --checkpoint checkpoints/cot_oracle_v4/step_30000 \
-    --cot-adapter ceselder/rot13-qwen3-8b-lora
+torchrun --nproc_per_node=1 src/train_mixed.py \
+  --corpus data/cot_corpus_v5/corpus.jsonl \
+  --model Qwen/Qwen3-8B \
+  --save-dir checkpoints/cot_oracle_mixed
 ```
 
-This loads three adapters on the same Qwen3-8B:
-- **organism** (`--cot-adapter`): generates the CoT (e.g. in rot13)
-- **original_ao**: baseline activation oracle for comparison
-- **trained**: the trained CoT oracle
-
-The CoT text may be unreadable, but the activations still encode the model's actual reasoning. The oracle reads those activations and reports what it sees.
-
-## Training
-
-### Architecture
-- **Model:** Qwen3-8B (36 layers, bf16)
-- **Base checkpoint:** [adamkarvonen/checkpoints_latentqa_cls_past_lens_addition_Qwen3-8B](https://huggingface.co/adamkarvonen/checkpoints_latentqa_cls_past_lens_addition_Qwen3-8B)
-- **LoRA:** rank 64, alpha 128, dropout 0.05, all-linear
-- **Injection:** norm-matched addition at layer 1: `h' = h + ||h|| * v/||v||`
-- **Layers:** 9 (25%), 18 (50%), 27 (75%)
-
-### Training Tasks (6 tasks, all shuffled together)
-
-| # | Task | Examples | Format |
-|---|------|----------|--------|
-| 1 | Context prediction (random) | 100K | 1 random layer, random positions |
-| 2 | Context prediction (sentences) | 30K (x2) | 3 layers, all sentence boundaries |
-| 3 | Decorative detection | 500 (x2) | 3 layers, binary classification |
-| 4 | Domain classification | 15K (x2) | 3 layers, 7-class |
-| 5 | Correctness prediction | 15K (x2) | 3 layers, binary classification |
-| 6 | Summary prediction | 15K (x2) | 3 layers, free-text generation |
-
-**Total: ~221K examples, 1 epoch, ~4.5h on H100.**
-
-Sentence-structured tasks (2-6) are each created twice: once with all 3 layers interleaved, once with L50% only. This teaches the oracle to work with both multi-layer and single-layer inputs.
-
-### Data Doubling
-
-Each sentence-structured example is duplicated:
-1. **Multi-layer:** `"Layer: 9, 18, 27"` prefix, 3N placeholder tokens
-2. **Single-layer:** `"Layer: 18"` prefix, N placeholder tokens (standard AO format)
-
-### Corpus
-CoT traces generated by Qwen3-8B across 12 reasoning benchmarks: MATH, GSM8K, GPQA, BBH, ARC, StrategyQA, DROP, LogiQA, MMLU-Pro, CommonsenseQA, AQUA-RAT, MedQA.
-
-Each problem gets a CoT response and a direct response. Categories are assigned automatically:
-- **load_bearing**: CoT correct, direct wrong (reasoning was necessary)
-- **both_correct** (decorative): both correct (model already knew)
-- **both_wrong** / **cot_hurt**: failure cases
-
-### v1 Lessons
-v1 trained tasks sequentially (not shuffled) — what looked like "grokking" at step 3000 was actually just the model seeing importance data for the first time, followed by catastrophic forgetting. Fix: `random.shuffle()` before training.
-
-## Links
-
-- **Checkpoints:** [ceselder/cot-oracle-v4-checkpoints](https://huggingface.co/ceselder/cot-oracle-v4-checkpoints) (16 checkpoints, step 2K-30K)
-- **Training data:** [ceselder/cot-oracle-data](https://huggingface.co/datasets/ceselder/cot-oracle-data)
-- **Activation Oracles:** [adamkarvonen/activation_oracles](https://github.com/adamkarvonen/activation_oracles)
-
-## Project Structure
-
+### Run eval suite
+```bash
+python3 src/evals/generate_datasets.py --output-dir data/evals
+# optional one-time cache build (recommended for ROT13 organism evals)
+python3 src/evals/precompute_activations.py \
+  --eval-dir data/evals \
+  --output-dir data/eval_precomputed \
+  --generator-adapter ceselder/rot13-qwen3-8b-lora \
+  --evals rot13_reconstruction held_out_cot_reconstruction logical_leaps
+# consume cached activations/responses
+python3 src/evals/run_evals.py --eval-dir data/evals --output-dir data/eval_results
+# or:
+# python3 src/evals/run_evals.py --eval-dir data/evals --output-dir data/eval_results \
+#   --precomputed-activations-dir data/eval_precomputed
+python3 src/evals/score_oracle.py --results-dir data/eval_results
 ```
+
+## Repository Structure
+
+```text
 src/
-├── chat_compare.py                # Interactive A/B comparison tool (main interface)
-├── train_mixed.py                 # Training script (6 tasks, shuffled)
-├── data_pipeline/
-│   └── generate_cots.py           # CoT corpus generation
-├── dataset_classes/               # Task-specific dataset loaders for training
-├── evals/                         # Unfaithfulness evaluation suite
-└── signs_of_life/
-    └── ao_lib.py                  # Inlined AO library (activation collection, injection, hooks)
+  core/                  # AO runtime wrappers + compatibility logic
+  data_pipeline/         # CoT generation + corpus tooling
+  dataset_classes/       # training dataset builders
+  evals/                 # eval generation / run / scoring
+  train_mixed.py         # primary training entrypoint
+  chat_compare.py        # AO vs fine-tuned oracle comparison
+scripts/
+  generate_qwen_rollouts.sh
+  upload_corpus.py
+plan.md                  # living project plan aligned to brainstorming doc
 ```
 
-## Related Work
-
-- [Activation Oracles](https://arxiv.org/abs/2512.15674) (Karvonen et al., 2024)
-- [Thought Anchors](https://arxiv.org/abs/2506.19143) (Bogdan et al., 2025)
-- [Thought Branches](https://arxiv.org/abs/2510.27484) (Macar, Bogdan et al., 2025)
-
-## License
-
-Apache 2.0
+## Immediate TODO (from shared plan)
+- Finalize held-out CoT reconstruction metric + baseline.
+- Add ROT13/obfuscated holdout eval into default reporting.
+- Add explicit load-bearingness proxy metric into eval scoreboard.
+- Run ablations: striding vs boundaries, pooling vs discrete, token marker scheme.
+- Decide minimum conversational IT set for monitor Q/A behavior + calibrated refusal.

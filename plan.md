@@ -1,176 +1,123 @@
-# CoT Oracle Plan (v4)
+# CoT Oracle Plan (Living)
 
-## What We're Building
+Last updated: 2026-02-20
 
-An activation oracle that reads Qwen3-8B's internal representations during chain-of-thought and learns to describe what the model actually computed — detecting when stated reasoning diverges from actual influence (unfaithfulness).
+## Source Context
+This plan is synchronized with the shared brainstorming/living document from this thread.
+- Shared doc link: `<ADD_SHARED_DOC_LINK_HERE>`
 
-**Key insight:** Feed the oracle activations extracted at **every sentence boundary** of a CoT, using **3 layers per boundary** (25%, 50%, 75% depth). The oracle sees the full reasoning trajectory as a sequence of activation snapshots, and learns to interpret them via diverse training tasks.
+## North Star
+Chain-of-thought text is often unfaithful. We want a white-box activation monitor that:
+1. predicts model behavior better than black-box CoT monitoring,
+2. beats simple probe baselines where possible,
+3. produces non-obvious, testable hypotheses about internal reasoning.
 
----
+## Strategy
+1. Scale task diversity more than raw dataset size.
+2. Train on both semantic reconstruction and computational properties.
+3. Keep architecture changes simple, ablatable, and measurable.
 
-## Architecture
+## In Scope (Current Sprint)
+- Activation-oracle style CoT reconstruction from trajectory activations.
+- Multi-task mixed training focused on behavior-relevant labels.
+- Evals for unfaithfulness-adjacent behavior (hints, sycophancy, load-bearing proxies).
+- Short architecture sweeps: temporal feed-in + layer choices + marker schemes.
 
-### Input: Sentence-Boundary Activation Trajectories
+## Out of Scope (For Now)
+- SAE-driven unverbalized supervision pipeline.
+- Legacy signs-of-life branch.
+- RL-heavy post-training loops.
 
-For a CoT with N sentences, extract activations at each sentence's last token position from 3 layers:
+## Current Implementation Status
 
-```
-Sentence 1 ends at token 42  → extract acts at layers 9, 18, 27
-Sentence 2 ends at token 89  → extract acts at layers 9, 18, 27
-Sentence 3 ends at token 156 → extract acts at layers 9, 18, 27
-...
-```
+### Core runtime
+- [x] AO repo discovery without machine-specific path assumptions.
+- [x] Shared AO runtime helpers in `src/core/ao.py`.
+- [x] Blackwell-safe attention defaulting (SDPA on RTX 5090 class).
 
-These get injected as placeholder `?` tokens via norm-matched addition at layer 1:
+### Training pipeline
+- [x] Mixed training entrypoint in `src/train_mixed.py`.
+- [x] Context + sentence reconstruction tasks.
+- [x] Decorative/domain/correctness auxiliary tasks.
+- [x] Optional persona + summary tasks.
+- [ ] Add explicit thought-anchor/load-bearing training task.
+- [ ] Add contrastive influenced-vs-uninfluenced pair training.
 
-```
-"Layer: 9, 18, 27\n ? ? ? ? ? ? ? ? ? \n Activations from 3 sentence boundaries. [task prompt]"
-                    ^^^   ^^^   ^^^
-                    S1    S2    S3    (3 activations each: L25%, L50%, L75%)
-```
+### Eval pipeline
+- [x] Dataset generation + run + scoring flow in `src/evals/`.
+- [x] Hinted/sycophancy/authority/decorative/correctness eval families.
+- [ ] Held-out CoT reconstruction metric (KL based) as first-class report.
+- [ ] ROT13/obfuscated holdout eval integrated into default suite.
+- [ ] Load-bearingness metric integrated into default suite.
+- [ ] Strong AO/probe/black-box baseline comparison table.
 
-The oracle sees 3N activation tokens total, one group of 3 per sentence boundary. Activations are collected on-the-fly during training (no pre-extraction needed) — AO's `materialize_missing_steering_vectors` is monkey-patched to cycle through layers: position `i` uses `layers[i % 3]`.
+## Priority Evals (Mapped From Brainstorm Doc)
 
-### Data Doubling
+### Tier 1 (implement first)
+- Held-out CoT reconstruction.
+  - Baseline: AO / null reconstruction.
+  - Metric: token-level KL / reconstruction quality.
+- Hint influence detection.
+  - Baseline: probes / black-box monitor.
+  - Metric: yes/no accuracy and calibration.
+- Scruples disagreement slice.
+  - Baseline: probes / black-box monitor.
+  - Metric: agreement-with-human-judgment classification.
+- Final answer prediction from CoT activations.
+  - Baseline: AO + lightweight probes.
+  - Metric: KL / accuracy on answer distribution.
 
-Each sentence-structured example is created **twice**:
-1. Multi-layer version: `"Layer: 9, 18, 27"` prefix, 3N `?` tokens
-2. Single-layer L50% duplicate: `"Layer: 18"` prefix, N `?` tokens (standard AO format)
+### Tier 2 (next)
+- ROT13 or obfuscated CoT reconstruction.
+  - Baseline: patchscopes-like decode baseline.
+  - Metric: recoverable token rate / sequence accuracy.
+- Thought-anchor proxy eval.
+  - Baseline: probe + black-box monitor.
+  - Metric: load-bearing step detection quality.
 
-This teaches the oracle to work with both formats and roughly doubles sentence-structured data.
+## Architecture Ablation Matrix
+- [ ] Sentence boundaries vs fixed-token stride (e.g., every 25 tokens).
+- [ ] Discrete striding vs pooled activation summaries.
+- [ ] 1-layer vs 3-layer feed-in (e.g., 25/50/75 depth).
+- [ ] Shared placeholder token vs per-layer marker tokens (`? ? ?` vs `? # !` style).
 
----
+## Training Data Roadmap
 
-## Training Tasks (6 tasks, shuffled together)
+### Definitely
+- [x] Start from AO checkpoint.
+- [x] Mixed on-policy CoT reconstruction corpus flow.
+- [ ] Diverse CoT datasets composed into balanced training mix.
+- [ ] Train next-step reconstruction conditioned on prefix activations.
+- [ ] Train full-CoT reconstruction from all trajectory activations.
+- [ ] Add answer-from-CoT objective explicitly in mixed loop.
+- [ ] Add conversational IT set for monitor Q/A + calibrated refusals.
 
-| # | Task | Count | Format | Target |
-|---|------|-------|--------|--------|
-| 1 | **Context prediction (random)** | 100K | 1 random layer, random positions | Predict K surrounding tokens |
-| 2 | **Context prediction (sentences)** | 30K (→60K) | 3 layers, all boundaries | Predict K tokens near sentence T |
-| 3 | **Decorative detection** | 10K (→20K) | 3 layers, all boundaries | `"load_bearing"` or `"decorative"` |
-| 4 | **Domain classification** | 15K (→30K) | 3 layers, all boundaries | `"math"`, `"science"`, `"logic"`, etc. |
-| 5 | **Correctness prediction** | 15K (→30K) | 3 layers, all boundaries | `"correct"` or `"incorrect"` |
-| 6 | **Persona detection** | 15K (→30K) | 3 layers, all boundaries | `"math_tutor"`, `"skeptical_scientist"`, etc. |
+### Promising (time permitting)
+- [ ] Unsampled-high-probability concept supervision.
+- [ ] Token-ban counterfactual supervision.
+- [ ] LLM-labeled fallacy/untruth spans for auxiliary detection.
+- [ ] Robustness to inserted off-policy sentence/activation perturbations.
 
-**Total: ~270K examples** (after doubling), all shuffled together.
+## 5090 / Blackwell Compatibility Plan (Best-Guess)
+- [x] Default AO loading path to SDPA on Blackwell.
+- [x] Provide vLLM eager-mode controls for Blackwell.
+- [ ] Add explicit troubleshooting section with known torch/vLLM/fa2 combinations after more runs.
 
-**Held-out eval only:** Answer tracking (zero-shot) + 6 unfaithfulness evals (hinted_mcq, sycophancy, authority_bias, decorative_cot, answer_correctness, contradictory_comparison).
-
-### Task Details
-
-**Task 1 — Context Prediction (Random):** Standard AO pretraining. Random positions in the CoT, 1 random layer, predict surrounding tokens. High-volume backbone that teaches basic activation reading.
-
-**Task 2 — Context Prediction (Sentences):** Structured version. ALL sentence boundaries injected, oracle predicts tokens near a randomly chosen boundary. Teaches trajectory-level understanding.
-
-**Task 3 — Decorative Detection:** Binary classification. Ground truth is free from corpus: `load_bearing` = CoT correct but direct answer wrong (reasoning was necessary), `decorative` = both correct (model already knew). Balanced 50/50 sampling.
-
-**Task 4 — Domain Classification:** Multi-class (7 domains). Labels come from corpus metadata (source dataset → domain mapping). No annotation needed.
-
-**Task 5 — Correctness Prediction:** Binary. Can the oracle tell from activations alone whether the final answer is correct? Ground truth from comparing extracted answer to known correct answer.
-
-**Task 6 — Persona Detection:** Multi-class (8 personas). Detect which unverbalized system prompt was used during generation. Requires persona corpus (same problems generated with 8 different system prompts). Tests whether oracle reads subtle style shifts in activations.
-
----
-
-## Corpus
-
-### Sources (12 diverse datasets)
-MATH, GSM8K, GPQA, BBH, ARC, StrategyQA, DROP, LogiQA, MMLU-Pro, CommonsenseQA, AQUA-RAT, MedQA
-
-### Generation
-Two modes:
-- **OpenRouter** (no GPU): async batch calls to `qwen/qwen3-8b`, ~50 concurrent, ~$6 for 1000 problems
-- **Local GPU**: batched generation with bf16 model
-
-Each problem gets:
-- CoT response (with `<think>` tags)
-- Direct response (no thinking)
-- Answer extraction + correctness check
-- Sentence splitting + boundary position computation
-- Category: `load_bearing` / `both_correct` / `both_wrong` / `cot_hurt`
-
-Persona corpus generated separately with `--personas` flag (8 system prompts per problem).
-
-### Commands
+Current recommended runtime knobs:
 ```bash
-# Main corpus
-python src/data_pipeline/generate_cots.py --openrouter \
-    --n-problems 1000 --output data/cot_corpus_v4/corpus.jsonl
-
-# Persona corpus
-python src/data_pipeline/generate_cots.py --openrouter --personas \
-    --n-problems 1000 --output data/cot_corpus_v4/corpus_persona.jsonl
-
-# Train
-torchrun --nproc_per_node=1 src/train_mixed.py \
-    --corpus data/cot_corpus_v4/corpus.jsonl \
-    --persona-corpus data/cot_corpus_v4/corpus_persona.jsonl \
-    --model Qwen/Qwen3-8B
+export COT_ORACLE_FORCE_SDPA=1
+export COT_ORACLE_VLLM_ENFORCE_EAGER=1
 ```
 
----
-
-## What We Dropped (and Why)
-
-| Task | Problem | Status |
-|------|---------|--------|
-| Importance | 99.7% labeled "important" (KL > 0.1 too low) | Dropped |
-| Summary | All 200 labels identical | Dropped |
-| Unverbalized | SAE ground truth too hard to generate | Dropped |
-| Answer tracking | Target format too specific (exact probs) | Eval-only (zero-shot) |
-
----
-
-## v1 Results and Lessons
-
-### What Happened
-- 100K examples, 1 epoch, 6218 steps on H100
-- "Grokking" at step 3000 was actually **catastrophic forgetting** — data wasn't shuffled, tasks were sequential
-- Importance hit 50% when first seen, then dropped to 30% when taxonomy data started
-- wandb: `cot_oracle/runs/2bmv0bur`
-
-### Fixes in v4
-- `random.shuffle()` before training (critical)
-- 3 layers per boundary instead of 1 random
-- Dropped broken tasks (importance, summary, unverbalized)
-- 12 diverse corpus sources instead of MATH+GSM8K only
-- Added persona detection task
-- Each sentence-structured example doubled (multi-layer + single-layer)
-
----
-
-## Current Status
-
-- **Code:** All 6 dataset loaders + `train_mixed.py` + `generate_cots.py` written and reviewed
-- **Baseline evals:** wandb `cot_oracle/runs/iee93uwb`
-- **Checkpoints (v1):** `ceselder/cot-oracle-8b-checkpoints` on HuggingFace
-
-### Next Steps
-
-1. **Generate v4 corpus via OpenRouter** (~$6, no GPU needed)
-   - Main corpus: 1000 problems from 12 sources
-   - Persona corpus: same problems with 8 personas
-2. **Compute boundary positions** (tokenizer on CPU)
-3. **Rent H100, train v4** (~2h for 1 epoch, try 2-3 epochs)
-4. **Run unfaithfulness evals** on best checkpoint vs baseline
-5. **Qualitative inspection** — what does the oracle actually generate?
-
----
-
-## Model & Infra
-
-- **Source model:** Qwen3-8B (36 layers, bf16, ~16GB on H100)
-- **AO checkpoint:** `adamkarvonen/checkpoints_latentqa_cls_past_lens_addition_Qwen3-8B`
-- **LoRA:** r=64, alpha=128, dropout=0.05, all-linear
-- **Injection:** Norm-matched addition at layer 1
-- **Placeholder token:** `" ?"` (space + question mark)
-- **Layers for sentence tasks:** 9 (25%), 18 (50%), 27 (75%)
-- **GPU rules:** Always bf16, always batch, never 8-bit quantize on H100
-
----
+## Near-Term Execution TODO
+1. Add held-out reconstruction + answer-pred metrics to `run_evals.py` output schema.
+2. Add ROT13/obfuscated eval generator + scorer.
+3. Add first load-bearing proxy metric (sentence ablation or early-answer-shift proxy).
+4. Run architecture sweep on one base model and lock defaults.
+5. Add final baseline table (AO, probes, black-box monitor) to report artifacts.
+6. Update README examples once eval schema is finalized.
 
 ## Success Criteria
-
-- **Minimum:** Oracle detects unfaithfulness better than baseline AO on held-out evals
-- **Good:** >80% on synthetic unfaithfulness detection
-- **Great:** Generalizes to unfaithfulness modes not in training, finds unfaithfulness in the wild
+- Minimum: beat AO baseline on at least one unfaithfulness-relevant eval without harming core reconstruction.
+- Strong: consistent uplift across multiple eval families and at least one model-organism stress test.
+- Stretch: monitor outputs non-obvious hypotheses that are later behaviorally validated.

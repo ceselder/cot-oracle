@@ -50,7 +50,7 @@ def load_cot_context_prediction_data(
     If corpus_entries is provided (with _ctx_ids/_fmt_len from pretokenize_corpus),
     skips file reading and tokenization entirely.
     """
-    from signs_of_life.ao_lib import layer_percent_to_layer
+    from cot_utils import layer_percent_to_layer
 
     random.seed(seed)
 

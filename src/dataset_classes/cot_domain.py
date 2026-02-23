@@ -25,7 +25,13 @@ def load_cot_domain_data(
     seed: int = 42,
     corpus_entries: list[dict] | None = None,
 ) -> list[dict]:
-    from signs_of_life.ao_lib import layer_percent_to_layer
+    """
+    Generate domain classification training data.
+
+    Each example: sentence-boundary activations -> domain label.
+    Domain labels come from SOURCE_TO_DOMAIN mapping in generate_cots.py.
+    """
+    from cot_utils import layer_percent_to_layer
 
     _SOURCE_TO_DOMAIN = {
         "MATH": "math", "GSM8K": "math", "GPQA": "science", "BBH": "logic",

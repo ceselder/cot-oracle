@@ -54,7 +54,15 @@ def load_cot_decorative_data(
     seed: int = 42,
     corpus_entries: list[dict] | None = None,
 ) -> list[dict]:
-    from signs_of_life.ao_lib import layer_percent_to_layer
+    """
+    Generate decorative CoT detection training data with sentence-structured format.
+
+    Each example: activations at ALL sentence boundaries (3 per boundary, one per layer)
+    -> load_bearing / decorative.
+
+    Requires corpus generated with --keep-all.
+    """
+    from cot_utils import layer_percent_to_layer
 
     random.seed(seed)
 

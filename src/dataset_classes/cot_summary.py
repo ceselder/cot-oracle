@@ -26,7 +26,13 @@ def load_cot_summary_data(
     seed: int = 42,
     corpus_entries: list[dict] | None = None,
 ) -> list[dict]:
-    from signs_of_life.ao_lib import layer_percent_to_layer
+    """
+    Generate CoT summary prediction training data.
+
+    Each example: activations at sentence boundaries -> faithful summary text.
+    Summaries come from summaries.jsonl (LLM-generated).
+    """
+    from cot_utils import layer_percent_to_layer
 
     random.seed(seed)
 

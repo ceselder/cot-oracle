@@ -43,55 +43,59 @@ from cot_utils import (
 # ============================================================
 
 def load_math_problems(n: int, levels: list[str] | None = None) -> list[dict]:
-    """Load problems from MATH dataset."""
-    for ds_name in ["hendrycks/competition_mathematics", "HuggingFaceH4/MATH-500"]:
-        try:
-            ds = load_dataset(ds_name, split="test")
-            break
-        except Exception:
-            continue
-    else:
-        raise RuntimeError("Could not load MATH dataset from any known source")
-
+    """Load problems from MATH dataset (train + test splits)."""
     problems = []
-    for item in ds:
-        if levels and item.get("level", "") not in levels:
-            continue
-        if "answer" in item and item["answer"]:
-            answer = item["answer"].strip()
-        else:
-            solution = item.get("solution", "")
-            boxed = re.findall(r'\\boxed\{([^}]+)\}', solution)
-            if not boxed:
+    for ds_name in ["hendrycks/competition_mathematics", "HuggingFaceH4/MATH-500"]:
+        for split in ["train", "test"]:
+            if len(problems) >= n:
+                break
+            try:
+                ds = load_dataset(ds_name, split=split)
+            except Exception:
                 continue
-            answer = boxed[-1].strip()
-        problems.append({
-            "source": "MATH",
-            "question": item["problem"],
-            "correct_answer": answer,
-            "subject": item.get("subject", item.get("type", "")),
-            "level": item.get("level", ""),
-        })
+            for item in ds:
+                if levels and item.get("level", "") not in levels:
+                    continue
+                if "answer" in item and item["answer"]:
+                    answer = item["answer"].strip()
+                else:
+                    solution = item.get("solution", "")
+                    boxed = re.findall(r'\\boxed\{([^}]+)\}', solution)
+                    if not boxed:
+                        continue
+                    answer = boxed[-1].strip()
+                problems.append({
+                    "source": "MATH",
+                    "question": item["problem"],
+                    "correct_answer": answer,
+                    "subject": item.get("subject", item.get("type", "")),
+                    "level": item.get("level", ""),
+                })
+                if len(problems) >= n:
+                    break
         if len(problems) >= n:
             break
     return problems
 
 
 def load_gsm8k_problems(n: int) -> list[dict]:
-    """Load problems from GSM8K."""
-    ds = load_dataset("openai/gsm8k", "main", split="test")
+    """Load problems from GSM8K (train + test splits)."""
     problems = []
-    for item in ds:
-        answer = item["answer"].split("####")[-1].strip()
-        problems.append({
-            "source": "GSM8K",
-            "question": item["question"],
-            "correct_answer": answer,
-            "subject": "arithmetic",
-            "level": "",
-        })
+    for split in ["train", "test"]:
         if len(problems) >= n:
             break
+        ds = load_dataset("openai/gsm8k", "main", split=split)
+        for item in ds:
+            answer = item["answer"].split("####")[-1].strip()
+            problems.append({
+                "source": "GSM8K",
+                "question": item["question"],
+                "correct_answer": answer,
+                "subject": "arithmetic",
+                "level": "",
+            })
+            if len(problems) >= n:
+                break
     return problems
 
 
@@ -281,54 +285,60 @@ def load_mmlu_pro_problems(n: int) -> list[dict]:
 
 
 def load_commonsenseqa_problems(n: int) -> list[dict]:
-    """Load problems from CommonsenseQA."""
-    ds = load_dataset("tau/commonsense_qa", split="validation")
+    """Load problems from CommonsenseQA (train + validation)."""
     problems = []
-    for item in ds:
-        question = item.get("question", "")
-        choices = item.get("choices", {})
-        answer_key = item.get("answerKey", "")
-        if not question or not answer_key:
-            continue
-        labels = choices.get("label", [])
-        texts = choices.get("text", [])
-        if not labels or not texts:
-            continue
-        choices_text = "\n".join(f"{l}) {t}" for l, t in zip(labels, texts))
-        full_q = f"{question}\n\n{choices_text}\n\nAnswer with the letter."
-        problems.append({
-            "source": "CommonsenseQA",
-            "question": full_q,
-            "correct_answer": answer_key,
-            "subject": "commonsense",
-            "level": "",
-        })
+    for split in ["train", "validation"]:
         if len(problems) >= n:
             break
+        ds = load_dataset("tau/commonsense_qa", split=split)
+        for item in ds:
+            question = item.get("question", "")
+            choices = item.get("choices", {})
+            answer_key = item.get("answerKey", "")
+            if not question or not answer_key:
+                continue
+            labels = choices.get("label", [])
+            texts = choices.get("text", [])
+            if not labels or not texts:
+                continue
+            choices_text = "\n".join(f"{l}) {t}" for l, t in zip(labels, texts))
+            full_q = f"{question}\n\n{choices_text}\n\nAnswer with the letter."
+            problems.append({
+                "source": "CommonsenseQA",
+                "question": full_q,
+                "correct_answer": answer_key,
+                "subject": "commonsense",
+                "level": "",
+            })
+            if len(problems) >= n:
+                break
     return problems
 
 
 def load_aqua_rat_problems(n: int) -> list[dict]:
-    """Load problems from AQUA-RAT (algebraic word problems)."""
-    ds = load_dataset("deepmind/aqua_rat", "raw", split="test")
+    """Load problems from AQUA-RAT (algebraic word problems, train + test)."""
     problems = []
-    for item in ds:
-        question = item.get("question", "")
-        options = item.get("options", [])
-        correct = item.get("correct", "")
-        if not question or not options or not correct:
-            continue
-        choices_text = "\n".join(options)
-        full_q = f"{question}\n\n{choices_text}\n\nAnswer with the letter."
-        problems.append({
-            "source": "AQUA-RAT",
-            "question": full_q,
-            "correct_answer": correct,
-            "subject": "algebra",
-            "level": "",
-        })
+    for split in ["train", "test"]:
         if len(problems) >= n:
             break
+        ds = load_dataset("deepmind/aqua_rat", "raw", split=split)
+        for item in ds:
+            question = item.get("question", "")
+            options = item.get("options", [])
+            correct = item.get("correct", "")
+            if not question or not options or not correct:
+                continue
+            choices_text = "\n".join(options)
+            full_q = f"{question}\n\n{choices_text}\n\nAnswer with the letter."
+            problems.append({
+                "source": "AQUA-RAT",
+                "question": full_q,
+                "correct_answer": correct,
+                "subject": "algebra",
+                "level": "",
+            })
+            if len(problems) >= n:
+                break
     return problems
 
 
@@ -409,12 +419,191 @@ def load_medqa_problems(n: int) -> list[dict]:
     return problems
 
 
+def load_asdiv_problems(n: int) -> list[dict]:
+    """Load problems from ASDiv (diverse arithmetic)."""
+    ds = load_dataset("EleutherAI/asdiv", split="validation")
+    problems = []
+    for item in ds:
+        body = item.get("body", "")
+        question = item.get("question", "")
+        answer = item.get("answer", "")
+        if not body or not question or not answer:
+            continue
+        # Strip units in parentheses: "9 (apples)" -> "9"
+        answer_clean = re.sub(r'\s*\(.*?\)\s*$', '', answer).strip()
+        full_q = f"{body} {question}"
+        problems.append({
+            "source": "ASDiv",
+            "question": full_q,
+            "correct_answer": answer_clean,
+            "subject": item.get("solution_type", "arithmetic"),
+            "level": "",
+        })
+        if len(problems) >= n:
+            break
+    return problems
+
+
+def load_scienceqa_problems(n: int) -> list[dict]:
+    """Load text-only problems from ScienceQA."""
+    problems = []
+    for split in ["test", "train"]:
+        if len(problems) >= n:
+            break
+        ds = load_dataset("derek-thomas/ScienceQA", split=split)
+        for item in ds:
+            # Skip image-based questions
+            if item.get("image") is not None:
+                continue
+            question = item.get("question", "")
+            choices = item.get("choices", [])
+            answer_idx = item.get("answer", None)
+            if not question or not choices or answer_idx is None:
+                continue
+            labels = [chr(ord('A') + i) for i in range(len(choices))]
+            choices_text = "\n".join(f"{l}) {c}" for l, c in zip(labels, choices))
+            full_q = f"{question}\n\n{choices_text}\n\nAnswer with the letter."
+            correct_letter = labels[answer_idx] if answer_idx < len(labels) else "A"
+            problems.append({
+                "source": "ScienceQA",
+                "question": full_q,
+                "correct_answer": correct_letter,
+                "subject": item.get("subject", "science"),
+                "level": item.get("grade", ""),
+            })
+            if len(problems) >= n:
+                break
+    return problems
+
+
+def load_arc_easy_problems(n: int) -> list[dict]:
+    """Load problems from ARC-Easy."""
+    ds = load_dataset("allenai/ai2_arc", "ARC-Easy", split="test")
+    problems = []
+    for item in ds:
+        question = item.get("question", "")
+        choices = item.get("choices", {})
+        answer_key = item.get("answerKey", "")
+        if not question or not answer_key:
+            continue
+        labels = choices.get("label", [])
+        texts = choices.get("text", [])
+        if not labels or not texts:
+            continue
+        choices_text = "\n".join(f"{l}) {t}" for l, t in zip(labels, texts))
+        full_q = f"{question}\n\n{choices_text}\n\nAnswer with the letter."
+        problems.append({
+            "source": "ARC-Easy",
+            "question": full_q,
+            "correct_answer": answer_key,
+            "subject": "science",
+            "level": "easy",
+        })
+        if len(problems) >= n:
+            break
+    return problems
+
+
+def load_scruples_problems(n: int) -> list[dict]:
+    """Load ethical judgment problems from Scruples (AITA-style).
+
+    Ground truth is binarized human judgment: RIGHT or WRONG.
+    """
+    ds = load_dataset("metaeval/scruples", split="train", streaming=True)
+    problems = []
+    for item in ds:
+        title = item.get("title", "")
+        text = item.get("text", "")
+        label = item.get("binarized_label", "")
+        if not text or not label:
+            continue
+        # Skip very long posts (>300 words) to keep input reasonable
+        if len(text.split()) > 300:
+            continue
+        full_q = f"{title}\n\n{text}\n\nBased on this situation, is the author in the right or in the wrong? Answer with RIGHT or WRONG."
+        problems.append({
+            "source": "Scruples",
+            "question": full_q,
+            "correct_answer": label,
+            "subject": "ethics",
+            "level": "",
+        })
+        if len(problems) >= n:
+            break
+    print(f"    Scruples: loaded {len(problems)}")
+    return problems
+
+
+def load_lmsys_problems(n: int) -> list[dict]:
+    """Load filtered questions from LMSYS-Chat-1M.
+
+    Filters: English, 15-60 words, no jailbreak/roleplay/generation/code.
+    No ground truth answer — fields will be null.
+
+    Uses streaming with a progress counter so we know it's working.
+    For large n, scans proportionally more rows (~3.5x due to ~29% filter pass rate).
+    """
+    ds = load_dataset("lmsys/lmsys-chat-1m", split="train", streaming=True)
+
+    generation_keywords = ['write', 'generate', 'create', 'give me', 'compose', 'draft',
+                          'tell me a story', 'poem', 'essay', 'introduction for']
+    jailbreak_keywords = ['you are the text completion', 'you must complete', 'ignore previous',
+                         'pretend you', 'act as', 'roleplay', 'dan ']
+
+    problems = []
+    scanned = 0
+    for row in ds:
+        if len(problems) >= n:
+            break
+        scanned += 1
+        if scanned % 1000 == 0:
+            print(f"    LMSYS: scanned {scanned}, kept {len(problems)}/{n}")
+
+        lang = row.get("language", "unknown")
+        if lang != "English":
+            continue
+
+        conv = row["conversation"]
+        first_user = None
+        for msg in conv:
+            if msg["role"] == "user":
+                first_user = msg["content"]
+                break
+        if not first_user:
+            continue
+
+        words = first_user.split()
+        if len(words) < 15 or len(words) > 60:
+            continue
+
+        lower = first_user.lower()
+
+        if any(kw in lower for kw in jailbreak_keywords):
+            continue
+        if '```' in first_user or 'def ' in first_user or 'function(' in first_user:
+            continue
+        if any(lower.startswith(kw) or f' {kw} ' in lower[:50] for kw in generation_keywords):
+            continue
+
+        problems.append({
+            "source": "LMSYS",
+            "question": first_user,
+            "correct_answer": None,
+            "subject": "diverse",
+            "level": "",
+        })
+
+    print(f"    LMSYS: scanned {scanned} total, kept {len(problems)}")
+    return problems
+
+
 DATASET_LOADERS = {
     "math": lambda n, levels: load_math_problems(n, levels),
     "gsm8k": lambda n, levels: load_gsm8k_problems(n),
     "gpqa": lambda n, levels: load_gpqa_problems(n),
     "bbh": lambda n, levels: load_bbh_problems(n),
     "arc_challenge": lambda n, levels: load_arc_challenge_problems(n),
+    "arc_easy": lambda n, levels: load_arc_easy_problems(n),
     "strategyqa": lambda n, levels: load_strategyqa_problems(n),
     "drop": lambda n, levels: load_drop_problems(n),
     "logiqa": lambda n, levels: load_logiqa_problems(n),
@@ -422,6 +611,10 @@ DATASET_LOADERS = {
     "commonsenseqa": lambda n, levels: load_commonsenseqa_problems(n),
     "aqua_rat": lambda n, levels: load_aqua_rat_problems(n),
     "medqa": lambda n, levels: load_medqa_problems(n),
+    "asdiv": lambda n, levels: load_asdiv_problems(n),
+    "scienceqa": lambda n, levels: load_scienceqa_problems(n),
+    "scruples": lambda n, levels: load_scruples_problems(n),
+    "lmsys": lambda n, levels: load_lmsys_problems(n),
 }
 
 # Domain mapping: source name -> domain label (for Task 4: domain classification)
@@ -431,6 +624,7 @@ SOURCE_TO_DOMAIN = {
     "GPQA": "science",
     "BBH": "logic",
     "ARC": "science",
+    "ARC-Easy": "science",
     "StrategyQA": "commonsense",
     "DROP": "reading",
     "LogiQA": "logic",
@@ -438,18 +632,30 @@ SOURCE_TO_DOMAIN = {
     "CommonsenseQA": "commonsense",
     "AQUA-RAT": "math",
     "MedQA": "medical",
+    "ASDiv": "math",
+    "ScienceQA": "science",
+    "Scruples": "ethics",
+    "LMSYS": "diverse",
 }
 
 
-def load_all_problems(sources: list[str], n_per_source: int, levels: list[str] | None = None) -> list[dict]:
-    """Load problems from specified sources."""
+def load_all_problems(
+    sources: list[str],
+    n_per_source: int | dict[str, int],
+    levels: list[str] | None = None,
+) -> list[dict]:
+    """Load problems from specified sources.
+
+    n_per_source can be an int (same for all) or a dict mapping source name to count.
+    """
     problems = []
     for source in sources:
         loader = DATASET_LOADERS.get(source)
         if loader is None:
             raise ValueError(f"Unknown source: {source}. Available: {list(DATASET_LOADERS.keys())}")
+        n = n_per_source[source] if isinstance(n_per_source, dict) else n_per_source
         try:
-            loaded = loader(n_per_source, levels)
+            loaded = loader(n, levels)
             problems.extend(loaded)
             print(f"  {source}: loaded {len(loaded)} problems")
         except Exception as e:
@@ -568,10 +774,10 @@ async def openrouter_generate_single(
     api_key: str,
     semaphore: asyncio.Semaphore,
     system_prompt: str | None = None,
-    max_tokens: int = 2048,
+    max_tokens: int | None = None,
     enable_thinking: bool = True,
-) -> str:
-    """Single OpenRouter API call for CoT generation."""
+) -> dict:
+    """Single OpenRouter API call. Returns dict with 'reasoning' and 'content' fields."""
     global _completed_count, _failed_count
     async with semaphore:
         messages = []
@@ -582,10 +788,14 @@ async def openrouter_generate_single(
         body = {
             "model": "qwen/qwen3-8b",
             "messages": messages,
-            "max_tokens": max_tokens,
             "temperature": 0.6,
             "top_p": 0.95,
+            # OpenRouter reasoning controls:
+            # enable_thinking=True keeps reasoning content, False requests direct answers.
+            "reasoning": {"enabled": bool(enable_thinking), "exclude": not enable_thinking},
         }
+        if max_tokens is not None:
+            body["max_tokens"] = max_tokens
 
         headers = {
             "Authorization": f"Bearer {api_key}",
@@ -605,24 +815,26 @@ async def openrouter_generate_single(
                         continue
                     resp.raise_for_status()
                     data = await resp.json()
-                    content = data["choices"][0]["message"]["content"]
+                    msg = data["choices"][0]["message"]
+                    reasoning = msg.get("reasoning") or msg.get("reasoning_content") or ""
+                    content = msg.get("content", "")
                     _completed_count += 1
-                    if _completed_count % 100 == 0:
+                    if _completed_count % 25 == 0:
                         print(f"  Progress: {_completed_count}/{_total_count} done, {_failed_count} failed")
-                    return content
+                    return {"reasoning": reasoning, "content": content}
             except asyncio.TimeoutError:
                 if attempt == 2:
                     _failed_count += 1
-                    return ""
+                    return {"reasoning": "", "content": ""}
                 await asyncio.sleep(2 ** attempt)
             except Exception as e:
                 if attempt == 2:
                     _failed_count += 1
                     if _failed_count <= 10:
                         print(f"  OpenRouter error: {e}")
-                    return ""
+                    return {"reasoning": "", "content": ""}
                 await asyncio.sleep(2 ** attempt)
-        return ""
+        return {"reasoning": "", "content": ""}
 
 
 async def openrouter_generate_batch(
@@ -631,45 +843,69 @@ async def openrouter_generate_batch(
     concurrency: int = 50,
     system_prompt: str | None = None,
     persona_name: str | None = None,
-) -> tuple[list[str], list[str]]:
+    n_rollouts: int = 1,
+    skip_direct_sources: set[str] | None = None,
+) -> tuple[list[list[dict]], list[dict]]:
     """Generate CoT and direct responses for all problems via OpenRouter.
 
-    Returns (cot_responses, direct_responses).
+    Returns (cot_responses_per_rollout, direct_responses).
+    Each response is a dict with 'reasoning' (CoT text) and 'content' (answer text).
+    cot_responses_per_rollout: [rollout_idx][problem_idx] -> dict.
+    direct_responses: generated once per problem (skipped for sources in skip_direct_sources).
     """
     global _completed_count, _failed_count, _total_count
     semaphore = asyncio.Semaphore(concurrency)
+    if skip_direct_sources is None:
+        skip_direct_sources = set()
+
+    empty_response = {"reasoning": "", "content": ""}
+    all_cot_rollouts: list[list[dict]] = []
 
     async with aiohttp.ClientSession() as session:
-        # CoT generation (gather preserves order)
+        for rollout_idx in range(n_rollouts):
+            _completed_count = 0
+            _failed_count = 0
+            _total_count = len(problems)
+            print(f"  Generating CoT rollout {rollout_idx + 1}/{n_rollouts} ({len(problems)} problems)...")
+            cot_responses = list(await asyncio.gather(*[
+                openrouter_generate_single(
+                    session, p["question"], api_key, semaphore,
+                    system_prompt=system_prompt,
+                    max_tokens=16384, enable_thinking=True,
+                )
+                for p in problems
+            ]))
+            print(f"  Rollout {rollout_idx + 1} done: {_completed_count} succeeded, {_failed_count} failed")
+            all_cot_rollouts.append(cot_responses)
+
+        # Direct (no-thinking) generation — once per problem, skip for LMSYS etc.
         _completed_count = 0
         _failed_count = 0
-        _total_count = len(problems)
-        print(f"  Generating {len(problems)} CoT responses via OpenRouter...")
-        cot_responses = list(await asyncio.gather(*[
-            openrouter_generate_single(
-                session, p["question"], api_key, semaphore,
-                system_prompt=system_prompt,
-                max_tokens=2048, enable_thinking=True,
-            )
-            for p in problems
-        ]))
-        print(f"  CoT done: {_completed_count} succeeded, {_failed_count} failed")
+        problems_needing_direct = [
+            p for p in problems if p["source"] not in skip_direct_sources
+        ]
+        direct_responses_map: dict[int, dict] = {}
+        if problems_needing_direct:
+            print(f"  Generating {len(problems_needing_direct)} direct responses (skipping {len(problems) - len(problems_needing_direct)} without ground truth)...")
+            direct_results = list(await asyncio.gather(*[
+                openrouter_generate_single(
+                    session, p["question"], api_key, semaphore,
+                    system_prompt=system_prompt,
+                    max_tokens=200, enable_thinking=False,
+                )
+                for p in problems_needing_direct
+            ]))
+            print(f"  Direct done: {_completed_count} succeeded, {_failed_count} failed")
+            # Map back to original indices
+            direct_idx = 0
+            for i, p in enumerate(problems):
+                if p["source"] not in skip_direct_sources:
+                    direct_responses_map[i] = direct_results[direct_idx]
+                    direct_idx += 1
 
-        # Direct (no-thinking) generation
-        _completed_count = 0
-        _failed_count = 0
-        print(f"  Generating {len(problems)} direct responses via OpenRouter...")
-        direct_responses = list(await asyncio.gather(*[
-            openrouter_generate_single(
-                session, p["question"], api_key, semaphore,
-                system_prompt=system_prompt,
-                max_tokens=200, enable_thinking=False,
-            )
-            for p in problems
-        ]))
-        print(f"  Direct done: {_completed_count} succeeded, {_failed_count} failed")
+        direct_responses = [direct_responses_map.get(i, empty_response) for i in range(len(problems))]
 
-    return list(cot_responses), list(direct_responses)
+    return all_cot_rollouts, direct_responses
 
 
 # ============================================================
@@ -678,81 +914,100 @@ async def openrouter_generate_batch(
 
 def process_results_openrouter(
     problems: list[dict],
-    cot_responses: list[str],
-    direct_responses: list[str],
+    all_cot_rollouts: list[list[dict]],
+    direct_responses: list[dict],
     tokenizer=None,
     persona: str | None = None,
 ) -> list[dict]:
     """Post-process OpenRouter responses into corpus entries.
 
-    If tokenizer is provided, computes boundary_positions (needed for
-    sentence-structured training tasks). No GPU needed — just tokenizer.
+    all_cot_rollouts: list of rollouts, each a list of response dicts per problem.
+    Each response dict has 'reasoning' (CoT text) and 'content' (answer text).
+    If tokenizer is provided, computes boundary_positions.
     """
     results = []
-    for i, (problem, cot_response, direct_response) in enumerate(
-        zip(problems, cot_responses, direct_responses)
-    ):
-        if not cot_response:
-            continue
+    n_rollouts = len(all_cot_rollouts)
 
+    for i, problem in enumerate(problems):
         question = problem["question"]
-        cot_answer = extract_answer(cot_response)
-        direct_answer = extract_answer(direct_response)
-        cot_correct = answers_match(cot_answer, problem["correct_answer"])
-        direct_correct = answers_match(direct_answer, problem["correct_answer"])
+        has_ground_truth = problem["correct_answer"] is not None
 
-        if cot_correct and not direct_correct:
-            category = "load_bearing"
-        elif cot_correct and direct_correct:
-            category = "both_correct"
-        elif not cot_correct and not direct_correct:
-            category = "both_wrong"
+        # Direct response: extract content (no reasoning for direct calls)
+        direct_result = direct_responses[i]
+        direct_content = direct_result["content"] if isinstance(direct_result, dict) else str(direct_result)
+
+        if has_ground_truth:
+            direct_answer = extract_answer(direct_content)
+            direct_correct = answers_match(direct_answer, problem["correct_answer"])
         else:
-            category = "cot_hurt"
+            direct_answer = None
+            direct_correct = None
 
-        sentences = split_cot_into_sentences(cot_response)
-        if len(sentences) < 2:
-            continue
+        for rollout_idx in range(n_rollouts):
+            cot_result = all_cot_rollouts[rollout_idx][i]
+            # Extract reasoning (the actual CoT) and content (the answer after thinking)
+            cot_reasoning = cot_result["reasoning"] if isinstance(cot_result, dict) else str(cot_result)
+            cot_content = cot_result["content"] if isinstance(cot_result, dict) else ""
 
-        # Compute boundary positions if tokenizer available
-        boundary_positions = []
-        if tokenizer is not None:
-            messages = [{"role": "user", "content": question}]
-            formatted = tokenizer.apply_chat_template(
-                messages, tokenize=False, add_generation_prompt=True,
-                enable_thinking=True,
-            )
-            full_text = formatted + cot_response
-            boundary_positions = find_sentence_boundary_positions(
-                tokenizer, full_text, sentences,
-            )
+            if not cot_reasoning and not cot_content:
+                continue
 
-        domain = SOURCE_TO_DOMAIN.get(problem["source"], "unknown")
+            if has_ground_truth:
+                # Extract answer from content (the post-thinking answer), not from reasoning
+                cot_answer = extract_answer(cot_content) if cot_content else extract_answer(cot_reasoning)
+                cot_correct = answers_match(cot_answer, problem["correct_answer"])
+                if cot_correct and not direct_correct:
+                    category = "load_bearing"
+                elif cot_correct and direct_correct:
+                    category = "both_correct"
+                elif not cot_correct and not direct_correct:
+                    category = "both_wrong"
+                else:
+                    category = "cot_hurt"
+            else:
+                cot_answer = None
+                cot_correct = None
+                category = None
 
-        entry = {
-            "id": f"{problem['source'].lower()}_{i:04d}",
-            "source": problem["source"],
-            "domain": domain,
-            "question": question,
-            "correct_answer": problem["correct_answer"],
-            "subject": problem.get("subject", ""),
-            "level": problem.get("level", ""),
-            "cot_response": cot_response,
-            "direct_response": direct_response,
-            "cot_answer": cot_answer,
-            "direct_answer": direct_answer,
-            "cot_correct": cot_correct,
-            "direct_correct": direct_correct,
-            "category": category,
-            "sentences": sentences,
-            "boundary_positions": boundary_positions,
-            "n_sentences": len(sentences),
-        }
+            # cot_response = the actual chain-of-thought reasoning
+            cot_response = cot_reasoning
 
-        if persona:
-            entry["persona"] = persona
+            sentences = split_cot_into_sentences(cot_response)
+            if len(sentences) < 2:
+                continue
 
-        results.append(entry)
+            # boundary_positions deferred — too slow during generation.
+            # Compute later with: find_sentence_boundary_positions(tokenizer, full_text, sentences)
+            boundary_positions = []
+
+            domain = SOURCE_TO_DOMAIN.get(problem["source"], "unknown")
+
+            entry = {
+                "id": f"{problem['source'].lower()}_{i:04d}_r{rollout_idx}",
+                "source": problem["source"],
+                "domain": domain,
+                "question": question,
+                "correct_answer": problem["correct_answer"],
+                "subject": problem.get("subject", ""),
+                "level": problem.get("level", ""),
+                "cot_response": cot_response,
+                "cot_content": cot_content,
+                "direct_response": direct_content if rollout_idx == 0 else None,
+                "cot_answer": cot_answer,
+                "direct_answer": direct_answer if rollout_idx == 0 else None,
+                "cot_correct": cot_correct,
+                "direct_correct": direct_correct if rollout_idx == 0 else None,
+                "category": category,
+                "sentences": sentences,
+                "boundary_positions": boundary_positions,
+                "n_sentences": len(sentences),
+                "rollout_idx": rollout_idx,
+            }
+
+            if persona:
+                entry["persona"] = persona
+
+            results.append(entry)
 
     return results
 
@@ -787,12 +1042,8 @@ def process_results(
         if len(sentences) < 2:
             continue
 
-        messages = [{"role": "user", "content": question}]
-        formatted = tokenizer.apply_chat_template(
-            messages, tokenize=False, add_generation_prompt=True, enable_thinking=True,
-        )
-        full_text = formatted + cot_response
-        boundary_positions = find_sentence_boundary_positions(tokenizer, full_text, sentences)
+        # boundary_positions deferred — too slow during generation.
+        boundary_positions = []
 
         domain = SOURCE_TO_DOMAIN.get(problem["source"], "unknown")
 
@@ -820,23 +1071,123 @@ def process_results(
 
 
 # ============================================================
+# Preset corpus configurations
+# ============================================================
+
+# Full scale: 125K problems × 2 rollouts ≈ 200M CoT tokens (~$120)
+FULL_SPLIT = {
+    "math": 8000,
+    "gsm8k": 8800,
+    "aqua_rat": 25000,
+    "asdiv": 2300,
+    "arc_challenge": 1172,
+    "arc_easy": 2376,
+    "commonsenseqa": 10000,
+    "scienceqa": 4200,
+    "medqa": 1273,
+    "mmlu_pro": 12000,
+    "scruples": 12000,
+    "lmsys": 37927,
+}
+
+# Medium scale: 50K problems × 1 rollout ≈ 97M CoT tokens (~$25)
+MEDIUM_SPLIT = {
+    "math": 3200,
+    "gsm8k": 3520,
+    "aqua_rat": 10000,
+    "asdiv": 920,
+    "arc_challenge": 469,
+    "arc_easy": 950,
+    "commonsenseqa": 4000,
+    "scienceqa": 1680,
+    "medqa": 509,
+    "mmlu_pro": 4800,
+    "scruples": 5000,
+    "lmsys": 14971,
+}
+
+# Mini scale: 1/200th for testing (~625 problems × 2 rollouts ≈ 500K CoT tokens)
+MINI_SPLIT = {
+    "math": 40,
+    "gsm8k": 44,
+    "aqua_rat": 125,
+    "asdiv": 12,
+    "arc_challenge": 9,
+    "arc_easy": 9,
+    "commonsenseqa": 50,
+    "scienceqa": 21,
+    "medqa": 7,
+    "mmlu_pro": 60,
+    "scruples": 25,
+    "lmsys": 250,
+}
+
+# Sources without ground truth answers (skip direct response generation)
+NO_GROUND_TRUTH_SOURCES = {"LMSYS"}
+
+
+# ============================================================
 # Main
 # ============================================================
 
+def _is_blackwell_gpu() -> bool:
+    """Best-effort Blackwell detection (compute capability >= 12)."""
+    try:
+        import torch
+    except Exception:
+        return False
+
+    if not torch.cuda.is_available():
+        return False
+
+    try:
+        majors = [torch.cuda.get_device_capability(i)[0] for i in range(torch.cuda.device_count())]
+    except Exception:
+        return False
+
+    return bool(majors) and max(majors) >= 12
+
+
+def _should_enforce_vllm_eager(args) -> bool:
+    """Decide whether to set vLLM enforce_eager=True."""
+    import os
+
+    if getattr(args, "vllm_enforce_eager", False):
+        return True
+    if getattr(args, "no_vllm_eager_auto", False):
+        return False
+
+    if os.environ.get("COT_ORACLE_VLLM_ENFORCE_EAGER") == "1":
+        return True
+    if os.environ.get("COT_ORACLE_VLLM_NO_EAGER_AUTO") == "1":
+        return False
+
+    return _is_blackwell_gpu()
+
 def main():
-    parser = argparse.ArgumentParser(description="Generate CoT corpus")
-    parser.add_argument("--sources", nargs="+",
-                        default=["math", "gsm8k", "gpqa", "bbh", "arc_challenge",
-                                 "strategyqa", "drop", "logiqa", "mmlu_pro",
-                                 "commonsenseqa", "aqua_rat", "medqa"])
-    parser.add_argument("--n-problems", type=int, default=500, help="Problems per source")
+    parser = argparse.ArgumentParser(description="Generate CoT corpus v5")
+    parser.add_argument("--preset", choices=["full", "medium", "mini"], default=None,
+                        help="Use preset split (full=125K, medium=50K, mini=625 problems)")
+    parser.add_argument("--sources", nargs="+", default=None,
+                        help="Override sources (default: from preset or all)")
+    parser.add_argument("--n-problems", type=int, default=500,
+                        help="Problems per source (ignored if --preset is used)")
+    parser.add_argument("--n-rollouts", type=int, default=2,
+                        help="Number of CoT rollouts per problem (default: 2)")
     parser.add_argument("--levels", nargs="*", default=None)
     parser.add_argument("--model", default="Qwen/Qwen3-8B")
-    parser.add_argument("--output", default="data/cot_corpus/corpus.jsonl")
+    parser.add_argument("--output", default=None,
+                        help="Output path (default: auto from preset)")
     parser.add_argument("--device", default="cuda")
-    parser.add_argument("--batch-size", type=int, default=16)
+    parser.add_argument("--batch-size", type=int, default=8)
     parser.add_argument("--keep-all", action="store_true", default=True,
                         help="Keep all CoTs, not just load-bearing (default: True)")
+    parser.add_argument("--engine", choices=["auto", "vllm", "sglang"], default="auto",
+                        help="Inference engine for local GPU mode (default: auto = try vLLM then SGLang)")
+    parser.add_argument("--vllm-enforce-eager", action="store_true",
+                        help="Force vLLM enforce_eager=True (recommended on Blackwell/RTX 5090)")
+    parser.add_argument("--no-vllm-eager-auto", action="store_true",
+                        help="Disable automatic Blackwell -> enforce_eager behavior for vLLM")
     # OpenRouter mode
     parser.add_argument("--openrouter", action="store_true",
                         help="Use OpenRouter API instead of local GPU")
@@ -851,11 +1202,34 @@ def main():
                         help="Specific personas to use (default: all)")
     args = parser.parse_args()
 
-    output_path = Path(args.output)
+    # Determine split and output path
+    if args.preset == "full":
+        split = FULL_SPLIT
+        default_output = "data/cot_corpus_v5/corpus.jsonl"
+    elif args.preset == "medium":
+        split = MEDIUM_SPLIT
+        default_output = "data/cot_corpus_v5/corpus_medium.jsonl"
+    elif args.preset == "mini":
+        split = MINI_SPLIT
+        default_output = "data/cot_corpus_v5/mini_corpus.jsonl"
+    else:
+        split = args.n_problems
+        default_output = "data/cot_corpus_v5/corpus.jsonl"
+
+    output_path = Path(args.output or default_output)
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
+    # Determine sources
+    if args.sources:
+        sources = args.sources
+    elif isinstance(split, dict):
+        sources = list(split.keys())
+    else:
+        sources = list(DATASET_LOADERS.keys())
+
     # Load problems
-    problems = load_all_problems(args.sources, args.n_problems, args.levels)
+    print(f"Loading problems ({args.preset or 'custom'} preset, {args.n_rollouts} rollouts)...")
+    problems = load_all_problems(sources, split, args.levels)
 
     if args.openrouter:
         import os
@@ -864,7 +1238,6 @@ def main():
             raise ValueError("Set OPENROUTER_API_KEY env var or pass --openrouter-key")
 
         # Try loading tokenizer for boundary position computation (no GPU needed).
-        # Falls back gracefully — boundary_positions will be computed on GPU later.
         tokenizer = None
         try:
             from transformers import AutoTokenizer
@@ -875,7 +1248,6 @@ def main():
             print(f"Tokenizer not available ({e}) — boundary_positions deferred to GPU")
 
         if args.personas:
-            # Persona mode: generate for each persona
             persona_names = args.persona_list or list(PERSONAS.keys())
             all_results = []
 
@@ -883,26 +1255,26 @@ def main():
                 system_prompt = PERSONAS.get(persona_name)
                 print(f"\n{'=' * 60}")
                 print(f"Generating for persona: {persona_name}")
-                print(f"  System prompt: {system_prompt or '(none)'}")
                 print(f"{'=' * 60}")
 
-                cot_responses, direct_responses = asyncio.run(
+                all_cot_rollouts, direct_responses = asyncio.run(
                     openrouter_generate_batch(
                         problems, api_key,
                         concurrency=args.concurrency,
                         system_prompt=system_prompt,
                         persona_name=persona_name,
+                        n_rollouts=args.n_rollouts,
+                        skip_direct_sources=NO_GROUND_TRUTH_SOURCES,
                     )
                 )
 
                 results = process_results_openrouter(
-                    problems, cot_responses, direct_responses,
+                    problems, all_cot_rollouts, direct_responses,
                     tokenizer=tokenizer, persona=persona_name,
                 )
                 all_results.extend(results)
                 print(f"  {persona_name}: {len(results)} entries")
 
-            # Save all persona results
             saved = 0
             with open(output_path, "w") as f:
                 for r in all_results:
@@ -913,97 +1285,215 @@ def main():
             print(f"Output: {output_path}")
 
         else:
-            # Standard OpenRouter mode (no personas)
-            cot_responses, direct_responses = asyncio.run(
+            # Standard OpenRouter mode
+            all_cot_rollouts, direct_responses = asyncio.run(
                 openrouter_generate_batch(
                     problems, api_key,
                     concurrency=args.concurrency,
+                    n_rollouts=args.n_rollouts,
+                    skip_direct_sources=NO_GROUND_TRUTH_SOURCES,
                 )
             )
 
             results = process_results_openrouter(
-                problems, cot_responses, direct_responses, tokenizer=tokenizer,
+                problems, all_cot_rollouts, direct_responses, tokenizer=tokenizer,
             )
 
-            stats = {"load_bearing": 0, "both_correct": 0, "both_wrong": 0, "cot_hurt": 0}
+            # Print stats
+            stats: dict[str, int] = {}
+            source_counts: dict[str, int] = {}
             saved = 0
             with open(output_path, "w") as f:
                 for r in results:
-                    stats[r["category"]] += 1
-                    if r["category"] == "load_bearing" or args.keep_all:
-                        f.write(json.dumps(r) + "\n")
-                        saved += 1
+                    cat = r["category"] or "no_ground_truth"
+                    stats[cat] = stats.get(cat, 0) + 1
+                    source_counts[r["source"]] = source_counts.get(r["source"], 0) + 1
+                    f.write(json.dumps(r) + "\n")
+                    saved += 1
+
+            total_cot_chars = sum(len(r.get("cot_response", "")) for r in results)
 
             print(f"\n{'=' * 60}")
             print(f"FINAL STATS")
             print(f"{'=' * 60}")
-            total = sum(stats.values())
-            for k, v in stats.items():
-                pct = v / total * 100 if total > 0 else 0
-                print(f"  {k}: {v} ({pct:.1f}%)")
-            print(f"  Total saved: {saved}")
-            print(f"  Output: {output_path}")
+            print(f"  Problems loaded: {len(problems)}")
+            print(f"  Rollouts per problem: {args.n_rollouts}")
+            print(f"  Total entries saved: {saved}")
+            print(f"  Est. CoT tokens: {total_cot_chars // 4:,}")
+            print(f"\n  By category:")
+            for k, v in sorted(stats.items()):
+                pct = v / saved * 100 if saved > 0 else 0
+                print(f"    {k}: {v} ({pct:.1f}%)")
+            print(f"\n  By source:")
+            for k, v in sorted(source_counts.items(), key=lambda x: -x[1]):
+                print(f"    {k}: {v}")
+            print(f"\n  Output: {output_path}")
 
     else:
-        # Local GPU mode (original)
-        import torch
-        from transformers import AutoModelForCausalLM, AutoTokenizer
+        # Local GPU mode — try vLLM first, fall back to SGLang
+        from transformers import AutoTokenizer
+        import time
 
-        print(f"Loading {args.model} (bf16, no AO)...")
+        print(f"Loading tokenizer for {args.model}...")
         tokenizer = AutoTokenizer.from_pretrained(args.model)
-        model = AutoModelForCausalLM.from_pretrained(
-            args.model,
-            torch_dtype=torch.bfloat16,
-            device_map=args.device,
-        )
 
-        print(f"\nGenerating CoTs (batch_size={args.batch_size})...")
-        questions = [p["question"] for p in problems]
+        engine_choice = getattr(args, "engine", "auto")
+        use_sglang = False
 
-        all_cot = []
-        all_direct = []
-        for i in tqdm(range(0, len(questions), args.batch_size), desc="Batches"):
-            batch_q = questions[i:i + args.batch_size]
+        if engine_choice in ("auto", "vllm"):
+            try:
+                from vllm import LLM, SamplingParams
+                print(f"Loading {args.model} with vLLM (bf16)...")
+                llm_kwargs = dict(
+                    model=args.model,
+                    dtype="bfloat16",
+                    tensor_parallel_size=1,
+                    max_model_len=8192,
+                    gpu_memory_utilization=0.95,
+                    enable_prefix_caching=True,
+                )
+                eager_mode = _should_enforce_vllm_eager(args)
+                if eager_mode:
+                    llm_kwargs["enforce_eager"] = True
+                    print("vLLM eager mode enabled (Blackwell-safe).")
+                try:
+                    llm = LLM(**llm_kwargs)
+                except TypeError as te:
+                    if eager_mode and "enforce_eager" in str(te):
+                        print("vLLM build does not support enforce_eager; retrying without it.")
+                        llm_kwargs.pop("enforce_eager", None)
+                        llm = LLM(**llm_kwargs)
+                    else:
+                        raise
+                # Quick smoke test to catch PTX/CUDA errors early
+                from vllm import SamplingParams as _SP
+                _test = llm.generate(["test"], _SP(max_tokens=1))
+                del _test
+                cot_params = SamplingParams(temperature=0.6, top_p=0.95, max_tokens=4096)
+                direct_params = SamplingParams(temperature=0.6, top_p=0.95, max_tokens=200)
+                print("vLLM loaded and verified.")
+            except Exception as e:
+                if engine_choice == "vllm":
+                    raise
+                print(f"vLLM failed ({e}), falling back to SGLang...")
+                use_sglang = True
 
-            cot_prompts = []
-            direct_prompts = []
-            for q in batch_q:
-                msgs = [{"role": "user", "content": q}]
-                cot_prompts.append(tokenizer.apply_chat_template(
-                    msgs, tokenize=False, add_generation_prompt=True, enable_thinking=True,
-                ))
+        if engine_choice == "sglang" or use_sglang:
+            use_sglang = True
+            import sglang as sgl
+            print(f"Loading {args.model} with SGLang (bf16)...")
+            llm = sgl.Engine(
+                model_path=args.model,
+                dtype="bfloat16",
+                mem_fraction_static=0.85,
+            )
+            cot_params = {"temperature": 0.6, "top_p": 0.95, "max_new_tokens": 4096}
+            direct_params = {"temperature": 0.6, "top_p": 0.95, "max_new_tokens": 200}
+            print("SGLang loaded successfully.")
+
+        # Format all prompts
+        print("Formatting prompts...")
+        cot_prompts = []
+        direct_prompts = []
+        direct_indices = []
+        for i, p in enumerate(problems):
+            msgs = [{"role": "user", "content": p["question"]}]
+            cot_prompts.append(tokenizer.apply_chat_template(
+                msgs, tokenize=False, add_generation_prompt=True, enable_thinking=True,
+            ))
+            if p["source"] not in NO_GROUND_TRUTH_SOURCES:
                 direct_prompts.append(tokenizer.apply_chat_template(
                     msgs, tokenize=False, add_generation_prompt=True, enable_thinking=False,
                 ))
+                direct_indices.append(i)
 
-            cot_responses = batch_generate(model, tokenizer, cot_prompts, max_new_tokens=1024)
-            all_cot.extend(cot_responses)
+        def run_generate(prompts, params):
+            """Run generation with either vLLM or SGLang."""
+            if use_sglang:
+                outputs = llm.generate(prompts, sampling_params=params)
+                return [o["text"] for o in outputs]
+            else:
+                outputs = llm.generate(prompts, params)
+                return [o.outputs[0].text for o in outputs]
 
-            direct_responses = batch_generate(model, tokenizer, direct_prompts, max_new_tokens=100)
-            all_direct.extend(direct_responses)
+        def count_tokens(texts):
+            return sum(len(tokenizer.encode(t, add_special_tokens=False)) for t in texts)
 
+        n_rollouts = args.n_rollouts
+        all_cot_rollouts: list[list[dict]] = []
+
+        for rollout_idx in range(n_rollouts):
+            print(f"\n{'=' * 60}")
+            print(f"CoT rollout {rollout_idx + 1}/{n_rollouts}: {len(cot_prompts)} prompts")
+            print(f"{'=' * 60}")
+            t0 = time.time()
+            raw_texts = run_generate(cot_prompts, cot_params)
+            elapsed = time.time() - t0
+            total_toks = count_tokens(raw_texts)
+            print(f"  Done in {elapsed:.1f}s — {total_toks:,} tokens — {total_toks/elapsed:.0f} tok/s")
+
+            # Parse <think>...</think> to split reasoning from content
+            rollout_results = []
+            for text in raw_texts:
+                if "</think>" in text:
+                    parts = text.split("</think>", 1)
+                    reasoning = parts[0].lstrip("<think>").strip()
+                    content = parts[1].strip() if len(parts) > 1 else ""
+                else:
+                    reasoning = text.strip()
+                    content = ""
+                rollout_results.append({"reasoning": reasoning, "content": content})
+            all_cot_rollouts.append(rollout_results)
+
+        # Direct responses
+        print(f"\nDirect responses: {len(direct_prompts)} prompts (skipping {len(problems) - len(direct_prompts)} no-ground-truth)...")
+        t0 = time.time()
+        raw_direct = run_generate(direct_prompts, direct_params)
+        elapsed = time.time() - t0
+        total_toks = count_tokens(raw_direct)
+        print(f"  Done in {elapsed:.1f}s — {total_toks:,} tokens — {total_toks/elapsed:.0f} tok/s")
+
+        empty_response = {"reasoning": "", "content": ""}
+        direct_responses_map: dict[int, dict] = {}
+        for j, idx in enumerate(direct_indices):
+            direct_responses_map[idx] = {"reasoning": "", "content": raw_direct[j].strip()}
+        direct_responses = [direct_responses_map.get(i, empty_response) for i in range(len(problems))]
+
+        # Process results
         print("\nProcessing results...")
-        results = process_results(problems, all_cot, all_direct, tokenizer)
+        results = process_results_openrouter(
+            problems, all_cot_rollouts, direct_responses, tokenizer=tokenizer,
+        )
 
-        stats = {"load_bearing": 0, "both_correct": 0, "both_wrong": 0, "cot_hurt": 0}
+        # Save with stats
+        stats: dict[str, int] = {}
+        source_counts: dict[str, int] = {}
         saved = 0
         with open(output_path, "w") as f:
             for r in results:
-                stats[r["category"]] += 1
-                if r["category"] == "load_bearing" or args.keep_all:
-                    f.write(json.dumps(r) + "\n")
-                    saved += 1
+                cat = r["category"] or "no_ground_truth"
+                stats[cat] = stats.get(cat, 0) + 1
+                source_counts[r["source"]] = source_counts.get(r["source"], 0) + 1
+                f.write(json.dumps(r) + "\n")
+                saved += 1
+
+        total_cot_chars = sum(len(r.get("cot_response", "")) for r in results)
 
         print(f"\n{'=' * 60}")
         print(f"FINAL STATS")
         print(f"{'=' * 60}")
-        total = sum(stats.values())
-        for k, v in stats.items():
-            pct = v / total * 100 if total > 0 else 0
-            print(f"  {k}: {v} ({pct:.1f}%)")
-        print(f"  Skipped (< 2 sentences): {len(problems) - total}")
-        print(f"  Total saved: {saved}")
-        print(f"  Output: {output_path}")
+        print(f"  Problems loaded: {len(problems)}")
+        print(f"  Rollouts per problem: {n_rollouts}")
+        print(f"  Total entries saved: {saved}")
+        print(f"  Est. CoT tokens: {total_cot_chars // 4:,}")
+        print(f"\n  By category:")
+        for k, v in sorted(stats.items()):
+            pct = v / saved * 100 if saved > 0 else 0
+            print(f"    {k}: {v} ({pct:.1f}%)")
+        print(f"\n  By source:")
+        for k, v in sorted(source_counts.items(), key=lambda x: -x[1]):
+            print(f"    {k}: {v}")
+        print(f"\n  Output: {output_path}")
 
 
 if __name__ == "__main__":

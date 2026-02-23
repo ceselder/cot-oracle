@@ -5,7 +5,7 @@ This establishes the baseline performance that our CoT oracle training should ma
 or exceed on regression tasks, and sets the floor for unfaithfulness detection.
 
 Runs:
-1. Our 6 unfaithfulness evals (run_evals.py) with original AO
+1. Eval datasets in `data/evals/*.json` (run_evals-compatible) with original AO
 2. AO's classification regression evals (ao_regression.py) with original AO only
 
 Logs everything to a separate wandb run for comparison.
@@ -25,7 +25,7 @@ import torch
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from signs_of_life.ao_lib import (
+from core.ao import (
     load_model_with_ao,
     generate_cot,
     generate_direct_answer,
@@ -35,6 +35,7 @@ from signs_of_life.ao_lib import (
     run_oracle_on_activations,
     layer_percent_to_layer,
 )
+from core.ao_repo import ensure_ao_repo_on_path
 from evals.common import (
     EvalItem,
     CompletedEvalItem,
@@ -47,17 +48,17 @@ from evals.common import (
     compute_binary_metrics,
 )
 from evals.run_evals import (
-    run_single_item,
     run_eval_batched,
     run_decorative_cot_eval,
-    ORACLE_PROMPTS,
-    _extract_answer,
+    run_reconstruction_eval,
+    run_logical_leaps_eval,
+    run_final_answer_kl_eval,
 )
 from evals.score_oracle import score_eval, EVAL_PARSING
 
 
 def run_unfaithfulness_evals(model, tokenizer, model_name, act_layer, eval_dir, output_dir, device="cuda", batch_size=8):
-    """Run all 6 unfaithfulness evals and return results dict."""
+    """Run all eval datasets in eval_dir and return score dict."""
     eval_dir = Path(eval_dir)
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -80,6 +81,53 @@ def run_unfaithfulness_evals(model, tokenizer, model_name, act_layer, eval_dir, 
             completed = run_decorative_cot_eval(
                 model, tokenizer, items, act_layer,
                 model_name=model_name, device=device,
+            )
+        elif eval_name == "held_out_cot_reconstruction":
+            completed = run_reconstruction_eval(
+                model,
+                tokenizer,
+                items,
+                act_layer,
+                model_name=model_name,
+                eval_name=eval_name,
+                input_cot_key="reference_cot",
+                target_cot_key="reference_cot",
+                device=device,
+                activations_dir=act_dir,
+            )
+        elif eval_name == "rot13_reconstruction":
+            completed = run_reconstruction_eval(
+                model,
+                tokenizer,
+                items,
+                act_layer,
+                model_name=model_name,
+                eval_name=eval_name,
+                input_cot_key="rot13_cot",
+                target_cot_key="decoded_cot",
+                device=device,
+                activations_dir=act_dir,
+            )
+        elif eval_name == "logical_leaps":
+            completed = run_logical_leaps_eval(
+                model,
+                tokenizer,
+                items,
+                act_layer,
+                model_name=model_name,
+                device=device,
+                activations_dir=act_dir,
+            )
+        elif eval_name == "final_answer_kl":
+            completed = run_final_answer_kl_eval(
+                model,
+                tokenizer,
+                items,
+                act_layer,
+                model_name=model_name,
+                device=device,
+                activations_dir=act_dir,
+                batch_size=batch_size,
             )
         else:
             completed = run_eval_batched(
@@ -123,12 +171,7 @@ def run_ao_regression(model, tokenizer, model_name, layer_percent=50, output_dir
     output_dir.mkdir(parents=True, exist_ok=True)
 
     # Import AO eval utilities
-    _ao_candidates = [
-        Path("/workspace/ao_reference"),
-        Path("/home/celeste/Documents/side-projects/full-stack-ao/ao_reference"),
-    ]
-    ao_repo = next((p for p in _ao_candidates if p.exists()), _ao_candidates[-1])
-    sys.path.insert(0, str(ao_repo))
+    ensure_ao_repo_on_path()
 
     from nl_probes.utils.activation_utils import get_hf_submodule
     from nl_probes.utils.eval import run_evaluation, parse_answer
@@ -147,15 +190,9 @@ def run_ao_regression(model, tokenizer, model_name, layer_percent=50, output_dir
     INJECTION_LAYER = 1
     GENERATION_KWARGS = {"do_sample": False, "temperature": 0.0, "max_new_tokens": 10}
 
-    # Get the base model from our already-loaded model
-    # We need the unwrapped model for AO's eval
-    base_model = model
-    # Try to get the base (un-LoRA'd) model
-    if hasattr(model, 'base_model'):
-        if hasattr(model.base_model, 'model'):
-            base_model = model.base_model.model
-
-    submodule = get_hf_submodule(base_model, INJECTION_LAYER)
+    # Keep the PeftModel wrapper so AO eval can manage adapters via model.peft_config.
+    ao_eval_model = model
+    submodule = get_hf_submodule(ao_eval_model, INJECTION_LAYER, use_lora=True)
 
     # Load eval datasets
     print(f"\nLoading AO classification eval datasets...")
@@ -180,7 +217,7 @@ def run_ao_regression(model, tokenizer, model_name, layer_percent=50, output_dir
                 batch_size=64,
             )
             loader = ClassificationDatasetLoader(
-                dataset_config=loader_config, model_kwargs={}, model=base_model,
+                dataset_config=loader_config, model_kwargs={}, model=ao_eval_model,
             )
             all_eval_data[ds_name] = loader.load_dataset("test")
             print(f"  {ds_name}: {len(all_eval_data[ds_name])} examples")
@@ -200,7 +237,7 @@ def run_ao_regression(model, tokenizer, model_name, layer_percent=50, output_dir
             try:
                 raw_results = run_evaluation(
                     eval_data=data,
-                    model=base_model,
+                    model=ao_eval_model,
                     tokenizer=tokenizer,
                     submodule=submodule,
                     device=torch.device("cuda"),

@@ -65,8 +65,7 @@ from dataset_classes.cot_persona import load_cot_persona_data
 from dataset_classes.cot_summary import load_cot_summary_data
 from dataset_classes.cot_answer_tracking import load_cot_answer_tracking_data
 
-from signs_of_life.ao_lib import layer_percent_to_layer, LAYER_COUNTS
-from cot_utils import split_cot_into_sentences, find_sentence_boundary_positions
+from cot_utils import layer_percent_to_layer, LAYER_COUNTS, split_cot_into_sentences, find_sentence_boundary_positions
 from layer_utils import (
     sample_layers,
     build_random_layer_prefix,

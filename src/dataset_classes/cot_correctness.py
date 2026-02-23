@@ -27,7 +27,13 @@ def load_cot_correctness_data(
     seed: int = 42,
     corpus_entries: list[dict] | None = None,
 ) -> list[dict]:
-    from signs_of_life.ao_lib import layer_percent_to_layer
+    """
+    Generate correctness prediction training data.
+
+    Each example: sentence-boundary activations -> correct / incorrect.
+    Ground truth from corpus (cot_correct field). Balanced 50/50.
+    """
+    from cot_utils import layer_percent_to_layer
 
     random.seed(seed)
 

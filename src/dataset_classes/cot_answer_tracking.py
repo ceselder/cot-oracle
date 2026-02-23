@@ -31,7 +31,7 @@ def load_cot_answer_tracking_data(
     Each example: single sentence boundary activation →
     current top token and its probability.
     """
-    from signs_of_life.ao_lib import layer_percent_to_layer
+    from cot_utils import layer_percent_to_layer
 
     random.seed(seed)
 
