@@ -23,6 +23,7 @@ def load_cot_answer_tracking_data(
     layer_percents: list[int],
     num_examples: int = 10000,
     seed: int = 42,
+    corpus_entries: list[dict] | None = None,
 ) -> list[dict]:
     """
     Generate answer tracking training data.
@@ -35,12 +36,15 @@ def load_cot_answer_tracking_data(
     random.seed(seed)
 
     # Load corpus
-    corpus = {}
-    with open(corpus_path) as f:
-        for line in f:
-            if line.strip():
-                entry = json.loads(line)
-                corpus[entry["id"]] = entry
+    if corpus_entries is not None:
+        corpus = {e["id"]: e for e in corpus_entries}
+    else:
+        corpus = {}
+        with open(corpus_path) as f:
+            for line in f:
+                if line.strip():
+                    entry = json.loads(line)
+                    corpus[entry["id"]] = entry
 
     # Load answer tracking labels
     labels_by_id = {}
@@ -72,13 +76,16 @@ def load_cot_answer_tracking_data(
         entry, label, s_idx = random.choice(candidates)
         layer = random.choice(layers)
 
-        messages = [{"role": "user", "content": entry["question"]}]
-        formatted = tokenizer.apply_chat_template(
-            messages, tokenize=False, add_generation_prompt=True,
-            enable_thinking=True,
-        )
-        full_text = formatted + entry["cot_response"]
-        context_ids = tokenizer(full_text, add_special_tokens=False)["input_ids"]
+        if "_ctx_ids" in entry:
+            context_ids = entry["_ctx_ids"]
+        else:
+            messages = [{"role": "user", "content": entry["question"]}]
+            formatted = tokenizer.apply_chat_template(
+                messages, tokenize=False, add_generation_prompt=True,
+                enable_thinking=True,
+            )
+            full_text = formatted + entry["cot_response"]
+            context_ids = tokenizer(full_text, add_special_tokens=False)["input_ids"]
 
         pos = entry["boundary_positions"][s_idx]
         if pos >= len(context_ids):
