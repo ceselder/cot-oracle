@@ -15,6 +15,7 @@ import json
 import random
 from pathlib import Path
 
+from tqdm.auto import tqdm
 from transformers import AutoTokenizer
 
 
@@ -38,6 +39,7 @@ def load_cot_context_prediction_data(
     max_k_activations: int = 20,
     n_prompt_positions: int = 5,
     seed: int = 42,
+    corpus_entries: list[dict] | None = None,
 ) -> list[dict]:
     """
     Generate PastLens-style training data from CoT corpus.
@@ -45,56 +47,57 @@ def load_cot_context_prediction_data(
     Each example randomly picks one layer from layer_percents.
     AO handles heterogeneous batches (different layers per example).
 
-    Returns list of dicts with keys needed for create_training_datapoint():
-        datapoint_type, prompt, target_response, layer, num_positions,
-        context_input_ids, context_positions
+    If corpus_entries is provided (with _ctx_ids/_fmt_len from pretokenize_corpus),
+    skips file reading and tokenization entirely.
     """
     from cot_utils import layer_percent_to_layer
 
     random.seed(seed)
 
-    # Load corpus
-    corpus = []
-    with open(corpus_path) as f:
-        for line in f:
-            if line.strip():
-                corpus.append(json.loads(line))
+    if corpus_entries is not None:
+        corpus = corpus_entries
+    else:
+        corpus = []
+        with open(corpus_path) as f:
+            for line in f:
+                if line.strip():
+                    corpus.append(json.loads(line))
 
-    if not corpus:
-        raise ValueError(f"Empty corpus at {corpus_path}")
+    assert corpus, f"Empty corpus at {corpus_path}"
 
     layers = [layer_percent_to_layer(model_name, lp) for lp in layer_percents]
 
+    cached = []
+    for entry in tqdm(corpus, desc="  context_prediction: tokenizing corpus", leave=False):
+        if "_ctx_ids" in entry:
+            context_ids, prompt_len = entry["_ctx_ids"], entry["_fmt_len"]
+        else:
+            messages = [{"role": "user", "content": entry["question"]}]
+            formatted = tokenizer.apply_chat_template(
+                messages, tokenize=False, add_generation_prompt=True, enable_thinking=True,
+            )
+            cot_text = entry["cot_response"]
+            think_end = cot_text.find("</think>")
+            if think_end != -1:
+                cot_text = cot_text[:think_end]
+            context_ids = tokenizer(formatted + cot_text, add_special_tokens=False)["input_ids"]
+            formatted_ids = tokenizer(formatted, add_special_tokens=False)["input_ids"]
+            prompt_len = len(formatted_ids)
+        prompt_positions = _get_prompt_positions(prompt_len, n_prompt_positions)
+        cached.append((context_ids, prompt_len, prompt_positions))
+
     datapoints = []
+    pbar = tqdm(total=num_examples, desc="  context_prediction: sampling", leave=False)
 
     while len(datapoints) < num_examples:
-        entry = random.choice(corpus)
-
-        # Tokenize only the CoT thinking portion (NOT the final answer)
-        messages = [{"role": "user", "content": entry["question"]}]
-        formatted = tokenizer.apply_chat_template(
-            messages, tokenize=False, add_generation_prompt=True,
-            enable_thinking=True,
-        )
-        cot_text = entry["cot_response"]
-        # Truncate at </think> to exclude final answer
-        think_end = cot_text.find("</think>")
-        if think_end != -1:
-            cot_text = cot_text[:think_end]
-        full_text = formatted + cot_text
-        context_ids = tokenizer(full_text, add_special_tokens=False)["input_ids"]
+        idx = random.randint(0, len(cached) - 1)
+        context_ids, prompt_len, prompt_positions = cached[idx]
         L = len(context_ids)
 
-        # Compute where the prompt ends and CoT begins
-        formatted_ids = tokenizer(formatted, add_special_tokens=False)["input_ids"]
-        prompt_len = len(formatted_ids)
-
-        # Random parameters
         k_tokens = random.randint(min_k_tokens, max_k_tokens)
         k_acts = random.randint(min_k_activations, max_k_activations)
         direction = random.choice(["past", "future"])
 
-        # Get CoT activation positions
         if direction == "past":
             act_begin_min = max(k_tokens, prompt_len)
             act_begin_max = L - k_acts - 1
@@ -119,16 +122,8 @@ def load_cot_context_prediction_data(
             target_text = tokenizer.decode(target_tokens, skip_special_tokens=True)
             prompt_text = f"Can you predict the next {k_tokens} tokens that come after this?"
 
-        # Get prompt positions (evenly spaced in the prompt region)
-        prompt_positions = _get_prompt_positions(prompt_len, n_prompt_positions)
-
-        # Combine: prompt positions first, then CoT positions
         all_positions = prompt_positions + cot_act_positions
-
-        # Pick one random layer for this example
         layer = random.choice(layers)
-
-        # Context for on-the-fly collection: tokens up through last activation position
         context_cutoff = max(all_positions)
         context_input_ids_slice = context_ids[:context_cutoff + 1]
 
@@ -141,5 +136,7 @@ def load_cot_context_prediction_data(
             "context_input_ids": context_input_ids_slice,
             "context_positions": all_positions,
         })
+        pbar.update(1)
 
+    pbar.close()
     return datapoints[:num_examples]

@@ -22,6 +22,7 @@ from cot_utils import (
     layer_percent_to_layer,
     split_cot_into_sentences,
 )
+from position_encoding import apply_position_encoding
 
 
 AO_CHECKPOINTS = {
@@ -233,7 +234,10 @@ def collect_activations_at_positions(
     if was_training:
         model.train()
 
-    return acts_BLD[0, positions, :].detach()
+    acts = acts_BLD[0, positions, :].detach()
+    total_length = inputs["input_ids"].shape[1]
+    acts = apply_position_encoding(acts, positions, total_length)
+    return acts
 
 
 @contextlib.contextmanager
