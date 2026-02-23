@@ -23,6 +23,7 @@ from evals.datasets.answer_correctness import generate_answer_correctness_datase
 from evals.datasets.contradictory_comparison import generate_contradictory_comparison_dataset
 from evals.datasets.sentence_insertion import generate_sentence_insertion_dataset
 from evals.datasets.sycophancy_scruples import generate_sycophancy_scruples_dataset
+from evals.datasets.step_importance import generate_step_importance_dataset
 
 
 ALL_GENERATORS = {
@@ -34,6 +35,7 @@ ALL_GENERATORS = {
     "contradictory_comparison": generate_contradictory_comparison_dataset,
     "sentence_insertion": generate_sentence_insertion_dataset,
     "sycophancy_scruples": generate_sycophancy_scruples_dataset,
+    "step_importance": generate_step_importance_dataset,
 }
 
 # Default item counts per eval (some evals have specific defaults)
@@ -46,6 +48,7 @@ DEFAULT_COUNTS = {
     "contradictory_comparison": 50,
     "sentence_insertion": 100,
     "sycophancy_scruples": 100,
+    "step_importance": 50,
 }
 
 

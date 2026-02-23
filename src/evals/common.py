@@ -267,6 +267,61 @@ def compute_binary_metrics(
     }
 
 
+def compute_ranking_metrics(
+    predicted_indices: list[list[int]],
+    ground_truth_indices: list[list[int]],
+    k: int = 3,
+) -> dict:
+    """Compute ranking metrics for step importance eval.
+
+    Args:
+        predicted_indices: List of predicted top-k step indices (0-indexed) per item.
+        ground_truth_indices: List of ground truth top-k step indices (0-indexed) per item.
+        k: Number of top items to compare.
+
+    Returns:
+        Dict with top_k_overlap, top_1_hit, any_hit, mean_reciprocal_rank, n_items.
+    """
+    n = len(predicted_indices)
+    top_k_overlaps = []
+    top_1_hits = 0
+    any_hits = 0
+    reciprocal_ranks = []
+
+    for pred, gt in zip(predicted_indices, ground_truth_indices):
+        gt_set = set(gt[:k])
+        pred_k = pred[:k]
+
+        # Top-k overlap: |pred ∩ gt| / k
+        overlap = len(set(pred_k) & gt_set) / k
+        top_k_overlaps.append(overlap)
+
+        # Top-1 hit: is the oracle's first pick in gt top-k?
+        if pred_k and pred_k[0] in gt_set:
+            top_1_hits += 1
+
+        # Any hit: is any oracle pick in gt top-k?
+        if set(pred_k) & gt_set:
+            any_hits += 1
+
+        # Mean reciprocal rank: 1/rank of first correct prediction
+        rr = 0.0
+        for rank, p in enumerate(pred_k, 1):
+            if p in gt_set:
+                rr = 1.0 / rank
+                break
+        reciprocal_ranks.append(rr)
+
+    return {
+        "top_k_overlap": sum(top_k_overlaps) / n if n else 0.0,
+        "top_1_hit": top_1_hits / n if n else 0.0,
+        "any_hit": any_hits / n if n else 0.0,
+        "mrr": sum(reciprocal_ranks) / n if n else 0.0,
+        "n_items": n,
+        "k": k,
+    }
+
+
 # ============================================================
 # Serialization
 # ============================================================

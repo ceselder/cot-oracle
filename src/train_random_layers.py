@@ -629,7 +629,8 @@ def install_third_task_loss_hook(max_layers: int = 36):
     from nl_probes.sft import train_features_batch as _original_train
     from nl_probes.utils.steering_hooks import get_hf_activation_steering_hook, add_hook
 
-    _batch_state = {"types": [], "meta_infos": []}
+    import time
+    _batch_state = {"types": [], "meta_infos": [], "last_time": time.time()}
 
     from nl_probes.sft import construct_batch as _original_construct
     def patched_construct_batch(batch_list, tokenizer, device):
@@ -711,6 +712,10 @@ def install_third_task_loss_hook(max_layers: int = 36):
                 order = STAGE2_ORDER_DEFAULT
                 max_idx = max(order.index(t) for t in stage2_tasks_present if t in order)
                 log_dict["train/stage"] = max_idx + 2
+
+            now = time.time()
+            log_dict["train/step_time"] = now - _batch_state["last_time"]
+            _batch_state["last_time"] = now
 
             if wandb.run is not None:
                 wandb.log(log_dict, commit=False)
@@ -984,8 +989,9 @@ def main():
     parser.add_argument("--save-dir", default="checkpoints/cot_oracle_randlayer")
     parser.add_argument("--wandb-project", default="cot_oracle")
     parser.add_argument("--wandb-run", default="")
+    parser.add_argument("--wandb-run-id", default="", help="Resume a specific wandb run by ID")
     parser.add_argument("--eval-steps", type=int, default=100)
-    parser.add_argument("--save-steps", type=int, default=1000)
+    parser.add_argument("--save-steps", type=int, default=100)
     parser.add_argument("--gradient-checkpointing", action="store_true", default=True)
     parser.add_argument("--eval-dir", default="data/evals")
     parser.add_argument("--fast-eval-n", type=int, default=10)
@@ -1163,6 +1169,7 @@ def main():
         save_dir=args.save_dir,
         wandb_project=args.wandb_project,
         wandb_run_name=args.wandb_run or f"cot_oracle_randlayer_{args.model.split('/')[-1]}",
+        wandb_run_id=args.wandb_run_id,
         gradient_checkpointing=args.gradient_checkpointing,
         load_lora_path=lora_local_path,
         eval_on_start=True,

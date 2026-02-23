@@ -19,6 +19,7 @@ from evals.common import (
     load_completed_items,
     parse_oracle_binary,
     compute_binary_metrics,
+    compute_ranking_metrics,
     CompletedEvalItem,
 )
 
@@ -113,6 +114,13 @@ EVAL_PARSING = {
         "negative_keywords": [],
         "positive_label": "detected",
         "negative_label": "not_detected",
+    },
+    "step_importance": {
+        # Special handling: parse step numbers and compute ranking metrics
+        "positive_keywords": [],
+        "negative_keywords": [],
+        "positive_label": "",
+        "negative_label": "",
     },
 }
 
@@ -232,6 +240,54 @@ def _score_sentence_insertion(items: list[CompletedEvalItem]) -> dict | None:
     }
 
 
+def _parse_step_numbers(text: str) -> list[int]:
+    """Parse step numbers from oracle response for step importance eval.
+
+    Returns 0-indexed step indices.
+    """
+    import re
+    if not text:
+        return []
+
+    # Find all integers in the response
+    numbers = re.findall(r'\b(\d+)\b', text)
+    # Convert to 0-indexed, deduplicate preserving order
+    seen = set()
+    result = []
+    for n in numbers:
+        idx = int(n) - 1  # Convert 1-indexed to 0-indexed
+        if idx >= 0 and idx not in seen:
+            seen.add(idx)
+            result.append(idx)
+    return result
+
+
+def _score_step_importance(items: list[CompletedEvalItem]) -> dict | None:
+    """Custom scorer for step importance eval — ranking metrics."""
+    predicted = []
+    ground_truth = []
+
+    for item in items:
+        if not item.oracle_response:
+            continue
+
+        gt_indices = item.metadata.get("top_k_indices", [])
+        if not gt_indices:
+            continue
+
+        pred_indices = _parse_step_numbers(item.oracle_response)
+        if not pred_indices:
+            continue
+
+        predicted.append(pred_indices)
+        ground_truth.append(gt_indices)
+
+    if not predicted:
+        return None
+
+    return compute_ranking_metrics(predicted, ground_truth, k=3)
+
+
 def score_eval(
     eval_name: str,
     items: list[CompletedEvalItem],
@@ -244,6 +300,9 @@ def score_eval(
 
     if eval_name == "sentence_insertion":
         return _score_sentence_insertion(items)
+
+    if eval_name == "step_importance":
+        return _score_step_importance(items)
 
     # Filter to scoreable items
     skip_labels = {"indeterminate", "pending_pair_resolution", "pending_multi_run", "pending_manual"}
@@ -307,12 +366,21 @@ def main():
         print(f"{eval_name}")
         print(f"{'=' * 50}")
         print(f"  Items scored: {metrics['n_items']}")
-        print(f"  Accuracy:     {metrics['accuracy']:.3f}")
-        for label in metrics.get("labels", []):
-            p = metrics["precision"].get(label, 0)
-            r = metrics["recall"].get(label, 0)
-            f = metrics["f1"].get(label, 0)
-            print(f"  {label:20s}  P={p:.3f}  R={r:.3f}  F1={f:.3f}")
+
+        if "top_k_overlap" in metrics:
+            # Ranking eval (step_importance)
+            print(f"  Top-3 overlap: {metrics['top_k_overlap']:.3f}")
+            print(f"  Top-1 hit:     {metrics['top_1_hit']:.3f}")
+            print(f"  Any hit:       {metrics['any_hit']:.3f}")
+            print(f"  MRR:           {metrics['mrr']:.3f}")
+        else:
+            # Binary classification eval
+            print(f"  Accuracy:     {metrics['accuracy']:.3f}")
+            for label in metrics.get("labels", []):
+                p = metrics["precision"].get(label, 0)
+                r = metrics["recall"].get(label, 0)
+                f = metrics["f1"].get(label, 0)
+                print(f"  {label:20s}  P={p:.3f}  R={r:.3f}  F1={f:.3f}")
 
     # Save summary
     summary_path = results_dir / "eval_summary.json"
@@ -322,8 +390,14 @@ def main():
 
     # Overall
     if all_metrics:
-        avg_acc = sum(m["accuracy"] for m in all_metrics.values()) / len(all_metrics)
-        print(f"\nOverall average accuracy: {avg_acc:.3f}")
+        binary_metrics = [m for m in all_metrics.values() if "accuracy" in m]
+        if binary_metrics:
+            avg_acc = sum(m["accuracy"] for m in binary_metrics) / len(binary_metrics)
+            print(f"\nOverall average accuracy (binary evals): {avg_acc:.3f}")
+        ranking_metrics = [m for m in all_metrics.values() if "top_k_overlap" in m]
+        if ranking_metrics:
+            avg_overlap = sum(m["top_k_overlap"] for m in ranking_metrics) / len(ranking_metrics)
+            print(f"Overall average top-3 overlap (ranking evals): {avg_overlap:.3f}")
 
 
 if __name__ == "__main__":
