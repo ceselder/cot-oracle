@@ -456,20 +456,33 @@ def run_eval(
             )
 
             scores = []
-            table = wandb.Table(columns=["id", "prediction", "target", "score"])
+            exact_matches = 0
+            table = wandb.Table(columns=[
+                "id", "type", "oracle_prompt", "prediction", "target",
+                "token_f1", "exact_match", "pred_tokens", "target_tokens",
+            ])
 
             for i, (resp, dp) in enumerate(zip(eval_responses, eval_datasets[ds])):
                 pred = resp.api_response.strip()
                 target = dp.target_output.strip()
                 score = _token_f1(pred, target)
+                exact = 1 if pred.lower().strip() == target.lower().strip() else 0
                 scores.append(score)
-                table.add_data(i, pred[:500], target[:500], round(score, 3))
+                exact_matches += exact
+                table.add_data(
+                    i, dp.datapoint_type, dp.prompt[:300],
+                    pred[:500], target[:500],
+                    round(score, 3), exact,
+                    len(pred.split()), len(target.split()),
+                )
 
             avg_score = sum(scores) / len(scores) if scores else 0.0
+            exact_rate = exact_matches / len(scores) if scores else 0.0
             wandb.log({
                 f"eval/{ds}": avg_score,
+                f"eval/{ds}_exact": exact_rate,
             }, step=global_step)
-            print(f"  Step {global_step} | {ds}: token_f1={avg_score:.3f}")
+            print(f"  Step {global_step} | {ds}: token_f1={avg_score:.3f} exact={exact_rate:.3f}")
 
             if eval_responses:
                 print(f"    pred='{eval_responses[0].api_response.strip()[:120]}'")
@@ -626,6 +639,8 @@ def train(
     ema_alpha = 0.1
     total_tokens = 0
 
+    prev_dominant_task = None  # Track task transitions for phase checkpoints
+
     for epoch in range(args.epochs):
         if task_order != "sequential":
             random.shuffle(final_training)
@@ -713,6 +728,14 @@ def train(
 
             pbar.set_postfix(loss=f"{loss.item():.4f}")
 
+            # Phase checkpoint: save when dominant task changes in sequential mode
+            if task_order == "sequential" and prev_dominant_task is not None and dominant_task != prev_dominant_task:
+                ckpt_path = save_dir / f"step_{global_step}_phase_{prev_dominant_task}"
+                print(f"\n  Phase transition: {prev_dominant_task} -> {dominant_task}")
+                print(f"  Saving phase checkpoint to {ckpt_path}")
+                model.save_pretrained(str(ckpt_path))
+            prev_dominant_task = dominant_task
+
             # Task-level eval
             if global_step > 0 and global_step % args.eval_steps == 0:
                 print(f"\n--- Task eval at step {global_step} ---")
@@ -780,11 +803,18 @@ def apply_config(args, config: dict):
     # Training params
     if "training" in config:
         t = config["training"]
+        _float_keys = {"lr", "warmup_fraction", "max_grad_norm", "steering_coefficient"}
+        _int_keys = {"batch_size", "eval_batch_size", "epochs", "seed"}
         for key in ["lr", "batch_size", "eval_batch_size", "epochs",
                      "warmup_fraction", "max_grad_norm", "steering_coefficient",
                      "gradient_checkpointing", "task_order", "seed"]:
             if key in t and not getattr(args, f"_cli_{key}", False):
-                setattr(args, key, t[key])
+                val = t[key]
+                if key in _float_keys:
+                    val = float(val)
+                elif key in _int_keys:
+                    val = int(val)
+                setattr(args, key, val)
 
     # Activations
     if "activations" in config:

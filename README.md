@@ -1,152 +1,149 @@
 # CoT Oracle
 
-White-box chain-of-thought (CoT) monitoring built on Activation Oracles (AO).
+White-box chain-of-thought (CoT) monitoring built on [Activation Oracles](https://arxiv.org/abs/2512.15674).
 
-## Planning Source
-This repo is now aligned to the shared brainstorming/living plan document from this project thread.
-- Brainstorm doc link: `<ADD_SHARED_DOC_LINK_HERE>`
-- In-repo execution plan: `plan.md`
+CoT text is often unfaithful. This project reads reasoning from activations to detect when stated reasoning diverges from actual computational influence — aiming to beat black-box CoT monitoring and probes on behavior prediction.
 
-## North Star
-CoT text is often unfaithful. The goal is to read reasoning from activations and beat black-box CoT monitoring (and probes) on behavior prediction.
+## How It Works
 
-## Current Scope
-We are prioritizing:
-1. A generalist CoT activation monitor trained on diverse tasks (not just more tokens).
-2. Better eval coverage for unfaithfulness-like behavior (hints, sycophancy, load-bearingness).
-3. Fast architecture ablations that are likely to matter (multi-layer feed-in, temporal striding).
+The oracle is the **same model** (Qwen3-8B) fine-tuned with LoRA to accept its own activations. During inference, activations are extracted from the source model's CoT generation at stride intervals across 3 layers (25%, 50%, 75% depth), then injected back into the model via norm-matched addition at layer 1. The model reads these activations and answers questions about the reasoning process.
 
-## What Is Implemented
+**10 training tasks** teach the oracle to understand CoT structure:
 
-### Training
-- Main entrypoint: `src/train_mixed.py`
-- Mixed training tasks currently wired:
-  - `cot_context_prediction`
-  - `cot_sentence_prediction`
-  - `cot_decorative`
-  - `cot_domain`
-  - `cot_correctness`
-  - `cot_persona` (optional)
-  - `cot_summary` (optional)
+| Task | Description |
+|------|-------------|
+| Full reconstruction | Reconstruct full CoT from stride activations |
+| Next step prediction | Predict next ~50 tokens of CoT |
+| Answer prediction | Predict final answer from partial CoT |
+| Partial answer (vLLM) | What would model answer if stopped at X%? |
+| Load-bearing | Is this CoT load-bearing or decorative? |
+| Correctness | Did the model get the right answer? |
+| Decorative | Is the CoT decorative (not needed for correct answer)? |
+| Reasoning termination | Will model emit `</think>` within 100 tokens? |
+| Domain | What domain is this problem? |
+| Conversational QA | Answer questions about the CoT |
 
-### Evals
-- Dataset generation and eval runs in `src/evals/`
-- Current eval families:
-  - hinted MCQ
-  - sycophancy
-  - authority bias
-  - decorative CoT
-  - answer correctness
-  - contradictory comparison
-  - sentence insertion
-  - Scruples-style sycophancy
-
-### Runtime / Infra
-- AO repo path resolution in `src/core/ao_repo.py`
-- Shared AO/attention utilities in `src/core/ao.py`
-- Legacy unused tracks removed (`signs_of_life`, SAE-specific unused path, stale scripts)
-
-## RTX 5090 (Blackwell) Best-Guess Setup
-This is the recommended compatibility path (documentation-only; designed to be robust on Blackwell):
-
-1. Prefer SDPA over FlashAttention2 for AO/training/eval loading.
-2. For local vLLM generation, force eager mode on Blackwell.
-3. Only re-enable FA2 after confirming exact torch/cuda/fa2 compatibility.
-
-Recommended env:
-
-```bash
-export COT_ORACLE_FORCE_SDPA=1
-export COT_ORACLE_VLLM_ENFORCE_EAGER=1
-# optional safety: keep auto-eager enabled (default)
-unset COT_ORACLE_VLLM_NO_EAGER_AUTO
-```
-
-If you explicitly want to try FlashAttention2 anyway:
-
-```bash
-export COT_ORACLE_ALLOW_FLASH2=1
-```
-
-Equivalent vLLM CLI flags:
-
-```bash
-python3 src/data_pipeline/generate_cots.py --engine vllm --vllm-enforce-eager
-```
+**20 evals** test whether the oracle can detect unfaithfulness, classify reasoning properties, and generalize beyond training distribution. Includes 2 evals from ["When 'Just Read the Chain of Thought' Fails"](https://arxiv.org/abs/...) (ICLR 2026): reasoning termination and forced answer entropy.
 
 ## Setup
 
-### 1) Install deps
 ```bash
 pip install -r requirements.txt
-```
-
-### 2) Make AO importable
-```bash
 git clone https://github.com/adamkarvonen/activation_oracles
 export AO_REPO_PATH="$PWD/activation_oracles"
 ```
 
-### 3) Optional keys
+## Quick Start
+
+### 1. Generate eval datasets
 ```bash
-export OPENROUTER_API_KEY=...
-export WANDB_API_KEY=...
+python src/evals/generate_datasets.py --output-dir data/evals
 ```
 
-## Quickstart
-
-### Generate CoT corpus
+### 2. Precompute training data (GPU required)
 ```bash
-python3 src/data_pipeline/generate_cots.py \
-  --openrouter \
-  --n-problems 1000 \
-  --output data/cot_corpus_v5/corpus.jsonl
+python scripts/precompute_training_data.py \
+  --corpus data/cot_corpus_v5/corpus_medium.jsonl \
+  --output-dir data/precomputed \
+  --model Qwen/Qwen3-8B
 ```
 
-### Train mixed oracle
+### 3. Train
 ```bash
-torchrun --nproc_per_node=1 src/train_mixed.py \
-  --corpus data/cot_corpus_v5/corpus.jsonl \
-  --model Qwen/Qwen3-8B \
-  --save-dir checkpoints/cot_oracle_mixed
+# Default: all tasks, shuffled
+python src/train_v5.py --config configs/train_v6.yaml --precomputed-dir data/precomputed
+
+# Sequential mode (per-task diagnostics, saves phase checkpoints)
+python src/train_v5.py --config configs/train_v6.yaml \
+  --precomputed-dir data/precomputed --task-order sequential
+
+# Disable specific tasks
+python src/train_v5.py --config configs/train_v6.yaml --domain-n 0 --conv-qa-n 0
 ```
 
-### Run eval suite
+### 4. Evaluate
 ```bash
-python3 src/evals/generate_datasets.py --output-dir data/evals
-# optional one-time cache build (recommended for ROT13 organism evals)
-python3 src/evals/precompute_activations.py \
-  --eval-dir data/evals \
-  --output-dir data/eval_precomputed \
-  --generator-adapter ceselder/rot13-qwen3-8b-lora \
-  --evals rot13_reconstruction held_out_cot_reconstruction logical_leaps
-# consume cached activations/responses
-python3 src/evals/run_evals.py --eval-dir data/evals --output-dir data/eval_results
-# or:
-# python3 src/evals/run_evals.py --eval-dir data/evals --output-dir data/eval_results \
-#   --precomputed-activations-dir data/eval_precomputed
-python3 src/evals/score_oracle.py --results-dir data/eval_results
+# Standalone eval suite
+python src/evals/run_evals.py --eval-dir data/evals --output-dir data/eval_results
+python src/evals/score_oracle.py --results-dir data/eval_results
+
+# Upload eval datasets to HuggingFace
+python scripts/upload_eval_datasets.py
 ```
+
+## Configuration
+
+All settings in `configs/train_v6.yaml`:
+
+```yaml
+tasks:
+  full_recon:
+    n: 40000          # Set n: 0 to disable a task
+  next_step:
+    n: 30000
+  # ...
+
+training:
+  lr: 1e-5
+  batch_size: 8
+  task_order: shuffled  # or "sequential"
+
+activations:
+  stride: 5
+  position_encoding: false  # Sinusoidal PE for activation vectors
+  pe_alpha: 0.1
+
+eval:
+  eval_steps: 500
+  save_steps: 2000
+```
+
+CLI flags override config values.
+
+## Eval Suite (20 Evals)
+
+**Unfaithfulness detection:** hinted_mcq, sycophancy, sycophancy_scruples, sycophancy_v2, authority_bias, correct_authority, anchoring_bias, hint_influence_yesno, sentence_insertion, scruples_disagreement
+
+**Classification/regression:** decorative_cot, answer_correctness, contradictory_comparison, final_answer_kl, step_counting
+
+**Paper evals (ICLR 2026):** reasoning_termination, forced_answer_entropy
+
+**Model organism:** rot13_reconstruction, held_out_cot_reconstruction, logical_leaps
+
+All eval datasets published at: [`ceselder/cot-oracle-evals`](https://huggingface.co/collections/ceselder/cot-oracle-evals-699a2d31f652864af01d40dd)
 
 ## Repository Structure
 
-```text
+```
 src/
-  core/                  # AO runtime wrappers + compatibility logic
-  data_pipeline/         # CoT generation + corpus tooling
-  dataset_classes/       # training dataset builders
-  evals/                 # eval generation / run / scoring
-  train_mixed.py         # primary training entrypoint
-  chat_compare.py        # AO vs fine-tuned oracle comparison
+  train_v5.py              # Primary training entrypoint
+  position_encoding.py     # Optional sinusoidal PE for activations
+  cot_utils.py             # Shared utilities
+  core/                    # AO runtime wrappers
+  dataset_classes/         # Training data loaders (10 tasks)
+  evals/                   # Eval generation, running, scoring (20 evals)
+  data_pipeline/           # CoT generation + corpus tooling
+configs/
+  train_v6.yaml            # Training configuration
 scripts/
-  generate_qwen_rollouts.sh
-  upload_corpus.py
-plan.md                  # living project plan aligned to brainstorming doc
+  precompute_*.py          # GPU precompute scripts
+  upload_*.py              # HuggingFace upload scripts
+data/
+  cot_corpus_v5/           # Main CoT corpus (47K entries)
+  concept_corpus/          # Safety/bias concept corpus (8K entries)
+  evals/                   # Generated eval JSONs
+  precomputed/             # Precomputed training JSONL
 ```
 
-## Immediate TODO (from shared plan)
-- Finalize held-out CoT reconstruction metric + baseline.
-- Add ROT13/obfuscated holdout eval into default reporting.
-- Add explicit load-bearingness proxy metric into eval scoreboard.
-- Run ablations: striding vs boundaries, pooling vs discrete, token marker scheme.
-- Decide minimum conversational IT set for monitor Q/A behavior + calibrated refusal.
+## Model
+
+- **Source & Oracle:** `Qwen/Qwen3-8B` (36 layers)
+- **AO checkpoint:** `adamkarvonen/checkpoints_latentqa_cls_past_lens_addition_Qwen3-8B`
+- **LoRA:** r=64, alpha=128, dropout=0.05, all-linear
+- **Activations:** Layers 9, 18, 27 with LoRA disabled; injected at layer 1
+
+## Related Work
+
+- [Activation Oracles](https://github.com/adamkarvonen/activation_oracles) (Karvonen et al., 2024)
+- [Thought Anchors](https://github.com/interp-reasoning/thought-anchors) (Bogdan et al., 2025)
+- [Thought Branches](https://arxiv.org/abs/2510.27484) (Macar, Bogdan et al., 2025)

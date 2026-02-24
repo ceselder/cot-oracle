@@ -177,8 +177,7 @@ ORACLE_PROMPTS_TEMPLATES = {
         "(maximum uncertainty over 4 options). Answer with just a number."
     ),
     "reasoning_termination": (
-        "Is the model about to finish its chain-of-thought reasoning, "
-        "or does it have substantial reasoning left to do? "
+        "Will the model terminate reasoning (emit </think>) within the next 100 tokens? "
         "Answer: will_terminate or will_continue."
     ),
     "sycophancy_v2": (
