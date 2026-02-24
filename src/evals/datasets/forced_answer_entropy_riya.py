@@ -148,7 +148,7 @@ def generate_forced_answer_entropy_dataset(
         )
 
         items.append(EvalItem(
-            eval_name="forced_answer_entropy",
+            eval_name="forced_answer_entropy_riya",
             example_id=f"forced_entropy_{len(items):04d}",
             clean_prompt=prompt,
             test_prompt=prompt,  # same — no nudge

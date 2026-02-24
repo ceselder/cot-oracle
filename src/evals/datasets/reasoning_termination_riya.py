@@ -104,7 +104,7 @@ def generate_reasoning_termination_dataset(
     items = []
     for i, problem in enumerate(selected):
         items.append(EvalItem(
-            eval_name="reasoning_termination",
+            eval_name="reasoning_termination_riya",
             example_id=f"reason_term_{i:04d}",
             clean_prompt=problem["question"],
             test_prompt=problem["question"],  # Same — prefix set by precompute

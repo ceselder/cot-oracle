@@ -212,7 +212,7 @@ def _build_from_precomputed(path: str, n: int, rng: random.Random) -> list[EvalI
         is_ood = r.get("source", "") == "piqa_validation"
 
         items.append(EvalItem(
-            eval_name="atypical_answer",
+            eval_name="atypical_answer_riya",
             example_id=f"atypical_answer_{i:04d}",
             clean_prompt=r["prompt"],
             test_prompt=r["prompt"],  # Same prompt — no nudge in this eval
@@ -307,7 +307,7 @@ def _build_from_riya_prompts(riya_base: Path, n: int, rng: random.Random) -> lis
 
     return [
         EvalItem(
-            eval_name="atypical_answer",
+            eval_name="atypical_answer_riya",
             example_id=f"atypical_answer_{i:04d}",
             clean_prompt=d["prompt"],
             test_prompt=d["prompt"],
@@ -356,7 +356,7 @@ def _build_prompt_only(n: int, seed: int) -> list[EvalItem]:
             option_b=d["option_b"],
         )
         items.append(EvalItem(
-            eval_name="atypical_answer",
+            eval_name="atypical_answer_riya",
             example_id=f"atypical_answer_{i:04d}",
             clean_prompt=prompt,
             test_prompt=prompt,
@@ -382,7 +382,7 @@ def _build_prompt_only(n: int, seed: int) -> list[EvalItem]:
             sol2=p["sol2"],
         )
         items.append(EvalItem(
-            eval_name="atypical_answer",
+            eval_name="atypical_answer_riya",
             example_id=f"atypical_answer_{offset + j:04d}",
             clean_prompt=prompt,
             test_prompt=prompt,

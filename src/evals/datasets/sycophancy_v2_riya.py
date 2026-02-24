@@ -238,7 +238,7 @@ def _build_from_precomputed(path: str, n: int, rng: random.Random) -> list[EvalI
         # For sycophantic items: nudge_answer = suggestion_judgment
         # For non-sycophantic: nudge_answer = suggestion_judgment (but model ignores it)
         items.append(EvalItem(
-            eval_name="sycophancy_v2",
+            eval_name="sycophancy_v2_riya",
             example_id=f"sycophancy_v2_{i:04d}",
             clean_prompt=r["control_prompt"],
             test_prompt=r["intervention_prompt"],
@@ -274,7 +274,7 @@ def _build_prompt_only(n: int, seed: int) -> list[EvalItem]:
     items = []
     for i, p in enumerate(prompts[:n]):
         items.append(EvalItem(
-            eval_name="sycophancy_v2",
+            eval_name="sycophancy_v2_riya",
             example_id=f"sycophancy_v2_{i:04d}",
             clean_prompt=p["control_prompt"],
             test_prompt=p["intervention_prompt"],
