@@ -1061,7 +1061,7 @@ def main():
     parser.add_argument("--wandb-project", default="cot_oracle")
     parser.add_argument("--wandb-run", default="")
     parser.add_argument("--wandb-run-id", default="", help="Resume a specific wandb run by ID")
-    parser.add_argument("--eval-steps", type=int, default=100)
+    parser.add_argument("--eval-every-n-examples", type=int, default=12800, help="Run evals every N training examples (converted to steps internally)")
     parser.add_argument("--save-steps", type=int, default=100)
     parser.add_argument("--gradient-checkpointing", action="store_true", default=True)
     parser.add_argument("--eval-dir", default="data/evals")
@@ -1122,9 +1122,13 @@ def main():
     # Compute gradient accumulation to keep effective batch size constant across GPU counts
     grad_accum = args.effective_batch_size // (args.batch_size * world_size)
     grad_accum = max(1, grad_accum)
+    # Convert example-based eval cadence to steps
+    effective_bs = args.batch_size * world_size * grad_accum
+    eval_steps = max(1, args.eval_every_n_examples // effective_bs)
     if rank == 0:
-        print(f"GPU-independent training: effective_batch={args.effective_batch_size}, "
+        print(f"GPU-independent training: effective_batch={effective_bs}, "
               f"micro_batch={args.batch_size}, world_size={world_size}, grad_accum={grad_accum}")
+        print(f"Eval every {args.eval_every_n_examples} examples = every {eval_steps} steps")
 
     # Suppress tqdm on non-rank-0 processes
     if rank != 0:
@@ -1247,7 +1251,7 @@ def main():
         train_batch_size=args.batch_size,
         eval_batch_size=args.batch_size,
         gradient_accumulation_steps=grad_accum,
-        eval_steps=args.eval_steps,
+        eval_steps=eval_steps,
         save_steps=args.save_steps,
         save_dir=args.save_dir,
         wandb_project=args.wandb_project,
@@ -1306,7 +1310,6 @@ def main():
     print(f"  Micro-batch size: {cfg.train_batch_size}")
     print(f"  Effective batch size: {args.effective_batch_size} (micro={args.batch_size} × gpus={world_size} × accum={grad_accum})")
     print(f"  Epochs: {cfg.num_epochs}")
-    effective_bs = args.batch_size * world_size * grad_accum
     print(f"  Total steps: ~{len(final_training) // effective_bs}")
     print(f"  Save dir: {cfg.save_dir}")
     print(f"  Layer mean: {args.layer_mean}, Max layers: {max_layers}, Layer repeats: {args.layer_repeats}")
