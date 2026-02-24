@@ -24,7 +24,7 @@ def load_cot_rollout_multilayer(
     num_examples: int = 20000,
     stride: int = 5,
     max_positions_per_layer: int = 20,
-    max_target_tokens: int = 200,
+    max_target_tokens: int = 8192,
     seed: int = 42,
 ) -> list[dict]:
     """

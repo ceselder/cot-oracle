@@ -88,7 +88,7 @@ def load_cot_compqa_data(
     stride: int = 5,
     max_positions_per_layer: int = 20,
     n_prompt_positions: int = 5,
-    max_target_tokens: int = 300,
+    max_target_tokens: int = 8192,
     seed: int = 42,
     **_kwargs,
 ) -> list[dict]:

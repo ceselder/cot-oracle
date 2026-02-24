@@ -21,7 +21,7 @@ def load_cot_full_reconstruction_data(
     layer_percents: list[int],
     num_examples: int = 15000,
     max_sentences: int = 15,
-    max_target_tokens: int = 200,
+    max_target_tokens: int = 8192,
     seed: int = 42,
 ) -> list[dict]:
     """
