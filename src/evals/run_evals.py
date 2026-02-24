@@ -652,7 +652,7 @@ def run_rot13_model_organism_eval(
     Flow per item:
     1. Generate CoT with ROT13 adapter active (obfuscated reasoning)
     2. Generate normal CoT with adapters disabled (ground truth reference)
-    3. Extract activations from ROT13 CoT with adapters disabled (base model representations)
+    3. Extract activations from ROT13 CoT with the ROT13 adapter active
     4. Run oracle on those activations to reconstruct plain-English reasoning
     5. Score oracle output against the normal CoT (ground truth)
     """
@@ -677,7 +677,9 @@ def run_rot13_model_organism_eval(
         )
 
         # Step 3: Extract activations from ROT13 CoT with adapters disabled
-        # Per AO methodology: activations come from the BASE model, not LoRA
+        # Activations come from the ROT13 LoRA model (the model organism),
+        # not the base model — we want the internal representations of the
+        # model that actually produced the rot13 reasoning.
         oracle_response = ""
         activations_path = None
         positions_to_use: list[int] = []
@@ -696,7 +698,7 @@ def run_rot13_model_organism_eval(
                     act_layer=act_layer,
                     device=device,
                     max_boundaries=20,
-                    generation_adapter_name=None,  # base model activations
+                    generation_adapter_name=ROT13_ADAPTER_NAME,
                 )
             except Exception as e:
                 print(f"  Warning: activation extraction failed for {item.example_id}: {e}")

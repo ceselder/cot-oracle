@@ -702,17 +702,21 @@ def _run_rot13_eval(
                         adapter_name=None,
                     )
 
-                # Extract activations from the rot13 CoT
+                # Extract activations from the rot13 CoT using the ROT13 adapter
+                # (activations must come from the ROT13 model, not base)
                 activations = None
                 n_positions = 0
                 if rot13_cot.strip():
+                    if not rot13_loaded:
+                        load_extra_adapter(model, ROT13_ADAPTER_HF, adapter_name=ROT13_ADAPTER_NAME)
+                        rot13_loaded = True
                     try:
                         bundle = _apply_oracle_mode_to_extract(
                             model, tokenizer,
                             eval_name=item.eval_name, example_id=item.example_id,
                             prompt=item.test_prompt, cot_text=rot13_cot,
                             act_layer=act_layer, device=device,
-                            max_boundaries=20, generation_adapter_name=None,
+                            max_boundaries=20, generation_adapter_name=ROT13_ADAPTER_NAME,
                         )
                         if bundle and bundle.activations is not None:
                             activations = bundle.activations
