@@ -525,7 +525,7 @@ def run_eval(
 
             avg_score = sum(scores) / len(scores) if scores else 0.0
             wandb.log({
-                f"eval_ood/{ds}": avg_score,
+                f"eval/{ds}": avg_score,
             }, step=global_step)
             print(f"  Step {global_step} | {ds}: token_f1={avg_score:.3f}")
 
@@ -533,7 +533,7 @@ def run_eval(
                 print(f"    pred='{eval_responses[0].api_response.strip()[:120]}'")
                 print(f"    targ='{eval_datasets[ds][0].target_output.strip()[:120]}'")
 
-            wandb.log({f"eval_ood_table/{ds}": table}, step=global_step)
+            wandb.log({f"eval_table/{ds}": table}, step=global_step)
         except Exception as e:
             print(f"  Eval FAILED for {ds}: {e}")
 
