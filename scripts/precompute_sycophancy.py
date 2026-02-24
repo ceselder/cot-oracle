@@ -290,128 +290,137 @@ def main():
     tokenizer = AutoTokenizer.from_pretrained(args.model)
     print("Model loaded!")
 
-    results = list(existing.values())
+    # Filter to items not yet done
     done_ids = set(existing.keys())
+    todo_pairs = [pp for pp in prompt_pairs if pp["anecdote_id"] not in done_ids]
+    results = list(existing.values())
+    print(f"To process: {len(todo_pairs)} items ({len(done_ids)} already done)")
 
-    total_rollouts = 0
-    t_start = time.time()
+    if not todo_pairs:
+        print("All items already done!")
+    else:
+        t_start = time.time()
+        n = args.n_rollouts
 
-    for idx, pp in enumerate(prompt_pairs):
-        anecdote_id = pp["anecdote_id"]
+        # ── Phase 1: Build ALL prompts at once ──
+        print(f"\nBuilding {len(todo_pairs)} × {n} × 2 = {len(todo_pairs) * n * 2} prompts...")
+        # For each anecdote: 1 greedy control, (n-1) sampled control, 1 greedy intervention, (n-1) sampled intervention
+        greedy_prompts = []       # 2 per anecdote (1 ctrl + 1 intv)
+        greedy_index = []         # (anecdote_idx, "control"/"intervention")
+        sampled_prompts = []      # 2*(n-1) per anecdote
+        sampled_index = []        # (anecdote_idx, "control"/"intervention", run_idx_1based)
 
-        if anecdote_id in done_ids:
-            continue
+        for ai, pp in enumerate(todo_pairs):
+            ctrl_prompt = build_prompt(tokenizer, pp["control_prompt"], enable_thinking=True)
+            intv_prompt = build_prompt(tokenizer, pp["intervention_prompt"], enable_thinking=True)
 
-        print(f"\n[{idx+1}/{len(prompt_pairs)}] {anecdote_id} "
-              f"correct={pp['correct_judgment']} suggestion={pp['suggestion_judgment']}")
+            # Greedy: 1 control + 1 intervention
+            greedy_prompts.append(ctrl_prompt)
+            greedy_index.append((ai, "control"))
+            greedy_prompts.append(intv_prompt)
+            greedy_index.append((ai, "intervention"))
+
+            # Sampled: (n-1) control + (n-1) intervention
+            for run_i in range(1, n):
+                sampled_prompts.append(ctrl_prompt)
+                sampled_index.append((ai, "control", run_i))
+                sampled_prompts.append(intv_prompt)
+                sampled_index.append((ai, "intervention", run_i))
+
+        # ── Phase 2: Fire two massive vLLM batches ──
+        print(f"  Greedy batch: {len(greedy_prompts)} prompts")
         t0 = time.time()
+        greedy_responses = batch_generate(llm, greedy_prompts, None, args.max_tokens)
+        print(f"  Greedy done in {time.time()-t0:.1f}s")
 
-        # Build all prompts for this anecdote
-        # Control arm: N rollouts
-        control_prompts = []
-        intervention_prompts = []
+        print(f"  Sampled batch: {len(sampled_prompts)} prompts")
+        t0 = time.time()
+        sampled_responses = batch_generate(llm, sampled_prompts, args.temperature, args.max_tokens)
+        print(f"  Sampled done in {time.time()-t0:.1f}s")
 
-        for run_i in range(args.n_rollouts):
-            control_prompts.append(
-                build_prompt(tokenizer, pp["control_prompt"], enable_thinking=True)
+        # ── Phase 3: Demux responses back to anecdotes ──
+        # Initialize per-anecdote response buckets
+        all_control_responses = [[""] * n for _ in range(len(todo_pairs))]
+        all_intervention_responses = [[""] * n for _ in range(len(todo_pairs))]
+
+        # Greedy (run 0)
+        for resp, (ai, arm) in zip(greedy_responses, greedy_index):
+            if arm == "control":
+                all_control_responses[ai][0] = resp
+            else:
+                all_intervention_responses[ai][0] = resp
+
+        # Sampled (runs 1..n-1)
+        for resp, (ai, arm, run_i) in zip(sampled_responses, sampled_index):
+            if arm == "control":
+                all_control_responses[ai][run_i] = resp
+            else:
+                all_intervention_responses[ai][run_i] = resp
+
+        # ── Phase 4: Score all anecdotes ──
+        print(f"\nScoring {len(todo_pairs)} anecdotes...")
+        for ai, pp in enumerate(todo_pairs):
+            control_resps = all_control_responses[ai]
+            intervention_resps = all_intervention_responses[ai]
+
+            control_judgments = [extract_moral_judgment(r) for r in control_resps]
+            intervention_judgments = [extract_moral_judgment(r) for r in intervention_resps]
+
+            stats = compute_switch_rate_and_label(
+                control_judgments, intervention_judgments, pp["suggestion_judgment"]
             )
-            intervention_prompts.append(
-                build_prompt(tokenizer, pp["intervention_prompt"], enable_thinking=True)
-            )
 
-        # Generate control arm: run 0 is greedy, rest are sampled
-        greedy_control = batch_generate(llm, [control_prompts[0]], None, args.max_tokens)
-        if args.n_rollouts > 1:
-            sampled_control = batch_generate(
-                llm, control_prompts[1:], args.temperature, args.max_tokens
-            )
-        else:
-            sampled_control = []
-        all_control = greedy_control + sampled_control
-
-        # Generate intervention arm: run 0 is greedy, rest are sampled
-        greedy_intervention = batch_generate(
-            llm, [intervention_prompts[0]], None, args.max_tokens
-        )
-        if args.n_rollouts > 1:
-            sampled_intervention = batch_generate(
-                llm, intervention_prompts[1:], args.temperature, args.max_tokens
-            )
-        else:
-            sampled_intervention = []
-        all_intervention = greedy_intervention + sampled_intervention
-
-        # Extract judgments
-        control_judgments = [extract_moral_judgment(r) for r in all_control]
-        intervention_judgments = [extract_moral_judgment(r) for r in all_intervention]
-
-        # Compute switch rate and label
-        stats = compute_switch_rate_and_label(
-            control_judgments, intervention_judgments, pp["suggestion_judgment"]
-        )
-
-        # Build per-rollout data (truncate responses to save space)
-        control_runs = []
-        for run_i in range(args.n_rollouts):
-            control_runs.append({
+            control_runs = [{
                 "run_idx": run_i,
                 "temperature": 0.0 if run_i == 0 else args.temperature,
-                "response": all_control[run_i][:3000],
+                "response": control_resps[run_i][:3000],
                 "judgment": control_judgments[run_i],
-            })
+            } for run_i in range(n)]
 
-        intervention_runs = []
-        for run_i in range(args.n_rollouts):
-            intervention_runs.append({
+            intervention_runs = [{
                 "run_idx": run_i,
                 "temperature": 0.0 if run_i == 0 else args.temperature,
-                "response": all_intervention[run_i][:3000],
+                "response": intervention_resps[run_i][:3000],
                 "judgment": intervention_judgments[run_i],
-            })
+            } for run_i in range(n)]
 
-        # Pick representative response: greedy intervention run
-        representative = all_intervention[0][:3000]
+            item = {
+                "anecdote_id": pp["anecdote_id"],
+                "text": pp["text"],
+                "correct_judgment": pp["correct_judgment"],
+                "suggestion_judgment": pp["suggestion_judgment"],
+                "suggestion_adj": pp["suggestion_adj"],
+                "control_prompt": pp["control_prompt"],
+                "intervention_prompt": pp["intervention_prompt"],
+                "n_rollouts": n,
+                "temperature": args.temperature,
+                "switch_rate": stats["switch_rate"],
+                "switch_rate_ci_lower": stats.get("switch_rate_ci_lower"),
+                "switch_rate_ci_upper": stats.get("switch_rate_ci_upper"),
+                "control_agree_rate": stats.get("control_agree_rate"),
+                "intervention_agree_rate": stats.get("intervention_agree_rate"),
+                "control_majority": stats.get("control_majority"),
+                "label": stats["label"],
+                "representative_response": intervention_resps[0][:3000],
+                "control_runs": control_runs,
+                "intervention_runs": intervention_runs,
+            }
+            results.append(item)
 
-        item = {
-            "anecdote_id": anecdote_id,
-            "text": pp["text"],
-            "correct_judgment": pp["correct_judgment"],
-            "suggestion_judgment": pp["suggestion_judgment"],
-            "suggestion_adj": pp["suggestion_adj"],
-            "control_prompt": pp["control_prompt"],
-            "intervention_prompt": pp["intervention_prompt"],
-            "n_rollouts": args.n_rollouts,
-            "temperature": args.temperature,
-            "switch_rate": stats["switch_rate"],
-            "switch_rate_ci_lower": stats.get("switch_rate_ci_lower"),
-            "switch_rate_ci_upper": stats.get("switch_rate_ci_upper"),
-            "control_agree_rate": stats.get("control_agree_rate"),
-            "intervention_agree_rate": stats.get("intervention_agree_rate"),
-            "control_majority": stats.get("control_majority"),
-            "label": stats["label"],
-            "representative_response": representative,
-            "control_runs": control_runs,
-            "intervention_runs": intervention_runs,
-        }
-        results.append(item)
-        total_rollouts += args.n_rollouts * 2
+            print(f"  [{ai+1}/{len(todo_pairs)}] {pp['anecdote_id']}: {stats['label']} "
+                  f"switch={stats['switch_rate']}")
 
-        elapsed = time.time() - t0
-        print(f"  => {stats['label']} | switch_rate={stats['switch_rate']}"
-              f" ctrl_agree={stats.get('control_agree_rate', '?')}"
-              f" intv_agree={stats.get('intervention_agree_rate', '?')}"
-              f" [{elapsed:.1f}s]")
-
-        # Save raw incrementally
+        # Save all raw results
         with open(raw_path, "w") as f:
             json.dump(results, f, indent=2)
 
+        elapsed_total = time.time() - t_start
+        total_rollouts = len(todo_pairs) * n * 2
+
     # Summary
-    elapsed_total = time.time() - t_start
     label_dist = Counter(r["label"] for r in results)
     print(f"\n{'=' * 60}")
-    print(f"RAW ROLLOUTS DONE: {len(results)} items, {total_rollouts} rollouts "
-          f"in {elapsed_total:.0f}s")
+    print(f"RAW ROLLOUTS DONE: {len(results)} items")
     print(f"Label distribution: {dict(label_dist)}")
 
     switch_rates = [r["switch_rate"] for r in results if r["switch_rate"] is not None]
