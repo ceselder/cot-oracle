@@ -955,6 +955,14 @@ def main():
 
     args = parser.parse_args()
 
+    # Mark which args were explicitly provided on CLI so config doesn't override them
+    _defaults = {action.dest: action.default for action in parser._actions}
+    for key, val in vars(args).items():
+        if key == "config":
+            continue
+        if val != _defaults.get(key):
+            setattr(args, f"_cli_{key}", True)
+
     # Apply config file (CLI flags override config values)
     if args.config:
         config = load_config(args.config)

@@ -26,6 +26,9 @@ huggingface_hub
 # Experiment tracking
 wandb>=0.21.1
 
+# Config
+PyYAML>=6.0
+
 # Utils
 python-dotenv
 einops>=0.8.1

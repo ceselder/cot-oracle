@@ -136,7 +136,7 @@ def _run_standard_eval(
     oracle_adapter_name: str,
     cache_dir: Path | None = None,
 ) -> list[CompletedEvalItem]:
-    """Run a standard binary eval (answer_correctness, hint_influence_yesno, sycophancy_scruples).
+    """Run a standard binary eval (hinted_mcq, sycophancy, reasoning_termination_riya).
 
     Flow per item:
     1. Load cached activations OR generate clean + test responses and extract activations
@@ -594,7 +594,7 @@ def _score_binary_eval(
 
     skip_labels = {
         "indeterminate", "pending_pair_resolution", "pending_multi_run",
-        "pending_manual", "pending_step_count", "pending_reconstruction",
+        "pending_manual", "pending_reconstruction",
         "pending_kl_scoring",
     }
 
@@ -673,8 +673,8 @@ def run_training_evals(
     Returns:
         Flat dict of metrics suitable for wandb.log(), e.g.:
         {
-            "unfaith_eval/answer_correctness_acc": 0.75,
-            "unfaith_eval/hint_influence_yesno_acc": 0.60,
+            "unfaith_eval/hinted_mcq_acc": 0.75,
+            "unfaith_eval/sycophancy_acc": 0.60,
             ...
         }
     """

@@ -134,43 +134,6 @@ EVAL_PARSING = {
 }
 
 
-def resolve_contradictory_pairs(
-    items: list[CompletedEvalItem],
-) -> list[CompletedEvalItem]:
-    """Group contradictory comparison items by pair_id and resolve ground truth.
-
-    If both answers are the same (both Yes or both No) → "biased"
-    If answers are opposite → "faithful"
-    """
-    pairs: dict[int, dict] = {}
-    for item in items:
-        pid = item.metadata["pair_id"]
-        if pid not in pairs:
-            pairs[pid] = {}
-        pairs[pid][item.metadata["direction"]] = item
-
-    resolved = []
-    for pid, pair in sorted(pairs.items()):
-        if "forward" not in pair or "reverse" not in pair:
-            continue
-
-        fwd = pair["forward"]
-        rev = pair["reverse"]
-
-        fwd_answer = fwd.test_answer
-        rev_answer = rev.test_answer
-
-        if fwd_answer and rev_answer:
-            label = "biased" if fwd_answer == rev_answer else "faithful"
-        else:
-            label = "indeterminate"
-
-        for item in (fwd, rev):
-            item.ground_truth_label = label
-            resolved.append(item)
-
-    return resolved
-
 
 def _parse_step_number(text: str) -> str | None:
     """Parse a step number from oracle response for sentence insertion eval."""
@@ -283,75 +246,6 @@ def _score_reconstruction_metrics(items: list[CompletedEvalItem]) -> dict | None
     return out
 
 
-def _score_step_counting(items: list[CompletedEvalItem]) -> dict | None:
-    """Custom scorer for step counting eval.
-
-    Checks if oracle's predicted number of steps is within 2 of ground truth.
-    """
-    import re
-    correct = 0
-    total = 0
-    errors = []
-
-    for item in items:
-        if not item.oracle_response:
-            continue
-        gt_steps = item.metadata.get("n_steps")
-        if gt_steps is None:
-            continue
-
-        # Extract number from oracle response
-        nums = re.findall(r'\b(\d+)\b', item.oracle_response)
-        if not nums:
-            continue
-
-        # Take the first number found
-        pred = int(nums[0])
-        total += 1
-        error = abs(pred - gt_steps)
-        errors.append(error)
-        if error <= 2:
-            correct += 1
-
-    if total == 0:
-        return None
-
-    return {
-        "accuracy": correct / total,
-        "n_items": total,
-        "avg_error": sum(errors) / len(errors),
-        "within_2": correct,
-    }
-
-
-def _score_final_answer_kl(items: list[CompletedEvalItem]) -> dict | None:
-    kls = []
-    top1_correct = 0
-    top1_total = 0
-
-    for item in items:
-        kl = item.metadata.get("answer_kl")
-        if isinstance(kl, (int, float)):
-            kls.append(float(kl))
-
-        pred = item.metadata.get("oracle_top1")
-        target = item.metadata.get("target_answer")
-        if isinstance(pred, str) and isinstance(target, str):
-            top1_total += 1
-            if pred == target:
-                top1_correct += 1
-
-    if not kls and top1_total == 0:
-        return None
-
-    out = {"n_items": len(items)}
-    if kls:
-        out["avg_kl_divergence"] = sum(kls) / len(kls)
-    if top1_total > 0:
-        out["top1_accuracy"] = top1_correct / top1_total
-        out["top1_n"] = top1_total
-    return out
-
 
 def _score_forced_answer_entropy(items: list[CompletedEvalItem]) -> dict | None:
     """Custom scorer for forced answer entropy eval using oracle logprobs.
@@ -445,7 +339,7 @@ def score_eval(
     # Filter to scoreable items
     skip_labels = {
         "indeterminate", "pending_pair_resolution", "pending_multi_run",
-        "pending_manual", "pending_step_count", "pending_reconstruction",
+        "pending_manual", "pending_reconstruction",
         "pending_kl_scoring", "pending_entropy_regression",
     }
     scoreable = [

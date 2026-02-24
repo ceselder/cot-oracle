@@ -44,22 +44,16 @@ ROT13_ADAPTER_NAME = "rot13"
 def _cot_for_activations(item: EvalItem, test_response: str) -> str:
     if item.eval_name == "sentence_insertion":
         return str(item.metadata.get("spliced_cot_text", ""))
-    if item.eval_name == "held_out_cot_reconstruction":
-        return str(item.metadata.get("reference_cot", ""))
     if item.eval_name == "rot13_reconstruction":
         return str(item.metadata.get("rot13_cot", ""))
-    if item.eval_name == "logical_leaps":
-        return str(item.metadata.get("reference_cot", ""))
     return test_response
 
 
 def _max_boundaries_for_eval(eval_name: str) -> int:
     if eval_name == "sentence_insertion":
         return 30
-    if eval_name in ("held_out_cot_reconstruction", "rot13_reconstruction", "logical_leaps"):
+    if eval_name == "rot13_reconstruction":
         return 20
-    if eval_name == "final_answer_kl":
-        return 12
     return 10
 
 
@@ -194,9 +188,6 @@ def main():
                 cot_for_acts = test_response  # activations from the rot13 CoT
             elif item.eval_name == "sentence_insertion":
                 test_response = str(item.metadata.get("spliced_cot_text", ""))
-                cot_for_acts = test_response
-            elif item.eval_name in ("held_out_cot_reconstruction", "logical_leaps"):
-                test_response = _cot_for_activations(item, "")
                 cot_for_acts = test_response
             elif item.eval_name == "decorative_cot":
                 # Pre-label AND generate representative CoT
