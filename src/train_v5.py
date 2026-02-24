@@ -601,6 +601,18 @@ def train(
     total_steps = num_batches * args.epochs
     warmup_steps = int(total_steps * args.warmup_fraction)
 
+    # Dynamic eval/save cadence: 3-50x per stage
+    if task_order == "sequential":
+        min_stage_steps = min(len(items) // args.batch_size for items in train_per_type.values() if len(items) >= args.batch_size)
+    else:
+        min_stage_steps = total_steps
+    # clamp: at least 3 evals per stage, at most 50
+    args.eval_steps = min(min_stage_steps // 3, max(-(-min_stage_steps // 50), 1))
+    args.save_steps = min(min_stage_steps // 3, max(-(-min_stage_steps // 50), 1))
+    print(f"\n  Stage-relative cadence (min stage = {min_stage_steps} steps):")
+    print(f"    eval_steps: {args.eval_steps} (~{min_stage_steps // max(args.eval_steps, 1)}x per min stage)")
+    print(f"    save_steps: {args.save_steps} (~{min_stage_steps // max(args.save_steps, 1)}x per min stage)")
+
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr)
     scheduler = get_linear_schedule_with_warmup(
         optimizer, num_warmup_steps=warmup_steps, num_training_steps=total_steps,
@@ -619,6 +631,9 @@ def train(
 
     # Log task index legend to wandb config
     wandb.config.update({"task_index_legend": task_to_idx}, allow_val_change=True)
+    print("\n  Task index legend:")
+    for task, idx in sorted(task_to_idx.items(), key=lambda x: x[1]):
+        print(f"    {idx}: {task}")
 
     save_dir.mkdir(parents=True, exist_ok=True)
 
@@ -706,12 +721,15 @@ def train(
 
             # Logging
             now = time.time()
+            step_time = now - last_step_time
             log_dict = {
                 "train/loss": loss.item(),
                 "train/learning_rate": scheduler.get_last_lr()[0],
                 "train/total_tokens": total_tokens,
                 "train/batch_tokens": batch_tokens,
-                "train/step_time": now - last_step_time,
+                "train/step_time": step_time,
+                "train/tokens_per_sec": batch_tokens / step_time if step_time > 0 else 0,
+                "train/samples_per_sec": len(batch_list) / step_time if step_time > 0 else 0,
                 "train/wallclock_hours": (now - train_start_time - eval_time_total) / 3600,
                 "eval/wallclock_hours": eval_time_total / 3600,
             }
@@ -724,6 +742,7 @@ def train(
             for t in batch_types:
                 batch_task_counts[t] += 1
             dominant_task = max(batch_task_counts, key=batch_task_counts.get)
+            log_dict["train/active_task_idx"] = task_to_idx[dominant_task]
 
             wandb.log(log_dict, step=global_step)
 

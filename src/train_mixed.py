@@ -64,6 +64,9 @@ from dataset_classes.cot_correctness import load_cot_correctness_data
 from dataset_classes.cot_persona import load_cot_persona_data
 from dataset_classes.cot_summary import load_cot_summary_data
 from dataset_classes.cot_answer_tracking import load_cot_answer_tracking_data
+from dataset_classes.cot_chainscope_faithfulness import load_chainscope_faithfulness_data
+from dataset_classes.cot_eval_task import load_eval_task_data, EVAL_TRAINING_TASKS
+from dataset_classes.cot_resampling_importance import load_resampling_importance_data
 
 from cot_utils import layer_percent_to_layer, LAYER_COUNTS, split_cot_into_sentences, find_sentence_boundary_positions
 from layer_utils import (
@@ -77,7 +80,14 @@ from corpus_tokenize import load_corpus, pretokenize_corpus, ensure_boundary_pos
 from data_cache import load_cached_data, save_cached_data
 
 STAGE1_TASKS = {"cot_context_prediction", "cot_sentence_prediction"}
-STAGE2_TASKS = {"cot_decorative", "cot_domain", "cot_correctness", "cot_persona", "cot_summary"}
+STAGE2_TASKS = {
+    "cot_decorative", "cot_domain", "cot_correctness", "cot_persona", "cot_summary",
+    "chainscope_faithfulness", "resampling_importance",
+    *(f"eval_{t}" for t in EVAL_TRAINING_TASKS),
+}
+
+# Eval tasks used for training — excluded from unfaithfulness eval hook
+TRAINING_EVAL_TASK_NAMES = {f"eval_{t}" for t in EVAL_TRAINING_TASKS} | {"chainscope_faithfulness"}
 
 
 # ---------------------------------------------------------------------------
@@ -744,7 +754,11 @@ def install_third_task_loss_hook(max_layers: int = 36):
     print("Installed per-task × per-third loss logging hook")
 
 
-STAGE2_ORDER_DEFAULT = ["cot_decorative", "cot_domain", "cot_correctness", "cot_persona", "cot_summary"]
+STAGE2_ORDER_DEFAULT = [
+    "cot_decorative", "cot_domain", "cot_correctness", "cot_persona", "cot_summary",
+    "chainscope_faithfulness", "resampling_importance",
+    *(f"eval_{t}" for t in EVAL_TRAINING_TASKS),
+]
 
 
 def build_curriculum(
@@ -873,7 +887,7 @@ def build_training_mixture(
 
     print("\n=== Task 3: Decorative CoT ===")
     raw = load_cot_decorative_data(
-        corpus_path, tokenizer, model_name, layer_percents,
+        corpus_path, tokenizer, model_name,
         num_examples=task_sizes.get("cot_decorative", 10000),
         corpus_entries=corpus_entries,
     )
@@ -882,7 +896,7 @@ def build_training_mixture(
 
     print("\n=== Task 4: Domain Classification ===")
     raw = load_cot_domain_data(
-        corpus_path, tokenizer, model_name, layer_percents,
+        corpus_path, tokenizer, model_name,
         num_examples=task_sizes.get("cot_domain", 15000),
         corpus_entries=corpus_entries,
     )
@@ -891,7 +905,7 @@ def build_training_mixture(
 
     print("\n=== Task 5: Correctness Prediction ===")
     raw = load_cot_correctness_data(
-        corpus_path, tokenizer, model_name, layer_percents,
+        corpus_path, tokenizer, model_name,
         num_examples=task_sizes.get("cot_correctness", 15000),
         corpus_entries=corpus_entries,
     )
@@ -922,6 +936,51 @@ def build_training_mixture(
         all_raw.extend(raw)
     else:
         print(f"\n  Skipping Task 7 (no summaries at {summaries_path})")
+
+    # --- Task 8: Chainscope Faithfulness ---
+    chainscope_path = task_sizes.get("_chainscope_path", "data/chainscope_qwen3_8b_cots.json")
+    if Path(chainscope_path).exists() and task_sizes.get("chainscope_faithfulness", 15000) > 0:
+        print("\n=== Task 8: Chainscope Faithfulness ===")
+        raw = load_chainscope_faithfulness_data(
+            chainscope_path, tokenizer, model_name,
+            num_examples=task_sizes.get("chainscope_faithfulness", 15000),
+        )
+        print(f"  Loaded {len(raw)} raw examples")
+        all_raw.extend(raw)
+    else:
+        print(f"\n  Skipping Task 8 (no chainscope data at {chainscope_path})")
+
+    # --- Task 9: Resampling Importance ---
+    n_importance = task_sizes.get("resampling_importance", 5000)
+    if n_importance > 0:
+        print("\n=== Task 9: Resampling Importance ===")
+        raw = load_resampling_importance_data(
+            tokenizer, model_name, num_examples=n_importance,
+        )
+        print(f"  Loaded {len(raw)} raw examples")
+        all_raw.extend(raw)
+
+    # --- Tasks 10+: Eval-derived training tasks ---
+    eval_train_dir = task_sizes.get("_eval_train_dir", "data/evals_train")
+    n_per_eval_task = task_sizes.get("_n_eval_task", 3000)
+    if Path(eval_train_dir).exists():
+        task_idx = 10
+        for eval_task_name in sorted(EVAL_TRAINING_TASKS.keys()):
+            eval_train_path = Path(eval_train_dir) / f"{eval_task_name}.json"
+            if not eval_train_path.exists():
+                print(f"\n  Skipping Task {task_idx} (no data at {eval_train_path})")
+                task_idx += 1
+                continue
+            print(f"\n=== Task {task_idx}: Eval {eval_task_name} ===")
+            raw = load_eval_task_data(
+                str(eval_train_path), eval_task_name, tokenizer, model_name,
+                num_examples=n_per_eval_task,
+            )
+            print(f"  Loaded {len(raw)} raw examples")
+            all_raw.extend(raw)
+            task_idx += 1
+    else:
+        print(f"\n  Skipping eval training tasks (no dir at {eval_train_dir})")
 
     # --- Convert all at once (parallel) ---
     print(f"\n{'=' * 60}")
@@ -987,6 +1046,18 @@ def build_eval_datasets(
         eval_datasets["cot_summary"] = data
         print(f"  Generated {len(data)} eval examples")
 
+    # Chainscope faithfulness eval split (100 held-out items, different seed)
+    chainscope_path = "data/chainscope_qwen3_8b_cots.json"
+    if Path(chainscope_path).exists():
+        print("\n=== Eval: Chainscope Faithfulness (100 items) ===")
+        raw = load_chainscope_faithfulness_data(
+            chainscope_path, tokenizer, model_name,
+            num_examples=100, seed=12345,
+        )
+        data = dicts_to_multilayer_training_data(raw, tokenizer, max_layers, layer_mean, position_stride, max_positions, fixed_layers=fixed_layers)
+        eval_datasets["chainscope_faithfulness"] = data
+        print(f"  Generated {len(data)} eval examples")
+
     random.setstate(saved_state)
     return eval_datasets
 
@@ -1001,10 +1072,17 @@ def install_unfaithfulness_eval_hook(model_name, eval_dir="data/evals", fast_n=5
     eval_dir = Path(eval_dir)
     act_layer = layer_percent_to_layer(model_name, 50)
 
+    # Evals used for training — skip these to avoid evaluating on training data
+    # Also skip raw step_importance files (different schema, not EvalItem)
+    _skip_evals = (
+        {"decorative_cot", "sentence_insertion", "step_importance_raw", "step_importance_faithfulness_raw"}
+        | set(EVAL_TRAINING_TASKS.keys())
+    )
+
     fast_items = {}
     for eval_file in sorted(eval_dir.glob("*.json")):
         eval_name = eval_file.stem
-        if eval_name in ("decorative_cot", "sentence_insertion"):
+        if eval_name in _skip_evals:
             continue
         items = load_eval_items(eval_file)
         fast_items[eval_name] = items[:fast_n]
@@ -1029,7 +1107,7 @@ def install_unfaithfulness_eval_hook(model_name, eval_dir="data/evals", fast_n=5
             parsing_config = EVAL_PARSING.get(eval_name)
             if parsing_config:
                 metrics = score_eval(eval_name, completed, parsing_config)
-                if metrics:
+                if metrics and "accuracy" in metrics:
                     wandb.log({
                         f"unfaith/{eval_name}/accuracy": metrics["accuracy"],
                         f"unfaith/{eval_name}/n_scored": metrics.get("n_items", 0),
@@ -1062,7 +1140,7 @@ def main():
     parser.add_argument("--wandb-run", default="")
     parser.add_argument("--wandb-run-id", default="", help="Resume a specific wandb run by ID")
     parser.add_argument("--eval-every-n-examples", type=int, default=12800, help="Run evals every N training examples (converted to steps internally)")
-    parser.add_argument("--save-steps", type=int, default=100)
+    parser.add_argument("--save-steps", type=int, default=None, help="Save checkpoint every N steps (default: match eval cadence)")
     parser.add_argument("--gradient-checkpointing", action="store_true", default=True)
     parser.add_argument("--eval-dir", default="data/evals")
     parser.add_argument("--fast-eval-n", type=int, default=10)
@@ -1087,6 +1165,12 @@ def main():
     parser.add_argument("--n-correctness", type=int, default=15000)
     parser.add_argument("--n-persona", type=int, default=15000)
     parser.add_argument("--n-summary", type=int, default=15000)
+    # Chainscope + eval task args
+    parser.add_argument("--chainscope-data", default="data/chainscope_qwen3_8b_cots.json", help="Path to chainscope data JSON")
+    parser.add_argument("--eval-train-dir", default="data/evals_train", help="Directory with precomputed eval training JSONs")
+    parser.add_argument("--n-chainscope", type=int, default=15000, help="Chainscope faithfulness training examples")
+    parser.add_argument("--n-importance", type=int, default=5000, help="Resampling importance training examples")
+    parser.add_argument("--n-eval-task", type=int, default=3000, help="Examples per eval training task")
     args = parser.parse_args()
 
     tokenizer = load_tokenizer(args.model)
@@ -1109,6 +1193,12 @@ def main():
         "cot_correctness": args.n_correctness,
         "cot_persona": args.n_persona,
         "cot_summary": args.n_summary,
+        "chainscope_faithfulness": args.n_chainscope,
+        "resampling_importance": args.n_importance,
+        # Internal path keys (not real task sizes, piggybacked via dict)
+        "_chainscope_path": args.chainscope_data,
+        "_eval_train_dir": args.eval_train_dir,
+        "_n_eval_task": args.n_eval_task,
     }
 
     # Initialize distributed early so we can gate data building on rank 0
@@ -1125,10 +1215,12 @@ def main():
     # Convert example-based eval cadence to steps
     effective_bs = args.batch_size * world_size * grad_accum
     eval_steps = max(1, args.eval_every_n_examples // effective_bs)
+    save_steps = args.save_steps if args.save_steps is not None else eval_steps
     if rank == 0:
         print(f"GPU-independent training: effective_batch={effective_bs}, "
               f"micro_batch={args.batch_size}, world_size={world_size}, grad_accum={grad_accum}")
         print(f"Eval every {args.eval_every_n_examples} examples = every {eval_steps} steps")
+        print(f"Save every {save_steps} steps")
 
     # Suppress tqdm on non-rank-0 processes
     if rank != 0:
@@ -1144,6 +1236,11 @@ def main():
         labels_dir=args.labels_dir,
         layer_repeats=args.layer_repeats,
         fixed_layers=str(fixed_layers) if fixed_layers else None,
+        chainscope_data=args.chainscope_data,
+        eval_train_dir=args.eval_train_dir,
+        n_chainscope=args.n_chainscope,
+        n_importance=args.n_importance,
+        n_eval_task=args.n_eval_task,
     )
 
     # Build data on rank 0, share via temp pickle to other ranks
@@ -1252,11 +1349,10 @@ def main():
         eval_batch_size=args.batch_size,
         gradient_accumulation_steps=grad_accum,
         eval_steps=eval_steps,
-        save_steps=args.save_steps,
+        save_steps=save_steps,
         save_dir=args.save_dir,
         wandb_project=args.wandb_project,
         wandb_run_name=args.wandb_run or f"cot_oracle_randlayer_{args.model.split('/')[-1]}",
-        wandb_run_id=args.wandb_run_id,
         gradient_checkpointing=args.gradient_checkpointing,
         load_lora_path=lora_local_path,
         eval_on_start=True,
@@ -1288,6 +1384,11 @@ def main():
     # Login to wandb (supports WANDB_API_KEY env var or .netrc)
     import wandb
     wandb.login()
+
+    # Support resuming a wandb run by ID (AO lib doesn't expose this in config)
+    if args.wandb_run_id:
+        os.environ["WANDB_RUN_ID"] = args.wandb_run_id
+        os.environ["WANDB_RESUME"] = "allow"
 
     # Build curriculum or shuffle
     stage_boundaries = []
