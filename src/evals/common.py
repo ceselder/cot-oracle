@@ -602,7 +602,8 @@ def save_eval_items(items: list[EvalItem], path: Path) -> None:
 def load_eval_items(path: Path) -> list[EvalItem]:
     with open(path) as f:
         data = json.load(f)
-    return [EvalItem(**d) for d in data]
+    valid_fields = {f.name for f in EvalItem.__dataclass_fields__.values()}
+    return [EvalItem(**{k: v for k, v in d.items() if k in valid_fields}) for d in data]
 
 
 def save_completed_items(items: list[CompletedEvalItem], path: Path) -> None:
@@ -615,4 +616,5 @@ def save_completed_items(items: list[CompletedEvalItem], path: Path) -> None:
 def load_completed_items(path: Path) -> list[CompletedEvalItem]:
     with open(path) as f:
         data = json.load(f)
-    return [CompletedEvalItem(**d) for d in data]
+    valid_fields = {f.name for f in CompletedEvalItem.__dataclass_fields__.values()}
+    return [CompletedEvalItem(**{k: v for k, v in d.items() if k in valid_fields}) for d in data]
