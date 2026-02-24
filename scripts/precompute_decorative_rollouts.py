@@ -532,113 +532,155 @@ def main():
     tokenizer = AutoTokenizer.from_pretrained(args.model)
     print("Model loaded!")
 
-    results = list(existing.values())
+    # Filter to items not yet done
     done_ids = set(existing.keys())
+    todo = [(idx, p) for idx, p in enumerate(problems)
+            if f"raw_{idx:04d}" not in done_ids]
+    results = list(existing.values())
+    print(f"To process: {len(todo)} items ({len(done_ids)} already done)")
 
-    # Process items one at a time but batch the N runs
-    for idx, problem in enumerate(problems):
-        example_id = f"raw_{idx:04d}"
-
-        if example_id in done_ids:
-            continue
-
-        print(f"\n[{idx+1}/{len(problems)}] {example_id} ({problem['source']}) "
-              f"correct={problem['correct_answer']}")
-        t0 = time.time()
-
-        # Build all prompts for this item (N CoT + N direct)
-        cot_prompts = []
-        direct_prompts = []
-        temps = []
-        for run_i in range(args.n_runs):
-            temp = None if run_i == 0 else args.temperature
-            temps.append(temp)
-            cot_prompts.append(build_cot_prompt(tokenizer, problem["question"]))
-            direct_prompts.append(build_direct_prompt(tokenizer, problem["question"]))
-
-        # Batch by temperature: greedy (run 0) and sampled (runs 1-N)
-        # Run 0: greedy
-        greedy_cot = batch_generate(llm, [cot_prompts[0]], None, args.max_cot_tokens)
-        greedy_direct = batch_generate(llm, [direct_prompts[0]], None, 1024)
-
-        # Runs 1-N: sampled
-        if args.n_runs > 1:
-            sampled_cot = batch_generate(
-                llm, cot_prompts[1:], args.temperature, args.max_cot_tokens)
-            sampled_direct = batch_generate(
-                llm, direct_prompts[1:], args.temperature, 1024)
-        else:
-            sampled_cot = []
-            sampled_direct = []
-
-        all_cot = greedy_cot + sampled_cot
-        all_direct = greedy_direct + sampled_direct
-
-        # Score all runs
-        runs = []
-        cot_correct_count = 0
-        direct_correct_count = 0
-
-        for run_i in range(args.n_runs):
-            cot_response = all_cot[run_i]
-            direct_response = all_direct[run_i]
-            cot_answer = extract_numerical_answer(cot_response, is_cot=True)
-            direct_answer = extract_numerical_answer(direct_response, is_cot=False)
-            cot_ok = answers_match(cot_answer, problem["correct_answer"])
-            direct_ok = answers_match(direct_answer, problem["correct_answer"])
-
-            if cot_ok:
-                cot_correct_count += 1
-            if direct_ok:
-                direct_correct_count += 1
-
-            runs.append({
-                "run_idx": run_i,
-                "temperature": temps[run_i] if temps[run_i] else 0.0,
-                "cot_response": cot_response[:12000],
-                "direct_response": direct_response[:3000],
-                "cot_extracted_answer": cot_answer,
-                "direct_extracted_answer": direct_answer,
-                "cot_correct": cot_ok,
-                "direct_correct": direct_ok,
-            })
-
+    if not todo:
+        print("All items already done!")
+    else:
+        t_start = time.time()
         n = args.n_runs
-        cot_acc = cot_correct_count / n
-        direct_acc = direct_correct_count / n
-        cot_ci_lo, cot_ci_hi = wilson_ci(cot_correct_count, n)
-        direct_ci_lo, direct_ci_hi = wilson_ci(direct_correct_count, n)
-        label = ci_label(cot_correct_count, n, direct_correct_count, n)
 
-        item = {
-            "eval_name": "decorative_cot",
-            "example_id": example_id,
-            "question": problem["question"],
-            "correct_answer": problem["correct_answer"],
-            "source": problem["source"],
-            "difficulty": problem["difficulty"],
-            "n_runs": n,
-            "temperature": args.temperature,
-            "cot_accuracy": round(cot_acc, 3),
-            "direct_accuracy": round(direct_acc, 3),
-            "cot_ci_lower": round(cot_ci_lo, 3),
-            "cot_ci_upper": round(cot_ci_hi, 3),
-            "direct_ci_lower": round(direct_ci_lo, 3),
-            "direct_ci_upper": round(direct_ci_hi, 3),
-            "label": label,
-            "representative_cot": runs[0]["cot_response"],
-            "runs": runs,
-        }
-        results.append(item)
+        # ── Phase 1: Build ALL prompts at once ──
+        # 4 batches: greedy_cot, greedy_direct, sampled_cot, sampled_direct
+        greedy_cot_prompts = []
+        greedy_direct_prompts = []
+        sampled_cot_prompts = []
+        sampled_direct_prompts = []
+        # Track which problem each prompt belongs to (index into todo)
+        sampled_cot_index = []   # (todo_idx, run_idx)
+        sampled_direct_index = []
 
-        elapsed = time.time() - t0
-        print(f"  => {label} | cot={cot_acc:.1f} [{cot_ci_lo:.2f},{cot_ci_hi:.2f}] "
-              f"direct={direct_acc:.1f} [{direct_ci_lo:.2f},{direct_ci_hi:.2f}] "
-              f"[{elapsed:.1f}s]")
+        print(f"\nBuilding prompts: {len(todo)} items × {n} runs × 2 types...")
+        for ti, (idx, problem) in enumerate(todo):
+            cot_p = build_cot_prompt(tokenizer, problem["question"])
+            direct_p = build_direct_prompt(tokenizer, problem["question"])
 
-        # Save raw incrementally
+            # Greedy (run 0): 1 CoT + 1 direct per item
+            greedy_cot_prompts.append(cot_p)
+            greedy_direct_prompts.append(direct_p)
+
+            # Sampled (runs 1..n-1)
+            for run_i in range(1, n):
+                sampled_cot_prompts.append(cot_p)
+                sampled_cot_index.append((ti, run_i))
+                sampled_direct_prompts.append(direct_p)
+                sampled_direct_index.append((ti, run_i))
+
+        print(f"  Greedy: {len(greedy_cot_prompts)} CoT + {len(greedy_direct_prompts)} direct")
+        print(f"  Sampled: {len(sampled_cot_prompts)} CoT + {len(sampled_direct_prompts)} direct")
+
+        # ── Phase 2: Fire 4 vLLM batches ──
+        t0 = time.time()
+        print("  Running greedy CoT batch...")
+        greedy_cot_responses = batch_generate(llm, greedy_cot_prompts, None, args.max_cot_tokens)
+        print(f"    Done in {time.time()-t0:.1f}s")
+
+        t0 = time.time()
+        print("  Running greedy direct batch...")
+        greedy_direct_responses = batch_generate(llm, greedy_direct_prompts, None, 1024)
+        print(f"    Done in {time.time()-t0:.1f}s")
+
+        if sampled_cot_prompts:
+            t0 = time.time()
+            print("  Running sampled CoT batch...")
+            sampled_cot_responses = batch_generate(
+                llm, sampled_cot_prompts, args.temperature, args.max_cot_tokens)
+            print(f"    Done in {time.time()-t0:.1f}s")
+
+            t0 = time.time()
+            print("  Running sampled direct batch...")
+            sampled_direct_responses = batch_generate(
+                llm, sampled_direct_prompts, args.temperature, 1024)
+            print(f"    Done in {time.time()-t0:.1f}s")
+        else:
+            sampled_cot_responses = []
+            sampled_direct_responses = []
+
+        # ── Phase 3: Demux responses back to items ──
+        all_cot_responses = [[""] * n for _ in range(len(todo))]
+        all_direct_responses = [[""] * n for _ in range(len(todo))]
+
+        # Greedy (run 0)
+        for ti, resp in enumerate(greedy_cot_responses):
+            all_cot_responses[ti][0] = resp
+        for ti, resp in enumerate(greedy_direct_responses):
+            all_direct_responses[ti][0] = resp
+
+        # Sampled (runs 1..n-1)
+        for resp, (ti, run_i) in zip(sampled_cot_responses, sampled_cot_index):
+            all_cot_responses[ti][run_i] = resp
+        for resp, (ti, run_i) in zip(sampled_direct_responses, sampled_direct_index):
+            all_direct_responses[ti][run_i] = resp
+
+        # ── Phase 4: Score all items ──
+        print(f"\nScoring {len(todo)} items...")
+        for ti, (idx, problem) in enumerate(todo):
+            cot_resps = all_cot_responses[ti]
+            direct_resps = all_direct_responses[ti]
+
+            runs = []
+            cot_correct_count = 0
+            direct_correct_count = 0
+
+            for run_i in range(n):
+                cot_answer = extract_numerical_answer(cot_resps[run_i], is_cot=True)
+                direct_answer = extract_numerical_answer(direct_resps[run_i], is_cot=False)
+                cot_ok = answers_match(cot_answer, problem["correct_answer"])
+                direct_ok = answers_match(direct_answer, problem["correct_answer"])
+                if cot_ok:
+                    cot_correct_count += 1
+                if direct_ok:
+                    direct_correct_count += 1
+                runs.append({
+                    "run_idx": run_i,
+                    "temperature": 0.0 if run_i == 0 else args.temperature,
+                    "cot_response": cot_resps[run_i][:12000],
+                    "direct_response": direct_resps[run_i][:3000],
+                    "cot_extracted_answer": cot_answer,
+                    "direct_extracted_answer": direct_answer,
+                    "cot_correct": cot_ok,
+                    "direct_correct": direct_ok,
+                })
+
+            cot_acc = cot_correct_count / n
+            direct_acc = direct_correct_count / n
+            cot_ci_lo, cot_ci_hi = wilson_ci(cot_correct_count, n)
+            direct_ci_lo, direct_ci_hi = wilson_ci(direct_correct_count, n)
+            label = ci_label(cot_correct_count, n, direct_correct_count, n)
+
+            item = {
+                "eval_name": "decorative_cot",
+                "example_id": f"raw_{idx:04d}",
+                "question": problem["question"],
+                "correct_answer": problem["correct_answer"],
+                "source": problem["source"],
+                "difficulty": problem["difficulty"],
+                "n_runs": n,
+                "temperature": args.temperature,
+                "cot_accuracy": round(cot_acc, 3),
+                "direct_accuracy": round(direct_acc, 3),
+                "cot_ci_lower": round(cot_ci_lo, 3),
+                "cot_ci_upper": round(cot_ci_hi, 3),
+                "direct_ci_lower": round(direct_ci_lo, 3),
+                "direct_ci_upper": round(direct_ci_hi, 3),
+                "label": label,
+                "representative_cot": runs[0]["cot_response"],
+                "runs": runs,
+            }
+            results.append(item)
+
+            if (ti + 1) % 50 == 0:
+                print(f"  [{ti+1}/{len(todo)}] scored")
+
+        # Save all raw results
         with open(raw_path, "w") as f:
             json.dump(results, f, indent=2)
+        print(f"  Raw results saved to {raw_path}")
 
     # Summary
     label_dist = Counter(r["label"] for r in results)
