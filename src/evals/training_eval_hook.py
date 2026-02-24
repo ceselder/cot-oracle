@@ -80,6 +80,7 @@ TRAINING_EVALS = [
     "decorative_cot",
     "sentence_insertion",
     "reasoning_termination_riya",
+    "compqa",
     "atypical_answer_mcq",
 ]
 
@@ -801,6 +802,120 @@ def _run_rot13_eval(
     return completed
 
 
+def _token_f1(tokenizer, reference: str, predicted: str) -> float:
+    """Token-level F1 between reference and predicted texts."""
+    from collections import Counter
+    ref_ids = tokenizer.encode(reference, add_special_tokens=False)
+    pred_ids = tokenizer.encode(predicted, add_special_tokens=False)
+    if not ref_ids or not pred_ids:
+        return 0.0
+    common = Counter(ref_ids) & Counter(pred_ids)
+    num_common = sum(common.values())
+    if num_common == 0:
+        return 0.0
+    precision = num_common / len(pred_ids)
+    recall = num_common / len(ref_ids)
+    return 2 * precision * recall / (precision + recall)
+
+
+def _run_compqa_eval(
+    model,
+    tokenizer,
+    items: list[EvalItem],
+    act_layer: int,
+    model_name: str,
+    device: str,
+    oracle_adapter_name: str,
+    cache_dir: Path | None = None,
+) -> list[CompletedEvalItem]:
+    """CompQA eval: answer questions about CoT reasoning quality.
+
+    Unlike binary evals, each item has its own question (test_prompt) about the CoT.
+    The CoT to analyze is in metadata["cot_text"]. Scored via token F1 against
+    Gemini ground truth in correct_answer.
+    """
+    completed = []
+
+    for item in items:
+        try:
+            cot_text = (item.metadata.get("cot_text") or "").strip()
+            if not cot_text:
+                continue
+
+            # Try cached bundle first
+            cached = _try_load_cached(cache_dir, "compqa", item.example_id, device)
+
+            if cached is not None:
+                activations = cached.activations
+                n_positions = len(cached.boundary_positions)
+            else:
+                # Extract activations from clean_prompt + cot_text
+                try:
+                    bundle = _apply_oracle_mode_to_extract(
+                        model, tokenizer,
+                        eval_name="compqa", example_id=item.example_id,
+                        prompt=item.clean_prompt, cot_text=cot_text,
+                        act_layer=act_layer, device=device,
+                        max_boundaries=15, generation_adapter_name=None,
+                    )
+                except Exception as e:
+                    print(f"    [compqa] Activation extraction failed for {item.example_id}: {e}")
+                    bundle = None
+                activations = bundle.activations if bundle else None
+                n_positions = len(bundle.boundary_positions) if bundle else 0
+
+                if bundle:
+                    _auto_cache_bundle(
+                        cache_dir, eval_name="compqa", example_id=item.example_id,
+                        prompt=item.clean_prompt, cot_text=cot_text,
+                        activations=activations, boundary_positions=bundle.boundary_positions,
+                        test_response=cot_text,
+                    )
+
+            # Run oracle with per-item question
+            oracle_response = ""
+            if activations is not None:
+                try:
+                    oracle_prompt = _oracle_prompt(n_positions, item.test_prompt)
+                    oracle_response = _apply_oracle_mode_to_oracle(
+                        model, tokenizer, activations, oracle_prompt,
+                        model_name=model_name, act_layer=act_layer,
+                        max_new_tokens=300, device=device,
+                    )
+                except Exception as e:
+                    print(f"    [compqa] Oracle inference failed for {item.example_id}: {e}")
+
+            # Compute per-item token F1
+            f1 = 0.0
+            if oracle_response and item.correct_answer:
+                f1 = _token_f1(tokenizer, item.correct_answer, oracle_response)
+
+            completed.append(CompletedEvalItem(
+                eval_name=item.eval_name,
+                example_id=item.example_id,
+                clean_prompt=item.clean_prompt,
+                test_prompt=item.test_prompt,
+                correct_answer=item.correct_answer,
+                nudge_answer=item.nudge_answer,
+                clean_response="",
+                test_response=cot_text,
+                clean_answer=None,
+                test_answer=None,
+                ground_truth_label="pending_token_f1",
+                oracle_response=oracle_response,
+                activations_path=None,
+                metadata={
+                    **item.metadata,
+                    "token_f1": f1,
+                },
+            ))
+        except Exception as e:
+            print(f"  [training_eval] Warning: compqa item {item.example_id} failed: {e}")
+            continue
+
+    return completed
+
+
 def _score_binary_eval(
     eval_name: str,
     items: list[CompletedEvalItem],
@@ -950,6 +1065,12 @@ def run_training_evals(
                     model_name, device, oracle_adapter_name,
                     cache_dir=cache_dir,
                 )
+            elif eval_name == "compqa":
+                completed = _run_compqa_eval(
+                    model, tokenizer, items, act_layer,
+                    model_name, device, oracle_adapter_name,
+                    cache_dir=cache_dir,
+                )
             else:
                 # Standard binary evals + any new evals from config
                 completed = _run_standard_eval(
@@ -1020,6 +1141,13 @@ def run_training_evals(
                     acc = correct / total
                     all_metrics[f"eval/{eval_name}_acc"] = acc
                     print(f"    {eval_name}: top1_acc={acc:.3f} (n={total})")
+            elif eval_name == "compqa":
+                # Score via aggregate token F1 from per-item metadata
+                f1_scores = [c.metadata.get("token_f1", 0.0) for c in completed if c.oracle_response]
+                if f1_scores:
+                    avg_f1 = sum(f1_scores) / len(f1_scores)
+                    all_metrics[f"eval/{eval_name}_token_f1"] = avg_f1
+                    print(f"    {eval_name}: token_f1={avg_f1:.3f} (n={len(f1_scores)})")
             else:
                 # Binary evals
                 binary_metrics = _score_binary_eval(eval_name, completed, max_score=max_items_per_eval)

@@ -39,13 +39,17 @@ TASKS = [
     ("domain",           "dataset_classes.cot_domain",                  "load_cot_domain_data",                 "main",    15000),
     ("reasoning_term",   "dataset_classes.cot_reasoning_termination",   "load_cot_reasoning_termination_data",  "main",    15000),
     ("conv_qa",          "dataset_classes.cot_conversational",          "load_cot_conversational_data",         "concept", 10000),
+    ("atypical_answer",  "dataset_classes.cot_atypical_answer",         "load_cot_atypical_answer_data",        "atypical", 20000),
+    ("prompt_inversion", "dataset_classes.cot_prompt_inversion",       "load_cot_prompt_inversion_data",       "main",     20000),
+    ("compqa",           "dataset_classes.cot_compqa",               "load_cot_compqa_data",                 "compqa",   8000),
 ]
 
 
 def precompute_task(task_name, module_path, loader_name, corpus_type,
                     num_examples, tokenizer, model_name,
                     main_corpus, concept_corpus, cotqa_path,
-                    output_dir, stride=5, max_positions_per_layer=20):
+                    output_dir, stride=5, max_positions_per_layer=20,
+                    atypical_data_path=None):
     """Run a single task loader and save to JSONL."""
     import importlib
 
@@ -61,6 +65,24 @@ def precompute_task(task_name, module_path, loader_name, corpus_type,
     if corpus_type == "concept":
         data = loader_fn(
             concept_corpus, cotqa_path, tokenizer, model_name,
+            num_examples=num_examples,
+            stride=stride,
+            max_positions_per_layer=max_positions_per_layer,
+        )
+    elif corpus_type == "atypical":
+        apath = atypical_data_path or "data/atypical_answer_training.jsonl"
+        data = loader_fn(
+            apath, tokenizer, model_name,
+            num_examples=num_examples,
+            stride=stride,
+            max_positions_per_layer=max_positions_per_layer,
+            atypical_data_path=apath,
+        )
+    elif corpus_type == "compqa":
+        # CompQA loads from HF, first arg is local cache path
+        compqa_cache = str(output_dir / "compqa_raw.json")
+        data = loader_fn(
+            compqa_cache, tokenizer, model_name,
             num_examples=num_examples,
             stride=stride,
             max_positions_per_layer=max_positions_per_layer,
@@ -116,6 +138,12 @@ def main():
     parser.add_argument("--domain-n", type=int, default=None)
     parser.add_argument("--reasoning-term-n", type=int, default=None)
     parser.add_argument("--conv-qa-n", type=int, default=None)
+    parser.add_argument("--atypical-answer-n", type=int, default=None)
+    parser.add_argument("--prompt-inversion-n", type=int, default=None)
+    parser.add_argument("--compqa-n", type=int, default=None)
+    parser.add_argument("--atypical-data-path",
+                        default="data/atypical_answer_training.jsonl",
+                        help="Path to atypical answer JSONL")
     args = parser.parse_args()
 
     output_dir = Path(args.output_dir)
@@ -133,6 +161,9 @@ def main():
         "domain": args.domain_n,
         "reasoning_term": args.reasoning_term_n,
         "conv_qa": args.conv_qa_n,
+        "atypical_answer": args.atypical_answer_n,
+        "prompt_inversion": args.prompt_inversion_n,
+        "compqa": args.compqa_n,
     }
 
     print(f"Model: {args.model}")
@@ -157,6 +188,7 @@ def main():
                 n, tokenizer, args.model,
                 args.corpus, args.concept_corpus, args.cotqa_path,
                 output_dir, args.stride, args.max_positions_per_layer,
+                atypical_data_path=getattr(args, "atypical_data_path", None),
             )
             manifest["tasks"].append(info)
             total_examples += info["count"]

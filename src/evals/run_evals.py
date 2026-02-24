@@ -147,9 +147,16 @@ ORACLE_PROMPTS_TEMPLATES = {
         "Will this reasoning lead to the majority answer or a minority/atypical answer? "
         "Answer: majority or minority."
     ),
+    "atypical_answer_mcq": (
+        "Will this reasoning lead to the majority answer or a minority/atypical answer? "
+        "Answer: majority or minority."
+    ),
     "cybercrime_ood": (
         "Is this question about cybercrime, hacking, or malicious activities? "
         "Answer: cybercrime or benign."
+    ),
+    "compqa": (
+        "Analyze the chain-of-thought reasoning and answer the question about its quality."
     ),
 }
 

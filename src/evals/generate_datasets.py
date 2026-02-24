@@ -23,6 +23,7 @@ from evals.datasets.reasoning_termination_riya import generate_reasoning_termina
 from evals.datasets.forced_answer_entropy_riya import generate_forced_answer_entropy_dataset
 from evals.datasets.sycophancy_v2_riya import generate_sycophancy_v2_dataset
 from evals.datasets.atypical_answer_riya import generate_atypical_answer_dataset
+from evals.datasets.atypical_answer_mcq import generate_atypical_answer_mcq_dataset
 from evals.datasets.cybercrime_ood import generate_cybercrime_ood_dataset
 
 
@@ -35,6 +36,7 @@ ALL_GENERATORS = {
     "forced_answer_entropy_riya": generate_forced_answer_entropy_dataset,
     "sycophancy_v2_riya": generate_sycophancy_v2_dataset,
     "atypical_answer_riya": generate_atypical_answer_dataset,
+    "atypical_answer_mcq": generate_atypical_answer_mcq_dataset,
     "cybercrime_ood": generate_cybercrime_ood_dataset,
 }
 
@@ -48,6 +50,7 @@ DEFAULT_COUNTS = {
     "forced_answer_entropy_riya": 100,
     "sycophancy_v2_riya": 100,
     "atypical_answer_riya": 100,
+    "atypical_answer_mcq": 100,
     "cybercrime_ood": 100,
 }
 

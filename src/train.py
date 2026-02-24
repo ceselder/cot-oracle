@@ -315,6 +315,18 @@ TASK_REGISTRY = {
         "loader": "load_cot_atypical_answer_data",
         "corpus": "atypical",  # loads from its own JSONL, not main corpus
     },
+    "prompt_inversion": {
+        "arg": "prompt_inversion_n",
+        "module": "dataset_classes.cot_prompt_inversion",
+        "loader": "load_cot_prompt_inversion_data",
+        "corpus": "main",
+    },
+    "compqa": {
+        "arg": "compqa_n",
+        "module": "dataset_classes.cot_compqa",
+        "loader": "load_cot_compqa_data",
+        "corpus": "compqa",
+    },
 }
 
 
@@ -422,6 +434,14 @@ def load_all_tasks(args, tokenizer) -> list[dict]:
                     stride=args.stride,
                     max_positions_per_layer=args.max_positions_per_layer,
                     atypical_data_path=atypical_path,
+                )
+            elif info["corpus"] == "compqa":
+                compqa_cache = str(Path(getattr(args, "precomputed_dir", "data/precomputed")) / "compqa_raw.json")
+                data = loader_fn(
+                    compqa_cache, tokenizer, args.model,
+                    num_examples=n,
+                    stride=args.stride,
+                    max_positions_per_layer=args.max_positions_per_layer,
                 )
             else:
                 data = loader_fn(

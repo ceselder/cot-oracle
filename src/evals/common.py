@@ -439,7 +439,7 @@ def determine_ground_truth(
     elif item.eval_name == "forced_answer_entropy_riya":
         return "pending_entropy_regression"
 
-    elif item.eval_name == "atypical_answer_riya":
+    elif item.eval_name in ("atypical_answer_riya", "atypical_answer_mcq"):
         return item.correct_answer  # "majority" or "minority"
 
     elif item.eval_name == "cybercrime_ood":

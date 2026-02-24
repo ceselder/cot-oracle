@@ -18,17 +18,13 @@ tasks:
     n: 20000
     description: "What would the model answer if stopped at X%? (vLLM targets)"
 
-  load_bearing:
-    n: 15000
-    description: "Is this CoT load-bearing or decorative?"
-
   correctness:
     n: 15000
     description: "Did the model get the right answer?"
 
   decorative:
-    n: 15000
-    description: "Is the CoT decorative?"
+    n: 25000
+    description: "Is the CoT decorative or load-bearing?"
 
   domain:
     n: 0
@@ -49,6 +45,14 @@ tasks:
   atypical_answer:
     n: 20000
     description: "Is this a majority or minority answer? (from 25-rollout distributions)"
+
+  prompt_inversion:
+    n: 20000
+    description: "Reconstruct the original question/prompt from CoT activations"
+
+  compqa:
+    n: 8000
+    description: "Answer questions about CoT reasoning quality (10 types, Gemini GT)"
 
 # Training
 training:
@@ -88,9 +92,11 @@ eval:
     - sentence_insertion
     - reasoning_termination_riya
     - atypical_answer_riya
+    - atypical_answer_mcq
     - cybercrime_ood
     - forced_answer_entropy_riya
     - rot13_reconstruction
+    - compqa
 
 # Data
 data:
