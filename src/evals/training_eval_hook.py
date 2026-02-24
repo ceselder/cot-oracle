@@ -835,7 +835,7 @@ def _score_binary_eval(
         return {}
 
     return {
-        f"unfaith_eval/{eval_name}_acc": correct / total,
+        f"eval/{eval_name}_acc": correct / total,
     }
 
 
@@ -942,10 +942,10 @@ def run_training_evals(
                 recon_metrics = _score_reconstruction_metrics(completed)
                 if recon_metrics:
                     match_rate = recon_metrics.get("avg_token_match_rate", 0.0)
-                    all_metrics[f"unfaith_eval/{eval_name}_match_rate"] = match_rate
+                    all_metrics[f"eval/{eval_name}_match_rate"] = match_rate
                     # n logged to console only, not wandb (clutters charts)
                     if "avg_kl_divergence" in recon_metrics:
-                        all_metrics[f"unfaith_eval/{eval_name}_kl"] = recon_metrics["avg_kl_divergence"]
+                        all_metrics[f"eval/{eval_name}_kl"] = recon_metrics["avg_kl_divergence"]
                     print(f"    {eval_name}: match_rate={match_rate:.3f}")
                 # Wandb table for rot13 — show how it's messing up
                 try:
@@ -964,14 +964,14 @@ def run_training_evals(
                             round(c.metadata.get("token_match_rate", 0.0), 3),
                             round(c.metadata.get("kl_divergence", 0.0) or 0.0, 3),
                         )
-                    all_metrics[f"unfaith_table/{eval_name}"] = rot13_table
+                    all_metrics[f"eval_table/{eval_name}"] = rot13_table
                 except Exception:
                     pass
             elif eval_name == "sentence_insertion":
                 si_metrics = _score_sentence_insertion(completed)
                 if si_metrics:
                     acc = si_metrics.get("accuracy", 0.0)
-                    all_metrics[f"unfaith_eval/{eval_name}_acc"] = acc
+                    all_metrics[f"eval/{eval_name}_acc"] = acc
                     print(f"    {eval_name}: acc={acc:.3f}")
             elif eval_name == "forced_answer_entropy_riya":
                 # Score as top-1 answer prediction accuracy
@@ -993,22 +993,22 @@ def run_training_evals(
                             correct += 1
                 if total > 0:
                     acc = correct / total
-                    all_metrics[f"unfaith_eval/{eval_name}_acc"] = acc
+                    all_metrics[f"eval/{eval_name}_acc"] = acc
                     print(f"    {eval_name}: top1_acc={acc:.3f} (n={total})")
             else:
                 # Binary evals
                 binary_metrics = _score_binary_eval(eval_name, completed, max_score=max_items_per_eval)
                 all_metrics.update(binary_metrics)
                 if binary_metrics:
-                    acc_key = f"unfaith_eval/{eval_name}_acc"
+                    acc_key = f"eval/{eval_name}_acc"
                     if acc_key in binary_metrics:
-                        print(f"    {eval_name}: acc={binary_metrics[acc_key]:.3f} (n={binary_metrics.get(f'unfaith_eval/{eval_name}_n', 0)})")
+                        print(f"    {eval_name}: acc={binary_metrics[acc_key]:.3f} (n={binary_metrics.get(f'eval/{eval_name}_n', 0)})")
 
             # Log a sample oracle response for qualitative inspection
             for c in completed:
                 if c.oracle_response:
-                    all_metrics[f"unfaith_eval/{eval_name}_sample_oracle"] = c.oracle_response[:200]
-                    all_metrics[f"unfaith_eval/{eval_name}_sample_gt"] = c.ground_truth_label
+                    all_metrics[f"eval/{eval_name}_sample_oracle"] = c.oracle_response[:200]
+                    all_metrics[f"eval/{eval_name}_sample_gt"] = c.ground_truth_label
                     break
 
             # Wandb table for all unfaith evals
@@ -1034,7 +1034,7 @@ def run_training_evals(
                             is_correct,
                         )
                     if len(table.data) > 0:
-                        all_metrics[f"unfaith_table/{eval_name}"] = table
+                        all_metrics[f"eval_table/{eval_name}"] = table
             except Exception:
                 pass
 
@@ -1050,7 +1050,7 @@ def run_training_evals(
     acc_keys = [k for k in all_metrics if k.endswith("_acc")]
     if acc_keys:
         acc_values = [all_metrics[k] for k in acc_keys]
-        all_metrics["unfaith_eval/mean_acc"] = sum(acc_values) / len(acc_values)
+        all_metrics["eval/mean_acc"] = sum(acc_values) / len(acc_values)
 
     # Restore training state
     if was_training:
