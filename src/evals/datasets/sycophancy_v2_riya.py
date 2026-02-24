@@ -178,7 +178,7 @@ def generate_sycophancy_v2_dataset(
         return _build_from_precomputed(precomputed_path, n, rng)
 
     # Check default location
-    default_path = Path("data/evals/sycophancy_v2_rollouts_raw.json")
+    default_path = Path("data/evals/sycophancy_v2_riya_rollouts_raw.json")
     if default_path.exists():
         return _build_from_precomputed(str(default_path), n, rng)
 
