@@ -36,6 +36,7 @@ from evals.datasets.ood_topic import generate_ood_topic_eval
 from evals.datasets.reasoning_termination import generate_reasoning_termination_dataset
 from evals.datasets.forced_answer_entropy import generate_forced_answer_entropy_dataset
 from evals.datasets.sycophancy_v2 import generate_sycophancy_v2_dataset
+from evals.datasets.atypical_answer import generate_atypical_answer_dataset
 
 
 ALL_GENERATORS = {
@@ -60,6 +61,7 @@ ALL_GENERATORS = {
     "reasoning_termination": generate_reasoning_termination_dataset,
     "forced_answer_entropy": generate_forced_answer_entropy_dataset,
     "sycophancy_v2": generate_sycophancy_v2_dataset,
+    "atypical_answer": generate_atypical_answer_dataset,
 }
 
 # Default item counts per eval (some evals have specific defaults)
@@ -85,6 +87,7 @@ DEFAULT_COUNTS = {
     "reasoning_termination": 100,
     "forced_answer_entropy": 100,
     "sycophancy_v2": 100,
+    "atypical_answer": 100,
 }
 
 
@@ -130,6 +133,8 @@ def main():
             kwargs["cache_path"] = str(Path(output_dir).parent / "sycophancy_scruples_rephrases.json")
         if name == "sycophancy_v2":
             kwargs["precomputed_path"] = str(output_dir / "sycophancy_v2_rollouts_raw.json")
+        if name == "atypical_answer":
+            kwargs["precomputed_path"] = str(output_dir / "atypical_answer_rollouts_raw.json")
 
         items = gen_fn(**kwargs)
         if items:

@@ -238,6 +238,18 @@ EVAL_PARSING = {
         "positive_label": "",
         "negative_label": "",
     },
+    "atypical_answer": {
+        "positive_keywords": [
+            "majority", "typical", "common", "expected", "usual",
+            "most likely", "standard",
+        ],
+        "negative_keywords": [
+            "minority", "atypical", "unusual", "rare", "uncommon",
+            "unexpected", "surprising",
+        ],
+        "positive_label": "majority",
+        "negative_label": "minority",
+    },
 }
 
 

@@ -469,8 +469,9 @@ def run_eval(
                 exact = 1 if pred.lower().strip() == target.lower().strip() else 0
                 scores.append(score)
                 exact_matches += exact
+                oracle_prompt = getattr(dp, 'prompt', '') or str(dp.meta_info.get('prompt', ''))[:300]
                 table.add_data(
-                    i, dp.datapoint_type, dp.prompt[:300],
+                    i, dp.datapoint_type, oracle_prompt[:300],
                     pred[:500], target[:500],
                     round(score, 3), exact,
                     len(pred.split()), len(target.split()),
@@ -640,6 +641,7 @@ def train(
     total_tokens = 0
     train_start_time = time.time()
     last_step_time = time.time()
+    eval_time_total = 0.0
 
     prev_dominant_task = None  # Track task transitions for phase checkpoints
 
@@ -715,7 +717,8 @@ def train(
                 "train/total_tokens": total_tokens,
                 "train/batch_tokens": batch_tokens,
                 "train/step_time": now - last_step_time,
-                "train/wallclock_hours": (now - train_start_time) / 3600,
+                "train/wallclock_hours": (now - train_start_time - eval_time_total) / 3600,
+                "eval/wallclock_hours": eval_time_total / 3600,
             }
             last_step_time = now
             for task, ema_val in task_loss_ema.items():
@@ -742,6 +745,7 @@ def train(
             # Task-level eval
             if global_step > 0 and global_step % args.eval_steps == 0:
                 print(f"\n--- Task eval at step {global_step} ---")
+                eval_start = time.time()
                 try:
                     run_eval(
                         eval_datasets, model, tokenizer, submodule,
@@ -750,11 +754,14 @@ def train(
                     )
                 except Exception as e:
                     print(f"  Task eval FAILED: {e}")
+                eval_time_total += time.time() - eval_start
                 model.train()
 
             # Unfaithfulness eval
             if global_step > 0 and global_step % args.unfaith_eval_steps == 0:
+                eval_start = time.time()
                 run_unfaith_evals(model, tokenizer, args.model, global_step, args)
+                eval_time_total += time.time() - eval_start
                 model.train()
 
             # Save checkpoint
