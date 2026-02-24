@@ -638,6 +638,8 @@ def train(
     task_loss_ema = {}
     ema_alpha = 0.1
     total_tokens = 0
+    train_start_time = time.time()
+    last_step_time = time.time()
 
     prev_dominant_task = None  # Track task transitions for phase checkpoints
 
@@ -706,23 +708,24 @@ def train(
                     task_loss_ema[task] = ema_alpha * avg + (1 - ema_alpha) * task_loss_ema[task]
 
             # Logging
+            now = time.time()
             log_dict = {
                 "train/loss": loss.item(),
                 "train/learning_rate": scheduler.get_last_lr()[0],
                 "train/total_tokens": total_tokens,
                 "train/batch_tokens": batch_tokens,
+                "train/step_time": now - last_step_time,
+                "train/wallclock_hours": (now - train_start_time) / 3600,
             }
+            last_step_time = now
             for task, ema_val in task_loss_ema.items():
                 log_dict[f"train/loss_{task}"] = ema_val
 
-            # Log batch task composition (what fraction of this batch is each task)
+            # Track dominant task for sequential mode phase transitions
             batch_task_counts = defaultdict(int)
             for t in batch_types:
                 batch_task_counts[t] += 1
             dominant_task = max(batch_task_counts, key=batch_task_counts.get)
-            log_dict["train/active_task_idx"] = task_to_idx.get(dominant_task, -1)
-            for t, count in batch_task_counts.items():
-                log_dict[f"train/batch_frac_{t}"] = count / len(batch_types)
 
             wandb.log(log_dict, step=global_step)
 
