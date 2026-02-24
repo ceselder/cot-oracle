@@ -20,6 +20,7 @@ Usage from train_v4.py (or similar):
 from __future__ import annotations
 
 import gc
+import json
 import math
 import random
 import traceback
@@ -33,6 +34,7 @@ from evals.common import (
     EvalItem,
     CompletedEvalItem,
     load_eval_items,
+    download_evals_from_hf,
     parse_oracle_binary,
     extract_numerical_answer,
     determine_ground_truth,
@@ -639,6 +641,15 @@ def _score_binary_eval(
     }
 
 
+def _save_table_to_disk(log_dir: Path, name: str, step: int, columns: list[str], rows: list[list]):
+    """Save a wandb-style table to disk as nicely formatted JSON."""
+    log_dir.mkdir(parents=True, exist_ok=True)
+    records = [dict(zip(columns, row)) for row in rows]
+    path = log_dir / f"{name}_step{step}.json"
+    with open(path, "w") as f:
+        json.dump({"step": step, "name": name, "n": len(records), "rows": records}, f, indent=2, default=str)
+
+
 def run_training_evals(
     model,
     tokenizer,
@@ -650,6 +661,8 @@ def run_training_evals(
     skip_rot13: bool = False,
     oracle_adapter_name: str = "default",
     activation_cache_dir: str | None = None,
+    log_dir: Path | str | None = None,
+    hf_org: str = "mats-10-sprint-cs-jb",
 ) -> dict[str, Any]:
     """Run all 6 unfaithfulness evals and return results dict for wandb logging.
 
@@ -679,9 +692,6 @@ def run_training_evals(
         }
     """
     eval_dir = Path(eval_dir)
-    if not eval_dir.exists():
-        print(f"  [training_eval] Warning: eval dir {eval_dir} does not exist, skipping")
-        return {}
 
     # Configure oracle mode: use trained adapter with paragraph tokens
     set_oracle_mode(trained=True, oracle_adapter_name=oracle_adapter_name, stride=5)
@@ -695,23 +705,33 @@ def run_training_evals(
     gc.collect()
 
     all_metrics: dict[str, Any] = {}
+    _log_dir = Path(log_dir) if log_dir else None
     cache_dir = Path(activation_cache_dir) if activation_cache_dir else None
     if cache_dir and cache_dir.exists():
         print(f"  [training_eval] Using activation cache: {cache_dir}")
 
     evals_to_run = [e for e in TRAINING_EVALS if not (skip_rot13 and e == "rot13_reconstruction")]
 
-    for eval_name in evals_to_run:
-        eval_file = eval_dir / f"{eval_name}.json"
-        if not eval_file.exists():
-            print(f"  [training_eval] Warning: {eval_file} not found, skipping {eval_name}")
-            continue
+    # Pre-download all evals from HF (uses local cache if already present)
+    try:
+        hf_items = download_evals_from_hf(evals_to_run, hf_org=hf_org, cache_dir=eval_dir)
+    except Exception as e:
+        print(f"  [training_eval] HF download failed ({e}), falling back to local files")
+        hf_items = {}
 
+    for eval_name in evals_to_run:
         print(f"  [training_eval] Running {eval_name}...")
 
         try:
-            items = load_eval_items(eval_file)
-            items = _subsample(items, max_items_per_eval, seed=step + hash(eval_name))
+            if eval_name in hf_items:
+                items = hf_items[eval_name]
+            else:
+                eval_file = eval_dir / f"{eval_name}.json"
+                if not eval_file.exists():
+                    print(f"  [training_eval] Warning: {eval_file} not found, skipping {eval_name}")
+                    continue
+                items = load_eval_items(eval_file)
+            items = _subsample(items, max_items_per_eval, seed=42 + hash(eval_name))
 
             # Dispatch to appropriate handler
             if eval_name == "decorative_cot":
@@ -757,21 +777,22 @@ def run_training_evals(
                 # Wandb table for rot13 — show how it's messing up
                 try:
                     import wandb
-                    rot13_table = wandb.Table(columns=[
-                        "id", "question", "rot13_cot", "oracle_output",
-                        "clean_cot", "match_rate", "kl",
-                    ])
+                    rot13_cols = ["id", "question", "rot13_cot", "oracle_output", "clean_cot", "match_rate", "kl"]
+                    rot13_table = wandb.Table(columns=rot13_cols)
+                    rot13_rows = []
                     for c in completed:
-                        rot13_table.add_data(
-                            c.example_id,
-                            c.clean_prompt[:200],
-                            (c.test_response or "")[:500],
-                            (c.oracle_response or "")[:500],
+                        row = [
+                            c.example_id, c.clean_prompt[:200],
+                            (c.test_response or "")[:500], (c.oracle_response or "")[:500],
                             (c.clean_response or "")[:500],
                             round(c.metadata.get("token_match_rate", 0.0), 3),
                             round(c.metadata.get("kl_divergence", 0.0) or 0.0, 3),
-                        )
+                        ]
+                        rot13_table.add_data(*row)
+                        rot13_rows.append(row)
                     all_metrics[f"unfaith_table/{eval_name}"] = rot13_table
+                    if _log_dir:
+                        _save_table_to_disk(_log_dir, f"unfaith_table_{eval_name}", step, rot13_cols, rot13_rows)
                 except Exception:
                     pass
             elif eval_name == "sentence_insertion":
@@ -802,24 +823,22 @@ def run_training_evals(
                 if eval_name != "rot13_reconstruction":  # rot13 has its own table above
                     cols = ["id", "question", "oracle_output", "ground_truth", "correct"]
                     table = wandb.Table(columns=cols)
+                    table_rows = []
                     for c in completed:
                         if not c.oracle_response:
                             continue
-                        # Re-score for table
                         gt = c.ground_truth_label
                         oracle = c.oracle_response[:300]
                         is_correct = "?"
                         if gt and gt not in {"indeterminate", "pending_manual", "pending_multi_run"}:
                             is_correct = "yes" if gt.lower() in oracle.lower() else "no"
-                        table.add_data(
-                            c.example_id,
-                            (c.test_prompt or c.clean_prompt or "")[:200],
-                            oracle,
-                            gt or "",
-                            is_correct,
-                        )
+                        row = [c.example_id, (c.test_prompt or c.clean_prompt or "")[:200], oracle, gt or "", is_correct]
+                        table.add_data(*row)
+                        table_rows.append(row)
                     if len(table.data) > 0:
                         all_metrics[f"unfaith_table/{eval_name}"] = table
+                    if _log_dir and table_rows:
+                        _save_table_to_disk(_log_dir, f"unfaith_table_{eval_name}", step, cols, table_rows)
             except Exception:
                 pass
 

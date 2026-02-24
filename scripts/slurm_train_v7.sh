@@ -5,8 +5,8 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=64
-#SBATCH --gres=gpu:h100:8
-#SBATCH --mem=90G
+#SBATCH --gres=gpu:8
+#SBATCH --mem=600G
 #SBATCH --time=6:00:00
 #SBATCH --output=logs/slurm_v7_%j.out
 #SBATCH --error=logs/slurm_v7_%j.err
@@ -36,11 +36,11 @@ echo ""
 pkill -f "torchrun.*train_mixed" 2>/dev/null || true
 sleep 2
 
-# ── Sync venv if needed ─────────────────────────────────────
-if [ ! -f "$VENV/bin/python" ]; then
-    echo "Building venv..."
-    UV_PROJECT_ENVIRONMENT="$VENV" uv sync
-fi
+# ── Sync venv (always, to fix stale envs) ────────────────────
+echo "Syncing venv at $VENV..."
+UV_PROJECT_ENVIRONMENT="$VENV" uv sync
+echo "Using python: $(python --version 2>&1)"
+echo "transformers: $(python -c 'import transformers; print(transformers.__version__, transformers.__file__)' 2>&1)"
 
 # ── Launch training ──────────────────────────────────────────
 torchrun --nproc_per_node=8 \
@@ -52,10 +52,9 @@ torchrun --nproc_per_node=8 \
     --batch-size 8 \
     --effective-batch-size 128 \
     --epochs 3 \
-    --eval-every-n-examples 12800 \
-    --save-dir /ceph/scratch/jbauer/checkpoints/cot_oracle_v7 \
+    --save-dir /ceph/scratch/jbauer/checkpoints/cot_oracle_v7_8gpu \
     --wandb-project cot_oracle \
-    --wandb-run "v7-sequential-8xH100" \
+    --wandb-run "v7-sequential" \
     --no-curriculum \
     --position-stride 5 \
     --max-positions 50 \

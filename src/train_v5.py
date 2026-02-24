@@ -426,9 +426,18 @@ def _token_f1(prediction: str, reference: str) -> float:
     return 2 * precision * recall / (precision + recall)
 
 
+def _save_table_to_disk(log_dir: Path, name: str, global_step: int, columns: list[str], rows: list[list]):
+    """Save a wandb-style table to disk as nicely formatted JSON."""
+    log_dir.mkdir(parents=True, exist_ok=True)
+    records = [dict(zip(columns, row)) for row in rows]
+    path = log_dir / f"{name}_step{global_step}.json"
+    with open(path, "w") as f:
+        json.dump({"step": global_step, "name": name, "n": len(records), "rows": records}, f, indent=2, default=str)
+
+
 def run_eval(
     eval_datasets, model, tokenizer, submodule, device, dtype,
-    global_step, eval_batch_size, steering_coefficient,
+    global_step, eval_batch_size, steering_coefficient, log_dir=None,
 ):
     """Run fuzzy eval with token F1 scoring + wandb table logging."""
     import wandb
@@ -456,10 +465,9 @@ def run_eval(
             )
 
             scores = []
-            table = wandb.Table(columns=[
-                "id", "type", "oracle_prompt", "prediction", "target",
-                "token_f1", "pred_tokens", "target_tokens",
-            ])
+            columns = ["id", "type", "oracle_prompt", "prediction", "target", "token_f1", "pred_tokens", "target_tokens"]
+            table = wandb.Table(columns=columns)
+            rows = []
 
             for i, (resp, dp) in enumerate(zip(eval_responses, eval_datasets[ds])):
                 pred = resp.api_response.strip()
@@ -467,17 +475,12 @@ def run_eval(
                 score = _token_f1(pred, target)
                 scores.append(score)
                 oracle_prompt = getattr(dp, 'prompt', '') or str(dp.meta_info.get('prompt', ''))[:300]
-                table.add_data(
-                    i, dp.datapoint_type, oracle_prompt[:300],
-                    pred[:500], target[:500],
-                    round(score, 3),
-                    len(pred.split()), len(target.split()),
-                )
+                row = [i, dp.datapoint_type, oracle_prompt[:300], pred[:500], target[:500], round(score, 3), len(pred.split()), len(target.split())]
+                table.add_data(*row)
+                rows.append(row)
 
             avg_score = sum(scores) / len(scores) if scores else 0.0
-            wandb.log({
-                f"eval/{ds}": avg_score,
-            }, step=global_step)
+            wandb.log({f"eval/{ds}": avg_score}, step=global_step)
             print(f"  Step {global_step} | {ds}: token_f1={avg_score:.3f}")
 
             if eval_responses:
@@ -485,6 +488,9 @@ def run_eval(
                 print(f"    targ='{eval_datasets[ds][0].target_output.strip()[:120]}'")
 
             wandb.log({f"eval_table/{ds}": table}, step=global_step)
+
+            if log_dir:
+                _save_table_to_disk(log_dir, f"eval_table_{ds}", global_step, columns, rows)
         except Exception as e:
             print(f"  Eval FAILED for {ds}: {e}")
 
@@ -492,7 +498,7 @@ def run_eval(
     torch.cuda.empty_cache()
 
 
-def run_unfaith_evals(model, tokenizer, model_name, global_step, args):
+def run_unfaith_evals(model, tokenizer, model_name, global_step, args, log_dir=None):
     """Run unfaithfulness evals if available."""
     try:
         from evals.training_eval_hook import run_training_evals
@@ -507,6 +513,7 @@ def run_unfaith_evals(model, tokenizer, model_name, global_step, args):
             skip_rot13=(global_step < args.rot13_start_step),
             oracle_adapter_name="default",
             activation_cache_dir=args.activation_cache_dir,
+            log_dir=log_dir,
         )
         if metrics:
             wandb.log(metrics, step=global_step)
@@ -636,6 +643,7 @@ def train(
         print(f"    {idx}: {task}")
 
     save_dir.mkdir(parents=True, exist_ok=True)
+    log_dir = save_dir / "eval_logs"
 
     print(f"\n  LR: {args.lr}")
     print(f"  Batch: {args.batch_size}")
@@ -764,7 +772,7 @@ def train(
                     run_eval(
                         eval_datasets, model, tokenizer, submodule,
                         device, dtype, global_step, args.eval_batch_size,
-                        args.steering_coefficient,
+                        args.steering_coefficient, log_dir=log_dir,
                     )
                 except Exception as e:
                     print(f"  Task eval FAILED: {e}")
@@ -774,7 +782,7 @@ def train(
             # Unfaithfulness eval
             if global_step > 0 and global_step % args.unfaith_eval_steps == 0:
                 eval_start = time.time()
-                run_unfaith_evals(model, tokenizer, args.model, global_step, args)
+                run_unfaith_evals(model, tokenizer, args.model, global_step, args, log_dir=log_dir)
                 eval_time_total += time.time() - eval_start
                 model.train()
 
@@ -792,12 +800,12 @@ def train(
         run_eval(
             eval_datasets, model, tokenizer, submodule,
             device, dtype, global_step, args.eval_batch_size,
-            args.steering_coefficient,
+            args.steering_coefficient, log_dir=log_dir,
         )
     except Exception as e:
         print(f"  Final task eval FAILED: {e}")
 
-    run_unfaith_evals(model, tokenizer, args.model, global_step, args)
+    run_unfaith_evals(model, tokenizer, args.model, global_step, args, log_dir=log_dir)
 
     # Save final
     final_path = save_dir / "final"
@@ -1090,6 +1098,7 @@ def main():
         name=run_name,
         config=vars(args),
         tags=["v6", args.model.split("/")[-1]] + enabled_tasks,
+        settings=wandb.Settings(console="wrap"),
     )
 
     save_dir = Path(args.save_dir)

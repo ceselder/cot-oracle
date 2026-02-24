@@ -24,6 +24,7 @@ Usage:
 """
 
 import argparse
+import json
 import multiprocessing as mp
 import os
 import random
@@ -88,12 +89,12 @@ STAGE2_TASKS = {
 TRAINING_EVAL_TASK_NAMES = {f"eval_{t}" for t in EVAL_TRAINING_TASKS}
 
 # Display names: strip cot_/eval_ prefixes for HF-style naming in wandb and print
-def _display_name(dtype: str) -> str:
-    if dtype.startswith("cot_"):
-        return dtype[4:]
-    if dtype.startswith("eval_"):
-        return dtype[5:]
-    return dtype
+def _display_name(datapoint_type: str) -> str:
+    if datapoint_type.startswith("cot_"):
+        return datapoint_type[4:]
+    if datapoint_type.startswith("eval_"):
+        return datapoint_type[5:]
+    return datapoint_type
 
 
 # ---------------------------------------------------------------------------
@@ -957,9 +958,9 @@ def build_training_mixture(
 
     print(f"Total training examples: {len(all_data)}")
     type_counts = Counter(dp.datapoint_type for dp in all_data)
-    for dtype, count in sorted(type_counts.items()):
+    for dpt, count in sorted(type_counts.items()):
         pct = count / len(all_data) * 100
-        print(f"  {_display_name(dtype)}: {count} ({pct:.1f}%)")
+        print(f"  {_display_name(dpt)}: {count} ({pct:.1f}%)")
 
     return all_data
 
@@ -1103,8 +1104,8 @@ def main():
     parser.add_argument("--wandb-project", default="cot_oracle")
     parser.add_argument("--wandb-run", default="")
     parser.add_argument("--wandb-run-id", default="", help="Resume a specific wandb run by ID")
-    parser.add_argument("--eval-every-n-examples", type=int, default=12800, help="Run evals every N training examples (converted to steps internally)")
-    parser.add_argument("--save-steps", type=int, default=None, help="Save checkpoint every N steps (default: match eval cadence)")
+    parser.add_argument("--min-evals-per-stage", type=int, default=3, help="Minimum evals per sequential stage")
+    parser.add_argument("--max-evals-per-stage", type=int, default=10, help="Maximum evals per sequential stage")
     parser.add_argument("--gradient-checkpointing", action="store_true", default=True)
     parser.add_argument("--eval-dir", default="data/evals")
     parser.add_argument("--fast-eval-n", type=int, default=10)
@@ -1120,6 +1121,7 @@ def main():
     parser.add_argument("--max-positions", type=int, default=50, help="Cap positions per example (prevents huge prefixes)")
     parser.add_argument("--stage2-order", nargs="+", default=STAGE2_ORDER_DEFAULT, help="Order of stage-2 tasks (each becomes its own sub-stage)")
     parser.add_argument("--no-data-cache", action="store_true", help="Force rebuild training data (ignore persistent cache)")
+    parser.add_argument("--resume-from", default=None, help="Resume from checkpoint dir (reads training_state.json for examples_seen)")
     parser.add_argument("--num-workers", type=int, default=None, help="Workers for parallel data conversion (default: min(cpu_count, 8))")
     # Task size overrides
     parser.add_argument("--n-context-pred", type=int, default=100000)
@@ -1169,15 +1171,10 @@ def main():
     # Compute gradient accumulation to keep effective batch size constant across GPU counts
     grad_accum = args.effective_batch_size // (args.batch_size * world_size)
     grad_accum = max(1, grad_accum)
-    # Convert example-based eval cadence to steps
     effective_bs = args.batch_size * world_size * grad_accum
-    eval_steps = max(1, args.eval_every_n_examples // effective_bs)
-    save_steps = args.save_steps if args.save_steps is not None else eval_steps
     if rank == 0:
         print(f"GPU-independent training: effective_batch={effective_bs}, "
               f"micro_batch={args.batch_size}, world_size={world_size}, grad_accum={grad_accum}")
-        print(f"Eval every {args.eval_every_n_examples} examples = every {eval_steps} steps")
-        print(f"Save every {save_steps} steps")
 
     # Suppress tqdm on non-rank-0 processes
     if rank != 0:
@@ -1248,9 +1245,9 @@ def main():
                 by_type[dp.datapoint_type].append(dp)
 
             final_training = []
-            for dtype, dps in by_type.items():
+            for dpt, dps in by_type.items():
                 if len(dps) > 100:
-                    eval_datasets[dtype] = dps[-100:]
+                    eval_datasets[dpt] = dps[-100:]
                     final_training.extend(dps[:-100])
                 else:
                     final_training.extend(dps)
@@ -1302,8 +1299,6 @@ def main():
         train_batch_size=args.batch_size,
         eval_batch_size=args.batch_size,
         gradient_accumulation_steps=grad_accum,
-        eval_steps=eval_steps,
-        save_steps=save_steps,
         save_dir=args.save_dir,
         wandb_project=args.wandb_project,
         wandb_run_name=args.wandb_run or f"cot_oracle_randlayer_{args.model.split('/')[-1]}",
@@ -1355,6 +1350,7 @@ def main():
     SEQUENTIAL_PRIORITY = ["cot_context_prediction", "cot_sentence_prediction"]
 
     stage_boundaries = []
+    task_order = []  # (task_name, count) for stage boundary labels
     if args.no_curriculum:
         # Sequential ordering: large generative tasks first, then smaller tasks by count
         rng = random.Random(42)
@@ -1365,19 +1361,27 @@ def main():
         ordered = []
         seen = set()
         # Priority tasks first (context_prediction, sentence_prediction)
-        for dtype in SEQUENTIAL_PRIORITY:
-            if dtype in by_type:
-                dps = by_type[dtype]
+        for dpt in SEQUENTIAL_PRIORITY:
+            if dpt in by_type:
+                dps = by_type[dpt]
                 rng.shuffle(dps)
                 ordered.extend(dps)
-                seen.add(dtype)
+                seen.add(dpt)
+                task_order.append((dpt, len(dps)))
 
         # Remaining tasks sorted by count (largest first)
-        remaining = [(dtype, dps) for dtype, dps in by_type.items() if dtype not in seen]
+        remaining = [(dpt, dps) for dpt, dps in by_type.items() if dpt not in seen]
         remaining.sort(key=lambda x: -len(x[1]))
-        for dtype, dps in remaining:
+        for dpt, dps in remaining:
             rng.shuffle(dps)
             ordered.extend(dps)
+            task_order.append((dpt, len(dps)))
+
+        # Compute stage boundaries (cumulative example counts at task transitions)
+        cumulative = 0
+        for dpt, count in task_order[:-1]:  # no boundary needed after last task
+            cumulative += count
+            stage_boundaries.append(cumulative)
 
         final_training = ordered
         print(f"Sequential ordering: {len(final_training)} examples (large tasks first)")
@@ -1420,9 +1424,9 @@ def main():
             seen_set.add(dp.datapoint_type)
             seen_types.append(dp.datapoint_type)
 
-    for dtype in seen_types:
-        lengths = by_type_train[dtype]
-        name = _display_name(dtype)
+    for dpt in seen_types:
+        lengths = by_type_train[dpt]
+        name = _display_name(dpt)
         avg = np.mean(lengths)
         std = np.std(lengths)
         print(f"  {name:<30} {len(lengths):>8} {avg:>10.0f} {std:>8.0f}")
@@ -1446,10 +1450,78 @@ def main():
         print(f"  {dname:<30} {len(items):>8} {avg:>10.0f} {std:>8.0f}")
     print(f"{'=' * 72}")
 
-    if stage_boundaries:
+    # Build adaptive per-stage eval schedule in EXAMPLES-SEEN space (GPU-independent).
+    # Schedules use cumulative example counts, not steps, so they're valid across any GPU count.
+    total_examples = len(final_training)
+    # Stage boundaries already in example-space; add 0 and total
+    example_boundaries = [0] + list(stage_boundaries) + [total_examples]
+    eval_step_set = set()  # these are examples_seen values, not optimizer steps
+    for i in range(len(example_boundaries) - 1):
+        stage_start = example_boundaries[i]
+        stage_end = example_boundaries[i + 1]
+        stage_len = stage_end - stage_start
+        # Scale n_evals by stage size: ~1 eval per 2000 examples, clamped [3, 10]
+        n_evals = max(args.min_evals_per_stage, min(args.max_evals_per_stage, stage_len // 2000))
+        stride = max(1, stage_len // n_evals)
+        for j in range(n_evals):
+            eval_step_set.add(stage_start + j * stride)
+        eval_step_set.add(stage_end)  # always eval at stage boundary
+    eval_step_set.discard(0)  # step 0 handled by eval_on_start
+    # Repeat for each epoch
+    epoch_eval_points = set(eval_step_set)
+    for epoch in range(1, cfg.num_epochs):
+        for s in epoch_eval_points:
+            eval_step_set.add(s + epoch * total_examples)
+    cfg.eval_step_set = eval_step_set
+    # Save checkpoints only at stage boundaries + epoch ends (not every eval)
+    save_step_set = set()
+    for b in example_boundaries[1:]:  # skip 0, include all stage boundaries + total
+        for epoch in range(cfg.num_epochs):
+            save_step_set.add(b + epoch * total_examples)
+    save_step_set.discard(0)
+    cfg.save_step_set = save_step_set
+
+    # Store curriculum info for wandb
+    stages = []
+    if task_order:
+        cumulative = 0
+        for name, count in task_order:
+            stages.append({"task": _display_name(name), "examples": count, "start": cumulative, "end": cumulative + count})
+            cumulative += count
+    cfg.curriculum_info = {
+        "stages": stages,
+        "stage_boundaries": list(stage_boundaries),
+        "eval_schedule_epoch1": sorted(s for s in eval_step_set if s <= total_examples),
+        "save_schedule_epoch1": sorted(s for s in save_step_set if s <= total_examples),
+        "n_evals_total": len(eval_step_set),
+        "n_saves_total": len(save_step_set),
+        "examples_per_epoch": total_examples,
+    }
+
+    # Handle resume from checkpoint
+    if args.resume_from:
+        state_path = os.path.join(args.resume_from, "training_state.json")
+        with open(state_path) as f:
+            state = json.load(f)
+        cfg.resume_from_examples = state["examples_seen"]
+        cfg.load_lora_path = args.resume_from
+        # Auto-resume wandb run if not explicitly set
+        if not args.wandb_run_id and state.get("wandb_run_id"):
+            os.environ["WANDB_RUN_ID"] = state["wandb_run_id"]
+            os.environ["WANDB_RESUME"] = "allow"
+        print(f"  Resuming from {args.resume_from}: {cfg.resume_from_examples} examples seen"
+              f" (wandb run: {state.get('wandb_run_id', 'new')})")
+
+    if stage_boundaries and task_order:
         for i, boundary in enumerate(stage_boundaries):
-            step = boundary // effective_bs
-            print(f"  Curriculum: stage {i+1}→{i+2} at ~step {step}")
+            print(f"  Stage boundary: {_display_name(task_order[i][0])}→{_display_name(task_order[i+1][0])} at example {boundary}")
+    elif stage_boundaries:
+        for i, boundary in enumerate(stage_boundaries):
+            print(f"  Curriculum: stage {i+1}→{i+2} at example {boundary}")
+    print(f"  Eval schedule: {len(eval_step_set)} evals across {len(example_boundaries)-1} stages × {cfg.num_epochs} epochs")
+    print(f"  Save schedule: {len(save_step_set)} checkpoints (stage boundaries + epoch ends)")
+    print(f"  Eval at (epoch 1): {sorted(s for s in eval_step_set if s <= total_examples)}")
+    print(f"  Save at (epoch 1): {sorted(s for s in save_step_set if s <= total_examples)}")
 
     train_model(
         cfg=cfg,

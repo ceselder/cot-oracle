@@ -6,6 +6,7 @@ Two-phase design:
   Phase B (GPU):    Run model → CompletedEvalItem with responses, activations, oracle output
 """
 
+import ast
 import json
 import math
 import re
@@ -481,6 +482,82 @@ def compute_ranking_metrics(
 # ============================================================
 # Serialization
 # ============================================================
+
+def _unflatten_hf_row(row: dict) -> dict:
+    """Reverse the flatten_metadata() transform from upload_eval_datasets.py.
+
+    Strips 'meta_' prefix, reconstructs nested metadata dict, parses stringified
+    complex types (lists, dicts, None) back to Python objects.
+    """
+    top = {}
+    metadata = {}
+    for k, v in row.items():
+        if k.startswith("meta_"):
+            mk = k[5:]  # strip "meta_"
+            # Reverse str() stringification: handle "None", try json.loads then ast.literal_eval
+            if isinstance(v, str):
+                if v == "None":
+                    v = None
+                else:
+                    for parser in (json.loads, ast.literal_eval):
+                        try:
+                            parsed = parser(v)
+                            if isinstance(parsed, (list, dict)):
+                                v = parsed
+                                break
+                        except (json.JSONDecodeError, ValueError, SyntaxError):
+                            continue
+            metadata[mk] = v
+        else:
+            top[k] = v
+    top["metadata"] = metadata
+    return top
+
+
+def download_evals_from_hf(
+    eval_names: list[str],
+    hf_org: str = "mats-10-sprint-cs-jb",
+    cache_dir: Path | str = "data/evals",
+) -> dict[str, list[EvalItem]]:
+    """Download eval datasets from HuggingFace and return as EvalItems.
+
+    Each eval is stored on HF as '{hf_org}/cot-oracle-eval-{name_with_hyphens}'.
+    Downloads, unflattens the metadata, and caches to local JSON so subsequent
+    runs don't re-download.
+
+    Returns:
+        Dict mapping eval_name -> list[EvalItem].
+    """
+    from datasets import load_dataset
+
+    cache_dir = Path(cache_dir)
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    result = {}
+
+    for eval_name in eval_names:
+        local_path = cache_dir / f"{eval_name}.json"
+
+        # Use cached local file if it exists
+        if local_path.exists():
+            result[eval_name] = load_eval_items(local_path)
+            continue
+
+        repo_id = f"{hf_org}/cot-oracle-eval-{eval_name.replace('_', '-')}"
+        print(f"  [download_evals] Downloading {repo_id} from HuggingFace...")
+        ds = load_dataset(repo_id, split="train")
+
+        items = []
+        for row in ds:
+            d = _unflatten_hf_row(dict(row))
+            items.append(EvalItem(**d))
+
+        # Cache to disk
+        save_eval_items(items, local_path)
+        print(f"  [download_evals] Cached {len(items)} items to {local_path}")
+        result[eval_name] = items
+
+    return result
+
 
 def save_eval_items(items: list[EvalItem], path: Path) -> None:
     path = Path(path)
