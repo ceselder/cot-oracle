@@ -1029,6 +1029,17 @@ def run_eval_batched(
 
         oracle_response = ""
         activations_path = None
+
+        # For some evals, the CoT text for activation extraction comes from
+        # metadata, not from model generation:
+        # - sentence_insertion: uses spliced_cot_text (pre-spliced CoT)
+        # - reasoning_termination_riya: uses cot_prefix (partial CoT)
+        cot_for_activations = test_response
+        if item.eval_name == "sentence_insertion":
+            cot_for_activations = item.metadata.get("spliced_cot_text", test_response)
+        elif item.eval_name == "reasoning_termination_riya":
+            cot_for_activations = item.metadata.get("cot_prefix", test_response)
+
         if cached_bundle and cached_bundle.activations is not None:
             bundle = cached_bundle
         else:
@@ -1039,7 +1050,7 @@ def run_eval_batched(
                     eval_name=item.eval_name,
                     example_id=item.example_id,
                     prompt=item.test_prompt,
-                    cot_text=test_response,
+                    cot_text=cot_for_activations,
                     act_layer=act_layer,
                     device=device,
                     max_boundaries=10,
