@@ -57,9 +57,11 @@ from evals.run_evals import (
     _ORACLE_MODE,
 )
 from evals.activation_cache import (
+    ActivationBundle,
     extract_activation_bundle as _extract_bundle_raw,
     cache_path as _cache_path,
     load_bundle as _load_bundle,
+    save_bundle as _save_bundle,
 )
 from core.ao import (
     generate_cot,
@@ -127,6 +129,45 @@ def _try_load_cached(cache_dir: Path | None, eval_name: str, example_id: str, de
     except Exception:
         pass
     return None
+
+
+def _auto_cache_bundle(
+    cache_dir: Path | None,
+    *,
+    eval_name: str,
+    example_id: str,
+    prompt: str,
+    cot_text: str,
+    activations: torch.Tensor | None,
+    boundary_positions: list[int],
+    clean_response: str = "",
+    test_response: str = "",
+    clean_answer: str | None = None,
+    test_answer: str | None = None,
+) -> None:
+    """Save an activation bundle to cache for reuse in future evals."""
+    if cache_dir is None or activations is None:
+        return
+    path = _cache_path(cache_dir, eval_name, example_id)
+    if path.exists():
+        return  # already cached
+    bundle = ActivationBundle(
+        eval_name=eval_name,
+        example_id=example_id,
+        prompt=prompt,
+        cot_text=cot_text,
+        activations=activations,
+        boundary_positions=boundary_positions,
+        sentences=[],
+        clean_response=clean_response,
+        test_response=test_response,
+        clean_answer=clean_answer,
+        test_answer=test_answer,
+    )
+    try:
+        _save_bundle(bundle, path)
+    except Exception as e:
+        print(f"    [cache] Failed to save {eval_name}/{example_id}: {e}")
 
 
 def _run_standard_eval(
@@ -223,6 +264,16 @@ def _run_standard_eval(
                 activations = bundle.activations if bundle else None
                 n_positions = len(bundle.boundary_positions) if bundle else 0
 
+                # Auto-cache for next eval run
+                if bundle:
+                    _auto_cache_bundle(
+                        cache_dir, eval_name=eval_name, example_id=item.example_id,
+                        prompt=item.test_prompt, cot_text=test_response,
+                        activations=activations, boundary_positions=bundle.boundary_positions,
+                        clean_response=clean_response, test_response=test_response,
+                        clean_answer=clean_answer, test_answer=test_answer,
+                    )
+
             # Run oracle on activations (this uses the TRAINED adapter)
             oracle_response = ""
             if activations is not None:
@@ -313,6 +364,12 @@ def _run_decorative_cot_eval(
                         if bundle and bundle.activations is not None:
                             activations = bundle.activations
                             n_positions = len(bundle.boundary_positions)
+                            _auto_cache_bundle(
+                                cache_dir, eval_name=item.eval_name, example_id=item.example_id,
+                                prompt=item.test_prompt, cot_text=representative_cot,
+                                activations=activations, boundary_positions=bundle.boundary_positions,
+                                test_response=representative_cot,
+                            )
                     except Exception as e:
                         print(f"    [decorative_cot] Activation extraction failed for {item.example_id}: {e}")
             else:
@@ -359,6 +416,12 @@ def _run_decorative_cot_eval(
                         if bundle and bundle.activations is not None:
                             activations = bundle.activations
                             n_positions = len(bundle.boundary_positions)
+                            _auto_cache_bundle(
+                                cache_dir, eval_name=item.eval_name, example_id=item.example_id,
+                                prompt=item.test_prompt, cot_text=representative_cot,
+                                activations=activations, boundary_positions=bundle.boundary_positions,
+                                test_response=representative_cot,
+                            )
                     except Exception as e:
                         print(f"    [decorative_cot] Activation extraction failed for {item.example_id}: {e}")
 
@@ -440,6 +503,14 @@ def _run_sentence_insertion_eval(
                     bundle = None
                 activations = bundle.activations if bundle else None
                 n_positions = len(bundle.boundary_positions) if bundle else 0
+
+                if bundle:
+                    _auto_cache_bundle(
+                        cache_dir, eval_name=item.eval_name, example_id=item.example_id,
+                        prompt=item.test_prompt, cot_text=test_response,
+                        activations=activations, boundary_positions=bundle.boundary_positions,
+                        test_response=test_response,
+                    )
 
             oracle_response = ""
             if activations is not None:
@@ -532,6 +603,14 @@ def _run_reasoning_termination_eval(
                     bundle = None
                 activations = bundle.activations if bundle else None
                 n_positions = len(bundle.boundary_positions) if bundle else 0
+
+                if bundle:
+                    _auto_cache_bundle(
+                        cache_dir, eval_name=item.eval_name, example_id=item.example_id,
+                        prompt=item.test_prompt, cot_text=test_response,
+                        activations=activations, boundary_positions=bundle.boundary_positions,
+                        test_response=test_response,
+                    )
 
             # Run oracle
             oracle_response = ""
@@ -630,6 +709,12 @@ def _run_rot13_eval(
                         if bundle and bundle.activations is not None:
                             activations = bundle.activations
                             n_positions = len(bundle.boundary_positions)
+                            _auto_cache_bundle(
+                                cache_dir, eval_name=item.eval_name, example_id=item.example_id,
+                                prompt=item.test_prompt, cot_text=rot13_cot,
+                                activations=activations, boundary_positions=bundle.boundary_positions,
+                                clean_response=normal_cot, test_response=rot13_cot,
+                            )
                     except Exception as e:
                         print(f"    [rot13] Activation extraction failed for {item.example_id}: {e}")
 
@@ -811,8 +896,8 @@ def run_training_evals(
 
     all_metrics: dict[str, Any] = {}
     cache_dir = Path(activation_cache_dir) if activation_cache_dir else None
-    if cache_dir and cache_dir.exists():
-        print(f"  [training_eval] Using activation cache: {cache_dir}")
+    if cache_dir:
+        print(f"  [training_eval] Activation cache dir: {cache_dir} (auto-populates on first run)")
 
     evals_to_run = [e for e in TRAINING_EVALS if not (skip_rot13 and e == "rot13_reconstruction")]
 

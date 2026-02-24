@@ -880,6 +880,8 @@ def apply_config(args, config: dict):
             args.concept_corpus = d["concept_corpus"]
         if "cotqa_path" in d and not getattr(args, "_cli_cotqa_path", False):
             args.cotqa_path = d["cotqa_path"]
+        if "activation_cache_dir" in d and not getattr(args, "_cli_activation_cache_dir", False):
+            args.activation_cache_dir = d["activation_cache_dir"]
 
     # Model
     if "model" in config:

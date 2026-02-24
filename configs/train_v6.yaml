@@ -82,6 +82,7 @@ data:
   precomputed_dir: data/precomputed
   concept_corpus: data/concept_corpus/corpus_full.jsonl
   cotqa_path: data/concept_corpus/corpus_full_conv_qa_llm.jsonl
+  activation_cache_dir: data/eval_precomputed  # auto-populates on first eval run
 
 # Model
 model:
