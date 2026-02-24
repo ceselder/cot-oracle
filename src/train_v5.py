@@ -303,12 +303,38 @@ TASK_REGISTRY = {
         "loader": "load_cot_conversational_data",
         "corpus": "concept",  # uses concept corpus + cotqa file
     },
+    "answer_trajectory": {
+        "arg": "answer_trajectory_n",
+        "module": None,  # precompute-only (requires vLLM)
+        "loader": None,
+        "corpus": "main",
+    },
 }
 
 
+HF_TRAINING_REPO = "mats-10-sprint-cs-jb/cot-oracle-training-v6"
+
+
+def _download_precomputed_from_hf(task_name: str, pdir: Path) -> Path:
+    """Download a precomputed JSONL file from HuggingFace."""
+    from huggingface_hub import hf_hub_download
+
+    filename = f"{task_name}.jsonl"
+    print(f"  [train] Downloading {filename} from HuggingFace: {HF_TRAINING_REPO}")
+    pdir.mkdir(parents=True, exist_ok=True)
+    local_path = hf_hub_download(
+        repo_id=HF_TRAINING_REPO,
+        filename=filename,
+        repo_type="dataset",
+        local_dir=str(pdir),
+    )
+    return Path(local_path)
+
+
 def load_precomputed_tasks(precomputed_dir: str, args) -> list[dict]:
-    """Load training data from precomputed JSONL files."""
+    """Load training data from precomputed JSONL files, downloading from HF if needed."""
     pdir = Path(precomputed_dir)
+    pdir.mkdir(parents=True, exist_ok=True)
     all_data = []
     enabled = []
 
@@ -319,8 +345,11 @@ def load_precomputed_tasks(precomputed_dir: str, args) -> list[dict]:
 
         jsonl_path = pdir / f"{task_name}.jsonl"
         if not jsonl_path.exists():
-            print(f"  WARNING: {jsonl_path} not found, skipping {task_name}")
-            continue
+            try:
+                jsonl_path = _download_precomputed_from_hf(task_name, pdir)
+            except Exception as e:
+                print(f"  WARNING: {task_name}.jsonl not found locally or on HF: {e}")
+                continue
 
         print(f"  Loading {task_name} from {jsonl_path}...")
         data = []
@@ -354,6 +383,10 @@ def load_all_tasks(args, tokenizer) -> list[dict]:
 
         enabled.append(f"{task_name}({n})")
         print(f"\n  Loading {task_name} ({n} examples)...")
+
+        if info["module"] is None:
+            print(f"    Skipping {task_name} (precompute-only, no live loader)")
+            continue
 
         try:
             mod = importlib.import_module(info["module"])
@@ -906,6 +939,8 @@ def main():
     parser.add_argument("--reasoning-term-n", type=int, default=15000)
     parser.add_argument("--partial-answer-n", type=int, default=20000)
     parser.add_argument("--conv-qa-n", type=int, default=10000)
+    parser.add_argument("--answer-trajectory-n", type=int, default=0,
+                        help="Per-sentence answer trajectory (precompute-only)")
 
     # Training hyperparams
     parser.add_argument("--lr", type=float, default=1e-5)
@@ -1039,12 +1074,10 @@ def main():
     print("LOADING TRAINING DATA")
     print(f"{'=' * 60}")
 
-    if args.precomputed_dir and Path(args.precomputed_dir).exists():
-        print(f"  Using precomputed data from {args.precomputed_dir}")
+    if args.precomputed_dir:
+        print(f"  Using precomputed data from {args.precomputed_dir} (auto-downloads from HF if needed)")
         raw_data = load_precomputed_tasks(args.precomputed_dir, args)
     else:
-        if args.precomputed_dir:
-            print(f"  WARNING: --precomputed-dir={args.precomputed_dir} not found, using loaders")
         raw_data = load_all_tasks(args, tokenizer)
 
     if not raw_data:
