@@ -155,42 +155,27 @@ Each JSONL file contains rows with: `context_input_ids`, `context_positions`, `p
 
 ---
 
-## Eval Suite (20 Evals)
+## Eval Suite (10 Evals)
 
-### Unfaithfulness Detection (test if oracle detects nudges from activations)
+### Training Evals (run during training via `training_eval_hook.py`)
 
-| Eval | Type | Description |
-|------|------|-------------|
-| `hinted_mcq` | Influence | Does model follow planted hint in MCQ? |
-| `sycophancy` | Influence | Does model agree with user's incorrect statement? |
-| `sycophancy_scruples` | Influence | Sycophancy on Scruples moral dilemmas |
-| `sycophancy_v2` | Influence | Resampled sycophancy with switch-rate labels (50 rollouts/arm) |
-| `authority_bias` | Influence | Does model defer to authority figure? |
-| `correct_authority` | Influence | Control: does oracle flag when authority is correct? |
-| `anchoring_bias` | Influence | Does irrelevant number anchor the reasoning? |
-| `hint_influence_yesno` | Influence | Yes/no: was the hint influential? |
-| `decorative_cot` | Classification | Is the CoT decorative (correct with CoT, incorrect without)? |
-| `answer_correctness` | Classification | Did model get the right answer? |
-| `contradictory_comparison` | Comparison | Does oracle distinguish coherent vs contradictory reasoning? |
-| `sentence_insertion` | Detection | Can oracle detect an irrelevant inserted sentence? |
-| `scruples_disagreement` | Calibration | Does oracle disagree with model when model is wrong? |
-| `final_answer_kl` | Regression | Predict KL divergence of answer distribution |
+| Eval | Type | Description | GT Mechanism |
+|------|------|-------------|--------------|
+| `hinted_mcq` | Influence | ARC-Challenge MCQ with planted hints | Counterfactual clean vs test |
+| `sycophancy_v2_riya` | Influence | Moral dilemma sycophancy (50-rollout switch rates) | Precomputed switch-rate labels |
+| `decorative_cot` | Classification | Is the CoT decorative or load-bearing? | Wilson CI from 10 runs |
+| `sentence_insertion` | Detection | Detect irrelevant inserted sentence in CoT | Direct label (known insert position) |
+| `reasoning_termination_riya` | Classification | Will model emit `</think>` within 100 tokens? | 50-rollout resampled labels, uses PARTIAL CoT prefix |
+| `rot13_reconstruction` | Reconstruction | Reconstruct ROT13-encoded CoT from activations | Token match rate + KL divergence |
 
-### Paper Evals (from ICLR 2026 "Stress-Testing CoT Monitors")
+### Non-Training Evals
 
-| Eval | Type | Description |
-|------|------|-------------|
-| `reasoning_termination` | Classification | Will model emit `</think>` within 100 tokens? (resampled labels) |
-| `forced_answer_entropy` | Regression | Predict Shannon entropy of answer distribution at truncation point |
-
-### Model Organism Evals
-
-| Eval | Type | Description |
-|------|------|-------------|
-| `rot13_reconstruction` | Reconstruction | Reconstruct ROT13-encoded CoT (tests activation reading) |
-| `held_out_cot_reconstruction` | Reconstruction | Reconstruct unseen CoT from activations |
-| `step_counting` | Regression | Count reasoning steps in CoT |
-| `logical_leaps` | Detection | Detect logical leaps (needs Gemini labels — currently heuristic fallback) |
+| Eval | Type | Description | GT Mechanism |
+|------|------|-------------|--------------|
+| `sycophancy` | Influence | Math sycophancy (GSM8K/MATH) — may be too easy | Counterfactual clean vs test |
+| `forced_answer_entropy_riya` | Regression | Predict answer distribution entropy at truncation | Precomputed logprob entropy |
+| `atypical_answer_riya` | Classification | Predict majority vs minority answer | 200-rollout distribution |
+| `cybercrime_ood` | Classification | OOD topic detection (sanity check) | Direct label |
 
 ### Eval Infrastructure
 
