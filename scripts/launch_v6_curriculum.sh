@@ -6,8 +6,8 @@
 
 set -e
 
-export WANDB_API_KEY="${WANDB_API_KEY:-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}"
-export HF_TOKEN="${HF_TOKEN:-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}"
+export WANDB_API_KEY="${WANDB_API_KEY:?Set WANDB_API_KEY}"
+export HF_TOKEN="${HF_TOKEN:-}"
 export AO_REPO_PATH="${AO_REPO_PATH:-/root/activation_oracles}"
 export PYTHONPATH="${PYTHONPATH:-/root/cot-oracle/src}"
 export PYTHONUNBUFFERED=1
