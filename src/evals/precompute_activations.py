@@ -44,7 +44,8 @@ from evals.run_evals import _extract_answer
 ROT13_ADAPTER_HF = "ceselder/rot13-qwen3-8b-lora"
 
 # Evals that need no vLLM generation (CoT text already available)
-NO_GENERATION_EVALS = {"sentence_insertion"}
+# reasoning_termination_riya uses cot_prefix from metadata (partial CoT)
+NO_GENERATION_EVALS = {"sentence_insertion", "reasoning_termination_riya"}
 
 # Evals that use precomputed v2 data when available
 V2_PRECOMPUTED_EVALS = {"decorative_cot"}
@@ -402,6 +403,11 @@ def _extract_all_activations(
                 test_response = str(item.metadata.get("spliced_cot_text", ""))
                 cot_for_acts = test_response
 
+            elif eval_name == "reasoning_termination_riya":
+                # Use partial CoT prefix from metadata (not a full generation)
+                test_response = str(item.metadata.get("cot_prefix", ""))
+                cot_for_acts = test_response
+
             elif eval_name == "decorative_cot":
                 if eid in dec_v2_data:
                     v2 = dec_v2_data[eid]
@@ -540,8 +546,9 @@ def _write_responses_to_jsons(
             entry = json_data[idx]
             meta = entry.setdefault("metadata", {})
 
-            if eval_name == "sentence_insertion":
-                # Already has spliced_cot_text, no generation needed
+            if eval_name in ("sentence_insertion", "reasoning_termination_riya"):
+                # sentence_insertion: already has spliced_cot_text
+                # reasoning_termination_riya: uses cot_prefix from precompute script
                 continue
 
             elif eval_name == "decorative_cot":

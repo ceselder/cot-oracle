@@ -475,6 +475,99 @@ def _run_sentence_insertion_eval(
     return completed
 
 
+def _run_reasoning_termination_eval(
+    model,
+    tokenizer,
+    items: list[EvalItem],
+    act_layer: int,
+    model_name: str,
+    device: str,
+    oracle_adapter_name: str,
+    cache_dir: Path | None = None,
+) -> list[CompletedEvalItem]:
+    """Reasoning termination eval. Uses PARTIAL CoT prefix from metadata.
+
+    Unlike standard evals, this eval does NOT generate fresh CoT. It uses
+    the precomputed cot_prefix (cut at a specific token position) so the
+    oracle sees activations from mid-reasoning, not a completed trace.
+    """
+    completed = []
+
+    for item in items:
+        try:
+            # Try cached bundle first
+            cached = _try_load_cached(cache_dir, item.eval_name, item.example_id, device)
+
+            if cached is not None:
+                test_response = cached.test_response or ""
+                activations = cached.activations
+                n_positions = len(cached.boundary_positions)
+            else:
+                # Use cot_prefix from metadata (the PARTIAL CoT, not a full generation)
+                cot_prefix = item.metadata.get("cot_prefix", "")
+                test_response = (
+                    item.metadata.get("qwen3_8b_test_response")
+                    or cot_prefix
+                )
+
+                if not test_response.strip():
+                    # No prefix available — skip (labels are pending_precompute)
+                    continue
+
+                # Extract activations from the partial CoT
+                try:
+                    bundle = _apply_oracle_mode_to_extract(
+                        model, tokenizer,
+                        eval_name=item.eval_name, example_id=item.example_id,
+                        prompt=item.test_prompt, cot_text=test_response,
+                        act_layer=act_layer, device=device,
+                        max_boundaries=10, generation_adapter_name=None,
+                    )
+                except Exception as e:
+                    print(f"    [reasoning_term] Activation extraction failed for {item.example_id}: {e}")
+                    bundle = None
+                activations = bundle.activations if bundle else None
+                n_positions = len(bundle.boundary_positions) if bundle else 0
+
+            # Run oracle
+            oracle_response = ""
+            if activations is not None:
+                try:
+                    template = ORACLE_PROMPTS_TEMPLATES.get(item.eval_name, "What is this model doing?")
+                    oracle_prompt = _oracle_prompt(n_positions, template)
+                    oracle_response = _apply_oracle_mode_to_oracle(
+                        model, tokenizer, activations, oracle_prompt,
+                        model_name=model_name, act_layer=act_layer,
+                        max_new_tokens=150, device=device,
+                    )
+                except Exception as e:
+                    print(f"    [reasoning_term] Oracle inference failed for {item.example_id}: {e}")
+
+            ground_truth = determine_ground_truth(item, None, None)
+
+            completed.append(CompletedEvalItem(
+                eval_name=item.eval_name,
+                example_id=item.example_id,
+                clean_prompt=item.clean_prompt,
+                test_prompt=item.test_prompt,
+                correct_answer=item.correct_answer,
+                nudge_answer=item.nudge_answer,
+                clean_response="",
+                test_response=test_response,
+                clean_answer=None,
+                test_answer=None,
+                ground_truth_label=ground_truth,
+                oracle_response=oracle_response,
+                activations_path=None,
+                metadata={**item.metadata},
+            ))
+        except Exception as e:
+            print(f"  [training_eval] Warning: reasoning_term item {item.example_id} failed: {e}")
+            continue
+
+    return completed
+
+
 def _run_rot13_eval(
     model,
     tokenizer,
@@ -744,6 +837,12 @@ def run_training_evals(
                     model_name, device, oracle_adapter_name,
                     cache_dir=cache_dir,
                 )
+            elif eval_name == "reasoning_termination_riya":
+                completed = _run_reasoning_termination_eval(
+                    model, tokenizer, items, act_layer,
+                    model_name, device, oracle_adapter_name,
+                    cache_dir=cache_dir,
+                )
             elif eval_name == "rot13_reconstruction":
                 completed = _run_rot13_eval(
                     model, tokenizer, items, act_layer,
@@ -751,7 +850,7 @@ def run_training_evals(
                     cache_dir=cache_dir,
                 )
             else:
-                # Standard binary evals: hinted_mcq, sycophancy, reasoning_termination
+                # Standard binary evals: hinted_mcq, sycophancy_v2_riya
                 completed = _run_standard_eval(
                     model, tokenizer, items, eval_name, act_layer,
                     model_name, device, oracle_adapter_name,
