@@ -303,12 +303,38 @@ TASK_REGISTRY = {
         "loader": "load_cot_conversational_data",
         "corpus": "concept",  # uses concept corpus + cotqa file
     },
+    "answer_trajectory": {
+        "arg": "answer_trajectory_n",
+        "module": None,  # precompute-only (requires vLLM)
+        "loader": None,
+        "corpus": "main",
+    },
 }
 
 
+HF_TRAINING_REPO = "mats-10-sprint-cs-jb/cot-oracle-training-v6"
+
+
+def _download_precomputed_from_hf(task_name: str, pdir: Path) -> Path:
+    """Download a precomputed JSONL file from HuggingFace."""
+    from huggingface_hub import hf_hub_download
+
+    filename = f"{task_name}.jsonl"
+    print(f"  [train] Downloading {filename} from HuggingFace: {HF_TRAINING_REPO}")
+    pdir.mkdir(parents=True, exist_ok=True)
+    local_path = hf_hub_download(
+        repo_id=HF_TRAINING_REPO,
+        filename=filename,
+        repo_type="dataset",
+        local_dir=str(pdir),
+    )
+    return Path(local_path)
+
+
 def load_precomputed_tasks(precomputed_dir: str, args) -> list[dict]:
-    """Load training data from precomputed JSONL files."""
+    """Load training data from precomputed JSONL files, downloading from HF if needed."""
     pdir = Path(precomputed_dir)
+    pdir.mkdir(parents=True, exist_ok=True)
     all_data = []
     enabled = []
 
@@ -319,8 +345,11 @@ def load_precomputed_tasks(precomputed_dir: str, args) -> list[dict]:
 
         jsonl_path = pdir / f"{task_name}.jsonl"
         if not jsonl_path.exists():
-            print(f"  WARNING: {jsonl_path} not found, skipping {task_name}")
-            continue
+            try:
+                jsonl_path = _download_precomputed_from_hf(task_name, pdir)
+            except Exception as e:
+                print(f"  WARNING: {task_name}.jsonl not found locally or on HF: {e}")
+                continue
 
         print(f"  Loading {task_name} from {jsonl_path}...")
         data = []
@@ -354,6 +383,10 @@ def load_all_tasks(args, tokenizer) -> list[dict]:
 
         enabled.append(f"{task_name}({n})")
         print(f"\n  Loading {task_name} ({n} examples)...")
+
+        if info["module"] is None:
+            print(f"    Skipping {task_name} (precompute-only, no live loader)")
+            continue
 
         try:
             mod = importlib.import_module(info["module"])
@@ -488,9 +521,8 @@ def run_eval(
                 print(f"    targ='{eval_datasets[ds][0].target_output.strip()[:120]}'")
 
             wandb.log({f"eval_table/{ds}": table}, step=global_step)
-
-            if log_dir:
-                _save_table_to_disk(log_dir, f"eval_table_{ds}", global_step, columns, rows)
+            if log_dir and rows:
+                _save_table_to_disk(Path(log_dir), f"eval_table_{ds}", global_step, columns, rows)
         except Exception as e:
             print(f"  Eval FAILED for {ds}: {e}")
 
@@ -613,7 +645,6 @@ def train(
         min_stage_steps = min(len(items) // args.batch_size for items in train_per_type.values() if len(items) >= args.batch_size)
     else:
         min_stage_steps = total_steps
-    # clamp: at least 3 evals per stage, at most 50
     args.eval_steps = min(min_stage_steps // 3, max(-(-min_stage_steps // 50), 1))
     args.save_steps = min(min_stage_steps // 3, max(-(-min_stage_steps // 50), 1))
     print(f"\n  Stage-relative cadence (min stage = {min_stage_steps} steps):")
@@ -638,9 +669,6 @@ def train(
 
     # Log task index legend to wandb config
     wandb.config.update({"task_index_legend": task_to_idx}, allow_val_change=True)
-    print("\n  Task index legend:")
-    for task, idx in sorted(task_to_idx.items(), key=lambda x: x[1]):
-        print(f"    {idx}: {task}")
 
     save_dir.mkdir(parents=True, exist_ok=True)
     log_dir = save_dir / "eval_logs"
@@ -729,15 +757,12 @@ def train(
 
             # Logging
             now = time.time()
-            step_time = now - last_step_time
             log_dict = {
                 "train/loss": loss.item(),
                 "train/learning_rate": scheduler.get_last_lr()[0],
                 "train/total_tokens": total_tokens,
                 "train/batch_tokens": batch_tokens,
-                "train/step_time": step_time,
-                "train/tokens_per_sec": batch_tokens / step_time if step_time > 0 else 0,
-                "train/samples_per_sec": len(batch_list) / step_time if step_time > 0 else 0,
+                "train/step_time": now - last_step_time,
                 "train/wallclock_hours": (now - train_start_time - eval_time_total) / 3600,
                 "eval/wallclock_hours": eval_time_total / 3600,
             }
@@ -750,7 +775,6 @@ def train(
             for t in batch_types:
                 batch_task_counts[t] += 1
             dominant_task = max(batch_task_counts, key=batch_task_counts.get)
-            log_dict["train/active_task_idx"] = task_to_idx[dominant_task]
 
             wandb.log(log_dict, step=global_step)
 
@@ -858,7 +882,8 @@ def apply_config(args, config: dict):
     # Eval
     if "eval" in config:
         e = config["eval"]
-        for key in ["eval_steps", "save_steps", "unfaith_eval_steps", "unfaith_eval_items"]:
+        for key in ["eval_steps", "save_steps", "unfaith_eval_steps", "unfaith_eval_items",
+                     "eval_dir", "rot13_start_step"]:
             if key in e and not getattr(args, f"_cli_{key}", False):
                 setattr(args, key, e[key])
 
@@ -873,6 +898,8 @@ def apply_config(args, config: dict):
             args.concept_corpus = d["concept_corpus"]
         if "cotqa_path" in d and not getattr(args, "_cli_cotqa_path", False):
             args.cotqa_path = d["cotqa_path"]
+        if "activation_cache_dir" in d and not getattr(args, "_cli_activation_cache_dir", False):
+            args.activation_cache_dir = d["activation_cache_dir"]
 
     # Model
     if "model" in config:
@@ -933,6 +960,8 @@ def main():
     parser.add_argument("--reasoning-term-n", type=int, default=15000)
     parser.add_argument("--partial-answer-n", type=int, default=20000)
     parser.add_argument("--conv-qa-n", type=int, default=10000)
+    parser.add_argument("--answer-trajectory-n", type=int, default=0,
+                        help="Per-sentence answer trajectory (precompute-only)")
 
     # Training hyperparams
     parser.add_argument("--lr", type=float, default=1e-5)
@@ -958,7 +987,7 @@ def main():
     # Eval / save
     parser.add_argument("--eval-steps", type=int, default=500)
     parser.add_argument("--save-steps", type=int, default=2000)
-    parser.add_argument("--unfaith-eval-steps", type=int, default=5000)
+    parser.add_argument("--unfaith-eval-steps", type=int, default=500)
     parser.add_argument("--unfaith-eval-items", type=int, default=20)
     parser.add_argument("--rot13-start-step", type=int, default=2000)
     parser.add_argument("--start-step", type=int, default=0,
@@ -995,6 +1024,13 @@ def main():
         config = load_config(args.config)
         apply_config(args, config)
         print(f"Loaded config from {args.config}")
+        # Log the full config YAML for reproducibility
+        import yaml
+        print(f"\n{'=' * 60}")
+        print("CONFIG")
+        print(f"{'=' * 60}")
+        print(yaml.dump(config, default_flow_style=False, sort_keys=False).rstrip())
+        print(f"{'=' * 60}\n")
 
     set_seed(args.seed)
 
@@ -1066,12 +1102,10 @@ def main():
     print("LOADING TRAINING DATA")
     print(f"{'=' * 60}")
 
-    if args.precomputed_dir and Path(args.precomputed_dir).exists():
-        print(f"  Using precomputed data from {args.precomputed_dir}")
+    if args.precomputed_dir:
+        print(f"  Using precomputed data from {args.precomputed_dir} (auto-downloads from HF if needed)")
         raw_data = load_precomputed_tasks(args.precomputed_dir, args)
     else:
-        if args.precomputed_dir:
-            print(f"  WARNING: --precomputed-dir={args.precomputed_dir} not found, using loaders")
         raw_data = load_all_tasks(args, tokenizer)
 
     if not raw_data:
@@ -1092,14 +1126,17 @@ def main():
             enabled_tasks.append(task_name)
 
     run_name = args.wandb_run or f"v6-{len(raw_data)//1000}k-{len(enabled_tasks)}tasks"
+    wandb_config = {k: v for k, v in vars(args).items() if not k.startswith("_cli_")}
     wandb.init(
         project=args.wandb_project,
         entity=args.wandb_entity,
         name=run_name,
-        config=vars(args),
+        config=wandb_config,
         tags=["v6", args.model.split("/")[-1]] + enabled_tasks,
-        settings=wandb.Settings(console="wrap"),
     )
+    # Save raw YAML config to wandb for reproducibility
+    if args.config and Path(args.config).exists():
+        wandb.save(args.config)
 
     save_dir = Path(args.save_dir)
 

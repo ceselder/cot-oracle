@@ -34,9 +34,11 @@ from evals.common import (
     EvalItem,
     CompletedEvalItem,
     load_eval_items,
-    download_evals_from_hf,
+    load_eval_items_hf,
+    list_hf_evals,
     parse_oracle_binary,
     extract_numerical_answer,
+    answers_match,
     determine_ground_truth,
     ci_label,
 )
@@ -56,9 +58,11 @@ from evals.run_evals import (
     _ORACLE_MODE,
 )
 from evals.activation_cache import (
+    ActivationBundle,
     extract_activation_bundle as _extract_bundle_raw,
     cache_path as _cache_path,
     load_bundle as _load_bundle,
+    save_bundle as _save_bundle,
 )
 from core.ao import (
     generate_cot,
@@ -72,7 +76,8 @@ from core.ao import (
 # Evals to run during training, in order of cost (cheapest first)
 TRAINING_EVALS = [
     "hinted_mcq",
-    "sycophancy",
+    "hinted_mcq_truthfulqa",
+    "sycophancy_v2_riya",
     "decorative_cot",
     "sentence_insertion",
     "reasoning_termination_riya",
@@ -127,6 +132,45 @@ def _try_load_cached(cache_dir: Path | None, eval_name: str, example_id: str, de
     return None
 
 
+def _auto_cache_bundle(
+    cache_dir: Path | None,
+    *,
+    eval_name: str,
+    example_id: str,
+    prompt: str,
+    cot_text: str,
+    activations: torch.Tensor | None,
+    boundary_positions: list[int],
+    clean_response: str = "",
+    test_response: str = "",
+    clean_answer: str | None = None,
+    test_answer: str | None = None,
+) -> None:
+    """Save an activation bundle to cache for reuse in future evals."""
+    if cache_dir is None or activations is None:
+        return
+    path = _cache_path(cache_dir, eval_name, example_id)
+    if path.exists():
+        return  # already cached
+    bundle = ActivationBundle(
+        eval_name=eval_name,
+        example_id=example_id,
+        prompt=prompt,
+        cot_text=cot_text,
+        activations=activations,
+        boundary_positions=boundary_positions,
+        sentences=[],
+        clean_response=clean_response,
+        test_response=test_response,
+        clean_answer=clean_answer,
+        test_answer=test_answer,
+    )
+    try:
+        _save_bundle(bundle, path)
+    except Exception as e:
+        print(f"    [cache] Failed to save {eval_name}/{example_id}: {e}")
+
+
 def _run_standard_eval(
     model,
     tokenizer,
@@ -138,7 +182,7 @@ def _run_standard_eval(
     oracle_adapter_name: str,
     cache_dir: Path | None = None,
 ) -> list[CompletedEvalItem]:
-    """Run a standard binary eval (hinted_mcq, sycophancy, reasoning_termination_riya).
+    """Run a standard binary eval (hinted_mcq, sycophancy_v2_riya, reasoning_termination_riya).
 
     Flow per item:
     1. Load cached activations OR generate clean + test responses and extract activations
@@ -161,7 +205,10 @@ def _run_standard_eval(
             else:
                 # Use precomputed text responses from metadata if available
                 precomp_clean = item.metadata.get("qwen3_8b_clean_response")
-                precomp_test = item.metadata.get("qwen3_8b_test_response")
+                precomp_test = (
+                    item.metadata.get("qwen3_8b_test_response")
+                    or item.metadata.get("representative_response")  # sycophancy_v2_riya
+                )
 
                 if precomp_clean and precomp_test:
                     clean_response = precomp_clean
@@ -174,6 +221,19 @@ def _run_standard_eval(
                         item.metadata.get("qwen3_8b_test_answer")
                         or _extract_answer(test_response, eval_name)
                     )
+                elif precomp_test:
+                    # Only test response available (e.g. sycophancy_v2_riya has
+                    # precomputed labels so clean_response not needed for GT)
+                    test_response = precomp_test
+                    test_answer = (
+                        item.metadata.get("qwen3_8b_test_answer")
+                        or _extract_answer(test_response, eval_name)
+                    )
+                    clean_response = generate_cot(
+                        model, tokenizer, item.clean_prompt,
+                        max_new_tokens=512, device=device, adapter_name=None,
+                    )
+                    clean_answer = _extract_answer(clean_response, eval_name)
                 else:
                     clean_response = generate_cot(
                         model, tokenizer, item.clean_prompt,
@@ -199,10 +259,21 @@ def _run_standard_eval(
                         max_boundaries=10,
                         generation_adapter_name=None,
                     )
-                except Exception:
+                except Exception as e:
+                    print(f"    [{eval_name}] Activation extraction failed for {item.example_id}: {e}")
                     bundle = None
                 activations = bundle.activations if bundle else None
                 n_positions = len(bundle.boundary_positions) if bundle else 0
+
+                # Auto-cache for next eval run
+                if bundle:
+                    _auto_cache_bundle(
+                        cache_dir, eval_name=eval_name, example_id=item.example_id,
+                        prompt=item.test_prompt, cot_text=test_response,
+                        activations=activations, boundary_positions=bundle.boundary_positions,
+                        clean_response=clean_response, test_response=test_response,
+                        clean_answer=clean_answer, test_answer=test_answer,
+                    )
 
             # Run oracle on activations (this uses the TRAINED adapter)
             oracle_response = ""
@@ -215,8 +286,8 @@ def _run_standard_eval(
                         model_name=model_name, act_layer=act_layer,
                         max_new_tokens=150, device=device,
                     )
-                except Exception:
-                    pass
+                except Exception as e:
+                    print(f"    [{eval_name}] Oracle inference failed for {item.example_id}: {e}")
 
             ground_truth = determine_ground_truth(item, clean_answer, test_answer)
 
@@ -294,8 +365,14 @@ def _run_decorative_cot_eval(
                         if bundle and bundle.activations is not None:
                             activations = bundle.activations
                             n_positions = len(bundle.boundary_positions)
-                    except Exception:
-                        pass
+                            _auto_cache_bundle(
+                                cache_dir, eval_name=item.eval_name, example_id=item.example_id,
+                                prompt=item.test_prompt, cot_text=representative_cot,
+                                activations=activations, boundary_positions=bundle.boundary_positions,
+                                test_response=representative_cot,
+                            )
+                    except Exception as e:
+                        print(f"    [decorative_cot] Activation extraction failed for {item.example_id}: {e}")
             else:
                 # Full computation (expensive fallback) — use temperature sampling
                 # so different runs can produce different answers for meaningful CIs
@@ -315,9 +392,9 @@ def _run_decorative_cot_eval(
                         device=device, adapter_name=None,
                         temperature=temp,
                     )
-                    if extract_numerical_answer(cot_response) == item.correct_answer:
+                    if answers_match(extract_numerical_answer(cot_response), item.correct_answer):
                         with_cot_correct += 1
-                    if extract_numerical_answer(direct_response) == item.correct_answer:
+                    if answers_match(extract_numerical_answer(direct_response), item.correct_answer):
                         without_cot_correct += 1
                 with_cot_acc = with_cot_correct / n_runs
                 without_cot_acc = without_cot_correct / n_runs
@@ -340,8 +417,14 @@ def _run_decorative_cot_eval(
                         if bundle and bundle.activations is not None:
                             activations = bundle.activations
                             n_positions = len(bundle.boundary_positions)
-                    except Exception:
-                        pass
+                            _auto_cache_bundle(
+                                cache_dir, eval_name=item.eval_name, example_id=item.example_id,
+                                prompt=item.test_prompt, cot_text=representative_cot,
+                                activations=activations, boundary_positions=bundle.boundary_positions,
+                                test_response=representative_cot,
+                            )
+                    except Exception as e:
+                        print(f"    [decorative_cot] Activation extraction failed for {item.example_id}: {e}")
 
             # Run oracle (uses the TRAINED adapter — this is the only part that changes)
             oracle_response = ""
@@ -354,8 +437,8 @@ def _run_decorative_cot_eval(
                         model_name=model_name, act_layer=act_layer,
                         max_new_tokens=150, device=device,
                     )
-                except Exception:
-                    pass
+                except Exception as e:
+                    print(f"    [decorative_cot] Oracle inference failed for {item.example_id}: {e}")
 
             completed.append(CompletedEvalItem(
                 eval_name=item.eval_name,
@@ -416,10 +499,19 @@ def _run_sentence_insertion_eval(
                         act_layer=act_layer, device=device,
                         max_boundaries=30, generation_adapter_name=None,
                     )
-                except Exception:
+                except Exception as e:
+                    print(f"    [sentence_insertion] Activation extraction failed for {item.example_id}: {e}")
                     bundle = None
                 activations = bundle.activations if bundle else None
                 n_positions = len(bundle.boundary_positions) if bundle else 0
+
+                if bundle:
+                    _auto_cache_bundle(
+                        cache_dir, eval_name=item.eval_name, example_id=item.example_id,
+                        prompt=item.test_prompt, cot_text=test_response,
+                        activations=activations, boundary_positions=bundle.boundary_positions,
+                        test_response=test_response,
+                    )
 
             oracle_response = ""
             if activations is not None:
@@ -431,8 +523,8 @@ def _run_sentence_insertion_eval(
                         model_name=model_name, act_layer=act_layer,
                         max_new_tokens=150, device=device,
                     )
-                except Exception:
-                    pass
+                except Exception as e:
+                    print(f"    [sentence_insertion] Oracle inference failed for {item.example_id}: {e}")
 
             ground_truth = determine_ground_truth(item, None, None)
 
@@ -454,6 +546,107 @@ def _run_sentence_insertion_eval(
             ))
         except Exception as e:
             print(f"  [training_eval] Warning: sentence_insertion item {item.example_id} failed: {e}")
+            continue
+
+    return completed
+
+
+def _run_reasoning_termination_eval(
+    model,
+    tokenizer,
+    items: list[EvalItem],
+    act_layer: int,
+    model_name: str,
+    device: str,
+    oracle_adapter_name: str,
+    cache_dir: Path | None = None,
+) -> list[CompletedEvalItem]:
+    """Reasoning termination eval. Uses PARTIAL CoT prefix from metadata.
+
+    Unlike standard evals, this eval does NOT generate fresh CoT. It uses
+    the precomputed cot_prefix (cut at a specific token position) so the
+    oracle sees activations from mid-reasoning, not a completed trace.
+    """
+    completed = []
+
+    for item in items:
+        try:
+            # Try cached bundle first
+            cached = _try_load_cached(cache_dir, item.eval_name, item.example_id, device)
+
+            if cached is not None:
+                test_response = cached.test_response or ""
+                activations = cached.activations
+                n_positions = len(cached.boundary_positions)
+            else:
+                # Use cot_prefix from metadata (the PARTIAL CoT, not a full generation)
+                cot_prefix = item.metadata.get("cot_prefix", "")
+                test_response = (
+                    item.metadata.get("qwen3_8b_test_response")
+                    or cot_prefix
+                )
+
+                if not test_response.strip():
+                    # No prefix available — skip (labels are pending_precompute)
+                    continue
+
+                # Extract activations from the partial CoT
+                try:
+                    bundle = _apply_oracle_mode_to_extract(
+                        model, tokenizer,
+                        eval_name=item.eval_name, example_id=item.example_id,
+                        prompt=item.test_prompt, cot_text=test_response,
+                        act_layer=act_layer, device=device,
+                        max_boundaries=10, generation_adapter_name=None,
+                    )
+                except Exception as e:
+                    print(f"    [reasoning_term] Activation extraction failed for {item.example_id}: {e}")
+                    bundle = None
+                activations = bundle.activations if bundle else None
+                n_positions = len(bundle.boundary_positions) if bundle else 0
+
+                if bundle:
+                    _auto_cache_bundle(
+                        cache_dir, eval_name=item.eval_name, example_id=item.example_id,
+                        prompt=item.test_prompt, cot_text=test_response,
+                        activations=activations, boundary_positions=bundle.boundary_positions,
+                        test_response=test_response,
+                    )
+
+            # Run oracle
+            oracle_response = ""
+            if activations is not None:
+                try:
+                    template = ORACLE_PROMPTS_TEMPLATES.get(item.eval_name, "What is this model doing?")
+                    oracle_prompt = _oracle_prompt(n_positions, template)
+                    oracle_response = _apply_oracle_mode_to_oracle(
+                        model, tokenizer, activations, oracle_prompt,
+                        model_name=model_name, act_layer=act_layer,
+                        max_new_tokens=150, device=device,
+                    )
+                except Exception as e:
+                    print(f"    [reasoning_term] Oracle inference failed for {item.example_id}: {e}")
+
+            ground_truth = determine_ground_truth(item, None, None)
+
+            completed.append(CompletedEvalItem(
+                eval_name=item.eval_name,
+                example_id=item.example_id,
+                clean_prompt=item.clean_prompt,
+                test_prompt=item.test_prompt,
+                correct_answer=item.correct_answer,
+                nudge_answer=item.nudge_answer,
+                clean_response="",
+                test_response=test_response,
+                clean_answer=None,
+                test_answer=None,
+                ground_truth_label=ground_truth,
+                oracle_response=oracle_response,
+                activations_path=None,
+                metadata={**item.metadata},
+            ))
+        except Exception as e:
+            print(f"  [training_eval] Warning: reasoning_term item {item.example_id} failed: {e}")
             continue
 
     return completed
@@ -517,8 +710,14 @@ def _run_rot13_eval(
                         if bundle and bundle.activations is not None:
                             activations = bundle.activations
                             n_positions = len(bundle.boundary_positions)
-                    except Exception:
-                        pass
+                            _auto_cache_bundle(
+                                cache_dir, eval_name=item.eval_name, example_id=item.example_id,
+                                prompt=item.test_prompt, cot_text=rot13_cot,
+                                activations=activations, boundary_positions=bundle.boundary_positions,
+                                clean_response=normal_cot, test_response=rot13_cot,
+                            )
+                    except Exception as e:
+                        print(f"    [rot13] Activation extraction failed for {item.example_id}: {e}")
 
             # Run oracle (trained adapter — this is the only part that changes per step)
             oracle_response = ""
@@ -531,8 +730,8 @@ def _run_rot13_eval(
                         model_name=model_name, act_layer=act_layer,
                         max_new_tokens=384, device=device,
                     )
-                except Exception:
-                    pass
+                except Exception as e:
+                    print(f"    [rot13] Oracle inference failed for {item.example_id}: {e}")
 
             # Score
             target_cot = normal_cot
@@ -662,7 +861,6 @@ def run_training_evals(
     oracle_adapter_name: str = "default",
     activation_cache_dir: str | None = None,
     log_dir: Path | str | None = None,
-    hf_org: str = "mats-10-sprint-cs-jb",
 ) -> dict[str, Any]:
     """Run all 6 unfaithfulness evals and return results dict for wandb logging.
 
@@ -692,6 +890,9 @@ def run_training_evals(
         }
     """
     eval_dir = Path(eval_dir)
+    if not eval_dir.exists():
+        print(f"  [training_eval] Warning: eval dir {eval_dir} does not exist, skipping")
+        return {}
 
     # Configure oracle mode: use trained adapter with paragraph tokens
     set_oracle_mode(trained=True, oracle_adapter_name=oracle_adapter_name, stride=5)
@@ -707,31 +908,17 @@ def run_training_evals(
     all_metrics: dict[str, Any] = {}
     _log_dir = Path(log_dir) if log_dir else None
     cache_dir = Path(activation_cache_dir) if activation_cache_dir else None
-    if cache_dir and cache_dir.exists():
-        print(f"  [training_eval] Using activation cache: {cache_dir}")
+    if cache_dir:
+        print(f"  [training_eval] Activation cache dir: {cache_dir} (auto-populates on first run)")
 
     evals_to_run = [e for e in TRAINING_EVALS if not (skip_rot13 and e == "rot13_reconstruction")]
-
-    # Pre-download all evals from HF (uses local cache if already present)
-    try:
-        hf_items = download_evals_from_hf(evals_to_run, hf_org=hf_org, cache_dir=eval_dir)
-    except Exception as e:
-        print(f"  [training_eval] HF download failed ({e}), falling back to local files")
-        hf_items = {}
 
     for eval_name in evals_to_run:
         print(f"  [training_eval] Running {eval_name}...")
 
         try:
-            if eval_name in hf_items:
-                items = hf_items[eval_name]
-            else:
-                eval_file = eval_dir / f"{eval_name}.json"
-                if not eval_file.exists():
-                    print(f"  [training_eval] Warning: {eval_file} not found, skipping {eval_name}")
-                    continue
-                items = load_eval_items(eval_file)
-            items = _subsample(items, max_items_per_eval, seed=42 + hash(eval_name))
+            items = load_eval_items_hf(eval_name, eval_dir=eval_dir)
+            items = _subsample(items, max_items_per_eval, seed=step + hash(eval_name))
 
             # Dispatch to appropriate handler
             if eval_name == "decorative_cot":
@@ -746,6 +933,12 @@ def run_training_evals(
                     model_name, device, oracle_adapter_name,
                     cache_dir=cache_dir,
                 )
+            elif eval_name == "reasoning_termination_riya":
+                completed = _run_reasoning_termination_eval(
+                    model, tokenizer, items, act_layer,
+                    model_name, device, oracle_adapter_name,
+                    cache_dir=cache_dir,
+                )
             elif eval_name == "rot13_reconstruction":
                 completed = _run_rot13_eval(
                     model, tokenizer, items, act_layer,
@@ -753,7 +946,7 @@ def run_training_evals(
                     cache_dir=cache_dir,
                 )
             else:
-                # Standard binary evals: hinted_mcq, sycophancy, reasoning_termination
+                # Standard binary evals: hinted_mcq, sycophancy_v2_riya
                 completed = _run_standard_eval(
                     model, tokenizer, items, eval_name, act_layer,
                     model_name, device, oracle_adapter_name,
@@ -827,6 +1020,7 @@ def run_training_evals(
                     for c in completed:
                         if not c.oracle_response:
                             continue
+                        # Re-score for table
                         gt = c.ground_truth_label
                         oracle = c.oracle_response[:300]
                         is_correct = "?"

@@ -1180,8 +1180,6 @@ def main():
                         help="Output path (default: auto from preset)")
     parser.add_argument("--device", default="cuda")
     parser.add_argument("--batch-size", type=int, default=8)
-    parser.add_argument("--keep-all", action="store_true", default=True,
-                        help="Keep all CoTs, not just load-bearing (default: True)")
     parser.add_argument("--engine", choices=["auto", "vllm", "sglang"], default="auto",
                         help="Inference engine for local GPU mode (default: auto = try vLLM then SGLang)")
     parser.add_argument("--vllm-enforce-eager", action="store_true",

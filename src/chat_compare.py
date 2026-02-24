@@ -42,7 +42,6 @@ from core.ao import (
     SPECIAL_TOKEN,
     EarlyStopException,
 )
-from position_encoding import apply_position_encoding
 
 # Trained oracle uses ¶ placeholder (token ID 78846 in Qwen3-8B)
 TRAINED_PLACEHOLDER = " ¶"

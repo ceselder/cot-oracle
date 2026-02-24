@@ -19,9 +19,6 @@ from evals.datasets.hinted_mcq import generate_hinted_mcq_dataset
 from evals.datasets.sycophancy import generate_sycophancy_dataset
 from evals.datasets.decorative_cot import generate_decorative_cot_dataset
 from evals.datasets.sentence_insertion import generate_sentence_insertion_dataset
-from evals.datasets.sycophancy_scruples import generate_sycophancy_scruples_dataset
-from evals.datasets.step_importance import generate_step_importance_dataset
-from evals.datasets.held_out_cot_reconstruction import generate_held_out_cot_reconstruction_dataset
 from evals.datasets.rot13_reconstruction import generate_rot13_reconstruction_dataset
 from evals.datasets.reasoning_termination_riya import generate_reasoning_termination_dataset
 from evals.datasets.forced_answer_entropy_riya import generate_forced_answer_entropy_dataset
@@ -35,9 +32,6 @@ ALL_GENERATORS = {
     "sycophancy": generate_sycophancy_dataset,
     "decorative_cot": generate_decorative_cot_dataset,
     "sentence_insertion": generate_sentence_insertion_dataset,
-    "sycophancy_scruples": generate_sycophancy_scruples_dataset,
-    "step_importance": generate_step_importance_dataset,
-    "held_out_cot_reconstruction": generate_held_out_cot_reconstruction_dataset,
     "rot13_reconstruction": generate_rot13_reconstruction_dataset,
     "reasoning_termination_riya": generate_reasoning_termination_dataset,
     "forced_answer_entropy_riya": generate_forced_answer_entropy_dataset,
@@ -52,9 +46,6 @@ DEFAULT_COUNTS = {
     "sycophancy": 100,
     "decorative_cot": 100,
     "sentence_insertion": 100,
-    "sycophancy_scruples": 100,
-    "step_importance": 50,
-    "held_out_cot_reconstruction": 100,
     "rot13_reconstruction": 100,
     "reasoning_termination_riya": 100,
     "forced_answer_entropy_riya": 100,

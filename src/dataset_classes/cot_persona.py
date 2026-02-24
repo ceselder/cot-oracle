@@ -11,7 +11,6 @@ Ground truth: the system prompt used (known by construction).
 import json
 import random
 
-from tqdm.auto import tqdm
 from transformers import AutoTokenizer
 
 
@@ -23,7 +22,6 @@ def load_cot_persona_data(
     num_examples: int = 15000,
     max_sentences: int = 15,
     seed: int = 42,
-    corpus_entries: list[dict] | None = None,
 ) -> list[dict]:
     """
     Generate persona detection training data.
@@ -36,51 +34,29 @@ def load_cot_persona_data(
 
     random.seed(seed)
 
-    if corpus_entries is not None:
-        corpus = [e for e in corpus_entries if "persona" in e]
-    else:
-        corpus = []
-        with open(corpus_path) as f:
-            for line in f:
-                if line.strip():
-                    entry = json.loads(line)
-                    if "persona" in entry:
-                        corpus.append(entry)
+    corpus = []
+    with open(corpus_path) as f:
+        for line in f:
+            if line.strip():
+                entry = json.loads(line)
+                if "persona" in entry:
+                    corpus.append(entry)
 
-    assert corpus, (
-        f"No persona entries in {corpus_path}. "
-        f"Generate with: python generate_cots.py --openrouter --personas"
-    )
+    if not corpus:
+        raise ValueError(
+            f"No persona entries in {corpus_path}. "
+            f"Generate with: python generate_cots.py --openrouter --personas"
+        )
 
     layers = [layer_percent_to_layer(model_name, lp) for lp in layer_percents]
 
-    by_persona: dict[str, list[tuple]] = {}
-    for entry in tqdm(corpus, desc="  persona: tokenizing corpus", leave=False):
+    # Group by persona for balanced sampling
+    by_persona = {}
+    for entry in corpus:
         persona = entry["persona"]
-        boundary_positions = entry.get("boundary_positions", [])
-        if len(boundary_positions) < 2:
-            continue
-
-        if "_ctx_ids" in entry:
-            context_ids = entry["_ctx_ids"]
-        else:
-            messages = [{"role": "user", "content": entry["question"]}]
-            formatted = tokenizer.apply_chat_template(
-                messages, tokenize=False, add_generation_prompt=True, enable_thinking=True,
-            )
-            cot_text = entry["cot_response"]
-            think_end = cot_text.find("</think>")
-            if think_end != -1:
-                cot_text = cot_text[:think_end]
-            context_ids = tokenizer(formatted + cot_text, add_special_tokens=False)["input_ids"]
-
-        positions = [p for p in boundary_positions[:max_sentences] if p < len(context_ids)]
-        if len(positions) < 2:
-            continue
-
         if persona not in by_persona:
             by_persona[persona] = []
-        by_persona[persona].append((context_ids, positions))
+        by_persona[persona].append(entry)
 
     personas = sorted(by_persona.keys())
     print(f"  Personas: {personas}")
@@ -88,13 +64,36 @@ def load_cot_persona_data(
         print(f"    {p}: {len(by_persona[p])} entries")
 
     datapoints = []
-    pbar = tqdm(total=num_examples, desc="  persona: sampling", leave=False)
 
     while len(datapoints) < num_examples:
+        # Cycle through personas for balance
         persona = personas[len(datapoints) % len(personas)]
-        context_ids, positions = random.choice(by_persona[persona])
+        entry = random.choice(by_persona[persona])
+
+        boundary_positions = entry.get("boundary_positions", [])
+        if len(boundary_positions) < 2:
+            continue
+
+        messages = [{"role": "user", "content": entry["question"]}]
+        formatted = tokenizer.apply_chat_template(
+            messages, tokenize=False, add_generation_prompt=True,
+            enable_thinking=True,
+        )
+        cot_text = entry["cot_response"]
+        think_end = cot_text.find("</think>")
+        if think_end != -1:
+            cot_text = cot_text[:think_end]
+        full_text = formatted + cot_text
+        context_ids = tokenizer(full_text, add_special_tokens=False)["input_ids"]
+
+        positions = boundary_positions[:max_sentences]
+        positions = [p for p in positions if p < len(context_ids)]
+        if len(positions) < 2:
+            continue
 
         N = len(positions)
+
+        context_slice = context_ids[:positions[-1] + 1]
 
         prompt = (
             f"Activations from {N} sentence boundaries. "
@@ -106,12 +105,10 @@ def load_cot_persona_data(
             "datapoint_type": "cot_persona",
             "prompt": prompt,
             "target_response": persona,
-            "layers": layers,
+            "layers": layers,  # Multi-layer: [L25%, L50%, L75%]
             "num_positions": N,
-            "context_input_ids": list(context_ids),
+            "context_input_ids": context_slice,
             "context_positions": list(positions),
         })
-        pbar.update(1)
 
-    pbar.close()
     return datapoints[:num_examples]

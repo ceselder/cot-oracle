@@ -22,7 +22,6 @@ from cot_utils import (
     layer_percent_to_layer,
     split_cot_into_sentences,
 )
-from position_encoding import apply_position_encoding
 
 
 AO_CHECKPOINTS = {

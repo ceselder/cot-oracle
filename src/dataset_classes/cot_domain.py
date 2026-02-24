@@ -8,7 +8,6 @@ Uses stride=5, 3 layers (25%, 50%, 75%), ¶ token.
 import json
 import random
 
-from tqdm.auto import tqdm
 from transformers import AutoTokenizer
 
 
@@ -20,9 +19,7 @@ def load_cot_domain_data(
     stride: int = 5,
     max_positions_per_layer: int = 20,
     n_prompt_positions: int = 5,
-    max_sentences: int = 15,
     seed: int = 42,
-    corpus_entries: list[dict] | None = None,
     **_kwargs,
 ) -> list[dict]:
     """
@@ -30,7 +27,7 @@ def load_cot_domain_data(
 
     Labels from corpus 'domain' or 'source' field.
     """
-    from cot_utils import layer_percent_to_layer
+    from cot_utils import get_cot_stride_positions, layer_percent_to_layer
 
     _SOURCE_TO_DOMAIN = {
         "MATH": "math", "GSM8K": "math", "GPQA": "science", "BBH": "logic",
@@ -47,65 +44,76 @@ def load_cot_domain_data(
         layer_percent_to_layer(model_name, 75),
     ]
 
-    if corpus_entries is not None:
-        corpus = corpus_entries
-    else:
-        corpus = []
-        with open(corpus_path) as f:
-            for line in f:
-                if line.strip():
-                    entry = json.loads(line)
-                    if entry.get("cot_response", "").strip():
-                        corpus.append(entry)
+    corpus = []
+    with open(corpus_path) as f:
+        for line in f:
+            if line.strip():
+                entry = json.loads(line)
+                if entry.get("cot_response", "").strip():
+                    corpus.append(entry)
 
-    assert corpus, f"Empty corpus at {corpus_path}"
+    if not corpus:
+        raise ValueError(f"Empty corpus at {corpus_path}")
 
-    by_domain: dict[str, list[tuple]] = {}
-    for entry in tqdm(corpus, desc="  domain: tokenizing corpus", leave=False):
+    # Group by domain
+    by_domain = {}
+    for entry in corpus:
         domain = entry.get("domain") or _SOURCE_TO_DOMAIN.get(entry.get("source", ""), "unknown")
-        boundary_positions = entry.get("boundary_positions", [])
-        if len(boundary_positions) < 2:
-            continue
-
-        if "_ctx_ids" in entry:
-            context_ids = entry["_ctx_ids"]
-        else:
-            messages = [{"role": "user", "content": entry["question"]}]
-            formatted = tokenizer.apply_chat_template(
-                messages, tokenize=False, add_generation_prompt=True, enable_thinking=True,
-            )
-            cot_text = entry["cot_response"]
-            think_end = cot_text.find("</think>")
-            if think_end != -1:
-                cot_text = cot_text[:think_end]
-            context_ids = tokenizer(formatted + cot_text, add_special_tokens=False)["input_ids"]
-
-        positions = [p for p in boundary_positions[:max_sentences] if p < len(context_ids)]
-        if len(positions) < 2:
-            continue
-
-        if domain not in by_domain:
-            by_domain[domain] = []
-        by_domain[domain].append((context_ids, positions))
+        by_domain.setdefault(domain, []).append(entry)
 
     domains = sorted(by_domain.keys())
     print(f"  Domains: {domains}")
     for d in domains:
         print(f"    {d}: {len(by_domain[d])} entries")
 
-    layers_str = ", ".join(str(l) for l in LAYERS)
+    def _get_prompt_positions(formatted_len: int, n: int = 5) -> list[int]:
+        if formatted_len < n:
+            return list(range(formatted_len))
+        step = formatted_len / (n + 1)
+        return [int(step * (i + 1)) for i in range(n)]
 
     datapoints = []
-    pbar = tqdm(total=num_examples, desc="  domain: sampling", leave=False)
+    attempts = 0
 
-    while len(datapoints) < num_examples:
+    while len(datapoints) < num_examples and attempts < num_examples * 3:
+        attempts += 1
+
         domain = domains[len(datapoints) % len(domains)]
-        context_ids, positions = random.choice(by_domain[domain])
+        entry = random.choice(by_domain[domain])
 
-        N = len(positions)
+        messages = [{"role": "user", "content": entry["question"]}]
+        formatted = tokenizer.apply_chat_template(
+            messages, tokenize=False, add_generation_prompt=True,
+            enable_thinking=True,
+        )
+        cot_text = entry["cot_response"]
+        think_end = cot_text.find("</think>")
+        if think_end != -1:
+            cot_text = cot_text[:think_end]
+        full_text = formatted + cot_text
+        full_ids = tokenizer(full_text, add_special_tokens=False)["input_ids"]
 
+        prompt_ids = tokenizer(formatted, add_special_tokens=False)["input_ids"]
+        prompt_len = len(prompt_ids)
+
+        positions = get_cot_stride_positions(
+            prompt_len, len(full_ids),
+            stride=stride, max_positions=max_positions_per_layer,
+        )
+        if len(positions) < 2:
+            continue
+
+        prompt_positions = _get_prompt_positions(prompt_len, n_prompt_positions)
+        combined = prompt_positions + positions
+        context_positions = combined * 3
+        num_positions = len(context_positions)
+
+        max_pos = max(positions)
+        context_slice = full_ids[:max_pos + 1]
+
+        layers_str = ", ".join(str(l) for l in LAYERS)
         prompt = (
-            f"Activations from {N} positions across layers {layers_str}. "
+            f"Activations from {num_positions} positions across layers {layers_str}. "
             f"What domain is this reasoning about? "
             f"Answer with one word: {', '.join(domains)}."
         )
@@ -114,12 +122,12 @@ def load_cot_domain_data(
             "datapoint_type": "cot_domain",
             "prompt": prompt,
             "target_response": domain,
+            "layer": LAYERS[0],
             "layers": LAYERS,
-            "num_positions": N,
-            "context_input_ids": list(context_ids),
-            "context_positions": list(positions),
+            "num_positions": num_positions,
+            "context_input_ids": context_slice,
+            "context_positions": context_positions,
         })
-        pbar.update(1)
 
-    pbar.close()
+    print(f"  Generated {len(datapoints)} domain classification examples")
     return datapoints[:num_examples]

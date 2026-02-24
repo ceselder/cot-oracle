@@ -1,0 +1,34 @@
+# Core ML — pin versions to match AO repo
+torch==2.7.1
+transformers==4.55.2
+peft==0.17.1
+bitsandbytes>=0.48.1
+accelerate>=1.10.1
+datasets>=3.6.0
+flash-attn
+
+# Data processing
+numpy<2.0.0
+pandas
+tqdm
+
+# Evaluation
+scikit-learn
+scipy
+
+# Visualization
+matplotlib
+seaborn
+
+# HuggingFace
+huggingface_hub
+
+# Experiment tracking
+wandb>=0.21.1
+
+# Config
+PyYAML>=6.0
+
+# Utils
+python-dotenv
+einops>=0.8.1

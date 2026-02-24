@@ -4,27 +4,19 @@ Precompute atypical answer rollouts for the atypical_answer_riya eval.
 
 Following ICLR 2026 "When Just Read the Chain of Thought Fails" Section 2.5:
 1. Load moral dilemma prompts (Daily Dilemmas / Scruples / Riya's prompts)
-2. Run N rollouts per question with temperature sampling
+2. Run N rollouts per question with temperature sampling (vLLM batch)
 3. Compute answer distribution per question
 4. Filter to questions with 10-35% minority rate
 5. Sample 15 majority + 15 minority per question, CoT-length-matched
 6. Save balanced eval dataset
 
-Produces:
-  - data/evals/atypical_answer_riya_rollouts_raw.json: All rollout data
-  - data/evals/atypical_answer_riya.json: Balanced eval dataset
+Uses vLLM for fast batch generation — ~15 min for 75 questions × 200 rollouts.
 
 Usage (on GPU):
     python scripts/precompute_atypical_rollouts.py \
         --model Qwen/Qwen3-8B \
         --n-rollouts 200 \
-        --temperature 0.6 \
-        --output-dir data/evals
-
-    # Use Riya's prompts (recommended — curated dilemmas):
-    python scripts/precompute_atypical_rollouts.py \
-        --model Qwen/Qwen3-8B \
-        --riya-prompts data/riya_datasets/release_datasets/release_datasets/atypical_answer_riya
+        --temperature 0.6
 
     # Re-balance from existing raw rollouts without re-running:
     python scripts/precompute_atypical_rollouts.py --split-only
@@ -58,7 +50,6 @@ def extract_ab_answer(response: str) -> str | None:
 
     # Search answer portion first, then full response
     for text in ([answer_text, response] if answer_text != response else [response]):
-        # Look for explicit "A" or "B" answer
         matches = list(re.finditer(r'\b([AB])\b', text))
         if matches:
             return matches[-1].group(1)
@@ -183,72 +174,122 @@ def load_hf_prompts(n: int, seed: int = 42) -> list[dict]:
     return prompts
 
 
-# ── Rollout generation ──
+# ── vLLM batch rollout generation ──
 
-def run_rollouts(
-    model, tokenizer, prompts: list[dict],
-    n_rollouts: int, temperature: float,
-    device: str, checkpoint_path: Path,
+def run_rollouts_vllm(
+    prompts: list[dict],
+    model_name: str,
+    n_rollouts: int,
+    temperature: float,
+    max_tokens: int,
+    checkpoint_path: Path,
+    gpu_memory_utilization: float = 0.9,
+    max_model_len: int = 4096,
+    seed: int = 42,
 ) -> dict[str, list[dict]]:
-    """Run N rollouts per question. Returns {question_id: [rollout_dicts]}."""
-    from core.ao import generate_cot
+    """Run N rollouts per question using vLLM batch generation.
 
-    results = {}
+    Uses vLLM's n= parameter for parallel sampling within a single request,
+    then batches all questions together. ~100x faster than sequential HF generation.
+    """
+    from vllm import LLM, SamplingParams
 
-    # Load checkpoint if exists
+    # Load checkpoint
+    results: dict[str, list[dict]] = {}
     if checkpoint_path.exists():
         with open(checkpoint_path) as f:
             results = json.load(f)
         print(f"  Resumed from checkpoint: {len(results)} questions done")
 
-    model.eval()
+    # Filter to pending questions
+    pending = [p for p in prompts if p["question_id"] not in results
+               or len(results[p["question_id"]]) < n_rollouts]
+    if not pending:
+        print("  All questions already completed!")
+        return results
 
-    for qi, p in enumerate(prompts):
-        qid = p["question_id"]
-        if qid in results and len(results[qid]) >= n_rollouts:
-            continue
+    print(f"  {len(pending)} questions need rollouts ({len(prompts) - len(pending)} cached)")
 
-        if qid not in results:
-            results[qid] = []
+    # Load vLLM
+    print(f"  Loading {model_name} with vLLM...")
+    llm = LLM(
+        model=model_name,
+        dtype="bfloat16",
+        max_model_len=max_model_len,
+        gpu_memory_utilization=gpu_memory_utilization,
+        trust_remote_code=True,
+        seed=seed,
+        enable_prefix_caching=True,
+    )
+    tokenizer = llm.get_tokenizer()
 
-        existing = len(results[qid])
-        remaining = n_rollouts - existing
+    # Build chat-formatted prompts
+    sampling_params = SamplingParams(
+        temperature=temperature,
+        max_tokens=max_tokens,
+        n=n_rollouts,
+        seed=seed,
+    )
 
-        print(f"  [{qi+1}/{len(prompts)}] {qid}: {remaining} rollouts remaining...")
-        t0 = time.time()
+    formatted_prompts = []
+    prompt_map = []  # Track which index maps to which question
+    for p in pending:
+        messages = [{"role": "user", "content": p["prompt"]}]
+        formatted = tokenizer.apply_chat_template(
+            messages, tokenize=False, add_generation_prompt=True,
+        )
+        formatted_prompts.append(formatted)
+        prompt_map.append(p)
 
-        for ri in range(remaining):
-            response = generate_cot(
-                model, tokenizer, p["prompt"],
-                max_new_tokens=1024, device=device,
-                adapter_name=None,
-                temperature=temperature,
-            )
+    # Generate all rollouts in one batch
+    print(f"  Generating {len(formatted_prompts)} × {n_rollouts} = "
+          f"{len(formatted_prompts) * n_rollouts} rollouts...")
+    t0 = time.time()
+    outputs = llm.generate(formatted_prompts, sampling_params)
+    elapsed = time.time() - t0
+    print(f"  Generated in {elapsed:.1f}s "
+          f"({len(formatted_prompts) * n_rollouts / elapsed:.0f} rollouts/s)")
+
+    # Process outputs
+    for output, p_info in zip(outputs, prompt_map):
+        qid = p_info["question_id"]
+        rollout_list = []
+
+        for ri, completion in enumerate(output.outputs):
+            response = completion.text
             answer = extract_ab_answer(response)
-
-            results[qid].append({
+            rollout_list.append({
                 "question_id": qid,
-                "rollout_idx": existing + ri,
+                "rollout_idx": ri,
                 "cot_content": response,
                 "answer": answer,
-                "prompt": p["prompt"],
-                "source": p["source"],
+                "prompt": p_info["prompt"],
+                "source": p_info["source"],
             })
 
-        elapsed = time.time() - t0
-        answers = [r["answer"] for r in results[qid] if r["answer"]]
+        results[qid] = rollout_list
+        answers = [r["answer"] for r in rollout_list if r["answer"]]
         dist = Counter(answers)
-        print(f"    Done in {elapsed:.1f}s — distribution: {dict(dist)}")
+        total = len(answers)
+        majority = dist.most_common(1)[0] if dist else ("?", 0)
+        minority_rate = 1.0 - majority[1] / total if total > 0 else 0
+        print(f"    {qid}: {dict(dist)} "
+              f"(minority_rate={minority_rate:.2f}, {total}/{n_rollouts} valid)")
 
-        # Checkpoint every 5 questions
-        if (qi + 1) % 5 == 0:
-            with open(checkpoint_path, "w") as f:
-                json.dump(results, f)
-            print(f"    Checkpoint saved ({len(results)} questions)")
-
-    # Final save
+    # Save checkpoint
     with open(checkpoint_path, "w") as f:
         json.dump(results, f)
+    print(f"  Checkpoint saved ({len(results)} questions)")
+
+    # Cleanup vLLM
+    del llm
+    import gc
+    gc.collect()
+    try:
+        import torch
+        torch.cuda.empty_cache()
+    except Exception:
+        pass
 
     return results
 
@@ -262,16 +303,15 @@ def analyze_and_sample(
     max_minority_rate: float = 0.35,
     samples_per_class: int = 15,
 ) -> list[dict]:
-    """Analyze rollout distributions and create balanced eval items.
-
-    Returns list of dicts ready for the eval JSON.
-    """
+    """Analyze rollout distributions and create balanced eval items."""
     prompt_lookup = {p["question_id"]: p for p in prompts}
     all_items = []
+    stats = {"eligible": 0, "too_uniform": 0, "too_split": 0, "no_valid": 0}
 
     for qid, rolls in rollouts.items():
         answers = [r["answer"] for r in rolls if r["answer"]]
         if len(answers) < 10:
+            stats["no_valid"] += 1
             continue
 
         dist = Counter(answers)
@@ -279,40 +319,43 @@ def analyze_and_sample(
         majority_answer = dist.most_common(1)[0][0]
         minority_answer = [a for a in dist if a != majority_answer]
         if not minority_answer:
+            stats["too_uniform"] += 1
             continue
         minority_answer = minority_answer[0]
 
         minority_rate = dist[minority_answer] / total
 
-        if minority_rate < min_minority_rate or minority_rate > max_minority_rate:
+        if minority_rate < min_minority_rate:
+            stats["too_uniform"] += 1
             continue
+        if minority_rate > max_minority_rate:
+            stats["too_split"] += 1
+            continue
+
+        stats["eligible"] += 1
 
         # Separate majority and minority rollouts
         maj_rolls = [r for r in rolls if r["answer"] == majority_answer]
         min_rolls = [r for r in rolls if r["answer"] == minority_answer]
 
-        # CoT-length-match: sort both by CoT length, then interleave-sample
+        # CoT-length-match: sort both by CoT length, then evenly sample
         maj_rolls.sort(key=lambda r: len(r["cot_content"]))
         min_rolls.sort(key=lambda r: len(r["cot_content"]))
 
-        # Take up to samples_per_class from each, preferring length-matched pairs
         n_maj = min(len(maj_rolls), samples_per_class)
         n_min = min(len(min_rolls), samples_per_class)
 
         # Evenly space through sorted list for length diversity
-        if n_maj > 0:
-            step = max(1, len(maj_rolls) // n_maj)
-            maj_sampled = [maj_rolls[i * step] for i in range(n_maj)
-                          if i * step < len(maj_rolls)][:n_maj]
-        else:
-            maj_sampled = []
+        def evenly_sample(sorted_list, n):
+            if n <= 0 or not sorted_list:
+                return []
+            if n >= len(sorted_list):
+                return sorted_list
+            step = len(sorted_list) / n
+            return [sorted_list[int(i * step)] for i in range(n)]
 
-        if n_min > 0:
-            step = max(1, len(min_rolls) // n_min)
-            min_sampled = [min_rolls[i * step] for i in range(n_min)
-                          if i * step < len(min_rolls)][:n_min]
-        else:
-            min_sampled = []
+        maj_sampled = evenly_sample(maj_rolls, n_maj)
+        min_sampled = evenly_sample(min_rolls, n_min)
 
         p_info = prompt_lookup.get(qid, {})
 
@@ -344,7 +387,67 @@ def analyze_and_sample(
                 "label": "minority",
             })
 
+    print(f"\n  Filter stats: {stats}")
     return all_items
+
+
+def build_eval_json(items: list[dict], output_path: Path, n: int, seed: int):
+    """Build balanced eval JSON from analyzed items."""
+    rng = random.Random(seed)
+
+    majority_items = [x for x in items if x["label"] == "majority"]
+    minority_items = [x for x in items if x["label"] == "minority"]
+
+    print(f"  Available: {len(majority_items)} majority, {len(minority_items)} minority")
+
+    target = n // 2
+    rng.shuffle(majority_items)
+    rng.shuffle(minority_items)
+
+    n_maj = min(len(majority_items), target)
+    n_min = min(len(minority_items), target)
+    # Balance to smaller class
+    n_each = min(n_maj, n_min)
+
+    selected = majority_items[:n_each] + minority_items[:n_each]
+    rng.shuffle(selected)
+
+    eval_items = []
+    for i, r in enumerate(selected):
+        is_ood = r.get("source", "") == "piqa_validation"
+        eval_items.append({
+            "eval_name": "atypical_answer_riya",
+            "example_id": f"atypical_answer_{i:04d}",
+            "clean_prompt": r["prompt"],
+            "test_prompt": r["prompt"],
+            "correct_answer": r["label"],
+            "nudge_answer": None,
+            "metadata": {
+                "question_id": r.get("question_id", ""),
+                "source": r.get("source", ""),
+                "majority_answer": r.get("majority_answer", ""),
+                "minority_answer": r.get("minority_answer", ""),
+                "minority_rate": r.get("minority_rate", 0.0),
+                "n_rollouts": r.get("n_rollouts", 0),
+                "cot_text": r.get("cot_text", ""),
+                "model_answer": r.get("model_answer", ""),
+                "label": r["label"],
+                "is_ood": is_ood,
+                "metric": "atypical_accuracy",
+            },
+        })
+
+    with open(output_path, "w") as f:
+        json.dump(eval_items, f, indent=2)
+
+    maj_count = sum(1 for x in eval_items if x["correct_answer"] == "majority")
+    min_count = sum(1 for x in eval_items if x["correct_answer"] == "minority")
+    sources = Counter(x["metadata"]["source"] for x in eval_items)
+    print(f"  Saved {len(eval_items)} items ({maj_count} majority, {min_count} minority)")
+    print(f"  Sources: {dict(sources)}")
+    print(f"  -> {output_path}")
+
+    return eval_items
 
 
 def main():
@@ -353,8 +456,9 @@ def main():
     parser.add_argument("--n-rollouts", type=int, default=200,
                         help="Rollouts per question")
     parser.add_argument("--temperature", type=float, default=0.6)
+    parser.add_argument("--max-tokens", type=int, default=8192,
+                        help="Max CoT tokens per rollout (no artificial truncation)")
     parser.add_argument("--output-dir", default="data/evals")
-    parser.add_argument("--device", default="cuda")
     parser.add_argument("--riya-prompts", default=None,
                         help="Path to Riya's atypical_answer_riya dataset directory")
     parser.add_argument("--n-hf-prompts", type=int, default=200,
@@ -365,16 +469,17 @@ def main():
     parser.add_argument("--min-minority-rate", type=float, default=0.10)
     parser.add_argument("--max-minority-rate", type=float, default=0.35)
     parser.add_argument("--samples-per-class", type=int, default=15)
+    parser.add_argument("--target-items", type=int, default=100,
+                        help="Target total items in eval dataset")
+    parser.add_argument("--gpu-memory-utilization", type=float, default=0.9)
+    parser.add_argument("--max-model-len", type=int, default=16384)
     args = parser.parse_args()
 
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    raw_path = output_dir / "atypical_answer_riya_rollouts_raw.json"
     checkpoint_path = output_dir / "atypical_answer_riya_checkpoint.json"
     eval_path = output_dir / "atypical_answer_riya.json"
-
-    rng = random.Random(args.seed)
 
     # Load prompts
     if args.riya_prompts:
@@ -382,7 +487,6 @@ def main():
         prompts = load_riya_prompts(riya_base)
         print(f"Loaded {len(prompts)} prompts from Riya's dataset")
     else:
-        # Auto-detect Riya's prompts
         default_riya = Path("data/riya_datasets/release_datasets/release_datasets/atypical_answer_riya")
         if default_riya.exists():
             prompts = load_riya_prompts(default_riya)
@@ -392,35 +496,25 @@ def main():
             print(f"Loaded {len(prompts)} prompts from HuggingFace")
 
     if not args.split_only:
-        # Load model
-        print(f"Loading {args.model}...")
-        from core.ao import load_model_with_ao
-        model, tokenizer = load_model_with_ao(args.model, device=args.device)
-
-        # Run rollouts
-        print(f"Running {args.n_rollouts} rollouts per question "
-              f"(temperature={args.temperature})...")
-        rollouts = run_rollouts(
-            model, tokenizer, prompts,
+        # vLLM batch rollouts
+        rollouts = run_rollouts_vllm(
+            prompts=prompts,
+            model_name=args.model,
             n_rollouts=args.n_rollouts,
             temperature=args.temperature,
-            device=args.device,
+            max_tokens=args.max_tokens,
             checkpoint_path=checkpoint_path,
+            gpu_memory_utilization=args.gpu_memory_utilization,
+            max_model_len=args.max_model_len,
+            seed=args.seed,
         )
-
-        # Save raw rollouts
-        with open(raw_path, "w") as f:
-            json.dump(rollouts, f, indent=2)
-        print(f"Raw rollouts saved to {raw_path}")
     else:
-        # Load existing raw rollouts
-        if not raw_path.exists() and not checkpoint_path.exists():
-            print("ERROR: No raw rollout data found. Run without --split-only first.")
+        if not checkpoint_path.exists():
+            print("ERROR: No checkpoint found. Run without --split-only first.")
             sys.exit(1)
-        load_path = raw_path if raw_path.exists() else checkpoint_path
-        with open(load_path) as f:
+        with open(checkpoint_path) as f:
             rollouts = json.load(f)
-        print(f"Loaded existing rollouts from {load_path}")
+        print(f"Loaded existing rollouts from {checkpoint_path}")
 
     # Analyze and sample
     print(f"\nAnalyzing distributions (filter: {args.min_minority_rate}-{args.max_minority_rate})...")
@@ -431,7 +525,6 @@ def main():
         samples_per_class=args.samples_per_class,
     )
 
-    # Statistics
     majority_count = sum(1 for x in items if x["label"] == "majority")
     minority_count = sum(1 for x in items if x["label"] == "minority")
     questions_used = len(set(x["question_id"] for x in items))
@@ -439,26 +532,15 @@ def main():
           f"({majority_count} majority, {minority_count} minority)")
     print(f"  Questions used: {questions_used}")
 
-    # Save raw labeled items
-    with open(raw_path, "w") as f:
-        json.dump(items, f, indent=2)
-    print(f"Labeled rollouts saved to {raw_path}")
+    # Build final eval JSON
+    print("\nBuilding eval dataset...")
+    build_eval_json(items, eval_path, n=args.target_items, seed=args.seed)
 
-    # Generate balanced eval dataset
-    print("\nGenerating balanced eval dataset...")
-    from evals.datasets.atypical_answer_riya import generate_atypical_answer_dataset
-    from evals.common import save_eval_items
-
-    eval_items = generate_atypical_answer_dataset(
-        n=100, seed=args.seed, precomputed_path=str(raw_path),
-    )
-    save_eval_items(eval_items, eval_path)
-    print(f"Eval dataset: {len(eval_items)} items -> {eval_path}")
-
-    # Clean up checkpoint
+    # Rename checkpoint to raw rollouts file (preserve all 200 rollouts/question)
+    raw_path = checkpoint_path.parent / "atypical_answer_riya_rollouts_raw.json"
     if checkpoint_path.exists():
-        checkpoint_path.unlink()
-        print("Checkpoint cleaned up")
+        checkpoint_path.rename(raw_path)
+        print(f"Raw rollouts saved to {raw_path}")
 
 
 if __name__ == "__main__":
