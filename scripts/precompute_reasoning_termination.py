@@ -107,12 +107,12 @@ def main():
     random.seed(args.seed)
 
     eval_dir = Path(args.eval_dir)
-    eval_file = eval_dir / "reasoning_termination.json"
+    eval_file = eval_dir / "reasoning_termination_riya.json"
     cache_file = Path(args.cache_file) if args.cache_file else eval_dir / "reasoning_termination_cache.json"
 
     if not eval_file.exists():
         print(f"ERROR: {eval_file} not found. Run generate_datasets.py first:")
-        print(f"  python src/evals/generate_datasets.py --evals reasoning_termination")
+        print(f"  python src/evals/generate_datasets.py --evals reasoning_termination_riya")
         sys.exit(1)
 
     # Load existing eval items (placeholders from generate_datasets.py)
@@ -464,7 +464,7 @@ def main():
         label = cand["candidate_label"]
 
         final_items.append({
-            "eval_name": "reasoning_termination",
+            "eval_name": "reasoning_termination_riya",
             "example_id": f"reason_term_{i:04d}",
             "clean_prompt": cand["question"],
             "test_prompt": cand["question"],

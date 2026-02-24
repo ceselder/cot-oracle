@@ -33,13 +33,10 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 
 # Evals that don't need response generation (they use pre-existing reference CoTs)
 SKIP_EVALS = {
-    "held_out_cot_reconstruction",  # has reference_cot
-    "rot13_reconstruction",         # has rot13_cot + decoded_cot
-    "logical_leaps",                # has reference_cot
-    "sentence_insertion",           # has spliced_cot_text
-    "step_counting",                # has reference_cot in metadata
-    "reasoning_termination",        # has dedicated precompute script
-    "forced_answer_entropy",        # has dedicated precompute script (precompute_forced_entropy.py)
+    "rot13_reconstruction",              # has rot13_cot + decoded_cot
+    "sentence_insertion",                # has spliced_cot_text
+    "reasoning_termination_riya",        # has dedicated precompute script
+    "forced_answer_entropy_riya",        # has dedicated precompute script (precompute_forced_entropy.py)
 }
 
 
@@ -133,7 +130,7 @@ def extract_answer(response: str, eval_name: str) -> str | None:
         return extract_letter_answer(response)
     elif eval_name == "contradictory_comparison":
         return extract_yes_no(response)
-    elif eval_name in ("sycophancy_scruples", "scruples_disagreement", "sycophancy_v2"):
+    elif eval_name in ("sycophancy_v2_riya",):
         return extract_moral_judgment(response)
     else:
         return extract_numerical_answer(response)

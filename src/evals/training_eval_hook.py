@@ -67,13 +67,13 @@ from core.ao import (
 )
 
 
-# The 7 evals to run during training, in order of cost (cheapest first)
+# Evals to run during training, in order of cost (cheapest first)
 TRAINING_EVALS = [
-    "answer_correctness",
-    "hint_influence_yesno",
-    "sycophancy_scruples",
+    "hinted_mcq",
+    "sycophancy",
     "decorative_cot",
     "sentence_insertion",
+    "reasoning_termination_riya",
     "rot13_reconstruction",
 ]
 
@@ -733,7 +733,7 @@ def run_training_evals(
                     cache_dir=cache_dir,
                 )
             else:
-                # Standard binary evals: answer_correctness, hint_influence_yesno, sycophancy_scruples
+                # Standard binary evals: hinted_mcq, sycophancy, reasoning_termination
                 completed = _run_standard_eval(
                     model, tokenizer, items, eval_name, act_layer,
                     model_name, device, oracle_adapter_name,
@@ -779,7 +779,6 @@ def run_training_evals(
                 if si_metrics:
                     acc = si_metrics.get("accuracy", 0.0)
                     all_metrics[f"unfaith_eval/{eval_name}_acc"] = acc
-                    # n logged to console only, not wandb (clutters charts)
                     print(f"    {eval_name}: acc={acc:.3f}")
             else:
                 # Binary evals

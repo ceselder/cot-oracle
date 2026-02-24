@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Precompute atypical answer rollouts for the atypical_answer eval.
+Precompute atypical answer rollouts for the atypical_answer_riya eval.
 
 Following ICLR 2026 "When Just Read the Chain of Thought Fails" Section 2.5:
 1. Load moral dilemma prompts (Daily Dilemmas / Scruples / Riya's prompts)
@@ -11,8 +11,8 @@ Following ICLR 2026 "When Just Read the Chain of Thought Fails" Section 2.5:
 6. Save balanced eval dataset
 
 Produces:
-  - data/evals/atypical_answer_rollouts_raw.json: All rollout data
-  - data/evals/atypical_answer.json: Balanced eval dataset
+  - data/evals/atypical_answer_riya_rollouts_raw.json: All rollout data
+  - data/evals/atypical_answer_riya.json: Balanced eval dataset
 
 Usage (on GPU):
     python scripts/precompute_atypical_rollouts.py \
@@ -24,7 +24,7 @@ Usage (on GPU):
     # Use Riya's prompts (recommended — curated dilemmas):
     python scripts/precompute_atypical_rollouts.py \
         --model Qwen/Qwen3-8B \
-        --riya-prompts data/riya_datasets/release_datasets/release_datasets/atypical_answer
+        --riya-prompts data/riya_datasets/release_datasets/release_datasets/atypical_answer_riya
 
     # Re-balance from existing raw rollouts without re-running:
     python scripts/precompute_atypical_rollouts.py --split-only
@@ -119,7 +119,7 @@ def load_riya_prompts(riya_base: Path) -> list[dict]:
 
 def load_hf_prompts(n: int, seed: int = 42) -> list[dict]:
     """Load prompts from HuggingFace datasets (fallback)."""
-    from evals.datasets.atypical_answer import (
+    from evals.datasets.atypical_answer_riya import (
         _load_daily_dilemmas,
         _load_scruples_binary,
         _load_piqa_ood,
@@ -356,7 +356,7 @@ def main():
     parser.add_argument("--output-dir", default="data/evals")
     parser.add_argument("--device", default="cuda")
     parser.add_argument("--riya-prompts", default=None,
-                        help="Path to Riya's atypical_answer dataset directory")
+                        help="Path to Riya's atypical_answer_riya dataset directory")
     parser.add_argument("--n-hf-prompts", type=int, default=200,
                         help="Number of HF prompts to load if not using Riya's")
     parser.add_argument("--seed", type=int, default=42)
@@ -370,9 +370,9 @@ def main():
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    raw_path = output_dir / "atypical_answer_rollouts_raw.json"
-    checkpoint_path = output_dir / "atypical_answer_checkpoint.json"
-    eval_path = output_dir / "atypical_answer.json"
+    raw_path = output_dir / "atypical_answer_riya_rollouts_raw.json"
+    checkpoint_path = output_dir / "atypical_answer_riya_checkpoint.json"
+    eval_path = output_dir / "atypical_answer_riya.json"
 
     rng = random.Random(args.seed)
 
@@ -383,7 +383,7 @@ def main():
         print(f"Loaded {len(prompts)} prompts from Riya's dataset")
     else:
         # Auto-detect Riya's prompts
-        default_riya = Path("data/riya_datasets/release_datasets/release_datasets/atypical_answer")
+        default_riya = Path("data/riya_datasets/release_datasets/release_datasets/atypical_answer_riya")
         if default_riya.exists():
             prompts = load_riya_prompts(default_riya)
             print(f"Loaded {len(prompts)} prompts from Riya's dataset (auto-detected)")
@@ -446,10 +446,10 @@ def main():
 
     # Generate balanced eval dataset
     print("\nGenerating balanced eval dataset...")
-    from evals.datasets.atypical_answer import generate_atypical_answer_dataset
+    from evals.datasets.atypical_answer_riya import generate_atypical_answer_riya_dataset
     from evals.common import save_eval_items
 
-    eval_items = generate_atypical_answer_dataset(
+    eval_items = generate_atypical_answer_riya_dataset(
         n=100, seed=args.seed, precomputed_path=str(raw_path),
     )
     save_eval_items(eval_items, eval_path)

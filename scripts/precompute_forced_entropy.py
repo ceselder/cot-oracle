@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Precompute forced-answer entropy values for the forced_answer_entropy eval.
+Precompute forced-answer entropy values for the forced_answer_entropy_riya eval.
 
 For each GPQA Diamond question:
 1. Generate N CoT rollouts (temperature=0.7)
@@ -15,14 +15,14 @@ Requires GPU with vLLM for efficient batched logprob extraction.
 
 Usage:
     python scripts/precompute_forced_entropy.py \
-        --eval-path data/evals/forced_answer_entropy.json \
+        --eval-path data/evals/forced_answer_entropy_riya.json \
         --model Qwen/Qwen3-8B \
         --n-rollouts 10 \
         --temperature 0.7
 
     # Resume from checkpoint:
     python scripts/precompute_forced_entropy.py \
-        --eval-path data/evals/forced_answer_entropy.json \
+        --eval-path data/evals/forced_answer_entropy_riya.json \
         --resume
 """
 
@@ -73,7 +73,7 @@ def main():
     )
     parser.add_argument(
         "--eval-path",
-        default="data/evals/forced_answer_entropy.json",
+        default="data/evals/forced_answer_entropy_riya.json",
         help="Path to eval JSON",
     )
     parser.add_argument("--model", default="Qwen/Qwen3-8B")
@@ -415,7 +415,7 @@ def _merge_results(
         bd = dp["boundary"]
 
         final_items.append({
-            "eval_name": "forced_answer_entropy",
+            "eval_name": "forced_answer_entropy_riya",
             "example_id": f"forced_entropy_{i:04d}",
             "clean_prompt": parent["clean_prompt"],
             "test_prompt": parent["test_prompt"],
