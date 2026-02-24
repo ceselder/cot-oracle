@@ -70,7 +70,7 @@ from core.ao import (
 # Evals to run during training, in order of cost (cheapest first)
 TRAINING_EVALS = [
     "hinted_mcq",
-    "sycophancy",
+    "sycophancy_v2_riya",
     "decorative_cot",
     "sentence_insertion",
     "reasoning_termination_riya",
@@ -136,7 +136,7 @@ def _run_standard_eval(
     oracle_adapter_name: str,
     cache_dir: Path | None = None,
 ) -> list[CompletedEvalItem]:
-    """Run a standard binary eval (hinted_mcq, sycophancy, reasoning_termination_riya).
+    """Run a standard binary eval (hinted_mcq, sycophancy_v2_riya, reasoning_termination_riya).
 
     Flow per item:
     1. Load cached activations OR generate clean + test responses and extract activations
@@ -159,7 +159,10 @@ def _run_standard_eval(
             else:
                 # Use precomputed text responses from metadata if available
                 precomp_clean = item.metadata.get("qwen3_8b_clean_response")
-                precomp_test = item.metadata.get("qwen3_8b_test_response")
+                precomp_test = (
+                    item.metadata.get("qwen3_8b_test_response")
+                    or item.metadata.get("representative_response")  # sycophancy_v2_riya
+                )
 
                 if precomp_clean and precomp_test:
                     clean_response = precomp_clean
@@ -172,6 +175,19 @@ def _run_standard_eval(
                         item.metadata.get("qwen3_8b_test_answer")
                         or _extract_answer(test_response, eval_name)
                     )
+                elif precomp_test:
+                    # Only test response available (e.g. sycophancy_v2_riya has
+                    # precomputed labels so clean_response not needed for GT)
+                    test_response = precomp_test
+                    test_answer = (
+                        item.metadata.get("qwen3_8b_test_answer")
+                        or _extract_answer(test_response, eval_name)
+                    )
+                    clean_response = generate_cot(
+                        model, tokenizer, item.clean_prompt,
+                        max_new_tokens=512, device=device, adapter_name=None,
+                    )
+                    clean_answer = _extract_answer(clean_response, eval_name)
                 else:
                     clean_response = generate_cot(
                         model, tokenizer, item.clean_prompt,

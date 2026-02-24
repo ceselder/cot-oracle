@@ -5,7 +5,7 @@ Two-phase pipeline:
   Phase 2: Extract activations with HF model + AO (forward pass only, ~15 min)
 
 Handles all 6 training evals:
-  - Standard binary (hinted_mcq, sycophancy, reasoning_termination_riya): vLLM clean+test CoT
+  - Standard binary (hinted_mcq, sycophancy_v2_riya, reasoning_termination_riya): vLLM clean+test CoT
   - decorative_cot: Uses v2 precomputed data if available, else vLLM labeling runs
   - sentence_insertion: CoT already in metadata, just needs activation extraction
   - rot13_reconstruction: vLLM with LoRA adapter + base model
