@@ -966,7 +966,7 @@ def main():
     # Eval / save
     parser.add_argument("--eval-steps", type=int, default=500)
     parser.add_argument("--save-steps", type=int, default=2000)
-    parser.add_argument("--unfaith-eval-steps", type=int, default=5000)
+    parser.add_argument("--unfaith-eval-steps", type=int, default=500)
     parser.add_argument("--unfaith-eval-items", type=int, default=20)
     parser.add_argument("--rot13-start-step", type=int, default=2000)
     parser.add_argument("--start-step", type=int, default=0,
