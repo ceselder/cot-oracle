@@ -1,0 +1,2 @@
+data/eval_precomputed/**/*.pt filter=lfs diff=lfs merge=lfs -text
+data/eval_precomputed/**/*.json filter=lfs diff=lfs merge=lfs -text

@@ -637,7 +637,7 @@ def install_third_task_loss_hook(max_layers: int = 36):
 
     Logs:
       train/loss_{task}           — per-task average loss (as before)
-      train/loss_{task}/{qbin}    — per-task × per-third-bin loss
+      train/loss_{task}/{qbin}    — per-task x per-third-bin loss
       train/loss_third/{qbin}  — per-third average loss (across all tasks)
     """
     import wandb
@@ -709,6 +709,7 @@ def install_third_task_loss_hook(max_layers: int = 36):
                 if stride_val is not None:
                     stride_losses[f"s{stride_val}"].append(loss_val)
 
+            now = time.time()
             log_dict = {}
             for task, losses in task_losses.items():
                 log_dict[f"train/loss_{task}"] = sum(losses) / len(losses)

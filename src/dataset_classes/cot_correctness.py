@@ -1,11 +1,10 @@
 """
-Task 5: Correctness Prediction (~15K examples)
+CoT Correctness Prediction — Is the model's final answer correct?
 
-Binary classification: is the model's final answer correct?
-Uses sentence-structured format with 3 acts per sentence boundary.
+Binary classification: given CoT activations, predict whether the
+model's final answer is correct or incorrect.
 
-Ground truth: compare extracted answer to ground truth from corpus.
-Labels: "correct" or "incorrect"
+Uses stride=5, 3 layers (25%, 50%, 75%), ¶ token.
 """
 
 import json
@@ -21,21 +20,30 @@ def load_cot_correctness_data(
     corpus_path: str,
     tokenizer: AutoTokenizer,
     model_name: str,
-    layer_percents: list[int],
     num_examples: int = 15000,
+    stride: int = 5,
+    max_positions_per_layer: int = 20,
+    n_prompt_positions: int = 5,
     max_sentences: int = 15,
     seed: int = 42,
     corpus_entries: list[dict] | None = None,
+    **_kwargs,
 ) -> list[dict]:
     """
-    Generate correctness prediction training data.
+    Generate correctness prediction training data with multi-layer stride.
 
-    Each example: sentence-boundary activations -> correct / incorrect.
+    Each example: stride activations from CoT -> correct / incorrect.
     Ground truth from corpus (cot_correct field). Balanced 50/50.
     """
     from cot_utils import layer_percent_to_layer
 
     random.seed(seed)
+
+    LAYERS = [
+        layer_percent_to_layer(model_name, 25),
+        layer_percent_to_layer(model_name, 50),
+        layer_percent_to_layer(model_name, 75),
+    ]
 
     if corpus_entries is not None:
         corpus = corpus_entries
@@ -44,7 +52,9 @@ def load_cot_correctness_data(
         with open(corpus_path) as f:
             for line in f:
                 if line.strip():
-                    corpus.append(json.loads(line))
+                    entry = json.loads(line)
+                    if entry.get("cot_response", "").strip():
+                        corpus.append(entry)
 
     assert corpus, f"Empty corpus at {corpus_path}"
 
@@ -58,10 +68,10 @@ def load_cot_correctness_data(
 
     print(f"  correct: {len(correct_pool)}, incorrect: {len(incorrect_pool)}")
 
-    layers = [layer_percent_to_layer(model_name, lp) for lp in layer_percents]
-
     cached_correct = _pretokenize_boundary_entries(correct_pool, tokenizer, max_sentences, "correctness/correct")
     cached_incorrect = _pretokenize_boundary_entries(incorrect_pool, tokenizer, max_sentences, "correctness/incorrect")
+
+    layers_str = ", ".join(str(l) for l in LAYERS)
 
     datapoints = []
     pbar = tqdm(total=num_examples, desc="  correctness: sampling", leave=False)
@@ -77,7 +87,7 @@ def load_cot_correctness_data(
         N = len(positions)
 
         prompt = (
-            f"Activations from {N} sentence boundaries. "
+            f"Activations from {N} positions across layers {layers_str}. "
             f"Is the model's final answer correct? Answer: correct or incorrect."
         )
 
@@ -85,7 +95,7 @@ def load_cot_correctness_data(
             "datapoint_type": "cot_correctness",
             "prompt": prompt,
             "target_response": target,
-            "layers": layers,
+            "layers": LAYERS,
             "num_positions": N,
             "context_input_ids": list(context_ids),
             "context_positions": list(positions),

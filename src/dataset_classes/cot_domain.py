@@ -1,11 +1,8 @@
 """
-Task 4: Domain Classification (~15K examples)
+CoT Domain Classification — What domain is this reasoning about?
 
-Classify what domain/topic the problem is from. Labels are FREE from corpus metadata.
-One random layer per example from [25%, 50%, 75%] depth.
-
-Ground truth: source dataset name -> domain label.
-Classes: math, science, logic, commonsense, reading, medical, multi_domain
+Multi-class classification: given CoT activations, predict the domain/topic.
+Uses stride=5, 3 layers (25%, 50%, 75%), ¶ token.
 """
 
 import json
@@ -19,17 +16,19 @@ def load_cot_domain_data(
     corpus_path: str,
     tokenizer: AutoTokenizer,
     model_name: str,
-    layer_percents: list[int],
     num_examples: int = 15000,
+    stride: int = 5,
+    max_positions_per_layer: int = 20,
+    n_prompt_positions: int = 5,
     max_sentences: int = 15,
     seed: int = 42,
     corpus_entries: list[dict] | None = None,
+    **_kwargs,
 ) -> list[dict]:
     """
-    Generate domain classification training data.
+    Generate domain classification data with multi-layer stride.
 
-    Each example: sentence-boundary activations -> domain label.
-    Domain labels come from SOURCE_TO_DOMAIN mapping in generate_cots.py.
+    Labels from corpus 'domain' or 'source' field.
     """
     from cot_utils import layer_percent_to_layer
 
@@ -37,10 +36,16 @@ def load_cot_domain_data(
         "MATH": "math", "GSM8K": "math", "GPQA": "science", "BBH": "logic",
         "ARC": "science", "StrategyQA": "commonsense", "DROP": "reading",
         "LogiQA": "logic", "MMLU-Pro": "multi_domain", "CommonsenseQA": "commonsense",
-        "AQUA-RAT": "math", "MedQA": "medical",
+        "AQUA-RAT": "math", "MedQA": "medical", "ScienceQA": "science",
     }
 
     random.seed(seed)
+
+    LAYERS = [
+        layer_percent_to_layer(model_name, 25),
+        layer_percent_to_layer(model_name, 50),
+        layer_percent_to_layer(model_name, 75),
+    ]
 
     if corpus_entries is not None:
         corpus = corpus_entries
@@ -49,15 +54,15 @@ def load_cot_domain_data(
         with open(corpus_path) as f:
             for line in f:
                 if line.strip():
-                    corpus.append(json.loads(line))
+                    entry = json.loads(line)
+                    if entry.get("cot_response", "").strip():
+                        corpus.append(entry)
 
     assert corpus, f"Empty corpus at {corpus_path}"
 
-    layers = [layer_percent_to_layer(model_name, lp) for lp in layer_percents]
-
     by_domain: dict[str, list[tuple]] = {}
     for entry in tqdm(corpus, desc="  domain: tokenizing corpus", leave=False):
-        domain = entry.get("domain") or _SOURCE_TO_DOMAIN.get(entry["source"], "unknown")
+        domain = entry.get("domain") or _SOURCE_TO_DOMAIN.get(entry.get("source", ""), "unknown")
         boundary_positions = entry.get("boundary_positions", [])
         if len(boundary_positions) < 2:
             continue
@@ -88,6 +93,8 @@ def load_cot_domain_data(
     for d in domains:
         print(f"    {d}: {len(by_domain[d])} entries")
 
+    layers_str = ", ".join(str(l) for l in LAYERS)
+
     datapoints = []
     pbar = tqdm(total=num_examples, desc="  domain: sampling", leave=False)
 
@@ -98,7 +105,7 @@ def load_cot_domain_data(
         N = len(positions)
 
         prompt = (
-            f"Activations from {N} sentence boundaries. "
+            f"Activations from {N} positions across layers {layers_str}. "
             f"What domain is this reasoning about? "
             f"Answer with one word: {', '.join(domains)}."
         )
@@ -107,7 +114,7 @@ def load_cot_domain_data(
             "datapoint_type": "cot_domain",
             "prompt": prompt,
             "target_response": domain,
-            "layers": layers,
+            "layers": LAYERS,
             "num_positions": N,
             "context_input_ids": list(context_ids),
             "context_positions": list(positions),

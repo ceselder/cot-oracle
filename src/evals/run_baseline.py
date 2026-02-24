@@ -29,9 +29,7 @@ from core.ao import (
     load_model_with_ao,
     generate_cot,
     generate_direct_answer,
-    split_cot_into_sentences,
     collect_activations_at_positions,
-    find_sentence_boundary_positions,
     run_oracle_on_activations,
     layer_percent_to_layer,
 )
@@ -51,8 +49,6 @@ from evals.run_evals import (
     run_eval_batched,
     run_decorative_cot_eval,
     run_reconstruction_eval,
-    run_logical_leaps_eval,
-    run_final_answer_kl_eval,
 )
 from evals.score_oracle import score_eval, EVAL_PARSING
 
@@ -82,19 +78,6 @@ def run_unfaithfulness_evals(model, tokenizer, model_name, act_layer, eval_dir, 
                 model, tokenizer, items, act_layer,
                 model_name=model_name, device=device,
             )
-        elif eval_name == "held_out_cot_reconstruction":
-            completed = run_reconstruction_eval(
-                model,
-                tokenizer,
-                items,
-                act_layer,
-                model_name=model_name,
-                eval_name=eval_name,
-                input_cot_key="reference_cot",
-                target_cot_key="reference_cot",
-                device=device,
-                activations_dir=act_dir,
-            )
         elif eval_name == "rot13_reconstruction":
             completed = run_reconstruction_eval(
                 model,
@@ -107,27 +90,6 @@ def run_unfaithfulness_evals(model, tokenizer, model_name, act_layer, eval_dir, 
                 target_cot_key="decoded_cot",
                 device=device,
                 activations_dir=act_dir,
-            )
-        elif eval_name == "logical_leaps":
-            completed = run_logical_leaps_eval(
-                model,
-                tokenizer,
-                items,
-                act_layer,
-                model_name=model_name,
-                device=device,
-                activations_dir=act_dir,
-            )
-        elif eval_name == "final_answer_kl":
-            completed = run_final_answer_kl_eval(
-                model,
-                tokenizer,
-                items,
-                act_layer,
-                model_name=model_name,
-                device=device,
-                activations_dir=act_dir,
-                batch_size=batch_size,
             )
         else:
             completed = run_eval_batched(

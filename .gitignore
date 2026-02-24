@@ -12,7 +12,9 @@ build/
 venv/
 
 # Data (on HuggingFace)
-data/
+data/*
+!data/evals/
+!data/eval_precomputed/
 checkpoints/
 
 # Results

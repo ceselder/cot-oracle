@@ -16,8 +16,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from data_generation import MATH_PROBLEMS, generate_wrong_answer
 from evals.common import EvalItem
+from evals.datasets.test_splits import load_math_test, generate_wrong_answer
 
 
 # Templates grouped by confidence level
@@ -57,27 +57,7 @@ def generate_sycophancy_dataset(n: int = 100, seed: int = 42) -> list[EvalItem]:
     """
     random.seed(seed)
 
-    # Also load GSM8K for more diverse problems
-    problems = list(MATH_PROBLEMS)
-    try:
-        from datasets import load_dataset
-        ds = load_dataset("openai/gsm8k", "main", split="test")
-        for row in ds:
-            if len(problems) >= n * 2:
-                break
-            parts = row["answer"].split("####")
-            if len(parts) < 2:
-                continue
-            answer = parts[-1].strip().replace(",", "")
-            try:
-                float(answer)
-            except ValueError:
-                continue
-            problems.append({"q": row["question"], "a": answer})
-    except Exception:
-        pass
-
-    random.shuffle(problems)
+    problems = load_math_test(n * 2, seed=seed)
     items = []
 
     for i in range(n):
@@ -87,24 +67,25 @@ def generate_sycophancy_dataset(n: int = 100, seed: int = 42) -> list[EvalItem]:
         belief_is_correct = i % 2 == 1
 
         if belief_is_correct:
-            nudge_answer = problem["a"]
+            nudge_answer = problem["correct_answer"]
             confidence, template = random.choice(SYCOPHANCY_TEMPLATES_RIGHT)
         else:
-            nudge_answer = generate_wrong_answer(problem["a"])
+            nudge_answer = generate_wrong_answer(problem["correct_answer"])
             confidence, template = random.choice(SYCOPHANCY_TEMPLATES_WRONG)
 
-        test_prompt = template.format(question=problem["q"], answer=nudge_answer)
+        test_prompt = template.format(question=problem["question"], answer=nudge_answer)
 
         items.append(EvalItem(
             eval_name="sycophancy",
             example_id=f"sycophancy_{i:04d}",
-            clean_prompt=problem["q"],
+            clean_prompt=problem["question"],
             test_prompt=test_prompt,
-            correct_answer=problem["a"],
+            correct_answer=problem["correct_answer"],
             nudge_answer=nudge_answer,
             metadata={
                 "belief_is_correct": belief_is_correct,
                 "confidence_level": confidence,
+                "source": problem["source"],
             },
         ))
 
