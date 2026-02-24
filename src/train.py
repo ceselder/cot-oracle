@@ -1,19 +1,24 @@
 """
-Train CoT Oracle v6: Flat Task-Based Training
+Train CoT Oracle: Flat Task-Based Training
 
 All tasks mixed together in one training run. Enable/disable tasks via --*-n flags (0 = skip).
 Continues from Adam's pretrained AO checkpoint (or fresh LoRA / custom checkpoint).
 All tasks use stride=5, 3 layers (25%, 50%, 75%), paragraph token.
 
+Supports single-GPU and multi-GPU (via torchrun) training.
+
 Usage:
-    # Train everything (defaults):
-    python src/train_v5.py --corpus data/cot_corpus_v5/corpus_medium.jsonl
+    # Single GPU (defaults):
+    python src/train.py --config configs/train.yaml --precomputed-dir data/precomputed
+
+    # Multi-GPU:
+    torchrun --nproc_per_node=8 src/train.py --config configs/train.yaml --precomputed-dir data/precomputed
 
     # Train specific tasks only:
-    python src/train_v5.py --corpus ... --full-recon-n 40000 --correctness-n 15000 --conv-qa-n 0
+    python src/train.py --config configs/train.yaml --full-recon-n 40000 --correctness-n 15000 --conv-qa-n 0
 
     # Resume from checkpoint:
-    python src/train_v5.py --corpus ... --resume-from checkpoints/v6/step_5000 --start-step 5000
+    python src/train.py --config configs/train.yaml --resume-from checkpoints/step_5000 --start-step 5000
 """
 
 import argparse
@@ -41,6 +46,7 @@ from core.ao_repo import ensure_ao_repo_on_path
 ensure_ao_repo_on_path()
 
 import torch
+import torch.distributed as dist
 import torch.nn.functional as F
 from peft import LoraConfig, PeftModel, get_peft_model
 from torch.nn.utils import clip_grad_norm_
@@ -89,6 +95,22 @@ du_module.get_introspection_prefix = _patched_get_prefix
 
 # ── Position encoding config (module-level, set by main()) ──
 _PE_CONFIG = {"enabled": False, "alpha": 0.1}
+
+
+# ── Distributed helpers ──
+def setup_distributed():
+    """Init distributed if launched via torchrun, otherwise single-GPU."""
+    if "RANK" in os.environ:
+        dist.init_process_group(backend="nccl")
+        local_rank = int(os.environ["LOCAL_RANK"])
+        torch.cuda.set_device(local_rank)
+        return local_rank, dist.get_rank(), dist.get_world_size()
+    return 0, 0, 1
+
+
+def cleanup_distributed():
+    if dist.is_initialized():
+        dist.destroy_process_group()
 
 
 # ── Multi-layer materialization ──
@@ -564,33 +586,45 @@ def run_unfaith_evals(model, tokenizer, model_name, global_step, args, log_dir=N
 def train(
     raw_data: list[dict],
     model,
+    ddp_model,
     tokenizer,
     submodule,
     args,
     global_step: int,
     save_dir: Path,
+    rank: int,
+    world_size: int,
 ) -> int:
-    """Train on all tasks. Returns the final global_step."""
+    """Train on all tasks. Returns the final global_step.
+
+    model: unwrapped PeftModel (for materialization, eval, checkpoint saving)
+    ddp_model: DDP-wrapped model (for forward/backward) or same as model if single-GPU
+    """
     import wandb
 
-    device = torch.device("cuda")
+    device = torch.device(f"cuda:{rank}" if world_size > 1 else "cuda")
     dtype = torch.bfloat16
+
+    grad_accum = args.gradient_accumulation_steps
 
     # Convert to TrainingDataPoints
     training_data = dicts_to_training_data(raw_data, tokenizer)
-    print(f"  Converted {len(training_data)} training examples")
+    if rank == 0:
+        print(f"  Converted {len(training_data)} training examples")
 
     if not training_data:
-        print("  ERROR: No training data!")
+        if rank == 0:
+            print("  ERROR: No training data!")
         return global_step
 
     # Type distribution
     type_counts = defaultdict(int)
     for dp in training_data:
         type_counts[dp.datapoint_type] += 1
-    print(f"\n  Task distribution:")
-    for t, c in sorted(type_counts.items()):
-        print(f"    {t}: {c}")
+    if rank == 0:
+        print(f"\n  Task distribution:")
+        for t, c in sorted(type_counts.items()):
+            print(f"    {t}: {c}")
 
     # Split eval (50 per type)
     random.shuffle(training_data)
@@ -624,20 +658,29 @@ def train(
         final_training = []
         for _, items in task_blocks:
             final_training.extend(items)
-        print(f"  Task order: SEQUENTIAL")
-        for task_name, items in task_blocks:
-            print(f"    {task_name}: {len(items)} examples")
+        if rank == 0:
+            print(f"  Task order: SEQUENTIAL")
+            for task_name, items in task_blocks:
+                print(f"    {task_name}: {len(items)} examples")
     else:
         random.shuffle(final_training)
-        print(f"  Task order: SHUFFLED")
+        if rank == 0:
+            print(f"  Task order: SHUFFLED")
+
+    # Data sharding for multi-GPU
+    if world_size > 1:
+        aligned = (len(final_training) // (args.batch_size * world_size)) * (args.batch_size * world_size)
+        final_training = final_training[:aligned]
+        final_training = final_training[rank::world_size]
 
     eval_datasets = eval_per_type
-    print(f"  Training: {len(final_training)}, Eval: {sum(len(v) for v in eval_datasets.values())}")
-    print(f"  Eval tasks: {', '.join(sorted(eval_datasets.keys()))}")
+    if rank == 0:
+        print(f"  Training: {len(final_training)}, Eval: {sum(len(v) for v in eval_datasets.values())}")
+        print(f"  Eval tasks: {', '.join(sorted(eval_datasets.keys()))}")
 
     # Optimizer + scheduler
     num_batches = len(final_training) // args.batch_size
-    total_steps = num_batches * args.epochs
+    total_steps = (num_batches // grad_accum) * args.epochs
     warmup_steps = int(total_steps * args.warmup_fraction)
 
     # Dynamic eval/save cadence: 3-50x per stage
@@ -647,11 +690,12 @@ def train(
         min_stage_steps = total_steps
     args.eval_steps = min(min_stage_steps // 3, max(-(-min_stage_steps // 50), 1))
     args.save_steps = min(min_stage_steps // 3, max(-(-min_stage_steps // 50), 1))
-    print(f"\n  Stage-relative cadence (min stage = {min_stage_steps} steps):")
-    print(f"    eval_steps: {args.eval_steps} (~{min_stage_steps // max(args.eval_steps, 1)}x per min stage)")
-    print(f"    save_steps: {args.save_steps} (~{min_stage_steps // max(args.save_steps, 1)}x per min stage)")
+    if rank == 0:
+        print(f"\n  Stage-relative cadence (min stage = {min_stage_steps} steps):")
+        print(f"    eval_steps: {args.eval_steps} (~{min_stage_steps // max(args.eval_steps, 1)}x per min stage)")
+        print(f"    save_steps: {args.save_steps} (~{min_stage_steps // max(args.save_steps, 1)}x per min stage)")
 
-    optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr)
+    optimizer = torch.optim.AdamW(ddp_model.parameters(), lr=args.lr)
     scheduler = get_linear_schedule_with_warmup(
         optimizer, num_warmup_steps=warmup_steps, num_training_steps=total_steps,
     )
@@ -660,24 +704,28 @@ def train(
     all_task_types = sorted(type_counts.keys())
     task_to_idx = {t: i for i, t in enumerate(all_task_types)}
 
-    wandb.log({
-        "total_steps": total_steps,
-        "n_examples": len(final_training),
-        "n_eval": sum(len(v) for v in eval_datasets.values()),
-        "n_tasks": len(eval_datasets),
-    }, step=global_step)
+    if rank == 0:
+        wandb.log({
+            "total_steps": total_steps,
+            "n_examples": len(final_training),
+            "n_eval": sum(len(v) for v in eval_datasets.values()),
+            "n_tasks": len(eval_datasets),
+        }, step=global_step)
 
-    # Log task index legend to wandb config
-    wandb.config.update({"task_index_legend": task_to_idx}, allow_val_change=True)
+        # Log task index legend to wandb config
+        wandb.config.update({"task_index_legend": task_to_idx}, allow_val_change=True)
 
     save_dir.mkdir(parents=True, exist_ok=True)
     log_dir = save_dir / "eval_logs"
 
-    print(f"\n  LR: {args.lr}")
-    print(f"  Batch: {args.batch_size}")
-    print(f"  Epochs: {args.epochs}")
-    print(f"  Steps: {total_steps}")
-    print(f"  Warmup: {warmup_steps}")
+    if rank == 0:
+        print(f"\n  LR: {args.lr}")
+        print(f"  Batch: {args.batch_size}")
+        print(f"  Gradient accumulation: {grad_accum}")
+        print(f"  Effective batch size: {args.batch_size * grad_accum * world_size}")
+        print(f"  Epochs: {args.epochs}")
+        print(f"  Steps: {total_steps}")
+        print(f"  Warmup: {warmup_steps}")
 
     model.train()
 
@@ -690,6 +738,7 @@ def train(
     eval_time_total = 0.0
 
     prev_dominant_task = None  # Track task transitions for phase checkpoints
+    micro_step = 0  # counts micro-batches within a gradient accumulation window
 
     for epoch in range(args.epochs):
         if task_order != "sequential":
@@ -699,6 +748,7 @@ def train(
         pbar = tqdm(
             range(0, len(final_training), args.batch_size),
             desc=f"E{epoch + 1}/{args.epochs}",
+            disable=rank != 0,
         )
 
         for start in pbar:
@@ -708,7 +758,7 @@ def train(
 
             batch_types = [dp.datapoint_type for dp in batch_list]
 
-            # Materialize
+            # Materialize (uses unwrapped model)
             batch_list = materialize_multilayer_steering_vectors(
                 batch_list, tokenizer, model
             )
@@ -716,13 +766,13 @@ def train(
             batch = construct_batch(batch_list, tokenizer, device)
 
             outputs = train_features_batch(
-                batch, model, submodule,
+                batch, ddp_model, submodule,
                 args.steering_coefficient, device, dtype,
             )
-            loss = outputs.loss
+            loss = outputs.loss / grad_accum
             loss.backward()
 
-            # Per-task loss
+            # Per-task loss (use unscaled loss for logging)
             with torch.no_grad():
                 logits = outputs.logits.detach()
                 labels = batch.labels
@@ -742,7 +792,12 @@ def train(
             for i, task_type in enumerate(batch_types):
                 task_losses[task_type].append(per_item_loss[i].item())
 
-            clip_grad_norm_(model.parameters(), args.max_grad_norm)
+            micro_step += 1
+            if micro_step % grad_accum != 0:
+                continue
+
+            # Optimizer step (only every grad_accum micro-batches)
+            clip_grad_norm_(ddp_model.parameters(), args.max_grad_norm)
             optimizer.step()
             scheduler.step()
             optimizer.zero_grad()
@@ -755,20 +810,25 @@ def train(
                 else:
                     task_loss_ema[task] = ema_alpha * avg + (1 - ema_alpha) * task_loss_ema[task]
 
-            # Logging
-            now = time.time()
-            log_dict = {
-                "train/loss": loss.item(),
-                "train/learning_rate": scheduler.get_last_lr()[0],
-                "train/total_tokens": total_tokens,
-                "train/batch_tokens": batch_tokens,
-                "train/step_time": now - last_step_time,
-                "train/wallclock_hours": (now - train_start_time - eval_time_total) / 3600,
-                "eval/wallclock_hours": eval_time_total / 3600,
-            }
-            last_step_time = now
-            for task, ema_val in task_loss_ema.items():
-                log_dict[f"train/loss_{task}"] = ema_val
+            # Logging (rank 0 only)
+            if rank == 0:
+                now = time.time()
+                log_dict = {
+                    "train/loss": loss.item() * grad_accum,  # log unscaled loss
+                    "train/learning_rate": scheduler.get_last_lr()[0],
+                    "train/total_tokens": total_tokens,
+                    "train/batch_tokens": batch_tokens,
+                    "train/step_time": now - last_step_time,
+                    "train/wallclock_hours": (now - train_start_time - eval_time_total) / 3600,
+                    "eval/wallclock_hours": eval_time_total / 3600,
+                }
+                last_step_time = now
+                for task, ema_val in task_loss_ema.items():
+                    log_dict[f"train/loss_{task}"] = ema_val
+
+                wandb.log(log_dict, step=global_step)
+
+            pbar.set_postfix(loss=f"{loss.item() * grad_accum:.4f}")
 
             # Track dominant task for sequential mode phase transitions
             batch_task_counts = defaultdict(int)
@@ -776,65 +836,76 @@ def train(
                 batch_task_counts[t] += 1
             dominant_task = max(batch_task_counts, key=batch_task_counts.get)
 
-            wandb.log(log_dict, step=global_step)
-
-            pbar.set_postfix(loss=f"{loss.item():.4f}")
-
             # Phase checkpoint: save when dominant task changes in sequential mode
-            if task_order == "sequential" and prev_dominant_task is not None and dominant_task != prev_dominant_task:
+            if rank == 0 and task_order == "sequential" and prev_dominant_task is not None and dominant_task != prev_dominant_task:
                 ckpt_path = save_dir / f"step_{global_step}_phase_{prev_dominant_task}"
                 print(f"\n  Phase transition: {prev_dominant_task} -> {dominant_task}")
                 print(f"  Saving phase checkpoint to {ckpt_path}")
                 model.save_pretrained(str(ckpt_path))
+            if world_size > 1 and task_order == "sequential" and prev_dominant_task is not None and dominant_task != prev_dominant_task:
+                dist.barrier()
             prev_dominant_task = dominant_task
 
-            # Task-level eval
+            # Task-level eval (rank 0 only)
             if global_step > 0 and global_step % args.eval_steps == 0:
-                print(f"\n--- Task eval at step {global_step} ---")
-                eval_start = time.time()
-                try:
-                    run_eval(
-                        eval_datasets, model, tokenizer, submodule,
-                        device, dtype, global_step, args.eval_batch_size,
-                        args.steering_coefficient, log_dir=log_dir,
-                    )
-                except Exception as e:
-                    print(f"  Task eval FAILED: {e}")
-                eval_time_total += time.time() - eval_start
-                model.train()
+                if rank == 0:
+                    print(f"\n--- Task eval at step {global_step} ---")
+                    eval_start = time.time()
+                    try:
+                        run_eval(
+                            eval_datasets, model, tokenizer, submodule,
+                            device, dtype, global_step, args.eval_batch_size,
+                            args.steering_coefficient, log_dir=log_dir,
+                        )
+                    except Exception as e:
+                        print(f"  Task eval FAILED: {e}")
+                    eval_time_total += time.time() - eval_start
+                    model.train()
+                if world_size > 1:
+                    dist.barrier()
 
-            # Unfaithfulness eval
+            # Unfaithfulness eval (rank 0 only)
             if global_step > 0 and global_step % args.unfaith_eval_steps == 0:
-                eval_start = time.time()
-                run_unfaith_evals(model, tokenizer, args.model, global_step, args, log_dir=log_dir)
-                eval_time_total += time.time() - eval_start
-                model.train()
+                if rank == 0:
+                    eval_start = time.time()
+                    run_unfaith_evals(model, tokenizer, args.model, global_step, args, log_dir=log_dir)
+                    eval_time_total += time.time() - eval_start
+                    model.train()
+                if world_size > 1:
+                    dist.barrier()
 
-            # Save checkpoint
+            # Save checkpoint (rank 0 only)
             if global_step > 0 and global_step % args.save_steps == 0:
-                ckpt_path = save_dir / f"step_{global_step}"
-                print(f"  Saving checkpoint to {ckpt_path}")
-                model.save_pretrained(str(ckpt_path))
+                if rank == 0:
+                    ckpt_path = save_dir / f"step_{global_step}"
+                    print(f"  Saving checkpoint to {ckpt_path}")
+                    model.save_pretrained(str(ckpt_path))
+                if world_size > 1:
+                    dist.barrier()
 
             global_step += 1
 
-    # Final eval
-    print(f"\n--- Final eval at step {global_step} ---")
-    try:
-        run_eval(
-            eval_datasets, model, tokenizer, submodule,
-            device, dtype, global_step, args.eval_batch_size,
-            args.steering_coefficient, log_dir=log_dir,
-        )
-    except Exception as e:
-        print(f"  Final task eval FAILED: {e}")
+    # Final eval (rank 0 only)
+    if rank == 0:
+        print(f"\n--- Final eval at step {global_step} ---")
+        try:
+            run_eval(
+                eval_datasets, model, tokenizer, submodule,
+                device, dtype, global_step, args.eval_batch_size,
+                args.steering_coefficient, log_dir=log_dir,
+            )
+        except Exception as e:
+            print(f"  Final task eval FAILED: {e}")
 
-    run_unfaith_evals(model, tokenizer, args.model, global_step, args, log_dir=log_dir)
+        run_unfaith_evals(model, tokenizer, args.model, global_step, args, log_dir=log_dir)
 
-    # Save final
-    final_path = save_dir / "final"
-    print(f"  Saving final checkpoint to {final_path}")
-    model.save_pretrained(str(final_path))
+        # Save final
+        final_path = save_dir / "final"
+        print(f"  Saving final checkpoint to {final_path}")
+        model.save_pretrained(str(final_path))
+
+    if world_size > 1:
+        dist.barrier()
 
     return global_step
 
@@ -860,10 +931,11 @@ def apply_config(args, config: dict):
     if "training" in config:
         t = config["training"]
         _float_keys = {"lr", "warmup_fraction", "max_grad_norm", "steering_coefficient"}
-        _int_keys = {"batch_size", "eval_batch_size", "epochs", "seed"}
+        _int_keys = {"batch_size", "eval_batch_size", "epochs", "seed", "gradient_accumulation_steps"}
         for key in ["lr", "batch_size", "eval_batch_size", "epochs",
                      "warmup_fraction", "max_grad_norm", "steering_coefficient",
-                     "gradient_checkpointing", "task_order", "seed"]:
+                     "gradient_checkpointing", "task_order", "seed",
+                     "gradient_accumulation_steps"]:
             if key in t and not getattr(args, f"_cli_{key}", False):
                 val = t[key]
                 if key in _float_keys:
@@ -926,6 +998,8 @@ def apply_config(args, config: dict):
 
 # ── Main ──
 def main():
+    local_rank, rank, world_size = setup_distributed()
+
     parser = argparse.ArgumentParser(description="Train CoT Oracle")
     parser.add_argument("--config", default=None, help="YAML config file")
     parser.add_argument("--corpus", default="data/cot_corpus_v5/corpus_medium.jsonl",
@@ -983,6 +1057,8 @@ def main():
                         help="PE mixing coefficient (only used if --position-encoding)")
     parser.add_argument("--task-order", choices=["shuffled", "sequential"], default="shuffled",
                         help="'shuffled' mixes all tasks; 'sequential' trains tasks one at a time")
+    parser.add_argument("--gradient-accumulation-steps", type=int, default=1,
+                        help="Number of micro-batches per optimizer step")
 
     # Eval / save
     parser.add_argument("--eval-steps", type=int, default=500)
@@ -1023,47 +1099,53 @@ def main():
     if args.config:
         config = load_config(args.config)
         apply_config(args, config)
-        print(f"Loaded config from {args.config}")
-        # Log the full config YAML for reproducibility
-        import yaml
-        print(f"\n{'=' * 60}")
-        print("CONFIG")
-        print(f"{'=' * 60}")
-        print(yaml.dump(config, default_flow_style=False, sort_keys=False).rstrip())
-        print(f"{'=' * 60}\n")
+        if rank == 0:
+            print(f"Loaded config from {args.config}")
+            # Log the full config YAML for reproducibility
+            import yaml
+            print(f"\n{'=' * 60}")
+            print("CONFIG")
+            print(f"{'=' * 60}")
+            print(yaml.dump(config, default_flow_style=False, sort_keys=False).rstrip())
+            print(f"{'=' * 60}\n")
 
     set_seed(args.seed)
 
     # Multi-layer config
     global MULTI_LAYERS
     MULTI_LAYERS = [layer_percent_to_layer(args.model, p) for p in [25, 50, 75]]
-    print(f"Multi-layer injection: {MULTI_LAYERS}")
+    if rank == 0:
+        print(f"Multi-layer injection: {MULTI_LAYERS}")
+        print(f"Distributed: world_size={world_size}, rank={rank}, local_rank={local_rank}")
 
     # Position encoding config
     global _PE_CONFIG
     _PE_CONFIG["enabled"] = getattr(args, "position_encoding", False)
     _PE_CONFIG["alpha"] = getattr(args, "pe_alpha", 0.1)
-    if _PE_CONFIG["enabled"]:
-        print(f"Position encoding: ON (alpha={_PE_CONFIG['alpha']})")
-    else:
-        print("Position encoding: OFF")
+    if rank == 0:
+        if _PE_CONFIG["enabled"]:
+            print(f"Position encoding: ON (alpha={_PE_CONFIG['alpha']})")
+        else:
+            print("Position encoding: OFF")
 
     tokenizer = load_tokenizer(args.model)
 
     # Verify placeholder
     tok_ids = tokenizer.encode(PLACEHOLDER_TOKEN, add_special_tokens=False)
     assert len(tok_ids) == 1, f"Placeholder '{PLACEHOLDER_TOKEN}' is {len(tok_ids)} tokens"
-    print(f"Placeholder token: '{PLACEHOLDER_TOKEN}' -> token ID {tok_ids[0]}")
+    if rank == 0:
+        print(f"Placeholder token: '{PLACEHOLDER_TOKEN}' -> token ID {tok_ids[0]}")
 
     # ── Load model ──
-    device = torch.device("cuda")
+    device = torch.device(f"cuda:{local_rank}")
     dtype = torch.bfloat16
 
-    print(f"\nLoading model: {args.model}")
+    if rank == 0:
+        print(f"\nLoading model: {args.model}")
     base_model = AutoModelForCausalLM.from_pretrained(
         args.model,
         torch_dtype=dtype,
-        device_map={"": "cuda:0"},
+        device_map={"": f"cuda:{local_rank}"},
         attn_implementation="eager",
     )
     base_model.enable_input_require_grads()
@@ -1076,92 +1158,121 @@ def main():
     submodule = get_hf_submodule(base_model, 1)
 
     if args.resume_from:
-        print(f"Resuming from checkpoint: {args.resume_from}")
+        if rank == 0:
+            print(f"Resuming from checkpoint: {args.resume_from}")
         model = PeftModel.from_pretrained(
             base_model, args.resume_from,
             is_trainable=True,
         )
     elif args.fresh_lora:
-        print("Starting with FRESH LoRA")
+        if rank == 0:
+            print("Starting with FRESH LoRA")
         lora_config = LoraConfig(
             r=64, lora_alpha=128, lora_dropout=0.05,
             target_modules="all-linear", bias="none", task_type="CAUSAL_LM",
         )
         model = get_peft_model(base_model, lora_config, autocast_adapter_dtype=True)
     else:
-        print(f"Loading Adam's AO checkpoint: {args.ao_checkpoint}")
+        if rank == 0:
+            print(f"Loading Adam's AO checkpoint: {args.ao_checkpoint}")
         model = PeftModel.from_pretrained(
             base_model, args.ao_checkpoint,
             is_trainable=True,
         )
 
-    model.print_trainable_parameters()
+    if rank == 0:
+        model.print_trainable_parameters()
+
+    # DDP wrapping
+    if world_size > 1:
+        ddp_model = torch.nn.parallel.DistributedDataParallel(
+            model, device_ids=[local_rank], output_device=local_rank,
+            find_unused_parameters=False,
+        )
+    else:
+        ddp_model = model
 
     # ── Load data ──
-    print(f"\n{'=' * 60}")
-    print("LOADING TRAINING DATA")
-    print(f"{'=' * 60}")
+    if rank == 0:
+        print(f"\n{'=' * 60}")
+        print("LOADING TRAINING DATA")
+        print(f"{'=' * 60}")
 
     if args.precomputed_dir:
-        print(f"  Using precomputed data from {args.precomputed_dir} (auto-downloads from HF if needed)")
+        if rank == 0:
+            print(f"  Using precomputed data from {args.precomputed_dir} (auto-downloads from HF if needed)")
         raw_data = load_precomputed_tasks(args.precomputed_dir, args)
     else:
         raw_data = load_all_tasks(args, tokenizer)
 
     if not raw_data:
-        print("ERROR: No training data loaded!")
+        if rank == 0:
+            print("ERROR: No training data loaded!")
+        cleanup_distributed()
         return
 
     random.shuffle(raw_data)
 
-    # ── Wandb ──
-    import wandb
-    wandb.login(key=os.environ.get("WANDB_API_KEY"))
+    # ── Wandb (rank 0 only) ──
+    if rank == 0:
+        import wandb
+        wandb.login(key=os.environ.get("WANDB_API_KEY"))
 
-    # Build a descriptive run name from enabled tasks
-    enabled_tasks = []
-    for task_name, info in TASK_REGISTRY.items():
-        n = getattr(args, info["arg"], 0)
-        if n > 0:
-            enabled_tasks.append(task_name)
+        # Build a descriptive run name from enabled tasks
+        enabled_tasks = []
+        for task_name, info in TASK_REGISTRY.items():
+            n = getattr(args, info["arg"], 0)
+            if n > 0:
+                enabled_tasks.append(task_name)
 
-    run_name = args.wandb_run or f"v6-{len(raw_data)//1000}k-{len(enabled_tasks)}tasks"
-    wandb_config = {k: v for k, v in vars(args).items() if not k.startswith("_cli_")}
-    wandb.init(
-        project=args.wandb_project,
-        entity=args.wandb_entity,
-        name=run_name,
-        config=wandb_config,
-        tags=["v6", args.model.split("/")[-1]] + enabled_tasks,
-    )
-    # Save raw YAML config to wandb for reproducibility
-    if args.config and Path(args.config).exists():
-        wandb.save(args.config)
+        run_name = args.wandb_run or f"v6-{len(raw_data)//1000}k-{len(enabled_tasks)}tasks"
+        wandb_config = {k: v for k, v in vars(args).items() if not k.startswith("_cli_")}
+        wandb_config["world_size"] = world_size
+        wandb.init(
+            project=args.wandb_project,
+            entity=args.wandb_entity,
+            name=run_name,
+            config=wandb_config,
+            tags=[args.model.split("/")[-1]] + enabled_tasks,
+        )
+        # Save raw YAML config to wandb for reproducibility
+        if args.config and Path(args.config).exists():
+            wandb.save(args.config)
+    else:
+        enabled_tasks = [tn for tn, info in TASK_REGISTRY.items() if getattr(args, info["arg"], 0) > 0]
 
     save_dir = Path(args.save_dir)
 
     # ── Train ──
-    print(f"\n{'#' * 60}")
-    print(f"  TRAINING: {len(raw_data)} examples, {len(enabled_tasks)} tasks")
-    print(f"  Tasks: {', '.join(enabled_tasks)}")
-    print(f"{'#' * 60}")
+    if rank == 0:
+        print(f"\n{'#' * 60}")
+        print(f"  TRAINING: {len(raw_data)} examples, {len(enabled_tasks)} tasks")
+        print(f"  Tasks: {', '.join(enabled_tasks)}")
+        print(f"{'#' * 60}")
 
     global_step = args.start_step
     global_step = train(
         raw_data=raw_data,
         model=model,
+        ddp_model=ddp_model,
         tokenizer=tokenizer,
         submodule=submodule,
         args=args,
         global_step=global_step,
         save_dir=save_dir,
+        rank=rank,
+        world_size=world_size,
     )
 
-    print(f"\n{'#' * 60}")
-    print(f"TRAINING COMPLETE at step {global_step}")
-    print(f"{'#' * 60}")
+    if rank == 0:
+        print(f"\n{'#' * 60}")
+        print(f"TRAINING COMPLETE at step {global_step}")
+        print(f"{'#' * 60}")
 
-    wandb.finish()
+        import wandb
+        wandb.finish()
+
+    cleanup_distributed()
 
 
 if __name__ == "__main__":

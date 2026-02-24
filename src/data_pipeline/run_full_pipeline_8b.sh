@@ -53,7 +53,7 @@ echo "============================================================"
 echo "Step 3: Train CoT Oracle"
 echo "============================================================"
 
-torchrun --nproc_per_node=1 src/train_mixed.py \
+python3 src/train.py \
     --corpus "$CORPUS" \
     --model "$MODEL" \
     --lr 1e-5 \

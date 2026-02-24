@@ -6,7 +6,7 @@
 # - --resume-from step_14000 checkpoint
 # - --start-step 14000 (wandb step continuity)
 # - --unfaith-eval-steps 1000 (was 5000 — cache makes it fast)
-# - importance removed from Stage 2 (handled in train_v5.py)
+# - importance removed from Stage 2 (handled in train.py)
 # - EMA per-task loss, no eval_exact, no _n metrics
 # - wandb tables for qualitative eval inspection
 # - CI-based decorative_cot labeling (temperature sampling fallback)
@@ -21,7 +21,7 @@ cd /root/cot-oracle
 # Clear stale Stage 2 cache (importance was removed)
 rm -f data/cache/stage2.json
 
-nohup python3 src/train_v5.py \
+nohup python3 src/train.py \
     --corpus data/cot_corpus_v5/corpus_medium.jsonl \
     --model Qwen/Qwen3-8B \
     --stages 2 \
@@ -44,8 +44,8 @@ nohup python3 src/train_v5.py \
     --correctness-n 15000 \
     --decorative-n 15000 \
     --domain-n 15000 \
-    > train_v5_adam_resume.log 2>&1 &
+    > train_adam_resume.log 2>&1 &
 
 echo "Resumed Stage 2 from step 14000 with PID $!"
-echo "Log: train_v5_adam_resume.log"
-echo "Monitor: tail -f train_v5_adam_resume.log"
+echo "Log: train_adam_resume.log"
+echo "Monitor: tail -f train_adam_resume.log"

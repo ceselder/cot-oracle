@@ -1,8 +1,8 @@
 #!/bin/bash
-# Launch v6 CURRICULUM training: sequential task ordering, eval every 1k steps.
+# Launch CURRICULUM training: sequential task ordering, eval every 1k steps.
 #
 # Prerequisites: GPU with ~80GB+ VRAM, precomputed training data
-# Usage: bash scripts/launch_v6_curriculum.sh
+# Usage: bash scripts/launch_curriculum.sh
 
 set -e
 
@@ -36,18 +36,18 @@ else
 fi
 
 echo ""
-echo "=== Launching v6 CURRICULUM training ==="
+echo "=== Launching CURRICULUM training ==="
 echo "  Sequential task order, eval every 1000 steps"
-echo "  Config: configs/train_v6_curriculum.yaml"
+echo "  Config: configs/train_curriculum.yaml"
 echo "  Precomputed data: data/precomputed/"
 echo "  wandb: MATS10-CS-JB/cot_oracle"
 echo ""
 
-nohup python3 src/train_v5.py \
-    --config configs/train_v6_curriculum.yaml \
+nohup python3 src/train.py \
+    --config configs/train_curriculum.yaml \
     --precomputed-dir data/precomputed \
-    > /root/train_v6_curriculum.log 2>&1 &
+    > /root/train_curriculum.log 2>&1 &
 
 echo "PID: $!"
-echo "Log: /root/train_v6_curriculum.log"
-echo "Monitor: tail -f /root/train_v6_curriculum.log"
+echo "Log: /root/train_curriculum.log"
+echo "Monitor: tail -f /root/train_curriculum.log"

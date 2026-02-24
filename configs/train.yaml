@@ -56,7 +56,7 @@ training:
   max_grad_norm: 1.0
   steering_coefficient: 1.0
   gradient_checkpointing: true
-  task_order: shuffled    # "shuffled" (default) or "sequential" (train tasks one at a time)
+  task_order: sequential    # "sequential" (default, curriculum) or "shuffled" (interleaved)
   seed: 42
 
 # Activation extraction

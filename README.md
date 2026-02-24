@@ -51,14 +51,17 @@ python scripts/precompute_training_data.py \
 ### 3. Train
 ```bash
 # Default: all tasks, shuffled
-python src/train_v5.py --config configs/train_v6.yaml --precomputed-dir data/precomputed
+python src/train.py --config configs/train.yaml --precomputed-dir data/precomputed
+
+# Multi-GPU (via torchrun)
+torchrun --nproc_per_node=8 src/train.py --config configs/train.yaml --precomputed-dir data/precomputed
 
 # Sequential mode (per-task diagnostics, saves phase checkpoints)
-python src/train_v5.py --config configs/train_v6.yaml \
+python src/train.py --config configs/train.yaml \
   --precomputed-dir data/precomputed --task-order sequential
 
 # Disable specific tasks
-python src/train_v5.py --config configs/train_v6.yaml --domain-n 0 --conv-qa-n 0
+python src/train.py --config configs/train.yaml --domain-n 0 --conv-qa-n 0
 ```
 
 ### 4. Evaluate
@@ -73,7 +76,7 @@ python scripts/upload_eval_datasets.py
 
 ## Configuration
 
-All settings in `configs/train_v6.yaml`:
+All settings in `configs/train.yaml`:
 
 ```yaml
 tasks:
@@ -116,7 +119,7 @@ All eval datasets published at: [`ceselder/cot-oracle-evals`](https://huggingfac
 
 ```
 src/
-  train_v5.py              # Primary training entrypoint
+  train.py                 # Primary training entrypoint
   position_encoding.py     # Optional sinusoidal PE for activations
   cot_utils.py             # Shared utilities
   core/                    # AO runtime wrappers
@@ -124,7 +127,7 @@ src/
   evals/                   # Eval generation, running, scoring (20 evals)
   data_pipeline/           # CoT generation + corpus tooling
 configs/
-  train_v6.yaml            # Training configuration
+  train.yaml               # Training configuration
 scripts/
   precompute_*.py          # GPU precompute scripts
   upload_*.py              # HuggingFace upload scripts

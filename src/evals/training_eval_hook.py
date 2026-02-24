@@ -4,7 +4,7 @@ Training eval hook: run unfaithfulness evals periodically during training.
 Integrates 6 unfaithfulness evals into the training loop and returns a flat
 dict of metrics suitable for wandb.log().
 
-Usage from train_v4.py (or similar):
+Usage from train.py:
 
     from evals.training_eval_hook import run_training_evals
 

@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=cot-oracle-v7
+#SBATCH --job-name=cot-oracle
 #SBATCH --partition=gpu_lowp
 #SBATCH --nodelist=gpu-xd670-30
 #SBATCH --nodes=1
@@ -8,8 +8,8 @@
 #SBATCH --gres=gpu:8
 #SBATCH --mem=600G
 #SBATCH --time=6:00:00
-#SBATCH --output=logs/slurm_v7_%j.out
-#SBATCH --error=logs/slurm_v7_%j.err
+#SBATCH --output=logs/slurm_%j.out
+#SBATCH --error=logs/slurm_%j.err
 
 set -euo pipefail
 
@@ -25,7 +25,7 @@ export HF_HUB_CACHE="/ceph/scratch/jbauer/hf/hub"
 cd /nfs/nhome/live/jbauer/cot-oracle
 mkdir -p logs
 
-echo "=== COT Oracle v7: Sequential Training + Eval Tasks ==="
+echo "=== COT Oracle: Multi-GPU Training ==="
 echo "Node: $(hostname)"
 echo "GPUs: $(nvidia-smi -L | wc -l)x $(nvidia-smi --query-gpu=name --format=csv,noheader | head -1)"
 echo "Job ID: $SLURM_JOB_ID"
@@ -33,7 +33,7 @@ echo "Start: $(date)"
 echo ""
 
 # ── Clean stale GPU processes ────────────────────────────────
-pkill -f "torchrun.*train_mixed" 2>/dev/null || true
+pkill -f "torchrun.*train" 2>/dev/null || true
 sleep 2
 
 # ── Sync venv (always, to fix stale envs) ────────────────────
@@ -45,30 +45,13 @@ echo "transformers: $(python -c 'import transformers; print(transformers.__versi
 # ── Launch training ──────────────────────────────────────────
 torchrun --nproc_per_node=8 \
     --master_port=29500 \
-    src/train_mixed.py \
-    --corpus data/cot_corpus_v5/corpus.jsonl \
-    --model Qwen/Qwen3-8B \
-    --lr 1e-5 \
-    --batch-size 8 \
-    --effective-batch-size 128 \
+    src/train.py \
+    --config configs/train.yaml \
+    --precomputed-dir data/precomputed \
     --epochs 3 \
-    --save-dir /ceph/scratch/jbauer/checkpoints/cot_oracle_v7_8gpu \
-    --wandb-project cot_oracle \
-    --wandb-run "v7-sequential" \
-    --no-curriculum \
-    --position-stride 5 \
-    --max-positions 50 \
-    --n-context-pred 30000 \
-    --n-sentence-pred 10000 \
-    --n-decorative 5000 \
-    --n-domain 5000 \
-    --n-correctness 5000 \
-    --n-persona 0 \
-    --n-summary 0 \
-    --n-eval-task 3000 \
-    --eval-train-dir data/evals_train \
-    --no-data-cache \
-    --fast-eval-n 10
+    --gradient-accumulation-steps 2 \
+    --save-dir /ceph/scratch/jbauer/checkpoints/cot_oracle_8gpu \
+    --wandb-run "multi-gpu"
 
 echo ""
 echo "=== Done: $(date) ==="

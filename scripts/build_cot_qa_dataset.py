@@ -1138,7 +1138,7 @@ def load_cot_qa_data(
 ) -> list[dict]:
     """Load QA dataset and produce training-ready datapoints.
 
-    Compatible with train_mixed.py's task loader pattern.
+    Compatible with train.py's task loader pattern.
     """
     sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
     from cot_utils import layer_percent_to_layer

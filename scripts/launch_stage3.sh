@@ -31,7 +31,7 @@ echo "Launching Stage 3 (conversational QA)..."
 export WANDB_API_KEY="$WANDB_KEY"
 export PYTHONUNBUFFERED=1
 
-nohup python3 src/train_v5.py \
+nohup python3 src/train.py \
     --corpus data/cot_corpus_v5/corpus_medium.jsonl \
     --concept-corpus data/concept_corpus/corpus_full.jsonl \
     --cotqa-path data/concept_corpus/corpus_full_conv_qa_llm.jsonl \

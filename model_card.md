@@ -234,7 +234,7 @@ formatted = tokenizer.apply_chat_template(
 output = model.generate(input_ids, max_new_tokens=64)
 ```
 
-For complete working code, see the [cot-oracle repository](https://github.com/ceselder/cot-oracle), particularly `src/core/ao.py` for the injection/runtime mechanism and `src/train_mixed.py` for the full training pipeline.
+For complete working code, see the [cot-oracle repository](https://github.com/ceselder/cot-oracle), particularly `src/core/ao.py` for the injection/runtime mechanism and `src/train.py` for the full training pipeline.
 
 ## Intended Use
 
