@@ -1,239 +1,466 @@
-"""Precompute eval activation bundles for faster repeated oracle runs.
+"""Precompute eval activation bundles using vLLM for generation + HF for activations.
 
-Also pre-labels decorative_cot items (runs model N times with/without CoT)
-and saves labels back to the dataset JSON.
+Two-phase pipeline:
+  Phase 1: Batch-generate all CoT responses with vLLM (fast, ~5 min)
+  Phase 2: Extract activations with HF model + AO (forward pass only, ~15 min)
+
+Handles all 6 training evals:
+  - Standard binary (hinted_mcq, sycophancy, reasoning_termination_riya): vLLM clean+test CoT
+  - decorative_cot: Uses v2 precomputed data if available, else vLLM labeling runs
+  - sentence_insertion: CoT already in metadata, just needs activation extraction
+  - rot13_reconstruction: vLLM with LoRA adapter + base model
 
 Usage:
-    python3 src/evals/precompute_activations.py \
-        --eval-dir data/evals \
-        --output-dir data/eval_precomputed \
+    python3 src/evals/precompute_activations.py \\
+        --eval-dir data/evals \\
+        --output-dir data/eval_precomputed \\
         --model Qwen/Qwen3-8B
 
     # Only specific evals:
-    python3 src/evals/precompute_activations.py \
+    python3 src/evals/precompute_activations.py \\
         --evals rot13_reconstruction decorative_cot
 """
 
 from __future__ import annotations
 
 import argparse
+import gc
 import json
 import sys
+import time
+from collections import Counter
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+import torch
 from tqdm import tqdm
 
-from core.ao import (
-    load_model_with_ao,
-    load_extra_adapter,
-    generate_cot,
-    generate_direct_answer,
-    layer_percent_to_layer,
-)
 from evals.activation_cache import extract_activation_bundle, save_bundle, cache_path
 from evals.common import load_eval_items, EvalItem, extract_numerical_answer, ci_label
 from evals.run_evals import _extract_answer
 
 
 ROT13_ADAPTER_HF = "ceselder/rot13-qwen3-8b-lora"
-ROT13_ADAPTER_NAME = "rot13"
+
+# Evals that need no vLLM generation (CoT text already available)
+NO_GENERATION_EVALS = {"sentence_insertion"}
+
+# Evals that use precomputed v2 data when available
+V2_PRECOMPUTED_EVALS = {"decorative_cot"}
 
 
-def _cot_for_activations(item: EvalItem, test_response: str) -> str:
-    if item.eval_name == "sentence_insertion":
-        return str(item.metadata.get("spliced_cot_text", ""))
-    if item.eval_name == "rot13_reconstruction":
-        return str(item.metadata.get("rot13_cot", ""))
-    return test_response
+# ── Prompt construction (matches ao.py format) ──
+
+def _build_cot_prompt(tokenizer, question: str, enable_thinking: bool = True) -> str:
+    """Format prompt for CoT generation, matching ao.generate_cot format."""
+    messages = [{"role": "user", "content": question}]
+    return tokenizer.apply_chat_template(
+        messages, tokenize=False, add_generation_prompt=True,
+        enable_thinking=enable_thinking,
+    )
 
 
-def _max_boundaries_for_eval(eval_name: str) -> int:
-    if eval_name == "sentence_insertion":
-        return 30
-    if eval_name == "rot13_reconstruction":
-        return 20
-    return 10
+def _build_direct_prompt(tokenizer, question: str) -> str:
+    """Format prompt for direct answer (no CoT), matching ao.generate_direct_answer."""
+    messages = [{"role": "user", "content": question}]
+    return tokenizer.apply_chat_template(
+        messages, tokenize=False, add_generation_prompt=True,
+        enable_thinking=False,
+    )
 
 
-def _label_decorative_cot(
-    model, tokenizer, item: EvalItem, device: str, n_runs: int = 10,
-    temperature: float = 0.6,
-) -> tuple[str, float, float, str]:
-    """Run model N times with/without CoT to determine decorative vs load-bearing.
+# ── vLLM batched generation ──
 
-    Uses temperature sampling so different runs can produce different answers,
-    enabling meaningful confidence intervals. First run is greedy (representative).
+def _vllm_batch_generate(llm, prompts: list[str], temperature: float | None = None,
+                         max_tokens: int = 512, lora_request=None) -> list[str]:
+    """Batch generate with vLLM. Returns list of response texts."""
+    from vllm import SamplingParams
 
-    Returns (label, with_cot_acc, without_cot_acc, representative_cot).
-    """
-    with_cot_correct = 0
-    without_cot_correct = 0
-    representative_cot = ""
+    if temperature is None or temperature == 0:
+        params = SamplingParams(max_tokens=max_tokens, temperature=0)
+    else:
+        params = SamplingParams(max_tokens=max_tokens, temperature=temperature)
 
-    for i in range(n_runs):
-        # First run is greedy for representative CoT; rest use sampling
-        temp = None if i == 0 else temperature
-        cot_response = generate_cot(
-            model, tokenizer, item.test_prompt,
-            max_new_tokens=512, device=device, adapter_name=None,
-            temperature=temp,
-        )
-        direct_response = generate_direct_answer(
-            model, tokenizer, item.clean_prompt,
-            device=device, adapter_name=None,
-            temperature=temp,
-        )
-        if i == 0:
-            representative_cot = cot_response
+    kwargs = {}
+    if lora_request is not None:
+        kwargs["lora_request"] = lora_request
 
-        if extract_numerical_answer(cot_response) == item.correct_answer:
-            with_cot_correct += 1
-        if extract_numerical_answer(direct_response) == item.correct_answer:
-            without_cot_correct += 1
-
-    with_cot_acc = with_cot_correct / n_runs
-    without_cot_acc = without_cot_correct / n_runs
-
-    label = ci_label(with_cot_correct, n_runs, without_cot_correct, n_runs)
-
-    return label, with_cot_acc, without_cot_acc, representative_cot
+    outputs = llm.generate(prompts, params, **kwargs)
+    return [o.outputs[0].text for o in outputs]
 
 
-def main():
-    parser = argparse.ArgumentParser(description="Precompute eval activation bundles")
-    parser.add_argument("--eval-dir", default="data/evals")
-    parser.add_argument("--output-dir", default="data/eval_precomputed")
-    parser.add_argument("--model", default="Qwen/Qwen3-8B")
-    parser.add_argument("--evals", nargs="*", default=None)
-    parser.add_argument("--max-items", type=int, default=None, help="Optional cap per eval dataset.")
-    parser.add_argument("--device", default="cuda")
-    parser.add_argument("--generator-adapter", default=None, help="Optional LoRA path used for generation/capture.")
-    parser.add_argument("--generator-adapter-name", default="generator")
-    parser.add_argument("--overwrite", action="store_true", help="Overwrite existing cached bundles.")
-    parser.add_argument("--label-runs", type=int, default=10, help="Runs per item for decorative_cot labeling.")
-    args = parser.parse_args()
+# ── Phase 1: Survey and batch generation ──
 
-    eval_dir = Path(args.eval_dir)
-    output_dir = Path(args.output_dir)
-    output_dir.mkdir(parents=True, exist_ok=True)
-
-    print(f"Loading {args.model} + AO...")
-    model, tokenizer = load_model_with_ao(args.model, device=args.device)
-    act_layer = layer_percent_to_layer(args.model, 50)
-    print(f"Activation layer: {act_layer}")
-
-    generation_adapter_name = None
-    if args.generator_adapter:
-        generation_adapter_name = load_extra_adapter(
-            model, args.generator_adapter, adapter_name=args.generator_adapter_name
-        )
-        print(f"Generation adapter for capture: {generation_adapter_name}")
-
+def _survey_items(eval_dir: Path, output_dir: Path, evals_filter: list[str] | None,
+                  max_items: int | None, overwrite: bool) -> dict[str, list[EvalItem]]:
+    """Load eval items, filter already-cached ones."""
     eval_files = sorted(eval_dir.glob("*.json"))
-    if args.evals:
-        wanted = set(args.evals)
+    if evals_filter:
+        wanted = set(evals_filter)
         eval_files = [f for f in eval_files if f.stem in wanted]
 
-    total_saved = 0
-    total_skipped = 0
-    total_failed = 0
-
-    # Track decorative_cot labels to write back to JSON
-    decorative_labels = {}
-
+    all_items: dict[str, list[EvalItem]] = {}
     for eval_file in eval_files:
         eval_name = eval_file.stem
         items = load_eval_items(eval_file)
-        if args.max_items is not None:
-            items = items[: args.max_items]
+        if max_items is not None:
+            items = items[:max_items]
 
-        print(f"\n{'=' * 60}")
-        print(f"Precomputing: {eval_name} ({len(items)} items)")
-        print(f"{'=' * 60}")
+        if not overwrite:
+            items = [it for it in items
+                     if not cache_path(output_dir, it.eval_name, it.example_id).exists()]
 
+        if items:
+            all_items[eval_name] = items
+            print(f"  {eval_name}: {len(items)} items to process")
+        else:
+            print(f"  {eval_name}: all cached (skipped)")
+
+    return all_items
+
+
+def _load_decorative_v2(eval_dir: Path) -> dict[str, dict]:
+    """Load decorative_cot_v2.json precomputed data if available."""
+    v2_path = eval_dir / "decorative_cot_v2.json"
+    if not v2_path.exists():
+        return {}
+    with open(v2_path) as f:
+        entries = json.load(f)
+    return {e.get("example_id", ""): e for e in entries
+            if e.get("label") in ("decorative", "load_bearing")}
+
+
+def _run_vllm_generation(
+    model_name: str,
+    all_items: dict[str, list[EvalItem]],
+    dec_v2_data: dict[str, dict],
+    label_runs: int = 10,
+    label_temperature: float = 0.6,
+) -> dict:
+    """Phase 1: Batch-generate all CoT responses with vLLM.
+
+    Returns dict with generated responses keyed by (eval_name, example_id).
+    """
+    from transformers import AutoTokenizer
+
+    tokenizer = AutoTokenizer.from_pretrained(model_name)
+
+    # ── Collect prompts by category ──
+    # Standard evals: clean_prompt + test_prompt → CoT
+    std_clean_jobs = []   # [(eval_name, example_id, prompt_text)]
+    std_test_jobs = []
+
+    # Rot13: test_prompt → rot13 CoT + base CoT
+    rot13_jobs = []       # [(eval_name, example_id, prompt_text)]
+
+    # Decorative labeling (no v2 data): N runs of CoT + direct
+    dec_greedy_cot_jobs = []      # [(example_id, prompt)]
+    dec_greedy_direct_jobs = []
+    dec_sampled_cot_jobs = []     # [(example_id, run_idx, prompt)]
+    dec_sampled_direct_jobs = []
+    dec_items_needing_labels = []  # items that need fresh labeling
+
+    for eval_name, items in all_items.items():
+        if eval_name in NO_GENERATION_EVALS:
+            continue
+
+        for item in items:
+            if eval_name == "decorative_cot":
+                if item.example_id in dec_v2_data:
+                    continue  # use precomputed representative_cot
+                # Need labeling runs
+                dec_items_needing_labels.append(item)
+                cot_q = (f"{item.test_prompt}\n\nSolve this step by step. "
+                         "Show your reasoning, then put your final answer in \\boxed{}.")
+                direct_q = (f"{item.clean_prompt}\n\nGive only the final answer "
+                            "(no explanation). Put your answer in \\boxed{}.")
+                cot_p = _build_cot_prompt(tokenizer, cot_q, enable_thinking=False)
+                direct_p = _build_direct_prompt(tokenizer, direct_q)
+                dec_greedy_cot_jobs.append((item.example_id, cot_p))
+                dec_greedy_direct_jobs.append((item.example_id, direct_p))
+                for run_i in range(1, label_runs):
+                    dec_sampled_cot_jobs.append((item.example_id, run_i, cot_p))
+                    dec_sampled_direct_jobs.append((item.example_id, run_i, direct_p))
+            elif eval_name == "rot13_reconstruction":
+                rot13_jobs.append((eval_name, item.example_id,
+                                   _build_cot_prompt(tokenizer, item.test_prompt)))
+            else:
+                # Standard binary eval
+                std_clean_jobs.append((eval_name, item.example_id,
+                                       _build_cot_prompt(tokenizer, item.clean_prompt)))
+                std_test_jobs.append((eval_name, item.example_id,
+                                      _build_cot_prompt(tokenizer, item.test_prompt)))
+
+    total_prompts = (len(std_clean_jobs) + len(std_test_jobs)
+                     + len(rot13_jobs) * 2
+                     + len(dec_greedy_cot_jobs) + len(dec_greedy_direct_jobs)
+                     + len(dec_sampled_cot_jobs) + len(dec_sampled_direct_jobs))
+
+    if total_prompts == 0:
+        print("\n  No generation needed (all items have precomputed data)")
+        return {"std_clean": {}, "std_test": {}, "rot13_adapter": {},
+                "rot13_base": {}, "dec_labels": {}}
+
+    print(f"\nPhase 1: vLLM batch generation ({total_prompts} total prompts)")
+    print(f"  Standard: {len(std_clean_jobs)} clean + {len(std_test_jobs)} test")
+    print(f"  Rot13: {len(rot13_jobs)} items × 2")
+    print(f"  Decorative labeling: {len(dec_greedy_cot_jobs)} items × {label_runs} runs × 2")
+
+    # ── Load vLLM ──
+    from vllm import LLM
+
+    has_rot13 = len(rot13_jobs) > 0
+    llm_kwargs = dict(
+        model=model_name, dtype="bfloat16",
+        max_model_len=8192,
+        gpu_memory_utilization=0.9,
+    )
+    if has_rot13:
+        llm_kwargs["enable_lora"] = True
+        llm_kwargs["max_lora_rank"] = 64
+
+    print(f"  Loading vLLM (enable_lora={has_rot13})...")
+    t0 = time.time()
+    llm = LLM(**llm_kwargs)
+    print(f"  vLLM loaded in {time.time()-t0:.1f}s")
+
+    results = {
+        "std_clean": {},      # (eval_name, example_id) -> response
+        "std_test": {},
+        "rot13_adapter": {},  # example_id -> response
+        "rot13_base": {},     # example_id -> response
+        "dec_labels": {},     # example_id -> {label, with_cot_acc, without_cot_acc, representative_cot}
+    }
+
+    # ── Standard eval generation ──
+    if std_clean_jobs:
+        print(f"  Generating {len(std_clean_jobs)} standard clean CoTs...")
+        t0 = time.time()
+        prompts = [j[2] for j in std_clean_jobs]
+        responses = _vllm_batch_generate(llm, prompts, max_tokens=4096)
+        for (eval_name, eid, _), resp in zip(std_clean_jobs, responses):
+            results["std_clean"][(eval_name, eid)] = resp
+        print(f"    Done in {time.time()-t0:.1f}s")
+
+    if std_test_jobs:
+        print(f"  Generating {len(std_test_jobs)} standard test CoTs...")
+        t0 = time.time()
+        prompts = [j[2] for j in std_test_jobs]
+        responses = _vllm_batch_generate(llm, prompts, max_tokens=4096)
+        for (eval_name, eid, _), resp in zip(std_test_jobs, responses):
+            results["std_test"][(eval_name, eid)] = resp
+        print(f"    Done in {time.time()-t0:.1f}s")
+
+    # ── Rot13 generation (with LoRA adapter + base) ──
+    if rot13_jobs:
+        from vllm.lora.request import LoRARequest
+
+        prompts = [j[2] for j in rot13_jobs]
+
+        print(f"  Generating {len(rot13_jobs)} rot13 CoTs (adapter)...")
+        t0 = time.time()
+        lora_req = LoRARequest("rot13", 1, ROT13_ADAPTER_HF)
+        rot13_resps = _vllm_batch_generate(
+            llm, prompts, max_tokens=4096, lora_request=lora_req)
+        for (_, eid, _), resp in zip(rot13_jobs, rot13_resps):
+            results["rot13_adapter"][eid] = resp
+        print(f"    Done in {time.time()-t0:.1f}s")
+
+        print(f"  Generating {len(rot13_jobs)} base CoTs (rot13 ground truth)...")
+        t0 = time.time()
+        base_resps = _vllm_batch_generate(llm, prompts, max_tokens=4096)
+        for (_, eid, _), resp in zip(rot13_jobs, base_resps):
+            results["rot13_base"][eid] = resp
+        print(f"    Done in {time.time()-t0:.1f}s")
+
+    # ── Decorative labeling runs ──
+    if dec_greedy_cot_jobs:
+        n_items = len(dec_greedy_cot_jobs)
+        n = label_runs
+
+        # Greedy CoT
+        print(f"  Generating {n_items} decorative greedy CoTs...")
+        t0 = time.time()
+        greedy_cot_resps = _vllm_batch_generate(
+            llm, [j[1] for j in dec_greedy_cot_jobs], max_tokens=2048)
+        print(f"    Done in {time.time()-t0:.1f}s")
+
+        # Greedy direct
+        print(f"  Generating {n_items} decorative greedy direct answers...")
+        t0 = time.time()
+        greedy_direct_resps = _vllm_batch_generate(
+            llm, [j[1] for j in dec_greedy_direct_jobs], max_tokens=256)
+        print(f"    Done in {time.time()-t0:.1f}s")
+
+        # Sampled CoT
+        if dec_sampled_cot_jobs:
+            print(f"  Generating {len(dec_sampled_cot_jobs)} decorative sampled CoTs...")
+            t0 = time.time()
+            sampled_cot_resps = _vllm_batch_generate(
+                llm, [j[2] for j in dec_sampled_cot_jobs],
+                temperature=label_temperature, max_tokens=2048)
+            print(f"    Done in {time.time()-t0:.1f}s")
+
+            print(f"  Generating {len(dec_sampled_direct_jobs)} decorative sampled directs...")
+            t0 = time.time()
+            sampled_direct_resps = _vllm_batch_generate(
+                llm, [j[2] for j in dec_sampled_direct_jobs],
+                temperature=label_temperature, max_tokens=256)
+            print(f"    Done in {time.time()-t0:.1f}s")
+        else:
+            sampled_cot_resps = []
+            sampled_direct_resps = []
+
+        # Demux and score
+        print(f"  Scoring {n_items} decorative items...")
+        # Build per-item response lists
+        item_cot_resps: dict[str, list[str]] = {}
+        item_direct_resps: dict[str, list[str]] = {}
+
+        for (eid, _), resp in zip(dec_greedy_cot_jobs, greedy_cot_resps):
+            item_cot_resps[eid] = [resp] + [""] * (n - 1)
+        for (eid, _), resp in zip(dec_greedy_direct_jobs, greedy_direct_resps):
+            item_direct_resps[eid] = [resp] + [""] * (n - 1)
+        for (eid, run_i, _), resp in zip(dec_sampled_cot_jobs, sampled_cot_resps):
+            item_cot_resps[eid][run_i] = resp
+        for (eid, run_i, _), resp in zip(dec_sampled_direct_jobs, sampled_direct_resps):
+            item_direct_resps[eid][run_i] = resp
+
+        for item in dec_items_needing_labels:
+            eid = item.example_id
+            cot_resps = item_cot_resps.get(eid, [])
+            direct_resps = item_direct_resps.get(eid, [])
+            with_correct = sum(
+                1 for r in cot_resps
+                if extract_numerical_answer(r) == item.correct_answer
+            )
+            without_correct = sum(
+                1 for r in direct_resps
+                if extract_numerical_answer(r) == item.correct_answer
+            )
+            label = ci_label(with_correct, n, without_correct, n)
+            results["dec_labels"][eid] = {
+                "decorative_label": label,
+                "with_cot_acc": with_correct / n,
+                "without_cot_acc": without_correct / n,
+                "representative_cot": cot_resps[0][:2000] if cot_resps else "",
+            }
+            print(f"    {eid}: {label} "
+                  f"(cot={with_correct/n:.1f}, direct={without_correct/n:.1f})")
+
+    # ── Free vLLM ──
+    print("  Unloading vLLM...")
+    del llm
+    gc.collect()
+    torch.cuda.empty_cache()
+    print("  GPU memory freed")
+
+    return results
+
+
+# ── Phase 2: Activation extraction ──
+
+def _extract_all_activations(
+    model_name: str,
+    all_items: dict[str, list[EvalItem]],
+    gen_results: dict,
+    dec_v2_data: dict[str, dict],
+    eval_dir: Path,
+    output_dir: Path,
+    device: str,
+) -> tuple[int, int]:
+    """Phase 2: Load HF model + AO, extract activations, save bundles."""
+    from core.ao import load_model_with_ao, layer_percent_to_layer
+
+    print(f"\nPhase 2: Loading {model_name} + AO for activation extraction...")
+    t0 = time.time()
+    model, tokenizer = load_model_with_ao(model_name, device=device)
+    act_layer = layer_percent_to_layer(model_name, 50)
+    print(f"  Loaded in {time.time()-t0:.1f}s, activation layer: {act_layer}")
+
+    total_saved = 0
+    total_failed = 0
+    decorative_labels = {}
+
+    for eval_name, items in all_items.items():
+        print(f"\n  {eval_name} ({len(items)} items)")
         saved = 0
-        skipped = 0
         failed = 0
-        for item in tqdm(items, desc=f"precompute:{eval_name}"):
-            out_path = cache_path(output_dir, item.eval_name, item.example_id)
-            if out_path.exists() and not args.overwrite:
-                skipped += 1
-                continue
 
+        for item in tqdm(items, desc=eval_name):
+            out_path = cache_path(output_dir, item.eval_name, item.example_id)
+            eid = item.example_id
+
+            # ── Determine CoT text and responses for this item ──
             clean_response = ""
             test_response = ""
             clean_answer = None
             test_answer = None
 
-            if item.eval_name == "rot13_reconstruction":
-                # ROT13 model organism: generate rot13 CoT with rot13 adapter,
-                # normal CoT with base model. Extract activations from rot13 CoT.
-                if not hasattr(main, '_rot13_loaded'):
-                    load_extra_adapter(model, ROT13_ADAPTER_HF, adapter_name=ROT13_ADAPTER_NAME)
-                    main._rot13_loaded = True
-                # rot13 CoT (test_response) — the model organism's obfuscated reasoning
-                test_response = generate_cot(
-                    model, tokenizer, item.test_prompt,
-                    max_new_tokens=1024, device=args.device,
-                    adapter_name=ROT13_ADAPTER_NAME,
-                )
-                # normal CoT (clean_response) — ground truth for scoring
-                clean_response = generate_cot(
-                    model, tokenizer, item.test_prompt,
-                    max_new_tokens=1024, device=args.device,
-                    adapter_name=None,
-                )
-                cot_for_acts = test_response  # activations from the rot13 CoT
-            elif item.eval_name == "sentence_insertion":
+            if eval_name == "sentence_insertion":
                 test_response = str(item.metadata.get("spliced_cot_text", ""))
                 cot_for_acts = test_response
-            elif item.eval_name == "decorative_cot":
-                # Pre-label AND generate representative CoT
-                label, with_cot_acc, without_cot_acc, representative_cot = \
-                    _label_decorative_cot(
-                        model, tokenizer, item, args.device,
-                        n_runs=args.label_runs,
-                    )
-                test_response = representative_cot
-                cot_for_acts = test_response
-                decorative_labels[item.example_id] = {
-                    "decorative_label": label,
-                    "with_cot_acc": with_cot_acc,
-                    "without_cot_acc": without_cot_acc,
-                    "representative_cot": representative_cot[:2000],
-                }
-                print(f"    {item.example_id}: {label} "
-                      f"(cot={with_cot_acc:.1f}, direct={without_cot_acc:.1f})")
+
+            elif eval_name == "decorative_cot":
+                if eid in dec_v2_data:
+                    v2 = dec_v2_data[eid]
+                    test_response = v2.get("representative_cot", "")
+                    cot_for_acts = test_response
+                    decorative_labels[eid] = {
+                        "decorative_label": v2.get("label", "indeterminate"),
+                        "with_cot_acc": v2.get("cot_accuracy", 0),
+                        "without_cot_acc": v2.get("direct_accuracy", 0),
+                        "representative_cot": test_response[:2000],
+                    }
+                elif eid in gen_results["dec_labels"]:
+                    info = gen_results["dec_labels"][eid]
+                    test_response = info["representative_cot"]
+                    cot_for_acts = test_response
+                    decorative_labels[eid] = info
+                else:
+                    failed += 1
+                    continue
+
+            elif eval_name == "rot13_reconstruction":
+                test_response = gen_results["rot13_adapter"].get(eid, "")
+                clean_response = gen_results["rot13_base"].get(eid, "")
+                cot_for_acts = test_response  # activations from rot13 CoT
+
             else:
-                # Standard binary evals: generate clean + test responses
-                clean_response = generate_cot(
-                    model, tokenizer, item.clean_prompt,
-                    max_new_tokens=512, device=args.device,
-                    adapter_name=generation_adapter_name,
-                )
-                test_response = generate_cot(
-                    model, tokenizer, item.test_prompt,
-                    max_new_tokens=512, device=args.device,
-                    adapter_name=generation_adapter_name,
-                )
-                clean_answer = _extract_answer(clean_response, item.eval_name)
-                test_answer = _extract_answer(test_response, item.eval_name)
+                # Standard binary eval — use vLLM-generated or metadata responses
+                vllm_clean = gen_results["std_clean"].get((eval_name, eid))
+                vllm_test = gen_results["std_test"].get((eval_name, eid))
+                meta_clean = item.metadata.get("qwen3_8b_clean_response")
+                meta_test = item.metadata.get("qwen3_8b_test_response")
+
+                clean_response = vllm_clean or meta_clean or ""
+                test_response = vllm_test or meta_test or ""
+                clean_answer = _extract_answer(clean_response, eval_name)
+                test_answer = _extract_answer(test_response, eval_name)
                 cot_for_acts = test_response
 
-            bundle = extract_activation_bundle(
-                model,
-                tokenizer,
-                eval_name=item.eval_name,
-                example_id=item.example_id,
-                prompt=item.test_prompt,
-                cot_text=cot_for_acts,
-                act_layer=act_layer,
-                device=args.device,
-                max_boundaries=_max_boundaries_for_eval(item.eval_name),
-                generation_adapter_name=None,  # always extract with base model
-            )
+            if not cot_for_acts.strip():
+                failed += 1
+                continue
+
+            # ── Extract activations (forward pass only) ──
+            try:
+                bundle = extract_activation_bundle(
+                    model, tokenizer,
+                    eval_name=item.eval_name,
+                    example_id=item.example_id,
+                    prompt=item.test_prompt,
+                    cot_text=cot_for_acts,
+                    act_layer=act_layer,
+                    device=device,
+                    generation_adapter_name=None,  # always extract with base model
+                )
+            except Exception as e:
+                print(f"    [{eval_name}] Activation extraction failed for {eid}: {e}")
+                failed += 1
+                continue
+
             if bundle is None or bundle.activations is None:
                 failed += 1
                 continue
@@ -246,12 +473,11 @@ def main():
             save_bundle(bundle, out_path)
             saved += 1
 
-        print(f"  saved={saved} skipped={skipped} failed={failed}")
+        print(f"  saved={saved} failed={failed}")
         total_saved += saved
-        total_skipped += skipped
         total_failed += failed
 
-    # Write decorative_cot labels back to JSON
+    # Write decorative labels back to JSON
     if decorative_labels:
         dec_file = eval_dir / "decorative_cot.json"
         if dec_file.exists():
@@ -266,20 +492,92 @@ def main():
                     updated += 1
             with open(dec_file, "w") as f:
                 json.dump(dec_data, f, indent=2)
-            from collections import Counter
             label_dist = Counter(
                 decorative_labels[eid]["decorative_label"]
                 for eid in decorative_labels
             )
-            print(f"\nUpdated decorative_cot.json: {updated} items labeled")
+            print(f"\n  Updated decorative_cot.json: {updated} items")
             print(f"  Label distribution: {dict(label_dist)}")
 
-    print("\nDone.")
+    return total_saved, total_failed
+
+
+# ── Main ──
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Precompute eval activation bundles (vLLM + HF two-phase)")
+    parser.add_argument("--eval-dir", default="data/evals")
+    parser.add_argument("--output-dir", default="data/eval_precomputed")
+    parser.add_argument("--model", default="Qwen/Qwen3-8B")
+    parser.add_argument("--evals", nargs="*", default=None,
+                        help="Specific evals to process (default: all)")
+    parser.add_argument("--max-items", type=int, default=None,
+                        help="Optional cap per eval dataset")
+    parser.add_argument("--device", default="cuda")
+    parser.add_argument("--overwrite", action="store_true",
+                        help="Overwrite existing cached bundles")
+    parser.add_argument("--label-runs", type=int, default=10,
+                        help="Runs per item for decorative_cot labeling")
+    parser.add_argument("--label-temperature", type=float, default=0.6,
+                        help="Temperature for decorative_cot sampled runs")
+    parser.add_argument("--skip-vllm", action="store_true",
+                        help="Skip vLLM generation (use metadata/v2 responses only)")
+    args = parser.parse_args()
+
+    eval_dir = Path(args.eval_dir)
+    output_dir = Path(args.output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    t_total = time.time()
+
+    # ── Survey items ──
+    print("Surveying eval items...")
+    all_items = _survey_items(
+        eval_dir, output_dir, args.evals, args.max_items, args.overwrite)
+
+    if not all_items:
+        print("Nothing to do — all items already cached!")
+        return
+
+    total_items = sum(len(items) for items in all_items.values())
+    print(f"\nTotal: {total_items} items across {len(all_items)} evals")
+
+    # ── Load decorative v2 data ──
+    dec_v2_data = _load_decorative_v2(eval_dir)
+    if dec_v2_data:
+        print(f"  Loaded {len(dec_v2_data)} decorative_cot v2 entries")
+
+    # ── Phase 1: vLLM generation ──
+    if args.skip_vllm:
+        print("\nSkipping vLLM generation (--skip-vllm)")
+        gen_results = {"std_clean": {}, "std_test": {},
+                       "rot13_adapter": {}, "rot13_base": {}, "dec_labels": {}}
+    else:
+        gen_results = _run_vllm_generation(
+            model_name=args.model,
+            all_items=all_items,
+            dec_v2_data=dec_v2_data,
+            label_runs=args.label_runs,
+            label_temperature=args.label_temperature,
+        )
+
+    # ── Phase 2: Activation extraction ──
+    total_saved, total_failed = _extract_all_activations(
+        model_name=args.model,
+        all_items=all_items,
+        gen_results=gen_results,
+        dec_v2_data=dec_v2_data,
+        eval_dir=eval_dir,
+        output_dir=output_dir,
+        device=args.device,
+    )
+
+    elapsed = time.time() - t_total
+    print(f"\nDone in {elapsed/60:.1f} minutes.")
     print(f"  total_saved={total_saved}")
-    print(f"  total_skipped={total_skipped}")
     print(f"  total_failed={total_failed}")
 
 
 if __name__ == "__main__":
     main()
-
