@@ -996,7 +996,7 @@ def install_unfaithfulness_eval_hook(model_name, eval_dir="data/evals", fast_n=5
     import wandb
     from evals.common import load_eval_items
     from evals.score_oracle import score_eval, EVAL_PARSING
-    from evals.run_evals import run_single_item
+    from evals.run_evals import run_eval_batched
 
     eval_dir = Path(eval_dir)
     act_layer = layer_percent_to_layer(model_name, 50)
@@ -1020,13 +1020,11 @@ def install_unfaithfulness_eval_hook(model_name, eval_dir="data/evals", fast_n=5
         print(f"\n--- Unfaithfulness Evals (step {global_step}) ---")
 
         for eval_name, items in fast_items.items():
-            completed = []
-            for item in items:
-                result = run_single_item(
-                    model, tokenizer, item, act_layer,
-                    model_name=model_name, device=str(device),
-                )
-                completed.append(result)
+            completed = run_eval_batched(
+                model, tokenizer, items, act_layer,
+                model_name=model_name, device=str(device),
+                oracle_max_new_tokens=30,
+            )
 
             parsing_config = EVAL_PARSING.get(eval_name)
             if parsing_config:
@@ -1056,7 +1054,7 @@ def main():
     parser.add_argument("--labels-dir", default=None, help="Directory with label files (for eval)")
     parser.add_argument("--model", default="Qwen/Qwen3-8B")
     parser.add_argument("--lr", type=float, default=1e-5)
-    parser.add_argument("--batch-size", type=int, default=16, help="Per-GPU micro-batch size")
+    parser.add_argument("--batch-size", type=int, default=64, help="Per-GPU micro-batch size")
     parser.add_argument("--effective-batch-size", type=int, default=128, help="Global effective batch size (controls gradient accumulation)")
     parser.add_argument("--epochs", type=int, default=1)
     parser.add_argument("--save-dir", default="checkpoints/cot_oracle_randlayer")

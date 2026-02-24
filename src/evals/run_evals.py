@@ -1073,6 +1073,7 @@ def run_eval_batched(
     batch_size: int = 8,
     precomputed_dir: Path | None = None,
     generation_adapter_name: str | None = None,
+    oracle_max_new_tokens: int = 150,
 ) -> list[CompletedEvalItem]:
     """Run eval with batched generation — much faster than one-at-a-time."""
     if not items:
@@ -1168,7 +1169,7 @@ def run_eval_batched(
                 oracle_response = run_oracle_on_activations(
                     model, tokenizer, bundle.activations, oracle_prompt,
                     model_name=model_name, act_layer=act_layer,
-                    max_new_tokens=150, device=device,
+                    max_new_tokens=oracle_max_new_tokens, device=device,
                 )
                 if cached_bundle is not None and precomputed_dir is not None:
                     activations_path = str(cache_path(precomputed_dir, item.eval_name, item.example_id))
