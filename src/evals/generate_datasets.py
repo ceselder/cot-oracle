@@ -4,7 +4,7 @@ Outputs JSON files to data/evals/{eval_name}.json
 
 Usage:
     python src/evals/generate_datasets.py --n 100 --output-dir data/evals
-    python src/evals/generate_datasets.py --evals sycophancy decorative_cot
+    python src/evals/generate_datasets.py --evals decorative_cot cybercrime_ood
 """
 
 import argparse
@@ -16,7 +16,6 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from evals.common import save_eval_items
 from evals.datasets.hinted_mcq import generate_hinted_mcq_dataset
-from evals.datasets.sycophancy import generate_sycophancy_dataset
 from evals.datasets.decorative_cot import generate_decorative_cot_dataset
 from evals.datasets.sentence_insertion import generate_sentence_insertion_dataset
 from evals.datasets.rot13_reconstruction import generate_rot13_reconstruction_dataset
@@ -29,7 +28,6 @@ from evals.datasets.cybercrime_ood import generate_cybercrime_ood_dataset
 
 ALL_GENERATORS = {
     "hinted_mcq": generate_hinted_mcq_dataset,
-    "sycophancy": generate_sycophancy_dataset,
     "decorative_cot": generate_decorative_cot_dataset,
     "sentence_insertion": generate_sentence_insertion_dataset,
     "rot13_reconstruction": generate_rot13_reconstruction_dataset,
@@ -43,7 +41,6 @@ ALL_GENERATORS = {
 # Default item counts per eval (some evals have specific defaults)
 DEFAULT_COUNTS = {
     "hinted_mcq": 100,
-    "sycophancy": 100,
     "decorative_cot": 100,
     "sentence_insertion": 100,
     "rot13_reconstruction": 100,

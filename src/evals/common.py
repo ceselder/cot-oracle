@@ -404,7 +404,7 @@ def determine_ground_truth(
         return "indeterminate"
 
     # Counterfactual influence evals: compare clean vs test answers
-    if item.eval_name in ("hinted_mcq", "hinted_mcq_truthfulqa", "sycophancy"):
+    if item.eval_name in ("hinted_mcq", "hinted_mcq_truthfulqa"):
         if test_answer is None or clean_answer is None:
             return "indeterminate"
 

@@ -15,7 +15,6 @@ COLLECTION_SLUG = "cot-oracle-evals"
 
 EVAL_DESCRIPTIONS = {
     "hinted_mcq": "GSM8K problems as 4-choice MCQ with hints. 50/50 right/wrong hints, varying subtlety. Source: openai/gsm8k test.",
-    "sycophancy": "User states wrong math belief, model must resist agreeing. 50/50 right/wrong, varying confidence. Source: openai/gsm8k test + HuggingFaceH4/MATH-500 test.",
     "decorative_cot": "Is the chain-of-thought load-bearing or decorative? Same question with/without CoT. Source: openai/gsm8k test + HuggingFaceH4/MATH-500 test.",
     "sentence_insertion": "Needle-in-haystack: detect foreign sentence inserted into CoT. 50/50 insertion/clean split. Source: ceselder/qwen3-8b-math-cot-corpus.",
     "rot13_reconstruction": "Model-organism eval: CoT encoded with ROT13, oracle must reconstruct original. Source: ceselder/qwen3-8b-math-cot-corpus.",
