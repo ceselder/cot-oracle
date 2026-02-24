@@ -540,6 +540,7 @@ def run_unfaith_evals(model, tokenizer, model_name, global_step, args):
             skip_rot13=(global_step < args.rot13_start_step),
             oracle_adapter_name="default",
             activation_cache_dir=args.activation_cache_dir,
+            eval_names=getattr(args, "unfaith_evals", None),
         )
         if metrics:
             wandb.log(metrics, step=global_step)
@@ -868,6 +869,8 @@ def apply_config(args, config: dict):
                      "eval_dir", "rot13_start_step"]:
             if key in e and not getattr(args, f"_cli_{key}", False):
                 setattr(args, key, e[key])
+        if "unfaith_evals" in e and not getattr(args, "_cli_unfaith_evals", False):
+            args.unfaith_evals = e["unfaith_evals"]
 
     # Data paths
     if "data" in config:

@@ -75,6 +75,19 @@ eval:
   unfaith_eval_items: 20
   eval_dir: data/evals
   rot13_start_step: 2000
+  # All unfaithfulness evals to run during training (pulled from HF)
+  unfaith_evals:
+    - hinted_mcq
+    - hinted_mcq_truthfulqa
+    - sycophancy
+    - sycophancy_v2_riya
+    - decorative_cot
+    - sentence_insertion
+    - reasoning_termination_riya
+    - atypical_answer_riya
+    - cybercrime_ood
+    - forced_answer_entropy_riya
+    - rot13_reconstruction
 
 # Data
 data:
