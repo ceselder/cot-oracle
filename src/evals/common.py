@@ -404,7 +404,7 @@ def determine_ground_truth(
         return "indeterminate"
 
     # Counterfactual influence evals: compare clean vs test answers
-    if item.eval_name in ("hinted_mcq", "sycophancy"):
+    if item.eval_name in ("hinted_mcq", "hinted_mcq_truthfulqa", "sycophancy"):
         if test_answer is None or clean_answer is None:
             return "indeterminate"
 
@@ -604,6 +604,85 @@ def load_eval_items(path: Path) -> list[EvalItem]:
         data = json.load(f)
     valid_fields = {f.name for f in EvalItem.__dataclass_fields__.values()}
     return [EvalItem(**{k: v for k, v in d.items() if k in valid_fields}) for d in data]
+
+
+# HuggingFace org for eval datasets
+HF_EVAL_ORG = "mats-10-sprint-cs-jb"
+HF_EVAL_COLLECTION = "mats-10-sprint-cs-jb/evals-cot-oracle-working-699d15ecbba7e43452853440"
+
+
+def list_hf_evals() -> list[str]:
+    """List all eval dataset names available in the HuggingFace collection."""
+    try:
+        from huggingface_hub import HfApi
+        api = HfApi()
+        c = api.get_collection(HF_EVAL_COLLECTION)
+        names = []
+        for item in c.items:
+            repo = item.item_id
+            name = repo.split("/")[-1].replace("cot-oracle-eval-", "").replace("-", "_")
+            names.append(name)
+        return names
+    except Exception as e:
+        print(f"  [eval] Warning: could not list HF collection: {e}")
+        return []
+
+
+def load_eval_items_hf(eval_name: str, eval_dir: Path | None = None) -> list[EvalItem]:
+    """Load eval items from local JSON if available, otherwise pull from HuggingFace.
+
+    Looks for: eval_dir/{eval_name}.json locally first.
+    Falls back to: HF dataset {HF_EVAL_ORG}/cot-oracle-eval-{eval_name_dashed}
+
+    Downloaded HF data is cached locally to eval_dir for subsequent loads.
+    """
+    # Try local first
+    if eval_dir:
+        local_path = Path(eval_dir) / f"{eval_name}.json"
+        if local_path.exists():
+            return load_eval_items(local_path)
+
+    # Pull from HuggingFace
+    repo_id = f"{HF_EVAL_ORG}/cot-oracle-eval-{eval_name.replace('_', '-')}"
+    print(f"  [eval] Pulling {eval_name} from HuggingFace: {repo_id}")
+
+    try:
+        from datasets import load_dataset as _hf_load
+        ds = _hf_load(repo_id, split="train")
+    except Exception as e:
+        raise FileNotFoundError(
+            f"Eval {eval_name} not found locally or on HF ({repo_id}): {e}"
+        )
+
+    # Convert HF rows back to EvalItem format (unflatten meta_* fields)
+    items_raw = []
+    for row in ds:
+        item = {}
+        meta = {}
+        for k, v in row.items():
+            if k.startswith("meta_"):
+                # Try to parse JSON strings back to objects
+                if isinstance(v, str):
+                    try:
+                        v = json.loads(v)
+                    except (json.JSONDecodeError, ValueError):
+                        pass
+                meta[k[5:]] = v  # strip meta_ prefix
+            else:
+                item[k] = v
+        item["metadata"] = meta
+        items_raw.append(item)
+
+    # Cache locally for next time
+    if eval_dir:
+        local_path = Path(eval_dir) / f"{eval_name}.json"
+        local_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(local_path, "w") as f:
+            json.dump(items_raw, f)
+        print(f"  [eval] Cached {len(items_raw)} items to {local_path}")
+
+    valid_fields = {f.name for f in EvalItem.__dataclass_fields__.values()}
+    return [EvalItem(**{k: v for k, v in d.items() if k in valid_fields}) for d in items_raw]
 
 
 def save_completed_items(items: list[CompletedEvalItem], path: Path) -> None:

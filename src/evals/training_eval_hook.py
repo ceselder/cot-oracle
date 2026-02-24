@@ -33,6 +33,8 @@ from evals.common import (
     EvalItem,
     CompletedEvalItem,
     load_eval_items,
+    load_eval_items_hf,
+    list_hf_evals,
     parse_oracle_binary,
     extract_numerical_answer,
     answers_match,
@@ -71,6 +73,7 @@ from core.ao import (
 # Evals to run during training, in order of cost (cheapest first)
 TRAINING_EVALS = [
     "hinted_mcq",
+    "hinted_mcq_truthfulqa",
     "sycophancy_v2_riya",
     "decorative_cot",
     "sentence_insertion",
@@ -814,15 +817,10 @@ def run_training_evals(
     evals_to_run = [e for e in TRAINING_EVALS if not (skip_rot13 and e == "rot13_reconstruction")]
 
     for eval_name in evals_to_run:
-        eval_file = eval_dir / f"{eval_name}.json"
-        if not eval_file.exists():
-            print(f"  [training_eval] Warning: {eval_file} not found, skipping {eval_name}")
-            continue
-
         print(f"  [training_eval] Running {eval_name}...")
 
         try:
-            items = load_eval_items(eval_file)
+            items = load_eval_items_hf(eval_name, eval_dir=eval_dir)
             items = _subsample(items, max_items_per_eval, seed=step + hash(eval_name))
 
             # Dispatch to appropriate handler
