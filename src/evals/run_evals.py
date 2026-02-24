@@ -95,6 +95,7 @@ from evals.common import (
     load_eval_items,
     save_completed_items,
     extract_numerical_answer,
+    answers_match,
     extract_letter_answer,
     extract_yes_no,
     determine_ground_truth,
@@ -447,9 +448,9 @@ def run_decorative_cot_eval(
             cot_answer = extract_numerical_answer(cot_response)
             direct_answer = extract_numerical_answer(direct_response)
 
-            if cot_answer == item.correct_answer:
+            if answers_match(cot_answer, item.correct_answer):
                 with_cot_correct += 1
-            if direct_answer == item.correct_answer:
+            if answers_match(direct_answer, item.correct_answer):
                 without_cot_correct += 1
 
         with_cot_acc = with_cot_correct / n_runs

@@ -67,34 +67,188 @@ class CompletedEvalItem:
 # Answer Extraction
 # ============================================================
 
-def extract_numerical_answer(response: str) -> str | None:
-    """Extract the final numerical answer from a model response.
+def _find_boxed(text: str) -> list[str]:
+    """Extract \\boxed{...} content, handling nested braces via depth counting."""
+    results = []
+    i = 0
+    pattern = "\\boxed{"
+    while i < len(text):
+        idx = text.find(pattern, i)
+        if idx == -1:
+            break
+        start = idx + len(pattern)
+        depth = 1
+        j = start
+        while j < len(text) and depth > 0:
+            if text[j] == '{':
+                depth += 1
+            elif text[j] == '}':
+                depth -= 1
+            j += 1
+        if depth == 0:
+            results.append(text[start:j-1])
+        i = j
+    return results
 
-    Handles: "= 408", "answer is 408", "**408**", boxed{408}, trailing number.
+
+def extract_numerical_answer(response: str) -> str | None:
+    """Extract the final answer from a model response.
+
+    Handles: \\boxed{} with nested braces, "= 408", "answer is 408",
+    "**408**", #### format, trailing numbers, and LaTeX text wrappers.
     """
     if not response:
         return None
 
-    # Try \boxed{} first (MATH dataset format)
-    boxed = re.findall(r'\\boxed\{([^}]+)\}', response)
+    # 1. \boxed{...} — highest priority (handles nested braces)
+    boxed = _find_boxed(response)
     if boxed:
-        return boxed[-1].strip()
+        ans = boxed[-1].strip()
+        # Clean LaTeX text wrappers
+        ans = re.sub(r'\\text\{([^}]*)\}', r'\1', ans)
+        ans = re.sub(r'\\(?:mathrm|mathbf)\{([^}]*)\}', r'\1', ans)
+        ans = ans.replace('\\,', '').replace('\\;', '').replace('\\!', '')
+        ans = ans.replace('$', '').strip()
+        return ans if ans else None
 
-    patterns = [
-        r'(?:=|is|equals?)\s*(-?\d+(?:\.\d+)?)',
-        r'(?:answer|result)(?:\s+is)?:?\s*(-?\d+(?:\.\d+)?)',
-        r'\*\*(-?\d+(?:\.\d+)?)\*\*',
-        r'####\s*(-?\d+(?:,\d+)*(?:\.\d+)?)',  # GSM8K format
-        r'(-?\d+(?:\.\d+)?)\s*$',  # Number at end of string
-    ]
+    # 2. "the answer is X" pattern
+    ans_pattern = re.findall(
+        r'(?:the\s+)?answer\s+is\s*[:=\s]*\$?\\?(?:boxed\{)?(-?\d+(?:[,.]?\d+)*)\}?\$?',
+        response, re.IGNORECASE,
+    )
+    if ans_pattern:
+        return ans_pattern[-1].replace(",", "")
 
-    for pattern in patterns:
-        matches = re.findall(pattern, response, re.IGNORECASE)
-        if matches:
-            result = matches[-1].replace(",", "")
-            return result
+    # 3. Bold number (markdown)
+    bold = re.findall(r'\*\*\s*(-?\d+(?:\.\d+)?)\s*\*\*', response)
+    if bold:
+        return bold[-1]
+
+    # 4. "= NUMBER" at end of line
+    eq_end = re.findall(r'=\s*(-?\d+(?:\.\d+)?)\s*$', response, re.MULTILINE)
+    if eq_end:
+        return eq_end[-1]
+
+    # 5. "#### NUMBER" (GSM8K style)
+    hash_ans = re.findall(r'####\s*(-?\d+(?:,\d+)*(?:\.\d+)?)', response)
+    if hash_ans:
+        return hash_ans[-1].replace(",", "")
+
+    # 6. Last number on its own line or at end
+    last_num = re.findall(r'(?:^|\n)\s*(-?\d+(?:\.\d+)?)\s*$', response)
+    if last_num:
+        return last_num[-1]
+
+    # 7. Fallback: last number in text
+    all_nums = re.findall(r'(-?\d+(?:\.\d+)?)', response)
+    if all_nums:
+        return all_nums[-1]
 
     return None
+
+
+def _latex_to_float(s: str) -> float | None:
+    """Try to evaluate a LaTeX math expression to a float."""
+    if not s:
+        return None
+    s = s.strip()
+    try:
+        return float(s)
+    except ValueError:
+        pass
+
+    if s.startswith('-'):
+        inner = _latex_to_float(s[1:].strip())
+        return -inner if inner is not None else None
+
+    # \frac{a}{b} or \dfrac{a}{b}
+    m = re.match(r'\\d?frac\{(.+)\}\{(.+)\}$', s)
+    if m:
+        num = _latex_to_float(m.group(1))
+        den = _latex_to_float(m.group(2))
+        if num is not None and den is not None and den != 0:
+            return num / den
+
+    # \sqrt{n}
+    m = re.match(r'\\sqrt\{(.+)\}$', s)
+    if m:
+        val = _latex_to_float(m.group(1))
+        if val is not None and val >= 0:
+            return math.sqrt(val)
+
+    if s == '\\pi':
+        return math.pi
+
+    # coefficient * \pi
+    m = re.match(r'(.+?)\\pi$', s)
+    if m:
+        coeff = _latex_to_float(m.group(1).strip())
+        if coeff is not None:
+            return coeff * math.pi
+
+    # n^\circ
+    m = re.match(r'(.+?)\^\s*\\circ$', s)
+    if m:
+        return _latex_to_float(m.group(1))
+    m = re.match(r'(.+?)°$', s)
+    if m:
+        return _latex_to_float(m.group(1))
+
+    # n^{k}
+    m = re.match(r'(.+?)\^\{(.+)\}$', s)
+    if m:
+        base = _latex_to_float(m.group(1))
+        exp = _latex_to_float(m.group(2))
+        if base is not None and exp is not None:
+            try:
+                return base ** exp
+            except (OverflowError, ZeroDivisionError):
+                return None
+
+    return None
+
+
+def _normalize_answer(ans: str) -> str:
+    """Normalize a math answer for string comparison."""
+    ans = ans.strip()
+    ans = re.sub(r'^\$|\$$', '', ans)
+    ans = re.sub(r'^[a-zA-Z]\s*(?:=|\\in)\s*', '', ans)
+    ans = re.sub(r'\s+', ' ', ans).strip()
+    ans = re.sub(r',\s+', ',', ans)
+    ans = ans.replace('\\left', '').replace('\\right', '')
+    ans = ans.replace('\\,', '').replace('\\;', '').replace('\\!', '')
+    ans = re.sub(r'\\text\{([^}]*)\}', r'\1', ans)
+    ans = re.sub(r'\\(?:mathrm|mathbf)\{([^}]*)\}', r'\1', ans)
+    return ans
+
+
+def answers_match(extracted: str | None, correct: str) -> bool:
+    """Check if extracted answer matches correct answer.
+
+    Tries: (1) normalized string match, (2) LaTeX-to-float evaluation,
+    (3) plain float comparison.
+    """
+    if extracted is None:
+        return False
+    norm_ext = _normalize_answer(extracted)
+    norm_cor = _normalize_answer(correct)
+
+    # Direct string match (case-insensitive)
+    if norm_ext.lower() == norm_cor.lower():
+        return True
+
+    # Try LaTeX → float for both, then compare numerically
+    float_ext = _latex_to_float(norm_ext)
+    float_cor = _latex_to_float(norm_cor)
+    if float_ext is not None and float_cor is not None:
+        tol = max(0.01, 0.005 * max(abs(float_ext), abs(float_cor)))
+        return abs(float_ext - float_cor) < tol
+
+    # Plain float comparison as last resort
+    try:
+        return abs(float(norm_ext) - float(norm_cor)) < 0.01
+    except ValueError:
+        return False
 
 
 def extract_letter_answer(response: str) -> str | None:

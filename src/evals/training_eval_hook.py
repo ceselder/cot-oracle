@@ -35,6 +35,7 @@ from evals.common import (
     load_eval_items,
     parse_oracle_binary,
     extract_numerical_answer,
+    answers_match,
     determine_ground_truth,
     ci_label,
 )
@@ -330,9 +331,9 @@ def _run_decorative_cot_eval(
                         device=device, adapter_name=None,
                         temperature=temp,
                     )
-                    if extract_numerical_answer(cot_response) == item.correct_answer:
+                    if answers_match(extract_numerical_answer(cot_response), item.correct_answer):
                         with_cot_correct += 1
-                    if extract_numerical_answer(direct_response) == item.correct_answer:
+                    if answers_match(extract_numerical_answer(direct_response), item.correct_answer):
                         without_cot_correct += 1
                 with_cot_acc = with_cot_correct / n_runs
                 without_cot_acc = without_cot_correct / n_runs

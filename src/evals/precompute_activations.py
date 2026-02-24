@@ -37,7 +37,7 @@ import torch
 from tqdm import tqdm
 
 from evals.activation_cache import extract_activation_bundle, save_bundle, cache_path
-from evals.common import load_eval_items, EvalItem, extract_numerical_answer, ci_label
+from evals.common import load_eval_items, EvalItem, extract_numerical_answer, answers_match, ci_label
 from evals.run_evals import _extract_answer
 
 
@@ -334,11 +334,11 @@ def _run_vllm_generation(
             direct_resps = item_direct_resps.get(eid, [])
             with_correct = sum(
                 1 for r in cot_resps
-                if extract_numerical_answer(r) == item.correct_answer
+                if answers_match(extract_numerical_answer(r), item.correct_answer)
             )
             without_correct = sum(
                 1 for r in direct_resps
-                if extract_numerical_answer(r) == item.correct_answer
+                if answers_match(extract_numerical_answer(r), item.correct_answer)
             )
             label = ci_label(with_correct, n, without_correct, n)
             results["dec_labels"][eid] = {
