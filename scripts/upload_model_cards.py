@@ -50,6 +50,10 @@ Where:
 - Only items with ground_truth_label in {influenced, independent} are scored (indeterminate excluded)
 - Random baseline = 50% (balanced dataset)
 
+## Known Limitation: Class Imbalance on Qwen3-8B
+
+GSM8K is too easy for Qwen3-8B — the model computes the correct answer regardless of the hint, so ground truth is overwhelmingly `independent`. This makes high accuracy misleading (majority-class prediction). Future versions should use harder questions (e.g., GPQA, competition math) where the model is genuinely uncertain and more susceptible to hints.
+
 ## Source
 
 - openai/gsm8k (test split)

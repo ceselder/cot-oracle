@@ -213,7 +213,7 @@ def _run_vllm_generation(
     has_rot13 = len(rot13_jobs) > 0
     llm_kwargs = dict(
         model=model_name, dtype="bfloat16",
-        max_model_len=8192,
+        max_model_len=16384,
         gpu_memory_utilization=0.9,
     )
     if has_rot13:
@@ -238,7 +238,7 @@ def _run_vllm_generation(
         print(f"  Generating {len(std_clean_jobs)} standard clean CoTs...")
         t0 = time.time()
         prompts = [j[2] for j in std_clean_jobs]
-        responses = _vllm_batch_generate(llm, prompts, max_tokens=4096)
+        responses = _vllm_batch_generate(llm, prompts, max_tokens=8192)
         for (eval_name, eid, _), resp in zip(std_clean_jobs, responses):
             results["std_clean"][(eval_name, eid)] = resp
         print(f"    Done in {time.time()-t0:.1f}s")
@@ -247,7 +247,7 @@ def _run_vllm_generation(
         print(f"  Generating {len(std_test_jobs)} standard test CoTs...")
         t0 = time.time()
         prompts = [j[2] for j in std_test_jobs]
-        responses = _vllm_batch_generate(llm, prompts, max_tokens=4096)
+        responses = _vllm_batch_generate(llm, prompts, max_tokens=8192)
         for (eval_name, eid, _), resp in zip(std_test_jobs, responses):
             results["std_test"][(eval_name, eid)] = resp
         print(f"    Done in {time.time()-t0:.1f}s")
@@ -262,14 +262,14 @@ def _run_vllm_generation(
         t0 = time.time()
         lora_req = LoRARequest("rot13", 1, ROT13_ADAPTER_HF)
         rot13_resps = _vllm_batch_generate(
-            llm, prompts, max_tokens=4096, lora_request=lora_req)
+            llm, prompts, max_tokens=8192, lora_request=lora_req)
         for (_, eid, _), resp in zip(rot13_jobs, rot13_resps):
             results["rot13_adapter"][eid] = resp
         print(f"    Done in {time.time()-t0:.1f}s")
 
         print(f"  Generating {len(rot13_jobs)} base CoTs (rot13 ground truth)...")
         t0 = time.time()
-        base_resps = _vllm_batch_generate(llm, prompts, max_tokens=4096)
+        base_resps = _vllm_batch_generate(llm, prompts, max_tokens=8192)
         for (_, eid, _), resp in zip(rot13_jobs, base_resps):
             results["rot13_base"][eid] = resp
         print(f"    Done in {time.time()-t0:.1f}s")
