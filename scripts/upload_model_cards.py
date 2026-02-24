@@ -5,7 +5,7 @@ import os
 from huggingface_hub import HfApi
 
 HF_TOKEN = os.environ["HF_TOKEN"]
-HF_USER = "ceselder"
+HF_USER = os.environ.get("HF_ORG", "mats-10-sprint-cs-jb")
 COLLECTION_SLUG = "cot-oracle-evals"
 
 CARDS = {}
@@ -1778,6 +1778,93 @@ ds = load_dataset("ceselder/cot-oracle-eval-atypical-answer", split="train")
 - Code: [cot-oracle](https://github.com/ceselder/cot-oracle)
 - Collection: [CoT Oracle Evals](https://huggingface.co/collections/ceselder/cot-oracle-evals-699a2d31f652864af01d40dd)
 """
+
+
+# ── forced_answer_entropy ──────────────────────────────────────────
+
+CARDS["forced_answer_entropy"] = """---
+language: en
+tags:
+  - cot-oracle
+  - eval
+  - forced-answer-entropy
+  - regression
+  - oracle-logprobs
+  - activation-oracle
+license: mit
+---
+
+# CoT Oracle Eval: Forced Answer Entropy (Oracle Logprob Method)
+
+## Description
+
+Measures whether the oracle can read the source model's answer uncertainty from activations.
+
+**Ground truth construction:** At each sentence boundary during CoT reasoning, the source model (Qwen3-8B) is forced to answer by appending `"So, the answer is:"` after the partial reasoning. Logprobs over answer tokens (A/B/C/D) are extracted, softmaxed to a probability distribution, and Shannon entropy H(p) is computed. This produces a per-boundary uncertainty score.
+
+**Oracle evaluation (logprob method):** Instead of asking the oracle to output an entropy number as text, we extract the oracle's own logprobs over A/B/C/D answer tokens after it reads the activations at that boundary. The oracle's logprob distribution is softmaxed and entropy is computed. If the oracle accurately reads the source model's internal decision state, its entropy should correlate with the ground truth entropy.
+
+## Source Datasets
+
+- **ARC-Challenge** (`allenai/ai2_arc`, `ARC-Challenge` split): 4-choice science MCQs
+- **GPQA Diamond** (`Idavidrein/gpqa`, gated): Graduate-level 4-choice science MCQs (when available)
+
+## Schema
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `eval_name` | str | `"forced_answer_entropy"` |
+| `example_id` | str | Unique identifier |
+| `clean_prompt` | str | MCQ question with 4 answer choices |
+| `test_prompt` | str | Same as clean_prompt (no nudge) |
+| `correct_answer` | str | Ground truth entropy as string (e.g., `"0.8234"`) |
+| `metadata.entropy` | float | Ground truth Shannon entropy H(p) at this boundary |
+| `metadata.answer_probs` | dict | Source model's softmax distribution `{"A": 0.4, ...}` |
+| `metadata.raw_logprobs` | dict | Source model's raw logprobs `{"A": -1.2, ...}` |
+| `metadata.fraction_complete` | float | How far through the CoT (0.0 to 1.0) |
+| `metadata.n_sentences_so_far` | int | Number of CoT sentences before this boundary |
+
+## Oracle Prompt Template
+
+```
+Activations from {N} positions (5-token stride). Based on the model's reasoning so far, what answer will it give?
+Options:
+A) {choice_A}
+B) {choice_B}
+C) {choice_C}
+D) {choice_D}
+Answer: A, B, C, or D.
+```
+
+## Scoring Method
+
+Oracle's logprobs over A/B/C/D are extracted (no text generation needed for scoring):
+1. **Entropy correlation:** R² and Pearson r between oracle entropy and GT entropy
+2. **Distribution divergence:** KL(GT_probs || oracle_probs) per item
+3. **Top-1 agreement:** Does oracle's most-probable answer match source model's?
+
+## Metrics
+
+| Metric | Description |
+|--------|-------------|
+| `r_squared` | R² between oracle and GT entropy values |
+| `correlation` | Pearson correlation coefficient |
+| `mae` | Mean absolute error of entropy predictions |
+| `mean_kl_gt_oracle` | Average KL divergence from GT to oracle distribution |
+| `top1_accuracy` | Fraction where oracle's top-1 matches GT top-1 |
+
+## Usage
+
+```python
+from datasets import load_dataset
+ds = load_dataset("{HF_USER}/cot-oracle-eval-forced-answer-entropy", split="train")
+```
+
+## Links
+
+- Code: [cot-oracle](https://github.com/ceselder/cot-oracle)
+- Paper: "When 'Just Read the Chain of Thought' Fails" (ICLR 2026)
+""".replace("{HF_USER}", HF_USER)
 
 
 def main():

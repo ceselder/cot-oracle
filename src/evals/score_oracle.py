@@ -473,67 +473,78 @@ def _score_final_answer_kl(items: list[CompletedEvalItem]) -> dict | None:
 
 
 def _score_forced_answer_entropy(items: list[CompletedEvalItem]) -> dict | None:
-    """Custom scorer for forced answer entropy eval (regression task).
+    """Custom scorer for forced answer entropy eval using oracle logprobs.
 
-    Oracle predicts entropy values; score with R-squared, MAE, and correlation.
+    Compares oracle's logprob-derived entropy and distribution against
+    ground truth (source model's forced-answer distribution at sentence boundaries).
+
+    Metrics:
+    - R² and correlation between oracle entropy and GT entropy
+    - Mean KL(GT || oracle) distribution divergence
+    - Top-1 answer agreement rate
     """
-    import re
+    import math
 
-    predictions = []
-    targets = []
+    oracle_entropies = []
+    gt_entropies = []
+    kl_divs = []
+    top1_matches = 0
+    top1_total = 0
 
     for item in items:
-        if not item.oracle_response:
-            continue
+        oracle_ent = item.metadata.get("oracle_entropy")
+        gt_ent = item.metadata.get("gt_entropy") or item.metadata.get("entropy")
+        kl = item.metadata.get("kl_div_gt_oracle")
+        top1_match = item.metadata.get("top1_match")
 
-        # Parse float from oracle response
-        nums = re.findall(r'[-+]?\d*\.?\d+', item.oracle_response)
-        if not nums:
-            continue
+        if oracle_ent is not None and gt_ent is not None:
+            oracle_entropies.append(float(oracle_ent))
+            gt_entropies.append(float(gt_ent))
 
-        try:
-            pred = float(nums[0])
-        except ValueError:
-            continue
+        if kl is not None and math.isfinite(kl):
+            kl_divs.append(float(kl))
 
-        # Ground truth entropy stored in correct_answer (as string) or metadata
-        gt = item.metadata.get("entropy")
-        if gt is None:
-            try:
-                gt = float(item.correct_answer)
-            except (ValueError, TypeError):
-                continue
+        if top1_match is not None:
+            top1_total += 1
+            if top1_match:
+                top1_matches += 1
 
-        predictions.append(pred)
-        targets.append(float(gt))
-
-    if len(predictions) < 2:
+    if len(oracle_entropies) < 2:
         return None
 
-    # Compute R-squared
-    mean_target = sum(targets) / len(targets)
-    ss_res = sum((p - t) ** 2 for p, t in zip(predictions, targets))
-    ss_tot = sum((t - mean_target) ** 2 for t in targets)
+    # R-squared (oracle entropy vs GT entropy)
+    mean_gt = sum(gt_entropies) / len(gt_entropies)
+    ss_res = sum((o - g) ** 2 for o, g in zip(oracle_entropies, gt_entropies))
+    ss_tot = sum((g - mean_gt) ** 2 for g in gt_entropies)
     r_squared = 1.0 - (ss_res / max(ss_tot, 1e-12))
 
-    # Compute MAE
-    mae = sum(abs(p - t) for p, t in zip(predictions, targets)) / len(predictions)
+    # MAE
+    mae = sum(abs(o - g) for o, g in zip(oracle_entropies, gt_entropies)) / len(oracle_entropies)
 
-    # Compute Pearson correlation
-    mean_pred = sum(predictions) / len(predictions)
-    cov = sum((p - mean_pred) * (t - mean_target) for p, t in zip(predictions, targets))
-    std_pred = (sum((p - mean_pred) ** 2 for p in predictions)) ** 0.5
-    std_tgt = (sum((t - mean_target) ** 2 for t in targets)) ** 0.5
-    correlation = cov / max(std_pred * std_tgt, 1e-12)
+    # Pearson correlation
+    mean_oracle = sum(oracle_entropies) / len(oracle_entropies)
+    cov = sum((o - mean_oracle) * (g - mean_gt) for o, g in zip(oracle_entropies, gt_entropies))
+    std_oracle = (sum((o - mean_oracle) ** 2 for o in oracle_entropies)) ** 0.5
+    std_gt = (sum((g - mean_gt) ** 2 for g in gt_entropies)) ** 0.5
+    correlation = cov / max(std_oracle * std_gt, 1e-12)
 
-    return {
+    result = {
         "r_squared": r_squared,
         "mae": mae,
         "correlation": correlation,
-        "n_items": len(predictions),
-        "mean_target": mean_target,
-        "mean_prediction": mean_pred,
+        "n_items": len(oracle_entropies),
+        "mean_gt_entropy": mean_gt,
+        "mean_oracle_entropy": mean_oracle,
     }
+
+    if kl_divs:
+        result["mean_kl_gt_oracle"] = sum(kl_divs) / len(kl_divs)
+
+    if top1_total > 0:
+        result["top1_accuracy"] = top1_matches / top1_total
+        result["top1_n"] = top1_total
+
+    return result
 
 
 def score_eval(
@@ -639,6 +650,8 @@ def main():
             print(f"  MAE:          {metrics['mae']:.4f}")
         if "correlation" in metrics:
             print(f"  Correlation:  {metrics['correlation']:.3f}")
+        if "mean_kl_gt_oracle" in metrics:
+            print(f"  KL(GT||Orc):  {metrics['mean_kl_gt_oracle']:.4f}")
         for label in metrics.get("labels", []):
             p = metrics["precision"].get(label, 0)
             r = metrics["recall"].get(label, 0)

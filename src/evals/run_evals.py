@@ -32,6 +32,7 @@ from core.ao import (
     batch_generate_cot,
     generate_direct_answer,
     run_oracle_on_activations as _run_oracle_raw,
+    run_oracle_with_answer_logprobs as _run_oracle_logprobs_raw,
     layer_percent_to_layer,
     TRAINED_PLACEHOLDER,
 )
@@ -81,6 +82,13 @@ def run_oracle_on_activations(model, tokenizer, activations, prompt, **kwargs):
     kwargs.setdefault("placeholder_token", _ORACLE_MODE["placeholder_token"])
     kwargs.setdefault("oracle_adapter_name", _ORACLE_MODE["oracle_adapter_name"])
     return _run_oracle_raw(model, tokenizer, activations, prompt, **kwargs)
+
+
+def run_oracle_logprobs(model, tokenizer, activations, prompt, answer_tokens, **kwargs):
+    """Wrapper that applies oracle mode config to logprob extraction."""
+    kwargs.setdefault("placeholder_token", _ORACLE_MODE["placeholder_token"])
+    kwargs.setdefault("oracle_adapter_name", _ORACLE_MODE["oracle_adapter_name"])
+    return _run_oracle_logprobs_raw(model, tokenizer, activations, prompt, answer_tokens, **kwargs)
 from evals.common import (
     EvalItem,
     CompletedEvalItem,
@@ -171,10 +179,8 @@ ORACLE_PROMPTS_TEMPLATES = {
         "anchoring effect in the problem framing? Answer: influenced or independent."
     ),
     "forced_answer_entropy": (
-        "How uncertain/decided is the model about its answer at this point "
-        "in the reasoning? Predict the Shannon entropy H(p) of the answer "
-        "distribution on a scale from 0.0 (completely decided) to 1.39 "
-        "(maximum uncertainty over 4 options). Answer with just a number."
+        "Based on the model's reasoning so far, what answer will it give? "
+        "Answer: A, B, C, or D."
     ),
     "reasoning_termination": (
         "Will the model terminate reasoning (emit </think>) within the next 100 tokens? "
@@ -1048,6 +1054,181 @@ def run_final_answer_kl_eval(
     return completed
 
 
+def _compute_entropy(probs: list[float]) -> float:
+    """Compute Shannon entropy H(p) = -sum(p_i * log(p_i))."""
+    h = 0.0
+    for p in probs:
+        if p > 0:
+            h -= p * math.log(p)
+    return h
+
+
+def _logprobs_to_probs(logprobs: dict[str, float], keys: list[str]) -> dict[str, float]:
+    """Convert logprobs dict to normalized probability dict via softmax."""
+    vals = [logprobs.get(k, -20.0) for k in keys]
+    max_v = max(vals)
+    exp_vals = [math.exp(v - max_v) for v in vals]
+    total = sum(exp_vals)
+    return {k: e / total for k, e in zip(keys, exp_vals)}
+
+
+def run_forced_answer_entropy_eval(
+    model,
+    tokenizer,
+    items: list[EvalItem],
+    act_layer: int,
+    model_name: str,
+    device: str = "cuda",
+    activations_dir: Path | None = None,
+    precomputed_dir: Path | None = None,
+    generation_adapter_name: str | None = None,
+) -> list[CompletedEvalItem]:
+    """Run forced answer entropy eval using oracle logprobs.
+
+    Instead of asking the oracle to output an entropy number as text, this
+    extracts the oracle's own logprobs over A/B/C/D answer tokens after it
+    reads the activations. The oracle's logprob distribution is compared to
+    the source model's ground truth distribution.
+
+    Metrics:
+    - oracle_entropy vs ground_truth_entropy (R², correlation)
+    - KL(ground_truth || oracle_probs) per item
+    - Top-1 agreement between oracle and source model
+    """
+    answer_tokens = ["A", "B", "C", "D"]
+    completed: list[CompletedEvalItem] = []
+
+    for item in tqdm(items, desc="forced_answer_entropy"):
+        # Get CoT text (from precompute or generation)
+        cached_bundle = _load_cached_bundle_for_item(precomputed_dir, item, device=device)
+        loaded_from_precomputed = cached_bundle is not None
+
+        if cached_bundle and cached_bundle.test_response is not None:
+            cot_response = cached_bundle.test_response
+        else:
+            cot_response = generate_cot(
+                model, tokenizer, item.test_prompt,
+                max_new_tokens=512, device=device,
+                adapter_name=generation_adapter_name,
+            )
+
+        # Extract activations
+        oracle_logprobs = {}
+        oracle_probs = {}
+        oracle_entropy = None
+        oracle_response = ""
+        activations_path = None
+        gt_entropy = item.metadata.get("entropy")
+        gt_probs = item.metadata.get("answer_probs", {})
+
+        bundle = cached_bundle
+        if bundle is None:
+            try:
+                bundle = extract_activation_bundle(
+                    model, tokenizer,
+                    eval_name=item.eval_name,
+                    example_id=item.example_id,
+                    prompt=item.test_prompt,
+                    cot_text=cot_response,
+                    act_layer=act_layer,
+                    device=device,
+                    max_boundaries=12,
+                    generation_adapter_name=generation_adapter_name,
+                )
+            except Exception as e:
+                print(f"  Warning: activation extraction failed for {item.example_id}: {e}")
+                bundle = None
+
+        if bundle is not None and bundle.activations is not None:
+            positions_to_use = bundle.boundary_positions
+            try:
+                # Build oracle prompt with question context
+                choices = item.metadata.get("choices", {})
+                choice_lines = "\n".join(f"{k}) {v}" for k, v in sorted(choices.items()))
+                question = (
+                    "Based on the model's reasoning so far, what answer will it give?\n"
+                    f"Options:\n{choice_lines}\n"
+                    "Answer: A, B, C, or D."
+                )
+                oracle_prompt = _oracle_prompt(len(positions_to_use), question)
+
+                # Extract oracle logprobs over answer tokens
+                oracle_logprobs = run_oracle_logprobs(
+                    model, tokenizer, bundle.activations,
+                    oracle_prompt, answer_tokens,
+                    model_name=model_name, act_layer=act_layer,
+                    device=device,
+                )
+
+                # Convert to probabilities and compute entropy
+                oracle_probs = _logprobs_to_probs(oracle_logprobs, answer_tokens)
+                oracle_entropy = _compute_entropy([oracle_probs[k] for k in answer_tokens])
+
+                # Also generate text response for qualitative inspection
+                template = ORACLE_PROMPTS_TEMPLATES.get("forced_answer_entropy", "")
+                text_prompt = _oracle_prompt(len(positions_to_use), template)
+                oracle_response = run_oracle_on_activations(
+                    model, tokenizer, bundle.activations, text_prompt,
+                    model_name=model_name, act_layer=act_layer,
+                    max_new_tokens=50, device=device,
+                )
+
+                if loaded_from_precomputed and precomputed_dir is not None:
+                    activations_path = str(cache_path(precomputed_dir, item.eval_name, item.example_id))
+                else:
+                    activations_path = _save_bundle_for_item(
+                        activations_dir, item, bundle,
+                        test_response=cot_response,
+                        extra_metadata=item.metadata,
+                    )
+            except Exception as e:
+                print(f"  Warning: forced_answer_entropy oracle failed for {item.example_id}: {e}")
+
+        # Compute KL divergence between ground truth and oracle distributions
+        kl_div = None
+        if gt_probs and oracle_probs:
+            kl_div = 0.0
+            for k in answer_tokens:
+                p = float(gt_probs.get(k, 0.0))
+                q = max(oracle_probs.get(k, 1e-8), 1e-8)
+                if p > 0:
+                    kl_div += p * math.log(p / q)
+
+        # Top-1 agreement
+        oracle_top1 = max(oracle_probs, key=oracle_probs.get) if oracle_probs else None
+        gt_top1 = max(gt_probs, key=lambda k: float(gt_probs[k])) if gt_probs else None
+
+        completed.append(CompletedEvalItem(
+            eval_name=item.eval_name,
+            example_id=item.example_id,
+            clean_prompt=item.clean_prompt,
+            test_prompt=item.test_prompt,
+            correct_answer=item.correct_answer,
+            nudge_answer=item.nudge_answer,
+            clean_response="",
+            test_response=cot_response,
+            clean_answer=None,
+            test_answer=None,
+            ground_truth_label=f"{gt_entropy:.4f}" if gt_entropy is not None else "pending_entropy_regression",
+            oracle_response=oracle_response,
+            activations_path=activations_path,
+            metadata={
+                **item.metadata,
+                "oracle_logprobs": oracle_logprobs,
+                "oracle_probs": oracle_probs,
+                "oracle_entropy": oracle_entropy,
+                "gt_entropy": gt_entropy,
+                "gt_probs": gt_probs,
+                "kl_div_gt_oracle": kl_div,
+                "oracle_top1": oracle_top1,
+                "gt_top1": gt_top1,
+                "top1_match": oracle_top1 == gt_top1 if oracle_top1 and gt_top1 else None,
+            },
+        ))
+
+    return completed
+
+
 def run_eval_batched(
     model, tokenizer, items: list[EvalItem],
     act_layer: int, model_name: str,
@@ -1405,6 +1586,18 @@ def main():
                 device=args.device,
                 activations_dir=act_dir,
                 batch_size=args.batch_size,
+                precomputed_dir=precomputed_dir,
+                generation_adapter_name=generation_adapter_name,
+            )
+        elif eval_name == "forced_answer_entropy":
+            completed = run_forced_answer_entropy_eval(
+                model,
+                tokenizer,
+                items,
+                act_layer,
+                model_name=args.model,
+                device=args.device,
+                activations_dir=act_dir,
                 precomputed_dir=precomputed_dir,
                 generation_adapter_name=generation_adapter_name,
             )

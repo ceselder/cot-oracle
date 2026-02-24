@@ -399,6 +399,129 @@ def run_oracle_on_activations(
     return tokenizer.decode(output[0][len(input_ids) :], skip_special_tokens=True)
 
 
+@dynamo.disable
+@torch.no_grad()
+def run_oracle_with_answer_logprobs(
+    model: PeftModel,
+    tokenizer: AutoTokenizer,
+    activations: torch.Tensor,
+    oracle_prompt: str,
+    answer_tokens: list[str],
+    model_name: str,
+    injection_layer: int = 1,
+    act_layer: int | None = None,
+    device: str = "cuda",
+    placeholder_token: str | None = None,
+    oracle_adapter_name: str | None = None,
+) -> dict[str, float]:
+    """Run oracle forward pass and return logprobs for specified answer tokens.
+
+    Instead of generating text, does a single forward pass with activation
+    injection and extracts the logprob distribution over answer_tokens at
+    the last position. Used for forced_answer_entropy eval.
+
+    Args:
+        answer_tokens: List of token strings (e.g. ["A", "B", "C", "D"]).
+
+    Returns:
+        Dict mapping each answer token to its logprob (unnormalized log probability).
+    """
+    import math
+
+    dtype = torch.bfloat16
+    num_positions = activations.shape[0]
+    ph_token = placeholder_token or SPECIAL_TOKEN
+
+    if act_layer is None:
+        act_layer = layer_percent_to_layer(model_name, 50)
+
+    prefix = f"Layer: {act_layer}\n" + ph_token * num_positions + " \n"
+    full_prompt = prefix + oracle_prompt
+
+    messages = [{"role": "user", "content": full_prompt}]
+    formatted = tokenizer.apply_chat_template(
+        messages,
+        tokenize=False,
+        add_generation_prompt=True,
+        enable_thinking=False,
+    )
+    input_ids = tokenizer.encode(formatted, add_special_tokens=False)
+
+    ph_id = tokenizer.encode(ph_token, add_special_tokens=False)
+    assert len(ph_id) == 1, f"Expected single token for '{ph_token}', got {len(ph_id)}"
+    ph_id = ph_id[0]
+
+    positions = []
+    for i, tid in enumerate(input_ids):
+        if tid == ph_id and len(positions) < num_positions:
+            positions.append(i)
+    assert len(positions) == num_positions, (
+        f"Found {len(positions)} placeholder positions for '{ph_token}', expected {num_positions}"
+    )
+
+    # Resolve answer token IDs
+    answer_token_ids = {}
+    for tok_str in answer_tokens:
+        candidates = tokenizer.encode(tok_str, add_special_tokens=False)
+        if candidates:
+            answer_token_ids[tok_str] = candidates[-1]
+
+    input_tensor = torch.tensor([input_ids], device=device)
+    attn_mask = torch.ones_like(input_tensor)
+
+    previous_adapter = _active_adapter_name(model)
+    active_adapter = oracle_adapter_name
+    if oracle_adapter_name is not None:
+        model.set_adapter(oracle_adapter_name)
+    else:
+        ao_path = AO_CHECKPOINTS[model_name]
+        active_adapter = ao_path.replace(".", "_")
+        try:
+            model.set_adapter(active_adapter)
+        except ValueError:
+            try:
+                model.set_adapter("default")
+                active_adapter = "default"
+            except ValueError as exc:
+                if hasattr(model, "peft_config"):
+                    available = list(model.peft_config.keys())
+                    raise RuntimeError(f"Cannot set adapter. Available: {available}") from exc
+                raise
+
+    hook_fn = get_steering_hook(
+        vectors=activations,
+        positions=positions,
+        device=device,
+        dtype=dtype,
+    )
+
+    injection_submodule = get_hf_submodule(model, injection_layer, use_lora=True)
+
+    was_training = model.training
+    model.eval()
+    try:
+        with add_hook(injection_submodule, hook_fn):
+            outputs = model(
+                input_ids=input_tensor,
+                attention_mask=attn_mask,
+            )
+    finally:
+        if was_training:
+            model.train()
+        if previous_adapter and previous_adapter in getattr(model, "peft_config", {}) and previous_adapter != active_adapter:
+            model.set_adapter(previous_adapter)
+
+    # Extract logprobs at the last position (next-token prediction)
+    logits = outputs.logits[0, -1, :]  # [vocab_size]
+    log_probs = torch.log_softmax(logits.float(), dim=-1)
+
+    result = {}
+    for tok_str, tid in answer_token_ids.items():
+        result[tok_str] = log_probs[tid].item()
+
+    return result
+
+
 def generate_cot(
     model: PeftModel,
     tokenizer: AutoTokenizer,

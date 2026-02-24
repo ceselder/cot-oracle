@@ -456,34 +456,29 @@ def run_eval(
             )
 
             scores = []
-            exact_matches = 0
             table = wandb.Table(columns=[
                 "id", "type", "oracle_prompt", "prediction", "target",
-                "token_f1", "exact_match", "pred_tokens", "target_tokens",
+                "token_f1", "pred_tokens", "target_tokens",
             ])
 
             for i, (resp, dp) in enumerate(zip(eval_responses, eval_datasets[ds])):
                 pred = resp.api_response.strip()
                 target = dp.target_output.strip()
                 score = _token_f1(pred, target)
-                exact = 1 if pred.lower().strip() == target.lower().strip() else 0
                 scores.append(score)
-                exact_matches += exact
                 oracle_prompt = getattr(dp, 'prompt', '') or str(dp.meta_info.get('prompt', ''))[:300]
                 table.add_data(
                     i, dp.datapoint_type, oracle_prompt[:300],
                     pred[:500], target[:500],
-                    round(score, 3), exact,
+                    round(score, 3),
                     len(pred.split()), len(target.split()),
                 )
 
             avg_score = sum(scores) / len(scores) if scores else 0.0
-            exact_rate = exact_matches / len(scores) if scores else 0.0
             wandb.log({
                 f"eval/{ds}": avg_score,
-                f"eval/{ds}_exact": exact_rate,
             }, step=global_step)
-            print(f"  Step {global_step} | {ds}: token_f1={avg_score:.3f} exact={exact_rate:.3f}")
+            print(f"  Step {global_step} | {ds}: token_f1={avg_score:.3f}")
 
             if eval_responses:
                 print(f"    pred='{eval_responses[0].api_response.strip()[:120]}'")
