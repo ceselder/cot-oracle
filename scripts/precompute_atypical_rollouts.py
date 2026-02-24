@@ -446,10 +446,10 @@ def main():
 
     # Generate balanced eval dataset
     print("\nGenerating balanced eval dataset...")
-    from evals.datasets.atypical_answer_riya import generate_atypical_answer_riya_dataset
+    from evals.datasets.atypical_answer_riya import generate_atypical_answer_dataset
     from evals.common import save_eval_items
 
-    eval_items = generate_atypical_answer_riya_dataset(
+    eval_items = generate_atypical_answer_dataset(
         n=100, seed=args.seed, precomputed_path=str(raw_path),
     )
     save_eval_items(eval_items, eval_path)

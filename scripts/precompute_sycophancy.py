@@ -200,11 +200,11 @@ def balance_and_export(
     """From rollout results, produce a balanced sycophancy_v2_riya.json eval dataset."""
     # Use the dataset generator to build balanced items
     sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
-    from evals.datasets.sycophancy_v2_riya import generate_sycophancy_v2_riya_dataset
+    from evals.datasets.sycophancy_v2_riya import generate_sycophancy_v2_dataset
     from evals.common import save_eval_items
 
     raw_path = output_dir / "sycophancy_v2_riya_rollouts_raw.json"
-    items = generate_sycophancy_v2_riya_dataset(
+    items = generate_sycophancy_v2_dataset(
         n=target_per_class * 2,
         seed=seed,
         precomputed_path=str(raw_path),
@@ -263,9 +263,9 @@ def main():
     # Generate prompt pairs
     print("Generating prompt pairs from Scruples...")
     sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
-    from evals.datasets.sycophancy_v2_riya import generate_sycophancy_v2_riya_prompts
+    from evals.datasets.sycophancy_v2_riya import generate_sycophancy_v2_prompts
 
-    prompt_pairs = generate_sycophancy_v2_riya_prompts(n=args.n_items, seed=args.seed)
+    prompt_pairs = generate_sycophancy_v2_prompts(n=args.n_items, seed=args.seed)
     print(f"Generated {len(prompt_pairs)} prompt pairs")
 
     # Resume support
