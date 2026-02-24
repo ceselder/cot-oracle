@@ -88,7 +88,15 @@ def _vllm_batch_generate(llm, prompts: list[str], temperature: float | None = No
         kwargs["lora_request"] = lora_request
 
     outputs = llm.generate(prompts, params, **kwargs)
-    return [o.outputs[0].text for o in outputs]
+    # Strip trailing <|endoftext|> padding that vLLM appends when generation
+    # finishes before max_tokens
+    results = []
+    for o in outputs:
+        text = o.outputs[0].text
+        while text.endswith("<|endoftext|>"):
+            text = text[:-len("<|endoftext|>")]
+        results.append(text.rstrip())
+    return results
 
 
 # ── Phase 1: Survey and batch generation ──
