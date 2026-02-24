@@ -177,19 +177,23 @@ def main():
     tokenizer = llm.get_tokenizer()
 
     # Find token IDs for answer letters A, B, C, D
+    # IMPORTANT: After "So, the answer is: ", models generate space-prefixed
+    # tokens like " A" (id=362) not bare "A" (id=32). Space-prefixed tokens
+    # appear in top-20 logprobs; bare tokens do not.
     answer_token_ids = {}
     for letter in ["A", "B", "C", "D"]:
-        # Try multiple tokenizations to handle different tokenizer behaviors
-        candidates = [
-            tokenizer.encode(letter, add_special_tokens=False),
-            tokenizer.encode(f" {letter}", add_special_tokens=False),
-        ]
-        for ids in candidates:
-            if ids:
-                # Take the last token (in case of prefix space token)
-                answer_token_ids[letter] = ids[-1]
-                break
+        # Prefer space-prefixed tokenization (matches actual generation)
+        space_ids = tokenizer.encode(f" {letter}", add_special_tokens=False)
+        bare_ids = tokenizer.encode(letter, add_special_tokens=False)
+        if space_ids:
+            answer_token_ids[letter] = space_ids[-1]
+        elif bare_ids:
+            answer_token_ids[letter] = bare_ids[-1]
     print(f"Answer token IDs: {answer_token_ids}")
+    # Verify: for Qwen3-8B, expect A=362, B=425, C=356, D=422
+    for letter, tid in answer_token_ids.items():
+        decoded = tokenizer.decode([tid])
+        print(f"  {letter} -> token_id={tid}, decoded={repr(decoded)}")
 
     # -----------------------------------------------------------------------
     # Phase 1: Generate CoT rollouts for all pending items
@@ -262,19 +266,20 @@ def main():
 
             for bi in boundary_indices:
                 partial_cot = " ".join(sentences[:bi])
-                # Construct: [question with chat template]<think>[partial CoT]</think>So, the answer is:
+                # Construct forced-answer prefix WITHOUT <think>/<think> tags.
+                # Using <think>...</think>\nSo, the answer is: causes the model
+                # to generate "(" or LaTeX instead of bare letter tokens.
+                # Without think tags, model correctly generates " A"/" B"/etc.
                 messages = [{"role": "user", "content": item["clean_prompt"]}]
                 formatted = tokenizer.apply_chat_template(
                     messages,
                     tokenize=False,
                     add_generation_prompt=True,
                 )
-                # Qwen3 chat template with enable_thinking adds <think>\n after
-                # assistant prompt. We build the forced prefix manually.
-                # The formatted text ends with something like
-                # "<|im_start|>assistant\n"
+                # formatted ends with "<|im_start|>assistant\n"
+                # Append partial CoT directly, then force the answer
                 forced_prefix = (
-                    f"{formatted}<think>\n{partial_cot}\n</think>\nSo, the answer is: "
+                    f"{formatted}{partial_cot}\n\nSo, the answer is:"
                 )
                 forced_prompts.append(forced_prefix)
                 boundary_info.append({
