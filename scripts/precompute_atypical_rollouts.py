@@ -456,7 +456,8 @@ def main():
     parser.add_argument("--n-rollouts", type=int, default=200,
                         help="Rollouts per question")
     parser.add_argument("--temperature", type=float, default=0.6)
-    parser.add_argument("--max-tokens", type=int, default=2048)
+    parser.add_argument("--max-tokens", type=int, default=8192,
+                        help="Max CoT tokens per rollout (no artificial truncation)")
     parser.add_argument("--output-dir", default="data/evals")
     parser.add_argument("--riya-prompts", default=None,
                         help="Path to Riya's atypical_answer_riya dataset directory")
@@ -471,7 +472,7 @@ def main():
     parser.add_argument("--target-items", type=int, default=100,
                         help="Target total items in eval dataset")
     parser.add_argument("--gpu-memory-utilization", type=float, default=0.9)
-    parser.add_argument("--max-model-len", type=int, default=4096)
+    parser.add_argument("--max-model-len", type=int, default=16384)
     args = parser.parse_args()
 
     output_dir = Path(args.output_dir)
@@ -535,10 +536,11 @@ def main():
     print("\nBuilding eval dataset...")
     build_eval_json(items, eval_path, n=args.target_items, seed=args.seed)
 
-    # Clean up checkpoint
+    # Rename checkpoint to raw rollouts file (preserve all 200 rollouts/question)
+    raw_path = checkpoint_path.parent / "atypical_answer_riya_rollouts_raw.json"
     if checkpoint_path.exists():
-        checkpoint_path.unlink()
-        print("Checkpoint cleaned up")
+        checkpoint_path.rename(raw_path)
+        print(f"Raw rollouts saved to {raw_path}")
 
 
 if __name__ == "__main__":
