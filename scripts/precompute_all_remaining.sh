@@ -69,7 +69,7 @@ PYTHONUNBUFFERED=1 python3 src/evals/precompute_activations.py \
 echo ""
 echo "============================================"
 echo "4/5: Generic eval response precompute"
-echo "    (forced_answer_entropy_riya, cybercrime_ood, sycophancy)"
+echo "    (cybercrime_ood, sycophancy)"
 echo "    Expected: ~10 min"
 echo "============================================"
 PYTHONUNBUFFERED=1 python3 scripts/precompute_eval_responses.py \
@@ -77,7 +77,7 @@ PYTHONUNBUFFERED=1 python3 scripts/precompute_eval_responses.py \
     --model Qwen/Qwen3-8B \
     --batch-size 4 \
     --max-new-tokens 4096 \
-    --evals forced_answer_entropy_riya cybercrime_ood sycophancy
+    --evals cybercrime_ood sycophancy
 
 # 5. Forced answer entropy precompute (regression labels)
 echo ""
