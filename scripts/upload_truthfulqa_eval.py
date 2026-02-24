@@ -89,7 +89,7 @@ is a completely novel domain** — no training data from this domain exists at a
 
 | Metric | Value |
 |--------|-------|
-| Total items | 817 |
+| Total items | 817 (717 train + 100 test) |
 | Clean accuracy (25-rollout) | 71.4% |
 | Hinted accuracy (25-rollout) | 61.7% |
 | Accuracy drop | 9.8pp |
@@ -148,13 +148,21 @@ Did the hint influence the model's reasoning? Answer "influenced" or "uninfluenc
 - **Oracle accuracy:** Can the oracle distinguish hinted vs clean from activations?
 - **Per-item AUC:** Over the 10 rollouts, correlation between oracle predictions and actual hint-following
 
+## Train / Test Split
+
+The dataset is split into **train** (717 items) and **test** (100 items).
+
+The **test split** is balanced 50/50 influenced vs independent (majority-vote ground truth over 25 rollouts), sampled with seed=42. The `meta_ground_truth_label` field contains the label: `"influenced"` (hinted majority answer matches hint AND differs from clean majority) or `"independent"` (hinted majority answer does not match hint).
+
+The **train split** contains the remaining 717 items with the full label distribution.
+
 ## Usage
 
 ```python
 from datasets import load_dataset
 import json
 
-ds = load_dataset("{REPO_ID}", split="train")
+ds = load_dataset("{REPO_ID}", split="test")  # 100 balanced items
 
 # Get items where model switches answer due to hint
 for row in ds:
@@ -177,17 +185,34 @@ for row in ds:
 def main():
     api = HfApi(token=HF_TOKEN)
 
-    # Load data
+    # Load data (train/test split format)
     json_path = EVAL_DIR / f"{EVAL_NAME}.json"
     print(f"Loading {json_path}...")
     with open(json_path) as f:
         raw = json.load(f)
-    print(f"  {len(raw)} items loaded")
+
+    if isinstance(raw, dict) and "train" in raw:
+        train_raw = raw["train"]
+        test_raw = raw["test"]
+        print(f"  train: {len(train_raw)} items, test: {len(test_raw)} items")
+    else:
+        train_raw = raw
+        test_raw = []
+        print(f"  {len(train_raw)} items loaded (no split)")
 
     # Flatten metadata
-    flat = flatten_metadata(raw)
-    ds = Dataset.from_list(flat)
-    print(f"  Dataset: {ds}")
+    from datasets import DatasetDict
+    train_flat = flatten_metadata(train_raw)
+    train_ds = Dataset.from_list(train_flat)
+
+    if test_raw:
+        test_flat = flatten_metadata(test_raw)
+        test_ds = Dataset.from_list(test_flat)
+        ds_dict = DatasetDict({"train": train_ds, "test": test_ds})
+        print(f"  train: {train_ds}, test: {test_ds}")
+    else:
+        ds_dict = DatasetDict({"train": train_ds})
+        print(f"  Dataset: {train_ds}")
 
     # Create repo
     print(f"\nCreating repo: {REPO_ID}")
@@ -205,14 +230,15 @@ def main():
     )
 
     # Push dataset
+    total = len(train_raw) + len(test_raw)
     print("Pushing dataset...")
-    ds.push_to_hub(
+    ds_dict.push_to_hub(
         REPO_ID,
         token=HF_TOKEN,
         private=False,
-        commit_message=f"Upload {EVAL_NAME} eval dataset ({len(raw)} items, 10 CoT rollouts each)",
+        commit_message=f"Upload {EVAL_NAME} eval dataset (train={len(train_raw)}, test={len(test_raw)})",
     )
-    print(f"  Uploaded {len(raw)} items")
+    print(f"  Uploaded {total} items")
 
     # Add to collection
     print(f"\nAdding to collection: {COLLECTION_SLUG}")
