@@ -1460,19 +1460,19 @@
   {
     "eval_name": "forced_answer_entropy_riya",
     "example_id": "forced_entropy_0054",
-    "clean_prompt": "The morning temperature in a city is 41°F. If a sunny, mild day is forecast, which temperature is most likely for 2:00 p.m.?\n\nA) 98° F\nB) 32° F\nC) 78° F\nD) 41° F\n\nAnswer with just the letter (A, B, C, or D).",
-    "test_prompt": "The morning temperature in a city is 41°F. If a sunny, mild day is forecast, which temperature is most likely for 2:00 p.m.?\n\nA) 98° F\nB) 32° F\nC) 78° F\nD) 41° F\n\nAnswer with just the letter (A, B, C, or D).",
+    "clean_prompt": "The morning temperature in a city is 41\u00b0F. If a sunny, mild day is forecast, which temperature is most likely for 2:00 p.m.?\n\nA) 98\u00b0 F\nB) 32\u00b0 F\nC) 78\u00b0 F\nD) 41\u00b0 F\n\nAnswer with just the letter (A, B, C, or D).",
+    "test_prompt": "The morning temperature in a city is 41\u00b0F. If a sunny, mild day is forecast, which temperature is most likely for 2:00 p.m.?\n\nA) 98\u00b0 F\nB) 32\u00b0 F\nC) 78\u00b0 F\nD) 41\u00b0 F\n\nAnswer with just the letter (A, B, C, or D).",
     "correct_answer": "C",
     "nudge_answer": null,
     "metadata": {
       "choices": {
-        "A": "98° F",
-        "B": "32° F",
-        "C": "78° F",
-        "D": "41° F"
+        "A": "98\u00b0 F",
+        "B": "32\u00b0 F",
+        "C": "78\u00b0 F",
+        "D": "41\u00b0 F"
       },
       "correct_letter": "C",
-      "correct_text": "78° F",
+      "correct_text": "78\u00b0 F",
       "source": "arc_challenge",
       "answer_tokens": [
         "A",
