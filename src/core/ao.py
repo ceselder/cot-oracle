@@ -541,7 +541,7 @@ def generate_cot(
         messages,
         tokenize=False,
         add_generation_prompt=True,
-        enable_thinking=True,
+        enable_thinking=False,
     )
     inputs = tokenizer(formatted, return_tensors="pt").to(device)
     gen_kwargs: dict[str, Any] = {"max_new_tokens": max_new_tokens}
