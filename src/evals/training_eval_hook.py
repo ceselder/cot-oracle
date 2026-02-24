@@ -197,7 +197,8 @@ def _run_standard_eval(
                         max_boundaries=10,
                         generation_adapter_name=None,
                     )
-                except Exception:
+                except Exception as e:
+                    print(f"    [{eval_name}] Activation extraction failed for {item.example_id}: {e}")
                     bundle = None
                 activations = bundle.activations if bundle else None
                 n_positions = len(bundle.boundary_positions) if bundle else 0
@@ -213,8 +214,8 @@ def _run_standard_eval(
                         model_name=model_name, act_layer=act_layer,
                         max_new_tokens=150, device=device,
                     )
-                except Exception:
-                    pass
+                except Exception as e:
+                    print(f"    [{eval_name}] Oracle inference failed for {item.example_id}: {e}")
 
             ground_truth = determine_ground_truth(item, clean_answer, test_answer)
 
@@ -292,8 +293,8 @@ def _run_decorative_cot_eval(
                         if bundle and bundle.activations is not None:
                             activations = bundle.activations
                             n_positions = len(bundle.boundary_positions)
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        print(f"    [decorative_cot] Activation extraction failed for {item.example_id}: {e}")
             else:
                 # Full computation (expensive fallback) — use temperature sampling
                 # so different runs can produce different answers for meaningful CIs
@@ -338,8 +339,8 @@ def _run_decorative_cot_eval(
                         if bundle and bundle.activations is not None:
                             activations = bundle.activations
                             n_positions = len(bundle.boundary_positions)
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        print(f"    [decorative_cot] Activation extraction failed for {item.example_id}: {e}")
 
             # Run oracle (uses the TRAINED adapter — this is the only part that changes)
             oracle_response = ""
@@ -352,8 +353,8 @@ def _run_decorative_cot_eval(
                         model_name=model_name, act_layer=act_layer,
                         max_new_tokens=150, device=device,
                     )
-                except Exception:
-                    pass
+                except Exception as e:
+                    print(f"    [decorative_cot] Oracle inference failed for {item.example_id}: {e}")
 
             completed.append(CompletedEvalItem(
                 eval_name=item.eval_name,
@@ -414,7 +415,8 @@ def _run_sentence_insertion_eval(
                         act_layer=act_layer, device=device,
                         max_boundaries=30, generation_adapter_name=None,
                     )
-                except Exception:
+                except Exception as e:
+                    print(f"    [sentence_insertion] Activation extraction failed for {item.example_id}: {e}")
                     bundle = None
                 activations = bundle.activations if bundle else None
                 n_positions = len(bundle.boundary_positions) if bundle else 0
@@ -429,8 +431,8 @@ def _run_sentence_insertion_eval(
                         model_name=model_name, act_layer=act_layer,
                         max_new_tokens=150, device=device,
                     )
-                except Exception:
-                    pass
+                except Exception as e:
+                    print(f"    [sentence_insertion] Oracle inference failed for {item.example_id}: {e}")
 
             ground_truth = determine_ground_truth(item, None, None)
 
@@ -515,8 +517,8 @@ def _run_rot13_eval(
                         if bundle and bundle.activations is not None:
                             activations = bundle.activations
                             n_positions = len(bundle.boundary_positions)
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        print(f"    [rot13] Activation extraction failed for {item.example_id}: {e}")
 
             # Run oracle (trained adapter — this is the only part that changes per step)
             oracle_response = ""
@@ -529,8 +531,8 @@ def _run_rot13_eval(
                         model_name=model_name, act_layer=act_layer,
                         max_new_tokens=384, device=device,
                     )
-                except Exception:
-                    pass
+                except Exception as e:
+                    print(f"    [rot13] Oracle inference failed for {item.example_id}: {e}")
 
             # Score
             target_cot = normal_cot
