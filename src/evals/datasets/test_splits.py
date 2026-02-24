@@ -155,6 +155,47 @@ def _load_scruples_raw() -> list[dict]:
     return items
 
 
+@lru_cache(maxsize=1)
+def _load_arc_challenge_raw() -> list[dict]:
+    """Load ARC-Challenge test items (cached).
+
+    Already MCQ format with A-E choices. Harder than GSM8K —
+    Qwen3-8B is ~75% accurate, making it susceptible to hints.
+    """
+    ds = _hf_load_dataset("allenai/ai2_arc", "ARC-Challenge", split="test")
+    items = []
+    for row in ds:
+        question = row.get("question", "")
+        choices = row.get("choices", {})
+        answer_key = row.get("answerKey", "")
+        if not question or not choices or not answer_key:
+            continue
+        labels = choices.get("label", [])
+        texts = choices.get("text", [])
+        if len(labels) < 3 or len(labels) != len(texts):
+            continue
+        choice_map = dict(zip(labels, texts))
+        items.append({
+            "question": question,
+            "choices": choice_map,
+            "correct_letter": answer_key,
+            "source": "arc_challenge_test",
+            "subject": "science",
+        })
+    return items
+
+
+def load_arc_challenge_test(n: int, seed: int = 42) -> list[dict]:
+    """Load n items from ARC-Challenge test split.
+
+    Returns list of dicts with keys: question, choices, correct_letter, source, subject.
+    """
+    rng = random.Random(seed)
+    pool = list(_load_arc_challenge_raw())
+    rng.shuffle(pool)
+    return pool[:n]
+
+
 def load_scruples_test(n: int, seed: int = 42) -> list[dict]:
     """Load n moral dilemmas from Scruples test split.
 

@@ -502,6 +502,89 @@ def _extract_all_activations(
     return total_saved, total_failed
 
 
+# ── Phase 3: Write CoT back to eval JSONs ──
+
+def _write_responses_to_jsons(
+    eval_dir: Path,
+    all_items: dict[str, list[EvalItem]],
+    gen_results: dict,
+    dec_v2_data: dict[str, dict],
+) -> None:
+    """Write generated CoT responses back to eval JSON metadata.
+
+    Populates qwen3_8b_clean_response, qwen3_8b_test_response,
+    qwen3_8b_clean_answer, qwen3_8b_test_answer in each item's metadata.
+    This allows the training eval hook to use precomputed responses
+    without live generation.
+    """
+    print("\nPhase 3: Writing CoT responses to eval JSONs...")
+
+    for eval_name, items in all_items.items():
+        json_path = eval_dir / f"{eval_name}.json"
+        if not json_path.exists():
+            continue
+
+        with open(json_path) as f:
+            json_data = json.load(f)
+
+        # Build lookup by example_id
+        eid_to_idx = {entry.get("example_id"): i for i, entry in enumerate(json_data)}
+
+        updated = 0
+        for item in items:
+            eid = item.example_id
+            idx = eid_to_idx.get(eid)
+            if idx is None:
+                continue
+
+            entry = json_data[idx]
+            meta = entry.setdefault("metadata", {})
+
+            if eval_name == "sentence_insertion":
+                # Already has spliced_cot_text, no generation needed
+                continue
+
+            elif eval_name == "decorative_cot":
+                # representative_cot already in metadata from v2 or labeling
+                if eid in dec_v2_data:
+                    v2 = dec_v2_data[eid]
+                    meta["representative_cot"] = v2.get("representative_cot", "")
+                elif eid in gen_results.get("dec_labels", {}):
+                    info = gen_results["dec_labels"][eid]
+                    meta["representative_cot"] = info.get("representative_cot", "")
+                updated += 1
+
+            elif eval_name == "rot13_reconstruction":
+                rot13_cot = gen_results["rot13_adapter"].get(eid, "")
+                base_cot = gen_results["rot13_base"].get(eid, "")
+                if rot13_cot:
+                    meta["qwen3_8b_test_response"] = rot13_cot[:8000]
+                    meta["rot13_cot"] = rot13_cot[:8000]
+                if base_cot:
+                    meta["qwen3_8b_clean_response"] = base_cot[:8000]
+                    meta["normal_cot"] = base_cot[:8000]
+                updated += 1
+
+            else:
+                # Standard binary evals
+                clean_resp = gen_results["std_clean"].get((eval_name, eid), "")
+                test_resp = gen_results["std_test"].get((eval_name, eid), "")
+                if clean_resp:
+                    meta["qwen3_8b_clean_response"] = clean_resp[:8000]
+                    meta["qwen3_8b_clean_answer"] = _extract_answer(clean_resp, eval_name)
+                if test_resp:
+                    meta["qwen3_8b_test_response"] = test_resp[:8000]
+                    meta["qwen3_8b_test_answer"] = _extract_answer(test_resp, eval_name)
+                updated += 1
+
+        if updated > 0:
+            with open(json_path, "w") as f:
+                json.dump(json_data, f, indent=2)
+            print(f"  {eval_name}: wrote CoT to {updated}/{len(items)} items")
+        else:
+            print(f"  {eval_name}: no updates needed")
+
+
 # ── Main ──
 
 def main():
@@ -572,6 +655,9 @@ def main():
         output_dir=output_dir,
         device=args.device,
     )
+
+    # ── Phase 3: Write CoT responses back to eval JSONs ──
+    _write_responses_to_jsons(eval_dir, all_items, gen_results, dec_v2_data)
 
     elapsed = time.time() - t_total
     print(f"\nDone in {elapsed/60:.1f} minutes.")
