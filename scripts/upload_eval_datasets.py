@@ -61,6 +61,14 @@ def flatten_metadata(items: list[dict]) -> list[dict]:
     return flat
 
 
+SKIP_FILES = {
+    "decorative_cot_v2",           # Internal precompute data, not a standalone eval
+    "rollouts_math500_raw",        # Raw rollout data
+    "sycophancy_v2_riya_rollouts_raw",  # Raw rollout data
+    "answer_correctness_v2",       # Legacy, not in current eval suite
+}
+
+
 def upload_all():
     api = HfApi(token=HF_TOKEN)
 
@@ -69,6 +77,9 @@ def upload_all():
 
     for jf in json_files:
         eval_name = jf.stem
+        if eval_name in SKIP_FILES:
+            print(f"  Skipping {eval_name} (not an eval dataset)")
+            continue
         repo_id = f"{HF_USER}/cot-oracle-eval-{eval_name.replace('_', '-')}"
         desc = EVAL_DESCRIPTIONS.get(eval_name, f"Eval dataset: {eval_name}")
 
