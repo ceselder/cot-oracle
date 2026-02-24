@@ -864,7 +864,8 @@ def apply_config(args, config: dict):
     # Eval
     if "eval" in config:
         e = config["eval"]
-        for key in ["eval_steps", "save_steps", "unfaith_eval_steps", "unfaith_eval_items"]:
+        for key in ["eval_steps", "save_steps", "unfaith_eval_steps", "unfaith_eval_items",
+                     "eval_dir", "rot13_start_step"]:
             if key in e and not getattr(args, f"_cli_{key}", False):
                 setattr(args, key, e[key])
 
@@ -1003,6 +1004,13 @@ def main():
         config = load_config(args.config)
         apply_config(args, config)
         print(f"Loaded config from {args.config}")
+        # Log the full config YAML for reproducibility
+        import yaml
+        print(f"\n{'=' * 60}")
+        print("CONFIG")
+        print(f"{'=' * 60}")
+        print(yaml.dump(config, default_flow_style=False, sort_keys=False).rstrip())
+        print(f"{'=' * 60}\n")
 
     set_seed(args.seed)
 
@@ -1098,13 +1106,17 @@ def main():
             enabled_tasks.append(task_name)
 
     run_name = args.wandb_run or f"v6-{len(raw_data)//1000}k-{len(enabled_tasks)}tasks"
+    wandb_config = {k: v for k, v in vars(args).items() if not k.startswith("_cli_")}
     wandb.init(
         project=args.wandb_project,
         entity=args.wandb_entity,
         name=run_name,
-        config=vars(args),
+        config=wandb_config,
         tags=["v6", args.model.split("/")[-1]] + enabled_tasks,
     )
+    # Save raw YAML config to wandb for reproducibility
+    if args.config and Path(args.config).exists():
+        wandb.save(args.config)
 
     save_dir = Path(args.save_dir)
 

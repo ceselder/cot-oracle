@@ -73,6 +73,8 @@ eval:
   save_steps: 2000
   unfaith_eval_steps: 500
   unfaith_eval_items: 20
+  eval_dir: data/evals
+  rot13_start_step: 2000
 
 # Data
 data:
