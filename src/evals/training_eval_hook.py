@@ -80,7 +80,7 @@ TRAINING_EVALS = [
     "decorative_cot",
     "sentence_insertion",
     "reasoning_termination_riya",
-    "rot13_reconstruction",
+    "atypical_answer_mcq",
 ]
 
 ROT13_ADAPTER_HF = "ceselder/rot13-qwen3-8b-lora"
@@ -218,6 +218,7 @@ def _run_standard_eval(
                 precomp_test = (
                     item.metadata.get("qwen3_8b_test_response")
                     or item.metadata.get("representative_response")  # sycophancy_v2_riya
+                    or item.metadata.get("cot_text")  # atypical_answer evals (precomputed CoTs)
                     or _first_rollout(item.metadata.get("hinted_rollouts"))
                 )
 
