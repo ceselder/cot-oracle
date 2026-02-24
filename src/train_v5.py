@@ -957,7 +957,7 @@ def main():
 
     # Mark which args were explicitly provided on CLI so config doesn't override them
     _defaults = {action.dest: action.default for action in parser._actions}
-    for key, val in vars(args).items():
+    for key, val in list(vars(args).items()):
         if key == "config":
             continue
         if val != _defaults.get(key):
