@@ -66,7 +66,6 @@ from dataset_classes.cot_summary import load_cot_summary_data
 from dataset_classes.cot_answer_tracking import load_cot_answer_tracking_data
 from dataset_classes.cot_chainscope_faithfulness import load_chainscope_faithfulness_data
 from dataset_classes.cot_eval_task import load_eval_task_data, EVAL_TRAINING_TASKS
-from dataset_classes.cot_resampling_importance import load_resampling_importance_data
 
 from cot_utils import layer_percent_to_layer, LAYER_COUNTS, split_cot_into_sentences, find_sentence_boundary_positions
 from layer_utils import (
@@ -82,12 +81,19 @@ from data_cache import load_cached_data, save_cached_data
 STAGE1_TASKS = {"cot_context_prediction", "cot_sentence_prediction"}
 STAGE2_TASKS = {
     "cot_decorative", "cot_domain", "cot_correctness", "cot_persona", "cot_summary",
-    "chainscope_faithfulness", "resampling_importance",
     *(f"eval_{t}" for t in EVAL_TRAINING_TASKS),
 }
 
 # Eval tasks used for training — excluded from unfaithfulness eval hook
-TRAINING_EVAL_TASK_NAMES = {f"eval_{t}" for t in EVAL_TRAINING_TASKS} | {"chainscope_faithfulness"}
+TRAINING_EVAL_TASK_NAMES = {f"eval_{t}" for t in EVAL_TRAINING_TASKS}
+
+# Display names: strip cot_/eval_ prefixes for HF-style naming in wandb and print
+def _display_name(dtype: str) -> str:
+    if dtype.startswith("cot_"):
+        return dtype[4:]
+    if dtype.startswith("eval_"):
+        return dtype[5:]
+    return dtype
 
 
 # ---------------------------------------------------------------------------
@@ -536,11 +542,12 @@ def _build_full_text_with_source(dp: TrainingDataPoint, tokenizer) -> str:
     return full_text
 
 
-def install_third_eval_hook(max_layers: int = 36):
+def install_third_eval_hook(max_layers: int = 36, single_stride: bool = False):
     """Replace eval_all_datasets with a version that:
     1. Runs eval once per dataset (not twice)
     2. Logs standard accuracy + third-binned accuracy
     3. Logs a wandb Table with eval traces (prompt, label, prediction, layers, etc.)
+    4. Skips stride-binned panels when single_stride=True
     """
     import gc
     import wandb
@@ -552,6 +559,7 @@ def install_third_eval_hook(max_layers: int = 36):
         table_rows = []
 
         for ds in eval_datasets:
+            ds_display = _display_name(ds)
             eval_data = eval_datasets[ds]
 
             eval_responses = run_evaluation(
@@ -570,13 +578,12 @@ def install_third_eval_hook(max_layers: int = 36):
 
             # Standard accuracy
             percent_format_correct, percent_ans_correct = score_eval_responses(eval_responses, eval_data)
-            eval_metrics[f"eval_format_correct/{ds}"] = percent_format_correct
-            eval_metrics[f"eval_ans_correct/{ds}"] = percent_ans_correct
-            print(f"Step {global_step} {ds} format correct: {percent_format_correct}, ans correct: {percent_ans_correct}")
+            eval_metrics[f"eval_format_correct/{ds_display}"] = percent_format_correct
+            eval_metrics[f"eval_ans_correct/{ds_display}"] = percent_ans_correct
+            print(f"Step {global_step} {ds_display} format correct: {percent_format_correct}, ans correct: {percent_ans_correct}")
 
-            # Third-binned + stride-binned accuracy + table rows
+            # Third-binned accuracy + table rows
             by_bin = defaultdict(lambda: {"correct": 0, "total": 0})
-            by_stride = defaultdict(lambda: {"correct": 0, "total": 0})
             for resp, dp in zip(eval_responses, eval_data, strict=True):
                 multi_layers = dp.meta_info.get("multi_layers", [dp.layer])
                 qbin = layers_to_third_bin(multi_layers, max_layers)
@@ -588,18 +595,12 @@ def install_third_eval_hook(max_layers: int = 36):
                 if correct:
                     by_bin[qbin]["correct"] += 1
 
-                stride_val = dp.meta_info.get("stride")
-                stride_label = f"s{stride_val}" if stride_val is not None else "none"
-                by_stride[stride_label]["total"] += 1
-                if correct:
-                    by_stride[stride_label]["correct"] += 1
-
                 ao_prompt = resp.prompt
                 full_text = _build_full_text_with_source(dp, tokenizer)
 
                 table_rows.append([
                     global_step,
-                    ds,
+                    ds_display,
                     dp.target_output,
                     resp.api_response.strip(),
                     correct,
@@ -612,14 +613,8 @@ def install_third_eval_hook(max_layers: int = 36):
             for qbin, counts in sorted(by_bin.items()):
                 n = counts["total"]
                 acc = counts["correct"] / n if n > 0 else 0.0
-                eval_metrics[f"eval_third/{ds}/{qbin}/accuracy"] = acc
-                eval_metrics[f"eval_third/{ds}/{qbin}/n"] = n
-
-            for slabel, counts in sorted(by_stride.items()):
-                n = counts["total"]
-                acc = counts["correct"] / n if n > 0 else 0.0
-                eval_metrics[f"eval_stride/{ds}/{slabel}/accuracy"] = acc
-                eval_metrics[f"eval_stride/{ds}/{slabel}/n"] = n
+                eval_metrics[f"eval_third/{ds_display}/{qbin}/accuracy"] = acc
+                eval_metrics[f"eval_third/{ds_display}/{qbin}/n"] = n
 
         # Log metrics
         if wandb.run is not None:
@@ -639,16 +634,18 @@ def install_third_eval_hook(max_layers: int = 36):
         gc.collect()
 
     sft_module.eval_all_datasets = patched_eval_all_datasets
-    print("Installed third eval hook (with trace table)")
+    print(f"Installed third eval hook (stride panels: {'disabled' if single_stride else 'enabled'})")
 
 
-def install_third_task_loss_hook(max_layers: int = 36):
+def install_third_task_loss_hook(max_layers: int = 36, single_stride: bool = False):
     """Monkey-patch AO's training loop to log per-task AND per-third loss to wandb.
 
     Logs:
-      train/loss_{task}           — per-task average loss (as before)
+      train/loss_{task}           — per-task average loss (HF display names)
       train/loss_{task}/{qbin}    — per-task x per-third-bin loss
-      train/loss_third/{qbin}  — per-third average loss (across all tasks)
+      train/loss_third/{qbin}     — per-third average loss (across all tasks)
+      train/wallclock_hours       — wall time since start
+      train/examples_seen         — running total of training examples
     """
     import wandb
     import torch.nn.functional as F
@@ -656,7 +653,7 @@ def install_third_task_loss_hook(max_layers: int = 36):
     from nl_probes.utils.steering_hooks import get_hf_activation_steering_hook, add_hook
 
     import time
-    _batch_state = {"types": [], "meta_infos": [], "start_time": time.time(), "last_time": time.time()}
+    _batch_state = {"types": [], "meta_infos": [], "start_time": time.time(), "last_time": time.time(), "examples_seen": 0}
 
     from nl_probes.sft import construct_batch as _original_construct
     def patched_construct_batch(batch_list, tokenizer, device):
@@ -695,30 +692,26 @@ def install_third_task_loss_hook(max_layers: int = 36):
             mask = (shift_labels != -100).float()
             per_item_loss = (per_token_loss * mask).sum(dim=1) / mask.sum(dim=1).clamp(min=1)
 
-            # Per-task losses
+            # Per-task losses (using HF display names)
             task_losses = defaultdict(list)
             # Per-task × per-third losses
             task_third_losses = defaultdict(list)
             # Per-third losses (across all tasks)
             third_losses = defaultdict(list)
-            # Per-stride losses
-            stride_losses = defaultdict(list)
 
             for i, task_type in enumerate(batch_types):
                 loss_val = per_item_loss[i].item()
-                task_losses[task_type].append(loss_val)
+                display = _display_name(task_type)
+                task_losses[display].append(loss_val)
 
                 meta = meta_infos[i]
                 multi_layers = meta.get("multi_layers", [])
                 if multi_layers:
                     qbin = layers_to_third_bin(multi_layers, max_layers)
-                    task_third_losses[f"{task_type}/{qbin}"].append(loss_val)
+                    task_third_losses[f"{display}/{qbin}"].append(loss_val)
                     third_losses[qbin].append(loss_val)
 
-                stride_val = meta.get("stride")
-                if stride_val is not None:
-                    stride_losses[f"s{stride_val}"].append(loss_val)
-
+            _batch_state["examples_seen"] += len(batch_types)
             now = time.time()
             log_dict = {}
             for task, losses in task_losses.items():
@@ -727,22 +720,19 @@ def install_third_task_loss_hook(max_layers: int = 36):
                 log_dict[f"train/loss_{key}"] = sum(losses) / len(losses)
             for qbin, losses in third_losses.items():
                 log_dict[f"train/loss_third/{qbin}"] = sum(losses) / len(losses)
-            for slabel, losses in stride_losses.items():
-                log_dict[f"train/loss_stride/{slabel}"] = sum(losses) / len(losses)
 
             # Stage indicator based on which tasks are present in batch
             stage2_tasks_present = [t for t in batch_types if t in STAGE2_TASKS]
             if not stage2_tasks_present:
                 log_dict["train/stage"] = 1
             else:
-                # Use the highest-index stage2 task as the stage number
                 order = STAGE2_ORDER_DEFAULT
                 max_idx = max(order.index(t) for t in stage2_tasks_present if t in order)
                 log_dict["train/stage"] = max_idx + 2
 
-            now = time.time()
             log_dict["train/step_time"] = now - _batch_state["last_time"]
             log_dict["train/wallclock_hours"] = (now - _batch_state["start_time"]) / 3600
+            log_dict["train/examples_seen"] = _batch_state["examples_seen"]
             _batch_state["last_time"] = now
 
             if wandb.run is not None:
@@ -751,12 +741,11 @@ def install_third_task_loss_hook(max_layers: int = 36):
         return outputs.loss
 
     sft_module.train_features_batch = patched_train_features_batch
-    print("Installed per-task × per-third loss logging hook")
+    print(f"Installed per-task loss logging hook (stride panels: {'disabled' if single_stride else 'enabled'})")
 
 
 STAGE2_ORDER_DEFAULT = [
     "cot_decorative", "cot_domain", "cot_correctness", "cot_persona", "cot_summary",
-    "chainscope_faithfulness", "resampling_importance",
     *(f"eval_{t}" for t in EVAL_TRAINING_TASKS),
 ]
 
@@ -937,48 +926,22 @@ def build_training_mixture(
     else:
         print(f"\n  Skipping Task 7 (no summaries at {summaries_path})")
 
-    # --- Task 8: Chainscope Faithfulness ---
-    chainscope_path = task_sizes.get("_chainscope_path", "data/chainscope_qwen3_8b_cots.json")
-    if Path(chainscope_path).exists() and task_sizes.get("chainscope_faithfulness", 15000) > 0:
-        print("\n=== Task 8: Chainscope Faithfulness ===")
-        raw = load_chainscope_faithfulness_data(
-            chainscope_path, tokenizer, model_name,
-            num_examples=task_sizes.get("chainscope_faithfulness", 15000),
-        )
-        print(f"  Loaded {len(raw)} raw examples")
-        all_raw.extend(raw)
-    else:
-        print(f"\n  Skipping Task 8 (no chainscope data at {chainscope_path})")
-
-    # --- Task 9: Resampling Importance ---
-    n_importance = task_sizes.get("resampling_importance", 5000)
-    if n_importance > 0:
-        print("\n=== Task 9: Resampling Importance ===")
-        raw = load_resampling_importance_data(
-            tokenizer, model_name, num_examples=n_importance,
-        )
-        print(f"  Loaded {len(raw)} raw examples")
-        all_raw.extend(raw)
-
-    # --- Tasks 10+: Eval-derived training tasks ---
+    # --- Eval-derived training tasks ---
     eval_train_dir = task_sizes.get("_eval_train_dir", "data/evals_train")
     n_per_eval_task = task_sizes.get("_n_eval_task", 3000)
     if Path(eval_train_dir).exists():
-        task_idx = 10
         for eval_task_name in sorted(EVAL_TRAINING_TASKS.keys()):
             eval_train_path = Path(eval_train_dir) / f"{eval_task_name}.json"
             if not eval_train_path.exists():
-                print(f"\n  Skipping Task {task_idx} (no data at {eval_train_path})")
-                task_idx += 1
+                print(f"\n  Skipping eval task {eval_task_name} (no data at {eval_train_path})")
                 continue
-            print(f"\n=== Task {task_idx}: Eval {eval_task_name} ===")
+            print(f"\n=== Eval Task: {eval_task_name} ===")
             raw = load_eval_task_data(
                 str(eval_train_path), eval_task_name, tokenizer, model_name,
                 num_examples=n_per_eval_task,
             )
             print(f"  Loaded {len(raw)} raw examples")
             all_raw.extend(raw)
-            task_idx += 1
     else:
         print(f"\n  Skipping eval training tasks (no dir at {eval_train_dir})")
 
@@ -996,7 +959,7 @@ def build_training_mixture(
     type_counts = Counter(dp.datapoint_type for dp in all_data)
     for dtype, count in sorted(type_counts.items()):
         pct = count / len(all_data) * 100
-        print(f"  {dtype}: {count} ({pct:.1f}%)")
+        print(f"  {_display_name(dtype)}: {count} ({pct:.1f}%)")
 
     return all_data
 
@@ -1108,11 +1071,12 @@ def install_unfaithfulness_eval_hook(model_name, eval_dir="data/evals", fast_n=5
             if parsing_config:
                 metrics = score_eval(eval_name, completed, parsing_config)
                 if metrics and "accuracy" in metrics:
+                    display = _display_name(eval_name)
                     wandb.log({
-                        f"unfaith/{eval_name}/accuracy": metrics["accuracy"],
-                        f"unfaith/{eval_name}/n_scored": metrics.get("n_items", 0),
+                        f"unfaith/{display}/accuracy": metrics["accuracy"],
+                        f"unfaith/{display}/n_scored": metrics.get("n_items", 0),
                     }, step=global_step)
-                    print(f"  {eval_name}: acc={metrics['accuracy']:.3f} ({metrics.get('n_items', 0)} scored)")
+                    print(f"  {display}: acc={metrics['accuracy']:.3f} ({metrics.get('n_items', 0)} scored)")
 
         print("--- End Unfaithfulness Evals ---\n")
 
@@ -1165,11 +1129,8 @@ def main():
     parser.add_argument("--n-correctness", type=int, default=15000)
     parser.add_argument("--n-persona", type=int, default=15000)
     parser.add_argument("--n-summary", type=int, default=15000)
-    # Chainscope + eval task args
-    parser.add_argument("--chainscope-data", default="data/chainscope_qwen3_8b_cots.json", help="Path to chainscope data JSON")
+    # Eval task args
     parser.add_argument("--eval-train-dir", default="data/evals_train", help="Directory with precomputed eval training JSONs")
-    parser.add_argument("--n-chainscope", type=int, default=15000, help="Chainscope faithfulness training examples")
-    parser.add_argument("--n-importance", type=int, default=5000, help="Resampling importance training examples")
     parser.add_argument("--n-eval-task", type=int, default=3000, help="Examples per eval training task")
     args = parser.parse_args()
 
@@ -1193,10 +1154,6 @@ def main():
         "cot_correctness": args.n_correctness,
         "cot_persona": args.n_persona,
         "cot_summary": args.n_summary,
-        "chainscope_faithfulness": args.n_chainscope,
-        "resampling_importance": args.n_importance,
-        # Internal path keys (not real task sizes, piggybacked via dict)
-        "_chainscope_path": args.chainscope_data,
         "_eval_train_dir": args.eval_train_dir,
         "_n_eval_task": args.n_eval_task,
     }
@@ -1236,10 +1193,7 @@ def main():
         labels_dir=args.labels_dir,
         layer_repeats=args.layer_repeats,
         fixed_layers=str(fixed_layers) if fixed_layers else None,
-        chainscope_data=args.chainscope_data,
         eval_train_dir=args.eval_train_dir,
-        n_chainscope=args.n_chainscope,
-        n_importance=args.n_importance,
         n_eval_task=args.n_eval_task,
     )
 
@@ -1368,9 +1322,13 @@ def main():
             load_in_4bit=True, bnb_4bit_compute_dtype=torch.bfloat16,
         )
 
+    # Check if all data uses a single stride value (skip stride panels if so)
+    all_strides = {dp.meta_info.get("stride") for dp in final_training if dp.meta_info.get("stride") is not None}
+    single_stride = len(all_strides) <= 1
+
     # Install hooks
     install_multilayer_materialization(position_encoding=not args.no_position_encoding)
-    install_third_eval_hook(max_layers)
+    install_third_eval_hook(max_layers, single_stride=single_stride)
 
     if not args.no_unfaith_evals and Path(args.eval_dir).exists():
         install_unfaithfulness_eval_hook(
@@ -1379,7 +1337,7 @@ def main():
             fast_n=args.fast_eval_n,
         )
 
-    install_third_task_loss_hook(max_layers)
+    install_third_task_loss_hook(max_layers, single_stride=single_stride)
 
     # Login to wandb (supports WANDB_API_KEY env var or .netrc)
     import wandb
@@ -1390,12 +1348,39 @@ def main():
         os.environ["WANDB_RUN_ID"] = args.wandb_run_id
         os.environ["WANDB_RESUME"] = "allow"
 
-    # Build curriculum or shuffle
+    # Build curriculum or sequential ordering
+    import numpy as np
+
+    # Sequential priority: context_prediction and sentence_prediction lead
+    SEQUENTIAL_PRIORITY = ["cot_context_prediction", "cot_sentence_prediction"]
+
     stage_boundaries = []
     if args.no_curriculum:
-        random.seed(42)
-        random.shuffle(final_training)
-        print(f"Shuffled {len(final_training)} training examples (no curriculum)")
+        # Sequential ordering: large generative tasks first, then smaller tasks by count
+        rng = random.Random(42)
+        by_type = defaultdict(list)
+        for dp in final_training:
+            by_type[dp.datapoint_type].append(dp)
+
+        ordered = []
+        seen = set()
+        # Priority tasks first (context_prediction, sentence_prediction)
+        for dtype in SEQUENTIAL_PRIORITY:
+            if dtype in by_type:
+                dps = by_type[dtype]
+                rng.shuffle(dps)
+                ordered.extend(dps)
+                seen.add(dtype)
+
+        # Remaining tasks sorted by count (largest first)
+        remaining = [(dtype, dps) for dtype, dps in by_type.items() if dtype not in seen]
+        remaining.sort(key=lambda x: -len(x[1]))
+        for dtype, dps in remaining:
+            rng.shuffle(dps)
+            ordered.extend(dps)
+
+        final_training = ordered
+        print(f"Sequential ordering: {len(final_training)} examples (large tasks first)")
     else:
         stage1 = [dp for dp in final_training if dp.datapoint_type in STAGE1_TASKS]
         stage2 = [dp for dp in final_training if dp.datapoint_type in STAGE2_TASKS]
@@ -1403,19 +1388,63 @@ def main():
             stage1, stage2, stage1_reg=args.stage1_reg, stage2_order=args.stage2_order,
         )
 
-    # Print training summary
-    print(f"\nStarting training:")
-    print(f"  Model: {cfg.model_name}")
-    print(f"  AO checkpoint: {cfg.load_lora_path}")
-    print(f"  LR: {cfg.lr}")
-    print(f"  Micro-batch size: {cfg.train_batch_size}")
-    print(f"  Effective batch size: {args.effective_batch_size} (micro={args.batch_size} × gpus={world_size} × accum={grad_accum})")
-    print(f"  Epochs: {cfg.num_epochs}")
-    print(f"  Total steps: ~{len(final_training) // effective_bs}")
-    print(f"  Save dir: {cfg.save_dir}")
-    print(f"  Layer mean: {args.layer_mean}, Max layers: {max_layers}, Layer repeats: {args.layer_repeats}")
-    print(f"  Position stride: {args.position_stride}, Max positions: {args.max_positions}")
-    print(f"  Tasks: {sorted(set(dp.datapoint_type for dp in final_training))}")
+    # Print comprehensive training summary
+    print(f"\n{'=' * 72}")
+    print(f"TRAINING CONFIGURATION")
+    print(f"{'=' * 72}")
+    print(f"  Model:            {cfg.model_name}")
+    print(f"  AO checkpoint:    {cfg.load_lora_path}")
+    print(f"  LR:               {cfg.lr}")
+    print(f"  Batch:            effective={args.effective_batch_size} (micro={args.batch_size} x gpus={world_size} x accum={grad_accum})")
+    print(f"  Epochs:           {cfg.num_epochs}")
+    print(f"  Total steps:      ~{len(final_training) // effective_bs}")
+    print(f"  Save dir:         {cfg.save_dir}")
+    print(f"  Layers:           {fixed_layers or f'random Poisson(mean={args.layer_mean})'}")
+    print(f"  Position stride:  {args.position_stride}, max positions: {args.max_positions}")
+
+    # Per-task statistics table
+    by_type_train = defaultdict(list)
+    for dp in final_training:
+        by_type_train[dp.datapoint_type].append(len(dp.input_ids))
+
+    print(f"\n{'TRAINING TASKS':^72}")
+    print(f"{'─' * 72}")
+    print(f"  {'Task':<30} {'N':>8} {'Avg Len':>10} {'Std':>8}")
+    print(f"  {'─' * 60}")
+
+    # Print in order of appearance (preserves sequential ordering)
+    seen_types = []
+    seen_set = set()
+    for dp in final_training:
+        if dp.datapoint_type not in seen_set:
+            seen_set.add(dp.datapoint_type)
+            seen_types.append(dp.datapoint_type)
+
+    for dtype in seen_types:
+        lengths = by_type_train[dtype]
+        name = _display_name(dtype)
+        avg = np.mean(lengths)
+        std = np.std(lengths)
+        print(f"  {name:<30} {len(lengths):>8} {avg:>10.0f} {std:>8.0f}")
+
+    total_train = len(final_training)
+    all_lengths = [l for lengths in by_type_train.values() for l in lengths]
+    print(f"  {'─' * 60}")
+    print(f"  {'TOTAL':<30} {total_train:>8} {np.mean(all_lengths):>10.0f} {np.std(all_lengths):>8.0f}")
+
+    # Eval datasets table
+    print(f"\n{'EVAL DATASETS':^72}")
+    print(f"{'─' * 72}")
+    print(f"  {'Task':<30} {'N':>8} {'Avg Len':>10} {'Std':>8}")
+    print(f"  {'─' * 60}")
+    for name in sorted(eval_datasets.keys()):
+        items = eval_datasets[name]
+        lengths = [len(dp.input_ids) for dp in items]
+        dname = _display_name(name)
+        avg = np.mean(lengths)
+        std = np.std(lengths)
+        print(f"  {dname:<30} {len(items):>8} {avg:>10.0f} {std:>8.0f}")
+    print(f"{'=' * 72}")
 
     if stage_boundaries:
         for i, boundary in enumerate(stage_boundaries):
