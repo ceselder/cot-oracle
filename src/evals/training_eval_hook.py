@@ -4,7 +4,7 @@ Training eval hook: run unfaithfulness evals periodically during training.
 Integrates 6 unfaithfulness evals into the training loop and returns a flat
 dict of metrics suitable for wandb.log().
 
-Usage from train_v4.py (or similar):
+Usage from train.py:
 
     from evals.training_eval_hook import run_training_evals
 
@@ -680,21 +680,29 @@ def _run_rot13_eval(
                 activations = cached.activations
                 n_positions = len(cached.boundary_positions)
             else:
-                # Expensive fallback: generate from scratch
-                if not rot13_loaded:
-                    load_extra_adapter(model, ROT13_ADAPTER_HF, adapter_name=ROT13_ADAPTER_NAME)
-                    rot13_loaded = True
+                # Try precomputed CoTs from metadata first (no LoRA adapter needed)
+                meta = item.metadata or {}
+                rot13_cot = (meta.get("rot13_cot") or meta.get("qwen3_8b_test_response") or "")
+                normal_cot = (meta.get("normal_cot") or meta.get("qwen3_8b_clean_response") or "")
 
-                rot13_cot = generate_cot(
-                    model, tokenizer, item.test_prompt,
-                    max_new_tokens=1024, device=device,
-                    adapter_name=ROT13_ADAPTER_NAME,
-                )
-                normal_cot = generate_cot(
-                    model, tokenizer, item.test_prompt,
-                    max_new_tokens=1024, device=device,
-                    adapter_name=None,
-                )
+                if not rot13_cot.strip():
+                    # Last resort: generate from scratch (requires LoRA adapter)
+                    if not rot13_loaded:
+                        load_extra_adapter(model, ROT13_ADAPTER_HF, adapter_name=ROT13_ADAPTER_NAME)
+                        rot13_loaded = True
+                    rot13_cot = generate_cot(
+                        model, tokenizer, item.test_prompt,
+                        max_new_tokens=1024, device=device,
+                        adapter_name=ROT13_ADAPTER_NAME,
+                    )
+                if not normal_cot.strip():
+                    normal_cot = generate_cot(
+                        model, tokenizer, item.test_prompt,
+                        max_new_tokens=1024, device=device,
+                        adapter_name=None,
+                    )
+
+                # Extract activations from the rot13 CoT
                 activations = None
                 n_positions = 0
                 if rot13_cot.strip():
