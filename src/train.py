@@ -231,19 +231,42 @@ def dicts_to_training_data(
     raw_data: list[dict], tokenizer,
 ) -> list[TrainingDataPoint]:
     training_data = []
+    n_layers_runtime = len(MULTI_LAYERS) if MULTI_LAYERS else 3
+    _reexpand_warned = False
 
     for item in raw_data:
+        ctx_pos = item["context_positions"]
+        num_pos = item["num_positions"]
+
+        # Re-expand positions if precomputed with fewer layers than runtime config.
+        # Precomputed data stores context_positions = base_positions * n_layers_data.
+        # We detect mismatch by checking if total_positions is divisible by the
+        # runtime layer count.  If not, infer the original layer count, extract
+        # base positions, and re-expand.
+        if n_layers_runtime > 1 and len(ctx_pos) % n_layers_runtime != 0:
+            # Try common old layer counts (3 is the most common)
+            for old_n in [3, 1, 2, 4, 5, 6]:
+                if len(ctx_pos) % old_n == 0:
+                    k = len(ctx_pos) // old_n
+                    base_positions = ctx_pos[:k]
+                    ctx_pos = base_positions * n_layers_runtime
+                    num_pos = len(ctx_pos)
+                    if not _reexpand_warned:
+                        print(f"  [data] Re-expanding positions: {old_n} layers -> {n_layers_runtime} layers (K={k})")
+                        _reexpand_warned = True
+                    break
+
         dp = create_training_datapoint(
             datapoint_type=item["datapoint_type"],
             prompt=item["prompt"],
             target_response=item["target_response"],
             layer=item["layer"],
-            num_positions=item["num_positions"],
+            num_positions=num_pos,
             tokenizer=tokenizer,
             acts_BD=None,
             feature_idx=-1,
             context_input_ids=item["context_input_ids"],
-            context_positions=item["context_positions"],
+            context_positions=ctx_pos,
         )
         training_data.append(dp)
 
