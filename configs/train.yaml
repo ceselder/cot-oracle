@@ -47,7 +47,7 @@ tasks:
     description: "Will the model emit </think> soon?"
 
   atypical_answer:
-    n: 0
+    n: 20000
     description: "Is this a majority or minority answer? (from 25-rollout distributions)"
 
   hint_admission:

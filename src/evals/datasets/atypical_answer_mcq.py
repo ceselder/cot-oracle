@@ -28,16 +28,17 @@ HF_REPO = "mats-10-sprint-cs-jb/qwen3-8b-atypical-answer-rollouts"
 
 def generate_atypical_answer_mcq_dataset(
     n: int = 100,
-    seed: int = 12345,  # Different seed from training (42) for question-level split
+    seed: int = 12345,  # Sampling seed (deterministic item selection)
 ) -> list[EvalItem]:
     """Generate atypical answer MCQ eval dataset from HuggingFace.
 
     Downloads the full rollout dataset and selects a held-out balanced subset.
-    Uses a different seed than training to ensure question-level separation.
+    Question-level split: training uses first 90%, eval uses last 10%.
+    Split uses seed=42 (must match cot_atypical_answer.py).
 
     Args:
         n: Total number of eval items (balanced 50/50 majority/minority).
-        seed: Random seed (different from training seed=42 for split).
+        seed: Random seed for deterministic item sampling within the eval split.
     """
     rng = random.Random(seed)
 
@@ -56,12 +57,12 @@ def generate_atypical_answer_mcq_dataset(
             by_question[qid] = []
         by_question[qid].append(item)
 
-    # Shuffle questions and take the LAST portion as eval (training uses first portion)
+    # Question-level split: last 10% for eval.
+    # Must match the split in dataset_classes/cot_atypical_answer.py.
     question_ids = sorted(by_question.keys())
-    rng.shuffle(question_ids)
-
-    # Use last 20% of questions for eval to avoid overlap with training
-    eval_start = int(len(question_ids) * 0.8)
+    split_rng = random.Random(42)  # fixed split seed — same in training loader
+    split_rng.shuffle(question_ids)
+    eval_start = int(len(question_ids) * 0.9)
     eval_qids = set(question_ids[eval_start:])
 
     print(f"  Total questions: {len(question_ids)}, eval questions: {len(eval_qids)}")

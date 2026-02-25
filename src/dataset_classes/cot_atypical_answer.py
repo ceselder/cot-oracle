@@ -57,6 +57,23 @@ def load_cot_atypical_answer_data(
             f"Run scripts/precompute_atypical_training.py first or download from {HF_REPO}."
         )
 
+    # Question-level split: first 90% for training, last 10% for eval.
+    # Must match the split in evals/datasets/atypical_answer_mcq.py.
+    by_question: dict[str, list[dict]] = {}
+    for item in items:
+        qid = item.get("question_id", "")
+        if qid not in by_question:
+            by_question[qid] = []
+        by_question[qid].append(item)
+
+    question_ids = sorted(by_question.keys())
+    split_rng = random.Random(42)  # fixed split seed — same in eval generator
+    split_rng.shuffle(question_ids)
+    train_end = int(len(question_ids) * 0.9)
+    train_qids = set(question_ids[:train_end])
+    items = [item for item in items if item.get("question_id", "") in train_qids]
+    print(f"  Question-level split: {len(train_qids)}/{len(question_ids)} questions for training ({len(items)} items)")
+
     # Split into pools for balanced sampling
     majority_pool = [e for e in items if e["label"] == "majority"]
     minority_pool = [e for e in items if e["label"] == "minority"]
