@@ -1,0 +1,8 @@
+# Ablation: stride=5, 3 layers (control — same as base config)
+# Inherits everything from train.yaml except overrides below
+
+activations:
+  stride: 5
+
+output:
+  wandb_run: ablation-stride5-3layers

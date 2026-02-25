@@ -1,0 +1,8 @@
+# Ablation: stride=5, 6 layers (denser layer coverage)
+# Inherits everything from train.yaml except overrides below
+
+activations:
+  n_layers: 6
+
+output:
+  wandb_run: ablation-stride5-6layers
