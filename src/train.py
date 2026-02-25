@@ -751,9 +751,21 @@ def train(
     task_stage_idx = {}  # task_name -> int index (for wandb logging)
 
     if task_order == "sequential":
-        # Group by task, preserve order from config
+        # Group by task, respect YAML ordering for curriculum
+        yaml_task_names = getattr(args, "_yaml_task_order", [])
+        # Map YAML task name -> datapoint_type (module name, or "cot_{name}" for precompute-only)
+        yaml_to_dtype = {k: v["module"].split(".")[-1] if v["module"] else f"cot_{k}" for k, v in TASK_REGISTRY.items()}
+        # Order: YAML order first, then any remaining types alphabetically
+        ordered_types = []
+        for yt in yaml_task_names:
+            dt = yaml_to_dtype.get(yt)
+            if dt and dt in train_per_type:
+                ordered_types.append(dt)
+        for dt in sorted(train_per_type.keys()):
+            if dt not in ordered_types:
+                ordered_types.append(dt)
         task_blocks = []
-        for task_type in sorted(train_per_type.keys()):
+        for task_type in ordered_types:
             items = train_per_type[task_type]
             random.shuffle(items)
             task_blocks.append((task_type, items))
@@ -1062,6 +1074,8 @@ def apply_config(args, config: dict):
     """Apply config values to args, CLI flags override config."""
     # Task counts
     if "tasks" in config:
+        # Preserve YAML ordering for sequential curriculum
+        args._yaml_task_order = list(config["tasks"].keys())
         for task_name, task_cfg in config["tasks"].items():
             arg_name = f"{task_name}_n"
             if hasattr(args, arg_name) and getattr(args, f"_cli_{arg_name}", False) is False:
