@@ -66,7 +66,7 @@ tasks:
 training:
   lr: 0.00001
   batch_size: 32             # per-GPU micro-batch size
-  effective_batch_size: 128  # total across GPUs + accumulation (invariant to GPU count)
+  effective_batch_size: 256  # total across GPUs + accumulation (invariant to GPU count)
   eval_batch_size: 4
   epochs: 1
   warmup_fraction: 0.1

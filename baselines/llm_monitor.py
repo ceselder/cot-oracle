@@ -178,9 +178,23 @@ def _build_prompt(inp: BaselineInput, eval_name: str, eval_type: str) -> str | N
 async def _fetch_one(
     client: openai.AsyncOpenAI, sem: asyncio.Semaphore,
     prompt: str, model: str, max_tokens: int, temperature: float,
+    max_retries: int = 5,
 ) -> str:
-    """Single async API call with semaphore-controlled concurrency."""
+    """Single async API call with semaphore + retry on 429."""
     async with sem:
+        for attempt in range(max_retries):
+            try:
+                response = await client.chat.completions.create(
+                    model=model,
+                    messages=[{"role": "user", "content": prompt}],
+                    max_tokens=max_tokens,
+                    temperature=temperature,
+                )
+                return response.choices[0].message.content or ""
+            except openai.RateLimitError:
+                wait = 2 ** attempt + 1
+                await asyncio.sleep(wait)
+        # Final attempt without catching
         response = await client.chat.completions.create(
             model=model,
             messages=[{"role": "user", "content": prompt}],
@@ -208,7 +222,7 @@ def run_llm_monitor(
     model: str, api_base: str, api_key: str,
     max_tokens: int = 300, temperature: float = 0.0,
     cache_path: Path | None = None,
-    max_concurrent: int = 50,
+    max_concurrent: int = 20,
 ) -> dict:
     eval_name = inputs[0].eval_name
     eval_type = EVAL_TYPES[eval_name]
@@ -235,15 +249,20 @@ def run_llm_monitor(
 
     # Async batch fetch for uncached items
     if uncached_prompts:
-        client = openai.AsyncOpenAI(base_url=api_base, api_key=api_key)
-        sem = asyncio.Semaphore(max_concurrent)
-        pbar = tqdm(total=n_api, desc="LLM monitor (API)")
+        async def _run_all():
+            client = openai.AsyncOpenAI(base_url=api_base, api_key=api_key)
+            sem = asyncio.Semaphore(max_concurrent)
+            try:
+                return await _fetch_batch(
+                    client, sem,
+                    [p for _, p in uncached_prompts],
+                    model, max_tokens, temperature, pbar,
+                )
+            finally:
+                await client.close()
 
-        api_responses = asyncio.run(_fetch_batch(
-            client, sem,
-            [p for _, p in uncached_prompts],
-            model, max_tokens, temperature, pbar,
-        ))
+        pbar = tqdm(total=n_api, desc="LLM monitor (API)")
+        api_responses = asyncio.run(_run_all())
         pbar.close()
 
         # Fill responses back into prompt_data

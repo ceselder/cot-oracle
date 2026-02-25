@@ -25,11 +25,12 @@ WANDB_API_KEY=$(awk '/machine api.wandb.ai/{found=1} found && /password/{print $
 DRY_RUN=false
 [[ "${1:-}" == "--dry-run" ]] && DRY_RUN=true
 
-# ── 1. Find cheapest 4xH100 ─────────────────────────────────────────
-echo "=== Searching for 4xH100 offers ==="
+# ── 1. Find cheapest 4xH100 (spot/interruptible) ──────────────────
+NUM_GPUS_WANT=${NUM_GPUS:-4}
+echo "=== Searching for ${NUM_GPUS_WANT}xH100 spot offers ==="
 OFFER_ID=$(vastai search offers \
-    'num_gpus=1 gpu_name=H100_SXM reliability>0.9 inet_down>200 disk_space>=100' \
-    -o 'dph' --raw 2>/dev/null \
+    "num_gpus=${NUM_GPUS_WANT} gpu_name=H100_SXM reliability>0.9 disk_space>=150" \
+    --type=bid -o 'dph_total' --raw 2>/dev/null \
     | python3 -c "import sys,json; offers=json.load(sys.stdin); print(offers[0]['id'])" \
 )
 echo "Best offer: $OFFER_ID"
@@ -43,7 +44,7 @@ fi
 echo "=== Creating instance ==="
 CREATE_OUT=$(vastai create instance "$OFFER_ID" \
     --image pytorch/pytorch:2.6.0-cuda12.6-cudnn9-devel \
-    --disk 100 \
+    --disk 150 \
     --raw 2>&1)
 INSTANCE_ID=$(echo "$CREATE_OUT" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['new_contract'])")
 echo "Instance ID: $INSTANCE_ID"
@@ -87,7 +88,7 @@ done
 echo "=== Syncing code and data ==="
 RSYNC_SSH="ssh -o StrictHostKeyChecking=no -p $SSH_PORT"
 
-# Sync project (exclude heavy/unnecessary dirs)
+# Sync project (only code + essential training data)
 rsync -avz --delete \
     --exclude '.git' \
     --exclude '__pycache__' \
@@ -96,7 +97,21 @@ rsync -avz --delete \
     --exclude 'results/' \
     --exclude 'logs/' \
     --exclude '.venv/' \
+    --exclude 'wandb/' \
     --exclude 'thought-anchors/' \
+    --exclude 'thought-branches/' \
+    --exclude 'frugal-thought-anchors/' \
+    --exclude 'chainscope/' \
+    --exclude 'ao_reference/' \
+    --exclude 'five-CoT-faith/' \
+    --exclude 'data/eval_precomputed/' \
+    --exclude 'data/pipeline_*/' \
+    --exclude 'data/cot_corpus_*/' \
+    --exclude 'data/compqa/' \
+    --exclude 'data/qwen3_rollouts/' \
+    --exclude 'data/deepseek_rollouts_for_hf/' \
+    --exclude 'data/hf_uploads/' \
+    --exclude 'data/*.json' \
     -e "$RSYNC_SSH" \
     "$PROJECT_DIR/" "root@$SSH_HOST:/workspace/cot-oracle/"
 
@@ -116,8 +131,10 @@ set -euo pipefail
 
 cd /workspace/cot-oracle
 
-# Install deps (pin transformers <5 for chat_template compat)
-pip install -q -e . "transformers>=4.55,<5" 2>&1 | tail -3
+# Install uv + deps
+pip install -q uv 2>&1 | tail -1
+UV_PROJECT_ENVIRONMENT=/workspace/venvs/cot-oracle uv sync 2>&1 | tail -3
+source /workspace/venvs/cot-oracle/bin/activate
 
 # Symlink AO datasets (classification_dataset_manager needs them at import time)
 ln -sf /workspace/ao_reference/datasets /workspace/cot-oracle/datasets
@@ -137,18 +154,23 @@ printf '%s\n' \
     "HF_TOKEN=${HF_TOKEN}" \
     "WANDB_API_KEY=${WANDB_API_KEY}" \
     "TOKENIZERS_PARALLELISM=false" \
+    "CACHE_DIR=/workspace" \
     > /workspace/.env
 
 # Start training in tmux
 tmux new-session -d -s train bash -c "
     set -a; source /workspace/.env; set +a
+    source /workspace/venvs/cot-oracle/bin/activate
     cd /workspace/cot-oracle
-    torchrun --nproc_per_node=\$NUM_GPUS src/train_random_layers.py \
-        --corpus data/cot_corpus_v5/corpus.jsonl \
-        --save-dir /workspace/checkpoints/cot_oracle \
-        --wandb-run vast_\$(date +%Y%m%d_%H%M) \
-        --no-unfaith-evals \
-        --no-data-cache \
+    export AO_REPO_PATH=/workspace/ao_reference
+    export CACHE_DIR=/workspace
+    torchrun --nproc_per_node=\$NUM_GPUS --master_port=29500 \
+        src/train.py \
+        --config configs/train.yaml \
+        --precomputed-dir data/precomputed \
+        --task-order sequential \
+        --save-dir /workspace/checkpoints/cot_oracle_seq \
+        --wandb-run vast_seq_\$(date +%Y%m%d_%H%M) \
     2>&1 | tee /workspace/train.log
     echo 'TRAINING DONE'
     sleep infinity

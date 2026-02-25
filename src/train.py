@@ -779,6 +779,8 @@ def train(
             print(f"  Task order: SEQUENTIAL")
             for task_name, items in task_blocks:
                 print(f"    stage {task_stage_idx[task_name]}: {task_name} ({len(items)} examples)")
+            if wandb.run:
+                wandb.config.update({"stage_map": {v: k for k, v in task_stage_idx.items()}})
     else:
         random.shuffle(final_training)
         if rank == 0:
@@ -996,6 +998,7 @@ def train(
                     batch_task_counts[t] += 1
                 dominant_task = max(batch_task_counts, key=batch_task_counts.get)
                 log_dict["train/stage_idx"] = task_stage_idx.get(dominant_task, -1)
+                log_dict["train/stage_name"] = dominant_task
                 wandb.run.summary["current_stage"] = dominant_task
                 log_dict["train/progress"] = global_step / max(total_steps, 1)
                 if dominant_task in stage_step_ranges:
@@ -1256,8 +1259,8 @@ def main():
 
     # Eval / save
     parser.add_argument("--rot13-start-step", type=int, default=2000)
-    parser.add_argument("--start-step", type=int, default=0,
-                        help="Starting global step (for resuming)")
+    parser.add_argument("--start-step", type=int, default=None,
+                        help="Starting global step (for resuming; 0 = restart data from beginning)")
     parser.add_argument("--eval-dir", default="data/evals")
     _default_cache = os.path.join(os.environ["CACHE_DIR"], "cot_oracle", "eval_precomputed") if os.environ.get("CACHE_DIR") else "data/eval_precomputed"
     parser.add_argument("--activation-cache-dir", default=_default_cache,
@@ -1458,8 +1461,7 @@ def main():
         )
         wandb.define_metric("train/samples_seen")
         wandb.define_metric("*", step_metric="train/samples_seen")
-        if task_stage_idx:
-            wandb.config.update({"stage_map": {v: k for k, v in task_stage_idx.items()}})
+        # stage_map logged later in train() after task_stage_idx is built
         # Save raw YAML config to wandb for reproducibility
         if args.config and Path(args.config).exists():
             wandb.save(args.config)
@@ -1494,7 +1496,7 @@ def main():
         print(f"  Tasks: {', '.join(enabled_tasks)}")
         print(f"{'#' * 60}")
 
-    global_step = args.start_step
+    global_step = args.start_step or 0
     global_step = train(
         raw_data=raw_data,
         model=model,

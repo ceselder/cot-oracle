@@ -41,6 +41,7 @@ def ensure_ao_repo_on_path() -> Path | None:
 
     candidates.extend(
         [
+            repo_root / "ao_reference",
             repo_root / "activation_oracles",
             Path("/workspace/ao_reference"),
             Path("/home/celeste/Documents/side-projects/full-stack-ao/ao_reference"),

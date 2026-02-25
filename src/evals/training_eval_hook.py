@@ -1147,7 +1147,7 @@ def run_training_evals(
 
         try:
             items = load_eval_items_hf(eval_name, eval_dir=eval_dir)
-            items = _subsample(items, max_items_per_eval, seed=step + hash(eval_name))
+            items = _subsample(items, max_items_per_eval, seed=hash(eval_name))
 
             # Dispatch to appropriate handler
             if eval_name == "decorative_cot":

@@ -7,7 +7,7 @@
 #SBATCH --cpus-per-task=64
 #SBATCH --gres=gpu:8
 #SBATCH --mem=600G
-#SBATCH --time=6:00:00
+#SBATCH --time=8:00:00
 #SBATCH --output=logs/slurm_%j.out
 #SBATCH --error=logs/slurm_%j.err
 
@@ -48,10 +48,9 @@ torchrun --nproc_per_node=8 \
     src/train.py \
     --config configs/train.yaml \
     --precomputed-dir data/precomputed \
-    --epochs 3 \
-    --gradient-accumulation-steps 2 \
-    --save-dir /ceph/scratch/jbauer/checkpoints/cot_oracle_8gpu \
-    --wandb-run "multi-gpu"
+    --task-order sequential \
+    --save-dir /ceph/scratch/jbauer/checkpoints/cot_oracle_seq \
+    --wandb-run sequential_v2
 
 echo ""
 echo "=== Done: $(date) ==="

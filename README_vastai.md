@@ -35,7 +35,7 @@ The script prints SSH/attach/destroy commands on completion and saves instance i
 3. Creates instance with `pytorch/pytorch:2.6.0-cuda12.6-cudnn9-devel`
 4. Waits for SSH
 5. Rsyncs `cot-oracle/` and `ao_reference/`
-6. Installs deps, pins `transformers>=4.55,<5`, symlinks AO datasets
+6. Installs uv, creates venv via `uv sync`, symlinks AO datasets
 7. Writes credentials to `/workspace/.env` on the remote
 8. Starts training in a tmux session, tees to `/workspace/train.log`
 
@@ -71,6 +71,6 @@ vastai destroy instance $INSTANCE_ID
 
 ## Known issues
 
-- `transformers>=5` breaks `apply_chat_template` tokenization (returns wrong type). Pinned to `<5`.
+- `transformers>=5` breaks `apply_chat_template` tokenization (returns wrong type). Pinned to `<5` in `pyproject.toml`.
 - AO repo's `classification_dataset_manager.py` uses a relative `datasets/` path. The script symlinks `ao_reference/datasets` into `cot-oracle/`.
 - Vast instances are ephemeral. Checkpoints not synced back are lost on destroy.
