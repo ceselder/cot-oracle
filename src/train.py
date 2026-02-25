@@ -101,7 +101,8 @@ _PE_CONFIG = {"enabled": False, "alpha": 0.1}
 def setup_distributed():
     """Init distributed if launched via torchrun, otherwise single-GPU."""
     if "RANK" in os.environ:
-        dist.init_process_group(backend="nccl")
+        import datetime
+        dist.init_process_group(backend="nccl", timeout=datetime.timedelta(minutes=30))
         local_rank = int(os.environ["LOCAL_RANK"])
         torch.cuda.set_device(local_rank)
         return local_rank, dist.get_rank(), dist.get_world_size()
@@ -1417,6 +1418,25 @@ def main():
         enabled_tasks = [tn for tn, info in TASK_REGISTRY.items() if getattr(args, info["arg"], 0) > 0]
 
     save_dir = Path(args.save_dir)
+
+    # ── Precompute eval activation caches (rank 0 only) ──
+    eval_names = getattr(args, "unfaith_evals", None)
+    if rank == 0 and eval_names:
+        from evals.training_eval_hook import precache_eval_activations
+        print(f"\n{'=' * 60}")
+        print("PRECOMPUTING EVAL ACTIVATIONS")
+        print(f"{'=' * 60}")
+        precache_eval_activations(
+            model, tokenizer, model_name=args.model,
+            device=f"cuda:{local_rank}", eval_dir=args.eval_dir,
+            activation_cache_dir=args.activation_cache_dir,
+            eval_names=eval_names,
+        )
+        model.train()
+        gc.collect()
+        torch.cuda.empty_cache()
+    if world_size > 1:
+        dist.barrier()
 
     # ── Train ──
     if rank == 0:

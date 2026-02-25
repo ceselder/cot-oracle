@@ -55,14 +55,14 @@ tasks:
     description: "Answer questions about CoT reasoning quality (10 types, Gemini GT)"
 
   hint_admission:
-    n: 15000
+    n: 0
     description: "Did the model use an external hint? What was it?"
 
 # Training
 training:
   lr: 0.00001
   batch_size: 16             # per-GPU micro-batch size (constrained by VRAM)
-  effective_batch_size: 32   # total across GPUs + accumulation (invariant to GPU count)
+  effective_batch_size: 128  # total across GPUs + accumulation (invariant to GPU count)
   eval_batch_size: 4
   epochs: 1
   warmup_fraction: 0.1

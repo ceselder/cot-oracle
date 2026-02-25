@@ -989,6 +989,102 @@ def _save_table_to_disk(log_dir: Path, name: str, step: int, columns: list[str],
         json.dump({"step": step, "name": name, "n": len(records), "rows": records}, f, indent=2, default=str)
 
 
+def precache_eval_activations(
+    model,
+    tokenizer,
+    model_name: str,
+    device: str = "cuda",
+    eval_dir: str = "data/evals",
+    activation_cache_dir: str | None = None,
+    eval_names: list[str] | None = None,
+):
+    """Pre-extract and cache activation bundles for all eval items.
+
+    Run this once before training so that unfaith evals during training
+    are pure cache lookups (no live generation/extraction = no NCCL timeouts).
+    """
+    from tqdm.auto import tqdm
+
+    if not activation_cache_dir:
+        print("  [precache] No activation_cache_dir set, skipping")
+        return
+
+    cache_dir = Path(activation_cache_dir)
+    act_layer = 9  # first layer in [9, 18, 27] — used for activation extraction
+
+    model.eval()
+    eval_list = eval_names or TRAINING_EVALS
+
+    total_cached, total_new = 0, 0
+    for eval_name in eval_list:
+        items = load_eval_items_hf(eval_name, eval_dir=eval_dir)
+
+        # Find uncached items
+        uncached = []
+        for item in items:
+            path = _cache_path(cache_dir, eval_name, item.example_id)
+            if path.exists():
+                total_cached += 1
+            else:
+                uncached.append(item)
+
+        if not uncached:
+            print(f"  [precache] {eval_name}: all {len(items)} items cached")
+            continue
+
+        print(f"  [precache] {eval_name}: {len(uncached)}/{len(items)} items need extraction")
+
+        for item in tqdm(uncached, desc=f"  {eval_name}", leave=False):
+            # Get CoT text from precomputed metadata
+            cot_text = (
+                item.metadata.get("qwen3_8b_test_response")
+                or item.metadata.get("representative_response")
+                or item.metadata.get("cot_text")
+                or _first_rollout(item.metadata.get("hinted_rollouts"))
+            )
+            if not cot_text:
+                # Fall back to clean response
+                cot_text = (
+                    item.metadata.get("qwen3_8b_clean_response")
+                    or _first_rollout(item.metadata.get("clean_rollouts"))
+                )
+            if not cot_text:
+                continue
+
+            bundle = _apply_oracle_mode_to_extract(
+                model, tokenizer,
+                eval_name=eval_name,
+                example_id=item.example_id,
+                prompt=item.test_prompt,
+                cot_text=cot_text,
+                act_layer=act_layer,
+                device=device,
+                max_boundaries=10,
+                generation_adapter_name=None,
+            )
+            if bundle:
+                # Store text responses too
+                clean_text = (
+                    item.metadata.get("qwen3_8b_clean_response")
+                    or _first_rollout(item.metadata.get("clean_rollouts"))
+                    or ""
+                )
+                _auto_cache_bundle(
+                    cache_dir, eval_name=eval_name, example_id=item.example_id,
+                    prompt=item.test_prompt, cot_text=cot_text,
+                    activations=bundle.activations,
+                    boundary_positions=bundle.boundary_positions,
+                    clean_response=clean_text, test_response=cot_text,
+                    clean_answer=item.metadata.get("qwen3_8b_clean_answer"),
+                    test_answer=item.metadata.get("qwen3_8b_test_answer"),
+                )
+                total_new += 1
+
+        torch.cuda.empty_cache()
+
+    print(f"  [precache] Done: {total_new} new bundles cached, {total_cached} already existed")
+
+
 def run_training_evals(
     model,
     tokenizer,
