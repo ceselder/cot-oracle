@@ -457,6 +457,9 @@ def _run_standard_eval(
                     or item.metadata.get("cot_text")  # atypical_answer evals (precomputed CoTs)
                     or _first_rollout(item.metadata.get("hinted_rollouts"))
                 )
+                # For evals with no nudge (clean == test prompt), cot_text IS the clean response
+                if not precomp_clean and precomp_test and item.clean_prompt == item.test_prompt:
+                    precomp_clean = precomp_test
 
                 if precomp_clean and precomp_test:
                     clean_response = precomp_clean
