@@ -973,6 +973,7 @@ def _score_binary_eval(
 
     return {
         f"eval/{eval_name}_acc": correct / total,
+        f"eval/{eval_name}_n": total,
     }
 
 
