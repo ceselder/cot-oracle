@@ -5,8 +5,8 @@ activations:
   n_layers: 6
 
 training:
-  batch_size: 8
-  effective_batch_size: 16   # grad_accum=2 to keep same effective batch size
+  batch_size: 4
+  effective_batch_size: 16   # grad_accum=4 to keep same effective batch size
   eval_batch_size: 2
 
 output:
