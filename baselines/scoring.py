@@ -14,10 +14,15 @@ from evals.common import compute_binary_metrics
 
 EVAL_TYPES = {
     "hinted_mcq": "binary",
+    "hinted_mcq_truthfulqa": "binary",
     "sycophancy_v2_riya": "binary",
     "decorative_cot": "binary",
     "reasoning_termination_riya": "binary",
+    "atypical_answer_riya": "binary",
+    "atypical_answer_mcq": "binary",
+    "cybercrime_ood": "binary",
     "rot13_reconstruction": "generation",
+    "compqa": "generation",
     "thought_anchors": "ranking",
     "thought_branches": "ranking",
 }
