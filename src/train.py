@@ -1336,7 +1336,7 @@ def main():
     if args.precomputed_dir:
         if rank == 0:
             print(f"  Using precomputed data from {args.precomputed_dir} (auto-downloads from HF if needed)")
-        raw_data = load_precomputed_tasks(args.precomputed_dir, args)
+        raw_data = load_precomputed_tasks(args.precomputed_dir, args, tokenizer=tokenizer)
     else:
         raw_data = load_all_tasks(args, tokenizer)
 
