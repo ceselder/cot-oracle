@@ -27,7 +27,7 @@ def load_cot_atypical_answer_data(
     model_name: str,
     num_examples: int = 20000,
     stride: int = 5,
-    max_positions_per_layer: int = 20,
+    max_positions_per_layer: int | None = None,
     n_prompt_positions: int = 5,
     seed: int = 42,
     **_kwargs,

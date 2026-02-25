@@ -81,7 +81,6 @@ TRAINING_EVALS = [
     "decorative_cot",
     "sentence_insertion",
     "reasoning_termination_riya",
-    "compqa",
     "atypical_answer_mcq",
 ]
 

@@ -24,7 +24,7 @@ def load_cot_prompt_inversion_data(
     model_name: str,
     num_examples: int = 20000,
     stride: int = 5,
-    max_positions_per_layer: int = 20,
+    max_positions_per_layer: int | None = None,
     max_target_tokens: int = 8192,
     n_prompt_positions: int = 5,
     seed: int = 42,

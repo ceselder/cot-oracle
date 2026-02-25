@@ -408,7 +408,7 @@ def _live_load_task(task_name: str, info: dict, n: int, args, tokenizer) -> list
         return loader_fn(
             atypical_path, tokenizer, args.model,
             num_examples=n, stride=args.stride,
-            max_positions_per_layer=getattr(args, "max_positions_per_layer", 20),
+            max_positions_per_layer=getattr(args, "max_positions_per_layer", None),
             atypical_data_path=atypical_path,
         )
     elif info["corpus"] == "compqa":
@@ -416,7 +416,7 @@ def _live_load_task(task_name: str, info: dict, n: int, args, tokenizer) -> list
         return loader_fn(
             compqa_cache, tokenizer, args.model,
             num_examples=n, stride=args.stride,
-            max_positions_per_layer=getattr(args, "max_positions_per_layer", 20),
+            max_positions_per_layer=getattr(args, "max_positions_per_layer", None),
         )
     elif info["corpus"] == "hint_admission":
         hint_path = getattr(args, "hint_admission_data_path",
@@ -424,19 +424,22 @@ def _live_load_task(task_name: str, info: dict, n: int, args, tokenizer) -> list
         return loader_fn(
             hint_path, tokenizer, args.model,
             num_examples=n, stride=args.stride,
-            max_positions_per_layer=getattr(args, "max_positions_per_layer", 20),
+            max_positions_per_layer=getattr(args, "max_positions_per_layer", None),
             hint_admission_data_path=hint_path,
         )
     else:
         return loader_fn(
             args.corpus, tokenizer, args.model,
             num_examples=n, stride=args.stride,
-            max_positions_per_layer=getattr(args, "max_positions_per_layer", 20),
+            max_positions_per_layer=getattr(args, "max_positions_per_layer", None),
         )
 
 
-def load_precomputed_tasks(precomputed_dir: str, args) -> list[dict]:
-    """Load training data from precomputed JSONL files, downloading from HF if needed."""
+def load_precomputed_tasks(precomputed_dir: str, args, tokenizer=None) -> list[dict]:
+    """Load training data from precomputed JSONL files, downloading from HF if needed.
+
+    Falls back to live loading for tasks whose JSONL isn't on HF.
+    """
     pdir = Path(precomputed_dir)
     pdir.mkdir(parents=True, exist_ok=True)
     all_data = []
@@ -449,7 +452,21 @@ def load_precomputed_tasks(precomputed_dir: str, args) -> list[dict]:
 
         jsonl_path = pdir / f"{task_name}.jsonl"
         if not jsonl_path.exists():
-            jsonl_path = _download_precomputed_from_hf(task_name, pdir)
+            try:
+                jsonl_path = _download_precomputed_from_hf(task_name, pdir)
+            except Exception as e:
+                if tokenizer is not None:
+                    print(f"  [fallback] No precomputed {task_name} on HF ({e}), live-loading from corpus...")
+                    data = _live_load_task(task_name, info, n, args, tokenizer)
+                    all_data.extend(data)
+                    enabled.append(f"{task_name}({len(data)},live)")
+                    print(f"    -> {len(data)} examples (live)")
+                    continue
+                else:
+                    raise RuntimeError(
+                        f"Task {task_name} (n={n}) has no precomputed data on HF and no tokenizer "
+                        f"for live fallback. Either set n=0 to disable or provide a tokenizer."
+                    ) from e
 
         print(f"  Loading {task_name} from {jsonl_path}...")
         data = []
@@ -1364,7 +1381,7 @@ def main():
     if args.precomputed_dir:
         if rank == 0:
             print(f"  Using precomputed data from {args.precomputed_dir} (auto-downloads from HF if needed)")
-        raw_data = load_precomputed_tasks(args.precomputed_dir, args)
+        raw_data = load_precomputed_tasks(args.precomputed_dir, args, tokenizer=tokenizer)
     else:
         raw_data = load_all_tasks(args, tokenizer)
 

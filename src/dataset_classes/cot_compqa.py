@@ -86,7 +86,7 @@ def load_cot_compqa_data(
     model_name: str,
     num_examples: int = 8000,
     stride: int = 5,
-    max_positions_per_layer: int = 20,
+    max_positions_per_layer: int | None = None,
     n_prompt_positions: int = 5,
     max_target_tokens: int = 8192,
     seed: int = 42,
