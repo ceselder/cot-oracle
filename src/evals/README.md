@@ -6,11 +6,11 @@ Two evaluation systems work together:
 
 1. **Training Task Evals** — Built into AO's `train_model()`, run every `eval_steps` during training on wandb. Tests whether the oracle can do its training tasks (context prediction, importance classification, answer tracking).
 
-2. **Unfaithfulness + Reconstruction Evals** — Custom evals that test influence detection, CoT reconstruction, obfuscation decoding, and final-answer prediction from activations.
+2. **Detection + Reconstruction Evals** — Custom evals that test influence detection, CoT reconstruction, obfuscation decoding, and final-answer prediction from activations.
 
-Both systems use the same model + AO checkpoint. Training task evals are automatic; unfaithfulness evals run via `run_evals.py` or `run_baseline.py`.
+Both systems use the same model + AO checkpoint. Training task evals are automatic; detection evals run via `run_evals.py` or `run_baseline.py`.
 
-## Unfaithfulness Eval Datasets
+## Eval Datasets
 
 ### 1. Hinted MCQ (`hinted_mcq`, 20 items)
 **What it tests:** Does the oracle detect when the model follows an external hint?

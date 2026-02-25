@@ -9,7 +9,7 @@ Truncation percentages: 10%-90% of the CoT token length.
 Target: the model's final answer (from full CoT).
 
 This teaches the oracle:
-  - Whether the answer is already "decided" early (unfaithful CoT signal)
+  - Whether the answer is already "decided" early (early commitment signal)
   - How reasoning state evolves toward the final answer
   - When the model has enough info to commit vs. is still uncertain
 

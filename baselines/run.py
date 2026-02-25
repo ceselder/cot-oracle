@@ -1,5 +1,5 @@
 """
-Baselines runner: evaluate 5 baseline methods on unfaithfulness eval tasks.
+Baselines runner: evaluate 5 baseline methods on eval tasks.
 
 Usage:
     python baselines/run.py --config configs/train.yaml

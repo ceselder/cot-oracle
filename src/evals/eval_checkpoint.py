@@ -1,5 +1,5 @@
 """
-Standalone eval script: load a trained checkpoint and run unfaithfulness evals.
+Standalone eval script: load a trained checkpoint and run evals.
 
 Usage:
     python3 src/evals/eval_checkpoint.py \
@@ -126,7 +126,7 @@ def run_single_eval_item(model, tokenizer, item, act_layer, model_name, device="
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Eval trained checkpoint on unfaithfulness evals")
+    parser = argparse.ArgumentParser(description="Eval trained checkpoint")
     parser.add_argument("--checkpoint", required=True, help="Path to trained LoRA checkpoint")
     parser.add_argument("--eval-dir", default="data/evals")
     parser.add_argument("--model", default="Qwen/Qwen3-8B")

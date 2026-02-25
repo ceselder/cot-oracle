@@ -1,7 +1,7 @@
 """
-Training eval hook: run unfaithfulness evals periodically during training.
+Training eval hook: run evals periodically during training.
 
-Integrates 6 unfaithfulness evals into the training loop and returns a flat
+Integrates evals into the training loop and returns a flat
 dict of metrics suitable for wandb.log().
 
 Usage from train.py:
@@ -1000,7 +1000,7 @@ def precache_eval_activations(
 ):
     """Pre-extract and cache activation bundles for all eval items.
 
-    Run this once before training so that unfaith evals during training
+    Run this once before training so that evals during training
     are pure cache lookups (no live generation/extraction = no NCCL timeouts).
     """
     from tqdm.auto import tqdm
@@ -1099,7 +1099,7 @@ def run_training_evals(
     eval_names: list[str] | None = None,
     log_dir: Path | str | None = None,
 ) -> dict[str, Any]:
-    """Run unfaithfulness evals and return results dict for wandb logging.
+    """Run evals and return results dict for wandb logging.
 
     Args:
         model: PeftModel with trained adapter.
@@ -1274,7 +1274,7 @@ def run_training_evals(
                     all_metrics[f"eval/{eval_name}_sample_gt"] = c.ground_truth_label
                     break
 
-            # Wandb table for all unfaith evals
+            # Wandb table for all evals
             try:
                 import wandb
                 if eval_name != "rot13_reconstruction":  # rot13 has its own table above
