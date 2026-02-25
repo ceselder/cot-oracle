@@ -58,6 +58,7 @@ from evals.activation_cache import (
     ActivationBundle,
     extract_activation_bundle as _extract_bundle_raw,
     extract_multilayer_activation_bundle as _extract_multilayer_raw,
+    extract_punctuation_activation_bundle as _extract_punctuation_raw,
     cache_path as _cache_path,
     load_bundle as _load_bundle,
     save_bundle as _save_bundle,
@@ -99,16 +100,19 @@ def _first_rollout(rollouts) -> str | None:
 def _apply_oracle_mode_to_extract(model, tokenizer, **kwargs):
     """Wrapper applying current oracle mode to activation extraction.
 
-    Uses multi-layer extraction when layers are configured in _ORACLE_MODE,
-    falling back to single-layer extraction otherwise.
+    Uses punctuation-based multi-layer extraction when layers are configured
+    in _ORACLE_MODE, falling back to single-layer stride extraction otherwise.
+    Punctuation positions sample at semantic boundaries (sentence ends, clauses)
+    which are more informative than fixed-stride positions.
     """
     kwargs.setdefault("stride", _ORACLE_MODE["stride"])
     layers = _ORACLE_MODE.get("layers")
     if layers and len(layers) > 1:
-        # Multi-layer: extract from all layers and concatenate [K*n_layers, D]
+        # Multi-layer punctuation extraction: sample at punctuation boundaries
         kwargs.pop("act_layer", None)  # not used by multilayer
         kwargs.pop("max_boundaries", None)  # not used by multilayer
-        return _extract_multilayer_raw(model, tokenizer, layers=layers, **kwargs)
+        kwargs.setdefault("fallback_stride", _ORACLE_MODE["stride"])
+        return _extract_punctuation_raw(model, tokenizer, layers=layers, **kwargs)
     return _extract_bundle_raw(model, tokenizer, **kwargs)
 
 
