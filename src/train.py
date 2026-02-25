@@ -1001,7 +1001,8 @@ def train(
             prev_dominant_task = dominant_task
 
             # Task-level eval (rank 0 only)
-            if global_step % args.eval_steps == 0:
+            skip_step0 = global_step == 0 and getattr(args, "no_step0_eval", False)
+            if global_step % args.eval_steps == 0 and not skip_step0:
                 if rank == 0:
                     print(f"\n--- Task eval at step {global_step} ---")
                     eval_start = time.time()
@@ -1016,7 +1017,7 @@ def train(
                     dist.barrier()
 
             # Unfaithfulness eval (rank 0 only)
-            if global_step % args.eval_steps == 0:
+            if global_step % args.eval_steps == 0 and not skip_step0:
                 if rank == 0:
                     gc.collect()
                     torch.cuda.empty_cache()
@@ -1103,9 +1104,11 @@ def apply_config(args, config: dict):
     # Activations
     if "activations" in config:
         a = config["activations"]
-        for key in ["stride", "position_encoding", "pe_alpha"]:
+        for key in ["stride", "position_encoding", "pe_alpha", "n_layers"]:
             if key in a and not getattr(args, f"_cli_{key}", False):
                 setattr(args, key, a[key])
+        if "layers" in a and not getattr(args, "_cli_layers", False):
+            args.layers = a["layers"]  # list of ints, e.g. [9, 18, 27]
 
     # Eval
     if "eval" in config:
@@ -1169,7 +1172,8 @@ def main():
     local_rank, rank, world_size = setup_distributed()
 
     parser = argparse.ArgumentParser(description="Train CoT Oracle")
-    parser.add_argument("--config", default=None, help="YAML config file")
+    parser.add_argument("--config", nargs="+", default=None,
+                        help="YAML config file(s). Multiple configs are merged left-to-right (later overrides earlier)")
     parser.add_argument("--corpus", default="data/cot_corpus_v5/corpus_medium.jsonl",
                         help="Path to corpus.jsonl")
     parser.add_argument("--model", default="Qwen/Qwen3-8B")
@@ -1213,6 +1217,8 @@ def main():
     parser.add_argument("--stride", type=int, default=5)
     parser.add_argument("--n-layers", type=int, default=3,
                         help="Number of activation layers (evenly spaced through model depth)")
+    parser.add_argument("--layers", type=int, nargs="+", default=None,
+                        help="Explicit layer indices (overrides --n-layers). E.g. --layers 9 18 27")
     parser.add_argument("--steering-coefficient", type=float, default=1.0)
     parser.add_argument("--max-grad-norm", type=float, default=1.0)
     parser.add_argument("--warmup-fraction", type=float, default=0.1)
@@ -1235,6 +1241,8 @@ def main():
                         help="Run evals every N steps (shuffled mode)")
     parser.add_argument("--save-steps", type=int, default=10000,
                         help="Save checkpoint every N steps (shuffled mode)")
+    parser.add_argument("--no-step0-eval", action="store_true", default=False,
+                        help="Skip evals at step 0 (for quick ablation launches)")
     parser.add_argument("--rot13-start-step", type=int, default=2000)
     parser.add_argument("--start-step", type=int, default=0,
                         help="Starting global step (for resuming)")
@@ -1266,12 +1274,14 @@ def main():
         if val != _defaults.get(key):
             setattr(args, f"_cli_{key}", True)
 
-    # Apply config file (CLI flags override config values)
+    # Apply config file(s) (CLI flags override config values)
     if args.config:
-        config = load_config(args.config)
-        apply_config(args, config)
+        configs = args.config if isinstance(args.config, list) else [args.config]
+        for cfg_path in configs:
+            config = load_config(cfg_path)
+            apply_config(args, config)
         if rank == 0:
-            print(f"Loaded config from {args.config}")
+            print(f"Loaded config from {', '.join(configs)}")
             # Log the full config YAML for reproducibility
             import yaml
             print(f"\n{'=' * 60}")
@@ -1291,9 +1301,12 @@ def main():
 
     # Multi-layer config
     global MULTI_LAYERS
-    n_layers = getattr(args, "n_layers", 3)
-    percents = [int(100 * (i + 1) / (n_layers + 1)) for i in range(n_layers)]
-    MULTI_LAYERS = [layer_percent_to_layer(args.model, p) for p in percents]
+    if hasattr(args, "layers") and args.layers:
+        MULTI_LAYERS = [int(l) for l in args.layers]
+    else:
+        n_layers = getattr(args, "n_layers", 3)
+        percents = [int(100 * (i + 1) / (n_layers + 1)) for i in range(n_layers)]
+        MULTI_LAYERS = [layer_percent_to_layer(args.model, p) for p in percents]
     # Make layers available to dataset loaders
     import cot_utils as _cu
     _cu.CONFIGURED_LAYERS = MULTI_LAYERS
@@ -1442,8 +1455,10 @@ def main():
             tags=[args.model.split("/")[-1]] + enabled_tasks,
         )
         # Save raw YAML config to wandb for reproducibility
-        if args.config and Path(args.config).exists():
-            wandb.save(args.config)
+        if args.config:
+            for cfg_path in (args.config if isinstance(args.config, list) else [args.config]):
+                if Path(cfg_path).exists():
+                    wandb.save(cfg_path)
     else:
         enabled_tasks = [tn for tn, info in TASK_REGISTRY.items() if getattr(args, info["arg"], 0) > 0]
 

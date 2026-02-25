@@ -1,0 +1,8 @@
+# Ablation: stride=1 (every token)
+# Inherits everything from train.yaml except overrides below
+
+activations:
+  stride: 1
+
+output:
+  wandb_run: ablation-stride1

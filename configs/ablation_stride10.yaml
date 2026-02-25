@@ -1,0 +1,8 @@
+# Ablation: stride=10 (sparser activations)
+# Inherits everything from train.yaml except overrides below
+
+activations:
+  stride: 10
+
+output:
+  wandb_run: ablation-stride10
