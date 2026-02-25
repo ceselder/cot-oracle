@@ -1260,7 +1260,7 @@ def precache_eval_activations(
     activation_cache_dir: str | None = None,
     eval_names: list[str] | None = None,
     oracle_adapter_name: str = "default",
-    eval_stride: int | str = 5,
+    stride: int | str = None,
 ):
     """Pre-extract and cache activation bundles for all eval items.
 
@@ -1274,13 +1274,15 @@ def precache_eval_activations(
     if not activation_cache_dir:
         print("  [precache] No activation_cache_dir set, skipping")
         return
+    if stride is None:
+        raise ValueError("stride must be explicitly set for precache_eval_activations")
 
     cache_dir = Path(activation_cache_dir)
 
     # Configure oracle mode — layers match training (from CONFIGURED_LAYERS)
     act_layers = get_injection_layers(model_name)
-    set_oracle_mode(trained=True, oracle_adapter_name=oracle_adapter_name, stride=eval_stride, layers=act_layers)
-    print(f"  [precache] Extraction: layers={act_layers}, stride={eval_stride}")
+    set_oracle_mode(trained=True, oracle_adapter_name=oracle_adapter_name, stride=stride, layers=act_layers)
+    print(f"  [precache] Extraction: layers={act_layers}, stride={stride}")
 
     model.eval()
     eval_list = eval_names or TRAINING_EVALS
@@ -1384,7 +1386,7 @@ def run_training_evals(
     eval_names: list[str] | None = None,
     log_dir: Path | str | None = None,
     eval_batch_size: int = 8,
-    eval_stride: int | str = 5,
+    stride: int | str = None,
 ) -> dict[str, Any]:
     """Run evals and return results dict for wandb logging.
 
@@ -1402,17 +1404,20 @@ def run_training_evals(
         eval_names: List of eval names to run. If None, uses TRAINING_EVALS default.
         log_dir: Path to directory for disk logging of eval tables.
         eval_batch_size: Mini-batch size for batched oracle generation.
+        stride: Position extraction stride (int for fixed, "punctuation" for punctuation).
 
     Returns:
         Flat dict of metrics suitable for wandb.log().
     """
     eval_dir = Path(eval_dir)
     eval_dir.mkdir(parents=True, exist_ok=True)
+    if stride is None:
+        raise ValueError("stride must be explicitly set for run_training_evals")
 
     # Configure oracle mode — layers match training (from CONFIGURED_LAYERS)
     act_layers = get_injection_layers(model_name)
-    set_oracle_mode(trained=True, oracle_adapter_name=oracle_adapter_name, stride=eval_stride, layers=act_layers)
-    print(f"  [training_eval] Extraction: layers={act_layers}, stride={eval_stride}, batch_size={eval_batch_size}")
+    set_oracle_mode(trained=True, oracle_adapter_name=oracle_adapter_name, stride=stride, layers=act_layers)
+    print(f"  [training_eval] Extraction: layers={act_layers}, stride={stride}, batch_size={eval_batch_size}")
 
     # Save training state and switch to eval
     was_training = model.training

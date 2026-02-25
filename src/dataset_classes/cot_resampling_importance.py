@@ -24,7 +24,7 @@ def load_resampling_importance_data(
     tokenizer: AutoTokenizer,
     model_name: str,
     num_examples: int = 5000,
-    stride: int = 5,
+    stride: int | str = None,
     n_prompt_positions: int = 5,
     seed: int = 42,
     ranking_fraction: float = 0.6,
@@ -38,7 +38,7 @@ def load_resampling_importance_data(
         ranking_fraction: fraction of examples that are ranking tasks (rest are binary)
         hf_dataset: HuggingFace dataset ID to load
     """
-    from cot_utils import get_cot_stride_positions, get_injection_layers
+    from cot_utils import get_cot_positions, get_injection_layers
     from datasets import load_dataset
 
     random.seed(seed)
@@ -122,8 +122,8 @@ def load_resampling_importance_data(
         full_ids, prompt_len, entry = tokenized_important[idx % len(tokenized_important)]
         idx += 1
 
-        positions = get_cot_stride_positions(
-            prompt_len, len(full_ids), stride=stride,
+        positions = get_cot_positions(
+            prompt_len, len(full_ids), stride=stride, tokenizer=tokenizer, input_ids=full_ids,
         )
         if len(positions) < 2:
             continue
@@ -175,8 +175,8 @@ def load_resampling_importance_data(
             target = "yes"
         idx += 1
 
-        positions = get_cot_stride_positions(
-            prompt_len, len(full_ids), stride=stride,
+        positions = get_cot_positions(
+            prompt_len, len(full_ids), stride=stride, tokenizer=tokenizer, input_ids=full_ids,
         )
         if len(positions) < 2:
             continue

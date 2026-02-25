@@ -48,7 +48,7 @@ def load_cot_partial_answer_data(
     tokenizer: AutoTokenizer,
     model_name: str,
     num_examples: int = 20000,
-    stride: int = 5,
+    stride: int | str = None,
     n_prompt_positions: int = 5,
     seed: int = 42,
     **_kwargs,
@@ -65,7 +65,7 @@ def load_cot_partial_answer_data(
     The oracle learns: "given activations at X% through reasoning,
     what answer is the model converging toward?"
     """
-    from cot_utils import get_cot_stride_positions, get_injection_layers
+    from cot_utils import get_cot_positions, get_injection_layers
 
     random.seed(seed)
 
@@ -149,9 +149,9 @@ def load_cot_partial_answer_data(
         trunc_pos = t["prompt_len"] + trunc_tokens
 
         # Get stride positions up to truncation point
-        positions = get_cot_stride_positions(
+        positions = get_cot_positions(
             t["prompt_len"], trunc_pos,
-            stride=stride,
+            stride=stride, tokenizer=tokenizer, input_ids=t["full_ids"],
         )
         if len(positions) < 2:
             continue

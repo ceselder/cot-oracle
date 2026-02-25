@@ -22,7 +22,7 @@ def load_cot_reasoning_termination_data(
     tokenizer: AutoTokenizer,
     model_name: str,
     num_examples: int = 15000,
-    stride: int = 5,
+    stride: int | str = None,
     n_prompt_positions: int = 5,
     seed: int = 42,
     **_kwargs,
@@ -39,7 +39,7 @@ def load_cot_reasoning_termination_data(
 
     Balanced 50/50 between will_terminate and will_continue.
     """
-    from cot_utils import get_cot_stride_positions, get_injection_layers
+    from cot_utils import get_cot_positions, get_injection_layers
 
     random.seed(seed)
 
@@ -131,9 +131,9 @@ def load_cot_reasoning_termination_data(
             continue
 
         # Get stride positions up to truncation point
-        positions = get_cot_stride_positions(
+        positions = get_cot_positions(
             t["prompt_len"], trunc_pos,
-            stride=stride,
+            stride=stride, tokenizer=tokenizer, input_ids=t["full_ids"],
         )
         if len(positions) < 2:
             continue

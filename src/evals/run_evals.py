@@ -57,7 +57,7 @@ _ORACLE_MODE = {
 def set_oracle_mode(
     trained: bool = False,
     oracle_adapter_name: str | None = None,
-    stride: int | str = 5,
+    stride: int | str = 5,  # default only for standalone run_evals.py; train.py always passes explicitly
     layers: list[int] | None = None,
 ):
     """Configure oracle format for all evals in this module.

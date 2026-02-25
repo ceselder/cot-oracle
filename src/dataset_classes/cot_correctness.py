@@ -18,7 +18,7 @@ def load_cot_correctness_data(
     tokenizer: AutoTokenizer,
     model_name: str,
     num_examples: int = 15000,
-    stride: int = 5,
+    stride: int | str = None,
     n_prompt_positions: int = 5,
     seed: int = 42,
     **_kwargs,
@@ -29,7 +29,7 @@ def load_cot_correctness_data(
     Each example: stride activations from CoT -> correct / incorrect.
     Ground truth from corpus (cot_correct field). Balanced 50/50.
     """
-    from cot_utils import get_cot_stride_positions, get_injection_layers
+    from cot_utils import get_cot_positions, get_injection_layers
 
     random.seed(seed)
 
@@ -87,9 +87,9 @@ def load_cot_correctness_data(
         prompt_ids = tokenizer(formatted, add_special_tokens=False)["input_ids"]
         prompt_len = len(prompt_ids)
 
-        positions = get_cot_stride_positions(
+        positions = get_cot_positions(
             prompt_len, len(full_ids),
-            stride=stride,
+            stride=stride, tokenizer=tokenizer, input_ids=full_ids,
         )
         if len(positions) < 2:
             continue

@@ -2,11 +2,8 @@
 # Inherits everything from train.yaml except overrides below
 
 activations:
-  stride: 5          # training data still uses stride=5 positions
+  stride: punctuation   # extract at punctuation boundaries (both training + eval)
   n_layers: 1
-
-eval:
-  eval_stride: punctuation   # evals sample at punctuation boundaries
 
 training:
   batch_size: 4

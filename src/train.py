@@ -704,7 +704,7 @@ def run_evals(model, tokenizer, model_name, global_step, args, log_dir=None):
         activation_cache_dir=args.activation_cache_dir,
         log_dir=log_dir,
         eval_names=getattr(args, "evals", None),
-        eval_stride=getattr(args, "eval_stride", 5),
+        stride=args.stride,
     )
     if metrics:
         wandb.log(metrics, step=global_step)
@@ -1181,9 +1181,6 @@ def apply_config(args, config: dict):
                 if key in {"rot13_start_step", "eval_steps", "save_steps"}:
                     val = int(val)
                 setattr(args, key, val)
-        # eval_stride: int or "punctuation"
-        if "eval_stride" in e and not getattr(args, "_cli_eval_stride", False):
-            args.eval_stride = e["eval_stride"]
         if "evals" in e and not getattr(args, "_cli_evals", False):
             raw_evals = e["evals"]
             eval_names = []
@@ -1283,7 +1280,7 @@ def main():
     parser.add_argument("--batch-size", type=int, default=8)
     parser.add_argument("--eval-batch-size", type=int, default=2)
     parser.add_argument("--epochs", type=int, default=1)
-    parser.add_argument("--stride", type=int, default=5)
+    parser.add_argument("--stride", type=str, default=None, help="Stride for position extraction (int or 'punctuation'). Must be set via config or CLI.")
     parser.add_argument("--n-layers", type=int, default=3,
                         help="Number of activation layers (evenly spaced through model depth)")
     parser.add_argument("--layers", type=int, nargs="+", default=None,
@@ -1365,6 +1362,13 @@ def main():
         args.atypical_data_path = _resolve_hf_dataset(args.atypical_data_path)
         if hasattr(args, "hint_admission_data_path") and getattr(args, "hint_admission_n", 0) > 0:
             args.hint_admission_data_path = _resolve_hf_dataset(args.hint_admission_data_path)
+
+    # Validate stride is set
+    if args.stride is None:
+        raise ValueError(
+            "stride must be set via config (activations.stride) or CLI (--stride). "
+            "Use an integer for fixed-stride or 'punctuation' for punctuation-based extraction."
+        )
 
     set_seed(args.seed)
 
@@ -1550,6 +1554,7 @@ def main():
             device=f"cuda:{local_rank}", eval_dir=args.eval_dir,
             activation_cache_dir=args.activation_cache_dir,
             eval_names=eval_names,
+            stride=args.stride,
         )
         model.train()
         gc.collect()

@@ -85,7 +85,7 @@ def load_cot_compqa_data(
     tokenizer: AutoTokenizer,
     model_name: str,
     num_examples: int = 8000,
-    stride: int = 5,
+    stride: int | str = None,
     n_prompt_positions: int = 5,
     max_target_tokens: int = 8192,
     seed: int = 42,
@@ -103,7 +103,7 @@ def load_cot_compqa_data(
 
     Uses 80% train split. 20% held out for eval.
     """
-    from cot_utils import get_cot_stride_positions, get_injection_layers
+    from cot_utils import get_cot_positions, get_injection_layers
 
     random.seed(seed)
 
@@ -154,9 +154,9 @@ def load_cot_compqa_data(
         prompt_len = len(prompt_ids)
 
         # Get stride positions over CoT
-        positions = get_cot_stride_positions(
+        positions = get_cot_positions(
             prompt_len, len(full_ids),
-            stride=stride,
+            stride=stride, tokenizer=tokenizer, input_ids=full_ids,
         )
         if len(positions) < 2:
             continue

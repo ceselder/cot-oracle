@@ -36,7 +36,7 @@ from peft import PeftModel
 
 sys.path.insert(0, str(Path(__file__).parent))
 
-from cot_utils import get_cot_stride_positions, layer_percent_to_layer
+from cot_utils import get_cot_positions, layer_percent_to_layer
 from core.ao import (
     collect_activations,
     collect_activations_at_positions,
@@ -345,7 +345,7 @@ def main():
             prompt_len = len(prompt_ids)
             total_len = len(all_ids)
 
-            stride_positions = get_cot_stride_positions(prompt_len, total_len, stride=stride)
+            stride_positions = get_cot_positions(prompt_len, total_len, stride=stride, tokenizer=tokenizer, input_ids=all_ids)
             if len(stride_positions) < 2:
                 print("  CoT too short for stride positions.")
                 continue

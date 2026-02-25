@@ -16,7 +16,7 @@ def load_cot_decorative_data(
     tokenizer: AutoTokenizer,
     model_name: str,
     num_examples: int = 10000,
-    stride: int = 5,
+    stride: int | str = None,
     n_prompt_positions: int = 5,
     seed: int = 42,
     **_kwargs,
@@ -27,7 +27,7 @@ def load_cot_decorative_data(
     load_bearing: CoT correct, direct wrong -> reasoning was necessary
     decorative: both correct -> model already knew the answer
     """
-    from cot_utils import get_cot_stride_positions, get_injection_layers
+    from cot_utils import get_cot_positions, get_injection_layers
 
     random.seed(seed)
 
@@ -92,9 +92,9 @@ def load_cot_decorative_data(
         prompt_ids = tokenizer(formatted, add_special_tokens=False)["input_ids"]
         prompt_len = len(prompt_ids)
 
-        positions = get_cot_stride_positions(
+        positions = get_cot_positions(
             prompt_len, len(full_ids),
-            stride=stride,
+            stride=stride, tokenizer=tokenizer, input_ids=full_ids,
         )
         if len(positions) < 2:
             continue

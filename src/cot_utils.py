@@ -160,6 +160,42 @@ def get_cot_stride_positions(
     return positions
 
 
+def get_cot_positions(
+    prompt_token_count: int,
+    total_token_count: int,
+    stride: int | str,
+    tokenizer=None,
+    input_ids: list[int] | None = None,
+    include_last: bool = True,
+) -> list[int]:
+    """Unified position dispatcher: stride-based or punctuation-based.
+
+    Args:
+        stride: int for fixed-stride, or "punctuation" for punctuation boundaries.
+                No default — must be explicitly provided.
+        tokenizer: Required when stride="punctuation".
+        input_ids: Required when stride="punctuation".
+    """
+    if stride is None:
+        raise ValueError(
+            "stride must be explicitly set (int or 'punctuation'). "
+            "Check config activations.stride or --stride CLI flag."
+        )
+    if stride == "punctuation":
+        assert tokenizer is not None and input_ids is not None, (
+            "tokenizer and input_ids required for punctuation mode"
+        )
+        return get_cot_punctuation_positions(
+            prompt_token_count, total_token_count,
+            tokenizer, input_ids,
+            include_last=include_last,
+        )
+    return get_cot_stride_positions(
+        prompt_token_count, total_token_count,
+        stride=int(stride), include_last=include_last,
+    )
+
+
 # Layer count lookup (no torch dependency)
 LAYER_COUNTS = {
     "Qwen/Qwen3-0.6B": 28,

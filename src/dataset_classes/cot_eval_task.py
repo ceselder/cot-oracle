@@ -74,7 +74,7 @@ def load_eval_task_data(
     tokenizer: AutoTokenizer,
     model_name: str,
     num_examples: int = 3000,
-    stride: int = 5,
+    stride: int | str = None,
     n_prompt_positions: int = 5,
     seed: int = 42,
     **_kwargs,
@@ -89,7 +89,7 @@ def load_eval_task_data(
         model_name: Model name for layer computation
         num_examples: Max examples to generate
     """
-    from cot_utils import get_cot_stride_positions, get_injection_layers
+    from cot_utils import get_cot_positions, get_injection_layers
 
     random.seed(seed)
 
@@ -171,8 +171,8 @@ def load_eval_task_data(
         if len(full_ids) - prompt_len < 5:
             continue
 
-        positions = get_cot_stride_positions(
-            prompt_len, len(full_ids), stride=stride,
+        positions = get_cot_positions(
+            prompt_len, len(full_ids), stride=stride, tokenizer=tokenizer, input_ids=full_ids,
         )
         if len(positions) < 2:
             continue

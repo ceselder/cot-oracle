@@ -24,7 +24,7 @@ def load_cot_next_step_data(
     tokenizer: AutoTokenizer,
     model_name: str,
     num_examples: int = 60000,
-    stride: int = 5,
+    stride: int | str = None,
     predict_tokens: int = 50,
     n_prompt_positions: int = 5,
     seed: int = 42,
@@ -41,7 +41,7 @@ def load_cot_next_step_data(
 
     Returns list of dicts compatible with dicts_to_training_data().
     """
-    from cot_utils import get_cot_stride_positions, get_injection_layers
+    from cot_utils import get_cot_positions, get_injection_layers
 
     random.seed(seed)
 
@@ -91,9 +91,9 @@ def load_cot_next_step_data(
         prompt_len = len(prompt_ids)
 
         # Get all stride positions
-        all_positions = get_cot_stride_positions(
+        all_positions = get_cot_positions(
             prompt_len, len(full_ids),
-            stride=stride,
+            stride=stride, tokenizer=tokenizer, input_ids=full_ids,
         )
         if len(all_positions) < 3:
             continue
