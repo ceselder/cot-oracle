@@ -365,8 +365,48 @@ def _download_precomputed_from_hf(task_name: str, pdir: Path) -> Path:
     return Path(local_path)
 
 
-def load_precomputed_tasks(precomputed_dir: str, args) -> list[dict]:
-    """Load training data from precomputed JSONL files, downloading from HF if needed."""
+def _live_load_task(task_name: str, info: dict, n: int, args, tokenizer) -> list[dict]:
+    """Load a single task via its dataset loader (live, not precomputed)."""
+    import importlib
+
+    mod = importlib.import_module(info["module"])
+    loader_fn = getattr(mod, info["loader"])
+
+    if info["corpus"] == "concept":
+        return loader_fn(
+            args.concept_corpus, str(args.cotqa_path), tokenizer, args.model,
+            num_examples=n, stride=args.stride,
+            max_positions_per_layer=getattr(args, "max_positions_per_layer", 20),
+        )
+    elif info["corpus"] == "atypical":
+        atypical_path = getattr(args, "atypical_data_path",
+                                "data/atypical_answer_training.jsonl")
+        return loader_fn(
+            atypical_path, tokenizer, args.model,
+            num_examples=n, stride=args.stride,
+            max_positions_per_layer=getattr(args, "max_positions_per_layer", 20),
+            atypical_data_path=atypical_path,
+        )
+    elif info["corpus"] == "compqa":
+        compqa_cache = str(Path(getattr(args, "precomputed_dir", "data/precomputed")) / "compqa_raw.json")
+        return loader_fn(
+            compqa_cache, tokenizer, args.model,
+            num_examples=n, stride=args.stride,
+            max_positions_per_layer=getattr(args, "max_positions_per_layer", 20),
+        )
+    else:
+        return loader_fn(
+            args.corpus, tokenizer, args.model,
+            num_examples=n, stride=args.stride,
+            max_positions_per_layer=getattr(args, "max_positions_per_layer", 20),
+        )
+
+
+def load_precomputed_tasks(precomputed_dir: str, args, tokenizer=None) -> list[dict]:
+    """Load training data from precomputed JSONL files, downloading from HF if needed.
+
+    Falls back to live loading (via dataset loaders) for tasks without JSONL files.
+    """
     pdir = Path(precomputed_dir)
     pdir.mkdir(parents=True, exist_ok=True)
     all_data = []
@@ -382,7 +422,20 @@ def load_precomputed_tasks(precomputed_dir: str, args) -> list[dict]:
             try:
                 jsonl_path = _download_precomputed_from_hf(task_name, pdir)
             except Exception as e:
-                print(f"  WARNING: {task_name}.jsonl not found locally or on HF: {e}")
+                # Fall back to live loading for tasks with dataset loaders
+                if info["module"] is not None and tokenizer is not None:
+                    print(f"  {task_name}: no precomputed JSONL, using live loader...")
+                    try:
+                        data = _live_load_task(task_name, info, n, args, tokenizer)
+                        all_data.extend(data)
+                        enabled.append(f"{task_name}({len(data)})")
+                        print(f"    -> {len(data)} examples (live)")
+                    except Exception as e2:
+                        print(f"    FAILED to live-load {task_name}: {e2}")
+                        import traceback
+                        traceback.print_exc()
+                else:
+                    print(f"  WARNING: {task_name}.jsonl not found locally or on HF: {e}")
                 continue
 
         print(f"  Loading {task_name} from {jsonl_path}...")
