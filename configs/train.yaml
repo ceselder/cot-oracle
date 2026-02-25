@@ -61,7 +61,7 @@ tasks:
 # Training
 training:
   lr: 0.00001
-  batch_size: 16             # per-GPU micro-batch size (constrained by VRAM)
+  batch_size: 32             # per-GPU micro-batch size
   effective_batch_size: 128  # total across GPUs + accumulation (invariant to GPU count)
   eval_batch_size: 4
   epochs: 1
@@ -142,7 +142,7 @@ baselines:
     layers: [9, 18, 27]       # also runs concat of all 3
     k_folds: 5
     lr: 0.01
-    epochs: 100
+    epochs: 100b
     weight_decay: 0.0001
 
   attention_probe:
