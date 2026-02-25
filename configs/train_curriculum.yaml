@@ -67,8 +67,8 @@ activations:
 eval:
   eval_steps: 1000
   save_steps: 2000
-  unfaith_eval_steps: 1000
-  unfaith_eval_items: 20
+  eval_steps_detection: 1000
+  eval_items_detection: 20
 
 # Data
 data:

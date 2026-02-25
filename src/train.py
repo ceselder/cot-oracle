@@ -680,12 +680,12 @@ def run_eval(
     torch.cuda.empty_cache()
 
 
-def run_unfaith_evals(model, tokenizer, model_name, global_step, args, log_dir=None):
-    """Run unfaithfulness evals if available."""
+def run_evals(model, tokenizer, model_name, global_step, args, log_dir=None):
+    """Run evals if available."""
     from evals.training_eval_hook import run_training_evals
     import wandb
 
-    print(f"\n--- Unfaithfulness evals at step {global_step} ---")
+    print(f"\n--- Evals at step {global_step} ---")
     metrics = run_training_evals(
         model, tokenizer, model_name=model_name,
         step=global_step, device="cuda",
@@ -695,7 +695,7 @@ def run_unfaith_evals(model, tokenizer, model_name, global_step, args, log_dir=N
         oracle_adapter_name="default",
         activation_cache_dir=args.activation_cache_dir,
         log_dir=log_dir,
-        eval_names=getattr(args, "unfaith_evals", None),
+        eval_names=getattr(args, "evals", None),
     )
     if metrics:
         wandb.log(metrics, step=global_step)
@@ -1053,13 +1053,13 @@ def train(
                 if world_size > 1:
                     dist.barrier()
 
-            # Unfaithfulness eval (rank 0 only)
+            # Detection eval (rank 0 only)
             if global_step % args.eval_steps == 0 and not skip_step0:
                 if rank == 0:
                     gc.collect()
                     torch.cuda.empty_cache()
                     eval_start = time.time()
-                    run_unfaith_evals(model, tokenizer, args.model, global_step, args, log_dir=log_dir)
+                    run_evals(model, tokenizer, args.model, global_step, args, log_dir=log_dir)
                     eval_time_total += time.time() - eval_start
                     model.train()
                     gc.collect()
@@ -1088,7 +1088,7 @@ def train(
             args.steering_coefficient, log_dir=log_dir,
         )
 
-        run_unfaith_evals(model, tokenizer, args.model, global_step, args, log_dir=log_dir)
+        run_evals(model, tokenizer, args.model, global_step, args, log_dir=log_dir)
 
         # Save final
         final_path = save_dir / "final"
@@ -1156,8 +1156,8 @@ def apply_config(args, config: dict):
                 if key in {"rot13_start_step", "eval_steps", "save_steps"}:
                     val = int(val)
                 setattr(args, key, val)
-        if "unfaith_evals" in e and not getattr(args, "_cli_unfaith_evals", False):
-            raw_evals = e["unfaith_evals"]
+        if "evals" in e and not getattr(args, "_cli_evals", False):
+            raw_evals = e["evals"]
             eval_names = []
             for entry in raw_evals:
                 if isinstance(entry, str):
@@ -1165,7 +1165,10 @@ def apply_config(args, config: dict):
                 elif isinstance(entry, dict):
                     name = list(entry.keys())[0]
                     eval_names.append(name)
-            args.unfaith_evals = eval_names
+                    if isinstance(entry[name], dict) and "baselines" in entry[name]:
+                        eval_baselines[name] = entry[name]["baselines"]
+            args.evals = eval_names
+            args.eval_baselines = eval_baselines
 
     # Data paths
     if "data" in config:
@@ -1504,7 +1507,7 @@ def main():
     save_dir = Path(args.save_dir)
 
     # ── Precompute eval activation caches (rank 0 only) ──
-    eval_names = getattr(args, "unfaith_evals", None)
+    eval_names = getattr(args, "evals", None)
     if rank == 0 and eval_names:
         from evals.training_eval_hook import precache_eval_activations
         print(f"\n{'=' * 60}")

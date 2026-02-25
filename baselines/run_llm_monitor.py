@@ -170,7 +170,7 @@ def main():
     if args.evals:
         eval_names = args.evals
     else:
-        raw = cfg["eval"]["unfaith_evals"]
+        raw = cfg["eval"]["evals"]
         eval_names = []
         for entry in raw:
             name = list(entry.keys())[0] if isinstance(entry, dict) else entry

@@ -2,7 +2,7 @@
 Run all baseline evals for the original AO checkpoint (before any fine-tuning).
 
 This establishes the baseline performance that our CoT oracle training should match
-or exceed on regression tasks, and sets the floor for unfaithfulness detection.
+or exceed on regression tasks, and sets the floor for detection evals.
 
 Runs:
 1. Eval datasets in `data/evals/*.json` (run_evals-compatible) with original AO
@@ -53,7 +53,7 @@ from evals.run_evals import (
 from evals.score_oracle import score_eval, EVAL_PARSING
 
 
-def run_unfaithfulness_evals(model, tokenizer, model_name, act_layer, eval_dir, output_dir, device="cuda", batch_size=8):
+def run_evals(model, tokenizer, model_name, act_layer, eval_dir, output_dir, device="cuda", batch_size=8):
     """Run all eval datasets in eval_dir and return score dict."""
     eval_dir = Path(eval_dir)
     output_dir = Path(output_dir)
@@ -235,7 +235,7 @@ def main():
     parser.add_argument("--output-dir", default="data/eval_results/baseline")
     parser.add_argument("--skip-regression", action="store_true", help="Skip AO classification regression evals")
     parser.add_argument("--batch-size", type=int, default=8, help="Batch size for generation")
-    parser.add_argument("--skip-unfaithfulness", action="store_true", help="Skip unfaithfulness evals")
+    parser.add_argument("--skip-evals", action="store_true", help="Skip detection evals")
     parser.add_argument("--device", default="cuda")
     parser.add_argument("--wandb-project", default="cot_oracle")
     parser.add_argument("--wandb-run-name", default=None)
@@ -268,25 +268,25 @@ def main():
 
     all_results = {}
 
-    # 1. Unfaithfulness evals
-    if not args.skip_unfaithfulness:
+    # 1. Detection evals
+    if not args.skip_evals:
         print(f"\n{'#' * 60}")
-        print("PHASE 1: Unfaithfulness Evals (6 datasets)")
+        print("PHASE 1: Detection Evals")
         print(f"{'#' * 60}")
-        unfaith_scores = run_unfaithfulness_evals(
+        eval_scores = run_evals(
             model, tokenizer, args.model, act_layer,
-            args.eval_dir, output_dir / "unfaithfulness",
+            args.eval_dir, output_dir / "evals",
             device=args.device,
             batch_size=args.batch_size,
         )
-        all_results["unfaithfulness"] = unfaith_scores
+        all_results["evals"] = eval_scores
 
         if use_wandb:
             # Log flat metrics
-            for eval_name, scores in unfaith_scores.items():
+            for eval_name, scores in eval_scores.items():
                 for metric, value in scores.items():
                     if isinstance(value, (int, float)):
-                        wandb.log({f"unfaith/{eval_name}/{metric}": value})
+                        wandb.log({f"eval/{eval_name}/{metric}": value})
 
     # 2. AO regression evals
     if not args.skip_regression:

@@ -40,10 +40,10 @@ def main():
     # Collect all results
     all_metrics = {}
 
-    # Check unfaithfulness results
-    unfaith_dir = results_dir / "unfaithfulness"
-    if unfaith_dir.exists():
-        for f in sorted(unfaith_dir.glob("*_completed.json")):
+    # Check eval results
+    eval_dir = results_dir / "evals"
+    if eval_dir.exists():
+        for f in sorted(eval_dir.glob("*_completed.json")):
             eval_name = f.stem.replace("_completed", "")
             items = load_completed_items(f)
 
