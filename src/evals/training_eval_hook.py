@@ -131,12 +131,9 @@ def _try_load_cached(cache_dir: Path | None, eval_name: str, example_id: str, de
     path = _cache_path(cache_dir, eval_name, example_id)
     if not path.exists():
         return None
-    try:
-        bundle = _load_bundle(path, map_location=device)
-        if bundle.activations is not None:
-            return bundle
-    except Exception:
-        pass
+    bundle = _load_bundle(path, map_location=device)
+    if bundle.activations is not None:
+        return bundle
     return None
 
 

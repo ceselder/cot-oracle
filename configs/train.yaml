@@ -55,7 +55,7 @@ tasks:
     description: "Answer questions about CoT reasoning quality (10 types, Gemini GT)"
 
   hint_admission:
-    n: 15000
+    n: 0
     description: "Did the model use an external hint? What was it?"
 
 # Training
@@ -82,6 +82,8 @@ activations:
 # Eval
 eval:
   eval_dir: data/evals
+  eval_steps: 2000
+  save_steps: 10000
   rot13_start_step: 2000
   # All unfaithfulness evals to run during training (pulled from HF)
   # Entries can be plain strings or dicts with baselines for wandb reference lines

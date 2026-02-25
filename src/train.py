@@ -1085,9 +1085,12 @@ def apply_config(args, config: dict):
     # Eval
     if "eval" in config:
         e = config["eval"]
-        for key in ["eval_dir", "rot13_start_step"]:
+        for key in ["eval_dir", "rot13_start_step", "eval_steps", "save_steps"]:
             if key in e and not getattr(args, f"_cli_{key}", False):
-                setattr(args, key, e[key])
+                val = e[key]
+                if key in {"rot13_start_step", "eval_steps", "save_steps"}:
+                    val = int(val)
+                setattr(args, key, val)
         if "unfaith_evals" in e and not getattr(args, "_cli_unfaith_evals", False):
             raw_evals = e["unfaith_evals"]
             eval_names = []
@@ -1205,6 +1208,10 @@ def main():
                              "gradient_accumulation_steps = effective_batch_size / (batch_size * world_size)")
 
     # Eval / save
+    parser.add_argument("--eval-steps", type=int, default=2000,
+                        help="Run evals every N steps (shuffled mode)")
+    parser.add_argument("--save-steps", type=int, default=10000,
+                        help="Save checkpoint every N steps (shuffled mode)")
     parser.add_argument("--rot13-start-step", type=int, default=2000)
     parser.add_argument("--start-step", type=int, default=0,
                         help="Starting global step (for resuming)")
