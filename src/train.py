@@ -666,8 +666,8 @@ def run_eval(
             rows.append(row)
 
         avg_score = sum(scores) / len(scores) if scores else 0.0
-        wandb.log({f"eval/{ds}": avg_score}, step=global_step)
-        print(f"  Step {global_step} | {ds}: token_f1={avg_score:.3f}")
+        wandb.log({f"eval/{ds}": avg_score, f"eval_n/{ds}": len(scores)}, step=global_step)
+        print(f"  Step {global_step} | {ds}: token_f1={avg_score:.3f} (n={len(scores)})")
 
         if eval_responses:
             print(f"    pred='{eval_responses[0].api_response.strip()[:120]}'")

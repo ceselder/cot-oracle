@@ -972,7 +972,7 @@ def _score_binary_eval(
 
     return {
         f"eval/{eval_name}_acc": correct / total,
-        f"eval/{eval_name}_n": total,
+        f"eval_n/{eval_name}": total,
     }
 
 
@@ -1194,10 +1194,10 @@ def run_training_evals(
                 if recon_metrics:
                     match_rate = recon_metrics.get("avg_token_match_rate", 0.0)
                     all_metrics[f"eval/{eval_name}_match_rate"] = match_rate
-                    # n logged to console only, not wandb (clutters charts)
+                    all_metrics[f"eval_n/{eval_name}"] = len(completed)
                     if "avg_kl_divergence" in recon_metrics:
                         all_metrics[f"eval/{eval_name}_kl"] = recon_metrics["avg_kl_divergence"]
-                    print(f"    {eval_name}: match_rate={match_rate:.3f}")
+                    print(f"    {eval_name}: match_rate={match_rate:.3f} (n={len(completed)})")
                 # Wandb table for rot13 — show how it's messing up
                 try:
                     import wandb
@@ -1224,7 +1224,8 @@ def run_training_evals(
                 if si_metrics:
                     acc = si_metrics.get("accuracy", 0.0)
                     all_metrics[f"eval/{eval_name}_acc"] = acc
-                    print(f"    {eval_name}: acc={acc:.3f}")
+                    all_metrics[f"eval_n/{eval_name}"] = si_metrics.get("n", len(completed))
+                    print(f"    {eval_name}: acc={acc:.3f} (n={si_metrics.get('n', len(completed))})")
             elif eval_name == "forced_answer_entropy_riya":
                 # Score as top-1 answer prediction accuracy
                 correct = 0
@@ -1246,6 +1247,7 @@ def run_training_evals(
                 if total > 0:
                     acc = correct / total
                     all_metrics[f"eval/{eval_name}_acc"] = acc
+                    all_metrics[f"eval_n/{eval_name}"] = total
                     print(f"    {eval_name}: top1_acc={acc:.3f} (n={total})")
             elif eval_name == "compqa":
                 # Score via aggregate token F1 from per-item metadata
@@ -1253,6 +1255,7 @@ def run_training_evals(
                 if f1_scores:
                     avg_f1 = sum(f1_scores) / len(f1_scores)
                     all_metrics[f"eval/{eval_name}_token_f1"] = avg_f1
+                    all_metrics[f"eval_n/{eval_name}"] = len(f1_scores)
                     print(f"    {eval_name}: token_f1={avg_f1:.3f} (n={len(f1_scores)})")
             else:
                 # Binary evals
@@ -1261,7 +1264,7 @@ def run_training_evals(
                 if binary_metrics:
                     acc_key = f"eval/{eval_name}_acc"
                     if acc_key in binary_metrics:
-                        print(f"    {eval_name}: acc={binary_metrics[acc_key]:.3f} (n={binary_metrics.get(f'eval/{eval_name}_n', 0)})")
+                        print(f"    {eval_name}: acc={binary_metrics[acc_key]:.3f} (n={binary_metrics.get(f'eval_n/{eval_name}', 0)})")
 
             # Log a sample oracle response for qualitative inspection
             for c in completed:
