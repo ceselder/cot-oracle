@@ -101,18 +101,22 @@ def _first_rollout(rollouts) -> str | None:
 def _apply_oracle_mode_to_extract(model, tokenizer, **kwargs):
     """Wrapper applying current oracle mode to activation extraction.
 
-    Always uses punctuation-based extraction (semantic boundaries) with
-    whatever layers are configured. Falls back to stride if < 2 punctuation
-    positions found.
+    Routes to punctuation or stride extraction based on _ORACLE_MODE["stride"]:
+    - "punctuation": sample at semantic boundaries (sentence ends, clauses)
+    - int: fixed-stride positions every N tokens
     """
-    kwargs.setdefault("stride", _ORACLE_MODE["stride"])
+    stride = _ORACLE_MODE["stride"]
+    use_punctuation = (stride == "punctuation")
+    fallback_stride = stride if isinstance(stride, int) else 5
+    kwargs.setdefault("stride", fallback_stride)
     layers = _ORACLE_MODE.get("layers")
     if layers:
-        # Punctuation extraction across configured layers
         kwargs.pop("act_layer", None)
         kwargs.pop("max_boundaries", None)
-        kwargs.setdefault("fallback_stride", _ORACLE_MODE["stride"])
-        return _extract_punctuation_raw(model, tokenizer, layers=layers, **kwargs)
+        if use_punctuation:
+            kwargs.setdefault("fallback_stride", fallback_stride)
+            return _extract_punctuation_raw(model, tokenizer, layers=layers, **kwargs)
+        return _extract_multilayer_raw(model, tokenizer, layers=layers, **kwargs)
     # No layers configured — single-layer stride fallback
     return _extract_bundle_raw(model, tokenizer, **kwargs)
 
@@ -1256,6 +1260,7 @@ def precache_eval_activations(
     activation_cache_dir: str | None = None,
     eval_names: list[str] | None = None,
     oracle_adapter_name: str = "default",
+    eval_stride: int | str = 5,
 ):
     """Pre-extract and cache activation bundles for all eval items.
 
@@ -1274,8 +1279,8 @@ def precache_eval_activations(
 
     # Configure oracle mode — layers match training (from CONFIGURED_LAYERS)
     act_layers = get_injection_layers(model_name)
-    set_oracle_mode(trained=True, oracle_adapter_name=oracle_adapter_name, stride=5, layers=act_layers)
-    print(f"  [precache] Extraction: layers {act_layers}")
+    set_oracle_mode(trained=True, oracle_adapter_name=oracle_adapter_name, stride=eval_stride, layers=act_layers)
+    print(f"  [precache] Extraction: layers={act_layers}, stride={eval_stride}")
 
     model.eval()
     eval_list = eval_names or TRAINING_EVALS
@@ -1379,6 +1384,7 @@ def run_training_evals(
     eval_names: list[str] | None = None,
     log_dir: Path | str | None = None,
     eval_batch_size: int = 8,
+    eval_stride: int | str = 5,
 ) -> dict[str, Any]:
     """Run evals and return results dict for wandb logging.
 
@@ -1405,8 +1411,8 @@ def run_training_evals(
 
     # Configure oracle mode — layers match training (from CONFIGURED_LAYERS)
     act_layers = get_injection_layers(model_name)
-    set_oracle_mode(trained=True, oracle_adapter_name=oracle_adapter_name, stride=5, layers=act_layers)
-    print(f"  [training_eval] Extraction: layers {act_layers}, batch_size={eval_batch_size}")
+    set_oracle_mode(trained=True, oracle_adapter_name=oracle_adapter_name, stride=eval_stride, layers=act_layers)
+    print(f"  [training_eval] Extraction: layers={act_layers}, stride={eval_stride}, batch_size={eval_batch_size}")
 
     # Save training state and switch to eval
     was_training = model.training

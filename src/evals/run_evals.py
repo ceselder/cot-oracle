@@ -57,7 +57,7 @@ _ORACLE_MODE = {
 def set_oracle_mode(
     trained: bool = False,
     oracle_adapter_name: str | None = None,
-    stride: int = 5,
+    stride: int | str = 5,
     layers: list[int] | None = None,
 ):
     """Configure oracle format for all evals in this module.
@@ -65,7 +65,7 @@ def set_oracle_mode(
     Args:
         trained: If True, use trained oracle format (¶ tokens, stride positions).
         oracle_adapter_name: Adapter name. Defaults to "default" when trained=True.
-        stride: Stride size in tokens.
+        stride: Stride size in tokens, or "punctuation" to sample at punctuation boundaries.
         layers: List of extraction layers (e.g. [9, 18, 27]). None = single-layer mode.
     """
     if trained:

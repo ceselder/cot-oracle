@@ -1,0 +1,17 @@
+# Ablation: punctuation extraction, 1 layer (layer 18 = 50%)
+# Inherits everything from train.yaml except overrides below
+
+activations:
+  stride: 5          # training data still uses stride=5 positions
+  n_layers: 1
+
+eval:
+  eval_stride: punctuation   # evals sample at punctuation boundaries
+
+training:
+  batch_size: 4
+  effective_batch_size: 16   # grad_accum=4
+  eval_batch_size: 2
+
+output:
+  wandb_run: ablation-punct-1layer

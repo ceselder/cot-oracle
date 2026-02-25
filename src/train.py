@@ -704,6 +704,7 @@ def run_evals(model, tokenizer, model_name, global_step, args, log_dir=None):
         activation_cache_dir=args.activation_cache_dir,
         log_dir=log_dir,
         eval_names=getattr(args, "evals", None),
+        eval_stride=getattr(args, "eval_stride", 5),
     )
     if metrics:
         wandb.log(metrics, step=global_step)
@@ -1180,6 +1181,9 @@ def apply_config(args, config: dict):
                 if key in {"rot13_start_step", "eval_steps", "save_steps"}:
                     val = int(val)
                 setattr(args, key, val)
+        # eval_stride: int or "punctuation"
+        if "eval_stride" in e and not getattr(args, "_cli_eval_stride", False):
+            args.eval_stride = e["eval_stride"]
         if "evals" in e and not getattr(args, "_cli_evals", False):
             raw_evals = e["evals"]
             eval_names = []
