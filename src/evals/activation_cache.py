@@ -51,14 +51,10 @@ def extract_activation_bundle(
     act_layer: int,
     device: str = "cuda",
     generation_adapter_name: str | None = None,
-    stride: int = 5,
+    stride: int,
     **_kwargs,
 ) -> ActivationBundle | None:
-    """Extract activations from a CoT trace using fixed-stride positions.
-
-    Args:
-        stride: Stride size in tokens (default 5).
-    """
+    """Extract activations from a CoT trace using fixed-stride positions."""
     cot_text = (cot_text or "").strip()
     if not cot_text:
         return None
@@ -109,7 +105,7 @@ def extract_multilayer_activation_bundle(
     layers: list[int],
     device: str = "cuda",
     generation_adapter_name: str | None = None,
-    stride: int | str = 5,
+    stride: int | str,
     **_kwargs,
 ) -> ActivationBundle | None:
     """Extract activations from multiple layers, concatenated as [K*n_layers, D].
@@ -171,7 +167,7 @@ def extract_punctuation_activation_bundle(
     layers: list[int],
     device: str = "cuda",
     generation_adapter_name: str | None = None,
-    fallback_stride: int = 5,
+    fallback_stride: int,
     **_kwargs,
 ) -> ActivationBundle | None:
     """Extract activations at punctuation positions from multiple layers.

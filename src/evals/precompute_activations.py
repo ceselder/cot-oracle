@@ -483,6 +483,7 @@ def _extract_all_activations(
                     cot_text=cot_for_acts,
                     act_layer=act_layer,
                     device=device,
+                    stride=5,
                     generation_adapter_name=act_adapter,
                 )
             except Exception as e:

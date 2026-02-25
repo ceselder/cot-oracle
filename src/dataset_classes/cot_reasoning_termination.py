@@ -118,13 +118,13 @@ def load_cot_reasoning_termination_data(
             t = random.choice(positive_pool)
             remaining = random.randint(25, min(55, t["cot_len"] - 1))
             trunc_pos = t["prompt_len"] + t["cot_len"] - remaining
-            target = "will_terminate"
+            target = f"will_terminate, in {remaining} tokens"
         else:
             # Negative: truncate 300+ tokens from end
             t = random.choice(negative_pool)
             remaining = random.randint(300, t["cot_len"] - 1)
             trunc_pos = t["prompt_len"] + t["cot_len"] - remaining
-            target = "will_continue"
+            target = f"will_continue, {remaining} tokens remain"
 
         # Sanity: truncation must be after prompt
         if trunc_pos <= t["prompt_len"] + 5:
@@ -149,8 +149,8 @@ def load_cot_reasoning_termination_data(
         layers_str = ", ".join(str(l) for l in LAYERS)
         prompt = (
             f"Activations from {num_positions} positions across layers {layers_str}. "
-            f"Will the model terminate reasoning (emit </think>) within the next 100 tokens? "
-            f"Answer: will_terminate or will_continue."
+            f"Will the model terminate reasoning (emit </think>) soon? "
+            f"If yes, estimate how many tokens remain."
         )
 
         datapoints.append({
@@ -165,6 +165,6 @@ def load_cot_reasoning_termination_data(
         })
 
     print(f"  Generated {len(datapoints)} reasoning termination examples "
-          f"({sum(1 for d in datapoints if d['target_response'] == 'will_terminate')} pos, "
-          f"{sum(1 for d in datapoints if d['target_response'] == 'will_continue')} neg)")
+          f"({sum(1 for d in datapoints if d['target_response'].startswith('will_terminate'))} pos, "
+          f"{sum(1 for d in datapoints if d['target_response'].startswith('will_continue'))} neg)")
     return datapoints[:num_examples]

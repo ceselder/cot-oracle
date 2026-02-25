@@ -32,7 +32,6 @@ TASKS = [
     ("full_recon",       "dataset_classes.cot_rollout_multilayer",      "load_cot_rollout_multilayer",          "main",    40000),
     ("next_step",        "dataset_classes.cot_next_step",               "load_cot_next_step_data",              "main",    30000),
     ("answer_pred",      "dataset_classes.cot_answer_prediction",       "load_cot_answer_prediction_data",      "main",    20000),
-    ("partial_answer",   "dataset_classes.cot_partial_answer",          "load_cot_partial_answer_data",         "main",    20000),
     ("load_bearing",     "dataset_classes.cot_load_bearing",            "load_cot_load_bearing_data",           "main",    15000),
     ("correctness",      "dataset_classes.cot_correctness",             "load_cot_correctness_data",            "main",    15000),
     ("decorative",       "dataset_classes.cot_decorative",              "load_cot_decorative_data",             "main",    15000),
@@ -131,7 +130,6 @@ def main():
     parser.add_argument("--full-recon-n", type=int, default=None)
     parser.add_argument("--next-step-n", type=int, default=None)
     parser.add_argument("--answer-pred-n", type=int, default=None)
-    parser.add_argument("--partial-answer-n", type=int, default=None)
     parser.add_argument("--load-bearing-n", type=int, default=None)
     parser.add_argument("--correctness-n", type=int, default=None)
     parser.add_argument("--decorative-n", type=int, default=None)
@@ -154,7 +152,6 @@ def main():
         "full_recon": args.full_recon_n,
         "next_step": args.next_step_n,
         "answer_pred": args.answer_pred_n,
-        "partial_answer": args.partial_answer_n,
         "load_bearing": args.load_bearing_n,
         "correctness": args.correctness_n,
         "decorative": args.decorative_n,

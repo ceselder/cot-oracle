@@ -94,7 +94,7 @@ def load_baseline_inputs(
     tokenizer,
     *,
     layers: list[int],
-    stride: int = 5,
+    stride: int,
     device: str = "cuda",
     eval_dir: Path | None = None,
     generation_adapter_name: str | None = None,

@@ -127,7 +127,7 @@ def get_cot_punctuation_positions(
 def get_cot_stride_positions(
     prompt_token_count: int,
     total_token_count: int,
-    stride: int = 5,
+    stride: int,
     include_last: bool = True,
 ) -> list[int]:
     """Get fixed-stride positions over the CoT token region.

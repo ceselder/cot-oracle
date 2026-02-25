@@ -20,10 +20,6 @@ tasks:
     n: 20000
     description: "Predict final answer from partial CoT"
 
-  partial_answer:
-    n: 20000
-    description: "What would the model answer if stopped at X%? (vLLM targets)"
-
   answer_trajectory:
     n: 20000
     description: "What does the model currently think the answer is? (per-sentence, precompute-only)"

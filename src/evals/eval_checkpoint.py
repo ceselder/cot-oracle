@@ -95,6 +95,7 @@ def run_single_eval_item(model, tokenizer, item, act_layer, model_name, device="
             cot_text=test_response,
             act_layer=act_layer,
             device=device,
+            stride=5,
             max_boundaries=10,
             generation_adapter_name=None,
         )

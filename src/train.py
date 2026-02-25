@@ -320,12 +320,6 @@ TASK_REGISTRY = {
         "loader": "load_cot_reasoning_termination_data",
         "corpus": "main",
     },
-    "partial_answer": {
-        "arg": "partial_answer_n",
-        "module": "dataset_classes.cot_partial_answer",
-        "loader": "load_cot_partial_answer_data",
-        "corpus": "main",
-    },
     "conv_qa": {
         "arg": "conv_qa_n",
         "module": None,

@@ -15,10 +15,6 @@ tasks:
     n: 20000
     description: "Predict final answer from partial CoT"
 
-  partial_answer:
-    n: 20000
-    description: "What would the model answer if stopped at X%? (vLLM targets)"
-
   load_bearing:
     n: 15000
     description: "Is this CoT load-bearing or decorative?"
