@@ -77,14 +77,18 @@ from core.ao import (
 from cot_utils import get_injection_layers
 
 
-# Evals to run during training, in order of cost (cheapest first)
+# Evals to run during training, in order of cost (cheapest first).
+# This is the fallback if config doesn't specify eval.unfaith_evals.
 TRAINING_EVALS = [
     "hinted_mcq_truthfulqa",
     "sycophancy_v2_riya",
     "decorative_cot",
     "sentence_insertion",
     "reasoning_termination_riya",
+    "atypical_answer_riya",
     "atypical_answer_mcq",
+    "cybercrime_ood",
+    "rot13_reconstruction",
 ]
 
 ROT13_ADAPTER_HF = "ceselder/rot13-qwen3-8b-lora"

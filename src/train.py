@@ -1175,8 +1175,9 @@ def apply_config(args, config: dict):
                 if key in {"rot13_start_step", "eval_steps", "save_steps"}:
                     val = int(val)
                 setattr(args, key, val)
-        if "evals" in e and not getattr(args, "_cli_evals", False):
-            raw_evals = e["evals"]
+        evals_key = "unfaith_evals" if "unfaith_evals" in e else "evals"
+        if evals_key in e and not getattr(args, "_cli_evals", False):
+            raw_evals = e[evals_key]
             eval_names = []
             eval_baselines = {}
             for entry in raw_evals:
