@@ -408,7 +408,6 @@ def _live_load_task(task_name: str, info: dict, n: int, args, tokenizer) -> list
         return loader_fn(
             atypical_path, tokenizer, args.model,
             num_examples=n, stride=args.stride,
-            max_positions_per_layer=getattr(args, "max_positions_per_layer", None),
             atypical_data_path=atypical_path,
         )
     elif info["corpus"] == "compqa":
@@ -416,7 +415,6 @@ def _live_load_task(task_name: str, info: dict, n: int, args, tokenizer) -> list
         return loader_fn(
             compqa_cache, tokenizer, args.model,
             num_examples=n, stride=args.stride,
-            max_positions_per_layer=getattr(args, "max_positions_per_layer", None),
         )
     elif info["corpus"] == "hint_admission":
         hint_path = getattr(args, "hint_admission_data_path",
@@ -424,14 +422,12 @@ def _live_load_task(task_name: str, info: dict, n: int, args, tokenizer) -> list
         return loader_fn(
             hint_path, tokenizer, args.model,
             num_examples=n, stride=args.stride,
-            max_positions_per_layer=getattr(args, "max_positions_per_layer", None),
             hint_admission_data_path=hint_path,
         )
     else:
         return loader_fn(
             args.corpus, tokenizer, args.model,
             num_examples=n, stride=args.stride,
-            max_positions_per_layer=getattr(args, "max_positions_per_layer", None),
         )
 
 
@@ -999,7 +995,7 @@ def train(
             prev_dominant_task = dominant_task
 
             # Task-level eval (rank 0 only)
-            if global_step > 0 and global_step % args.eval_steps == 0:
+            if global_step % args.eval_steps == 0:
                 if rank == 0:
                     print(f"\n--- Task eval at step {global_step} ---")
                     eval_start = time.time()
@@ -1014,7 +1010,7 @@ def train(
                     dist.barrier()
 
             # Unfaithfulness eval (rank 0 only)
-            if global_step > 0 and global_step % args.eval_steps == 0:
+            if global_step % args.eval_steps == 0:
                 if rank == 0:
                     eval_start = time.time()
                     run_unfaith_evals(model, tokenizer, args.model, global_step, args, log_dir=log_dir)
