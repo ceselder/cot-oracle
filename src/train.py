@@ -890,11 +890,12 @@ def train(
 
             batch = construct_batch(batch_list, tokenizer, device)
 
-            outputs = train_features_batch(
-                batch, ddp_model, submodule,
-                args.steering_coefficient, device, dtype,
-            )
-            loss = outputs.loss / grad_accum
+            with torch.autocast(device_type="cuda", dtype=dtype):
+                outputs = train_features_batch(
+                    batch, ddp_model, submodule,
+                    args.steering_coefficient, device, dtype,
+                )
+                loss = outputs.loss / grad_accum
             loss.backward()
 
             # Per-task loss (use unscaled loss for logging)
@@ -999,10 +1000,14 @@ def train(
             # Unfaithfulness eval (rank 0 only)
             if global_step > 0 and global_step % args.eval_steps == 0:
                 if rank == 0:
+                    gc.collect()
+                    torch.cuda.empty_cache()
                     eval_start = time.time()
                     run_unfaith_evals(model, tokenizer, args.model, global_step, args, log_dir=log_dir)
                     eval_time_total += time.time() - eval_start
                     model.train()
+                    gc.collect()
+                    torch.cuda.empty_cache()
                 if world_size > 1:
                     dist.barrier()
 
@@ -1311,7 +1316,7 @@ def main():
             print(f"Resuming from checkpoint: {args.resume_from}")
         model = PeftModel.from_pretrained(
             base_model, args.resume_from,
-            is_trainable=True,
+            is_trainable=True, autocast_adapter_dtype=False,
         )
         state_path = Path(args.resume_from) / "training_state.pt"
         if state_path.exists():
@@ -1327,14 +1332,19 @@ def main():
             r=64, lora_alpha=128, lora_dropout=0.05,
             target_modules="all-linear", bias="none", task_type="CAUSAL_LM",
         )
-        model = get_peft_model(base_model, lora_config, autocast_adapter_dtype=True)
+        model = get_peft_model(base_model, lora_config, autocast_adapter_dtype=False)
     else:
         if rank == 0:
             print(f"Loading Adam's AO checkpoint: {args.ao_checkpoint}")
         model = PeftModel.from_pretrained(
             base_model, args.ao_checkpoint,
-            is_trainable=True,
+            is_trainable=True, autocast_adapter_dtype=False,
         )
+
+    # Ensure LoRA params are fp32 (optimizer states stay fp32; autocast handles forward pass)
+    for p in model.parameters():
+        if p.requires_grad:
+            p.data = p.data.float()
 
     if rank == 0:
         model.print_trainable_parameters()
