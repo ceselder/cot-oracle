@@ -32,7 +32,7 @@ from huggingface_hub import HfApi, create_repo
 PROJECT_ROOT = Path(__file__).parent.parent
 DATA_DIR = PROJECT_ROOT / "data" / "evals"
 
-COLLECTION_PREFIX = "japhba/cot-oracle-eval"
+COLLECTION_PREFIX = "mats-10-sprint-cs-jb/cot-oracle-eval"
 
 
 def flatten_item(eval_name: str, example_id: str, clean_prompt: str, test_prompt: str,
@@ -83,8 +83,8 @@ def build_faithfulness_dataset() -> list[dict]:
 
         clean_prompt = f"Problem: {prob['problem']}"
 
-        # Ground truth: top-3 chunk utterances ordered by importance (most important first)
-        correct_answer = "\n".join(chunks[idx] for idx in top_k)
+        # Ground truth: top-3 chunks with step numbers matching test_prompt
+        correct_answer = "\n".join(f"Step {idx+1}: {chunks[idx]}" for idx in top_k)
 
         items.append(flatten_item(
             eval_name="step_importance_thought_branches",
@@ -140,7 +140,7 @@ def build_offpolicy_dataset() -> list[dict]:
         )
 
         clean_prompt = f"Problem: {prob['problem']}"
-        correct_answer = "\n".join(chunks[idx] for idx in top_k)
+        correct_answer = "\n".join(f"Step {idx+1}: {chunks[idx]}" for idx in top_k)
 
         # Extract per-chunk labeled data if available
         chunks_labeled = prob.get("chunks_labeled", [])
@@ -225,8 +225,26 @@ def save_and_upload(items: list[dict], repo_suffix: str, dry_run: bool):
 
     # Description varies per eval
     descriptions = {
-        "step_importance_thought_branches": "Causal step importance identification from thought-branches authority bias CoTs. Source: thought-branches.",
-        "step_importance_thought_anchors": "Causal step importance identification from off-policy deepseek MATH rollouts. Source: uzaymacar/math-rollouts.",
+        "step_importance_thought_branches": (
+            "Causal step importance identification from thought-branches authority bias CoTs.\n\n"
+            "**Importance metric: KL suppression** — measures the KL divergence of the answer distribution "
+            "when attention to a given sentence is suppressed. This is an attention-based proxy for causal "
+            "importance, NOT the importance++ (counterfactual++) metric from the Thought Branches paper. "
+            "Importance++ requires resilience analysis (multi-round resampling) and is only computed for "
+            "the whistleblower/blackmail scenarios in the original paper.\n\n"
+            "Source: [thought-branches](https://arxiv.org/abs/2510.27484) faithfulness/authority bias experiments. "
+            "Model: gemini-2.0-flash-thinking-exp-01-21."
+        ),
+        "step_importance_thought_anchors": (
+            "Causal step importance identification from off-policy DeepSeek MATH rollouts.\n\n"
+            "**Importance metric: resampling KL divergence** (`resampling_importance_kl`) — measures the KL "
+            "divergence of the answer distribution when a chunk is removed and the continuation is resampled "
+            "(~100 rollouts per chunk). This is the standard counterfactual importance metric from the Thought "
+            "Anchors paper, NOT importance++.\n\n"
+            "Source: [uzaymacar/math-rollouts](https://huggingface.co/datasets/uzaymacar/math-rollouts) "
+            "([Thought Anchors, Bogdan et al. 2025](https://arxiv.org/abs/2506.19143)). "
+            "Model: deepseek-r1-distill-qwen-14b / deepseek-r1-distill-llama-8b."
+        ),
     }
     description = descriptions.get(eval_name, f"Step importance eval: {eval_name}.")
 
@@ -236,7 +254,7 @@ def save_and_upload(items: list[dict], repo_suffix: str, dry_run: bool):
         "| `example_id` | Unique identifier |\n"
         "| `clean_prompt` | Problem statement only |\n"
         "| `test_prompt` | Problem + numbered CoT + final answer |\n"
-        "| `correct_answer` | Top-3 most important chunk utterances, newline-separated, ordered by causal importance |\n"
+        "| `correct_answer` | Top-3 most important chunks as `Step N: <text>`, newline-separated, ordered by causal importance |\n"
         "| `nudge_answer` | Cue answer if authority bias present, else null |\n"
     ).format(eval_name=eval_name)
     for col in meta_cols:
@@ -306,12 +324,12 @@ def main():
     if "thought-branches" in args.datasets:
         print("Building thought-branches dataset...")
         faith_items = build_faithfulness_dataset()
-        save_and_upload(faith_items, "step-importance-thought-branches", args.dry_run)
+        save_and_upload(faith_items, "thought-branches", args.dry_run)
 
     if "thought-anchors" in args.datasets:
         print("Building thought-anchors dataset...")
         offpol_items = build_offpolicy_dataset()
-        save_and_upload(offpol_items, "step-importance-thought-anchors", args.dry_run)
+        save_and_upload(offpol_items, "thought-anchors", args.dry_run)
 
     print("\nDone!")
 
