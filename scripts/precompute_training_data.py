@@ -45,7 +45,7 @@ TASKS = [
 def precompute_task(task_name, module_path, loader_name, corpus_type,
                     num_examples, tokenizer, model_name,
                     main_corpus, concept_corpus, cotqa_path,
-                    output_dir, stride=5, max_positions_per_layer=20):
+                    output_dir, stride=5):
     """Run a single task loader and save to JSONL."""
     import importlib
 
@@ -63,14 +63,12 @@ def precompute_task(task_name, module_path, loader_name, corpus_type,
             concept_corpus, cotqa_path, tokenizer, model_name,
             num_examples=num_examples,
             stride=stride,
-            max_positions_per_layer=max_positions_per_layer,
         )
     else:
         data = loader_fn(
             main_corpus, tokenizer, model_name,
             num_examples=num_examples,
             stride=stride,
-            max_positions_per_layer=max_positions_per_layer,
         )
 
     elapsed = time.time() - t0
@@ -102,7 +100,6 @@ def main():
     parser.add_argument("--cotqa-path", default="data/concept_corpus/corpus_full_conv_qa_llm.jsonl")
     parser.add_argument("--output-dir", default="data/precomputed")
     parser.add_argument("--stride", type=int, default=5)
-    parser.add_argument("--max-positions-per-layer", type=int, default=20)
     parser.add_argument("--tasks", nargs="*", default=None,
                         help="Only precompute these tasks (default: all)")
     # Per-task overrides
@@ -156,7 +153,7 @@ def main():
                 task_name, module_path, loader_name, corpus_type,
                 n, tokenizer, args.model,
                 args.corpus, args.concept_corpus, args.cotqa_path,
-                output_dir, args.stride, args.max_positions_per_layer,
+                output_dir, args.stride,
             )
             manifest["tasks"].append(info)
             total_examples += info["count"]

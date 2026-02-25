@@ -37,8 +37,6 @@ from cot_utils import get_cot_stride_positions
 
 PLACEHOLDER_TOKEN = " ¶"
 STRIDE = 5
-MAX_POSITIONS = 60  # Cap per entry to keep prompts manageable
-
 CANNOT_DETERMINE = "Cannot determine from these activations."
 
 
@@ -341,7 +339,6 @@ def _compute_stride_positions(
     question: str,
     cot_response: str,
     stride: int = STRIDE,
-    max_positions: int = MAX_POSITIONS,
 ) -> list[int]:
     """Compute 5-token stride positions over the CoT region."""
     messages = [{"role": "user", "content": question}]
@@ -361,7 +358,6 @@ def _compute_stride_positions(
         prompt_token_count=prompt_len,
         total_token_count=len(full_ids),
         stride=stride,
-        max_positions=max_positions,
     )
 
 
@@ -722,7 +718,6 @@ The objective is broad prompt phrasing with high-precision answers.
 ## Activation Format
 - **Placeholder token:** `{PLACEHOLDER_TOKEN}` (Qwen3-8B token ID 78846)
 - **Stride:** Every {STRIDE} tokens over the CoT region
-- **Max positions:** {MAX_POSITIONS} per entry
 - Each prompt's `num_positions` field indicates how many `{PLACEHOLDER_TOKEN}` tokens to inject
 
 ## Data Sources

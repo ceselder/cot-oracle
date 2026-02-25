@@ -23,7 +23,6 @@ def load_cot_reasoning_termination_data(
     model_name: str,
     num_examples: int = 15000,
     stride: int = 5,
-    max_positions_per_layer: int = 20,
     n_prompt_positions: int = 5,
     seed: int = 42,
     **_kwargs,
@@ -139,7 +138,6 @@ def load_cot_reasoning_termination_data(
         positions = get_cot_stride_positions(
             t["prompt_len"], trunc_pos,
             stride=stride,
-            max_positions=max_positions_per_layer,
         )
         if len(positions) < 2:
             continue

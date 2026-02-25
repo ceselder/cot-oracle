@@ -59,7 +59,6 @@ training:
 # Activation extraction
 activations:
   stride: 5
-  max_positions_per_layer: 20
   n_prompt_positions: 5
   position_encoding: false
   pe_alpha: 0.1
@@ -86,7 +85,7 @@ model:
 
 # Output
 output:
-  save_dir: checkpoints/v6-curriculum
+  save_dir: checkpoints/curriculum
   wandb_project: cot_oracle
   wandb_entity: MATS10-CS-JB
   wandb_run: null

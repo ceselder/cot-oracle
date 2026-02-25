@@ -25,7 +25,6 @@ def load_cot_next_step_data(
     model_name: str,
     num_examples: int = 60000,
     stride: int = 5,
-    max_positions_per_layer: int = 20,
     predict_tokens: int = 50,
     n_prompt_positions: int = 5,
     seed: int = 42,
@@ -99,7 +98,6 @@ def load_cot_next_step_data(
         all_positions = get_cot_stride_positions(
             prompt_len, len(full_ids),
             stride=stride,
-            max_positions=max_positions_per_layer,
         )
         if len(all_positions) < 3:
             continue

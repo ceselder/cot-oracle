@@ -23,7 +23,6 @@ def load_cot_rollout_multilayer(
     model_name: str,
     num_examples: int = 20000,
     stride: int = 5,
-    max_positions_per_layer: int = 20,
     max_target_tokens: int = 200,
     seed: int = 42,
 ) -> list[dict]:
@@ -91,7 +90,6 @@ def load_cot_rollout_multilayer(
         positions = get_cot_stride_positions(
             prompt_len, len(full_ids),
             stride=stride,
-            max_positions=max_positions_per_layer,
         )
         if len(positions) < 2:
             continue

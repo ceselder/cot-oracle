@@ -17,8 +17,8 @@ Usage:
     # Train specific tasks only:
     python src/train.py --config configs/train.yaml --full-recon-n 40000 --correctness-n 15000 --conv-qa-n 0
 
-    # Resume from checkpoint:
-    python src/train.py --config configs/train.yaml --resume-from checkpoints/step_5000 --start-step 5000
+    # Resume from checkpoint (step auto-detected from training_state.pt):
+    python src/train.py --config configs/train.yaml --resume-from checkpoints/step_5000
 """
 
 import argparse
@@ -427,14 +427,12 @@ def load_all_tasks(args, tokenizer) -> list[dict]:
                     concept_corpus, str(cotqa_path), tokenizer, args.model,
                     num_examples=n,
                     stride=args.stride,
-                    max_positions_per_layer=args.max_positions_per_layer,
                 )
             else:
                 data = loader_fn(
                     args.corpus, tokenizer, args.model,
                     num_examples=n,
                     stride=args.stride,
-                    max_positions_per_layer=args.max_positions_per_layer,
                 )
 
             all_data.extend(data)
@@ -488,6 +486,22 @@ def _save_table_to_disk(log_dir: Path, name: str, global_step: int, columns: lis
     path = log_dir / f"{name}_step{global_step}.json"
     with open(path, "w") as f:
         json.dump({"step": global_step, "name": name, "n": len(records), "rows": records}, f, indent=2, default=str)
+
+
+def _save_training_state(save_path: Path, global_step, optimizer, scheduler):
+    """Save optimizer/scheduler/RNG state for resume."""
+    import wandb
+    state = {
+        "global_step": global_step,
+        "optimizer_state_dict": optimizer.state_dict(),
+        "scheduler_state_dict": scheduler.state_dict(),
+        "torch_rng_state": torch.random.get_rng_state(),
+        "cuda_rng_state": torch.cuda.get_rng_state(),
+        "random_state": random.getstate(),
+        "wandb_run_id": wandb.run.id if wandb.run else None,
+        "wandb_run_name": wandb.run.name if wandb.run else None,
+    }
+    torch.save(state, save_path / "training_state.pt")
 
 
 def run_eval(
@@ -563,7 +577,7 @@ def run_unfaith_evals(model, tokenizer, model_name, global_step, args, log_dir=N
             model, tokenizer, model_name=model_name,
             step=global_step, device="cuda",
             eval_dir=args.eval_dir,
-            max_items_per_eval=args.unfaith_eval_items,
+            max_items_per_eval=20,
             skip_rot13=(global_step < args.rot13_start_step),
             oracle_adapter_name="default",
             activation_cache_dir=args.activation_cache_dir,
@@ -683,13 +697,13 @@ def train(
     total_steps = (num_batches // grad_accum) * args.epochs
     warmup_steps = int(total_steps * args.warmup_fraction)
 
-    # Dynamic eval/save cadence: 3-50x per stage
+    # Dynamic eval/save cadence: 3-20x per stage, save at 1/5 eval frequency
     if task_order == "sequential":
         min_stage_steps = min(len(items) // args.batch_size for items in train_per_type.values() if len(items) >= args.batch_size)
     else:
         min_stage_steps = total_steps
-    args.eval_steps = min(min_stage_steps // 3, max(-(-min_stage_steps // 50), 1))
-    args.save_steps = min(min_stage_steps // 3, max(-(-min_stage_steps // 50), 1))
+    args.eval_steps = min(min_stage_steps // 3, max(-(-min_stage_steps // 20), 1))
+    args.save_steps = args.eval_steps * 5
     if rank == 0:
         print(f"\n  Stage-relative cadence (min stage = {min_stage_steps} steps):")
         print(f"    eval_steps: {args.eval_steps} (~{min_stage_steps // max(args.eval_steps, 1)}x per min stage)")
@@ -699,6 +713,31 @@ def train(
     scheduler = get_linear_schedule_with_warmup(
         optimizer, num_warmup_steps=warmup_steps, num_training_steps=total_steps,
     )
+
+    # Restore optimizer/scheduler/RNG from checkpoint if resuming
+    if args.resume_from:
+        state_path = Path(args.resume_from) / "training_state.pt"
+        if state_path.exists():
+            state = torch.load(state_path, map_location="cpu", weights_only=False)
+            optimizer.load_state_dict(state["optimizer_state_dict"])
+            scheduler.load_state_dict(state["scheduler_state_dict"])
+            torch.random.set_rng_state(state["torch_rng_state"])
+            torch.cuda.set_rng_state(state["cuda_rng_state"].cpu())
+            random.setstate(state["random_state"])
+            if rank == 0:
+                print(f"  Restored optimizer/scheduler/RNG from {state_path}")
+        elif rank == 0:
+            print(f"  Warning: no training_state.pt in {args.resume_from}, optimizer starts fresh")
+
+    # Skip already-processed data on resume
+    if global_step > 0:
+        skip_items = global_step * args.batch_size * grad_accum
+        if skip_items < len(final_training):
+            final_training = final_training[skip_items:]
+            if rank == 0:
+                print(f"  Resume: skipped {skip_items} items, {len(final_training)} remaining")
+        elif rank == 0:
+            print(f"  Warning: resume step {global_step} exceeds data ({skip_items} >= {len(final_training)})")
 
     # Task index mapping for wandb (so we can plot which task is active)
     all_task_types = sorted(type_counts.keys())
@@ -842,6 +881,7 @@ def train(
                 print(f"\n  Phase transition: {prev_dominant_task} -> {dominant_task}")
                 print(f"  Saving phase checkpoint to {ckpt_path}")
                 model.save_pretrained(str(ckpt_path))
+                _save_training_state(ckpt_path, global_step, optimizer, scheduler)
             if world_size > 1 and task_order == "sequential" and prev_dominant_task is not None and dominant_task != prev_dominant_task:
                 dist.barrier()
             prev_dominant_task = dominant_task
@@ -865,7 +905,7 @@ def train(
                     dist.barrier()
 
             # Unfaithfulness eval (rank 0 only)
-            if global_step > 0 and global_step % args.unfaith_eval_steps == 0:
+            if global_step > 0 and global_step % args.eval_steps == 0:
                 if rank == 0:
                     eval_start = time.time()
                     run_unfaith_evals(model, tokenizer, args.model, global_step, args, log_dir=log_dir)
@@ -880,6 +920,7 @@ def train(
                     ckpt_path = save_dir / f"step_{global_step}"
                     print(f"  Saving checkpoint to {ckpt_path}")
                     model.save_pretrained(str(ckpt_path))
+                    _save_training_state(ckpt_path, global_step, optimizer, scheduler)
                 if world_size > 1:
                     dist.barrier()
 
@@ -903,6 +944,7 @@ def train(
         final_path = save_dir / "final"
         print(f"  Saving final checkpoint to {final_path}")
         model.save_pretrained(str(final_path))
+        _save_training_state(final_path, global_step, optimizer, scheduler)
 
     if world_size > 1:
         dist.barrier()
@@ -947,15 +989,14 @@ def apply_config(args, config: dict):
     # Activations
     if "activations" in config:
         a = config["activations"]
-        for key in ["stride", "max_positions_per_layer", "position_encoding", "pe_alpha"]:
+        for key in ["stride", "position_encoding", "pe_alpha"]:
             if key in a and not getattr(args, f"_cli_{key}", False):
                 setattr(args, key, a[key])
 
     # Eval
     if "eval" in config:
         e = config["eval"]
-        for key in ["eval_steps", "save_steps", "unfaith_eval_steps", "unfaith_eval_items",
-                     "eval_dir", "rot13_start_step"]:
+        for key in ["eval_dir", "rot13_start_step"]:
             if key in e and not getattr(args, f"_cli_{key}", False):
                 setattr(args, key, e[key])
 
@@ -1043,7 +1084,6 @@ def main():
     parser.add_argument("--eval-batch-size", type=int, default=2)
     parser.add_argument("--epochs", type=int, default=1)
     parser.add_argument("--stride", type=int, default=5)
-    parser.add_argument("--max-positions-per-layer", type=int, default=20)
     parser.add_argument("--steering-coefficient", type=float, default=1.0)
     parser.add_argument("--max-grad-norm", type=float, default=1.0)
     parser.add_argument("--warmup-fraction", type=float, default=0.1)
@@ -1061,10 +1101,6 @@ def main():
                         help="Number of micro-batches per optimizer step")
 
     # Eval / save
-    parser.add_argument("--eval-steps", type=int, default=500)
-    parser.add_argument("--save-steps", type=int, default=2000)
-    parser.add_argument("--unfaith-eval-steps", type=int, default=500)
-    parser.add_argument("--unfaith-eval-items", type=int, default=20)
     parser.add_argument("--rot13-start-step", type=int, default=2000)
     parser.add_argument("--start-step", type=int, default=0,
                         help="Starting global step (for resuming)")
@@ -1073,7 +1109,7 @@ def main():
                         help="Dir with precomputed activation bundles (.pt)")
 
     # Output
-    parser.add_argument("--save-dir", default="checkpoints/v6")
+    parser.add_argument("--save-dir", default="checkpoints")
     parser.add_argument("--wandb-project", default="cot_oracle")
     parser.add_argument("--wandb-entity", default="MATS10-CS-JB",
                         help="Wandb entity (team/org)")
@@ -1157,6 +1193,8 @@ def main():
     # Get hook submodule BEFORE LoRA
     submodule = get_hf_submodule(base_model, 1)
 
+    # Resume state (loaded before wandb init so we can reuse the run ID)
+    _resume_state = None
     if args.resume_from:
         if rank == 0:
             print(f"Resuming from checkpoint: {args.resume_from}")
@@ -1164,6 +1202,13 @@ def main():
             base_model, args.resume_from,
             is_trainable=True,
         )
+        state_path = Path(args.resume_from) / "training_state.pt"
+        if state_path.exists():
+            _resume_state = torch.load(state_path, map_location="cpu", weights_only=False)
+            if not getattr(args, "_cli_start_step", False):
+                args.start_step = _resume_state["global_step"]
+            if rank == 0:
+                print(f"  Loaded training_state.pt: step={_resume_state['global_step']}, wandb_id={_resume_state.get('wandb_run_id')}")
     elif args.fresh_lora:
         if rank == 0:
             print("Starting with FRESH LoRA")
@@ -1225,13 +1270,22 @@ def main():
             if n > 0:
                 enabled_tasks.append(task_name)
 
-        run_name = args.wandb_run or f"v6-{len(raw_data)//1000}k-{len(enabled_tasks)}tasks"
+        run_name = args.wandb_run or "cot-oracle"
         wandb_config = {k: v for k, v in vars(args).items() if not k.startswith("_cli_")}
         wandb_config["world_size"] = world_size
+
+        # Resume wandb run if we have a saved run ID from checkpoint
+        resume_id = _resume_state.get("wandb_run_id") if _resume_state else None
+        if resume_id:
+            run_name = _resume_state.get("wandb_run_name") or run_name
+            print(f"  Resuming wandb run: id={resume_id}, name={run_name}")
+
         wandb.init(
             project=args.wandb_project,
             entity=args.wandb_entity,
             name=run_name,
+            id=resume_id,
+            resume="allow" if resume_id else None,
             config=wandb_config,
             tags=[args.model.split("/")[-1]] + enabled_tasks,
         )

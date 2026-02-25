@@ -55,7 +55,6 @@ def main():
     parser.add_argument("--output", default="data/precomputed/partial_answer.jsonl")
     parser.add_argument("--num-examples", type=int, default=20000)
     parser.add_argument("--stride", type=int, default=5)
-    parser.add_argument("--max-positions-per-layer", type=int, default=20)
     parser.add_argument("--n-prompt-positions", type=int, default=5)
     parser.add_argument("--max-answer-tokens", type=int, default=100)
     parser.add_argument("--batch-size", type=int, default=256,
@@ -156,7 +155,6 @@ def main():
         positions = get_cot_stride_positions(
             t["prompt_len"], trunc_pos,
             stride=args.stride,
-            max_positions=args.max_positions_per_layer,
         )
         if len(positions) < 2:
             continue

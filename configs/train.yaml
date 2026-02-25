@@ -62,17 +62,12 @@ training:
 # Activation extraction
 activations:
   stride: 5
-  max_positions_per_layer: 20
   n_prompt_positions: 5
   position_encoding: false   # sinusoidal PE for activation vectors
   pe_alpha: 0.1              # PE mixing coefficient (only used if position_encoding: true)
 
 # Eval
 eval:
-  eval_steps: 500
-  save_steps: 2000
-  unfaith_eval_steps: 500
-  unfaith_eval_items: 20
   eval_dir: data/evals
   rot13_start_step: 2000
 
@@ -90,9 +85,56 @@ model:
   ao_checkpoint: adamkarvonen/checkpoints_latentqa_cls_past_lens_addition_Qwen3-8B
   fresh_lora: false
 
+# Baselines
+baselines:
+  output_dir: data/baseline_results
+  log_dir: logs/baselines
+
+  evals:
+    - hinted_mcq
+    - sycophancy_v2_riya
+    - decorative_cot
+    - reasoning_termination_riya
+    - rot13_reconstruction
+    - thought_anchors
+    - thought_branches
+
+  stride: 5
+
+  linear_probe:
+    layers: [9, 18, 27]       # also runs concat of all 3
+    k_folds: 5
+    lr: 0.01
+    epochs: 100
+    weight_decay: 0.0001
+
+  attention_probe:
+    n_layers: 36               # all layers
+    k_folds: 5
+    n_heads: 4
+    hidden_dim: 256
+    lr: 0.001
+    epochs: 50
+    patience: 10
+
+  original_ao:
+    checkpoint: adamkarvonen/checkpoints_latentqa_cls_past_lens_addition_Qwen3-8B
+
+  llm_monitor:
+    model: google/gemini-3-flash
+    api_base: https://openrouter.ai/api/v1
+    max_tokens: 300
+    temperature: 0.0
+
+  patchscopes:
+    source_layers: [9, 18, 27]
+    injection_layer: 1
+    steering_coefficient: 1.0
+    max_new_tokens: 100
+
 # Output
 output:
-  save_dir: checkpoints/v6
+  save_dir: checkpoints
   wandb_project: cot_oracle
   wandb_entity: MATS10-CS-JB
   wandb_run: null  # auto-generated if null

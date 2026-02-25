@@ -70,7 +70,6 @@ def get_cot_stride_positions(
     prompt_token_count: int,
     total_token_count: int,
     stride: int = 5,
-    max_positions: int | None = None,
     include_last: bool = True,
 ) -> list[int]:
     """Get fixed-stride positions over the CoT token region.
@@ -96,9 +95,6 @@ def get_cot_stride_positions(
             deduped.append(pos)
             seen.add(pos)
     positions = deduped
-
-    if max_positions is not None and len(positions) > max_positions:
-        positions = positions[:max_positions]
 
     if len(positions) < 2:
         return [cot_start, cot_end]
