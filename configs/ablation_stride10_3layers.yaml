@@ -1,0 +1,13 @@
+# Ablation: stride=10, 3 layers (sparser temporal sampling)
+# Inherits everything from train.yaml except overrides below
+
+activations:
+  stride: 10
+
+training:
+  batch_size: 4
+  effective_batch_size: 16   # grad_accum=4
+  eval_batch_size: 2
+
+output:
+  wandb_run: ablation-stride10-3layers
