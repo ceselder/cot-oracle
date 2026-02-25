@@ -1169,7 +1169,7 @@ def run_training_evals(
                 if binary_metrics:
                     acc_key = f"eval/{eval_name}_acc"
                     if acc_key in binary_metrics:
-                        print(f"    {eval_name}: acc={binary_metrics[acc_key]:.3f} (n={binary_metrics.get(f'eval_ood/{eval_name}_n', 0)})")
+                        print(f"    {eval_name}: acc={binary_metrics[acc_key]:.3f} (n={binary_metrics.get(f'eval/{eval_name}_n', 0)})")
 
             # Log a sample oracle response for qualitative inspection
             for c in completed:
@@ -1216,7 +1216,7 @@ def run_training_evals(
     acc_keys = [k for k in all_metrics if k.endswith("_acc")]
     if acc_keys:
         acc_values = [all_metrics[k] for k in acc_keys]
-        all_metrics["eval_ood/mean_acc"] = sum(acc_values) / len(acc_values)
+        all_metrics["eval/mean_acc"] = sum(acc_values) / len(acc_values)
 
     # Restore training state
     if was_training:
