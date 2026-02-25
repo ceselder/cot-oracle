@@ -404,7 +404,7 @@ def determine_ground_truth(
         return "indeterminate"
 
     # Counterfactual influence evals: compare clean vs test answers
-    if item.eval_name in ("hinted_mcq", "hinted_mcq_truthfulqa", "sycophancy"):
+    if item.eval_name in ("hinted_mcq", "hinted_mcq_truthfulqa"):
         if test_answer is None or clean_answer is None:
             return "indeterminate"
 
@@ -439,7 +439,7 @@ def determine_ground_truth(
     elif item.eval_name == "forced_answer_entropy_riya":
         return "pending_entropy_regression"
 
-    elif item.eval_name == "atypical_answer_riya":
+    elif item.eval_name in ("atypical_answer_riya", "atypical_answer_mcq"):
         return item.correct_answer  # "majority" or "minority"
 
     elif item.eval_name == "cybercrime_ood":
@@ -599,9 +599,14 @@ def save_eval_items(items: list[EvalItem], path: Path) -> None:
         json.dump([item.to_dict() for item in items], f, indent=2)
 
 
-def load_eval_items(path: Path) -> list[EvalItem]:
+def load_eval_items(path: Path, split: str = "test") -> list[EvalItem]:
     with open(path) as f:
         data = json.load(f)
+    # Handle train/test split format: {"train": [...], "test": [...]}
+    if isinstance(data, dict) and split in data:
+        data = data[split]
+    elif isinstance(data, dict) and "test" in data:
+        data = data["test"]
     valid_fields = {f.name for f in EvalItem.__dataclass_fields__.values()}
     return [EvalItem(**{k: v for k, v in d.items() if k in valid_fields}) for d in data]
 
@@ -628,19 +633,21 @@ def list_hf_evals() -> list[str]:
         return []
 
 
-def load_eval_items_hf(eval_name: str, eval_dir: Path | None = None) -> list[EvalItem]:
+def load_eval_items_hf(eval_name: str, eval_dir: Path | None = None,
+                       split: str = "test") -> list[EvalItem]:
     """Load eval items from local JSON if available, otherwise pull from HuggingFace.
 
     Looks for: eval_dir/{eval_name}.json locally first.
     Falls back to: HF dataset {HF_EVAL_ORG}/cot-oracle-eval-{eval_name_dashed}
 
     Downloaded HF data is cached locally to eval_dir for subsequent loads.
+    For datasets with train/test splits, loads the requested split (default: test).
     """
     # Try local first
     if eval_dir:
         local_path = Path(eval_dir) / f"{eval_name}.json"
         if local_path.exists():
-            return load_eval_items(local_path)
+            return load_eval_items(local_path, split=split)
 
     # Pull from HuggingFace
     repo_id = f"{HF_EVAL_ORG}/cot-oracle-eval-{eval_name.replace('_', '-')}"
@@ -648,7 +655,11 @@ def load_eval_items_hf(eval_name: str, eval_dir: Path | None = None) -> list[Eva
 
     try:
         from datasets import load_dataset as _hf_load
-        ds = _hf_load(repo_id, split="train")
+        # Try requested split first, fall back to "train" for single-split datasets
+        try:
+            ds = _hf_load(repo_id, split=split)
+        except (ValueError, KeyError):
+            ds = _hf_load(repo_id, split="train")
     except Exception as e:
         raise FileNotFoundError(
             f"Eval {eval_name} not found locally or on HF ({repo_id}): {e}"

@@ -388,6 +388,14 @@ def _extract_all_activations(
     act_layer = layer_percent_to_layer(model_name, 50)
     print(f"  Loaded in {time.time()-t0:.1f}s, activation layer: {act_layer}")
 
+    # Load ROT13 adapter if any rot13 items need extraction
+    rot13_adapter_name = None
+    if "rot13_reconstruction" in all_items:
+        from core.ao import load_extra_adapter
+        rot13_adapter_name = load_extra_adapter(
+            model, ROT13_ADAPTER_HF, adapter_name="rot13"
+        )
+
     total_saved = 0
     total_failed = 0
     decorative_labels = {}
@@ -459,6 +467,9 @@ def _extract_all_activations(
                 continue
 
             # ── Extract activations (forward pass only) ──
+            # For rot13, activations must come from the ROT13 LoRA model
+            # (the model organism), not the base model.
+            act_adapter = rot13_adapter_name if eval_name == "rot13_reconstruction" else None
             try:
                 bundle = extract_activation_bundle(
                     model, tokenizer,
@@ -468,7 +479,7 @@ def _extract_all_activations(
                     cot_text=cot_for_acts,
                     act_layer=act_layer,
                     device=device,
-                    generation_adapter_name=None,  # always extract with base model
+                    generation_adapter_name=act_adapter,
                 )
             except Exception as e:
                 print(f"    [{eval_name}] Activation extraction failed for {eid}: {e}")

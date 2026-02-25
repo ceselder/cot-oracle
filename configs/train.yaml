@@ -18,17 +18,13 @@ tasks:
     n: 20000
     description: "What would the model answer if stopped at X%? (vLLM targets)"
 
-  load_bearing:
-    n: 15000
-    description: "Is this CoT load-bearing or decorative?"
-
   correctness:
     n: 15000
     description: "Did the model get the right answer?"
 
   decorative:
-    n: 15000
-    description: "Is the CoT decorative?"
+    n: 25000
+    description: "Is the CoT decorative or load-bearing?"
 
   domain:
     n: 0
@@ -43,8 +39,20 @@ tasks:
     description: "Answer conversational questions about the CoT"
 
   answer_trajectory:
-    n: 0
+    n: 20000
     description: "What does the model currently think the answer is? (per-sentence, precompute-only)"
+
+  atypical_answer:
+    n: 20000
+    description: "Is this a majority or minority answer? (from 25-rollout distributions)"
+
+  prompt_inversion:
+    n: 20000
+    description: "Reconstruct the original question/prompt from CoT activations"
+
+  compqa:
+    n: 8000
+    description: "Answer questions about CoT reasoning quality (10 types, Gemini GT)"
 
 # Training
 training:
@@ -56,7 +64,7 @@ training:
   max_grad_norm: 1.0
   steering_coefficient: 1.0
   gradient_checkpointing: true
-  task_order: sequential    # "sequential" (default, curriculum) or "shuffled" (interleaved)
+  task_order: shuffled    # "shuffled" (default) or "sequential" (train tasks one at a time)
   seed: 42
 
 # Activation extraction
@@ -70,6 +78,20 @@ activations:
 eval:
   eval_dir: data/evals
   rot13_start_step: 2000
+  # All unfaithfulness evals to run during training (pulled from HF)
+  unfaith_evals:
+    - hinted_mcq
+    - hinted_mcq_truthfulqa
+    - sycophancy_v2_riya
+    - decorative_cot
+    - sentence_insertion
+    - reasoning_termination_riya
+    - atypical_answer_riya
+    - atypical_answer_mcq
+    - cybercrime_ood
+    - forced_answer_entropy_riya
+    - rot13_reconstruction
+    - compqa
 
 # Data
 data:
@@ -78,6 +100,7 @@ data:
   concept_corpus: data/concept_corpus/corpus_full.jsonl
   cotqa_path: data/concept_corpus/corpus_full_conv_qa_llm.jsonl
   activation_cache_dir: data/eval_precomputed  # auto-populates on first eval run
+  atypical_data_path: data/atypical_answer_training.jsonl  # from precompute_atypical_training.py or HF
 
 # Model
 model:

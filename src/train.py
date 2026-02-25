@@ -283,12 +283,6 @@ TASK_REGISTRY = {
         "loader": "load_cot_answer_prediction_data",
         "corpus": "main",
     },
-    "load_bearing": {
-        "arg": "load_bearing_n",
-        "module": "dataset_classes.cot_load_bearing",
-        "loader": "load_cot_load_bearing_data",
-        "corpus": "main",
-    },
     "correctness": {
         "arg": "correctness_n",
         "module": "dataset_classes.cot_correctness",
@@ -330,6 +324,24 @@ TASK_REGISTRY = {
         "module": None,  # precompute-only (requires vLLM)
         "loader": None,
         "corpus": "main",
+    },
+    "atypical_answer": {
+        "arg": "atypical_answer_n",
+        "module": "dataset_classes.cot_atypical_answer",
+        "loader": "load_cot_atypical_answer_data",
+        "corpus": "atypical",  # loads from its own JSONL, not main corpus
+    },
+    "prompt_inversion": {
+        "arg": "prompt_inversion_n",
+        "module": "dataset_classes.cot_prompt_inversion",
+        "loader": "load_cot_prompt_inversion_data",
+        "corpus": "main",
+    },
+    "compqa": {
+        "arg": "compqa_n",
+        "module": "dataset_classes.cot_compqa",
+        "loader": "load_cot_compqa_data",
+        "corpus": "compqa",
     },
 }
 
@@ -425,6 +437,21 @@ def load_all_tasks(args, tokenizer) -> list[dict]:
                     continue
                 data = loader_fn(
                     concept_corpus, str(cotqa_path), tokenizer, args.model,
+                    num_examples=n,
+                    stride=args.stride,
+                )
+            elif info["corpus"] == "atypical":
+                atypical_path = args.atypical_data_path
+                data = loader_fn(
+                    atypical_path, tokenizer, args.model,
+                    num_examples=n,
+                    stride=args.stride,
+                    atypical_data_path=atypical_path,
+                )
+            elif info["corpus"] == "compqa":
+                compqa_cache = str(Path(getattr(args, "precomputed_dir", "data/precomputed")) / "compqa_raw.json")
+                data = loader_fn(
+                    compqa_cache, tokenizer, args.model,
                     num_examples=n,
                     stride=args.stride,
                 )
@@ -582,6 +609,7 @@ def run_unfaith_evals(model, tokenizer, model_name, global_step, args, log_dir=N
             oracle_adapter_name="default",
             activation_cache_dir=args.activation_cache_dir,
             log_dir=log_dir,
+            eval_names=getattr(args, "unfaith_evals", None),
         )
         if metrics:
             wandb.log(metrics, step=global_step)
@@ -999,6 +1027,8 @@ def apply_config(args, config: dict):
         for key in ["eval_dir", "rot13_start_step"]:
             if key in e and not getattr(args, f"_cli_{key}", False):
                 setattr(args, key, e[key])
+        if "unfaith_evals" in e and not getattr(args, "_cli_unfaith_evals", False):
+            args.unfaith_evals = e["unfaith_evals"]
 
     # Data paths
     if "data" in config:
@@ -1013,6 +1043,8 @@ def apply_config(args, config: dict):
             args.cotqa_path = d["cotqa_path"]
         if "activation_cache_dir" in d and not getattr(args, "_cli_activation_cache_dir", False):
             args.activation_cache_dir = d["activation_cache_dir"]
+        if "atypical_data_path" in d and not getattr(args, "_cli_atypical_data_path", False):
+            args.atypical_data_path = d["atypical_data_path"]
 
     # Model
     if "model" in config:
@@ -1068,7 +1100,6 @@ def main():
     parser.add_argument("--full-recon-n", type=int, default=40000)
     parser.add_argument("--next-step-n", type=int, default=30000)
     parser.add_argument("--answer-pred-n", type=int, default=20000)
-    parser.add_argument("--load-bearing-n", type=int, default=15000)
     parser.add_argument("--correctness-n", type=int, default=15000)
     parser.add_argument("--decorative-n", type=int, default=15000)
     parser.add_argument("--domain-n", type=int, default=15000)
@@ -1077,6 +1108,12 @@ def main():
     parser.add_argument("--conv-qa-n", type=int, default=10000)
     parser.add_argument("--answer-trajectory-n", type=int, default=0,
                         help="Per-sentence answer trajectory (precompute-only)")
+    parser.add_argument("--atypical-answer-n", type=int, default=20000)
+    parser.add_argument("--prompt-inversion-n", type=int, default=0)
+    parser.add_argument("--compqa-n", type=int, default=0)
+    parser.add_argument("--atypical-data-path",
+                        default="data/atypical_answer_training.jsonl",
+                        help="Path to atypical answer JSONL (from precompute_atypical_training.py)")
 
     # Training hyperparams
     parser.add_argument("--lr", type=float, default=1e-5)
