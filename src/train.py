@@ -1240,7 +1240,7 @@ def main():
     if rank == 0:
         args.corpus = _resolve_hf_dataset(args.corpus)
         args.atypical_data_path = _resolve_hf_dataset(args.atypical_data_path)
-        if hasattr(args, "hint_admission_data_path"):
+        if hasattr(args, "hint_admission_data_path") and getattr(args, "hint_admission_n", 0) > 0:
             args.hint_admission_data_path = _resolve_hf_dataset(args.hint_admission_data_path)
 
     set_seed(args.seed)
