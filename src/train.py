@@ -813,7 +813,7 @@ def train(
     # In shuffled mode, respect the config values from YAML.
     if task_order == "sequential":
         min_stage_steps = min(len(items) // args.batch_size for items in train_per_type.values() if len(items) >= args.batch_size)
-        args.eval_steps = min(min_stage_steps // 3, max(-(-min_stage_steps // 20), 1))
+        args.eval_steps = min(min_stage_steps // 3, max(-(-min_stage_steps // 10), 1))
         args.save_steps = args.eval_steps * 5
         if rank == 0:
             print(f"\n  Stage-relative cadence (min stage = {min_stage_steps} steps):")
