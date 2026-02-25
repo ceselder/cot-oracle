@@ -1,0 +1,13 @@
+# Ablation: stride=5, 3 layers (control — same as base config)
+# Inherits everything from train.yaml except overrides below
+
+activations:
+  stride: 5
+
+training:
+  batch_size: 4              # H100 NVL OOMs at 16 on long sequences
+  effective_batch_size: 16   # grad_accum = 4 to compensate
+  eval_batch_size: 2         # H100 NVL needs smaller eval batches
+
+output:
+  wandb_run: ablation-stride5-3layers

@@ -123,8 +123,8 @@ def materialize_multilayer_steering_vectors(
     tokenizer,
     model,
 ) -> list[TrainingDataPoint]:
-    """Materialize steering vectors from 3 layers (25%, 50%, 75% depth)."""
-    N_LAYERS = 3
+    """Materialize steering vectors from MULTI_LAYERS (configurable via --n-layers)."""
+    N_LAYERS = len(MULTI_LAYERS)
 
     to_fill = [
         (i, dp) for i, dp in enumerate(batch_points) if dp.steering_vectors is None
@@ -134,12 +134,7 @@ def materialize_multilayer_steering_vectors(
 
     assert isinstance(model, PeftModel), "Model must be a PeftModel"
 
-    num_model_layers = model.config.num_hidden_layers
-    layers = [
-        int(num_model_layers * 0.25),
-        int(num_model_layers * 0.50),
-        int(num_model_layers * 0.75),
-    ]
+    layers = list(MULTI_LAYERS)
 
     for _, dp in to_fill:
         if dp.context_input_ids is None or dp.context_positions is None:
@@ -236,19 +231,42 @@ def dicts_to_training_data(
     raw_data: list[dict], tokenizer,
 ) -> list[TrainingDataPoint]:
     training_data = []
+    n_layers_runtime = len(MULTI_LAYERS) if MULTI_LAYERS else 3
+    _reexpand_warned = False
 
     for item in raw_data:
+        ctx_pos = item["context_positions"]
+        num_pos = item["num_positions"]
+
+        # Re-expand positions if precomputed with fewer layers than runtime config.
+        # Precomputed data stores context_positions = base_positions * n_layers_data.
+        # We detect mismatch by checking if total_positions is divisible by the
+        # runtime layer count.  If not, infer the original layer count, extract
+        # base positions, and re-expand.
+        if n_layers_runtime > 1 and len(ctx_pos) % n_layers_runtime != 0:
+            # Try common old layer counts (3 is the most common)
+            for old_n in [3, 1, 2, 4, 5, 6]:
+                if len(ctx_pos) % old_n == 0:
+                    k = len(ctx_pos) // old_n
+                    base_positions = ctx_pos[:k]
+                    ctx_pos = base_positions * n_layers_runtime
+                    num_pos = len(ctx_pos)
+                    if not _reexpand_warned:
+                        print(f"  [data] Re-expanding positions: {old_n} layers -> {n_layers_runtime} layers (K={k})")
+                        _reexpand_warned = True
+                    break
+
         dp = create_training_datapoint(
             datapoint_type=item["datapoint_type"],
             prompt=item["prompt"],
             target_response=item["target_response"],
             layer=item["layer"],
-            num_positions=item["num_positions"],
+            num_positions=num_pos,
             tokenizer=tokenizer,
             acts_BD=None,
             feature_idx=-1,
             context_input_ids=item["context_input_ids"],
-            context_positions=item["context_positions"],
+            context_positions=ctx_pos,
         )
         training_data.append(dp)
 
@@ -310,9 +328,9 @@ TASK_REGISTRY = {
     },
     "conv_qa": {
         "arg": "conv_qa_n",
-        "module": "dataset_classes.cot_conversational",
-        "loader": "load_cot_conversational_data",
-        "corpus": "main",  # concept corpus removed; conv_qa now precompute-only
+        "module": None,
+        "loader": None,
+        "corpus": "main",  # precompute-only (loader needs qa_jsonl_path)
     },
     "answer_trajectory": {
         "arg": "answer_trajectory_n",
@@ -334,9 +352,9 @@ TASK_REGISTRY = {
     },
     "compqa": {
         "arg": "compqa_n",
-        "module": "dataset_classes.cot_compqa",
-        "loader": "load_cot_compqa_data",
-        "corpus": "compqa",
+        "module": None,
+        "loader": None,
+        "corpus": "compqa",  # precompute-only (needs compqa_raw.json)
     },
     "hint_admission": {
         "arg": "hint_admission_n",
@@ -412,7 +430,6 @@ def _live_load_task(task_name: str, info: dict, n: int, args, tokenizer) -> list
         return loader_fn(
             atypical_path, tokenizer, args.model,
             num_examples=n, stride=args.stride,
-            max_positions_per_layer=getattr(args, "max_positions_per_layer", 20),
             atypical_data_path=atypical_path,
         )
     elif info["corpus"] == "compqa":
@@ -420,7 +437,6 @@ def _live_load_task(task_name: str, info: dict, n: int, args, tokenizer) -> list
         return loader_fn(
             compqa_cache, tokenizer, args.model,
             num_examples=n, stride=args.stride,
-            max_positions_per_layer=getattr(args, "max_positions_per_layer", 20),
         )
     elif info["corpus"] == "hint_admission":
         hint_path = getattr(args, "hint_admission_data_path",
@@ -428,19 +444,20 @@ def _live_load_task(task_name: str, info: dict, n: int, args, tokenizer) -> list
         return loader_fn(
             hint_path, tokenizer, args.model,
             num_examples=n, stride=args.stride,
-            max_positions_per_layer=getattr(args, "max_positions_per_layer", 20),
             hint_admission_data_path=hint_path,
         )
     else:
         return loader_fn(
             args.corpus, tokenizer, args.model,
             num_examples=n, stride=args.stride,
-            max_positions_per_layer=getattr(args, "max_positions_per_layer", 20),
         )
 
 
-def load_precomputed_tasks(precomputed_dir: str, args) -> list[dict]:
-    """Load training data from precomputed JSONL files, downloading from HF if needed."""
+def load_precomputed_tasks(precomputed_dir: str, args, tokenizer=None) -> list[dict]:
+    """Load training data from precomputed JSONL files, downloading from HF if needed.
+
+    Falls back to live loading for tasks whose JSONL isn't on HF.
+    """
     pdir = Path(precomputed_dir)
     pdir.mkdir(parents=True, exist_ok=True)
     all_data = []
@@ -453,7 +470,21 @@ def load_precomputed_tasks(precomputed_dir: str, args) -> list[dict]:
 
         jsonl_path = pdir / f"{task_name}.jsonl"
         if not jsonl_path.exists():
-            jsonl_path = _download_precomputed_from_hf(task_name, pdir)
+            try:
+                jsonl_path = _download_precomputed_from_hf(task_name, pdir)
+            except Exception as e:
+                if tokenizer is not None:
+                    print(f"  [fallback] No precomputed {task_name} on HF ({e}), live-loading from corpus...")
+                    data = _live_load_task(task_name, info, n, args, tokenizer)
+                    all_data.extend(data)
+                    enabled.append(f"{task_name}({len(data)},live)")
+                    print(f"    -> {len(data)} examples (live)")
+                    continue
+                else:
+                    raise RuntimeError(
+                        f"Task {task_name} (n={n}) has no precomputed data on HF and no tokenizer "
+                        f"for live fallback. Either set n=0 to disable or provide a tokenizer."
+                    ) from e
 
         print(f"  Loading {task_name} from {jsonl_path}...")
         data = []
@@ -602,6 +633,7 @@ def run_eval(
 
     model.eval()
     gen_kwargs = {"do_sample": False, "max_new_tokens": 100}
+    all_scores = {}
 
     for ds in eval_datasets:
         eval_responses = run_evaluation(
@@ -628,14 +660,14 @@ def run_eval(
             target = dp.target_output.strip()
             score = _token_f1(pred, target)
             scores.append(score)
-            oracle_prompt = getattr(dp, 'prompt', '') or str(dp.meta_info.get('prompt', ''))[:300]
+            oracle_prompt = getattr(resp, 'prompt', '') or getattr(dp, 'prompt', '') or str(dp.meta_info.get('prompt', ''))[:300]
             row = [i, dp.datapoint_type, oracle_prompt[:300], pred[:500], target[:500], round(score, 3), len(pred.split()), len(target.split())]
             table.add_data(*row)
             rows.append(row)
 
         avg_score = sum(scores) / len(scores) if scores else 0.0
-        wandb.log({f"eval/{ds}": avg_score}, step=global_step)
-        print(f"  Step {global_step} | {ds}: token_f1={avg_score:.3f}")
+        wandb.log({f"eval/{ds}": avg_score, f"eval_n/{ds}": len(scores)}, step=global_step)
+        print(f"  Step {global_step} | {ds}: token_f1={avg_score:.3f} (n={len(scores)})")
 
         if eval_responses:
             print(f"    pred='{eval_responses[0].api_response.strip()[:120]}'")
@@ -644,6 +676,13 @@ def run_eval(
         wandb.log({f"eval_table/{ds}": table}, step=global_step)
         if log_dir and rows:
             _save_table_to_disk(Path(log_dir), f"eval_table_{ds}", global_step, columns, rows)
+
+        all_scores[ds] = avg_score
+
+    if all_scores:
+        eval_mean = sum(all_scores.values()) / len(all_scores)
+        wandb.log({"eval/mean": eval_mean}, step=global_step)
+        print(f"  Step {global_step} | eval_mean={eval_mean:.3f}")
 
     model.train()
     torch.cuda.empty_cache()
@@ -659,7 +698,7 @@ def run_evals(model, tokenizer, model_name, global_step, args, log_dir=None):
         model, tokenizer, model_name=model_name,
         step=global_step, device="cuda",
         eval_dir=args.eval_dir,
-        max_items_per_eval=20,
+        max_items_per_eval=25,
         skip_rot13=(global_step < args.rot13_start_step),
         oracle_adapter_name="default",
         activation_cache_dir=args.activation_cache_dir,
@@ -667,12 +706,6 @@ def run_evals(model, tokenizer, model_name, global_step, args, log_dir=None):
         eval_names=getattr(args, "evals", None),
     )
     if metrics:
-        # Inject baseline reference lines
-        baselines = getattr(args, "eval_baselines", {})
-        for eval_name, methods in baselines.items():
-            for method, score in methods.items():
-                metrics[f"eval/{eval_name}_baseline_{method}"] = score
-
         wandb.log(metrics, step=global_step)
         for k, v in sorted(metrics.items()):
             if isinstance(v, (int, float)) and "sample" not in k:
@@ -1029,7 +1062,8 @@ def train(
             prev_dominant_task = dominant_task
 
             # Task-level eval (rank 0 only)
-            if global_step > 0 and global_step % args.eval_steps == 0:
+            skip_step0 = global_step == 0 and getattr(args, "no_step0_eval", False)
+            if global_step % args.eval_steps == 0 and not skip_step0:
                 if rank == 0:
                     print(f"\n--- Task eval at step {global_step} ---")
                     eval_start = time.time()
@@ -1043,8 +1077,8 @@ def train(
                 if world_size > 1:
                     dist.barrier()
 
-            # Unfaithfulness eval (rank 0 only)
-            if global_step > 0 and global_step % args.eval_steps == 0:
+            # Detection eval (rank 0 only)
+            if global_step % args.eval_steps == 0 and not skip_step0:
                 if rank == 0:
                     gc.collect()
                     torch.cuda.empty_cache()
@@ -1131,16 +1165,21 @@ def apply_config(args, config: dict):
     # Activations
     if "activations" in config:
         a = config["activations"]
-        for key in ["stride", "position_encoding", "pe_alpha"]:
+        for key in ["stride", "position_encoding", "pe_alpha", "n_layers"]:
             if key in a and not getattr(args, f"_cli_{key}", False):
                 setattr(args, key, a[key])
+        if "layers" in a and not getattr(args, "_cli_layers", False):
+            args.layers = a["layers"]  # list of ints, e.g. [9, 18, 27]
 
     # Eval
     if "eval" in config:
         e = config["eval"]
-        for key in ["eval_dir", "rot13_start_step"]:
+        for key in ["eval_dir", "rot13_start_step", "eval_steps", "save_steps"]:
             if key in e and not getattr(args, f"_cli_{key}", False):
-                setattr(args, key, e[key])
+                val = e[key]
+                if key in {"rot13_start_step", "eval_steps", "save_steps"}:
+                    val = int(val)
+                setattr(args, key, val)
         if "evals" in e and not getattr(args, "_cli_evals", False):
             raw_evals = e["evals"]
             eval_names = []
@@ -1198,7 +1237,8 @@ def main():
     local_rank, rank, world_size = setup_distributed()
 
     parser = argparse.ArgumentParser(description="Train CoT Oracle")
-    parser.add_argument("--config", default=None, help="YAML config file")
+    parser.add_argument("--config", nargs="+", default=None,
+                        help="YAML config file(s). Multiple configs are merged left-to-right (later overrides earlier)")
     parser.add_argument("--corpus", default="data/cot_corpus_v5/corpus_medium.jsonl",
                         help="Path to corpus.jsonl")
     parser.add_argument("--model", default="Qwen/Qwen3-8B")
@@ -1240,6 +1280,10 @@ def main():
     parser.add_argument("--eval-batch-size", type=int, default=2)
     parser.add_argument("--epochs", type=int, default=1)
     parser.add_argument("--stride", type=int, default=5)
+    parser.add_argument("--n-layers", type=int, default=3,
+                        help="Number of activation layers (evenly spaced through model depth)")
+    parser.add_argument("--layers", type=int, nargs="+", default=None,
+                        help="Explicit layer indices (overrides --n-layers). E.g. --layers 9 18 27")
     parser.add_argument("--steering-coefficient", type=float, default=1.0)
     parser.add_argument("--max-grad-norm", type=float, default=1.0)
     parser.add_argument("--warmup-fraction", type=float, default=0.1)
@@ -1258,6 +1302,12 @@ def main():
                              "gradient_accumulation_steps = effective_batch_size / (batch_size * world_size)")
 
     # Eval / save
+    parser.add_argument("--eval-steps", type=int, default=2000,
+                        help="Run evals every N steps (shuffled mode)")
+    parser.add_argument("--save-steps", type=int, default=10000,
+                        help="Save checkpoint every N steps (shuffled mode)")
+    parser.add_argument("--no-step0-eval", action="store_true", default=False,
+                        help="Skip evals at step 0 (for quick ablation launches)")
     parser.add_argument("--rot13-start-step", type=int, default=2000)
     parser.add_argument("--start-step", type=int, default=None,
                         help="Starting global step (for resuming; 0 = restart data from beginning)")
@@ -1289,12 +1339,14 @@ def main():
         if val != _defaults.get(key):
             setattr(args, f"_cli_{key}", True)
 
-    # Apply config file (CLI flags override config values)
+    # Apply config file(s) (CLI flags override config values)
     if args.config:
-        config = load_config(args.config)
-        apply_config(args, config)
+        configs = args.config if isinstance(args.config, list) else [args.config]
+        for cfg_path in configs:
+            config = load_config(cfg_path)
+            apply_config(args, config)
         if rank == 0:
-            print(f"Loaded config from {args.config}")
+            print(f"Loaded config from {', '.join(configs)}")
             # Log the full config YAML for reproducibility
             import yaml
             print(f"\n{'=' * 60}")
@@ -1314,7 +1366,15 @@ def main():
 
     # Multi-layer config
     global MULTI_LAYERS
-    MULTI_LAYERS = [layer_percent_to_layer(args.model, p) for p in [25, 50, 75]]
+    if hasattr(args, "layers") and args.layers:
+        MULTI_LAYERS = [int(l) for l in args.layers]
+    else:
+        n_layers = getattr(args, "n_layers", 3)
+        percents = [int(100 * (i + 1) / (n_layers + 1)) for i in range(n_layers)]
+        MULTI_LAYERS = [layer_percent_to_layer(args.model, p) for p in percents]
+    # Make layers available to dataset loaders
+    import cot_utils as _cu
+    _cu.CONFIGURED_LAYERS = MULTI_LAYERS
     if rank == 0:
         print(f"Multi-layer injection: {MULTI_LAYERS}")
         print(f"Distributed: world_size={world_size}, rank={rank}, local_rank={local_rank}")
@@ -1416,7 +1476,7 @@ def main():
     if args.precomputed_dir:
         if rank == 0:
             print(f"  Using precomputed data from {args.precomputed_dir} (auto-downloads from HF if needed)")
-        raw_data = load_precomputed_tasks(args.precomputed_dir, args)
+        raw_data = load_precomputed_tasks(args.precomputed_dir, args, tokenizer=tokenizer)
     else:
         raw_data = load_all_tasks(args, tokenizer)
 
@@ -1461,10 +1521,14 @@ def main():
         )
         wandb.define_metric("train/samples_seen")
         wandb.define_metric("*", step_metric="train/samples_seen")
-        # stage_map logged later in train() after task_stage_idx is built
+        task_stage_idx = getattr(args, "_task_stage_idx", {})
+        if task_stage_idx:
+            wandb.config.update({"stage_map": {v: k for k, v in task_stage_idx.items()}})
         # Save raw YAML config to wandb for reproducibility
-        if args.config and Path(args.config).exists():
-            wandb.save(args.config)
+        if args.config:
+            for cfg_path in (args.config if isinstance(args.config, list) else [args.config]):
+                if Path(cfg_path).exists():
+                    wandb.save(cfg_path)
     else:
         enabled_tasks = [tn for tn, info in TASK_REGISTRY.items() if getattr(args, info["arg"], 0) > 0]
 

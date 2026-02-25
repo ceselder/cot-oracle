@@ -1,0 +1,8 @@
+# Ablation: single layer (layer 18, 50% depth)
+# Inherits everything from train.yaml except overrides below
+
+activations:
+  layers: [18]
+
+output:
+  wandb_run: ablation-1layer-mid

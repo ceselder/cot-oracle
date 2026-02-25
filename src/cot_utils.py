@@ -71,13 +71,11 @@ def get_cot_stride_positions(
     total_token_count: int,
     stride: int = 5,
     include_last: bool = True,
-    max_positions: int | None = None,
 ) -> list[int]:
     """Get fixed-stride positions over the CoT token region.
 
     Positions start right after the prompt tokens and proceed every `stride` tokens.
     Optionally includes the last token to keep late-CoT signal.
-    If max_positions is set, truncate to that many positions (keeping evenly spaced subset).
     """
     cot_start = max(0, prompt_token_count)
     cot_end = total_token_count - 1
@@ -101,11 +99,6 @@ def get_cot_stride_positions(
     if len(positions) < 2:
         return [cot_start, cot_end]
 
-    # Truncate to max_positions by taking evenly spaced subset
-    if max_positions is not None and len(positions) > max_positions:
-        indices = [int(i * (len(positions) - 1) / (max_positions - 1)) for i in range(max_positions)]
-        positions = [positions[i] for i in indices]
-
     return positions
 
 
@@ -123,3 +116,14 @@ LAYER_COUNTS = {
 def layer_percent_to_layer(model_name: str, layer_percent: int) -> int:
     max_layers = LAYER_COUNTS[model_name]
     return int(max_layers * (layer_percent / 100))
+
+
+# Set by train.py main() — dataset loaders read this instead of hardcoding [25,50,75]
+CONFIGURED_LAYERS: list[int] | None = None
+
+
+def get_injection_layers(model_name: str) -> list[int]:
+    """Return configured injection layers, or default [25%, 50%, 75%]."""
+    if CONFIGURED_LAYERS is not None:
+        return list(CONFIGURED_LAYERS)
+    return [layer_percent_to_layer(model_name, p) for p in [25, 50, 75]]

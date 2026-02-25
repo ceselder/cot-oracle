@@ -11,7 +11,12 @@ The oracle is Qwen3-8B fine-tuned with LoRA to accept its own activations via no
 ### Config (`configs/train.yaml`)
 YAML controls task counts, hyperparams, activation settings, eval frequency. CLI flags override config values. Set `n: 0` to disable a task.
 
-Never include the number of GPUs used in the runname on wandb. 
+Never include the number of GPUs used in the runname on wandb.
+
+### Data pipeline rules
+- **ALL training data comes from HuggingFace.** The training script downloads precomputed JSONL from HF automatically. Never bake activation positions or limits into precomputed data — precomputed data stores `context_input_ids` and `context_positions`, and activation extraction happens at training time on GPU.
+- **NEVER cap or truncate activation positions.** Do not set `max_positions_per_layer` or any limit on the number of stride positions fed to the oracle. The oracle should see ALL stride positions from the CoT. Stride=5 already controls density. Previous `max_positions_per_layer=20` silently threw away 50-84% of activations for longer CoTs.
+- **NEVER fail silently.** If a task is enabled (n > 0) but its data can't be loaded, raise an error. Do not silently skip tasks or swallow exceptions.
 
 
 ## References
