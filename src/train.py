@@ -1007,8 +1007,8 @@ def train(
                 for t in batch_types:
                     batch_task_counts[t] += 1
                 dominant_task = max(batch_task_counts, key=batch_task_counts.get)
-                log_dict["train/stage"] = dominant_task
                 log_dict["train/stage_idx"] = task_stage_idx.get(dominant_task, -1)
+                wandb.run.summary["current_stage"] = dominant_task
                 log_dict["train/progress"] = global_step / max(total_steps, 1)
                 if dominant_task in stage_step_ranges:
                     s_start, s_end = stage_step_ranges[dominant_task]
@@ -1491,6 +1491,8 @@ def main():
             config=wandb_config,
             tags=[args.model.split("/")[-1]] + enabled_tasks,
         )
+        if task_stage_idx:
+            wandb.config.update({"stage_map": {v: k for k, v in task_stage_idx.items()}})
         # Save raw YAML config to wandb for reproducibility
         if args.config:
             for cfg_path in (args.config if isinstance(args.config, list) else [args.config]):
