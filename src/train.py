@@ -838,7 +838,7 @@ def train(
     # In shuffled mode, respect the config values from YAML.
     if task_order == "sequential":
         min_stage_steps = min(len(items) // args.batch_size for items in train_per_type.values() if len(items) >= args.batch_size)
-        args.eval_steps = min(min_stage_steps // 3, max(-(-min_stage_steps // 20), 1))
+        args.eval_steps = min(min_stage_steps // 3, max(-(-min_stage_steps // 10), 1))
         args.save_steps = args.eval_steps * 5
         if rank == 0:
             print(f"\n  Stage-relative cadence (min stage = {min_stage_steps} steps):")
@@ -885,6 +885,7 @@ def train(
             "n_examples": len(final_training),
             "n_eval": sum(len(v) for v in eval_datasets.values()),
             "n_tasks": len(eval_datasets),
+            "train/samples_seen": global_step * args.effective_batch_size,
         }, step=global_step)
 
         # Log task index legend to wandb config
@@ -903,6 +904,16 @@ def train(
         print(f"  Warmup: {warmup_steps}")
 
     model.train()
+
+    # Step-0 eval (baseline before any training)
+    if global_step == 0 and rank == 0:
+        print("\n--- Step 0 eval (pre-training baseline) ---")
+        model.eval()
+        run_eval(eval_datasets, model, tokenizer, submodule, device, dtype, 0, args.eval_batch_size, args.steering_coefficient, log_dir=log_dir)
+        run_evals(model, tokenizer, args.model, 0, args, log_dir=log_dir)
+        model.train()
+    if world_size > 1:
+        dist.barrier()
 
     # EMA for per-task loss
     task_loss_ema = {}
@@ -997,6 +1008,7 @@ def train(
                     "train/step_time": now - last_step_time,
                     "train/wallclock_hours": (now - train_start_time - eval_time_total) / 3600,
                     "eval/wallclock_hours": eval_time_total / 3600,
+                    "train/samples_seen": global_step * args.effective_batch_size,
                 }
                 last_step_time = now
                 for task, ema_val in task_loss_ema.items():
@@ -1494,6 +1506,8 @@ def main():
             config=wandb_config,
             tags=[args.model.split("/")[-1]] + enabled_tasks,
         )
+        wandb.define_metric("train/samples_seen")
+        wandb.define_metric("*", step_metric="train/samples_seen")
         if task_stage_idx:
             wandb.config.update({"stage_map": {v: k for k, v in task_stage_idx.items()}})
         # Save raw YAML config to wandb for reproducibility
