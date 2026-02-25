@@ -11,6 +11,8 @@ The oracle is Qwen3-8B fine-tuned with LoRA to accept its own activations via no
 ### Config (`configs/train.yaml`)
 YAML controls task counts, hyperparams, activation settings, eval frequency. CLI flags override config values. Set `n: 0` to disable a task.
 
+Never include the number of GPUs used in the runname on wandb. 
+
 
 ## References
 - Activation Oracles: [arXiv:2512.15674](https://arxiv.org/abs/2512.15674), [GitHub](https://github.com/adamkarvonen/activation_oracles)

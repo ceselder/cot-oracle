@@ -43,11 +43,11 @@ tasks:
     description: "What does the model currently think the answer is? (per-sentence, precompute-only)"
 
   atypical_answer:
-    n: 60000
+    n: 0
     description: "Is this a majority or minority answer? (from 25-rollout distributions)"
 
   prompt_inversion:
-    n: 20000
+    n: 0
     description: "Reconstruct the original question/prompt from CoT activations"
 
   compqa:
@@ -57,7 +57,8 @@ tasks:
 # Training
 training:
   lr: 0.00001
-  batch_size: 8
+  batch_size: 8              # per-GPU micro-batch size (constrained by VRAM)
+  effective_batch_size: 32   # total across GPUs + accumulation (invariant to GPU count)
   eval_batch_size: 2
   epochs: 1
   warmup_fraction: 0.1

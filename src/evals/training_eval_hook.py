@@ -245,17 +245,17 @@ def _run_standard_eval(
                     )
                     clean_response = generate_cot(
                         model, tokenizer, item.clean_prompt,
-                        max_new_tokens=8192, device=device, adapter_name=None,
+                        max_new_tokens=2048, device=device, adapter_name=None,
                     )
                     clean_answer = _extract_answer(clean_response, eval_name)
                 else:
                     clean_response = generate_cot(
                         model, tokenizer, item.clean_prompt,
-                        max_new_tokens=8192, device=device, adapter_name=None,
+                        max_new_tokens=2048, device=device, adapter_name=None,
                     )
                     test_response = generate_cot(
                         model, tokenizer, item.test_prompt,
-                        max_new_tokens=8192, device=device, adapter_name=None,
+                        max_new_tokens=2048, device=device, adapter_name=None,
                     )
                     clean_answer = _extract_answer(clean_response, eval_name)
                     test_answer = _extract_answer(test_response, eval_name)
@@ -298,7 +298,7 @@ def _run_standard_eval(
                     oracle_response = _apply_oracle_mode_to_oracle(
                         model, tokenizer, activations, oracle_prompt,
                         model_name=model_name, act_layer=act_layer,
-                        max_new_tokens=8192, device=device,
+                        device=device,
                     )
                 except Exception as e:
                     print(f"    [{eval_name}] Oracle inference failed for {item.example_id}: {e}")
@@ -363,7 +363,7 @@ def _run_decorative_cot_eval(
                 if not representative_cot:
                     representative_cot = generate_cot(
                         model, tokenizer, item.test_prompt,
-                        max_new_tokens=8192, device=device, adapter_name=None,
+                        max_new_tokens=2048, device=device, adapter_name=None,
                     )
                 activations = None
                 n_positions = 0
@@ -398,7 +398,7 @@ def _run_decorative_cot_eval(
                     temp = None if run_i == 0 else temperature
                     cot_response = generate_cot(
                         model, tokenizer, item.test_prompt,
-                        max_new_tokens=8192, device=device, adapter_name=None,
+                        max_new_tokens=2048, device=device, adapter_name=None,
                         temperature=temp,
                     )
                     direct_response = generate_direct_answer(
@@ -415,7 +415,7 @@ def _run_decorative_cot_eval(
                 label = ci_label(with_cot_correct, n_runs, without_cot_correct, n_runs)
                 representative_cot = generate_cot(
                     model, tokenizer, item.test_prompt,
-                    max_new_tokens=8192, device=device, adapter_name=None,
+                    max_new_tokens=2048, device=device, adapter_name=None,
                 )
                 activations = None
                 n_positions = 0
@@ -449,7 +449,7 @@ def _run_decorative_cot_eval(
                     oracle_response = _apply_oracle_mode_to_oracle(
                         model, tokenizer, activations, oracle_prompt,
                         model_name=model_name, act_layer=act_layer,
-                        max_new_tokens=8192, device=device,
+                        device=device,
                     )
                 except Exception as e:
                     print(f"    [decorative_cot] Oracle inference failed for {item.example_id}: {e}")
@@ -535,7 +535,7 @@ def _run_sentence_insertion_eval(
                     oracle_response = _apply_oracle_mode_to_oracle(
                         model, tokenizer, activations, oracle_prompt,
                         model_name=model_name, act_layer=act_layer,
-                        max_new_tokens=8192, device=device,
+                        device=device,
                     )
                 except Exception as e:
                     print(f"    [sentence_insertion] Oracle inference failed for {item.example_id}: {e}")
@@ -636,7 +636,7 @@ def _run_reasoning_termination_eval(
                     oracle_response = _apply_oracle_mode_to_oracle(
                         model, tokenizer, activations, oracle_prompt,
                         model_name=model_name, act_layer=act_layer,
-                        max_new_tokens=8192, device=device,
+                        device=device,
                     )
                 except Exception as e:
                     print(f"    [reasoning_term] Oracle inference failed for {item.example_id}: {e}")
@@ -707,13 +707,13 @@ def _run_rot13_eval(
                         rot13_loaded = True
                     rot13_cot = generate_cot(
                         model, tokenizer, item.test_prompt,
-                        max_new_tokens=8192, device=device,
+                        max_new_tokens=2048, device=device,
                         adapter_name=ROT13_ADAPTER_NAME,
                     )
                 if not normal_cot.strip():
                     normal_cot = generate_cot(
                         model, tokenizer, item.test_prompt,
-                        max_new_tokens=8192, device=device,
+                        max_new_tokens=2048, device=device,
                         adapter_name=None,
                     )
 
@@ -754,7 +754,7 @@ def _run_rot13_eval(
                     oracle_response = _apply_oracle_mode_to_oracle(
                         model, tokenizer, activations, oracle_prompt,
                         model_name=model_name, act_layer=act_layer,
-                        max_new_tokens=8192, device=device,
+                        max_new_tokens=1024, device=device,
                     )
                 except Exception as e:
                     print(f"    [rot13] Oracle inference failed for {item.example_id}: {e}")
@@ -881,7 +881,7 @@ def _run_compqa_eval(
                     oracle_response = _apply_oracle_mode_to_oracle(
                         model, tokenizer, activations, oracle_prompt,
                         model_name=model_name, act_layer=act_layer,
-                        max_new_tokens=8192, device=device,
+                        max_new_tokens=256, device=device,
                     )
                 except Exception as e:
                     print(f"    [compqa] Oracle inference failed for {item.example_id}: {e}")

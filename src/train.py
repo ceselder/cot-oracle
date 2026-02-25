@@ -429,11 +429,8 @@ def _live_load_task(task_name: str, info: dict, n: int, args, tokenizer) -> list
         )
 
 
-def load_precomputed_tasks(precomputed_dir: str, args, tokenizer=None) -> list[dict]:
-    """Load training data from precomputed JSONL files, downloading from HF if needed.
-
-    Falls back to live loading (via dataset loaders) for tasks without JSONL files.
-    """
+def load_precomputed_tasks(precomputed_dir: str, args) -> list[dict]:
+    """Load training data from precomputed JSONL files, downloading from HF if needed."""
     pdir = Path(precomputed_dir)
     pdir.mkdir(parents=True, exist_ok=True)
     all_data = []
@@ -446,24 +443,7 @@ def load_precomputed_tasks(precomputed_dir: str, args, tokenizer=None) -> list[d
 
         jsonl_path = pdir / f"{task_name}.jsonl"
         if not jsonl_path.exists():
-            try:
-                jsonl_path = _download_precomputed_from_hf(task_name, pdir)
-            except Exception as e:
-                # Fall back to live loading for tasks with dataset loaders
-                if info["module"] is not None and tokenizer is not None:
-                    print(f"  {task_name}: no precomputed JSONL, using live loader...")
-                    try:
-                        data = _live_load_task(task_name, info, n, args, tokenizer)
-                        all_data.extend(data)
-                        enabled.append(f"{task_name}({len(data)})")
-                        print(f"    -> {len(data)} examples (live)")
-                    except Exception as e2:
-                        print(f"    FAILED to live-load {task_name}: {e2}")
-                        import traceback
-                        traceback.print_exc()
-                else:
-                    print(f"  WARNING: {task_name}.jsonl not found locally or on HF: {e}")
-                continue
+            jsonl_path = _download_precomputed_from_hf(task_name, pdir)
 
         print(f"  Loading {task_name} from {jsonl_path}...")
         data = []
@@ -719,7 +699,10 @@ def train(
     device = torch.device(f"cuda:{rank}" if world_size > 1 else "cuda")
     dtype = torch.bfloat16
 
-    grad_accum = args.gradient_accumulation_steps
+    assert args.effective_batch_size % (args.batch_size * world_size) == 0, \
+        f"effective_batch_size ({args.effective_batch_size}) must be divisible by " \
+        f"batch_size * world_size ({args.batch_size} * {world_size} = {args.batch_size * world_size})"
+    grad_accum = args.effective_batch_size // (args.batch_size * world_size)
 
     # Convert to TrainingDataPoints
     training_data = dicts_to_training_data(raw_data, tokenizer)
@@ -761,6 +744,8 @@ def train(
 
     task_order = getattr(args, "task_order", "shuffled")
 
+    task_stage_idx = {}  # task_name -> int index (for wandb logging)
+
     if task_order == "sequential":
         # Group by task, preserve order from config
         task_blocks = []
@@ -772,10 +757,12 @@ def train(
         final_training = []
         for _, items in task_blocks:
             final_training.extend(items)
+        for i, (task_name, _) in enumerate(task_blocks):
+            task_stage_idx[task_name] = i
         if rank == 0:
             print(f"  Task order: SEQUENTIAL")
             for task_name, items in task_blocks:
-                print(f"    {task_name}: {len(items)} examples")
+                print(f"    stage {task_stage_idx[task_name]}: {task_name} ({len(items)} examples)")
     else:
         random.shuffle(final_training)
         if rank == 0:
@@ -964,15 +951,24 @@ def train(
                 for task, ema_val in task_loss_ema.items():
                     log_dict[f"train/loss_{task}"] = ema_val
 
+                # Track dominant task for sequential mode phase transitions
+                batch_task_counts = defaultdict(int)
+                for t in batch_types:
+                    batch_task_counts[t] += 1
+                dominant_task = max(batch_task_counts, key=batch_task_counts.get)
+                log_dict["train/stage"] = dominant_task
+                log_dict["train/stage_idx"] = task_stage_idx.get(dominant_task, -1)
+
                 wandb.log(log_dict, step=global_step)
 
             pbar.set_postfix(loss=f"{loss.item() * grad_accum:.4f}")
 
-            # Track dominant task for sequential mode phase transitions
-            batch_task_counts = defaultdict(int)
-            for t in batch_types:
-                batch_task_counts[t] += 1
-            dominant_task = max(batch_task_counts, key=batch_task_counts.get)
+            # Track dominant task for sequential mode phase transitions (all ranks)
+            if rank != 0:
+                batch_task_counts = defaultdict(int)
+                for t in batch_types:
+                    batch_task_counts[t] += 1
+                dominant_task = max(batch_task_counts, key=batch_task_counts.get)
 
             # Phase checkpoint: save when dominant task changes in sequential mode
             if rank == 0 and task_order == "sequential" and prev_dominant_task is not None and dominant_task != prev_dominant_task:
@@ -1072,11 +1068,11 @@ def apply_config(args, config: dict):
     if "training" in config:
         t = config["training"]
         _float_keys = {"lr", "warmup_fraction", "max_grad_norm", "steering_coefficient"}
-        _int_keys = {"batch_size", "eval_batch_size", "epochs", "seed", "gradient_accumulation_steps"}
+        _int_keys = {"batch_size", "eval_batch_size", "epochs", "seed", "effective_batch_size"}
         for key in ["lr", "batch_size", "eval_batch_size", "epochs",
                      "warmup_fraction", "max_grad_norm", "steering_coefficient",
                      "gradient_checkpointing", "task_order", "seed",
-                     "gradient_accumulation_steps"]:
+                     "effective_batch_size"]:
             if key in t and not getattr(args, f"_cli_{key}", False):
                 val = t[key]
                 if key in _float_keys:
@@ -1167,19 +1163,18 @@ def main():
     parser.add_argument("--fresh-lora", action="store_true",
                         help="Start with fresh LoRA instead of Adam's checkpoint")
 
-    # Per-task example counts (set to 0 to disable a task)
-    parser.add_argument("--full-recon-n", type=int, default=40000)
-    parser.add_argument("--next-step-n", type=int, default=30000)
-    parser.add_argument("--answer-pred-n", type=int, default=20000)
-    parser.add_argument("--correctness-n", type=int, default=15000)
-    parser.add_argument("--decorative-n", type=int, default=15000)
-    parser.add_argument("--domain-n", type=int, default=15000)
-    parser.add_argument("--reasoning-term-n", type=int, default=15000)
-    parser.add_argument("--partial-answer-n", type=int, default=20000)
-    parser.add_argument("--conv-qa-n", type=int, default=10000)
-    parser.add_argument("--answer-trajectory-n", type=int, default=0,
-                        help="Per-sentence answer trajectory (precompute-only)")
-    parser.add_argument("--atypical-answer-n", type=int, default=20000)
+    # Per-task example counts — defaults are 0; set via --config (train.yaml is source of truth)
+    parser.add_argument("--full-recon-n", type=int, default=0)
+    parser.add_argument("--next-step-n", type=int, default=0)
+    parser.add_argument("--answer-pred-n", type=int, default=0)
+    parser.add_argument("--correctness-n", type=int, default=0)
+    parser.add_argument("--decorative-n", type=int, default=0)
+    parser.add_argument("--domain-n", type=int, default=0)
+    parser.add_argument("--reasoning-term-n", type=int, default=0)
+    parser.add_argument("--partial-answer-n", type=int, default=0)
+    parser.add_argument("--conv-qa-n", type=int, default=0)
+    parser.add_argument("--answer-trajectory-n", type=int, default=0)
+    parser.add_argument("--atypical-answer-n", type=int, default=0)
     parser.add_argument("--prompt-inversion-n", type=int, default=0)
     parser.add_argument("--compqa-n", type=int, default=0)
     parser.add_argument("--atypical-data-path",
@@ -1205,8 +1200,9 @@ def main():
                         help="PE mixing coefficient (only used if --position-encoding)")
     parser.add_argument("--task-order", choices=["shuffled", "sequential"], default="shuffled",
                         help="'shuffled' mixes all tasks; 'sequential' trains tasks one at a time")
-    parser.add_argument("--gradient-accumulation-steps", type=int, default=1,
-                        help="Number of micro-batches per optimizer step")
+    parser.add_argument("--effective-batch-size", type=int, default=32,
+                        help="Total effective batch size (invariant to GPU count). "
+                             "gradient_accumulation_steps = effective_batch_size / (batch_size * world_size)")
 
     # Eval / save
     parser.add_argument("--rot13-start-step", type=int, default=2000)
@@ -1359,7 +1355,7 @@ def main():
     if args.precomputed_dir:
         if rank == 0:
             print(f"  Using precomputed data from {args.precomputed_dir} (auto-downloads from HF if needed)")
-        raw_data = load_precomputed_tasks(args.precomputed_dir, args, tokenizer=tokenizer)
+        raw_data = load_precomputed_tasks(args.precomputed_dir, args)
     else:
         raw_data = load_all_tasks(args, tokenizer)
 
