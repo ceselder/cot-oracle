@@ -79,11 +79,21 @@ eval:
   eval_dir: data/evals
   rot13_start_step: 2000
   # All unfaithfulness evals to run during training (pulled from HF)
+  # Entries can be plain strings or dicts with baselines for wandb reference lines
   unfaith_evals:
-    - hinted_mcq
+    - hinted_mcq:
+        baselines:
+          linear_probe: 0.65
+          attention_probe: 0.70
+          llm_monitor: 0.50
     - hinted_mcq_truthfulqa
-    - sycophancy_v2_riya
-    - decorative_cot
+    - sycophancy_v2_riya:
+        baselines:
+          llm_monitor: 0.42
+    - decorative_cot:
+        baselines:
+          linear_probe: 0.72
+          llm_monitor: 0.55
     - sentence_insertion
     - reasoning_termination_riya
     - atypical_answer_riya
@@ -93,14 +103,12 @@ eval:
     - rot13_reconstruction
     - compqa
 
-# Data
+# Data — HF dataset IDs auto-download; local paths used as-is
 data:
-  corpus: data/cot_corpus_v5/corpus_medium.jsonl
+  corpus: mats-10-sprint-cs-jb/cot-oracle-corpus-v5
   precomputed_dir: data/precomputed
-  concept_corpus: data/concept_corpus/corpus_full.jsonl
-  cotqa_path: data/concept_corpus/corpus_full_conv_qa_llm.jsonl
   activation_cache_dir: data/eval_precomputed  # auto-populates on first eval run
-  atypical_data_path: data/atypical_answer_training.jsonl  # from precompute_atypical_training.py or HF
+  atypical_data_path: mats-10-sprint-cs-jb/qwen3-8b-atypical-answer-rollouts
 
 # Model
 model:

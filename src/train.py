@@ -317,7 +317,7 @@ TASK_REGISTRY = {
         "arg": "conv_qa_n",
         "module": "dataset_classes.cot_conversational",
         "loader": "load_cot_conversational_data",
-        "corpus": "concept",  # uses concept corpus + cotqa file
+        "corpus": "main",  # concept corpus removed; conv_qa now precompute-only
     },
     "answer_trajectory": {
         "arg": "answer_trajectory_n",
@@ -348,6 +348,39 @@ TASK_REGISTRY = {
 
 HF_TRAINING_REPO = "mats-10-sprint-cs-jb/cot-oracle-training-v6"
 
+_HF_CACHE_DIR = Path("data/.hf_cache")
+
+
+def _resolve_hf_dataset(path_or_id: str) -> str:
+    """Resolve an HF dataset ID to a local JSONL path; local paths returned as-is.
+
+    HF IDs look like 'org/dataset-name' (has '/', no file extension).
+    Downloads the dataset and exports to cached JSONL.
+    """
+    # Local path — return as-is
+    if os.path.sep in path_or_id and os.path.exists(path_or_id):
+        return path_or_id
+    if "." in path_or_id.split("/")[-1]:  # has extension → local file
+        return path_or_id
+
+    # Looks like HF ID (has '/', no extension)
+    if "/" not in path_or_id:
+        return path_or_id  # bare name, treat as local
+
+    cache_name = path_or_id.replace("/", "__") + ".jsonl"
+    cache_path = _HF_CACHE_DIR / cache_name
+    if cache_path.exists():
+        print(f"  [HF] Using cached: {cache_path}")
+        return str(cache_path)
+
+    print(f"  [HF] Downloading dataset: {path_or_id}")
+    from datasets import load_dataset
+    ds = load_dataset(path_or_id, split="train")
+    _HF_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    ds.to_json(str(cache_path))
+    print(f"  [HF] Cached {len(ds)} rows → {cache_path}")
+    return str(cache_path)
+
 
 def _download_precomputed_from_hf(task_name: str, pdir: Path) -> Path:
     """Download a precomputed JSONL file from HuggingFace."""
@@ -372,13 +405,7 @@ def _live_load_task(task_name: str, info: dict, n: int, args, tokenizer) -> list
     mod = importlib.import_module(info["module"])
     loader_fn = getattr(mod, info["loader"])
 
-    if info["corpus"] == "concept":
-        return loader_fn(
-            args.concept_corpus, str(args.cotqa_path), tokenizer, args.model,
-            num_examples=n, stride=args.stride,
-            max_positions_per_layer=getattr(args, "max_positions_per_layer", 20),
-        )
-    elif info["corpus"] == "atypical":
+    if info["corpus"] == "atypical":
         atypical_path = getattr(args, "atypical_data_path",
                                 "data/atypical_answer_training.jsonl")
         return loader_fn(
@@ -479,21 +506,7 @@ def load_all_tasks(args, tokenizer) -> list[dict]:
             mod = importlib.import_module(info["module"])
             loader_fn = getattr(mod, info["loader"])
 
-            if info["corpus"] == "concept":
-                concept_corpus = args.concept_corpus
-                if not Path(concept_corpus).exists():
-                    print(f"    Warning: concept corpus not found, using main corpus")
-                    concept_corpus = args.corpus
-                cotqa_path = Path(args.cotqa_path)
-                if not cotqa_path.exists():
-                    print(f"    Warning: {cotqa_path} not found, skipping {task_name}")
-                    continue
-                data = loader_fn(
-                    concept_corpus, str(cotqa_path), tokenizer, args.model,
-                    num_examples=n,
-                    stride=args.stride,
-                )
-            elif info["corpus"] == "atypical":
+            if info["corpus"] == "atypical":
                 atypical_path = args.atypical_data_path
                 data = loader_fn(
                     atypical_path, tokenizer, args.model,
@@ -665,6 +678,12 @@ def run_unfaith_evals(model, tokenizer, model_name, global_step, args, log_dir=N
             eval_names=getattr(args, "unfaith_evals", None),
         )
         if metrics:
+            # Inject baseline reference lines
+            baselines = getattr(args, "eval_baselines", {})
+            for eval_name, methods in baselines.items():
+                for method, score in methods.items():
+                    metrics[f"eval/{eval_name}_baseline_{method}"] = score
+
             wandb.log(metrics, step=global_step)
             for k, v in sorted(metrics.items()):
                 if isinstance(v, (int, float)) and "sample" not in k:
@@ -1081,7 +1100,19 @@ def apply_config(args, config: dict):
             if key in e and not getattr(args, f"_cli_{key}", False):
                 setattr(args, key, e[key])
         if "unfaith_evals" in e and not getattr(args, "_cli_unfaith_evals", False):
-            args.unfaith_evals = e["unfaith_evals"]
+            raw_evals = e["unfaith_evals"]
+            eval_names = []
+            eval_baselines = {}
+            for entry in raw_evals:
+                if isinstance(entry, str):
+                    eval_names.append(entry)
+                elif isinstance(entry, dict):
+                    name = list(entry.keys())[0]
+                    eval_names.append(name)
+                    if isinstance(entry[name], dict) and "baselines" in entry[name]:
+                        eval_baselines[name] = entry[name]["baselines"]
+            args.unfaith_evals = eval_names
+            args.eval_baselines = eval_baselines
 
     # Data paths
     if "data" in config:
@@ -1090,10 +1121,6 @@ def apply_config(args, config: dict):
             args.corpus = d["corpus"]
         if "precomputed_dir" in d and not getattr(args, "_cli_precomputed_dir", False):
             args.precomputed_dir = d["precomputed_dir"]
-        if "concept_corpus" in d and not getattr(args, "_cli_concept_corpus", False):
-            args.concept_corpus = d["concept_corpus"]
-        if "cotqa_path" in d and not getattr(args, "_cli_cotqa_path", False):
-            args.cotqa_path = d["cotqa_path"]
         if "activation_cache_dir" in d and not getattr(args, "_cli_activation_cache_dir", False):
             args.activation_cache_dir = d["activation_cache_dir"]
         if "atypical_data_path" in d and not getattr(args, "_cli_atypical_data_path", False):
@@ -1140,14 +1167,6 @@ def main():
                         help="Adam's pretrained AO checkpoint to start from")
     parser.add_argument("--fresh-lora", action="store_true",
                         help="Start with fresh LoRA instead of Adam's checkpoint")
-
-    # Data paths
-    parser.add_argument("--cotqa-path",
-                        default="data/concept_corpus/corpus_full_conv_qa_llm.jsonl",
-                        help="Path to LLM-generated conversational QA")
-    parser.add_argument("--concept-corpus",
-                        default="data/concept_corpus/corpus_full.jsonl",
-                        help="Path to concept corpus (for conv QA lookups)")
 
     # Per-task example counts (set to 0 to disable a task)
     parser.add_argument("--full-recon-n", type=int, default=40000)
@@ -1234,6 +1253,11 @@ def main():
             print(f"{'=' * 60}")
             print(yaml.dump(config, default_flow_style=False, sort_keys=False).rstrip())
             print(f"{'=' * 60}\n")
+
+    # Resolve HF dataset IDs to local paths
+    if rank == 0:
+        args.corpus = _resolve_hf_dataset(args.corpus)
+        args.atypical_data_path = _resolve_hf_dataset(args.atypical_data_path)
 
     set_seed(args.seed)
 
