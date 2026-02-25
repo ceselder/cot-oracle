@@ -10,6 +10,7 @@
 set -e
 
 ABLATION="${1:?Usage: bash scripts/launch_ablation.sh <ablation_config.yaml>}"
+shift  # consume $1 so "$@" only passes extra flags
 BASE="configs/train.yaml"
 
 export PYTHONUNBUFFERED=1

@@ -4,5 +4,10 @@
 activations:
   stride: 3
 
+training:
+  batch_size: 4
+  effective_batch_size: 16  # grad_accum=4 to compensate for smaller batch
+  eval_batch_size: 2
+
 output:
   wandb_run: ablation-stride3-3layers
