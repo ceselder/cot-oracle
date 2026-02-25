@@ -1,5 +1,6 @@
 """Baseline 4: External LLM monitor via OpenRouter (text-only, zero-shot)."""
 
+import asyncio
 import hashlib
 import json
 import re
@@ -174,42 +175,87 @@ def _build_prompt(inp: BaselineInput, eval_name: str, eval_type: str) -> str | N
     return None
 
 
+async def _fetch_one(
+    client: openai.AsyncOpenAI, sem: asyncio.Semaphore,
+    prompt: str, model: str, max_tokens: int, temperature: float,
+) -> str:
+    """Single async API call with semaphore-controlled concurrency."""
+    async with sem:
+        response = await client.chat.completions.create(
+            model=model,
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=max_tokens,
+            temperature=temperature,
+        )
+        return response.choices[0].message.content or ""
+
+
+async def _fetch_batch(
+    client: openai.AsyncOpenAI, sem: asyncio.Semaphore,
+    prompts: list[str], model: str, max_tokens: int, temperature: float,
+    pbar: tqdm,
+) -> list[str]:
+    """Fire all prompts concurrently (semaphore limits in-flight requests)."""
+    async def _wrapped(prompt: str) -> str:
+        result = await _fetch_one(client, sem, prompt, model, max_tokens, temperature)
+        pbar.update(1)
+        return result
+    return await asyncio.gather(*[_wrapped(p) for p in prompts])
+
+
 def run_llm_monitor(
     inputs: list[BaselineInput], *,
     model: str, api_base: str, api_key: str,
     max_tokens: int = 300, temperature: float = 0.0,
     cache_path: Path | None = None,
+    max_concurrent: int = 50,
 ) -> dict:
     eval_name = inputs[0].eval_name
     eval_type = EVAL_TYPES[eval_name]
 
     cache = _load_cache(cache_path)
-    n_cached = 0
 
-    client = openai.OpenAI(base_url=api_base, api_key=api_key)
-
-    predictions = []
-    traces = []
-
-    for inp in tqdm(inputs, desc="LLM monitor"):
+    # Build prompts and separate cached vs uncached
+    prompt_data = []  # (index, inp, prompt, prompt_hash, cached_response_or_None)
+    uncached_prompts = []  # (batch_idx, prompt) — batch_idx maps back to prompt_data index
+    for i, inp in enumerate(inputs):
         prompt = _build_prompt(inp, eval_name, eval_type)
         if prompt is None:
             continue
-
         ph = _prompt_hash(prompt)
+        cached = cache.get(ph)
+        prompt_data.append((i, inp, prompt, ph, cached))
+        if cached is None:
+            uncached_prompts.append((len(prompt_data) - 1, prompt))
 
-        if ph in cache:
-            llm_response = cache[ph]
-            n_cached += 1
-        else:
-            response = client.chat.completions.create(
-                model=model,
-                messages=[{"role": "user", "content": prompt}],
-                max_tokens=max_tokens,
-                temperature=temperature,
-            )
-            llm_response = response.choices[0].message.content or ""
+    n_cached = len(prompt_data) - len(uncached_prompts)
+    n_api = len(uncached_prompts)
+    if n_cached:
+        print(f"  Cache: {n_cached}/{len(prompt_data)} hits, {n_api} API calls needed")
 
+    # Async batch fetch for uncached items
+    if uncached_prompts:
+        client = openai.AsyncOpenAI(base_url=api_base, api_key=api_key)
+        sem = asyncio.Semaphore(max_concurrent)
+        pbar = tqdm(total=n_api, desc="LLM monitor (API)")
+
+        api_responses = asyncio.run(_fetch_batch(
+            client, sem,
+            [p for _, p in uncached_prompts],
+            model, max_tokens, temperature, pbar,
+        ))
+        pbar.close()
+
+        # Fill responses back into prompt_data
+        for (pd_idx, _prompt), response in zip(uncached_prompts, api_responses):
+            _i, _inp, _p, _ph, _cached = prompt_data[pd_idx]
+            prompt_data[pd_idx] = (_i, _inp, _p, _ph, response)
+
+    # Build traces and predictions
+    predictions = []
+    traces = []
+
+    for _i, inp, _prompt, ph, llm_response in prompt_data:
         trace = {
             "prompt_hash": ph,
             "example_id": inp.example_id,
@@ -239,23 +285,22 @@ def run_llm_monitor(
 
         traces.append(trace)
 
-    if n_cached:
-        print(f"  Cache: {n_cached}/{len(inputs)} hits from {cache_path}")
+    # Score — use prompt_data order (matches predictions order)
+    ordered_inputs = [inp for _i, inp, _p, _ph, _r in prompt_data]
 
-    # Score
     if eval_type == "binary":
-        gt_labels = [inp.ground_truth_label for inp in inputs]
+        gt_labels = [inp.ground_truth_label for inp in ordered_inputs]
         metrics = score_binary(predictions, gt_labels)
     elif eval_type == "generation":
         references = [
             str(inp.metadata.get("plain_cot", inp.metadata.get("target_cot", inp.correct_answer)))
-            for inp in inputs
+            for inp in ordered_inputs
         ]
         metrics = score_generation(predictions, references)
     elif eval_type == "ranking":
-        gt_scores = [inp.metadata.get("importance_scores", []) for inp in inputs]
+        gt_scores = [inp.metadata.get("importance_scores", []) for inp in ordered_inputs]
         metrics = score_ranking(predictions, gt_scores)
     else:
         metrics = {}
 
-    return {"metrics": metrics, "traces": traces, "n_items": len(inputs)}
+    return {"metrics": metrics, "traces": traces, "n_items": len(prompt_data)}
