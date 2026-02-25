@@ -74,6 +74,7 @@ from core.ao import (
     TRAINED_PLACEHOLDER,
     SPECIAL_TOKEN,
 )
+from cot_utils import get_injection_layers
 
 
 # Evals to run during training, in order of cost (cheapest first)
@@ -100,19 +101,19 @@ def _first_rollout(rollouts) -> str | None:
 def _apply_oracle_mode_to_extract(model, tokenizer, **kwargs):
     """Wrapper applying current oracle mode to activation extraction.
 
-    Uses punctuation-based multi-layer extraction when layers are configured
-    in _ORACLE_MODE, falling back to single-layer stride extraction otherwise.
-    Punctuation positions sample at semantic boundaries (sentence ends, clauses)
-    which are more informative than fixed-stride positions.
+    Always uses punctuation-based extraction (semantic boundaries) with
+    whatever layers are configured. Falls back to stride if < 2 punctuation
+    positions found.
     """
     kwargs.setdefault("stride", _ORACLE_MODE["stride"])
     layers = _ORACLE_MODE.get("layers")
-    if layers and len(layers) > 1:
-        # Multi-layer punctuation extraction: sample at punctuation boundaries
-        kwargs.pop("act_layer", None)  # not used by multilayer
-        kwargs.pop("max_boundaries", None)  # not used by multilayer
+    if layers:
+        # Punctuation extraction across configured layers
+        kwargs.pop("act_layer", None)
+        kwargs.pop("max_boundaries", None)
         kwargs.setdefault("fallback_stride", _ORACLE_MODE["stride"])
         return _extract_punctuation_raw(model, tokenizer, layers=layers, **kwargs)
+    # No layers configured — single-layer stride fallback
     return _extract_bundle_raw(model, tokenizer, **kwargs)
 
 
@@ -1271,10 +1272,10 @@ def precache_eval_activations(
 
     cache_dir = Path(activation_cache_dir)
 
-    # Configure oracle mode for multi-layer extraction
-    act_layers = [layer_percent_to_layer(model_name, p) for p in [25, 50, 75]]
+    # Configure oracle mode — layers match training (from CONFIGURED_LAYERS)
+    act_layers = get_injection_layers(model_name)
     set_oracle_mode(trained=True, oracle_adapter_name=oracle_adapter_name, stride=5, layers=act_layers)
-    print(f"  [precache] Multi-layer extraction: layers {act_layers}")
+    print(f"  [precache] Extraction: layers {act_layers}")
 
     model.eval()
     eval_list = eval_names or TRAINING_EVALS
@@ -1402,10 +1403,10 @@ def run_training_evals(
     eval_dir = Path(eval_dir)
     eval_dir.mkdir(parents=True, exist_ok=True)
 
-    # Configure oracle mode: use trained adapter with paragraph tokens + multi-layer
-    act_layers = [layer_percent_to_layer(model_name, p) for p in [25, 50, 75]]
+    # Configure oracle mode — layers match training (from CONFIGURED_LAYERS)
+    act_layers = get_injection_layers(model_name)
     set_oracle_mode(trained=True, oracle_adapter_name=oracle_adapter_name, stride=5, layers=act_layers)
-    print(f"  [training_eval] Multi-layer extraction: layers {act_layers}, batch_size={eval_batch_size}")
+    print(f"  [training_eval] Extraction: layers {act_layers}, batch_size={eval_batch_size}")
 
     # Save training state and switch to eval
     was_training = model.training
