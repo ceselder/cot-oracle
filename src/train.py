@@ -797,17 +797,16 @@ def train(
     total_steps = (num_batches // grad_accum) * args.epochs
     warmup_steps = int(total_steps * args.warmup_fraction)
 
-    # Dynamic eval/save cadence: 3-20x per stage, save at 1/5 eval frequency
+    # Dynamic eval/save cadence only for sequential mode (stage-relative).
+    # In shuffled mode, respect the config values from YAML.
     if task_order == "sequential":
         min_stage_steps = min(len(items) // args.batch_size for items in train_per_type.values() if len(items) >= args.batch_size)
-    else:
-        min_stage_steps = total_steps
-    args.eval_steps = min(min_stage_steps // 3, max(-(-min_stage_steps // 20), 1))
-    args.save_steps = args.eval_steps * 5
-    if rank == 0:
-        print(f"\n  Stage-relative cadence (min stage = {min_stage_steps} steps):")
-        print(f"    eval_steps: {args.eval_steps} (~{min_stage_steps // max(args.eval_steps, 1)}x per min stage)")
-        print(f"    save_steps: {args.save_steps} (~{min_stage_steps // max(args.save_steps, 1)}x per min stage)")
+        args.eval_steps = min(min_stage_steps // 3, max(-(-min_stage_steps // 20), 1))
+        args.save_steps = args.eval_steps * 5
+        if rank == 0:
+            print(f"\n  Stage-relative cadence (min stage = {min_stage_steps} steps):")
+            print(f"    eval_steps: {args.eval_steps} (~{min_stage_steps // max(args.eval_steps, 1)}x per min stage)")
+            print(f"    save_steps: {args.save_steps} (~{min_stage_steps // max(args.save_steps, 1)}x per min stage)")
 
     optimizer = torch.optim.AdamW(ddp_model.parameters(), lr=args.lr)
     scheduler = get_linear_schedule_with_warmup(

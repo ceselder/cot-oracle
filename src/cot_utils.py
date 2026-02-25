@@ -71,11 +71,13 @@ def get_cot_stride_positions(
     total_token_count: int,
     stride: int = 5,
     include_last: bool = True,
+    max_positions: int | None = None,
 ) -> list[int]:
     """Get fixed-stride positions over the CoT token region.
 
     Positions start right after the prompt tokens and proceed every `stride` tokens.
     Optionally includes the last token to keep late-CoT signal.
+    If max_positions is set, truncate to that many positions (keeping evenly spaced subset).
     """
     cot_start = max(0, prompt_token_count)
     cot_end = total_token_count - 1
@@ -98,6 +100,12 @@ def get_cot_stride_positions(
 
     if len(positions) < 2:
         return [cot_start, cot_end]
+
+    # Truncate to max_positions by taking evenly spaced subset
+    if max_positions is not None and len(positions) > max_positions:
+        indices = [int(i * (len(positions) - 1) / (max_positions - 1)) for i in range(max_positions)]
+        positions = [positions[i] for i in indices]
+
     return positions
 
 
