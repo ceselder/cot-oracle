@@ -4,5 +4,10 @@
 activations:
   n_layers: 6
 
+training:
+  batch_size: 8
+  effective_batch_size: 16   # grad_accum=2 to keep same effective batch size
+  eval_batch_size: 2
+
 output:
   wandb_run: ablation-stride5-6layers
