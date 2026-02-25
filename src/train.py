@@ -232,30 +232,21 @@ def dicts_to_training_data(
     raw_data: list[dict], tokenizer,
 ) -> list[TrainingDataPoint]:
     training_data = []
-    skipped = 0
 
     for item in raw_data:
-        try:
-            dp = create_training_datapoint(
-                datapoint_type=item["datapoint_type"],
-                prompt=item["prompt"],
-                target_response=item["target_response"],
-                layer=item["layer"],
-                num_positions=item["num_positions"],
-                tokenizer=tokenizer,
-                acts_BD=None,
-                feature_idx=-1,
-                context_input_ids=item["context_input_ids"],
-                context_positions=item["context_positions"],
-            )
-            training_data.append(dp)
-        except Exception as e:
-            skipped += 1
-            if skipped <= 5:
-                print(f"  Warning: skipped datapoint ({e})")
-
-    if skipped > 0:
-        print(f"  Skipped {skipped} datapoints during conversion")
+        dp = create_training_datapoint(
+            datapoint_type=item["datapoint_type"],
+            prompt=item["prompt"],
+            target_response=item["target_response"],
+            layer=item["layer"],
+            num_positions=item["num_positions"],
+            tokenizer=tokenizer,
+            acts_BD=None,
+            feature_idx=-1,
+            context_input_ids=item["context_input_ids"],
+            context_positions=item["context_positions"],
+        )
+        training_data.append(dp)
 
     return training_data
 
@@ -343,6 +334,12 @@ TASK_REGISTRY = {
         "loader": "load_cot_compqa_data",
         "corpus": "compqa",
     },
+    "hint_admission": {
+        "arg": "hint_admission_n",
+        "module": "dataset_classes.cot_hint_admission",
+        "loader": "load_cot_hint_admission_data",
+        "corpus": "hint_admission",
+    },
 }
 
 
@@ -421,6 +418,15 @@ def _live_load_task(task_name: str, info: dict, n: int, args, tokenizer) -> list
             num_examples=n, stride=args.stride,
             max_positions_per_layer=getattr(args, "max_positions_per_layer", 20),
         )
+    elif info["corpus"] == "hint_admission":
+        hint_path = getattr(args, "hint_admission_data_path",
+                            "data/hint_admission_training.jsonl")
+        return loader_fn(
+            hint_path, tokenizer, args.model,
+            num_examples=n, stride=args.stride,
+            max_positions_per_layer=getattr(args, "max_positions_per_layer", 20),
+            hint_admission_data_path=hint_path,
+        )
     else:
         return loader_fn(
             args.corpus, tokenizer, args.model,
@@ -446,24 +452,7 @@ def load_precomputed_tasks(precomputed_dir: str, args, tokenizer=None) -> list[d
 
         jsonl_path = pdir / f"{task_name}.jsonl"
         if not jsonl_path.exists():
-            try:
-                jsonl_path = _download_precomputed_from_hf(task_name, pdir)
-            except Exception as e:
-                # Fall back to live loading for tasks with dataset loaders
-                if info["module"] is not None and tokenizer is not None:
-                    print(f"  {task_name}: no precomputed JSONL, using live loader...")
-                    try:
-                        data = _live_load_task(task_name, info, n, args, tokenizer)
-                        all_data.extend(data)
-                        enabled.append(f"{task_name}({len(data)})")
-                        print(f"    -> {len(data)} examples (live)")
-                    except Exception as e2:
-                        print(f"    FAILED to live-load {task_name}: {e2}")
-                        import traceback
-                        traceback.print_exc()
-                else:
-                    print(f"  WARNING: {task_name}.jsonl not found locally or on HF: {e}")
-                continue
+            jsonl_path = _download_precomputed_from_hf(task_name, pdir)
 
         print(f"  Loading {task_name} from {jsonl_path}...")
         data = []
@@ -502,39 +491,42 @@ def load_all_tasks(args, tokenizer) -> list[dict]:
             print(f"    Skipping {task_name} (precompute-only, no live loader)")
             continue
 
-        try:
-            mod = importlib.import_module(info["module"])
-            loader_fn = getattr(mod, info["loader"])
+        mod = importlib.import_module(info["module"])
+        loader_fn = getattr(mod, info["loader"])
 
-            if info["corpus"] == "atypical":
-                atypical_path = args.atypical_data_path
-                data = loader_fn(
-                    atypical_path, tokenizer, args.model,
-                    num_examples=n,
-                    stride=args.stride,
-                    atypical_data_path=atypical_path,
-                )
-            elif info["corpus"] == "compqa":
-                compqa_cache = str(Path(getattr(args, "precomputed_dir", "data/precomputed")) / "compqa_raw.json")
-                data = loader_fn(
-                    compqa_cache, tokenizer, args.model,
-                    num_examples=n,
-                    stride=args.stride,
-                )
-            else:
-                data = loader_fn(
-                    args.corpus, tokenizer, args.model,
-                    num_examples=n,
-                    stride=args.stride,
-                )
+        if info["corpus"] == "atypical":
+            atypical_path = args.atypical_data_path
+            data = loader_fn(
+                atypical_path, tokenizer, args.model,
+                num_examples=n,
+                stride=args.stride,
+                atypical_data_path=atypical_path,
+            )
+        elif info["corpus"] == "compqa":
+            compqa_cache = str(Path(getattr(args, "precomputed_dir", "data/precomputed")) / "compqa_raw.json")
+            data = loader_fn(
+                compqa_cache, tokenizer, args.model,
+                num_examples=n,
+                stride=args.stride,
+            )
+        elif info["corpus"] == "hint_admission":
+            hint_path = getattr(args, "hint_admission_data_path",
+                                "data/hint_admission_training.jsonl")
+            data = loader_fn(
+                hint_path, tokenizer, args.model,
+                num_examples=n,
+                stride=args.stride,
+                hint_admission_data_path=hint_path,
+            )
+        else:
+            data = loader_fn(
+                args.corpus, tokenizer, args.model,
+                num_examples=n,
+                stride=args.stride,
+            )
 
-            all_data.extend(data)
-            print(f"    -> {len(data)} examples loaded")
-
-        except Exception as e:
-            print(f"    FAILED to load {task_name}: {e}")
-            import traceback
-            traceback.print_exc()
+        all_data.extend(data)
+        print(f"    -> {len(data)} examples loaded")
 
     print(f"\n  Enabled tasks: {', '.join(enabled)}")
     print(f"  Total: {len(all_data)} examples")
@@ -611,49 +603,46 @@ def run_eval(
     gen_kwargs = {"do_sample": False, "max_new_tokens": 100}
 
     for ds in eval_datasets:
-        try:
-            eval_responses = run_evaluation(
-                eval_data=eval_datasets[ds],
-                model=model,
-                tokenizer=tokenizer,
-                submodule=submodule,
-                device=device,
-                dtype=dtype,
-                global_step=global_step,
-                lora_path=None,
-                eval_batch_size=eval_batch_size,
-                steering_coefficient=steering_coefficient,
-                generation_kwargs=gen_kwargs,
-            )
+        eval_responses = run_evaluation(
+            eval_data=eval_datasets[ds],
+            model=model,
+            tokenizer=tokenizer,
+            submodule=submodule,
+            device=device,
+            dtype=dtype,
+            global_step=global_step,
+            lora_path=None,
+            eval_batch_size=eval_batch_size,
+            steering_coefficient=steering_coefficient,
+            generation_kwargs=gen_kwargs,
+        )
 
-            scores = []
-            columns = ["id", "type", "oracle_prompt", "prediction", "target", "token_f1", "pred_tokens", "target_tokens"]
-            table = wandb.Table(columns=columns)
-            rows = []
+        scores = []
+        columns = ["id", "type", "oracle_prompt", "prediction", "target", "token_f1", "pred_tokens", "target_tokens"]
+        table = wandb.Table(columns=columns)
+        rows = []
 
-            for i, (resp, dp) in enumerate(zip(eval_responses, eval_datasets[ds])):
-                pred = resp.api_response.strip()
-                target = dp.target_output.strip()
-                score = _token_f1(pred, target)
-                scores.append(score)
-                oracle_prompt = getattr(dp, 'prompt', '') or str(dp.meta_info.get('prompt', ''))[:300]
-                row = [i, dp.datapoint_type, oracle_prompt[:300], pred[:500], target[:500], round(score, 3), len(pred.split()), len(target.split())]
-                table.add_data(*row)
-                rows.append(row)
+        for i, (resp, dp) in enumerate(zip(eval_responses, eval_datasets[ds])):
+            pred = resp.api_response.strip()
+            target = dp.target_output.strip()
+            score = _token_f1(pred, target)
+            scores.append(score)
+            oracle_prompt = getattr(dp, 'prompt', '') or str(dp.meta_info.get('prompt', ''))[:300]
+            row = [i, dp.datapoint_type, oracle_prompt[:300], pred[:500], target[:500], round(score, 3), len(pred.split()), len(target.split())]
+            table.add_data(*row)
+            rows.append(row)
 
-            avg_score = sum(scores) / len(scores) if scores else 0.0
-            wandb.log({f"eval/{ds}": avg_score}, step=global_step)
-            print(f"  Step {global_step} | {ds}: token_f1={avg_score:.3f}")
+        avg_score = sum(scores) / len(scores) if scores else 0.0
+        wandb.log({f"eval/{ds}": avg_score}, step=global_step)
+        print(f"  Step {global_step} | {ds}: token_f1={avg_score:.3f}")
 
-            if eval_responses:
-                print(f"    pred='{eval_responses[0].api_response.strip()[:120]}'")
-                print(f"    targ='{eval_datasets[ds][0].target_output.strip()[:120]}'")
+        if eval_responses:
+            print(f"    pred='{eval_responses[0].api_response.strip()[:120]}'")
+            print(f"    targ='{eval_datasets[ds][0].target_output.strip()[:120]}'")
 
-            wandb.log({f"eval_table/{ds}": table}, step=global_step)
-            if log_dir and rows:
-                _save_table_to_disk(Path(log_dir), f"eval_table_{ds}", global_step, columns, rows)
-        except Exception as e:
-            print(f"  Eval FAILED for {ds}: {e}")
+        wandb.log({f"eval_table/{ds}": table}, step=global_step)
+        if log_dir and rows:
+            _save_table_to_disk(Path(log_dir), f"eval_table_{ds}", global_step, columns, rows)
 
     model.train()
     torch.cuda.empty_cache()
@@ -661,39 +650,33 @@ def run_eval(
 
 def run_unfaith_evals(model, tokenizer, model_name, global_step, args, log_dir=None):
     """Run unfaithfulness evals if available."""
-    try:
-        from evals.training_eval_hook import run_training_evals
-        import wandb
+    from evals.training_eval_hook import run_training_evals
+    import wandb
 
-        print(f"\n--- Unfaithfulness evals at step {global_step} ---")
-        metrics = run_training_evals(
-            model, tokenizer, model_name=model_name,
-            step=global_step, device="cuda",
-            eval_dir=args.eval_dir,
-            max_items_per_eval=20,
-            skip_rot13=(global_step < args.rot13_start_step),
-            oracle_adapter_name="default",
-            activation_cache_dir=args.activation_cache_dir,
-            log_dir=log_dir,
-            eval_names=getattr(args, "unfaith_evals", None),
-        )
-        if metrics:
-            # Inject baseline reference lines
-            baselines = getattr(args, "eval_baselines", {})
-            for eval_name, methods in baselines.items():
-                for method, score in methods.items():
-                    metrics[f"eval/{eval_name}_baseline_{method}"] = score
+    print(f"\n--- Unfaithfulness evals at step {global_step} ---")
+    metrics = run_training_evals(
+        model, tokenizer, model_name=model_name,
+        step=global_step, device="cuda",
+        eval_dir=args.eval_dir,
+        max_items_per_eval=20,
+        skip_rot13=(global_step < args.rot13_start_step),
+        oracle_adapter_name="default",
+        activation_cache_dir=args.activation_cache_dir,
+        log_dir=log_dir,
+        eval_names=getattr(args, "unfaith_evals", None),
+    )
+    if metrics:
+        # Inject baseline reference lines
+        baselines = getattr(args, "eval_baselines", {})
+        for eval_name, methods in baselines.items():
+            for method, score in methods.items():
+                metrics[f"eval/{eval_name}_baseline_{method}"] = score
 
-            wandb.log(metrics, step=global_step)
-            for k, v in sorted(metrics.items()):
-                if isinstance(v, (int, float)) and "sample" not in k:
-                    print(f"  {k}: {v:.3f}" if isinstance(v, float) else f"  {k}: {v}")
-        return metrics
-    except Exception as e:
-        print(f"  Unfaithfulness eval FAILED: {e}")
-        import traceback
-        traceback.print_exc()
-        return {}
+        wandb.log(metrics, step=global_step)
+        for k, v in sorted(metrics.items()):
+            if isinstance(v, (int, float)) and "sample" not in k:
+                print(f"  {k}: {v:.3f}" if isinstance(v, float) else f"  {k}: {v}")
+    return metrics
 
 
 # ── Main training loop ──
@@ -990,14 +973,11 @@ def train(
                 if rank == 0:
                     print(f"\n--- Task eval at step {global_step} ---")
                     eval_start = time.time()
-                    try:
-                        run_eval(
-                            eval_datasets, model, tokenizer, submodule,
-                            device, dtype, global_step, args.eval_batch_size,
-                            args.steering_coefficient, log_dir=log_dir,
-                        )
-                    except Exception as e:
-                        print(f"  Task eval FAILED: {e}")
+                    run_eval(
+                        eval_datasets, model, tokenizer, submodule,
+                        device, dtype, global_step, args.eval_batch_size,
+                        args.steering_coefficient, log_dir=log_dir,
+                    )
                     eval_time_total += time.time() - eval_start
                     model.train()
                 if world_size > 1:
@@ -1028,14 +1008,11 @@ def train(
     # Final eval (rank 0 only)
     if rank == 0:
         print(f"\n--- Final eval at step {global_step} ---")
-        try:
-            run_eval(
-                eval_datasets, model, tokenizer, submodule,
-                device, dtype, global_step, args.eval_batch_size,
-                args.steering_coefficient, log_dir=log_dir,
-            )
-        except Exception as e:
-            print(f"  Final task eval FAILED: {e}")
+        run_eval(
+            eval_datasets, model, tokenizer, submodule,
+            device, dtype, global_step, args.eval_batch_size,
+            args.steering_coefficient, log_dir=log_dir,
+        )
 
         run_unfaith_evals(model, tokenizer, args.model, global_step, args, log_dir=log_dir)
 
@@ -1124,6 +1101,8 @@ def apply_config(args, config: dict):
             args.activation_cache_dir = d["activation_cache_dir"]
         if "atypical_data_path" in d and not getattr(args, "_cli_atypical_data_path", False):
             args.atypical_data_path = d["atypical_data_path"]
+        if "hint_admission_data_path" in d and not getattr(args, "_cli_hint_admission_data_path", False):
+            args.hint_admission_data_path = d["hint_admission_data_path"]
 
     # Model
     if "model" in config:
@@ -1182,9 +1161,13 @@ def main():
     parser.add_argument("--atypical-answer-n", type=int, default=20000)
     parser.add_argument("--prompt-inversion-n", type=int, default=0)
     parser.add_argument("--compqa-n", type=int, default=0)
+    parser.add_argument("--hint-admission-n", type=int, default=0)
     parser.add_argument("--atypical-data-path",
                         default="data/atypical_answer_training.jsonl",
                         help="Path to atypical answer JSONL (from precompute_atypical_training.py)")
+    parser.add_argument("--hint-admission-data-path",
+                        default="data/hint_admission_training.jsonl",
+                        help="Path to hint admission JSONL (from precompute_hint_admission.py)")
 
     # Training hyperparams
     parser.add_argument("--lr", type=float, default=1e-5)
@@ -1257,6 +1240,8 @@ def main():
     if rank == 0:
         args.corpus = _resolve_hf_dataset(args.corpus)
         args.atypical_data_path = _resolve_hf_dataset(args.atypical_data_path)
+        if hasattr(args, "hint_admission_data_path"):
+            args.hint_admission_data_path = _resolve_hf_dataset(args.hint_admission_data_path)
 
     set_seed(args.seed)
 
@@ -1295,7 +1280,7 @@ def main():
         args.model,
         torch_dtype=dtype,
         device_map={"": f"cuda:{local_rank}"},
-        attn_implementation="eager",
+        attn_implementation="sdpa",  # O(n) memory; "eager" was O(n²) and OOMed at batch>8
     )
     base_model.enable_input_require_grads()
 

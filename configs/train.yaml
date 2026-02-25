@@ -54,11 +54,15 @@ tasks:
     n: 8000
     description: "Answer questions about CoT reasoning quality (10 types, Gemini GT)"
 
+  hint_admission:
+    n: 15000
+    description: "Did the model use an external hint? What was it?"
+
 # Training
 training:
   lr: 0.00001
-  batch_size: 8
-  eval_batch_size: 2
+  batch_size: 16
+  eval_batch_size: 4
   epochs: 1
   warmup_fraction: 0.1
   max_grad_norm: 1.0
@@ -109,6 +113,7 @@ data:
   precomputed_dir: data/precomputed
   activation_cache_dir: data/eval_precomputed  # auto-populates on first eval run
   atypical_data_path: mats-10-sprint-cs-jb/qwen3-8b-atypical-answer-rollouts
+  hint_admission_data_path: mats-10-sprint-cs-jb/qwen3-8b-hint-admission-rollouts
 
 # Model
 model:
