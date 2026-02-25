@@ -26,10 +26,14 @@ from __future__ import annotations
 import argparse
 import gc
 import json
+import os
 import sys
 import time
 from collections import Counter
 from pathlib import Path
+
+from dotenv import load_dotenv
+load_dotenv()
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
@@ -617,7 +621,8 @@ def main():
     parser = argparse.ArgumentParser(
         description="Precompute eval activation bundles (vLLM + HF two-phase)")
     parser.add_argument("--eval-dir", default="data/evals")
-    parser.add_argument("--output-dir", default="data/eval_precomputed")
+    _default_cache = os.path.join(os.environ["CACHE_DIR"], "cot_oracle", "eval_precomputed") if os.environ.get("CACHE_DIR") else "data/eval_precomputed"
+    parser.add_argument("--output-dir", default=_default_cache)
     parser.add_argument("--model", default="Qwen/Qwen3-8B")
     parser.add_argument("--evals", nargs="*", default=None,
                         help="Specific evals to process (default: all)")

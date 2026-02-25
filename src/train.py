@@ -28,6 +28,9 @@ import logging
 import os
 import random
 import sys
+
+from dotenv import load_dotenv
+load_dotenv()
 import time
 import warnings
 from collections import defaultdict
@@ -1215,7 +1218,8 @@ def main():
     parser.add_argument("--start-step", type=int, default=0,
                         help="Starting global step (for resuming)")
     parser.add_argument("--eval-dir", default="data/evals")
-    parser.add_argument("--activation-cache-dir", default="data/eval_precomputed",
+    _default_cache = os.path.join(os.environ["CACHE_DIR"], "cot_oracle", "eval_precomputed") if os.environ.get("CACHE_DIR") else "data/eval_precomputed"
+    parser.add_argument("--activation-cache-dir", default=_default_cache,
                         help="Dir with precomputed activation bundles (.pt)")
 
     # Output
