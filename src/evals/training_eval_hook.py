@@ -296,8 +296,9 @@ def _subsample(items: list[EvalItem], max_items: int, seed: int) -> list[EvalIte
 def _try_load_cached(cache_dir: Path | None, eval_name: str, example_id: str, device: str):
     """Try to load a cached activation bundle. Returns bundle or None.
 
-    Invalidates stale single-layer caches when multi-layer mode is active:
-    expected shape is [K * n_layers, D] where K = len(boundary_positions).
+    Invalidates stale caches when:
+    - Layer count doesn't match (single-layer vs multi-layer)
+    - Stride mode doesn't match (stride=5 vs punctuation)
     """
     if cache_dir is None:
         return None
@@ -307,13 +308,24 @@ def _try_load_cached(cache_dir: Path | None, eval_name: str, example_id: str, de
     bundle = _load_bundle(path, map_location=device)
     if bundle.activations is None:
         return None
+
+    # Validate stride mode matches
+    cached_stride = (bundle.metadata or {}).get("stride")
+    current_stride = _ORACLE_MODE.get("stride")
+    if cached_stride is not None and str(cached_stride) != str(current_stride):
+        path.unlink(missing_ok=True)
+        return None
+    # Old caches without stride metadata — invalidate them too
+    if cached_stride is None and current_stride is not None:
+        path.unlink(missing_ok=True)
+        return None
+
     # Validate shape matches current layer config
     layers = _ORACLE_MODE.get("layers")
     if layers and len(layers) > 1:
         n_positions = len(bundle.boundary_positions)
         expected_rows = n_positions * len(layers)
         if bundle.activations.shape[0] != expected_rows:
-            # Stale single-layer cache — delete and re-extract
             path.unlink(missing_ok=True)
             return None
     return bundle
@@ -347,6 +359,7 @@ def _auto_cache_bundle(
         activations=activations,
         boundary_positions=boundary_positions,
         sentences=[],
+        metadata={"stride": str(_ORACLE_MODE.get("stride", "unknown"))},
         clean_response=clean_response,
         test_response=test_response,
         clean_answer=clean_answer,
@@ -1291,15 +1304,29 @@ def precache_eval_activations(
     for eval_name in eval_list:
         items = load_eval_items_hf(eval_name, eval_dir=eval_dir)
 
-        # Find uncached items (stale single-layer caches are auto-invalidated)
+        # Find uncached items (stale caches auto-invalidated by stride/layer mismatch)
         uncached = []
+        current_stride_str = str(stride)
         for item in items:
             path = _cache_path(cache_dir, eval_name, item.example_id)
             if path.exists():
-                # Check if cache is stale (single-layer)
                 try:
                     bundle = _load_bundle(path, map_location="cpu")
                     if bundle.activations is not None:
+                        # Check stride mode matches
+                        cached_stride = (bundle.metadata or {}).get("stride")
+                        if cached_stride is not None and str(cached_stride) != current_stride_str:
+                            total_stale += 1
+                            path.unlink(missing_ok=True)
+                            uncached.append(item)
+                            continue
+                        if cached_stride is None:
+                            # Old cache without stride info — invalidate
+                            total_stale += 1
+                            path.unlink(missing_ok=True)
+                            uncached.append(item)
+                            continue
+                        # Check layer shape matches
                         n_pos = len(bundle.boundary_positions)
                         expected = n_pos * len(act_layers)
                         if bundle.activations.shape[0] == expected:
