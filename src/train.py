@@ -123,8 +123,8 @@ def materialize_multilayer_steering_vectors(
     tokenizer,
     model,
 ) -> list[TrainingDataPoint]:
-    """Materialize steering vectors from 3 layers (25%, 50%, 75% depth)."""
-    N_LAYERS = 3
+    """Materialize steering vectors from MULTI_LAYERS (configurable via --n-layers)."""
+    N_LAYERS = len(MULTI_LAYERS)
 
     to_fill = [
         (i, dp) for i, dp in enumerate(batch_points) if dp.steering_vectors is None
@@ -134,12 +134,7 @@ def materialize_multilayer_steering_vectors(
 
     assert isinstance(model, PeftModel), "Model must be a PeftModel"
 
-    num_model_layers = model.config.num_hidden_layers
-    layers = [
-        int(num_model_layers * 0.25),
-        int(num_model_layers * 0.50),
-        int(num_model_layers * 0.75),
-    ]
+    layers = list(MULTI_LAYERS)
 
     for _, dp in to_fill:
         if dp.context_input_ids is None or dp.context_positions is None:
@@ -310,9 +305,9 @@ TASK_REGISTRY = {
     },
     "conv_qa": {
         "arg": "conv_qa_n",
-        "module": "dataset_classes.cot_conversational",
-        "loader": "load_cot_conversational_data",
-        "corpus": "main",  # concept corpus removed; conv_qa now precompute-only
+        "module": None,
+        "loader": None,
+        "corpus": "main",  # precompute-only (loader needs qa_jsonl_path)
     },
     "answer_trajectory": {
         "arg": "answer_trajectory_n",
@@ -334,9 +329,9 @@ TASK_REGISTRY = {
     },
     "compqa": {
         "arg": "compqa_n",
-        "module": "dataset_classes.cot_compqa",
-        "loader": "load_cot_compqa_data",
-        "corpus": "compqa",
+        "module": None,
+        "loader": None,
+        "corpus": "compqa",  # precompute-only (needs compqa_raw.json)
     },
     "hint_admission": {
         "arg": "hint_admission_n",
@@ -680,12 +675,6 @@ def run_unfaith_evals(model, tokenizer, model_name, global_step, args, log_dir=N
         eval_names=getattr(args, "unfaith_evals", None),
     )
     if metrics:
-        # Inject baseline reference lines
-        baselines = getattr(args, "eval_baselines", {})
-        for eval_name, methods in baselines.items():
-            for method, score in methods.items():
-                metrics[f"eval/{eval_name}_baseline_{method}"] = score
-
         wandb.log(metrics, step=global_step)
         for k, v in sorted(metrics.items()):
             if isinstance(v, (int, float)) and "sample" not in k:
@@ -1130,17 +1119,13 @@ def apply_config(args, config: dict):
         if "unfaith_evals" in e and not getattr(args, "_cli_unfaith_evals", False):
             raw_evals = e["unfaith_evals"]
             eval_names = []
-            eval_baselines = {}
             for entry in raw_evals:
                 if isinstance(entry, str):
                     eval_names.append(entry)
                 elif isinstance(entry, dict):
                     name = list(entry.keys())[0]
                     eval_names.append(name)
-                    if isinstance(entry[name], dict) and "baselines" in entry[name]:
-                        eval_baselines[name] = entry[name]["baselines"]
             args.unfaith_evals = eval_names
-            args.eval_baselines = eval_baselines
 
     # Data paths
     if "data" in config:
@@ -1226,6 +1211,8 @@ def main():
     parser.add_argument("--eval-batch-size", type=int, default=2)
     parser.add_argument("--epochs", type=int, default=1)
     parser.add_argument("--stride", type=int, default=5)
+    parser.add_argument("--n-layers", type=int, default=3,
+                        help="Number of activation layers (evenly spaced through model depth)")
     parser.add_argument("--steering-coefficient", type=float, default=1.0)
     parser.add_argument("--max-grad-norm", type=float, default=1.0)
     parser.add_argument("--warmup-fraction", type=float, default=0.1)
@@ -1304,7 +1291,12 @@ def main():
 
     # Multi-layer config
     global MULTI_LAYERS
-    MULTI_LAYERS = [layer_percent_to_layer(args.model, p) for p in [25, 50, 75]]
+    n_layers = getattr(args, "n_layers", 3)
+    percents = [int(100 * (i + 1) / (n_layers + 1)) for i in range(n_layers)]
+    MULTI_LAYERS = [layer_percent_to_layer(args.model, p) for p in percents]
+    # Make layers available to dataset loaders
+    import cot_utils as _cu
+    _cu.CONFIGURED_LAYERS = MULTI_LAYERS
     if rank == 0:
         print(f"Multi-layer injection: {MULTI_LAYERS}")
         print(f"Distributed: world_size={world_size}, rank={rank}, local_rank={local_rank}")

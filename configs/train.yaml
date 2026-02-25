@@ -47,7 +47,7 @@ tasks:
     description: "Is this a majority or minority answer? (from 25-rollout distributions)"
 
   prompt_inversion:
-    n: 0
+    n: 20000
     description: "Reconstruct the original question/prompt from CoT activations"
 
   compqa:
@@ -85,22 +85,11 @@ eval:
   eval_steps: 2000
   save_steps: 10000
   rot13_start_step: 2000
-  # All unfaithfulness evals to run during training (pulled from HF)
-  # Entries can be plain strings or dicts with baselines for wandb reference lines
   unfaith_evals:
-    - hinted_mcq:
-        baselines:
-          linear_probe: 0.65
-          attention_probe: 0.70
-          llm_monitor: 0.50
+    - hinted_mcq
     - hinted_mcq_truthfulqa
-    - sycophancy_v2_riya:
-        baselines:
-          llm_monitor: 0.42
-    - decorative_cot:
-        baselines:
-          linear_probe: 0.72
-          llm_monitor: 0.55
+    - sycophancy_v2_riya
+    - decorative_cot
     - sentence_insertion
     - reasoning_termination_riya
     - atypical_answer_riya
@@ -108,7 +97,6 @@ eval:
     - cybercrime_ood
     - forced_answer_entropy_riya
     - rot13_reconstruction
-    - compqa
 
 # Data — HF dataset IDs auto-download; local paths used as-is
 data:
