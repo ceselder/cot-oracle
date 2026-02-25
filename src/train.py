@@ -825,6 +825,15 @@ def train(
     total_steps = (num_batches // grad_accum) * args.epochs
     warmup_steps = int(total_steps * args.warmup_fraction)
 
+    # Precompute per-stage step boundaries for progress tracking
+    stage_step_ranges = {}  # task_name -> (start_step, end_step)
+    if task_order == "sequential" and task_blocks:
+        cursor = 0
+        for task_name, items in task_blocks:
+            stage_steps = len(items) // (args.batch_size * grad_accum)
+            stage_step_ranges[task_name] = (cursor, cursor + stage_steps)
+            cursor += stage_steps
+
     # Dynamic eval/save cadence only for sequential mode (stage-relative).
     # In shuffled mode, respect the config values from YAML.
     if task_order == "sequential":
@@ -1000,6 +1009,11 @@ def train(
                 dominant_task = max(batch_task_counts, key=batch_task_counts.get)
                 log_dict["train/stage"] = dominant_task
                 log_dict["train/stage_idx"] = task_stage_idx.get(dominant_task, -1)
+                log_dict["train/progress"] = global_step / max(total_steps, 1)
+                if dominant_task in stage_step_ranges:
+                    s_start, s_end = stage_step_ranges[dominant_task]
+                    s_len = max(s_end - s_start, 1)
+                    log_dict["train/stage_progress"] = min((global_step - s_start) / s_len, 1.0)
 
                 wandb.log(log_dict, step=global_step)
 
