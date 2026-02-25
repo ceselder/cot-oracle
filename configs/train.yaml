@@ -114,7 +114,7 @@ eval:
 data:
   corpus: mats-10-sprint-cs-jb/cot-oracle-corpus-v5
   precomputed_dir: data/precomputed
-  activation_cache_dir: data/eval_precomputed  # auto-populates on first eval run
+  # activation_cache_dir: sourced from CACHE_DIR env var (dotenv), fallback: data/eval_precomputed
   atypical_data_path: mats-10-sprint-cs-jb/qwen3-8b-atypical-answer-rollouts
   hint_admission_data_path: mats-10-sprint-cs-jb/qwen3-8b-hint-admission-rollouts
 
