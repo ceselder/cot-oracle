@@ -23,7 +23,6 @@ def load_cot_rollout_multilayer(
     model_name: str,
     num_examples: int = 20000,
     stride: int = 5,
-    max_positions_per_layer: int | None = None,
     max_target_tokens: int = 8192,
     seed: int = 42,
 ) -> list[dict]:
@@ -38,15 +37,11 @@ def load_cot_rollout_multilayer(
 
     Returns list of dicts compatible with dicts_to_training_data().
     """
-    from cot_utils import get_cot_stride_positions, layer_percent_to_layer
+    from cot_utils import get_cot_stride_positions, get_injection_layers
 
     random.seed(seed)
 
-    LAYERS = [
-        layer_percent_to_layer(model_name, 25),  # layer 9 for 8B
-        layer_percent_to_layer(model_name, 50),  # layer 18 for 8B
-        layer_percent_to_layer(model_name, 75),  # layer 27 for 8B
-    ]
+    LAYERS = get_injection_layers(model_name)
 
     corpus = []
     with open(corpus_path) as f:
@@ -91,7 +86,6 @@ def load_cot_rollout_multilayer(
         positions = get_cot_stride_positions(
             prompt_len, len(full_ids),
             stride=stride,
-            max_positions=max_positions_per_layer,
         )
         if len(positions) < 2:
             continue
@@ -99,7 +93,7 @@ def load_cot_rollout_multilayer(
         K = len(positions)
 
         # Triple positions for 3 layers
-        context_positions = positions * 3  # [K from L9, K from L18, K from L27]
+        context_positions = positions * len(LAYERS)  # [K from L9, K from L18, K from L27]
         num_positions = len(context_positions)  # 3K
 
         # Context slice: include up to the last position

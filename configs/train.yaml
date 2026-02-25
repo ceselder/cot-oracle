@@ -91,12 +91,7 @@ eval:
   rot13_start_step: 2000
   # All evals to run during training (pulled from HF)
   # Entries can be plain strings or dicts with baselines for wandb reference lines
-  evals:
-    - hinted_mcq:
-        baselines:
-          linear_probe: 0.65
-          attention_probe: 0.70
-          llm_monitor: 0.50
+  unfaith_evals:
     - hinted_mcq_truthfulqa
     - sycophancy_v2_riya
     - decorative_cot
@@ -105,7 +100,7 @@ eval:
     - atypical_answer_riya
     - atypical_answer_mcq
     - cybercrime_ood
-    - forced_answer_entropy_riya
+    # - forced_answer_entropy_riya  # disabled: logprob extraction broken, always 0.000
     - rot13_reconstruction
 
 # Data — HF dataset IDs auto-download; local paths used as-is
@@ -128,7 +123,6 @@ baselines:
   log_dir: logs/baselines
 
   evals:
-    - hinted_mcq
     - sycophancy_v2_riya
     - decorative_cot
     - reasoning_termination_riya

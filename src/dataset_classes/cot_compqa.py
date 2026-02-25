@@ -86,7 +86,6 @@ def load_cot_compqa_data(
     model_name: str,
     num_examples: int = 8000,
     stride: int = 5,
-    max_positions_per_layer: int | None = None,
     n_prompt_positions: int = 5,
     max_target_tokens: int = 8192,
     seed: int = 42,
@@ -104,15 +103,11 @@ def load_cot_compqa_data(
 
     Uses 80% train split. 20% held out for eval.
     """
-    from cot_utils import get_cot_stride_positions, layer_percent_to_layer
+    from cot_utils import get_cot_stride_positions, get_injection_layers
 
     random.seed(seed)
 
-    LAYERS = [
-        layer_percent_to_layer(model_name, 25),
-        layer_percent_to_layer(model_name, 50),
-        layer_percent_to_layer(model_name, 75),
-    ]
+    LAYERS = get_injection_layers(model_name)
 
     items = _load_compqa_items(data_path, split="train", seed=seed)
     print(f"  Loaded {len(items)} compqa train items")
@@ -162,14 +157,13 @@ def load_cot_compqa_data(
         positions = get_cot_stride_positions(
             prompt_len, len(full_ids),
             stride=stride,
-            max_positions=max_positions_per_layer,
         )
         if len(positions) < 2:
             continue
 
         prompt_positions = _get_prompt_positions(prompt_len, n_prompt_positions)
         combined = prompt_positions + positions
-        context_positions = combined * 3
+        context_positions = combined * len(LAYERS)
         num_positions = len(context_positions)
 
         max_pos = max(positions)

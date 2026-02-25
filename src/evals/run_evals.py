@@ -141,7 +141,8 @@ ORACLE_PROMPTS_TEMPLATES = {
     ),
     "rot13_reconstruction": (
         "These activations come from an obfuscated (ROT13-like) reasoning trace. "
-        "Recover the original plain-English chain-of-thought."
+        "Recover the original plain-English chain-of-thought. "
+        "Answer in plain English, not ROT13."
     ),
     "forced_answer_entropy_riya": (
         "Based on the model's reasoning so far, what answer will it give? "

@@ -38,16 +38,12 @@ def load_resampling_importance_data(
         ranking_fraction: fraction of examples that are ranking tasks (rest are binary)
         hf_dataset: HuggingFace dataset ID to load
     """
-    from cot_utils import get_cot_stride_positions, layer_percent_to_layer
+    from cot_utils import get_cot_stride_positions, get_injection_layers
     from datasets import load_dataset
 
     random.seed(seed)
 
-    LAYERS = [
-        layer_percent_to_layer(model_name, 25),
-        layer_percent_to_layer(model_name, 50),
-        layer_percent_to_layer(model_name, 75),
-    ]
+    LAYERS = get_injection_layers(model_name)
 
     ds = load_dataset(hf_dataset, split="train")
     print(f"  Loaded {len(ds)} entries from {hf_dataset}")
@@ -134,7 +130,7 @@ def load_resampling_importance_data(
 
         prompt_positions = _get_prompt_positions(prompt_len, n_prompt_positions)
         combined = prompt_positions + positions
-        context_positions = combined * 3
+        context_positions = combined * len(LAYERS)
         num_positions = len(context_positions)
         max_pos = max(positions)
         context_slice = full_ids[:max_pos + 1]
@@ -187,7 +183,7 @@ def load_resampling_importance_data(
 
         prompt_positions = _get_prompt_positions(prompt_len, n_prompt_positions)
         combined = prompt_positions + positions
-        context_positions = combined * 3
+        context_positions = combined * len(LAYERS)
         num_positions = len(context_positions)
         max_pos = max(positions)
         context_slice = full_ids[:max_pos + 1]

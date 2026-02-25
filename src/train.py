@@ -633,6 +633,7 @@ def run_eval(
 
     model.eval()
     gen_kwargs = {"do_sample": False, "max_new_tokens": 100}
+    all_scores = {}
 
     for ds in eval_datasets:
         eval_responses = run_evaluation(
@@ -659,7 +660,7 @@ def run_eval(
             target = dp.target_output.strip()
             score = _token_f1(pred, target)
             scores.append(score)
-            oracle_prompt = getattr(dp, 'prompt', '') or str(dp.meta_info.get('prompt', ''))[:300]
+            oracle_prompt = getattr(resp, 'prompt', '') or getattr(dp, 'prompt', '') or str(dp.meta_info.get('prompt', ''))[:300]
             row = [i, dp.datapoint_type, oracle_prompt[:300], pred[:500], target[:500], round(score, 3), len(pred.split()), len(target.split())]
             table.add_data(*row)
             rows.append(row)
@@ -676,6 +677,13 @@ def run_eval(
         if log_dir and rows:
             _save_table_to_disk(Path(log_dir), f"eval_table_{ds}", global_step, columns, rows)
 
+        all_scores[ds] = avg_score
+
+    if all_scores:
+        eval_mean = sum(all_scores.values()) / len(all_scores)
+        wandb.log({"eval/mean": eval_mean}, step=global_step)
+        print(f"  Step {global_step} | eval_mean={eval_mean:.3f}")
+
     model.train()
     torch.cuda.empty_cache()
 
@@ -690,7 +698,7 @@ def run_evals(model, tokenizer, model_name, global_step, args, log_dir=None):
         model, tokenizer, model_name=model_name,
         step=global_step, device="cuda",
         eval_dir=args.eval_dir,
-        max_items_per_eval=20,
+        max_items_per_eval=25,
         skip_rot13=(global_step < args.rot13_start_step),
         oracle_adapter_name="default",
         activation_cache_dir=args.activation_cache_dir,
@@ -1172,6 +1180,7 @@ def apply_config(args, config: dict):
         if "evals" in e and not getattr(args, "_cli_evals", False):
             raw_evals = e["evals"]
             eval_names = []
+            eval_baselines = {}
             for entry in raw_evals:
                 if isinstance(entry, str):
                     eval_names.append(entry)
@@ -1509,6 +1518,7 @@ def main():
         )
         wandb.define_metric("train/samples_seen")
         wandb.define_metric("*", step_metric="train/samples_seen")
+        task_stage_idx = getattr(args, "_task_stage_idx", {})
         if task_stage_idx:
             wandb.config.update({"stage_map": {v: k for k, v in task_stage_idx.items()}})
         # Save raw YAML config to wandb for reproducibility

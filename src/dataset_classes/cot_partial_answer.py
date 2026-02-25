@@ -65,15 +65,11 @@ def load_cot_partial_answer_data(
     The oracle learns: "given activations at X% through reasoning,
     what answer is the model converging toward?"
     """
-    from cot_utils import get_cot_stride_positions, layer_percent_to_layer
+    from cot_utils import get_cot_stride_positions, get_injection_layers
 
     random.seed(seed)
 
-    LAYERS = [
-        layer_percent_to_layer(model_name, 25),
-        layer_percent_to_layer(model_name, 50),
-        layer_percent_to_layer(model_name, 75),
-    ]
+    LAYERS = get_injection_layers(model_name)
 
     corpus = []
     with open(corpus_path) as f:
@@ -162,7 +158,7 @@ def load_cot_partial_answer_data(
 
         prompt_positions = _get_prompt_positions(t["prompt_len"], n_prompt_positions)
         combined = prompt_positions + positions
-        context_positions = combined * 3  # triple for 3 layers
+        context_positions = combined * len(LAYERS)  # triple for 3 layers
         num_positions = len(context_positions)
 
         max_pos = max(positions)

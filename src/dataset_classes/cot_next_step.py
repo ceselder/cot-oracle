@@ -41,15 +41,11 @@ def load_cot_next_step_data(
 
     Returns list of dicts compatible with dicts_to_training_data().
     """
-    from cot_utils import get_cot_stride_positions, layer_percent_to_layer
+    from cot_utils import get_cot_stride_positions, get_injection_layers
 
     random.seed(seed)
 
-    LAYERS = [
-        layer_percent_to_layer(model_name, 25),
-        layer_percent_to_layer(model_name, 50),
-        layer_percent_to_layer(model_name, 75),
-    ]
+    LAYERS = get_injection_layers(model_name)
 
     corpus = []
     with open(corpus_path) as f:
@@ -126,7 +122,7 @@ def load_cot_next_step_data(
 
             # Triple for 3 layers
             combined_positions = prompt_positions + feed_positions
-            context_positions = combined_positions * 3
+            context_positions = combined_positions * len(LAYERS)
             num_positions = len(context_positions)
 
             # Context: tokens up to last position

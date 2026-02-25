@@ -38,15 +38,11 @@ def load_cot_importance_data(
     This is a simpler version that classifies the overall CoT importance
     rather than per-sentence importance (which requires expensive resampling).
     """
-    from cot_utils import get_cot_stride_positions, layer_percent_to_layer
+    from cot_utils import get_cot_stride_positions, get_injection_layers
 
     random.seed(seed)
 
-    LAYERS = [
-        layer_percent_to_layer(model_name, 25),
-        layer_percent_to_layer(model_name, 50),
-        layer_percent_to_layer(model_name, 75),
-    ]
+    LAYERS = get_injection_layers(model_name)
 
     corpus = []
     with open(corpus_path) as f:
@@ -126,7 +122,7 @@ def load_cot_importance_data(
 
         prompt_positions = _get_prompt_positions(prompt_len, n_prompt_positions)
         combined = prompt_positions + positions
-        context_positions = combined * 3
+        context_positions = combined * len(LAYERS)
         num_positions = len(context_positions)
 
         max_pos = max(positions)

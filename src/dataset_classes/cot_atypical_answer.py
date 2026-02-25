@@ -27,7 +27,6 @@ def load_cot_atypical_answer_data(
     model_name: str,
     num_examples: int = 20000,
     stride: int = 5,
-    max_positions_per_layer: int | None = None,
     n_prompt_positions: int = 5,
     seed: int = 42,
     **_kwargs,
@@ -42,15 +41,11 @@ def load_cot_atypical_answer_data(
     The actual path is overridden at the call sites (train.py, precompute_training_data.py)
     via the atypical_data_path kwarg or the special corpus type.
     """
-    from cot_utils import get_cot_stride_positions, layer_percent_to_layer
+    from cot_utils import get_cot_stride_positions, get_injection_layers
 
     random.seed(seed)
 
-    LAYERS = [
-        layer_percent_to_layer(model_name, 25),
-        layer_percent_to_layer(model_name, 50),
-        layer_percent_to_layer(model_name, 75),
-    ]
+    LAYERS = get_injection_layers(model_name)
 
     # Load atypical answer data
     data_path = _kwargs.get("atypical_data_path", corpus_path)
@@ -122,14 +117,13 @@ def load_cot_atypical_answer_data(
         positions = get_cot_stride_positions(
             prompt_len, len(full_ids),
             stride=stride,
-            max_positions=max_positions_per_layer,
         )
         if len(positions) < 2:
             continue
 
         prompt_positions = _get_prompt_positions(prompt_len, n_prompt_positions)
         combined = prompt_positions + positions
-        context_positions = combined * 3
+        context_positions = combined * len(LAYERS)
         num_positions = len(context_positions)
 
         max_pos = max(positions)
