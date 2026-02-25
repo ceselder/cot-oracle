@@ -50,25 +50,34 @@ _ORACLE_MODE = {
     "stride": 5,
     "placeholder_token": None,       # None = SPECIAL_TOKEN (" ?")
     "oracle_adapter_name": None,     # None = auto-detect original AO
+    "layers": None,                  # list[int] for multi-layer, None for single
 }
 
 
-def set_oracle_mode(trained: bool = False, oracle_adapter_name: str | None = None, stride: int = 5):
+def set_oracle_mode(
+    trained: bool = False,
+    oracle_adapter_name: str | None = None,
+    stride: int = 5,
+    layers: list[int] | None = None,
+):
     """Configure oracle format for all evals in this module.
 
     Args:
         trained: If True, use trained oracle format (¶ tokens, stride positions).
         oracle_adapter_name: Adapter name. Defaults to "default" when trained=True.
         stride: Stride size in tokens.
+        layers: List of extraction layers (e.g. [9, 18, 27]). None = single-layer mode.
     """
     if trained:
         _ORACLE_MODE["stride"] = stride
         _ORACLE_MODE["placeholder_token"] = TRAINED_PLACEHOLDER
         _ORACLE_MODE["oracle_adapter_name"] = oracle_adapter_name or "default"
+        _ORACLE_MODE["layers"] = layers
     else:
         _ORACLE_MODE["stride"] = 5
         _ORACLE_MODE["placeholder_token"] = None
         _ORACLE_MODE["oracle_adapter_name"] = None
+        _ORACLE_MODE["layers"] = None
 
 
 def extract_activation_bundle(model, tokenizer, **kwargs):
@@ -81,6 +90,9 @@ def run_oracle_on_activations(model, tokenizer, activations, prompt, **kwargs):
     """Wrapper that applies oracle mode config to oracle inference."""
     kwargs.setdefault("placeholder_token", _ORACLE_MODE["placeholder_token"])
     kwargs.setdefault("oracle_adapter_name", _ORACLE_MODE["oracle_adapter_name"])
+    layers = _ORACLE_MODE.get("layers")
+    if layers and len(layers) > 1:
+        kwargs["act_layer"] = layers
     return _run_oracle_raw(model, tokenizer, activations, prompt, **kwargs)
 
 
@@ -88,6 +100,9 @@ def run_oracle_logprobs(model, tokenizer, activations, prompt, answer_tokens, **
     """Wrapper that applies oracle mode config to logprob extraction."""
     kwargs.setdefault("placeholder_token", _ORACLE_MODE["placeholder_token"])
     kwargs.setdefault("oracle_adapter_name", _ORACLE_MODE["oracle_adapter_name"])
+    layers = _ORACLE_MODE.get("layers")
+    if layers and len(layers) > 1:
+        kwargs["act_layer"] = layers
     return _run_oracle_logprobs_raw(model, tokenizer, activations, prompt, answer_tokens, **kwargs)
 from evals.common import (
     EvalItem,
@@ -106,6 +121,10 @@ from evals.common import (
 # These use the same "Activations from N positions (K-token stride)." prefix
 # that the training data uses, so the oracle sees a familiar format.
 def _oracle_prompt(n_positions: int, question: str) -> str:
+    layers = _ORACLE_MODE.get("layers")
+    if layers:
+        layers_str = ", ".join(str(l) for l in layers)
+        return f"Activations from {n_positions} positions across layers {layers_str}. {question}"
     return f"Activations from {n_positions} positions ({_ORACLE_MODE['stride']}-token stride). {question}"
 
 
@@ -358,11 +377,11 @@ def run_single_item(
         # 1. Generate model responses
         clean_response = generate_cot(
             model, tokenizer, item.clean_prompt,
-            max_new_tokens=8192, device=device, adapter_name=generation_adapter_name,
+            max_new_tokens=4096, device=device, adapter_name=generation_adapter_name,
         )
         test_response = generate_cot(
             model, tokenizer, item.test_prompt,
-            max_new_tokens=8192, device=device, adapter_name=generation_adapter_name,
+            max_new_tokens=4096, device=device, adapter_name=generation_adapter_name,
         )
 
         # 2. Extract answers
@@ -402,7 +421,7 @@ def run_single_item(
             oracle_response = run_oracle_on_activations(
                 model, tokenizer, bundle.activations, oracle_prompt,
                 model_name=model_name, act_layer=act_layer,
-                max_new_tokens=8192, device=device,
+                max_new_tokens=4096, device=device,
             )
         except Exception as e:
             print(f"  Warning: oracle failed: {e}")
@@ -459,7 +478,7 @@ def run_decorative_cot_eval(
         for _ in range(n_runs):
             cot_response = generate_cot(
                 model, tokenizer, item.test_prompt,
-                max_new_tokens=8192, device=device, adapter_name=generation_adapter_name,
+                max_new_tokens=4096, device=device, adapter_name=generation_adapter_name,
             )
             direct_response = generate_direct_answer(
                 model, tokenizer, item.clean_prompt, device=device, adapter_name=generation_adapter_name,
@@ -486,7 +505,7 @@ def run_decorative_cot_eval(
         # Get one representative CoT for activation extraction + oracle
         representative_cot = generate_cot(
             model, tokenizer, item.test_prompt,
-            max_new_tokens=8192, device=device, adapter_name=generation_adapter_name,
+            max_new_tokens=4096, device=device, adapter_name=generation_adapter_name,
         )
         oracle_response = ""
         if representative_cot:
@@ -515,7 +534,7 @@ def run_decorative_cot_eval(
                 oracle_response = run_oracle_on_activations(
                     model, tokenizer, bundle.activations, oracle_prompt,
                     model_name=model_name, act_layer=act_layer,
-                    max_new_tokens=8192, device=device,
+                    max_new_tokens=4096, device=device,
                 )
             except Exception as e:
                 print(f"  Warning: oracle failed for {item.example_id}: {e}")
@@ -602,7 +621,7 @@ def run_reconstruction_eval(
                     oracle_prompt,
                     model_name=model_name,
                     act_layer=act_layer,
-                    max_new_tokens=8192,
+                    max_new_tokens=4096,
                     device=device,
                 )
                 if loaded_from_precomputed and precomputed_dir is not None:
@@ -685,14 +704,14 @@ def run_rot13_model_organism_eval(
         # Step 1: Generate ROT13 CoT (model organism)
         rot13_cot = generate_cot(
             model, tokenizer, item.test_prompt,
-            max_new_tokens=8192, device=device,
+            max_new_tokens=4096, device=device,
             adapter_name=rot13_name,
         )
 
         # Step 2: Generate normal CoT as ground truth reference
         normal_cot = generate_cot(
             model, tokenizer, item.test_prompt,
-            max_new_tokens=8192, device=device,
+            max_new_tokens=4096, device=device,
             adapter_name=None,  # base model, adapters disabled
         )
 
@@ -737,7 +756,7 @@ def run_rot13_model_organism_eval(
                     oracle_prompt,
                     model_name=model_name,
                     act_layer=act_layer,
-                    max_new_tokens=8192,
+                    max_new_tokens=4096,
                     device=device,
                 )
                 if loaded_from_precomputed and precomputed_dir is not None:
@@ -856,7 +875,7 @@ def run_forced_answer_entropy_eval(
         else:
             cot_response = generate_cot(
                 model, tokenizer, item.test_prompt,
-                max_new_tokens=8192, device=device,
+                max_new_tokens=4096, device=device,
                 adapter_name=generation_adapter_name,
             )
 
@@ -918,7 +937,7 @@ def run_forced_answer_entropy_eval(
                 oracle_response = run_oracle_on_activations(
                     model, tokenizer, bundle.activations, text_prompt,
                     model_name=model_name, act_layer=act_layer,
-                    max_new_tokens=8192, device=device,
+                    max_new_tokens=4096, device=device,
                 )
 
                 if loaded_from_precomputed and precomputed_dir is not None:
@@ -1023,12 +1042,12 @@ def run_eval_batched(
 
         clean_responses = batch_generate_cot(
             model, tokenizer, clean_prompts,
-            max_new_tokens=8192, device=device, batch_size=batch_size,
+            max_new_tokens=4096, device=device, batch_size=batch_size,
             adapter_name=generation_adapter_name,
         )
         test_responses = batch_generate_cot(
             model, tokenizer, test_prompts,
-            max_new_tokens=8192, device=device, batch_size=batch_size,
+            max_new_tokens=4096, device=device, batch_size=batch_size,
             adapter_name=generation_adapter_name,
         )
 
@@ -1091,7 +1110,7 @@ def run_eval_batched(
                 oracle_response = run_oracle_on_activations(
                     model, tokenizer, bundle.activations, oracle_prompt,
                     model_name=model_name, act_layer=act_layer,
-                    max_new_tokens=8192, device=device,
+                    max_new_tokens=4096, device=device,
                 )
                 if cached_bundle is not None and precomputed_dir is not None:
                     activations_path = str(cache_path(precomputed_dir, item.eval_name, item.example_id))

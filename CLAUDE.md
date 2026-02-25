@@ -25,6 +25,9 @@ Never include the number of GPUs used in the runname on wandb.
 - Thought Branches: [arXiv:2510.27484](https://arxiv.org/abs/2510.27484)
 - "When Just Read the CoT Fails" (ICLR 2026)
 
+## Workflow
+- **Push after every notable change.** Commit and push to remote after completing any meaningful unit of work (bug fix, feature, refactor). Don't accumulate uncommitted changes.
+
 ## Critical Lessons
 - **Mini corpus memorization:** 1,064 entries x 15K = 14x repetition → loss=0.01. Use medium corpus (47K+).
 - **Generation evals need fuzzy scoring:** Token F1, not exact match.

@@ -10,7 +10,7 @@ import torch
 from core.ao import (
     collect_activations_at_positions,
 )
-from cot_utils import get_cot_stride_positions
+from cot_utils import get_cot_punctuation_positions, get_cot_stride_positions
 
 
 @dataclass
@@ -86,6 +86,136 @@ def extract_activation_bundle(
         device=device,
         adapter_name=generation_adapter_name,
     )
+
+    return ActivationBundle(
+        eval_name=eval_name,
+        example_id=example_id,
+        prompt=prompt,
+        cot_text=cot_text,
+        activations=activations,
+        boundary_positions=positions,
+        sentences=[],
+    )
+
+
+def extract_multilayer_activation_bundle(
+    model,
+    tokenizer,
+    *,
+    eval_name: str,
+    example_id: str,
+    prompt: str,
+    cot_text: str,
+    layers: list[int],
+    device: str = "cuda",
+    generation_adapter_name: str | None = None,
+    stride: int = 5,
+    **_kwargs,
+) -> ActivationBundle | None:
+    """Extract activations from multiple layers, concatenated as [K*n_layers, D].
+
+    Matches the training format: for each layer, extract K stride positions,
+    then concatenate [K_from_L9, K_from_L18, K_from_L27] -> [3K, D].
+    """
+    cot_text = (cot_text or "").strip()
+    if not cot_text:
+        return None
+
+    full_text = build_full_text_from_prompt_and_cot(tokenizer, prompt, cot_text)
+
+    messages = [{"role": "user", "content": prompt}]
+    formatted = tokenizer.apply_chat_template(
+        messages, tokenize=False, add_generation_prompt=True, enable_thinking=True,
+    )
+    prompt_ids = tokenizer.encode(formatted, add_special_tokens=False)
+    all_ids = tokenizer.encode(full_text, add_special_tokens=False)
+    positions = get_cot_stride_positions(len(prompt_ids), len(all_ids), stride=stride)
+
+    if len(positions) < 2:
+        return None
+
+    layer_acts = []
+    for layer in layers:
+        acts = collect_activations_at_positions(
+            model,
+            tokenizer,
+            full_text,
+            layer,
+            positions,
+            device=device,
+            adapter_name=generation_adapter_name,
+        )
+        layer_acts.append(acts)
+
+    activations = torch.cat(layer_acts, dim=0)  # [K * n_layers, D]
+
+    return ActivationBundle(
+        eval_name=eval_name,
+        example_id=example_id,
+        prompt=prompt,
+        cot_text=cot_text,
+        activations=activations,
+        boundary_positions=positions,
+        sentences=[],
+    )
+
+
+def extract_punctuation_activation_bundle(
+    model,
+    tokenizer,
+    *,
+    eval_name: str,
+    example_id: str,
+    prompt: str,
+    cot_text: str,
+    layers: list[int],
+    device: str = "cuda",
+    generation_adapter_name: str | None = None,
+    fallback_stride: int = 5,
+    **_kwargs,
+) -> ActivationBundle | None:
+    """Extract activations at punctuation positions from multiple layers.
+
+    Like extract_multilayer_activation_bundle but uses punctuation-based
+    positions instead of fixed-stride. Falls back to stride-based if fewer
+    than 2 punctuation positions are found.
+
+    Returns activations concatenated as [K*n_layers, D].
+    """
+    cot_text = (cot_text or "").strip()
+    if not cot_text:
+        return None
+
+    full_text = build_full_text_from_prompt_and_cot(tokenizer, prompt, cot_text)
+
+    messages = [{"role": "user", "content": prompt}]
+    formatted = tokenizer.apply_chat_template(
+        messages, tokenize=False, add_generation_prompt=True, enable_thinking=True,
+    )
+    prompt_ids = tokenizer.encode(formatted, add_special_tokens=False)
+    all_ids = tokenizer.encode(full_text, add_special_tokens=False)
+    positions = get_cot_punctuation_positions(
+        len(prompt_ids), len(all_ids), tokenizer, all_ids,
+        fallback_stride=fallback_stride,
+    )
+
+    if len(positions) < 2:
+        return None
+
+    layer_acts = []
+    for layer in layers:
+        acts = collect_activations_at_positions(
+            model,
+            tokenizer,
+            full_text,
+            layer,
+            positions,
+            device=device,
+            adapter_name=generation_adapter_name,
+        )
+        layer_acts.append(acts)
+
+    activations = torch.cat(layer_acts, dim=0)  # [K * n_layers, D]
 
     return ActivationBundle(
         eval_name=eval_name,

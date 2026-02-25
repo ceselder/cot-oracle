@@ -264,7 +264,7 @@ def add_hook(module, hook):
 
 
 def get_steering_hook(vectors, positions, device, dtype, steering_coefficient=1.0):
-    """Norm-matched additive steering hook."""
+    """Norm-matched additive steering hook (batch=1 only)."""
     normed = torch.nn.functional.normalize(vectors, dim=-1).detach()
 
     def hook_fn(module, _input, output):
@@ -286,6 +286,56 @@ def get_steering_hook(vectors, positions, device, dtype, steering_coefficient=1.
         norms = orig.norm(dim=-1, keepdim=True)
         steered = (normed.to(device, dtype) * norms * steering_coefficient).detach()
         resid[0, pos, :] = steered + orig
+
+        return (resid, *rest) if is_tuple else resid
+
+    return hook_fn
+
+
+def get_batched_steering_hook(
+    vectors: list[torch.Tensor],
+    positions: list[list[int]],
+    device: str | torch.device,
+    dtype: torch.dtype,
+    steering_coefficient: float = 1.0,
+):
+    """Batched norm-matched additive steering hook.
+
+    Based on Adam Karvonen's get_hf_activation_steering_hook from
+    activation_oracles. Supports variable K per batch element (ragged).
+
+    Args:
+        vectors: len-B list of [K_b, D] tensors (K_b can differ per item).
+        positions: len-B list of position lists (already adjusted for left-padding).
+        device: Target device.
+        dtype: Target dtype.
+        steering_coefficient: Scaling factor for injected vectors.
+    """
+    assert len(vectors) == len(positions)
+    B = len(vectors)
+    normed_list = [torch.nn.functional.normalize(v, dim=-1).detach() for v in vectors]
+
+    def hook_fn(module, _input, output):
+        del module, _input
+
+        if isinstance(output, tuple):
+            resid, *rest = output
+            is_tuple = True
+        else:
+            resid = output
+            is_tuple = False
+
+        _b, l, _d = resid.shape
+        # Only inject during prompt processing, not autoregressive steps
+        if l <= 1:
+            return (resid, *rest) if is_tuple else resid
+
+        for b in range(min(_b, B)):
+            pos_b = torch.tensor(positions[b], dtype=torch.long, device=device)
+            orig = resid[b, pos_b, :]
+            norms = orig.norm(dim=-1, keepdim=True)
+            steered = (normed_list[b].to(device, dtype) * norms * steering_coefficient).detach()
+            resid[b, pos_b, :] = steered + orig
 
         return (resid, *rest) if is_tuple else resid
 
@@ -324,7 +374,11 @@ def run_oracle_on_activations(
     if act_layer is None:
         act_layer = layer_percent_to_layer(model_name, 50)
 
-    prefix = f"Layer: {act_layer}\n" + ph_token * num_positions + " \n"
+    if isinstance(act_layer, (list, tuple)):
+        layers_str = ", ".join(str(l) for l in act_layer)
+        prefix = f"Layer: {layers_str}\n" + ph_token * num_positions + " \n"
+    else:
+        prefix = f"Layer: {act_layer}\n" + ph_token * num_positions + " \n"
     full_prompt = prefix + oracle_prompt
 
     messages = [{"role": "user", "content": full_prompt}]
@@ -435,7 +489,11 @@ def run_oracle_with_answer_logprobs(
     if act_layer is None:
         act_layer = layer_percent_to_layer(model_name, 50)
 
-    prefix = f"Layer: {act_layer}\n" + ph_token * num_positions + " \n"
+    if isinstance(act_layer, (list, tuple)):
+        layers_str = ", ".join(str(l) for l in act_layer)
+        prefix = f"Layer: {layers_str}\n" + ph_token * num_positions + " \n"
+    else:
+        prefix = f"Layer: {act_layer}\n" + ph_token * num_positions + " \n"
     full_prompt = prefix + oracle_prompt
 
     messages = [{"role": "user", "content": full_prompt}]

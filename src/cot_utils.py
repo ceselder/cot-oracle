@@ -66,6 +66,64 @@ def find_sentence_boundary_positions(
     return positions
 
 
+PUNCTUATION_CHARS = frozenset(".,;:?!")
+
+
+def get_cot_punctuation_positions(
+    prompt_token_count: int,
+    total_token_count: int,
+    tokenizer,
+    input_ids: list[int],
+    fallback_stride: int = 5,
+    include_last: bool = True,
+) -> list[int]:
+    """Get positions of punctuation tokens within the CoT region.
+
+    Decodes each token in the CoT region and checks if the decoded text ends
+    with a punctuation character (. , ; : ? !).  Since Qwen3-8B SentencePiece
+    often merges punctuation with surrounding text (e.g. " sentence." is one
+    token), checking the *last character* of the decoded string is the right
+    heuristic.
+
+    Falls back to stride-based positions if fewer than 2 punctuation positions
+    are found.
+    """
+    cot_start = max(0, prompt_token_count)
+    cot_end = total_token_count - 1
+
+    if cot_end - cot_start + 1 < 2:
+        return []
+
+    positions: list[int] = []
+    for pos in range(cot_start, cot_end + 1):
+        token_id = input_ids[pos]
+        decoded = tokenizer.decode([token_id])
+        if decoded and decoded.rstrip().endswith(tuple(PUNCTUATION_CHARS)):
+            positions.append(pos)
+
+    # Optionally include the very last CoT token
+    if include_last and positions and positions[-1] != cot_end:
+        positions.append(cot_end)
+
+    # Deduplicate while preserving order
+    deduped: list[int] = []
+    seen: set[int] = set()
+    for pos in positions:
+        if pos not in seen:
+            deduped.append(pos)
+            seen.add(pos)
+    positions = deduped
+
+    # Fall back to stride-based if too few punctuation positions
+    if len(positions) < 2:
+        return get_cot_stride_positions(
+            prompt_token_count, total_token_count, stride=fallback_stride,
+            include_last=include_last,
+        )
+
+    return positions
+
+
 def get_cot_stride_positions(
     prompt_token_count: int,
     total_token_count: int,

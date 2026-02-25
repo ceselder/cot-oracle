@@ -643,67 +643,107 @@ def list_hf_evals() -> list[str]:
         return []
 
 
-def load_eval_items_hf(eval_name: str, eval_dir: Path | None = None,
-                       split: str = "test") -> list[EvalItem]:
-    """Load eval items from local JSON if available, otherwise pull from HuggingFace.
-
-    Looks for: eval_dir/{eval_name}.json locally first.
-    Falls back to: HF dataset {HF_EVAL_ORG}/cot-oracle-eval-{eval_name_dashed}
-
-    Downloaded HF data is cached locally to eval_dir for subsequent loads.
-    For datasets with train/test splits, loads the requested split (default: test).
-    """
-    # Try local first
-    if eval_dir:
-        local_path = Path(eval_dir) / f"{eval_name}.json"
-        if local_path.exists():
-            return load_eval_items(local_path, split=split)
-
-    # Pull from HuggingFace
-    repo_id = f"{HF_EVAL_ORG}/cot-oracle-eval-{eval_name.replace('_', '-')}"
-    print(f"  [eval] Pulling {eval_name} from HuggingFace: {repo_id}")
-
+def _pull_from_hf(repo_id: str, split: str) -> list[dict]:
+    """Pull dataset from HuggingFace and convert rows to dicts with unflattened meta_* fields."""
+    from datasets import load_dataset as _hf_load
     try:
-        from datasets import load_dataset as _hf_load
-        # Try requested split first, fall back to "train" for single-split datasets
-        try:
-            ds = _hf_load(repo_id, split=split)
-        except (ValueError, KeyError):
-            ds = _hf_load(repo_id, split="train")
-    except Exception as e:
-        raise FileNotFoundError(
-            f"Eval {eval_name} not found locally or on HF ({repo_id}): {e}"
-        )
+        ds = _hf_load(repo_id, split=split)
+    except (ValueError, KeyError):
+        ds = _hf_load(repo_id, split="train")
 
-    # Convert HF rows back to EvalItem format (unflatten meta_* fields)
     items_raw = []
     for row in ds:
         item = {}
         meta = {}
         for k, v in row.items():
             if k.startswith("meta_"):
-                # Try to parse JSON strings back to objects
                 if isinstance(v, str):
                     try:
                         v = json.loads(v)
                     except (json.JSONDecodeError, ValueError):
                         pass
-                meta[k[5:]] = v  # strip meta_ prefix
+                meta[k[5:]] = v
             else:
                 item[k] = v
         item["metadata"] = meta
         items_raw.append(item)
+    return items_raw
 
-    # Cache locally for next time
-    if eval_dir:
-        local_path = Path(eval_dir) / f"{eval_name}.json"
-        local_path.parent.mkdir(parents=True, exist_ok=True)
-        with open(local_path, "w") as f:
-            json.dump(items_raw, f)
-        print(f"  [eval] Cached {len(items_raw)} items to {local_path}")
 
-    valid_fields = {f.name for f in EvalItem.__dataclass_fields__.values()}
-    return [EvalItem(**{k: v for k, v in d.items() if k in valid_fields}) for d in items_raw]
+def _write_cache(items_raw: list[dict], local_path: Path, meta_path: Path,
+                 repo_id: str, last_modified: str) -> None:
+    """Write eval JSON and sidecar metadata atomically."""
+    local_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(local_path, "w") as f:
+        json.dump(items_raw, f)
+    with open(meta_path, "w") as f:
+        json.dump({"last_modified": last_modified, "repo_id": repo_id}, f)
+
+
+def load_eval_items_hf(eval_name: str, eval_dir: Path | None = None,
+                       split: str = "test") -> list[EvalItem]:
+    """Load eval items with HF-first freshness validation.
+
+    Checks the remote last_modified timestamp via HfApi.dataset_info().
+    Uses local cache only if the sidecar metadata confirms it matches.
+    Falls back to local cache (with warning) if HF is unreachable.
+    """
+    repo_id = f"{HF_EVAL_ORG}/cot-oracle-eval-{eval_name.replace('_', '-')}"
+    local_path = Path(eval_dir) / f"{eval_name}.json" if eval_dir else None
+    meta_path = Path(eval_dir) / f"{eval_name}.meta.json" if eval_dir else None
+
+    # Check HF for freshness
+    hf_last_modified = None
+    hf_reachable = False
+    try:
+        from huggingface_hub import HfApi
+        info = HfApi().dataset_info(repo_id)
+        hf_last_modified = info.last_modified.isoformat() if info.last_modified else None
+        hf_reachable = True
+    except Exception:
+        hf_reachable = False
+
+    if hf_reachable:
+        # Check if local cache is fresh
+        cache_fresh = False
+        if local_path and local_path.exists() and meta_path and meta_path.exists():
+            try:
+                with open(meta_path) as f:
+                    sidecar = json.load(f)
+                if sidecar.get("last_modified") == hf_last_modified:
+                    cache_fresh = True
+            except (json.JSONDecodeError, OSError):
+                pass
+
+        if cache_fresh:
+            print(f"  [eval] {eval_name}: local cache is fresh (matches HF)")
+            return load_eval_items(local_path, split=split)
+
+        # Cache is stale or missing — pull from HF
+        print(f"  [eval] Pulling {eval_name} from HuggingFace: {repo_id}")
+        try:
+            items_raw = _pull_from_hf(repo_id, split)
+        except Exception as e:
+            raise FileNotFoundError(
+                f"Eval {eval_name} not found on HF ({repo_id}): {e}"
+            )
+
+        if local_path and meta_path:
+            _write_cache(items_raw, local_path, meta_path, repo_id,
+                         hf_last_modified or "")
+            print(f"  [eval] Cached {len(items_raw)} items to {local_path}")
+
+        valid_fields = {f.name for f in EvalItem.__dataclass_fields__.values()}
+        return [EvalItem(**{k: v for k, v in d.items() if k in valid_fields}) for d in items_raw]
+
+    # HF unreachable — fall back to local cache
+    if local_path and local_path.exists():
+        print(f"  [eval] WARNING: HF unreachable, using local cache for {eval_name}")
+        return load_eval_items(local_path, split=split)
+
+    raise FileNotFoundError(
+        f"Eval {eval_name}: HF unreachable and no local cache at {local_path}"
+    )
 
 
 def save_completed_items(items: list[CompletedEvalItem], path: Path) -> None:
