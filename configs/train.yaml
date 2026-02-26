@@ -29,6 +29,10 @@ tasks:
     n: 10000
     description: "Answer conversational questions about the CoT"
 
+  cotqa:
+    n: 10000
+    description: "Conversational questions about safety/concept CoTs (from concept corpus)"
+
   compqa:
     n: 8000
     description: "Answer questions about CoT reasoning quality (10 types, Gemini GT)"

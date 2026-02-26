@@ -362,6 +362,12 @@ TASK_REGISTRY = {
         "loader": "load_cot_hinted_answer_pred_data",
         "corpus": "hint_admission",  # uses same HF dataset
     },
+    "cotqa": {
+        "arg": "cotqa_n",
+        "module": "dataset_classes.cot_cotqa",
+        "loader": "load_cot_cotqa_data",
+        "corpus": "cotqa",  # loads from HF directly
+    },
 }
 
 
@@ -445,6 +451,11 @@ def _live_load_task(task_name: str, info: dict, n: int, args, tokenizer) -> list
             hint_path, tokenizer, args.model,
             num_examples=n, stride=args.stride,
             hint_admission_data_path=hint_path,
+        )
+    elif info["corpus"] == "cotqa":
+        return loader_fn(
+            "", tokenizer, args.model,
+            num_examples=n, stride=args.stride,
         )
     else:
         return loader_fn(
@@ -549,6 +560,12 @@ def load_all_tasks(args, tokenizer) -> list[dict]:
                 num_examples=n,
                 stride=args.stride,
                 hint_admission_data_path=hint_path,
+            )
+        elif info["corpus"] == "cotqa":
+            data = loader_fn(
+                "", tokenizer, args.model,
+                num_examples=n,
+                stride=args.stride,
             )
         else:
             data = loader_fn(
