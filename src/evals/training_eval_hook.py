@@ -85,7 +85,7 @@ TRAINING_EVALS = [
     "atypical_answer_riya",
     "atypical_answer_mcq",
     "cybercrime_ood",
-    "hint_admission",
+    "cot_hint_admission",
     "rot13_reconstruction",
 ]
 

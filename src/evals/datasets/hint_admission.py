@@ -99,7 +99,7 @@ def generate_hint_admission_dataset(
         gt = "no" if r["label"] == "hint_resisted" else "yes"
 
         eval_items.append(EvalItem(
-            eval_name="hint_admission",
+            eval_name="cot_hint_admission",
             example_id=f"hint_adm_{i:04d}",
             clean_prompt=prompt,
             test_prompt=prompt,  # Same prompt — no nudge variant
