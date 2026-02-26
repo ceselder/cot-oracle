@@ -230,8 +230,13 @@ def collect_activations_at_positions(
     adapter_name: str | None = None,
     position_encoding: bool = False,
     pe_alpha: float = 0.1,
+    pooling: bool = False,
 ) -> torch.Tensor:
-    """Extract activations at token positions. Returns [K, D]."""
+    """Extract activations at token positions. Returns [K, D].
+
+    If pooling=True, mean-pools windows between consecutive positions instead
+    of taking point samples.
+    """
     inputs = tokenizer(text, return_tensors="pt", add_special_tokens=False).to(device)
 
     was_training = model.training
@@ -246,12 +251,26 @@ def collect_activations_at_positions(
     if was_training:
         model.train()
 
-    acts = acts_BLD[0, positions, :].detach()
+    if pooling:
+        acts = _mean_pool_windows(acts_BLD[0], positions).detach()
+    else:
+        acts = acts_BLD[0, positions, :].detach()
     if position_encoding:
         from position_encoding import apply_position_encoding
         total_length = inputs["input_ids"].shape[1]
         acts = apply_position_encoding(acts, positions, total_length, alpha=pe_alpha)
     return acts
+
+
+def _mean_pool_windows(acts_LD: torch.Tensor, positions: list[int]) -> torch.Tensor:
+    """Mean-pool activation windows between consecutive stride positions."""
+    pooled = []
+    prev = 0
+    for p in positions:
+        window = acts_LD[prev:p + 1, :]
+        pooled.append(window.mean(dim=0))
+        prev = p + 1
+    return torch.stack(pooled, dim=0)
 
 
 @contextlib.contextmanager

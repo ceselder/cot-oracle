@@ -98,6 +98,30 @@ du_module.get_introspection_prefix = _patched_get_prefix
 
 # ── Position encoding config (module-level, set by main()) ──
 _PE_CONFIG = {"enabled": False, "alpha": 0.1}
+_POOLING_MODE = False  # ablation: mean-pool activation windows instead of point samples
+
+
+def _mean_pool_windows(acts_LD: torch.Tensor, positions: list[int]) -> torch.Tensor:
+    """Mean-pool activation windows between consecutive stride positions.
+
+    Instead of taking the activation at position p, takes the mean of all
+    activations in the window (prev_p+1, ..., p] (inclusive on both ends for
+    the first window which starts from position 0 or the first position).
+
+    Args:
+        acts_LD: Full sequence activations [L, D]
+        positions: Sorted stride positions (already adjusted for left-padding)
+
+    Returns:
+        [K, D] tensor of mean-pooled window activations
+    """
+    pooled = []
+    prev = 0
+    for p in positions:
+        window = acts_LD[prev:p + 1, :]  # [window_size, D]
+        pooled.append(window.mean(dim=0))
+        prev = p + 1
+    return torch.stack(pooled, dim=0)  # [K, D]
 
 
 # ── Distributed helpers ──
@@ -201,7 +225,10 @@ def materialize_multilayer_steering_vectors(
                 raise IndexError(
                     f"Activation index out of range for item {b}: {adjusted} with L={L}"
                 )
-            vectors_parts.append(acts_BLD[b, adjusted, :])
+            if _POOLING_MODE:
+                vectors_parts.append(_mean_pool_windows(acts_BLD[b], adjusted))
+            else:
+                vectors_parts.append(acts_BLD[b, adjusted, :])
 
         vectors = torch.cat(vectors_parts, dim=0).detach().contiguous()
         assert vectors.shape[0] == total_positions
@@ -1383,6 +1410,8 @@ def main():
                         help="Save checkpoint every N steps (shuffled mode)")
     parser.add_argument("--no-step0-eval", action="store_true", default=False,
                         help="Skip evals at step 0 (for quick ablation launches)")
+    parser.add_argument("--pooling", action="store_true", default=False,
+                        help="Mean-pool activation windows instead of point samples")
     parser.add_argument("--rot13-start-step", type=int, default=2000)
     parser.add_argument("--start-step", type=int, default=None,
                         help="Starting global step (for resuming; 0 = restart data from beginning)")
@@ -1470,6 +1499,18 @@ def main():
             print(f"Position encoding: ON (alpha={_PE_CONFIG['alpha']})")
         else:
             print("Position encoding: OFF")
+
+    # Pooling mode
+    global _POOLING_MODE
+    _POOLING_MODE = getattr(args, "pooling", False)
+    if _POOLING_MODE:
+        import evals.activation_cache as _cache_module
+        _cache_module._POOLING_MODE = True
+    if rank == 0:
+        if _POOLING_MODE:
+            print("Activation pooling: ON (mean-pool windows between stride positions)")
+        else:
+            print("Activation pooling: OFF (point samples)")
 
     tokenizer = load_tokenizer(args.model)
 

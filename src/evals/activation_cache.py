@@ -12,6 +12,8 @@ from core.ao import (
 )
 from cot_utils import get_cot_positions, get_cot_punctuation_positions
 
+_POOLING_MODE = False  # set by train.py when --pooling is active
+
 
 @dataclass
 class ActivationBundle:
@@ -283,6 +285,7 @@ def extract_activations(
         acts = collect_activations_at_positions(
             model, tokenizer, full_text, layer, positions,
             device=device, adapter_name=generation_adapter_name,
+            pooling=_POOLING_MODE,
         )
         layer_acts.append(acts)
 

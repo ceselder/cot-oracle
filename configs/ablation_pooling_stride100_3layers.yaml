@@ -1,0 +1,15 @@
+# Ablation: mean-pooled activation windows, stride 100, 3 layers
+# Instead of point-sampling activations at stride positions, mean-pools
+# all activations in the window between consecutive stride positions.
+
+activations:
+  stride: 100
+  n_layers: 3
+
+training:
+  batch_size: 4
+  effective_batch_size: 16   # grad_accum=4
+  eval_batch_size: 2
+
+output:
+  wandb_run: ablation-pooling-stride100-3layers
