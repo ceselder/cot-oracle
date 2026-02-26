@@ -1,0 +1,15 @@
+# Ablation: pool activations into 5 chunks per layer (15 total)
+# Dense extraction (stride 5) then pool into 5 equal chunks
+
+activations:
+  stride: 5
+  n_layers: 3
+  pooling: chunks5
+
+training:
+  batch_size: 4
+  effective_batch_size: 16
+  eval_batch_size: 2
+
+output:
+  wandb_run: ablation-pooling-chunks5

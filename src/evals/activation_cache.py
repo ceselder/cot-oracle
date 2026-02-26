@@ -12,7 +12,7 @@ from core.ao import (
 )
 from cot_utils import get_cot_positions, get_cot_punctuation_positions
 
-_POOLING_MODE = False  # set by train.py when --pooling is active
+_POOLING_MODE = "none"  # set by train.py: "none", "single", "chunks5"
 
 
 @dataclass

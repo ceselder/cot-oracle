@@ -230,12 +230,11 @@ def collect_activations_at_positions(
     adapter_name: str | None = None,
     position_encoding: bool = False,
     pe_alpha: float = 0.1,
-    pooling: bool = False,
+    pooling: str = "none",
 ) -> torch.Tensor:
     """Extract activations at token positions. Returns [K, D].
 
-    If pooling=True, mean-pools windows between consecutive positions instead
-    of taking point samples.
+    pooling: "none" (point samples), "single" (pool all→1), "chunks5" (pool→5).
     """
     inputs = tokenizer(text, return_tensors="pt", add_special_tokens=False).to(device)
 
@@ -251,10 +250,8 @@ def collect_activations_at_positions(
     if was_training:
         model.train()
 
-    if pooling:
-        acts = _mean_pool_windows(acts_BLD[0], positions).detach()
-    else:
-        acts = acts_BLD[0, positions, :].detach()
+    acts = acts_BLD[0, positions, :].detach()  # [K, D]
+    acts = _pool_vectors(acts, pooling)
     if position_encoding:
         from position_encoding import apply_position_encoding
         total_length = inputs["input_ids"].shape[1]
@@ -262,15 +259,16 @@ def collect_activations_at_positions(
     return acts
 
 
-def _mean_pool_windows(acts_LD: torch.Tensor, positions: list[int]) -> torch.Tensor:
-    """Mean-pool activation windows between consecutive stride positions."""
-    pooled = []
-    prev = 0
-    for p in positions:
-        window = acts_LD[prev:p + 1, :]
-        pooled.append(window.mean(dim=0))
-        prev = p + 1
-    return torch.stack(pooled, dim=0)
+def _pool_vectors(vectors: torch.Tensor, mode: str) -> torch.Tensor:
+    """Pool activation vectors: none, single (→1), chunks5 (→5)."""
+    if mode == "single":
+        return vectors.mean(dim=0, keepdim=True)
+    elif mode == "chunks5":
+        K = vectors.shape[0]
+        n = min(5, K)
+        chunks = torch.chunk(vectors, n, dim=0)
+        return torch.stack([c.mean(dim=0) for c in chunks])
+    return vectors
 
 
 @contextlib.contextmanager

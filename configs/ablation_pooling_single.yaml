@@ -1,0 +1,15 @@
+# Ablation: pool all activations into 1 vector per layer (3 total)
+# Dense extraction (stride 5) then pool everything down
+
+activations:
+  stride: 5
+  n_layers: 3
+  pooling: single
+
+training:
+  batch_size: 4
+  effective_batch_size: 16
+  eval_batch_size: 2
+
+output:
+  wandb_run: ablation-pooling-single

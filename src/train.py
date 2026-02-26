@@ -98,30 +98,36 @@ du_module.get_introspection_prefix = _patched_get_prefix
 
 # ── Position encoding config (module-level, set by main()) ──
 _PE_CONFIG = {"enabled": False, "alpha": 0.1}
-_POOLING_MODE = False  # ablation: mean-pool activation windows instead of point samples
+# Pooling mode: "none", "single" (1 vec/layer), "chunks5" (5 vecs/layer)
+_POOLING_MODE = "none"
 
 
-def _mean_pool_windows(acts_LD: torch.Tensor, positions: list[int]) -> torch.Tensor:
-    """Mean-pool activation windows between consecutive stride positions.
-
-    Instead of taking the activation at position p, takes the mean of all
-    activations in the window (prev_p+1, ..., p] (inclusive on both ends for
-    the first window which starts from position 0 or the first position).
+def _pool_vectors(vectors: torch.Tensor, mode: str) -> torch.Tensor:
+    """Pool extracted activation vectors according to mode.
 
     Args:
-        acts_LD: Full sequence activations [L, D]
-        positions: Sorted stride positions (already adjusted for left-padding)
-
+        vectors: [K, D] activations extracted for ONE layer
+        mode: "none", "single", "chunks5"
     Returns:
-        [K, D] tensor of mean-pooled window activations
+        Pooled tensor: [1, D] for single, [min(5,K), D] for chunks5, [K, D] for none
     """
-    pooled = []
-    prev = 0
-    for p in positions:
-        window = acts_LD[prev:p + 1, :]  # [window_size, D]
-        pooled.append(window.mean(dim=0))
-        prev = p + 1
-    return torch.stack(pooled, dim=0)  # [K, D]
+    if mode == "single":
+        return vectors.mean(dim=0, keepdim=True)  # [1, D]
+    elif mode == "chunks5":
+        K = vectors.shape[0]
+        n = min(5, K)
+        chunks = torch.chunk(vectors, n, dim=0)
+        return torch.stack([c.mean(dim=0) for c in chunks])  # [n, D]
+    return vectors
+
+
+def _pooled_count_per_layer(K: int, mode: str) -> int:
+    """How many vectors per layer after pooling."""
+    if mode == "single":
+        return 1
+    elif mode == "chunks5":
+        return min(5, K)
+    return K
 
 
 # ── Distributed helpers ──
@@ -225,13 +231,10 @@ def materialize_multilayer_steering_vectors(
                 raise IndexError(
                     f"Activation index out of range for item {b}: {adjusted} with L={L}"
                 )
-            if _POOLING_MODE:
-                vectors_parts.append(_mean_pool_windows(acts_BLD[b], adjusted))
-            else:
-                vectors_parts.append(acts_BLD[b, adjusted, :])
+            layer_vecs = acts_BLD[b, adjusted, :]  # [K, D]
+            vectors_parts.append(_pool_vectors(layer_vecs, _POOLING_MODE))
 
         vectors = torch.cat(vectors_parts, dim=0).detach().contiguous()
-        assert vectors.shape[0] == total_positions
 
         # Apply positional encoding if enabled
         if _PE_CONFIG["enabled"]:
@@ -283,6 +286,12 @@ def dicts_to_training_data(
                         _reexpand_warned = True
                     break
 
+        # Override num_positions for pooling modes (fewer placeholders in prompt)
+        if _POOLING_MODE != "none":
+            K_per_layer = num_pos // n_layers_runtime if n_layers_runtime else num_pos
+            pooled_K = _pooled_count_per_layer(K_per_layer, _POOLING_MODE)
+            num_pos = pooled_K * n_layers_runtime
+
         dp = create_training_datapoint(
             datapoint_type=item["datapoint_type"],
             prompt=item["prompt"],
@@ -293,7 +302,7 @@ def dicts_to_training_data(
             acts_BD=None,
             feature_idx=-1,
             context_input_ids=item["context_input_ids"],
-            context_positions=ctx_pos,
+            context_positions=ctx_pos,  # keep FULL positions for extraction
         )
         training_data.append(dp)
 
@@ -1267,9 +1276,12 @@ def apply_config(args, config: dict):
     # Activations
     if "activations" in config:
         a = config["activations"]
-        for key in ["stride", "position_encoding", "pe_alpha", "n_layers"]:
+        for key in ["stride", "position_encoding", "pe_alpha", "n_layers", "pooling"]:
             if key in a and not getattr(args, f"_cli_{key}", False):
-                setattr(args, key, a[key])
+                if key == "pooling":
+                    setattr(args, "pooling_mode", a[key])
+                else:
+                    setattr(args, key, a[key])
         if "layers" in a and not getattr(args, "_cli_layers", False):
             args.layers = a["layers"]  # list of ints, e.g. [9, 18, 27]
 
@@ -1410,8 +1422,9 @@ def main():
                         help="Save checkpoint every N steps (shuffled mode)")
     parser.add_argument("--no-step0-eval", action="store_true", default=False,
                         help="Skip evals at step 0 (for quick ablation launches)")
-    parser.add_argument("--pooling", action="store_true", default=False,
-                        help="Mean-pool activation windows instead of point samples")
+    parser.add_argument("--pooling-mode", type=str, default="none",
+                        choices=["none", "single", "chunks5"],
+                        help="Activation pooling: none, single (1/layer), chunks5 (5/layer)")
     parser.add_argument("--rot13-start-step", type=int, default=2000)
     parser.add_argument("--start-step", type=int, default=None,
                         help="Starting global step (for resuming; 0 = restart data from beginning)")
@@ -1502,15 +1515,12 @@ def main():
 
     # Pooling mode
     global _POOLING_MODE
-    _POOLING_MODE = getattr(args, "pooling", False)
-    if _POOLING_MODE:
+    _POOLING_MODE = getattr(args, "pooling_mode", "none")
+    if _POOLING_MODE != "none":
         import evals.activation_cache as _cache_module
-        _cache_module._POOLING_MODE = True
+        _cache_module._POOLING_MODE = _POOLING_MODE
     if rank == 0:
-        if _POOLING_MODE:
-            print("Activation pooling: ON (mean-pool windows between stride positions)")
-        else:
-            print("Activation pooling: OFF (point samples)")
+        print(f"Activation pooling: {_POOLING_MODE}")
 
     tokenizer = load_tokenizer(args.model)
 
