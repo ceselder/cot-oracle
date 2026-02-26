@@ -35,7 +35,7 @@ def generate_hinted_mcq_truthfulqa_verbalized_dataset(
         if not prompt:
             continue
 
-        gt = "independent" if r["label"] == "hint_resisted" else "influenced"
+        gt = "no" if r["label"] == "hint_resisted" else "yes"
 
         eval_items.append(EvalItem(
             eval_name="hinted_mcq_truthfulqa_verbalized",

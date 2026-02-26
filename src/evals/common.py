@@ -405,7 +405,7 @@ def determine_ground_truth(
 
     # Verbalized/unverbalized hint evals: precomputed ground truth
     if item.eval_name in ("hinted_mcq_truthfulqa_verbalized", "hinted_mcq_truthfulqa_unverbalized"):
-        return item.correct_answer  # "influenced" or "independent"
+        return item.correct_answer  # "yes" or "no"
 
     # Counterfactual influence evals: compare clean vs test answers
     if item.eval_name in ("hinted_mcq", "hinted_mcq_truthfulqa"):

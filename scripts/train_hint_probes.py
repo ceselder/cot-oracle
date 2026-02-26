@@ -86,30 +86,42 @@ def load_hint_admission() -> list[dict]:
     return items
 
 
-def load_hinted_mcq_truthfulqa() -> tuple[list[dict], list[dict]]:
-    """717 train / 100 test, filter indeterminate."""
+def _load_truthfulqa_split(repo_suffix: str) -> tuple[list[dict], list[dict]]:
+    """Load new TruthfulQA hint-admission datasets (per-rollout format).
+    Maps 3-class labels to binary: hint_used_correct/wrong → influenced, hint_resisted → independent.
+    """
     from datasets import load_dataset
+    label_map = {"hint_used_correct": "influenced", "hint_used_wrong": "influenced",
+                 "hint_resisted": "independent"}
 
-    def _parse(ds):
+    def _parse(ds, tag):
         items = []
         for row in ds:
-            label = row["meta_ground_truth_label"]
-            if label == "indeterminate":
+            bl = label_map.get(row["label"])
+            if bl is None:
                 continue
-            rollouts_raw = row["meta_hinted_rollouts"]
-            rollouts = json.loads(rollouts_raw) if isinstance(rollouts_raw, str) else rollouts_raw
-            if not rollouts:
-                continue
-            items.append({"prompt": row["test_prompt"], "cot_text": rollouts[0],
-                           "label": label, "example_id": row["example_id"]})
+            items.append({"prompt": row["hinted_prompt"], "cot_text": row["cot_text"],
+                           "label": bl,
+                           "example_id": f"{row['question_id']}_r{row['rollout_idx']}"})
         return items
 
-    ds_tr = load_dataset(f"{HF_ORG}/cot-oracle-eval-hinted-mcq-truthfulqa", split="train")
-    ds_te = load_dataset(f"{HF_ORG}/cot-oracle-eval-hinted-mcq-truthfulqa", split="test")
-    train_items, test_items = _parse(ds_tr), _parse(ds_te)
-    _print_dist("truthfulqa_train", train_items)
-    _print_dist("truthfulqa_test", test_items)
+    repo = f"{HF_ORG}/cot-oracle-eval-hinted-mcq-truthfulqa-{repo_suffix}"
+    ds_tr = load_dataset(repo, split="train")
+    ds_te = load_dataset(repo, split="test")
+    train_items, test_items = _parse(ds_tr, "train"), _parse(ds_te, "test")
+    _print_dist(f"truthfulqa_{repo_suffix}_train", train_items)
+    _print_dist(f"truthfulqa_{repo_suffix}_test", test_items)
     return train_items, test_items
+
+
+def load_truthfulqa_unverbalized() -> tuple[list[dict], list[dict]]:
+    """TruthfulQA unverbalized: 10941 train / 100 test."""
+    return _load_truthfulqa_split("unverbalized")
+
+
+def load_truthfulqa_verbalized() -> tuple[list[dict], list[dict]]:
+    """TruthfulQA verbalized: 4280 train / 100 test."""
+    return _load_truthfulqa_split("verbalized")
 
 
 def load_atypical_answer_riya() -> list[dict]:
@@ -653,7 +665,8 @@ def main():
     # ── Phase 1: Load all datasets ──
     print("Phase 1: Loading datasets from HuggingFace...")
     ha_items = load_hint_admission()
-    tqa_train, tqa_test = load_hinted_mcq_truthfulqa()
+    tqa_unverb_train, tqa_unverb_test = load_truthfulqa_unverbalized()
+    tqa_verb_train, tqa_verb_test = load_truthfulqa_verbalized()
     atypical_items = load_atypical_answer_riya()
     cybercrime_items = load_cybercrime_ood()
     termination_items = load_reasoning_termination_riya()
@@ -693,8 +706,10 @@ def main():
         return extract_and_cache(items, cache_key, model, tokenizer, device=args.device)
 
     ha_items = _extract_or_load(ha_items, "hint_admission")
-    tqa_train = _extract_or_load(tqa_train, "truthfulqa")
-    tqa_test = _extract_or_load(tqa_test, "truthfulqa")
+    tqa_unverb_train = _extract_or_load(tqa_unverb_train, "truthfulqa_unverbalized")
+    tqa_unverb_test = _extract_or_load(tqa_unverb_test, "truthfulqa_unverbalized")
+    tqa_verb_train = _extract_or_load(tqa_verb_train, "truthfulqa_verbalized")
+    tqa_verb_test = _extract_or_load(tqa_verb_test, "truthfulqa_verbalized")
 
     for i, (name, items, cache_key) in enumerate(small_evals):
         small_evals[i] = (name, _extract_or_load(items, cache_key), cache_key)
@@ -714,10 +729,15 @@ def main():
     else:
         trained_probes = {}
 
-    # truthfulqa train/test split
-    if tqa_train and tqa_test:
-        all_results["truthfulqa_train_test"] = run_train_test_probes(
-            tqa_train, tqa_test, "hinted_mcq_truthfulqa", device=args.device)
+    # truthfulqa unverbalized train/test
+    if tqa_unverb_train and tqa_unverb_test:
+        all_results["truthfulqa_unverbalized"] = run_train_test_probes(
+            tqa_unverb_train, tqa_unverb_test, "truthfulqa_unverbalized", device=args.device)
+
+    # truthfulqa verbalized train/test
+    if tqa_verb_train and tqa_verb_test:
+        all_results["truthfulqa_verbalized"] = run_train_test_probes(
+            tqa_verb_train, tqa_verb_test, "truthfulqa_verbalized", device=args.device)
 
     # All small evals: 5-fold CV
     for name, items, _ in small_evals:
@@ -730,13 +750,15 @@ def main():
         print("  CROSS-DATASET TRANSFER (hint_admission → *)")
         print(f"{'=' * 60}")
 
-        # Transfer to truthfulqa
-        all_tqa = tqa_train + tqa_test
-        if all_tqa:
-            transfer = run_transfer(all_tqa, "truthfulqa", trained_probes, args.device)
-            all_results["transfer_ha→truthfulqa"] = transfer
-            best = max((m.get("balanced_accuracy", 0) for m in transfer.values() if isinstance(m, dict) and "balanced_accuracy" in m), default=0)
-            print(f"  → truthfulqa: best bal_acc={best:.3f}")
+        # Transfer to truthfulqa (both splits)
+        for suffix, tr_items, te_items in [("unverbalized", tqa_unverb_train, tqa_unverb_test),
+                                            ("verbalized", tqa_verb_train, tqa_verb_test)]:
+            all_tqa = tr_items + te_items
+            if all_tqa:
+                transfer = run_transfer(all_tqa, f"truthfulqa_{suffix}", trained_probes, args.device)
+                all_results[f"transfer_ha→truthfulqa_{suffix}"] = transfer
+                best = max((m.get("balanced_accuracy", 0) for m in transfer.values() if isinstance(m, dict) and "balanced_accuracy" in m), default=0)
+                print(f"  → truthfulqa_{suffix}: best bal_acc={best:.3f}")
 
         # Transfer to sycophancy (also has influenced/independent labels)
         for name, items, _ in small_evals:
