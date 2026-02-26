@@ -699,31 +699,27 @@ def run_eval(
     torch.cuda.empty_cache()
 
 
-def _load_baseline_hlines(path: str = "logs/llm_monitor/results.json") -> dict[str, float]:
-    """Load Gemini LLM-monitor baselines as flat wandb metric dict for hlines."""
+def _load_gemini_baselines(path: str = "logs/llm_monitor/results.json") -> dict[str, float]:
+    """Load Gemini LLM-monitor baselines keyed by eval name."""
     import json
     p = Path(path)
     if not p.exists():
         return {}
     results = json.load(open(p))
-    hlines = {}
+    baselines = {}
     for eval_name, data in results.items():
         m = data.get("metrics", {})
         if "accuracy" in m:
-            hlines[f"eval/gemini_{eval_name}_acc"] = m["accuracy"]
-        if "mean_token_f1" in m:
-            hlines[f"eval/gemini_{eval_name}_token_f1"] = m["mean_token_f1"]
-    # Also compute a mean_acc across binary evals (matching eval/mean_acc)
-    acc_vals = [v for k, v in hlines.items() if k.endswith("_acc")]
-    if acc_vals:
-        hlines["eval/gemini_mean_acc"] = sum(acc_vals) / len(acc_vals)
-    return hlines
+            baselines[eval_name] = ("acc", m["accuracy"])
+        elif "mean_token_f1" in m:
+            baselines[eval_name] = ("token_f1", m["mean_token_f1"])
+    return baselines
 
-_BASELINE_HLINES: dict[str, float] | None = None
+_GEMINI_BASELINES: dict[str, tuple[str, float]] | None = None
 
 def run_evals(model, tokenizer, model_name, global_step, args, log_dir=None):
     """Run evals if available."""
-    global _BASELINE_HLINES
+    global _GEMINI_BASELINES
     from evals.training_eval_hook import run_training_evals
     import wandb
 
@@ -741,14 +737,36 @@ def run_evals(model, tokenizer, model_name, global_step, args, log_dir=None):
         stride=args.stride,
     )
     if metrics:
-        # Append baseline hlines (logged at every eval step → flat reference lines)
-        if _BASELINE_HLINES is None:
-            _BASELINE_HLINES = _load_baseline_hlines()
-        metrics.update(_BASELINE_HLINES)
         wandb.log(metrics, step=global_step)
-        for k, v in sorted(metrics.items()):
-            if isinstance(v, (int, float)) and "sample" not in k:
-                print(f"  {k}: {v:.3f}" if isinstance(v, float) else f"  {k}: {v}")
+        # Print oracle vs Gemini baseline comparison table
+        if _GEMINI_BASELINES is None:
+            _GEMINI_BASELINES = _load_gemini_baselines()
+        oracle_scores = {}
+        for k, v in metrics.items():
+            if k.endswith("_acc") and isinstance(v, float):
+                name = k.removeprefix("eval/").removesuffix("_acc")
+                oracle_scores[name] = ("acc", v)
+            elif k.endswith("_token_f1") and isinstance(v, float):
+                name = k.removeprefix("eval/").removesuffix("_token_f1")
+                oracle_scores[name] = ("token_f1", v)
+        if oracle_scores:
+            print(f"\n  {'Eval':<30s} {'Metric':<10s} {'Oracle':>8s} {'Gemini':>8s} {'Δ':>8s}")
+            print(f"  {'-'*66}")
+            for name, (metric, val) in sorted(oracle_scores.items()):
+                gem = _GEMINI_BASELINES.get(name)
+                if gem and gem[0] == metric:
+                    delta = val - gem[1]
+                    print(f"  {name:<30s} {metric:<10s} {val:>8.3f} {gem[1]:>8.3f} {delta:>+8.3f}")
+                else:
+                    print(f"  {name:<30s} {metric:<10s} {val:>8.3f} {'—':>8s} {'':>8s}")
+            # Mean acc comparison
+            mean_acc = metrics.get("eval/mean_acc")
+            if mean_acc is not None and _GEMINI_BASELINES:
+                gem_accs = [v for _, (m, v) in _GEMINI_BASELINES.items() if m == "acc"]
+                if gem_accs:
+                    gem_mean = sum(gem_accs) / len(gem_accs)
+                    print(f"  {'MEAN':<30s} {'acc':<10s} {mean_acc:>8.3f} {gem_mean:>8.3f} {mean_acc - gem_mean:>+8.3f}")
+            print()
     return metrics
 
 
