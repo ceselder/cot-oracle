@@ -35,9 +35,9 @@ tasks:
     n: 15000
     description: "Will the model emit </think> soon?"
 
-  conv_qa:
+  cotqa:
     n: 10000
-    description: "Answer conversational questions about the CoT"
+    description: "Conversational questions about CoTs (from concept corpus, HF)"
 
 # Training
 training:
@@ -71,7 +71,6 @@ data:
   corpus: data/cot_corpus_v5/corpus_medium.jsonl
   precomputed_dir: data/precomputed
   concept_corpus: data/concept_corpus/corpus_full.jsonl
-  cotqa_path: data/concept_corpus/corpus_full_conv_qa_llm.jsonl
 
 # Model
 model:

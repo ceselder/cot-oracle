@@ -11,7 +11,6 @@ Usage:
     python src/eval_checkpoint.py \
         --checkpoint checkpoints/cot_oracle_v2/step_1000 \
         --corpus data/cot_corpus_v5/mini_corpus.jsonl \
-        --conv-qa data/hf_upload/cot_conversational_qa.jsonl \
         --model Qwen/Qwen3-8B \
         --n-samples 50
 """
@@ -52,7 +51,6 @@ from dataset_classes.cot_context_prediction import load_cot_context_prediction_d
 from dataset_classes.cot_answer_prediction import load_cot_answer_prediction_data
 from dataset_classes.cot_full_reconstruction import load_cot_full_reconstruction_data
 from dataset_classes.cot_causal_prediction import load_cot_causal_prediction_data
-from dataset_classes.cot_conversational import load_cot_conversational_data
 from dataset_classes.cot_decorative import load_cot_decorative_data
 from dataset_classes.cot_domain import load_cot_domain_data
 from dataset_classes.cot_correctness import load_cot_correctness_data
@@ -116,7 +114,6 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--checkpoint", required=True, help="Path to LoRA checkpoint dir")
     parser.add_argument("--corpus", default="data/cot_corpus_v5/mini_corpus.jsonl")
-    parser.add_argument("--conv-qa", default="data/hf_upload/cot_conversational_qa.jsonl")
     parser.add_argument("--model", default="Qwen/Qwen3-8B")
     parser.add_argument("--n-samples", type=int, default=50, help="Eval items per task")
     parser.add_argument("--n-show", type=int, default=5, help="Sample responses to print per task")
@@ -174,16 +171,16 @@ def main():
     except Exception as e:
         print(f"  causal_prediction failed: {e}")
 
-    # Conversational
-    if Path(args.conv_qa).exists():
-        try:
-            raw = load_cot_conversational_data(
-                args.corpus, args.conv_qa, tokenizer, args.model, layer_percents,
-                num_examples=n, seed=999,
-            )
-            eval_sets["cot_conversational"] = dicts_to_training_data(raw, tokenizer)
-        except Exception as e:
-            print(f"  conversational failed: {e}")
+    # CotQA (conversational questions about CoTs, from HF)
+    try:
+        from dataset_classes.cot_cotqa import load_cot_cotqa_data
+        raw = load_cot_cotqa_data(
+            "", tokenizer, args.model,
+            num_examples=n, seed=999,
+        )
+        eval_sets["cot_cotqa"] = dicts_to_training_data(raw, tokenizer)
+    except Exception as e:
+        print(f"  cotqa failed: {e}")
 
     # Decorative
     try:

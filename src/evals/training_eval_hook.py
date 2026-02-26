@@ -56,12 +56,10 @@ from evals.run_evals import (
 )
 from evals.activation_cache import (
     ActivationBundle,
-    extract_activation_bundle as _extract_bundle_raw,
-    extract_multilayer_activation_bundle as _extract_multilayer_raw,
-    extract_punctuation_activation_bundle as _extract_punctuation_raw,
+    extract_activations as _extract_activations,
     cache_path as _cache_path,
-    load_bundle as _load_bundle,
-    save_bundle as _save_bundle,
+    maybe_load_cached_bundle as _maybe_load_cached,
+    save_bundle_with_metadata as _save_bundle_with_metadata,
 )
 from core.ao import (
     run_oracle_on_activations as _run_oracle_raw,
@@ -82,7 +80,6 @@ from cot_utils import get_injection_layers
 TRAINING_EVALS = [
     "hinted_mcq_truthfulqa",
     "sycophancy_v2_riya",
-    "decorative_cot",
     "sentence_insertion",
     "reasoning_termination_riya",
     "atypical_answer_riya",
@@ -106,24 +103,12 @@ def _first_rollout(rollouts) -> str | None:
 def _apply_oracle_mode_to_extract(model, tokenizer, **kwargs):
     """Wrapper applying current oracle mode to activation extraction.
 
-    Routes to punctuation or stride extraction based on _ORACLE_MODE["stride"]:
-    - "punctuation": sample at semantic boundaries (sentence ends, clauses)
-    - int: fixed-stride positions every N tokens
+    Delegates to extract_activations() with stride and layers from _ORACLE_MODE.
     """
-    stride = _ORACLE_MODE["stride"]
-    use_punctuation = (stride == "punctuation")
-    fallback_stride = stride if isinstance(stride, int) else 5
-    kwargs.setdefault("stride", fallback_stride)
-    layers = _ORACLE_MODE.get("layers")
-    if layers:
-        kwargs.pop("act_layer", None)
-        kwargs.pop("max_boundaries", None)
-        if use_punctuation:
-            kwargs.setdefault("fallback_stride", fallback_stride)
-            return _extract_punctuation_raw(model, tokenizer, layers=layers, **kwargs)
-        return _extract_multilayer_raw(model, tokenizer, layers=layers, **kwargs)
-    # No layers configured — single-layer stride fallback
-    return _extract_bundle_raw(model, tokenizer, **kwargs)
+    kwargs.setdefault("stride", _ORACLE_MODE["stride"])
+    kwargs.setdefault("layers", _ORACLE_MODE.get("layers"))
+    kwargs.pop("max_boundaries", None)
+    return _extract_activations(model, tokenizer, **kwargs)
 
 
 def _apply_oracle_mode_to_oracle(model, tokenizer, activations, prompt, **kwargs):
@@ -299,41 +284,15 @@ def _subsample(items: list[EvalItem], max_items: int, seed: int) -> list[EvalIte
 
 
 def _try_load_cached(cache_dir: Path | None, eval_name: str, example_id: str, device: str):
-    """Try to load a cached activation bundle. Returns bundle or None.
-
-    Invalidates stale caches when:
-    - Layer count doesn't match (single-layer vs multi-layer)
-    - Stride mode doesn't match (stride=5 vs punctuation)
-    """
-    if cache_dir is None:
-        return None
-    path = _cache_path(cache_dir, eval_name, example_id)
-    if not path.exists():
-        return None
-    bundle = _load_bundle(path, map_location=device)
-    if bundle.activations is None:
-        return None
-
-    # Validate stride mode matches
-    cached_stride = (bundle.metadata or {}).get("stride")
-    current_stride = _ORACLE_MODE.get("stride")
-    if cached_stride is not None and str(cached_stride) != str(current_stride):
-        path.unlink(missing_ok=True)
-        return None
-    # Old caches without stride metadata — invalidate them too
-    if cached_stride is None and current_stride is not None:
-        path.unlink(missing_ok=True)
-        return None
-
-    # Validate shape matches current layer config
-    layers = _ORACLE_MODE.get("layers")
-    if layers and len(layers) > 1:
-        n_positions = len(bundle.boundary_positions)
-        expected_rows = n_positions * len(layers)
-        if bundle.activations.shape[0] != expected_rows:
-            path.unlink(missing_ok=True)
-            return None
-    return bundle
+    """Try to load a cached activation bundle. Returns bundle or None."""
+    return _maybe_load_cached(
+        cache_dir,
+        eval_name=eval_name,
+        example_id=example_id,
+        map_location=device,
+        stride=_ORACLE_MODE.get("stride"),
+        layers=_ORACLE_MODE.get("layers"),
+    )
 
 
 def _auto_cache_bundle(
@@ -353,9 +312,6 @@ def _auto_cache_bundle(
     """Save an activation bundle to cache for reuse in future evals."""
     if cache_dir is None or activations is None:
         return
-    path = _cache_path(cache_dir, eval_name, example_id)
-    if path.exists():
-        return  # already cached
     bundle = ActivationBundle(
         eval_name=eval_name,
         example_id=example_id,
@@ -364,16 +320,16 @@ def _auto_cache_bundle(
         activations=activations,
         boundary_positions=boundary_positions,
         sentences=[],
-        metadata={"stride": str(_ORACLE_MODE.get("stride", "unknown"))},
         clean_response=clean_response,
         test_response=test_response,
         clean_answer=clean_answer,
         test_answer=test_answer,
     )
-    try:
-        _save_bundle(bundle, path)
-    except Exception as e:
-        print(f"    [cache] Failed to save {eval_name}/{example_id}: {e}")
+    _save_bundle_with_metadata(
+        bundle, cache_dir,
+        stride=_ORACLE_MODE.get("stride"),
+        layers=_ORACLE_MODE.get("layers"),
+    )
 
 
 def _collect_and_batch_oracle(
@@ -1314,39 +1270,21 @@ def precache_eval_activations(
 
         # Find uncached items (stale caches auto-invalidated by stride/layer mismatch)
         uncached = []
-        current_stride_str = str(stride)
         for item in items:
-            path = _cache_path(cache_dir, eval_name, item.example_id)
-            if path.exists():
-                try:
-                    bundle = _load_bundle(path, map_location="cpu")
-                    if bundle.activations is not None:
-                        # Check stride mode matches
-                        cached_stride = (bundle.metadata or {}).get("stride")
-                        if cached_stride is not None and str(cached_stride) != current_stride_str:
-                            total_stale += 1
-                            path.unlink(missing_ok=True)
-                            uncached.append(item)
-                            continue
-                        if cached_stride is None:
-                            # Old cache without stride info — invalidate
-                            total_stale += 1
-                            path.unlink(missing_ok=True)
-                            uncached.append(item)
-                            continue
-                        # Check layer shape matches
-                        n_pos = len(bundle.boundary_positions)
-                        expected = n_pos * len(act_layers)
-                        if bundle.activations.shape[0] == expected:
-                            total_cached += 1
-                            continue
-                        else:
-                            total_stale += 1
-                            path.unlink(missing_ok=True)
-                except Exception:
-                    pass
-                uncached.append(item)
+            existed = _cache_path(cache_dir, eval_name, item.example_id).exists()
+            bundle = _maybe_load_cached(
+                cache_dir,
+                eval_name=eval_name,
+                example_id=item.example_id,
+                map_location="cpu",
+                stride=stride,
+                layers=act_layers,
+            )
+            if bundle is not None:
+                total_cached += 1
             else:
+                if existed:
+                    total_stale += 1
                 uncached.append(item)
 
         if not uncached:

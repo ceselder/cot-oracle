@@ -40,7 +40,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 import torch
 from tqdm import tqdm
 
-from evals.activation_cache import extract_activation_bundle, save_bundle, cache_path
+from evals.activation_cache import extract_activations, save_bundle_with_metadata, cache_path
 from evals.common import load_eval_items, EvalItem, extract_numerical_answer, answers_match, ci_label
 from evals.run_evals import _extract_answer
 
@@ -382,6 +382,8 @@ def _extract_all_activations(
     eval_dir: Path,
     output_dir: Path,
     device: str,
+    stride: int | str = 5,
+    layers: list[int] | None = None,
 ) -> tuple[int, int]:
     """Phase 2: Load HF model + AO, extract activations, save bundles."""
     from core.ao import load_model_with_ao, layer_percent_to_layer
@@ -391,6 +393,7 @@ def _extract_all_activations(
     model, tokenizer = load_model_with_ao(model_name, device=device)
     act_layer = layer_percent_to_layer(model_name, 50)
     print(f"  Loaded in {time.time()-t0:.1f}s, activation layer: {act_layer}")
+    print(f"  stride={stride}, layers={layers or [act_layer]}")
 
     # Load ROT13 adapter if any rot13 items need extraction
     rot13_adapter_name = None
@@ -410,7 +413,6 @@ def _extract_all_activations(
         failed = 0
 
         for item in tqdm(items, desc=eval_name):
-            out_path = cache_path(output_dir, item.eval_name, item.example_id)
             eid = item.example_id
 
             # ── Determine CoT text and responses for this item ──
@@ -475,15 +477,16 @@ def _extract_all_activations(
             # (the model organism), not the base model.
             act_adapter = rot13_adapter_name if eval_name == "rot13_reconstruction" else None
             try:
-                bundle = extract_activation_bundle(
+                bundle = extract_activations(
                     model, tokenizer,
                     eval_name=item.eval_name,
                     example_id=item.example_id,
                     prompt=item.test_prompt,
                     cot_text=cot_for_acts,
                     act_layer=act_layer,
+                    layers=layers,
                     device=device,
-                    stride=5,
+                    stride=stride,
                     generation_adapter_name=act_adapter,
                 )
             except Exception as e:
@@ -495,13 +498,21 @@ def _extract_all_activations(
                 failed += 1
                 continue
 
-            bundle.clean_response = clean_response
-            bundle.test_response = test_response
-            bundle.clean_answer = clean_answer
-            bundle.test_answer = test_answer
-            bundle.metadata = dict(item.metadata)
-            save_bundle(bundle, out_path)
-            saved += 1
+            path = save_bundle_with_metadata(
+                bundle, output_dir,
+                stride=stride,
+                layers=layers,
+                clean_response=clean_response,
+                test_response=test_response,
+                clean_answer=clean_answer,
+                test_answer=test_answer,
+                extra_metadata=dict(item.metadata),
+                overwrite=True,
+            )
+            if path:
+                saved += 1
+            else:
+                failed += 1
 
         print(f"  saved={saved} failed={failed}")
         total_saved += saved
@@ -638,7 +649,18 @@ def main():
                         help="Temperature for decorative_cot sampled runs")
     parser.add_argument("--skip-vllm", action="store_true",
                         help="Skip vLLM generation (use metadata/v2 responses only)")
+    parser.add_argument("--stride", default="5",
+                        help="Activation stride: int or 'punctuation' (default: 5)")
+    parser.add_argument("--layers", type=int, nargs="*", default=None,
+                        help="Extraction layers (e.g. 9 18 27). None = single-layer.")
     args = parser.parse_args()
+
+    # Parse stride: int-like string → int, "punctuation" stays as-is
+    try:
+        args.stride = int(args.stride)
+    except ValueError:
+        if args.stride != "punctuation":
+            parser.error(f"--stride must be an integer or 'punctuation', got '{args.stride}'")
 
     eval_dir = Path(args.eval_dir)
     output_dir = Path(args.output_dir)
@@ -686,6 +708,8 @@ def main():
         eval_dir=eval_dir,
         output_dir=output_dir,
         device=args.device,
+        stride=args.stride,
+        layers=args.layers,
     )
 
     # ── Phase 3: Write CoT responses back to eval JSONs ──

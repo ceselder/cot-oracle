@@ -38,9 +38,9 @@ from core.ao import (
 )
 from evals.activation_cache import (
     ActivationBundle,
-    extract_activation_bundle as _extract_bundle_raw,
+    extract_activations as _extract_activations,
     maybe_load_cached_bundle,
-    save_bundle,
+    save_bundle_with_metadata,
     cache_path,
 )
 
@@ -83,7 +83,8 @@ def set_oracle_mode(
 def extract_activation_bundle(model, tokenizer, **kwargs):
     """Wrapper that applies oracle mode config to activation extraction."""
     kwargs.setdefault("stride", _ORACLE_MODE["stride"])
-    return _extract_bundle_raw(model, tokenizer, **kwargs)
+    kwargs.setdefault("layers", _ORACLE_MODE.get("layers"))
+    return _extract_activations(model, tokenizer, **kwargs)
 
 
 def run_oracle_on_activations(model, tokenizer, activations, prompt, **kwargs):
@@ -316,6 +317,8 @@ def _load_cached_bundle_for_item(
         eval_name=item.eval_name,
         example_id=item.example_id,
         map_location="cpu",
+        stride=_ORACLE_MODE.get("stride"),
+        layers=_ORACLE_MODE.get("layers"),
     )
     if bundle is None:
         return None
@@ -337,14 +340,18 @@ def _save_bundle_for_item(
 ) -> str | None:
     if activations_dir is None or bundle is None:
         return None
-    out_path = cache_path(activations_dir, item.eval_name, item.example_id)
-    bundle.clean_response = clean_response
-    bundle.test_response = test_response
-    bundle.clean_answer = clean_answer
-    bundle.test_answer = test_answer
-    bundle.metadata = {**(bundle.metadata or {}), **(extra_metadata or {})}
-    save_bundle(bundle, out_path)
-    return str(out_path)
+    path = save_bundle_with_metadata(
+        bundle, activations_dir,
+        stride=_ORACLE_MODE.get("stride"),
+        layers=_ORACLE_MODE.get("layers"),
+        clean_response=clean_response,
+        test_response=test_response,
+        clean_answer=clean_answer,
+        test_answer=test_answer,
+        extra_metadata=extra_metadata,
+        overwrite=True,
+    )
+    return str(path) if path else None
 
 
 def run_single_item(

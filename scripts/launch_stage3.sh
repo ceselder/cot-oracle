@@ -34,7 +34,6 @@ export PYTHONUNBUFFERED=1
 nohup python3 src/train.py \
     --corpus data/cot_corpus_v5/corpus_medium.jsonl \
     --concept-corpus data/concept_corpus/corpus_full.jsonl \
-    --cotqa-path data/concept_corpus/corpus_full_conv_qa_llm.jsonl \
     --model Qwen/Qwen3-8B \
     --stages 3 \
     --resume-from "$LATEST" \
@@ -50,7 +49,6 @@ nohup python3 src/train.py \
     --unfaith-eval-items 20 \
     --save-dir checkpoints/v5_stage3 \
     --wandb-project cot_oracle \
-    --conv-qa-n 10000 \
     > train_stage3.log 2>&1 &
 
 echo "Stage 3 launched with PID $!"

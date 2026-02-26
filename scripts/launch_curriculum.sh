@@ -17,8 +17,7 @@ cd /root/cot-oracle
 # Verify data exists
 echo "=== Checking data ==="
 for f in data/cot_corpus_v5/corpus_medium.jsonl \
-         data/concept_corpus/corpus_full.jsonl \
-         data/concept_corpus/corpus_full_conv_qa_llm.jsonl; do
+         data/concept_corpus/corpus_full.jsonl; do
     if [ -f "$f" ]; then
         echo "  OK: $f ($(wc -l < "$f") lines)"
     else
