@@ -36,9 +36,7 @@ PLACEHOLDER_TOKEN = " ¶"
 du_module.SPECIAL_TOKEN = PLACEHOLDER_TOKEN
 _orig_get_prefix = du_module.get_introspection_prefix
 def _patched_get_prefix(sae_layer: int, num_positions: int) -> str:
-    prefix = f"Layer: {sae_layer}\n"
-    prefix += PLACEHOLDER_TOKEN * num_positions
-    prefix += " \n"
+    prefix = f"L{sae_layer}:" + PLACEHOLDER_TOKEN * num_positions + "\n"
     return prefix
 du_module.get_introspection_prefix = _patched_get_prefix
 

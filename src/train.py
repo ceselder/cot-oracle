@@ -84,12 +84,13 @@ MULTI_LAYERS: list[int] = []
 
 def _patched_get_prefix(sae_layer: int, num_positions: int) -> str:
     if MULTI_LAYERS:
-        layers_str = ", ".join(str(l) for l in MULTI_LAYERS)
-        prefix = f"Layer: {layers_str}\n"
+        N = len(MULTI_LAYERS)
+        K = num_positions // N
+        assert K * N == num_positions, f"num_positions={num_positions} not divisible by {N} layers"
+        parts = [f"L{layer}:" + PLACEHOLDER_TOKEN * K for layer in MULTI_LAYERS]
+        prefix = " ".join(parts) + "\n"
     else:
-        prefix = f"Layer: {sae_layer}\n"
-    prefix += PLACEHOLDER_TOKEN * num_positions
-    prefix += " \n"
+        prefix = f"L{sae_layer}:" + PLACEHOLDER_TOKEN * num_positions + "\n"
     return prefix
 
 

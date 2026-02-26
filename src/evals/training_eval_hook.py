@@ -157,12 +157,11 @@ def _batched_oracle_generate(
     oracle_adapter_name = _ORACLE_MODE.get("oracle_adapter_name")
     layers = _ORACLE_MODE.get("layers")
 
-    # Build prefix layer string once
+    # Build prefix layer list once
     if layers and len(layers) > 1:
-        layers_str = ", ".join(str(l) for l in layers)
+        layer_list = list(layers)
     else:
-        act_layer = layer_percent_to_layer(model_name, 50)
-        layers_str = str(act_layer)
+        layer_list = [layer_percent_to_layer(model_name, 50)]
 
     ph_id = tokenizer.encode(ph_token, add_special_tokens=False)
     assert len(ph_id) == 1, f"Expected single token for '{ph_token}', got {len(ph_id)}"
@@ -175,7 +174,11 @@ def _batched_oracle_generate(
 
     for activations, oracle_prompt in items:
         num_positions = activations.shape[0]
-        prefix = f"Layer: {layers_str}\n" + ph_token * num_positions + " \n"
+        N = len(layer_list)
+        K = num_positions // N
+        assert K * N == num_positions, f"num_positions={num_positions} not divisible by {N} layers"
+        parts = [f"L{l}:" + ph_token * K for l in layer_list]
+        prefix = " ".join(parts) + "\n"
         full_prompt = prefix + oracle_prompt
 
         messages = [{"role": "user", "content": full_prompt}]
