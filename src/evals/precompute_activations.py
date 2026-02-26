@@ -40,7 +40,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 import torch
 from tqdm import tqdm
 
-from evals.activation_cache import extract_activations, save_bundle, cache_path
+from evals.activation_cache import extract_activations, save_bundle_with_metadata, cache_path
 from evals.common import load_eval_items, EvalItem, extract_numerical_answer, answers_match, ci_label
 from evals.run_evals import _extract_answer
 
@@ -413,7 +413,6 @@ def _extract_all_activations(
         failed = 0
 
         for item in tqdm(items, desc=eval_name):
-            out_path = cache_path(output_dir, item.eval_name, item.example_id)
             eid = item.example_id
 
             # ── Determine CoT text and responses for this item ──
@@ -499,13 +498,21 @@ def _extract_all_activations(
                 failed += 1
                 continue
 
-            bundle.clean_response = clean_response
-            bundle.test_response = test_response
-            bundle.clean_answer = clean_answer
-            bundle.test_answer = test_answer
-            bundle.metadata = dict(item.metadata)
-            save_bundle(bundle, out_path)
-            saved += 1
+            path = save_bundle_with_metadata(
+                bundle, output_dir,
+                stride=stride,
+                layers=layers,
+                clean_response=clean_response,
+                test_response=test_response,
+                clean_answer=clean_answer,
+                test_answer=test_answer,
+                extra_metadata=dict(item.metadata),
+                overwrite=True,
+            )
+            if path:
+                saved += 1
+            else:
+                failed += 1
 
         print(f"  saved={saved} failed={failed}")
         total_saved += saved

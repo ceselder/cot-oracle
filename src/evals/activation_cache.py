@@ -346,10 +346,84 @@ def maybe_load_cached_bundle(
     eval_name: str,
     example_id: str,
     map_location: str = "cpu",
+    stride: int | str | None = None,
+    layers: list[int] | None = None,
 ) -> ActivationBundle | None:
+    """Load a cached activation bundle with optional staleness validation.
+
+    When stride or layers are provided, validates that the cached bundle
+    matches the current config.  Stale caches are deleted automatically.
+    When neither is provided, loads unconditionally (backward compat).
+    """
     if base_dir is None:
         return None
     path = cache_path(base_dir, eval_name, example_id)
     if not path.exists():
         return None
-    return load_bundle(path, map_location=map_location)
+    bundle = load_bundle(path, map_location=map_location)
+    if bundle.activations is None:
+        return None
+
+    # --- Staleness validation (only when caller specifies expected config) ---
+    if stride is not None:
+        cached_stride = (bundle.metadata or {}).get("stride")
+        if cached_stride is not None and str(cached_stride) != str(stride):
+            path.unlink(missing_ok=True)
+            return None
+        # Old caches without stride metadata are also stale
+        if cached_stride is None:
+            path.unlink(missing_ok=True)
+            return None
+
+    if layers is not None and len(layers) > 1:
+        n_positions = len(bundle.boundary_positions)
+        expected_rows = n_positions * len(layers)
+        if bundle.activations.shape[0] != expected_rows:
+            path.unlink(missing_ok=True)
+            return None
+
+    return bundle
+
+
+def save_bundle_with_metadata(
+    bundle: ActivationBundle,
+    base_dir: Path,
+    *,
+    stride: int | str | None = None,
+    layers: list[int] | None = None,
+    clean_response: str | None = None,
+    test_response: str | None = None,
+    clean_answer: str | None = None,
+    test_answer: str | None = None,
+    extra_metadata: dict | None = None,
+    overwrite: bool = False,
+) -> Path | None:
+    """Save an activation bundle to the cache directory with stride/layers metadata.
+
+    Returns the saved path, or None if nothing was saved.
+    """
+    if bundle is None or bundle.activations is None:
+        return None
+    path = cache_path(base_dir, bundle.eval_name, bundle.example_id)
+    if path.exists() and not overwrite:
+        return None
+
+    bundle.clean_response = clean_response if clean_response is not None else bundle.clean_response
+    bundle.test_response = test_response if test_response is not None else bundle.test_response
+    bundle.clean_answer = clean_answer if clean_answer is not None else bundle.clean_answer
+    bundle.test_answer = test_answer if test_answer is not None else bundle.test_answer
+    meta = dict(bundle.metadata or {})
+    if stride is not None:
+        meta["stride"] = str(stride)
+    if layers is not None:
+        meta["layers"] = layers
+    if extra_metadata:
+        meta.update(extra_metadata)
+    bundle.metadata = meta
+
+    try:
+        save_bundle(bundle, path)
+    except Exception as e:
+        print(f"    [cache] Failed to save {bundle.eval_name}/{bundle.example_id}: {e}")
+        return None
+    return path
