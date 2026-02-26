@@ -100,6 +100,8 @@ du_module.get_introspection_prefix = _patched_get_prefix
 _PE_CONFIG = {"enabled": False, "alpha": 0.1}
 # Pooling mode: "none", "windows" (mean-pool token windows), "single", "chunks5"
 _POOLING_MODE = "none"
+# Layer pooling: average activations across all MULTI_LAYERS at each position
+_LAYER_POOL = False
 
 
 def _pool_vectors(vectors: torch.Tensor, mode: str) -> torch.Tensor:
@@ -238,27 +240,48 @@ def materialize_multilayer_steering_vectors(
     for b in range(len(to_fill)):
         idx, dp = to_fill[b]
         total_positions = len(positions_per_item[b])
-        K = total_positions // N_LAYERS
 
-        vectors_parts = []
-        for li, layer in enumerate(layers):
-            acts_BLD = acts_by_layer[layer]
-            chunk_positions = positions_per_item[b][li * K : (li + 1) * K]
-            adjusted = [p + left_offsets[b] for p in chunk_positions]
-
-            L = acts_BLD.shape[1]
+        if _LAYER_POOL:
+            # Layer pooling: positions are NOT repeated per layer (n_layers_effective=1)
+            K = total_positions
+            adjusted = [p + left_offsets[b] for p in positions_per_item[b]]
+            L = acts_by_layer[layers[0]].shape[1]
             if any(i < 0 or i >= L for i in adjusted):
                 raise IndexError(
                     f"Activation index out of range for item {b}: {adjusted} with L={L}"
                 )
-            if _POOLING_MODE == "windows":
-                layer_vecs = _mean_pool_windows(acts_BLD[b], adjusted)
-            else:
-                layer_vecs = acts_BLD[b, adjusted, :]  # [K, D]
-                layer_vecs = _pool_vectors(layer_vecs, _POOLING_MODE)
-            vectors_parts.append(layer_vecs)
+            layer_vecs_stack = []
+            for layer in layers:
+                acts_BLD = acts_by_layer[layer]
+                if _POOLING_MODE == "windows":
+                    lv = _mean_pool_windows(acts_BLD[b], adjusted)
+                else:
+                    lv = acts_BLD[b, adjusted, :]  # [K, D]
+                    lv = _pool_vectors(lv, _POOLING_MODE)
+                layer_vecs_stack.append(lv)
+            vectors = torch.stack(layer_vecs_stack, dim=0).mean(dim=0).detach().contiguous()
+        else:
+            K = total_positions // N_LAYERS
 
-        vectors = torch.cat(vectors_parts, dim=0).detach().contiguous()
+            vectors_parts = []
+            for li, layer in enumerate(layers):
+                acts_BLD = acts_by_layer[layer]
+                chunk_positions = positions_per_item[b][li * K : (li + 1) * K]
+                adjusted = [p + left_offsets[b] for p in chunk_positions]
+
+                L = acts_BLD.shape[1]
+                if any(i < 0 or i >= L for i in adjusted):
+                    raise IndexError(
+                        f"Activation index out of range for item {b}: {adjusted} with L={L}"
+                    )
+                if _POOLING_MODE == "windows":
+                    layer_vecs = _mean_pool_windows(acts_BLD[b], adjusted)
+                else:
+                    layer_vecs = acts_BLD[b, adjusted, :]  # [K, D]
+                    layer_vecs = _pool_vectors(layer_vecs, _POOLING_MODE)
+                vectors_parts.append(layer_vecs)
+
+            vectors = torch.cat(vectors_parts, dim=0).detach().contiguous()
 
         # Apply positional encoding if enabled
         if _PE_CONFIG["enabled"]:
@@ -289,7 +312,8 @@ def dicts_to_training_data(
     raw_data: list[dict], tokenizer,
 ) -> list[TrainingDataPoint]:
     training_data = []
-    n_layers_runtime = len(MULTI_LAYERS) if MULTI_LAYERS else 3
+    # With layer pooling, output is 1 effective layer (averaged across MULTI_LAYERS)
+    n_layers_runtime = 1 if _LAYER_POOL else (len(MULTI_LAYERS) if MULTI_LAYERS else 3)
     _reexpand_warned = False
 
     for item in raw_data:
@@ -1318,6 +1342,14 @@ def apply_config(args, config: dict):
                     setattr(args, key, a[key])
         if "layers" in a and not getattr(args, "_cli_layers", False):
             args.layers = a["layers"]  # list of ints, e.g. [9, 18, 27]
+        if "layer_pool" in a:
+            if isinstance(a["layer_pool"], bool):
+                args.layer_pool = a["layer_pool"]
+            elif isinstance(a["layer_pool"], list) and len(a["layer_pool"]) == 2:
+                # [start, end] → expand to full layer list and enable pooling
+                start, end = a["layer_pool"]
+                args.layers = list(range(start, end + 1))
+                args.layer_pool = True
 
     # Eval
     if "eval" in config:
@@ -1459,6 +1491,8 @@ def main():
     parser.add_argument("--pooling-mode", type=str, default="none",
                         choices=["none", "windows", "single", "chunks5"],
                         help="Activation pooling: none, windows (mean-pool token windows), single (1/layer), chunks5 (5/layer)")
+    parser.add_argument("--layer-pool", action="store_true", default=False,
+                        help="Average activations across all MULTI_LAYERS at each position (output=1 effective layer)")
     parser.add_argument("--rot13-start-step", type=int, default=2000)
     parser.add_argument("--start-step", type=int, default=None,
                         help="Starting global step (for resuming; 0 = restart data from beginning)")
@@ -1553,8 +1587,13 @@ def main():
     if _POOLING_MODE != "none":
         import evals.activation_cache as _cache_module
         _cache_module._POOLING_MODE = _POOLING_MODE
+    # Layer pooling
+    global _LAYER_POOL
+    _LAYER_POOL = getattr(args, "layer_pool", False)
     if rank == 0:
         print(f"Activation pooling: {_POOLING_MODE}")
+        if _LAYER_POOL:
+            print(f"Layer pooling: ON (averaging {len(MULTI_LAYERS)} layers → 1 effective layer)")
 
     tokenizer = load_tokenizer(args.model)
 

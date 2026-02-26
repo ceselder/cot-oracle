@@ -1,0 +1,15 @@
+# Ablation: average activations across layers 18-28 (50%-80% depth)
+# at each stride position. Output = 1 effective layer of K vectors.
+# stride 40 for denser sampling since fewer total vectors.
+
+activations:
+  stride: 40
+  layer_pool: [18, 28]
+
+training:
+  batch_size: 4
+  effective_batch_size: 16
+  eval_batch_size: 2
+
+output:
+  wandb_run: ablation-layerpool-stride40
