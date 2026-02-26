@@ -97,6 +97,23 @@ def _patched_get_prefix(sae_layer: int, num_positions: int) -> str:
 du_module.get_introspection_prefix = _patched_get_prefix
 
 
+def _patched_find_pattern_in_tokens(token_ids, special_token_str, num_positions, tokenizer):
+    special_token_id = tokenizer.encode(special_token_str, add_special_tokens=False)
+    assert len(special_token_id) == 1, f"Expected single token, got {len(special_token_id)}"
+    special_token_id = special_token_id[0]
+    positions = []
+    for i in range(len(token_ids)):
+        if len(positions) == num_positions:
+            break
+        if token_ids[i] == special_token_id:
+            positions.append(i)
+    assert len(positions) == num_positions, f"Expected {num_positions} positions, got {len(positions)}"
+    return positions
+
+
+du_module.find_pattern_in_tokens = _patched_find_pattern_in_tokens
+
+
 # ── Position encoding config (module-level, set by main()) ──
 _PE_CONFIG = {"enabled": False, "alpha": 0.1}
 
