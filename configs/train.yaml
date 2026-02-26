@@ -15,6 +15,15 @@ tasks:
     n: 0
     description: "Reconstruct the original question/prompt from CoT activations"
 
+  # --- Open-ended QA (articulate understanding of CoT) ---
+  conv_qa:
+    n: 10000
+    description: "Answer conversational questions about the CoT"
+
+  compqa:
+    n: 8000
+    description: "Answer questions about CoT reasoning quality (10 types, Gemini GT)"
+
   # --- Trajectory tracking (answer evolution through CoT) ---
   answer_pred:
     n: 20000
@@ -36,6 +45,7 @@ tasks:
   compqa:
     n: 8000
     description: "Answer questions about CoT reasoning quality (10 types, Gemini GT)"
+
 
   # --- Analytical / classification (computational queries over activations) ---
   correctness:
