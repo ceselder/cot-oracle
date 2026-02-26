@@ -1553,15 +1553,23 @@ def run_training_evals(
                     cols = ["id", "question", "oracle_output", "ground_truth", "correct"]
                     table = wandb.Table(columns=cols)
                     table_rows = []
+                    parsing_cfg = EVAL_PARSING.get(eval_name)
                     for c in completed:
                         if not c.oracle_response:
                             continue
-                        # Re-score for table
                         gt = c.ground_truth_label
                         oracle = c.oracle_response[:300]
                         is_correct = "?"
                         if gt and gt not in {"indeterminate", "pending_manual", "pending_multi_run"}:
-                            is_correct = "yes" if gt.lower() in oracle.lower() else "no"
+                            if parsing_cfg and parsing_cfg["positive_keywords"]:
+                                pred = parse_oracle_binary(oracle, parsing_cfg["positive_keywords"], parsing_cfg["negative_keywords"])
+                                if pred is not None:
+                                    pred_label = parsing_cfg["positive_label"] if pred == "positive" else parsing_cfg["negative_label"]
+                                    is_correct = "yes" if pred_label == gt else "no"
+                                else:
+                                    is_correct = "?"
+                            else:
+                                is_correct = "yes" if gt.lower() in oracle.lower() else "no"
                         row = [c.example_id, (c.test_prompt or c.clean_prompt or "")[:200], oracle, gt or "", is_correct]
                         table.add_data(*row)
                         table_rows.append(row)
