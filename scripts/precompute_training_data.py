@@ -37,7 +37,7 @@ TASKS = [
     ("decorative",       "dataset_classes.cot_decorative",              "load_cot_decorative_data",             "main",    15000),
     ("domain",           "dataset_classes.cot_domain",                  "load_cot_domain_data",                 "main",    15000),
     ("reasoning_term",   "dataset_classes.cot_reasoning_termination",   "load_cot_reasoning_termination_data",  "main",    15000),
-    ("conv_qa",          "dataset_classes.cot_conversational",          "load_cot_conversational_data",         "concept", 10000),
+    ("cotqa",            "dataset_classes.cot_cotqa",                   "load_cot_cotqa_data",                  "cotqa",   10000),
     ("atypical_answer",  "dataset_classes.cot_atypical_answer",         "load_cot_atypical_answer_data",        "atypical", 20000),
     ("prompt_inversion", "dataset_classes.cot_prompt_inversion",       "load_cot_prompt_inversion_data",       "main",     20000),
     ("compqa",           "dataset_classes.cot_compqa",               "load_cot_compqa_data",                 "compqa",   8000),
@@ -46,7 +46,7 @@ TASKS = [
 
 def precompute_task(task_name, module_path, loader_name, corpus_type,
                     num_examples, tokenizer, model_name,
-                    main_corpus, concept_corpus, cotqa_path,
+                    main_corpus, concept_corpus,
                     output_dir, stride=5, max_positions_per_layer=None,
                     atypical_data_path=None):
     """Run a single task loader and save to JSONL."""
@@ -63,7 +63,7 @@ def precompute_task(task_name, module_path, loader_name, corpus_type,
 
     if corpus_type == "concept":
         data = loader_fn(
-            concept_corpus, cotqa_path, tokenizer, model_name,
+            concept_corpus, tokenizer, model_name,
             num_examples=num_examples,
             stride=stride,
             max_positions_per_layer=max_positions_per_layer,
@@ -76,6 +76,13 @@ def precompute_task(task_name, module_path, loader_name, corpus_type,
             stride=stride,
             max_positions_per_layer=max_positions_per_layer,
             atypical_data_path=apath,
+        )
+    elif corpus_type == "cotqa":
+        # CotQA loads from HF directly, corpus_path is unused
+        data = loader_fn(
+            "", tokenizer, model_name,
+            num_examples=num_examples,
+            stride=stride,
         )
     elif corpus_type == "compqa":
         # CompQA loads from HF, first arg is local cache path
@@ -120,7 +127,6 @@ def main():
     parser.add_argument("--model", default="Qwen/Qwen3-8B")
     parser.add_argument("--corpus", default="data/cot_corpus_v5/corpus_medium.jsonl")
     parser.add_argument("--concept-corpus", default="data/concept_corpus/corpus_full.jsonl")
-    parser.add_argument("--cotqa-path", default="data/concept_corpus/corpus_full_conv_qa_llm.jsonl")
     parser.add_argument("--output-dir", default="data/precomputed")
     parser.add_argument("--stride", default="5",
                         help="Activation stride: int or 'punctuation' (default: 5)")
@@ -136,7 +142,7 @@ def main():
     parser.add_argument("--decorative-n", type=int, default=None)
     parser.add_argument("--domain-n", type=int, default=None)
     parser.add_argument("--reasoning-term-n", type=int, default=None)
-    parser.add_argument("--conv-qa-n", type=int, default=None)
+    parser.add_argument("--cotqa-n", type=int, default=None)
     parser.add_argument("--atypical-answer-n", type=int, default=None)
     parser.add_argument("--prompt-inversion-n", type=int, default=None)
     parser.add_argument("--compqa-n", type=int, default=None)
@@ -165,7 +171,7 @@ def main():
         "decorative": args.decorative_n,
         "domain": args.domain_n,
         "reasoning_term": args.reasoning_term_n,
-        "conv_qa": args.conv_qa_n,
+        "cotqa": args.cotqa_n,
         "atypical_answer": args.atypical_answer_n,
         "prompt_inversion": args.prompt_inversion_n,
         "compqa": args.compqa_n,
@@ -191,7 +197,7 @@ def main():
             info = precompute_task(
                 task_name, module_path, loader_name, corpus_type,
                 n, tokenizer, args.model,
-                args.corpus, args.concept_corpus, args.cotqa_path,
+                args.corpus, args.concept_corpus,
                 output_dir, args.stride, args.max_positions_per_layer,
                 atypical_data_path=getattr(args, "atypical_data_path", None),
             )

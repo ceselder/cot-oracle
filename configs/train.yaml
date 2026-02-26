@@ -25,13 +25,9 @@ tasks:
     description: "What does the model currently think the answer is? (per-sentence, precompute-only)"
 
   # --- Open-ended QA (articulate understanding of CoT) ---
-  conv_qa:
-    n: 10000
-    description: "Answer conversational questions about the CoT"
-
   cotqa:
     n: 10000
-    description: "Conversational questions about safety/concept CoTs (from concept corpus)"
+    description: "Conversational questions about CoTs (from concept corpus, HF)"
 
   compqa:
     n: 8000
@@ -98,7 +94,6 @@ eval:
   unfaith_evals:
     - hinted_mcq_truthfulqa
     - sycophancy_v2_riya
-    - decorative_cot
     - sentence_insertion
     - reasoning_termination_riya
     - atypical_answer_riya
@@ -129,7 +124,6 @@ baselines:
 
   evals:
     - sycophancy_v2_riya
-    - decorative_cot
     - reasoning_termination_riya
     - rot13_reconstruction
     - thought_anchors

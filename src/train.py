@@ -15,7 +15,7 @@ Usage:
     torchrun --nproc_per_node=8 src/train.py --config configs/train.yaml --precomputed-dir data/precomputed
 
     # Train specific tasks only:
-    python src/train.py --config configs/train.yaml --full-recon-n 40000 --correctness-n 15000 --conv-qa-n 0
+    python src/train.py --config configs/train.yaml --full-recon-n 40000 --correctness-n 15000 --cotqa-n 0
 
     # Resume from checkpoint (step auto-detected from training_state.pt):
     python src/train.py --config configs/train.yaml --resume-from checkpoints/step_5000
@@ -319,12 +319,6 @@ TASK_REGISTRY = {
         "module": "dataset_classes.cot_reasoning_termination",
         "loader": "load_cot_reasoning_termination_data",
         "corpus": "main",
-    },
-    "conv_qa": {
-        "arg": "conv_qa_n",
-        "module": None,
-        "loader": None,
-        "corpus": "main",  # precompute-only (loader needs qa_jsonl_path)
     },
     "answer_trajectory": {
         "arg": "answer_trajectory_n",
@@ -1280,7 +1274,6 @@ def main():
     parser.add_argument("--domain-n", type=int, default=0)
     parser.add_argument("--reasoning-term-n", type=int, default=0)
     parser.add_argument("--partial-answer-n", type=int, default=0)
-    parser.add_argument("--conv-qa-n", type=int, default=0)
     parser.add_argument("--answer-trajectory-n", type=int, default=0)
     parser.add_argument("--atypical-answer-n", type=int, default=0)
     parser.add_argument("--prompt-inversion-n", type=int, default=0)

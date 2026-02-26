@@ -80,7 +80,6 @@ from cot_utils import get_injection_layers
 TRAINING_EVALS = [
     "hinted_mcq_truthfulqa",
     "sycophancy_v2_riya",
-    "decorative_cot",
     "sentence_insertion",
     "reasoning_termination_riya",
     "atypical_answer_riya",

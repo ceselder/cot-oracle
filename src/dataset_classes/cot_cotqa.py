@@ -8,7 +8,7 @@ for activation extraction.
 10 question types: topic, content, general, behavior, style, reasoning,
 thematic, sycophancy, safety, user_intent.
 
-Separate from conv_qa (which uses the math/reasoning corpus).
+This is the canonical conversational QA task (previously also called conv_qa).
 """
 
 import json
