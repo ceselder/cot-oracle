@@ -710,6 +710,38 @@ def _save_table_to_disk(log_dir: Path, name: str, global_step: int, columns: lis
         json.dump({"step": global_step, "name": name, "n": len(records), "rows": records}, f, indent=2, default=str)
 
 
+def _upload_checkpoint_to_hf(checkpoint_path: Path, args, global_step: int):
+    """Upload a LoRA checkpoint to HuggingFace after training completes."""
+    try:
+        from huggingface_hub import HfApi
+        hf_token = os.environ.get("HF_TOKEN") or os.environ.get("HUGGING_FACE_HUB_TOKEN")
+        if not hf_token:
+            print("  [HF upload] No HF_TOKEN set, skipping upload")
+            return
+
+        # Build repo name from wandb run name or save_dir
+        run_name = getattr(args, "wandb_run", None)
+        if not run_name:
+            import wandb as _wb
+            if _wb.run:
+                run_name = _wb.run.name
+        if not run_name:
+            run_name = checkpoint_path.parent.name
+        repo_name = f"ceselder/cot-oracle-{run_name}"
+
+        print(f"  [HF upload] Uploading checkpoint to {repo_name} ...")
+        api = HfApi(token=hf_token)
+        api.create_repo(repo_name, exist_ok=True)
+        api.upload_folder(
+            folder_path=str(checkpoint_path),
+            repo_id=repo_name,
+            commit_message=f"Final checkpoint at step {global_step}",
+        )
+        print(f"  [HF upload] Done: https://huggingface.co/{repo_name}")
+    except Exception as e:
+        print(f"  [HF upload] Failed: {e}")
+
+
 def _save_training_state(save_path: Path, global_step, optimizer, scheduler):
     """Save optimizer/scheduler/RNG state for resume."""
     import wandb
@@ -1288,6 +1320,9 @@ def train(
         print(f"  Saving final checkpoint to {final_path}")
         model.save_pretrained(str(final_path))
         _save_training_state(final_path, global_step, optimizer, scheduler)
+
+        # Upload final checkpoint to HuggingFace
+        _upload_checkpoint_to_hf(final_path, args, global_step)
 
     if world_size > 1:
         dist.barrier()
