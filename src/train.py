@@ -1014,6 +1014,7 @@ def train(
                     "train/total_tokens": total_tokens,
                     "train/batch_tokens": accum_batch_tokens,
                     "train/avg_context_length": sum(accum_context_lengths) / len(accum_context_lengths) if accum_context_lengths else 0,
+                    "train/tokens_per_sec": accum_batch_tokens / max(now - last_step_time, 1e-6),
                     "train/step_time": now - last_step_time,
                     "train/wallclock_hours": (now - train_start_time - eval_time_total) / 3600,
                     "eval/wallclock_hours": eval_time_total / 3600,
