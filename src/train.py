@@ -1476,6 +1476,8 @@ def main():
     if _NOISE_ACTIVATIONS:
         import core.ao as _ao_module
         _ao_module.NOISE_ACTIVATIONS = True
+        import evals.activation_cache as _cache_module
+        _cache_module._NOISE_MODE = True
     if rank == 0 and _NOISE_ACTIVATIONS:
         print("*** NOISE ABLATION: replacing all activations with random noise ***")
 
