@@ -172,7 +172,11 @@ def materialize_multilayer_steering_vectors(
 
     pad_id = tokenizer.pad_token_id
     contexts = [list(dp.context_input_ids) for _, dp in to_fill]
-    positions_per_item = [list(dp.context_positions) for _, dp in to_fill]
+    # When pooling, use full positions from meta_info (context_positions was truncated for validator)
+    positions_per_item = []
+    for _, dp in to_fill:
+        full_pos = (dp.meta_info or {}).get("full_context_positions")
+        positions_per_item.append(list(full_pos) if full_pos is not None else list(dp.context_positions))
     max_len = max(len(c) for c in contexts)
 
     device = next(model.parameters()).device
@@ -287,10 +291,15 @@ def dicts_to_training_data(
                     break
 
         # Override num_positions for pooling modes (fewer placeholders in prompt)
+        # Store full positions in meta_info so materializer can extract all, then pool.
+        full_ctx_pos = ctx_pos
         if _POOLING_MODE != "none":
             K_per_layer = num_pos // n_layers_runtime if n_layers_runtime else num_pos
             pooled_K = _pooled_count_per_layer(K_per_layer, _POOLING_MODE)
             num_pos = pooled_K * n_layers_runtime
+            # Truncate context_positions to match pooled num_positions (validator requires equal len)
+            # Full positions stored in meta_info for materializer
+            ctx_pos = ctx_pos[:num_pos]
 
         dp = create_training_datapoint(
             datapoint_type=item["datapoint_type"],
@@ -302,7 +311,8 @@ def dicts_to_training_data(
             acts_BD=None,
             feature_idx=-1,
             context_input_ids=item["context_input_ids"],
-            context_positions=ctx_pos,  # keep FULL positions for extraction
+            context_positions=ctx_pos,
+            meta_info={"full_context_positions": full_ctx_pos} if _POOLING_MODE != "none" else {},
         )
         training_data.append(dp)
 
