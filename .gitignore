@@ -12,9 +12,7 @@ build/
 venv/
 
 # Data (on HuggingFace)
-data/*
-!data/evals/
-!data/eval_precomputed/
+data/
 checkpoints/
 
 # Results
@@ -31,6 +29,13 @@ experiments/
 logs/
 wandb/
 test_chainscope.log
+
+# PDFs
+*.pdf
+
+# Misc
+admin_email.txt
+five-CoT-faith/
 
 # Editor
 .vscode/
