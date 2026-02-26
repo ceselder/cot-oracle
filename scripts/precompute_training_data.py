@@ -122,7 +122,8 @@ def main():
     parser.add_argument("--concept-corpus", default="data/concept_corpus/corpus_full.jsonl")
     parser.add_argument("--cotqa-path", default="data/concept_corpus/corpus_full_conv_qa_llm.jsonl")
     parser.add_argument("--output-dir", default="data/precomputed")
-    parser.add_argument("--stride", type=int, default=5)
+    parser.add_argument("--stride", default="5",
+                        help="Activation stride: int or 'punctuation' (default: 5)")
     parser.add_argument("--max-positions-per-layer", type=int, default=None)
     parser.add_argument("--tasks", nargs="*", default=None,
                         help="Only precompute these tasks (default: all)")
@@ -143,6 +144,13 @@ def main():
                         default="data/atypical_answer_training.jsonl",
                         help="Path to atypical answer JSONL")
     args = parser.parse_args()
+
+    # Parse stride: int-like string → int, "punctuation" stays as-is
+    try:
+        args.stride = int(args.stride)
+    except ValueError:
+        if args.stride != "punctuation":
+            parser.error(f"--stride must be an integer or 'punctuation', got '{args.stride}'")
 
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)

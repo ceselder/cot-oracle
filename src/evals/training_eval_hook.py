@@ -56,9 +56,7 @@ from evals.run_evals import (
 )
 from evals.activation_cache import (
     ActivationBundle,
-    extract_activation_bundle as _extract_bundle_raw,
-    extract_multilayer_activation_bundle as _extract_multilayer_raw,
-    extract_punctuation_activation_bundle as _extract_punctuation_raw,
+    extract_activations as _extract_activations,
     cache_path as _cache_path,
     load_bundle as _load_bundle,
     save_bundle as _save_bundle,
@@ -106,24 +104,12 @@ def _first_rollout(rollouts) -> str | None:
 def _apply_oracle_mode_to_extract(model, tokenizer, **kwargs):
     """Wrapper applying current oracle mode to activation extraction.
 
-    Routes to punctuation or stride extraction based on _ORACLE_MODE["stride"]:
-    - "punctuation": sample at semantic boundaries (sentence ends, clauses)
-    - int: fixed-stride positions every N tokens
+    Delegates to extract_activations() with stride and layers from _ORACLE_MODE.
     """
-    stride = _ORACLE_MODE["stride"]
-    use_punctuation = (stride == "punctuation")
-    fallback_stride = stride if isinstance(stride, int) else 5
-    kwargs.setdefault("stride", fallback_stride)
-    layers = _ORACLE_MODE.get("layers")
-    if layers:
-        kwargs.pop("act_layer", None)
-        kwargs.pop("max_boundaries", None)
-        if use_punctuation:
-            kwargs.setdefault("fallback_stride", fallback_stride)
-            return _extract_punctuation_raw(model, tokenizer, layers=layers, **kwargs)
-        return _extract_multilayer_raw(model, tokenizer, layers=layers, **kwargs)
-    # No layers configured — single-layer stride fallback
-    return _extract_bundle_raw(model, tokenizer, **kwargs)
+    kwargs.setdefault("stride", _ORACLE_MODE["stride"])
+    kwargs.setdefault("layers", _ORACLE_MODE.get("layers"))
+    kwargs.pop("max_boundaries", None)
+    return _extract_activations(model, tokenizer, **kwargs)
 
 
 def _apply_oracle_mode_to_oracle(model, tokenizer, activations, prompt, **kwargs):

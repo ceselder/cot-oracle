@@ -30,7 +30,7 @@ from core.ao import (
 )
 from evals.common import load_eval_items, determine_ground_truth
 from evals.run_evals import _extract_answer, ORACLE_PROMPTS_TEMPLATES, _oracle_prompt
-from evals.activation_cache import extract_activation_bundle
+from evals.activation_cache import extract_activations
 
 
 def load_model_with_checkpoint(
@@ -67,7 +67,9 @@ def load_model_with_checkpoint(
     return model, tokenizer
 
 
-def run_single_eval_item(model, tokenizer, item, act_layer, model_name, device="cuda"):
+def run_single_eval_item(model, tokenizer, item, act_layer, model_name,
+                         device="cuda", stride: int | str = 5,
+                         layers: list[int] | None = None):
     """Run a single eval item and return result dict with full outputs."""
     # Generate responses with adapters disabled (base model)
     clean_response = generate_cot(
@@ -86,7 +88,7 @@ def run_single_eval_item(model, tokenizer, item, act_layer, model_name, device="
     oracle_response = ""
     bundle = None
     try:
-        bundle = extract_activation_bundle(
+        bundle = extract_activations(
             model,
             tokenizer,
             eval_name=item.eval_name,
@@ -94,9 +96,9 @@ def run_single_eval_item(model, tokenizer, item, act_layer, model_name, device="
             prompt=item.test_prompt,
             cot_text=test_response,
             act_layer=act_layer,
+            layers=layers,
             device=device,
-            stride=5,
-            max_boundaries=10,
+            stride=stride,
             generation_adapter_name=None,
         )
         if bundle is not None and bundle.activations is not None:
@@ -135,7 +137,18 @@ def main():
     parser.add_argument("--max-items", type=int, default=None, help="Max items per eval (None=all)")
     parser.add_argument("--evals", nargs="*", default=None, help="Specific evals to run")
     parser.add_argument("--device", default="cuda")
+    parser.add_argument("--stride", default="5",
+                        help="Activation stride: int or 'punctuation' (default: 5)")
+    parser.add_argument("--layers", type=int, nargs="*", default=None,
+                        help="Extraction layers (e.g. 9 18 27). None = single-layer.")
     args = parser.parse_args()
+
+    # Parse stride: int-like string → int, "punctuation" stays as-is
+    try:
+        args.stride = int(args.stride)
+    except ValueError:
+        if args.stride != "punctuation":
+            parser.error(f"--stride must be an integer or 'punctuation', got '{args.stride}'")
 
     eval_dir = Path(args.eval_dir)
     model, tokenizer = load_model_with_checkpoint(args.model, args.checkpoint, args.device)
@@ -180,6 +193,7 @@ def main():
             result = run_single_eval_item(
                 model, tokenizer, item, act_layer,
                 model_name=args.model, device=args.device,
+                stride=args.stride, layers=args.layers,
             )
             all_results.append(result)
 

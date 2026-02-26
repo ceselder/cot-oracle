@@ -38,7 +38,7 @@ from core.ao import (
 )
 from evals.activation_cache import (
     ActivationBundle,
-    extract_activation_bundle as _extract_bundle_raw,
+    extract_activations as _extract_activations,
     maybe_load_cached_bundle,
     save_bundle,
     cache_path,
@@ -83,7 +83,8 @@ def set_oracle_mode(
 def extract_activation_bundle(model, tokenizer, **kwargs):
     """Wrapper that applies oracle mode config to activation extraction."""
     kwargs.setdefault("stride", _ORACLE_MODE["stride"])
-    return _extract_bundle_raw(model, tokenizer, **kwargs)
+    kwargs.setdefault("layers", _ORACLE_MODE.get("layers"))
+    return _extract_activations(model, tokenizer, **kwargs)
 
 
 def run_oracle_on_activations(model, tokenizer, activations, prompt, **kwargs):

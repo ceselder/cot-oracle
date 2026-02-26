@@ -224,6 +224,81 @@ def extract_punctuation_activation_bundle(
     )
 
 
+def extract_activations(
+    model,
+    tokenizer,
+    *,
+    eval_name: str,
+    example_id: str,
+    prompt: str,
+    cot_text: str,
+    stride: int | str,
+    layers: list[int] | None = None,
+    act_layer: int | None = None,
+    device: str = "cuda",
+    generation_adapter_name: str | None = None,
+    **_kwargs,
+) -> ActivationBundle | None:
+    """Unified activation extraction entry point.
+
+    Routes internally based on arguments:
+    - stride: int for fixed-stride, "punctuation" for punctuation boundaries.
+      Passed directly to get_cot_positions() which handles both.
+    - layers: list of layer indices for multi-layer extraction (concatenated
+      as [K*n_layers, D]). None falls back to single-layer using act_layer.
+    """
+    cot_text = (cot_text or "").strip()
+    if not cot_text:
+        return None
+
+    full_text = build_full_text_from_prompt_and_cot(tokenizer, prompt, cot_text)
+
+    messages = [{"role": "user", "content": prompt}]
+    formatted = tokenizer.apply_chat_template(
+        messages, tokenize=False, add_generation_prompt=True, enable_thinking=True,
+    )
+    prompt_ids = tokenizer.encode(formatted, add_special_tokens=False)
+    all_ids = tokenizer.encode(full_text, add_special_tokens=False)
+    positions = get_cot_positions(
+        len(prompt_ids), len(all_ids), stride=stride,
+        tokenizer=tokenizer, input_ids=all_ids,
+    )
+
+    if len(positions) < 2:
+        return None
+
+    # Determine which layers to extract from
+    if layers is not None:
+        extract_layers = layers
+    elif act_layer is not None:
+        extract_layers = [act_layer]
+    else:
+        raise ValueError(
+            "extract_activations() requires either `layers` (multi-layer) "
+            "or `act_layer` (single-layer)."
+        )
+
+    layer_acts = []
+    for layer in extract_layers:
+        acts = collect_activations_at_positions(
+            model, tokenizer, full_text, layer, positions,
+            device=device, adapter_name=generation_adapter_name,
+        )
+        layer_acts.append(acts)
+
+    activations = torch.cat(layer_acts, dim=0) if len(layer_acts) > 1 else layer_acts[0]
+
+    return ActivationBundle(
+        eval_name=eval_name,
+        example_id=example_id,
+        prompt=prompt,
+        cot_text=cot_text,
+        activations=activations,
+        boundary_positions=positions,
+        sentences=[],
+    )
+
+
 def cache_path(base_dir: Path, eval_name: str, example_id: str) -> Path:
     return Path(base_dir) / eval_name / f"{example_id}.pt"
 
