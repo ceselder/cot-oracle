@@ -25,6 +25,7 @@ import argparse
 import gc
 import json
 import logging
+import math
 import os
 import random
 import sys
@@ -223,6 +224,145 @@ def materialize_multilayer_steering_vectors(
 
 du_module.materialize_missing_steering_vectors = materialize_multilayer_steering_vectors
 eval_module.materialize_missing_steering_vectors = materialize_multilayer_steering_vectors
+
+
+# ── Flamingo activation extraction ──
+def materialize_flamingo_activations(
+    batch_points: list[TrainingDataPoint],
+    tokenizer,
+    model,
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    """Extract full residual stream from ALL layers at ALL CoT positions.
+
+    Returns:
+        activations: [B, n_layers*T_max, D] padded supervisee activations
+        layer_ids: [B, n_layers*T_max] layer index for each position
+        attention_mask: [B, n_layers*T_max] bool mask (True = real, False = pad)
+    """
+    from nl_probes.utils.activation_utils import get_hf_submodule
+
+    # Unwrap FlamingoOracleWrapper to get PeftModel
+    from flamingo_oracle import FlamingoOracleWrapper
+    if isinstance(model, FlamingoOracleWrapper):
+        peft_model = model.base_model
+    else:
+        peft_model = model
+
+    assert isinstance(peft_model, PeftModel), "Expected PeftModel for activation extraction"
+
+    n_layers = peft_model.config.num_hidden_layers
+    device = next(peft_model.parameters()).device
+    pad_id = tokenizer.pad_token_id
+
+    # Collect context_input_ids for each item
+    contexts = []
+    for dp in batch_points:
+        assert dp.context_input_ids is not None, "context_input_ids required for Flamingo"
+        contexts.append(list(dp.context_input_ids))
+
+    # Left-pad contexts to same length
+    max_ctx_len = max(len(c) for c in contexts)
+    input_ids_list = []
+    attn_masks_list = []
+    left_offsets = []
+    for c in contexts:
+        pad_len = max_ctx_len - len(c)
+        input_ids_list.append(torch.tensor([pad_id] * pad_len + c, dtype=torch.long, device=device))
+        attn_masks_list.append(torch.tensor([False] * pad_len + [True] * len(c), dtype=torch.bool, device=device))
+        left_offsets.append(pad_len)
+
+    inputs_BL = {
+        "input_ids": torch.stack(input_ids_list),
+        "attention_mask": torch.stack(attn_masks_list),
+    }
+
+    # Collect activations from ALL layers in a single forward pass
+    all_layers = list(range(n_layers))
+    submodules = {layer: get_hf_submodule(peft_model, layer, use_lora=True) for layer in all_layers}
+
+    was_training = peft_model.training
+    peft_model.eval()
+    with peft_model.disable_adapter():
+        # Use collect_activations_multiple_layers but without early stopping
+        # (we need all layers, so max_layer = n_layers-1 triggers early stop at the right place)
+        acts_by_layer = collect_activations_multiple_layers(
+            model=peft_model, submodules=submodules, inputs_BL=inputs_BL,
+            min_offset=None, max_offset=None,
+        )
+    if was_training:
+        peft_model.train()
+
+    B = len(batch_points)
+    D = peft_model.config.hidden_size
+
+    # For each item, extract only the real (non-pad) CoT positions from each layer
+    # then flatten across layers: [n_layers * T_i, D] per item
+    per_item_acts = []
+    per_item_layer_ids = []
+    per_item_lengths = []
+
+    for b in range(B):
+        ctx_len = len(contexts[b])
+        offset = left_offsets[b]
+        item_acts = []
+        item_layer_ids = []
+        for layer in all_layers:
+            # Extract real positions (skip padding)
+            layer_acts = acts_by_layer[layer][b, offset:offset + ctx_len, :]  # [T, D]
+            item_acts.append(layer_acts)
+            item_layer_ids.append(torch.full((ctx_len,), layer, dtype=torch.long, device=device))
+        per_item_acts.append(torch.cat(item_acts, dim=0))  # [n_layers*T, D]
+        per_item_layer_ids.append(torch.cat(item_layer_ids, dim=0))  # [n_layers*T]
+        per_item_lengths.append(n_layers * ctx_len)
+
+    # Pad to max length across batch
+    max_kv_len = max(per_item_lengths)
+    padded_acts = torch.zeros(B, max_kv_len, D, dtype=per_item_acts[0].dtype, device=device)
+    padded_layer_ids = torch.zeros(B, max_kv_len, dtype=torch.long, device=device)
+    padded_mask = torch.zeros(B, max_kv_len, dtype=torch.bool, device=device)
+
+    for b in range(B):
+        L = per_item_lengths[b]
+        padded_acts[b, :L] = per_item_acts[b]
+        padded_layer_ids[b, :L] = per_item_layer_ids[b]
+        padded_mask[b, :L] = True
+
+    return padded_acts.detach(), padded_layer_ids, padded_mask
+
+
+def construct_flamingo_batch(
+    batch_list: list[TrainingDataPoint],
+    supervisee_acts: torch.Tensor,
+    layer_ids: torch.Tensor,
+    act_mask: torch.Tensor,
+    tokenizer,
+    device: torch.device,
+) -> dict:
+    """Construct a batch dict for FlamingoOracleWrapper.forward().
+
+    Handles left-padding of oracle input_ids/labels/attention_mask.
+    """
+    max_length = max(len(dp.input_ids) for dp in batch_list)
+    pad_id = tokenizer.pad_token_id
+
+    all_input_ids = []
+    all_labels = []
+    all_attn_mask = []
+
+    for dp in batch_list:
+        pad_len = max_length - len(dp.input_ids)
+        all_input_ids.append(torch.tensor([pad_id] * pad_len + dp.input_ids, dtype=torch.long))
+        all_labels.append(torch.tensor([-100] * pad_len + dp.labels, dtype=torch.long))
+        all_attn_mask.append(torch.tensor([False] * pad_len + [True] * len(dp.input_ids), dtype=torch.bool))
+
+    return {
+        "input_ids": torch.stack(all_input_ids).to(device),
+        "attention_mask": torch.stack(all_attn_mask).to(device),
+        "labels": torch.stack(all_labels).to(device),
+        "supervisee_activations": supervisee_acts,
+        "supervisee_layer_ids": layer_ids,
+        "supervisee_attention_mask": act_mask,
+    }
 
 
 # ── Data conversion ──
@@ -702,13 +842,17 @@ def train(
 ) -> int:
     """Train on all tasks. Returns the final global_step.
 
-    model: unwrapped PeftModel (for materialization, eval, checkpoint saving)
+    model: unwrapped PeftModel or FlamingoOracleWrapper (for materialization, eval, checkpoint saving)
     ddp_model: DDP-wrapped model (for forward/backward) or same as model if single-GPU
     """
     import wandb
+    from flamingo_oracle import FlamingoOracleWrapper
 
     device = torch.device(f"cuda:{rank}" if world_size > 1 else "cuda")
     dtype = torch.bfloat16
+
+    # For evals, use the underlying PeftModel (evals use steering-based inference)
+    eval_model = model.base_model if isinstance(model, FlamingoOracleWrapper) else model
 
     assert args.effective_batch_size % (args.batch_size * world_size) == 0, \
         f"effective_batch_size ({args.effective_batch_size}) must be divisible by " \
@@ -805,7 +949,8 @@ def train(
         print(f"  Eval tasks: {', '.join(sorted(eval_datasets.keys()))}")
 
     # Pre-materialize eval steering vectors once (avoids re-extraction every eval call)
-    if rank == 0:
+    # Skip for Flamingo mode — eval uses cross-attention, not steering
+    if rank == 0 and not args.flamingo:
         print(f"\n  Pre-materializing eval steering vectors...")
         mat_start = time.time()
         mat_batch_size = 8
@@ -908,7 +1053,7 @@ def train(
     # Step-0 eval (baseline before any training)
     skip_step0 = getattr(args, "no_step0_eval", False)
     if global_step == 0 and rank == 0 and not skip_step0:
-        _run_unified_eval(model, tokenizer, args.model, 0, args, eval_datasets, log_dir=log_dir)
+        _run_unified_eval(eval_model, tokenizer, args.model, 0, args, eval_datasets, log_dir=log_dir)
         model.train()
     if world_size > 1:
         dist.barrier()
@@ -949,25 +1094,36 @@ def train(
 
             batch_types = [dp.datapoint_type for dp in batch_list]
 
-            # Materialize (uses unwrapped model)
-            batch_list = materialize_multilayer_steering_vectors(
-                batch_list, tokenizer, model
-            )
-
-            batch = construct_batch(batch_list, tokenizer, device)
-
-            with torch.autocast(device_type="cuda", dtype=dtype):
-                outputs = train_features_batch(
-                    batch, ddp_model, submodule,
-                    args.steering_coefficient, device, dtype,
+            if args.flamingo:
+                # Flamingo path: extract all-layer activations, cross-attend
+                supervisee_acts, layer_ids, act_mask = materialize_flamingo_activations(
+                    batch_list, tokenizer, model
                 )
-                loss = outputs.loss / grad_accum
-            loss.backward()
+                batch = construct_flamingo_batch(
+                    batch_list, supervisee_acts, layer_ids, act_mask, tokenizer, device,
+                )
+                with torch.autocast(device_type="cuda", dtype=dtype):
+                    outputs = ddp_model(**batch)
+                    loss = outputs.loss / grad_accum
+                loss.backward()
+            else:
+                # Standard steering path
+                batch_list = materialize_multilayer_steering_vectors(
+                    batch_list, tokenizer, model
+                )
+                batch = construct_batch(batch_list, tokenizer, device)
+                with torch.autocast(device_type="cuda", dtype=dtype):
+                    outputs = train_features_batch(
+                        batch, ddp_model, submodule,
+                        args.steering_coefficient, device, dtype,
+                    )
+                    loss = outputs.loss / grad_accum
+                loss.backward()
 
             # Per-task loss (use unscaled loss for logging)
             with torch.no_grad():
                 logits = outputs.logits.detach()
-                labels = batch.labels
+                labels = batch["labels"] if isinstance(batch, dict) else batch.labels
                 shift_logits = logits[:, :-1, :].contiguous()
                 shift_labels = labels[:, 1:].contiguous()
                 per_token_loss = F.cross_entropy(
@@ -1037,6 +1193,16 @@ def train(
                     s_len = max(s_end - s_start, 1)
                     log_dict["train/stage_progress"] = min((global_step - s_start) / s_len, 1.0)
 
+                # Log Flamingo gate values
+                if args.flamingo:
+                    from flamingo_oracle import FlamingoOracleWrapper
+                    wrapper = model.module if isinstance(model, torch.nn.parallel.DistributedDataParallel) else model
+                    if isinstance(wrapper, FlamingoOracleWrapper):
+                        for idx in wrapper.xattn_layer_indices:
+                            gate_val = wrapper.xattn_layers[str(idx)].gate.item()
+                            log_dict[f"flamingo/gate_{idx}"] = gate_val
+                            log_dict[f"flamingo/tanh_gate_{idx}"] = math.tanh(gate_val)
+
                 wandb.log(log_dict, step=global_step)
 
             pbar.set_postfix(loss=f"{accum_loss_sum / grad_accum:.4f}")
@@ -1062,7 +1228,7 @@ def train(
             # Unified eval (task + detection, rank 0 only)
             if global_step > 0 and global_step % args.eval_steps == 0:
                 if rank == 0:
-                    _, elapsed = _run_unified_eval(model, tokenizer, args.model, global_step, args, eval_datasets, log_dir=log_dir)
+                    _, elapsed = _run_unified_eval(eval_model, tokenizer, args.model, global_step, args, eval_datasets, log_dir=log_dir)
                     eval_time_total += elapsed
                     model.train()
                 if world_size > 1:
@@ -1089,7 +1255,7 @@ def train(
 
     # Final eval (rank 0 only)
     if rank == 0:
-        _run_unified_eval(model, tokenizer, args.model, global_step, args, eval_datasets, log_dir=log_dir)
+        _run_unified_eval(eval_model, tokenizer, args.model, global_step, args, eval_datasets, log_dir=log_dir)
 
         # Save final
         final_path = save_dir / "final"
@@ -1186,6 +1352,16 @@ def apply_config(args, config: dict):
         if "hint_admission_data_path" in d and not getattr(args, "_cli_hint_admission_data_path", False):
             args.hint_admission_data_path = d["hint_admission_data_path"]
 
+    # Flamingo
+    if "flamingo" in config:
+        f = config["flamingo"]
+        if f.get("enabled") and not getattr(args, "_cli_flamingo", False):
+            args.flamingo = True
+        if "xattn_interval" in f and not getattr(args, "_cli_flamingo_xattn_interval", False):
+            args.flamingo_xattn_interval = int(f["xattn_interval"])
+        if "xattn_lora_r" in f and not getattr(args, "_cli_flamingo_xattn_lora_r", False):
+            args.flamingo_xattn_lora_r = int(f["xattn_lora_r"])
+
     # Model
     if "model" in config:
         m = config["model"]
@@ -1276,6 +1452,14 @@ def main():
     parser.add_argument("--effective-batch-size", type=int, default=32,
                         help="Total effective batch size (invariant to GPU count). "
                              "gradient_accumulation_steps = effective_batch_size / (batch_size * world_size)")
+
+    # Flamingo cross-attention
+    parser.add_argument("--flamingo", action="store_true", default=False,
+                        help="Use Flamingo-style gated cross-attention instead of additive steering")
+    parser.add_argument("--flamingo-xattn-interval", type=int, default=4,
+                        help="Insert cross-attention every N transformer blocks")
+    parser.add_argument("--flamingo-xattn-lora-r", type=int, default=64,
+                        help="LoRA rank for cross-attention projections")
 
     # Eval / save
     parser.add_argument("--eval-steps", type=int, default=2000,
@@ -1434,13 +1618,37 @@ def main():
             is_trainable=True, autocast_adapter_dtype=False,
         )
 
-    # Ensure LoRA params are fp32 (optimizer states stay fp32; autocast handles forward pass)
+    # Flamingo wrapper (after LoRA, before DDP)
+    if args.flamingo:
+        from flamingo_oracle import FlamingoOracleWrapper
+        xattn_lora_r = args.flamingo_xattn_lora_r
+        if rank == 0:
+            print(f"\nWrapping with Flamingo cross-attention (interval={args.flamingo_xattn_interval}, lora_r={xattn_lora_r})")
+        model = FlamingoOracleWrapper(
+            model, base_model.config,
+            xattn_interval=args.flamingo_xattn_interval,
+            lora_r=xattn_lora_r, lora_alpha=xattn_lora_r * 2,
+        )
+
+        # Load Flamingo modules from checkpoint if resuming
+        if args.resume_from:
+            flamingo_path = Path(args.resume_from) / "flamingo_modules.pt"
+            if flamingo_path.exists():
+                model.load_flamingo_modules(str(args.resume_from))
+                if rank == 0:
+                    print(f"  Loaded Flamingo modules from {args.resume_from}")
+
+        if rank == 0:
+            model.print_trainable_parameters()
+
+    # Ensure trainable params are fp32 (optimizer states stay fp32; autocast handles forward pass)
     for p in model.parameters():
         if p.requires_grad:
             p.data = p.data.float()
 
     if rank == 0:
-        model.print_trainable_parameters()
+        if not args.flamingo:
+            model.print_trainable_parameters()
 
     # DDP wrapping
     if world_size > 1:
@@ -1525,14 +1733,16 @@ def main():
         print(f"\n{'=' * 60}")
         print("PRECOMPUTING EVAL ACTIVATIONS")
         print(f"{'=' * 60}")
+        # For Flamingo mode, use the underlying PeftModel for eval caching
+        eval_model = model.base_model if args.flamingo else model
         precache_eval_activations(
-            model, tokenizer, model_name=args.model,
+            eval_model, tokenizer, model_name=args.model,
             device=f"cuda:{local_rank}", eval_dir=args.eval_dir,
             activation_cache_dir=args.activation_cache_dir,
             eval_names=eval_names,
             stride=args.stride,
         )
-        model.train()
+        eval_model.train()
         gc.collect()
         torch.cuda.empty_cache()
     if world_size > 1:
