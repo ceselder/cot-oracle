@@ -76,7 +76,7 @@ from cot_utils import get_injection_layers
 
 
 # Evals to run during training, in order of cost (cheapest first).
-# This is the fallback if config doesn't specify eval.unfaith_evals.
+# This is the fallback if config doesn't specify eval.evals.
 TRAINING_EVALS = [
     "hinted_mcq_truthfulqa",
     "sycophancy_v2_riya",

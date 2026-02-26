@@ -95,7 +95,7 @@ eval:
   rot13_start_step: 2000
   # All evals to run during training (pulled from HF)
   # Entries can be plain strings or dicts with baselines for wandb reference lines
-  unfaith_evals:
+  evals:
     - hinted_mcq_truthfulqa
     - sycophancy_v2_riya
     - sentence_insertion
@@ -103,7 +103,7 @@ eval:
     - atypical_answer_riya
     - atypical_answer_mcq
     - cybercrime_ood
-    - hint_admission
+    # - hint_admission  # disabled: eval dataset not available on HF
     # - forced_answer_entropy_riya  # disabled: logprob extraction broken, always 0.000
     - rot13_reconstruction
 
