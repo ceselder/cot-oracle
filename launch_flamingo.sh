@@ -4,7 +4,7 @@ source ~/.bashrc
 source ~/.env
 
 cd /nfs/nhome/live/jbauer/cot-oracle
-git pull origin arch_devel
+git pull origin main
 
 # Kill any stale torchrun processes
 pkill -9 -f torchrun 2>/dev/null || true
@@ -27,14 +27,17 @@ nohup "$VENV_LOCAL/cot-oracle/bin/torchrun" --nproc_per_node=8 src/train.py \
     --hint-admission-n 0 \
     --prompt-inversion-n 0 \
     --domain-n 0 \
+    --compqa-n 0 \
+    --answer-trajectory-n 0 \
     --epochs 1 \
     --flamingo-max-ctx-tokens 2048 \
     --batch-size 4 \
     --effective-batch-size 128 \
     --lr 1e-5 \
     --no-step0-eval \
-    --wandb-entity MATS10-CS-JB \
-    --wandb-run flamingo-chimera-0.6b \
-    > logs/flamingo_chimera.log 2>&1 &
+    --wandb-project cot-oracle-xattn \
+    --wandb-entity japhba-personal \
+    --wandb-run parallel-0.6b \
+    > logs/flamingo_parallel.log 2>&1 &
 
 echo "Launched! PID=$!"
