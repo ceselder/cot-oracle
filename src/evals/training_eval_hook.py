@@ -830,11 +830,10 @@ def _run_reasoning_termination_eval(
                 template = ORACLE_PROMPTS_TEMPLATES.get(item.eval_name, "What is this model doing?")
                 oracle_prompt = _oracle_prompt(activations.shape[0], template)
 
-            ground_truth = determine_ground_truth(item, None, None)
             extracted.append({
                 "item": item,
                 "test_response": test_response,
-                "ground_truth": ground_truth,
+                "ground_truth": item.correct_answer,  # "will_terminate" or "will_continue"
                 "activations": activations,
                 "oracle_prompt": oracle_prompt,
                 "oracle_response": "",
