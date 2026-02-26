@@ -231,6 +231,7 @@ def materialize_flamingo_activations(
     batch_points: list[TrainingDataPoint],
     tokenizer,
     model,
+    max_ctx_tokens: int | None = None,
 ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     """Extract full residual stream from ALL layers at ALL CoT positions.
 
@@ -254,11 +255,14 @@ def materialize_flamingo_activations(
     device = next(peft_model.parameters()).device
     pad_id = tokenizer.pad_token_id
 
-    # Collect context_input_ids for each item
+    # Collect context_input_ids for each item (truncate to max_ctx_tokens if set)
     contexts = []
     for dp in batch_points:
         assert dp.context_input_ids is not None, "context_input_ids required for Flamingo"
-        contexts.append(list(dp.context_input_ids))
+        ctx = list(dp.context_input_ids)
+        if max_ctx_tokens and len(ctx) > max_ctx_tokens:
+            ctx = ctx[-max_ctx_tokens:]  # keep last N tokens (most relevant)
+        contexts.append(ctx)
 
     # Left-pad contexts to same length
     max_ctx_len = max(len(c) for c in contexts)
@@ -1098,7 +1102,8 @@ def train(
             if args.flamingo:
                 # Flamingo path: extract all-layer activations, cross-attend
                 supervisee_acts, layer_ids, act_mask = materialize_flamingo_activations(
-                    batch_list, tokenizer, model
+                    batch_list, tokenizer, model,
+                    max_ctx_tokens=args.flamingo_max_ctx_tokens,
                 )
                 batch = construct_flamingo_batch(
                     batch_list, supervisee_acts, layer_ids, act_mask, tokenizer, device,
@@ -1461,6 +1466,8 @@ def main():
                         help="Insert cross-attention every N transformer blocks")
     parser.add_argument("--flamingo-xattn-lora-r", type=int, default=64,
                         help="LoRA rank for cross-attention projections")
+    parser.add_argument("--flamingo-max-ctx-tokens", type=int, default=2048,
+                        help="Max context tokens for flamingo activation extraction (truncates from left)")
 
     # Eval / save
     parser.add_argument("--eval-steps", type=int, default=2000,
