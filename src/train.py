@@ -379,21 +379,24 @@ def construct_flamingo_batch(
     }
 
 
-def construct_parallel_batch(
+def construct_flamingo_batch(
     batch_list: list[TrainingDataPoint],
     tokenizer,
     device: torch.device,
     max_ctx_tokens: int | None = None,
-) -> dict:
-    """Construct a parallel batch: CoT and oracle as separate batch items.
+) -> tuple[dict, dict]:
+    """Construct separate CoT and oracle batches for two-pass Flamingo.
 
-    Returns [2B, L_max] where first B items are CoT, last B items are oracle.
-    Both left-padded to L_max = max(max_cot_len, max_oracle_len).
-    CoT labels are all -100. Only oracle items contribute to loss.
+    CoT and oracle are padded independently to their own max lengths.
+    No shared L_max — this is the whole point of the two-pass approach.
+
+    Returns:
+        cot_batch: {input_ids: [B, L_cot], attention_mask: [B, L_cot]}
+        oracle_batch: {input_ids: [B, L_oracle], attention_mask: [B, L_oracle], labels: [B, L_oracle]}
     """
     pad_id = tokenizer.pad_token_id
-    B = len(batch_list)
 
+    # CoT tokens (truncated if needed)
     cots = []
     for dp in batch_list:
         assert dp.context_input_ids is not None
@@ -403,34 +406,31 @@ def construct_parallel_batch(
         cots.append(ctx)
 
     max_cot_len = max(len(c) for c in cots)
-    max_oracle_len = max(len(dp.input_ids) for dp in batch_list)
-    L_max = max(max_cot_len, max_oracle_len)
-
-    # CoT items: left-padded to L_max, labels all -100
-    cot_ids, cot_masks, cot_kv_masks = [], [], []
+    cot_ids, cot_masks = [], []
     for c in cots:
-        pad = L_max - len(c)
+        pad = max_cot_len - len(c)
         cot_ids.append(torch.tensor([pad_id] * pad + c, dtype=torch.long))
         cot_masks.append(torch.tensor([False] * pad + [True] * len(c), dtype=torch.bool))
-        cot_kv_masks.append(torch.tensor([False] * pad + [True] * len(c), dtype=torch.bool))
-    cot_labels = [torch.full((L_max,), -100, dtype=torch.long) for _ in range(B)]
 
-    # Oracle items: left-padded to L_max
+    # Oracle tokens
+    max_oracle_len = max(len(dp.input_ids) for dp in batch_list)
     oracle_ids, oracle_masks, oracle_labels = [], [], []
     for dp in batch_list:
-        pad = L_max - len(dp.input_ids)
+        pad = max_oracle_len - len(dp.input_ids)
         oracle_ids.append(torch.tensor([pad_id] * pad + dp.input_ids, dtype=torch.long))
         oracle_masks.append(torch.tensor([False] * pad + [True] * len(dp.input_ids), dtype=torch.bool))
         oracle_labels.append(torch.tensor([-100] * pad + dp.labels, dtype=torch.long))
 
-    # Stack: [cot_0..cot_{B-1}, oracle_0..oracle_{B-1}]
-    return {
-        "input_ids": torch.stack(cot_ids + oracle_ids).to(device),
-        "attention_mask": torch.stack(cot_masks + oracle_masks).to(device),
-        "labels": torch.stack(cot_labels + oracle_labels).to(device),
-        "parallel_B": B,
-        "cot_mask": torch.stack(cot_kv_masks).to(device),
+    cot_batch = {
+        "input_ids": torch.stack(cot_ids).to(device),
+        "attention_mask": torch.stack(cot_masks).to(device),
     }
+    oracle_batch = {
+        "input_ids": torch.stack(oracle_ids).to(device),
+        "attention_mask": torch.stack(oracle_masks).to(device),
+        "labels": torch.stack(oracle_labels).to(device),
+    }
+    return cot_batch, oracle_batch
 
 
 # ── Data conversion ──
@@ -1166,13 +1166,25 @@ def train(
             batch_types = [dp.datapoint_type for dp in batch_list]
 
             if args.flamingo:
-                # Parallel: CoT + oracle as separate batch items, connected via xattn
-                batch = construct_parallel_batch(
+                # Two-pass: collect CoT hidden states, then oracle forward with xattn
+                flamingo_wrapper = ddp_model.module if isinstance(ddp_model, torch.nn.parallel.DistributedDataParallel) else ddp_model
+                cot_batch, oracle_batch = construct_flamingo_batch(
                     batch_list, tokenizer, device,
                     max_ctx_tokens=args.flamingo_max_ctx_tokens,
                 )
+                # Pass 1: CoT through frozen base model (no grad)
                 with torch.autocast(device_type="cuda", dtype=dtype):
-                    outputs = ddp_model(**batch)
+                    cot_hs = flamingo_wrapper.collect_cot_hidden_states(
+                        cot_batch["input_ids"], cot_batch["attention_mask"],
+                    )
+                # Pass 2: Oracle forward with cross-attention to CoT
+                batch = oracle_batch  # for per-task loss logging below
+                with torch.autocast(device_type="cuda", dtype=dtype):
+                    outputs = ddp_model(
+                        **oracle_batch,
+                        supervisee_kvs=cot_hs,
+                        cot_attention_mask=cot_batch["attention_mask"],
+                    )
                     loss = outputs.loss / grad_accum
                 loss.backward()
             else:
@@ -1193,9 +1205,6 @@ def train(
             with torch.no_grad():
                 logits = outputs.logits.detach()
                 labels = batch["labels"] if isinstance(batch, dict) else batch.labels
-                # Parallel flamingo: logits are oracle-only [B], labels are [2B] — slice to oracle
-                if args.flamingo and "parallel_B" in batch:
-                    labels = labels[batch["parallel_B"]:]
                 shift_logits = logits[:, :-1, :].contiguous()
                 shift_labels = labels[:, 1:].contiguous()
                 per_token_loss = F.cross_entropy(
@@ -1663,7 +1672,35 @@ def main():
 
     # Resume state (loaded before wandb init so we can reuse the run ID)
     _resume_state = None
-    if args.resume_from:
+    if args.flamingo:
+        # Flamingo: frozen base model + cross-attention LoRA only (no self-attn LoRA)
+        from flamingo_oracle import FlamingoOracleWrapper
+        if rank == 0:
+            print("Flamingo mode: freezing base model (no self-attention LoRA)")
+        for p in base_model.parameters():
+            p.requires_grad = False
+        xattn_lora_r = args.flamingo_xattn_lora_r
+        if rank == 0:
+            print(f"Wrapping with Flamingo cross-attention (interval={args.flamingo_xattn_interval}, lora_r={xattn_lora_r})")
+        model = FlamingoOracleWrapper(
+            base_model, base_model.config,
+            xattn_interval=args.flamingo_xattn_interval,
+            lora_r=xattn_lora_r, lora_alpha=xattn_lora_r * 2,
+        )
+        if args.resume_from:
+            flamingo_path = Path(args.resume_from) / "flamingo_modules.pt"
+            if flamingo_path.exists():
+                model.load_flamingo_modules(str(args.resume_from))
+                if rank == 0:
+                    print(f"  Loaded Flamingo modules from {args.resume_from}")
+            state_path = Path(args.resume_from) / "training_state.pt"
+            if state_path.exists():
+                _resume_state = torch.load(state_path, map_location="cpu", weights_only=False)
+                if not getattr(args, "_cli_start_step", False):
+                    args.start_step = _resume_state["global_step"]
+                if rank == 0:
+                    print(f"  Loaded training_state.pt: step={_resume_state['global_step']}, wandb_id={_resume_state.get('wandb_run_id')}")
+    elif args.resume_from:
         if rank == 0:
             print(f"Resuming from checkpoint: {args.resume_from}")
         model = PeftModel.from_pretrained(
@@ -1693,37 +1730,13 @@ def main():
             is_trainable=True, autocast_adapter_dtype=False,
         )
 
-    # Flamingo wrapper (after LoRA, before DDP)
-    if args.flamingo:
-        from flamingo_oracle import FlamingoOracleWrapper
-        xattn_lora_r = args.flamingo_xattn_lora_r
-        if rank == 0:
-            print(f"\nWrapping with Flamingo cross-attention (interval={args.flamingo_xattn_interval}, lora_r={xattn_lora_r})")
-        model = FlamingoOracleWrapper(
-            model, base_model.config,
-            xattn_interval=args.flamingo_xattn_interval,
-            lora_r=xattn_lora_r, lora_alpha=xattn_lora_r * 2,
-        )
-
-        # Load Flamingo modules from checkpoint if resuming
-        if args.resume_from:
-            flamingo_path = Path(args.resume_from) / "flamingo_modules.pt"
-            if flamingo_path.exists():
-                model.load_flamingo_modules(str(args.resume_from))
-                if rank == 0:
-                    print(f"  Loaded Flamingo modules from {args.resume_from}")
-
-        if rank == 0:
-            model.print_trainable_parameters()
-
     # Ensure trainable params are fp32 (optimizer states stay fp32; autocast handles forward pass)
     for p in model.parameters():
         if p.requires_grad:
             p.data = p.data.float()
 
     if rank == 0:
-        if not args.flamingo:
-            model.print_trainable_parameters()
+        model.print_trainable_parameters()
 
     # DDP wrapping
     if world_size > 1:
@@ -1809,7 +1822,7 @@ def main():
         print(f"\n{'=' * 60}")
         print("PRECOMPUTING EVAL ACTIVATIONS")
         print(f"{'=' * 60}")
-        # For Flamingo mode, use the underlying PeftModel for eval caching
+        # For Flamingo mode, use the underlying base model for eval caching
         eval_model = model.base_model if args.flamingo else model
         precache_eval_activations(
             eval_model, tokenizer, model_name=args.model,

@@ -1,19 +1,17 @@
 """
-Flamingo-Style Gated Cross-Attention Oracle
+Flamingo-Style Gated Cross-Attention Oracle (Two-Pass)
 
-Two parallel pathways through the same model, stacked in the batch dimension:
-  - CoT stream (batch items 0..B-1): processes CoT tokens, standard self-attention
-  - Oracle stream (batch items B..2B-1): processes oracle prompt, self-attention +
-    gated cross-attention to CoT hidden states at xattn layers
+Pass 1 (CoT): Forward through frozen base model, collect hidden states at xattn layers.
+Pass 2 (Oracle): Forward with cross-attention to cached CoT hidden states.
 
 The oracle CANNOT read CoT text — it only accesses CoT via cross-attention
-to intermediate hidden states. Sequence length = max(L_cot, L_oracle).
+to intermediate hidden states.
 
 Architecture per cross-attention layer:
-    hidden = SelfAttn(hidden)       ← existing LoRA (via PEFT)
-    hidden = MLP(hidden)            ← existing LoRA (via PEFT)
-    [oracle items only] hidden += tanh(gate) * CrossAttn(Q=oracle_hs, KV=cot_hs)
-                                    ↑ frozen base weights + manual LoRA adapters
+    hidden = SelfAttn(hidden)       ← frozen base weights
+    hidden = MLP(hidden)            ← frozen base weights
+    hidden += tanh(gate) * CrossAttn(Q=hidden, KV=cot_hs)
+                                    ↑ frozen base weights + LoRA adapters (trainable)
 
 Gates start at 0 (identity at init). Per-layer cross-attention: block i
 attends only to layer i's residual stream. CoT hidden states are detached.
@@ -76,8 +74,6 @@ class GatedCrossAttentionLayer(nn.Module):
         self.num_kv_heads = config.num_key_value_heads
         self.head_dim = config.head_dim  # Qwen3 uses independent head_dim (128 for all sizes)
         self.q_dim = self.num_heads * self.head_dim  # may differ from hidden_size
-        self.kv_dim = self.num_kv_heads * self.head_dim
-        self.num_kv_groups = self.num_heads // self.num_kv_heads
 
         sa = source_layer.self_attn
 
@@ -91,6 +87,11 @@ class GatedCrossAttentionLayer(nn.Module):
 
         # Pre-norm (query side)
         self.norm = deepcopy(source_layer.input_layernorm)
+
+        # Ensure deepcopy'd norms are trainable (source may have been frozen)
+        for module in [self.q_norm, self.k_norm, self.norm]:
+            for p in module.parameters():
+                p.requires_grad = True
 
         # Gate initialized to 0 → tanh(0) = 0
         self.gate = nn.Parameter(torch.zeros(1))
@@ -119,17 +120,12 @@ class GatedCrossAttentionLayer(nn.Module):
         q = self.q_norm(q)
         k = self.k_norm(k)
 
-        # GQA: expand KV heads to match Q heads
-        if self.num_kv_groups > 1:
-            k = k.unsqueeze(2).expand(-1, -1, self.num_kv_groups, -1, -1).reshape(B, self.num_heads, L_kv, self.head_dim)
-            v = v.unsqueeze(2).expand(-1, -1, self.num_kv_groups, -1, -1).reshape(B, self.num_heads, L_kv, self.head_dim)
-
         # Pass None when all-True to enable flash attention
         attn_mask = None
         if kv_attention_mask is not None and not kv_attention_mask.all():
             attn_mask = kv_attention_mask[:, None, None, :].expand(-1, -1, L_q, -1)
 
-        attn_output = F.scaled_dot_product_attention(q, k, v, attn_mask=attn_mask, is_causal=False)
+        attn_output = F.scaled_dot_product_attention(q, k, v, attn_mask=attn_mask, is_causal=False, enable_gqa=True)
 
         attn_output = attn_output.transpose(1, 2).contiguous().view(B, L_q, self.q_dim)
         attn_output = self.o_proj(attn_output)
@@ -140,8 +136,8 @@ class GatedCrossAttentionLayer(nn.Module):
 class DecoderLayerWithCrossAttention(nn.Module):
     """Wraps an original decoder layer + appends gated cross-attention.
 
-    Parallel mode: batch is [CoT_0..CoT_{B-1}, Oracle_0..Oracle_{B-1}].
-    After self-attn + MLP, splits batch in half: oracle cross-attends to CoT.
+    During oracle forward pass, cross-attends to cached CoT hidden states.
+    During CoT collection pass (no kvs set), just runs the original layer.
     """
 
     def __init__(self, original_layer: nn.Module, xattn_layer: GatedCrossAttentionLayer, wrapper: "FlamingoOracleWrapper", layer_idx: int):
@@ -165,22 +161,11 @@ class DecoderLayerWithCrossAttention(nn.Module):
         else:
             hs = outputs
 
-        B = self._wrapper._parallel_B
-        if B is not None:
-            # Parallel mode: first B = CoT, last B = oracle
-            cot_hs = hs[:B]
-            oracle_hs = hs[B:]
-            cot_mask = self._wrapper._cot_mask
-            # Detach CoT — oracle monitors, doesn't shape CoT representations
-            oracle_hs = self._xattn_layer(oracle_hs, cot_hs.detach(), kv_attention_mask=cot_mask)
-            hs = torch.cat([cot_hs, oracle_hs], dim=0)
-        else:
-            # Pre-extracted KV mode (legacy)
-            kvs = self._wrapper._current_kvs
-            if kvs is not None and self._layer_idx in kvs:
-                kv = kvs[self._layer_idx]
-                kv_mask = self._wrapper._current_kv_masks.get(self._layer_idx)
-                hs = self._xattn_layer(hs, kv, kv_attention_mask=kv_mask)
+        kvs = self._wrapper._current_kvs
+        if kvs is not None and self._layer_idx in kvs:
+            kv = kvs[self._layer_idx]
+            kv_mask = self._wrapper._current_kv_mask
+            hs = self._xattn_layer(hs, kv, kv_attention_mask=kv_mask)
 
         if isinstance(outputs, tuple):
             return (hs,) + outputs[1:]
@@ -188,16 +173,20 @@ class DecoderLayerWithCrossAttention(nn.Module):
 
 
 class FlamingoOracleWrapper(nn.Module):
-    """Wraps a PeftModel with Flamingo-style gated cross-attention layers.
+    """Wraps a frozen base model with Flamingo-style gated cross-attention layers.
 
-    Parallel mode: CoT and oracle are separate batch items processed through the
-    same transformer. At xattn layers, oracle cross-attends to CoT hidden states.
-    Oracle cannot read CoT text — only accesses CoT via cross-attention.
+    Two-pass usage:
+        1. collect_cot_hidden_states(cot_input_ids, cot_attention_mask)
+           → {layer_idx: [B, L_cot, D]} (no grad, frozen model)
+        2. forward(oracle_input_ids, oracle_attention_mask, labels, supervisee_kvs=...)
+           → oracle outputs with cross-attention to CoT hidden states
+
+    Only the cross-attention LoRA + gates are trainable. Base model is frozen.
     """
 
-    def __init__(self, peft_model: nn.Module, config, xattn_interval: int = 4, lora_r: int = 64, lora_alpha: int = 128):
+    def __init__(self, base_model: nn.Module, config, xattn_interval: int = 4, lora_r: int = 64, lora_alpha: int = 128):
         super().__init__()
-        self.base_model = peft_model
+        self.base_model = base_model
         self.config = config
 
         n_layers = config.num_hidden_layers
@@ -214,8 +203,8 @@ class FlamingoOracleWrapper(nn.Module):
             self.xattn_layers[str(idx)] = xattn
 
         # Move new modules to same device/dtype as the base model
-        device = next(peft_model.parameters()).device
-        dtype = next(peft_model.parameters()).dtype
+        device = next(base_model.parameters()).device
+        dtype = next(base_model.parameters()).dtype
         self.xattn_layers.to(device=device, dtype=dtype)
 
         # Monkey-patch transformer blocks at xattn positions
@@ -225,79 +214,86 @@ class FlamingoOracleWrapper(nn.Module):
             layers[idx] = wrapped
 
         # Runtime state (set/cleared within forward pass)
-        self._parallel_B: int | None = None
-        self._cot_mask: torch.Tensor | None = None
         self._current_kvs: dict[int, torch.Tensor] | None = None
-        self._current_kv_masks: dict[int, torch.Tensor] = {}
+        self._current_kv_mask: torch.Tensor | None = None
 
     def _get_transformer_layers(self):
-        if hasattr(self.base_model, "base_model"):
-            return self.base_model.base_model.model.model.layers
-        return self.base_model.model.layers
+        model = self.base_model
+        # Raw HF model: model.model.layers
+        if hasattr(model, "model") and hasattr(model.model, "layers"):
+            return model.model.layers
+        # PeftModel: model.base_model.model.model.layers
+        return model.base_model.model.model.layers
+
+    def collect_cot_hidden_states(self, input_ids: torch.Tensor, attention_mask: torch.Tensor) -> dict[int, torch.Tensor]:
+        """Forward pass through frozen base model, collecting hidden states at xattn layer indices.
+
+        Returns: {layer_idx: [B, L_cot, D]} detached hidden states.
+        """
+        hooks = []
+        hidden_states = {}
+
+        layers = self._get_transformer_layers()
+        for idx in self.xattn_layer_indices:
+            layer = layers[idx]
+            def make_hook(layer_idx):
+                def hook_fn(module, input, output):
+                    hs = output[0] if isinstance(output, tuple) else output
+                    hidden_states[layer_idx] = hs.detach()
+                return hook_fn
+            target = layer.original_layer if hasattr(layer, 'original_layer') else layer
+            hooks.append(target.register_forward_hook(make_hook(idx)))
+
+        with torch.no_grad():
+            if hasattr(self.base_model, 'disable_adapter'):
+                with self.base_model.disable_adapter():
+                    self.base_model(input_ids=input_ids, attention_mask=attention_mask)
+            else:
+                self.base_model(input_ids=input_ids, attention_mask=attention_mask)
+
+        for h in hooks:
+            h.remove()
+
+        return hidden_states
 
     def forward(
         self,
         input_ids: torch.Tensor,
         attention_mask: torch.Tensor,
         labels: torch.Tensor | None = None,
-        parallel_B: int | None = None,
-        cot_mask: torch.Tensor | None = None,
         supervisee_kvs: dict[int, torch.Tensor] | None = None,
-        supervisee_kv_masks: dict[int, torch.Tensor] | None = None,
+        cot_attention_mask: torch.Tensor | None = None,
     ):
-        """
-        Parallel mode (parallel_B provided):
-            input_ids: [2B, L_max] — [cot_items; oracle_items] stacked in batch dim
-            attention_mask: [2B, L_max]
-            labels: [2B, L_max] — CoT items have all -100, oracle items have real labels
-            parallel_B: int — B (number of data points); first B = CoT, last B = oracle
-            cot_mask: [B, L_max] — True for real CoT tokens (for xattn padding mask)
-            Returns: outputs with logits trimmed to oracle-only [B, L_max, V]
+        """Oracle forward pass with cross-attention to cached CoT hidden states.
 
-        Pre-extracted KV mode (supervisee_kvs provided):
-            input_ids: [B, L] oracle input tokens
-            supervisee_kvs: {layer_idx: [B, T_cot, D]} per-layer supervisee activations
+        Args:
+            input_ids: [B, L_oracle] oracle input tokens
+            attention_mask: [B, L_oracle] oracle attention mask
+            labels: [B, L_oracle] oracle training labels
+            supervisee_kvs: {layer_idx: [B, L_cot, D]} from collect_cot_hidden_states()
+            cot_attention_mask: [B, L_cot] mask for CoT tokens (True = attend)
         """
-        if parallel_B is not None:
-            self._parallel_B = parallel_B
-            self._cot_mask = cot_mask
-        else:
-            self._parallel_B = None
-            self._current_kvs = supervisee_kvs
-            self._current_kv_masks = supervisee_kv_masks or {}
+        self._current_kvs = supervisee_kvs
+        self._current_kv_mask = cot_attention_mask
 
         outputs = self.base_model(input_ids=input_ids, attention_mask=attention_mask, labels=labels)
 
-        if parallel_B is not None:
-            # Return only oracle logits — loss is already oracle-only (CoT labels = -100)
-            outputs.logits = outputs.logits[parallel_B:]
-
-        self._parallel_B = None
-        self._cot_mask = None
         self._current_kvs = None
-        self._current_kv_masks = {}
+        self._current_kv_mask = None
 
         return outputs
 
     def generate(self, **kwargs):
-        parallel_B = kwargs.pop("parallel_B", None)
-        cot_mask = kwargs.pop("cot_mask", None)
         supervisee_kvs = kwargs.pop("supervisee_kvs", None)
-        supervisee_kv_masks = kwargs.pop("supervisee_kv_masks", None)
+        cot_attention_mask = kwargs.pop("cot_attention_mask", None)
 
-        if parallel_B is not None:
-            self._parallel_B = parallel_B
-            self._cot_mask = cot_mask
-        else:
-            self._current_kvs = supervisee_kvs
-            self._current_kv_masks = supervisee_kv_masks or {}
+        self._current_kvs = supervisee_kvs
+        self._current_kv_mask = cot_attention_mask
 
         outputs = self.base_model.generate(**kwargs)
 
-        self._parallel_B = None
-        self._cot_mask = None
         self._current_kvs = None
-        self._current_kv_masks = {}
+        self._current_kv_mask = None
         return outputs
 
     def save_flamingo_modules(self, path: str):
@@ -315,13 +311,14 @@ class FlamingoOracleWrapper(nn.Module):
         self.xattn_layers.load_state_dict(state["xattn_layers"])
 
     def print_trainable_parameters(self):
-        self.base_model.print_trainable_parameters()
+        total = sum(p.numel() for p in self.parameters())
+        trainable = sum(p.numel() for p in self.parameters() if p.requires_grad)
+        print(f"trainable params: {trainable:,} || all params: {total:,} || trainable%: {100 * trainable / total:.4f}")
         xattn_total = sum(p.numel() for p in self.xattn_layers.parameters())
         xattn_trainable = sum(p.numel() for p in self.xattn_layers.parameters() if p.requires_grad)
         xattn_frozen = xattn_total - xattn_trainable
         print(f"  Flamingo xattn: {xattn_trainable:,} trainable / {xattn_frozen:,} frozen / {xattn_total:,} total")
         print(f"  Gates: {len(self.xattn_layer_indices)} (one per xattn layer)")
-        print(f"  Flamingo new trainable: {xattn_trainable:,}")
 
     @property
     def device(self):
@@ -332,5 +329,4 @@ class FlamingoOracleWrapper(nn.Module):
         return next(self.parameters()).dtype
 
     def save_pretrained(self, path: str, **kwargs):
-        self.base_model.save_pretrained(path, **kwargs)
         self.save_flamingo_modules(path)
