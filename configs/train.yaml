@@ -54,6 +54,10 @@ tasks:
     n: 15000
     description: "Did the model use an external hint? What was it?"
 
+  hinted_answer_pred:
+    n: 10000
+    description: "Predict final answer from partial hinted CoT"
+
   domain:
     n: 0
     description: "What domain is this problem?"
@@ -96,6 +100,7 @@ eval:
     - atypical_answer_riya
     - atypical_answer_mcq
     - cybercrime_ood
+    - hint_admission
     # - forced_answer_entropy_riya  # disabled: logprob extraction broken, always 0.000
     - rot13_reconstruction
 

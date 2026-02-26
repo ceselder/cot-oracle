@@ -356,6 +356,12 @@ TASK_REGISTRY = {
         "loader": "load_cot_hint_admission_data",
         "corpus": "hint_admission",
     },
+    "hinted_answer_pred": {
+        "arg": "hinted_answer_pred_n",
+        "module": "dataset_classes.cot_hinted_answer_pred",
+        "loader": "load_cot_hinted_answer_pred_data",
+        "corpus": "hint_admission",  # uses same HF dataset
+    },
 }
 
 

@@ -455,6 +455,9 @@ def determine_ground_truth(
     elif item.eval_name == "cybercrime_ood":
         return item.correct_answer  # "cybercrime" or "benign"
 
+    elif item.eval_name == "hint_admission":
+        return item.correct_answer  # "yes" or "no"
+
     return "indeterminate"
 
 
