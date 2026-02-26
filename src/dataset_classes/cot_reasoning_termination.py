@@ -8,11 +8,16 @@ Positive ("will_terminate"): prefix cut 25-55 tokens from actual </think>
 Negative ("will_continue"):  prefix cut 300+ tokens from actual </think>
 Ambiguous range (56-299 tokens) is skipped.
 
+Position-count balanced: generates overcomplete pools for both classes,
+then pairs by matching stride position count so the oracle can't use
+the number of ¶ tokens as a shortcut.
+
 Uses stride=5, 3 layers (25%, 50%, 75%), ¶ token.
 """
 
 import json
 import random
+from collections import defaultdict
 
 from transformers import AutoTokenizer
 
@@ -30,12 +35,13 @@ def load_cot_reasoning_termination_data(
     """
     Generate reasoning termination prediction training data.
 
-    For each example:
-      1. Get full CoT from corpus (must contain </think>)
-      2. Pick a random truncation point in the CoT token sequence
-      3. Compute remaining_tokens = distance from truncation to </think>
-      4. Label: 25-55 remaining -> "will_terminate", 300+ -> "will_continue"
-      5. Get stride positions up to truncation, triple for 3 layers
+    Position-count balanced approach:
+      1. Pre-tokenize corpus entries
+      2. Generate overcomplete candidate pools for both classes
+      3. Compute stride position count for each candidate
+      4. Bin candidates by position count and pair across classes
+      5. This ensures both classes have identical position count distributions,
+         preventing the oracle from using ¶ token count as a shortcut.
 
     Balanced 50/50 between will_terminate and will_continue.
     """
@@ -106,37 +112,25 @@ def load_cot_reasoning_termination_data(
     print(f"  Positive pool (>=25 CoT tokens): {len(positive_pool)}")
     print(f"  Negative pool (>300 CoT tokens): {len(negative_pool)}")
 
-    datapoints = []
-    attempts = 0
+    # --- Generate overcomplete candidate pools ---
+    # We need enough candidates so that position-count bins have both classes.
+    # Generate ~5x what we need for each class.
+    pool_size = num_examples * 5
 
-    while len(datapoints) < num_examples and attempts < num_examples * 5:
-        attempts += 1
-
-        # Alternate between positive and negative
-        if len(datapoints) % 2 == 0:
-            # Positive: truncate 25-55 tokens from end
-            t = random.choice(positive_pool)
-            remaining = random.randint(25, min(55, t["cot_len"] - 1))
-            trunc_pos = t["prompt_len"] + t["cot_len"] - remaining
-            target = f"will_terminate, in {remaining} tokens"
-        else:
-            # Negative: truncate 300+ tokens from end
-            t = random.choice(negative_pool)
-            remaining = random.randint(300, t["cot_len"] - 1)
-            trunc_pos = t["prompt_len"] + t["cot_len"] - remaining
-            target = f"will_continue, {remaining} tokens remain"
+    def _make_candidate(t, remaining, label_prefix):
+        """Create a candidate datapoint and return (n_stride_positions, datapoint)."""
+        trunc_pos = t["prompt_len"] + t["cot_len"] - remaining
 
         # Sanity: truncation must be after prompt
         if trunc_pos <= t["prompt_len"] + 5:
-            continue
+            return None
 
-        # Get stride positions up to truncation point
         positions = get_cot_positions(
             t["prompt_len"], trunc_pos,
             stride=stride, tokenizer=tokenizer, input_ids=t["full_ids"],
         )
         if len(positions) < 2:
-            continue
+            return None
 
         prompt_positions = _get_prompt_positions(t["prompt_len"], n_prompt_positions)
         combined = prompt_positions + positions
@@ -146,6 +140,11 @@ def load_cot_reasoning_termination_data(
         max_pos = max(positions)
         context_slice = t["full_ids"][:max_pos + 1]
 
+        if label_prefix == "will_terminate":
+            target = f"will_terminate, in {remaining} tokens"
+        else:
+            target = f"will_continue, {remaining} tokens remain"
+
         layers_str = ", ".join(str(l) for l in LAYERS)
         prompt = (
             f"Activations from {num_positions} positions across layers {layers_str}. "
@@ -153,7 +152,7 @@ def load_cot_reasoning_termination_data(
             f"If yes, estimate how many tokens remain."
         )
 
-        datapoints.append({
+        datapoint = {
             "datapoint_type": "cot_reasoning_termination",
             "prompt": prompt,
             "target_response": target,
@@ -162,9 +161,125 @@ def load_cot_reasoning_termination_data(
             "num_positions": num_positions,
             "context_input_ids": context_slice,
             "context_positions": context_positions,
-        })
+        }
+        # n_stride_positions is the count per layer (before multiplying by layers)
+        n_stride = len(positions)
+        return (n_stride, datapoint)
+
+    # Generate positive candidates (will_terminate)
+    pos_candidates = []  # list of (n_stride, datapoint)
+    for _ in range(pool_size):
+        t = random.choice(positive_pool)
+        remaining = random.randint(25, min(55, t["cot_len"] - 1))
+        result = _make_candidate(t, remaining, "will_terminate")
+        if result is not None:
+            pos_candidates.append(result)
+
+    # Generate negative candidates (will_continue)
+    neg_candidates = []  # list of (n_stride, datapoint)
+    for _ in range(pool_size):
+        t = random.choice(negative_pool)
+        remaining = random.randint(300, t["cot_len"] - 1)
+        result = _make_candidate(t, remaining, "will_continue")
+        if result is not None:
+            neg_candidates.append(result)
+
+    print(f"  Generated {len(pos_candidates)} positive candidates, "
+          f"{len(neg_candidates)} negative candidates")
+
+    # --- Bin by stride position count and pair ---
+    # Use bins of width 5 to allow near-matches
+    BIN_WIDTH = 5
+
+    def _bin_key(n_stride):
+        return n_stride // BIN_WIDTH
+
+    pos_bins = defaultdict(list)
+    for n_stride, dp in pos_candidates:
+        pos_bins[_bin_key(n_stride)].append(dp)
+
+    neg_bins = defaultdict(list)
+    for n_stride, dp in neg_candidates:
+        neg_bins[_bin_key(n_stride)].append(dp)
+
+    # Shuffle within each bin so we get diversity
+    for bin_list in pos_bins.values():
+        random.shuffle(bin_list)
+    for bin_list in neg_bins.values():
+        random.shuffle(bin_list)
+
+    # Pair: for each bin present in both classes, take min(pos, neg) from each
+    datapoints = []
+    target_per_class = num_examples // 2
+    shared_bins = sorted(set(pos_bins.keys()) & set(neg_bins.keys()))
+
+    if not shared_bins:
+        raise ValueError(
+            "No overlapping position-count bins between classes. "
+            f"Positive stride range: {min(n for n, _ in pos_candidates)}-{max(n for n, _ in pos_candidates)}, "
+            f"Negative stride range: {min(n for n, _ in neg_candidates)}-{max(n for n, _ in neg_candidates)}"
+        )
+
+    # First pass: count how many pairs are available per bin
+    available_pairs = {b: min(len(pos_bins[b]), len(neg_bins[b])) for b in shared_bins}
+    total_available = sum(available_pairs.values())
+
+    print(f"  Shared position-count bins: {len(shared_bins)} "
+          f"(total matchable pairs: {total_available})")
+
+    if total_available < target_per_class:
+        print(f"  WARNING: Only {total_available} matchable pairs, "
+              f"need {target_per_class}. Using all available.")
+
+    # Sample proportionally from each bin up to target_per_class
+    pos_selected = []
+    neg_selected = []
+    remaining_budget = min(target_per_class, total_available)
+
+    # Distribute budget across bins proportionally to available pairs
+    for b in shared_bins:
+        if remaining_budget <= 0:
+            break
+        n_pairs = min(
+            available_pairs[b],
+            max(1, int(remaining_budget * available_pairs[b] / max(1, total_available))),
+        )
+        # Don't exceed remaining budget
+        n_pairs = min(n_pairs, remaining_budget)
+        pos_selected.extend(pos_bins[b][:n_pairs])
+        neg_selected.extend(neg_bins[b][:n_pairs])
+        remaining_budget -= n_pairs
+
+    # If we still have budget (rounding), fill greedily from largest bins
+    if remaining_budget > 0:
+        used_pos = {id(dp) for dp in pos_selected}
+        used_neg = {id(dp) for dp in neg_selected}
+        for b in sorted(shared_bins, key=lambda b: available_pairs[b], reverse=True):
+            if remaining_budget <= 0:
+                break
+            extra_pos = [dp for dp in pos_bins[b] if id(dp) not in used_pos]
+            extra_neg = [dp for dp in neg_bins[b] if id(dp) not in used_neg]
+            n_extra = min(len(extra_pos), len(extra_neg), remaining_budget)
+            pos_selected.extend(extra_pos[:n_extra])
+            neg_selected.extend(extra_neg[:n_extra])
+            remaining_budget -= n_extra
+
+    datapoints = pos_selected + neg_selected
+    random.shuffle(datapoints)
+
+    n_pos = sum(1 for d in datapoints if d["target_response"].startswith("will_terminate"))
+    n_neg = sum(1 for d in datapoints if d["target_response"].startswith("will_continue"))
+
+    # Report position count stats per class
+    pos_npos = [d["num_positions"] for d in datapoints if d["target_response"].startswith("will_terminate")]
+    neg_npos = [d["num_positions"] for d in datapoints if d["target_response"].startswith("will_continue")]
+    if pos_npos and neg_npos:
+        print(f"  Position count stats (total across layers):")
+        print(f"    will_terminate: mean={sum(pos_npos)/len(pos_npos):.0f}, "
+              f"range=[{min(pos_npos)}, {max(pos_npos)}]")
+        print(f"    will_continue:  mean={sum(neg_npos)/len(neg_npos):.0f}, "
+              f"range=[{min(neg_npos)}, {max(neg_npos)}]")
 
     print(f"  Generated {len(datapoints)} reasoning termination examples "
-          f"({sum(1 for d in datapoints if d['target_response'].startswith('will_terminate'))} pos, "
-          f"{sum(1 for d in datapoints if d['target_response'].startswith('will_continue'))} neg)")
+          f"({n_pos} pos, {n_neg} neg)")
     return datapoints[:num_examples]
