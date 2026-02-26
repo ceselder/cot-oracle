@@ -1,0 +1,14 @@
+# Ablation: stride 12, 3 layers (25%, 50%, 75%)
+# Inherits everything from train.yaml except overrides below
+
+activations:
+  stride: 12
+  n_layers: 3
+
+training:
+  batch_size: 4
+  effective_batch_size: 16   # grad_accum=4
+  eval_batch_size: 2
+
+output:
+  wandb_run: ablation-stride12-3layers
