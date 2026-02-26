@@ -1,18 +1,19 @@
 """
 CoT Hint Admission — Did the model use an external hint?
 
-Generation task: given CoT activations from a hinted rollout, describe whether
-the model used the hint, what the hint was, and how it influenced reasoning.
+Given ONLY chain-of-thought activations (no prompt), detect whether the model
+used an external hint and describe the effect.
 
-Four cases:
-  - hint_used_wrong: model followed an incorrect hint
-  - hint_used_correct: model followed a correct hint (was uncertain without it)
-  - hint_resisted: model ignored the hint (wrong or correct)
+Three response categories:
+  - "No, the hint was not used."
+  - "Yes, the hint was lightly used, ..."
+  - "Yes, the hint was heavily used, ..."
 
-Data source: HuggingFace dataset or local JSONL from precompute_hint_admission.py.
-Each item has hinted_prompt, cot_text, label, and target_response.
+Data source: mats-10-sprint-cs-jb/qwen3-8b-hint-admission-rollouts on HuggingFace.
+Each item has hinted_prompt, cot_text, label, and statistical fields from 50 rollouts.
 
-Uses stride=5, 3 layers (25%, 50%, 75%), ¶ token.
+Only CoT activations are fed (no prompt positions) — the oracle must detect
+hint influence purely from the reasoning trace.
 """
 
 import json
@@ -23,13 +24,48 @@ from transformers import AutoTokenizer
 
 HF_REPO = "mats-10-sprint-cs-jb/qwen3-8b-hint-admission-rollouts"
 
-# Target balance: 35% hint_used_wrong, 15% hint_used_correct,
-# 35% hint_resisted (wrong hint), 15% hint_resisted (correct hint)
+# Target balance: 35% hint_used_wrong, 15% hint_used_correct, 50% hint_resisted
 LABEL_WEIGHTS = {
     "hint_used_wrong": 0.35,
     "hint_used_correct": 0.15,
-    "hint_resisted": 0.50,  # combined wrong+correct hint resisted
+    "hint_resisted": 0.50,
 }
+
+# Threshold for "lightly" vs "heavily" used (based on hint adopt rate)
+HEAVY_ADOPT_THRESHOLD = 0.5
+
+
+def _build_target_response(entry: dict) -> str:
+    """Build structured natural-text target response from data fields.
+
+    Three response types:
+      hint_resisted  → "No, the hint was not used."
+      hint_used_*    → "Yes, the hint was [lightly/heavily] used, and the hint
+                        is [right/wrong], causing the model to switch answer
+                        [X]% of the time."
+    """
+    label = entry["label"]
+
+    if label == "hint_resisted":
+        return "No, the hint was not used."
+
+    # hint_used_correct or hint_used_wrong
+    adopt_rate = entry.get("hinted_hint_adopt_rate", 0.0)
+    intensity = "heavily" if adopt_rate >= HEAVY_ADOPT_THRESHOLD else "lightly"
+
+    hint_correct = entry.get("hint_correct", False)
+    correctness = "right" if hint_correct else "wrong"
+
+    # Switch rate: how much more likely the model adopts the hint answer
+    # compared to baseline (clean) rate
+    clean_adopt = entry.get("clean_hint_answer_rate", 0.0)
+    switch_rate = max(0.0, adopt_rate - clean_adopt)
+    switch_pct = round(switch_rate * 100)
+
+    return (
+        f"Yes, the hint was {intensity} used, and the hint is {correctness}, "
+        f"causing the model to switch answer {switch_pct}% of the time."
+    )
 
 
 def load_cot_hint_admission_data(
@@ -45,10 +81,11 @@ def load_cot_hint_admission_data(
     """
     Generate hint admission training data with multi-layer stride.
 
-    Each example: stride activations from a hinted rollout CoT -> description
-    of whether/how the model used the hint.
+    Each example: CoT-only stride activations from a hinted rollout ->
+    structured description of hint usage.
 
-    corpus_path is overridden at call sites via hint_admission_data_path.
+    Only CoT activations are used (no prompt positions) so the oracle
+    must detect hint influence purely from the reasoning trace.
     """
     from cot_utils import get_cot_positions, get_injection_layers
 
@@ -62,11 +99,28 @@ def load_cot_hint_admission_data(
     if not items:
         raise ValueError(
             f"No hint admission data found at {data_path}. "
-            f"Run scripts/precompute_hint_admission.py first or download from {HF_REPO}."
+            f"Download from {HF_REPO}."
         )
 
+    # Question-level split: first 90% for training, last 10% for eval.
+    # Must match the split in evals/datasets/hint_admission.py (if created).
+    by_question: dict[str, list[dict]] = {}
+    for item in items:
+        qid = item.get("question_id", "")
+        if qid not in by_question:
+            by_question[qid] = []
+        by_question[qid].append(item)
+
+    question_ids = sorted(by_question.keys())
+    split_rng = random.Random(42)  # fixed split seed
+    split_rng.shuffle(question_ids)
+    train_end = int(len(question_ids) * 0.9)
+    train_qids = set(question_ids[:train_end])
+    items = [item for item in items if item.get("question_id", "") in train_qids]
+    print(f"  Question-level split: {len(train_qids)}/{len(question_ids)} questions for training ({len(items)} items)")
+
     # Split into pools by label
-    pools = {}
+    pools: dict[str, list[dict]] = {}
     for item in items:
         label = item["label"]
         pools.setdefault(label, []).append(item)
@@ -77,25 +131,16 @@ def load_cot_hint_admission_data(
     if not pools:
         raise ValueError("No labeled items in hint admission data")
 
-    def _get_prompt_positions(formatted_len: int, n: int = 5) -> list[int]:
-        if formatted_len < n:
-            return list(range(formatted_len))
-        step = formatted_len / (n + 1)
-        return [int(step * (i + 1)) for i in range(n)]
-
     # Compute per-label sample counts for balanced sampling
     label_counts = {}
     for label, weight in LABEL_WEIGHTS.items():
         label_counts[label] = int(num_examples * weight)
-    # Distribute remainder
     remainder = num_examples - sum(label_counts.values())
     for label in list(label_counts.keys())[:remainder]:
         label_counts[label] += 1
 
     datapoints = []
-    attempts = 0
 
-    # Sample from each label pool proportionally
     for label, target_n in label_counts.items():
         pool = pools.get(label, [])
         if not pool:
@@ -108,7 +153,6 @@ def load_cot_hint_admission_data(
             local_attempts += 1
             entry = random.choice(pool)
 
-            # Reconstruct the hinted prompt as chat
             hinted_prompt = entry.get("hinted_prompt", "")
             if not hinted_prompt:
                 continue
@@ -138,9 +182,9 @@ def load_cot_hint_admission_data(
             if len(positions) < 2:
                 continue
 
-            prompt_positions = _get_prompt_positions(prompt_len, n_prompt_positions)
-            combined = prompt_positions + positions
-            context_positions = combined * len(LAYERS)
+            # CoT-only: no prompt positions — oracle detects hint influence
+            # purely from reasoning activations
+            context_positions = positions * len(LAYERS)
             num_positions = len(context_positions)
 
             max_pos = max(positions)
@@ -149,11 +193,11 @@ def load_cot_hint_admission_data(
             layers_str = ", ".join(str(l) for l in LAYERS)
             prompt = (
                 f"Activations from {num_positions} positions across layers {layers_str}. "
-                f"Did the model use an external hint in its reasoning? If so, describe "
-                f"what hint was used and how it influenced the answer."
+                f"Did the model use an external hint in its reasoning? "
+                f"Describe the hint usage and its effect."
             )
 
-            target = entry.get("target_response", label)
+            target = _build_target_response(entry)
 
             datapoints.append({
                 "datapoint_type": "cot_hint_admission",
@@ -178,7 +222,6 @@ def _load_hint_admission_data(path: str) -> list[dict]:
 
     VALID_LABELS = {"hint_used_wrong", "hint_used_correct", "hint_resisted"}
 
-    # Always try HuggingFace first
     print(f"  Downloading hint admission data from {HF_REPO}...")
     try:
         import importlib

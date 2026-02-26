@@ -51,7 +51,7 @@ tasks:
     description: "Is this a majority or minority answer? (from 25-rollout distributions)"
 
   hint_admission:
-    n: 0
+    n: 15000
     description: "Did the model use an external hint? What was it?"
 
   domain:
