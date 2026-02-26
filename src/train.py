@@ -367,7 +367,7 @@ TASK_REGISTRY = {
 
 HF_TRAINING_REPO = "mats-10-sprint-cs-jb/cot-oracle-training-v6"
 
-_HF_CACHE_DIR = Path("data/.hf_cache")
+_HF_CACHE_DIR = Path(os.path.join(os.environ["CACHE_DIR"], "cot_oracle", ".hf_cache")) if os.environ.get("CACHE_DIR") else Path("data/.hf_cache")
 
 
 def _resolve_hf_dataset(path_or_id: str) -> str:
@@ -1289,12 +1289,13 @@ def main():
     parser.add_argument("--start-step", type=int, default=None,
                         help="Starting global step (for resuming; 0 = restart data from beginning)")
     parser.add_argument("--eval-dir", default="data/evals")
-    _default_cache = os.path.join(os.environ["CACHE_DIR"], "cot_oracle", "eval_precomputed") if os.environ.get("CACHE_DIR") else "data/eval_precomputed"
-    parser.add_argument("--activation-cache-dir", default=_default_cache,
+    _default_act_cache = os.path.join(os.environ["FAST_CACHE_DIR"], "cot_oracle", "eval_precomputed") if os.environ.get("FAST_CACHE_DIR") else "data/eval_precomputed"
+    parser.add_argument("--activation-cache-dir", default=_default_act_cache,
                         help="Dir with precomputed activation bundles (.pt)")
 
     # Output
-    parser.add_argument("--save-dir", default="checkpoints")
+    _default_save = os.path.join(os.environ["CACHE_DIR"], "cot_oracle", "checkpoints") if os.environ.get("CACHE_DIR") else "checkpoints"
+    parser.add_argument("--save-dir", default=_default_save)
     parser.add_argument("--wandb-project", default="cot_oracle")
     parser.add_argument("--wandb-entity", default="MATS10-CS-JB",
                         help="Wandb entity (team/org)")
