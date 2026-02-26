@@ -413,6 +413,8 @@ TASK_REGISTRY = {
         "module": "dataset_classes.cot_reasoning_termination",
         "loader": "load_cot_reasoning_termination_data",
         "corpus": "main",
+        "hf_repo": "ceselder/cot-oracle-reasoning-termination-balanced",
+        "hf_filename": "train.jsonl",
     },
     "answer_trajectory": {
         "arg": "answer_trajectory_n",
@@ -495,15 +497,20 @@ def _resolve_hf_dataset(path_or_id: str) -> str:
     return str(cache_path)
 
 
-def _download_precomputed_from_hf(task_name: str, pdir: Path) -> Path:
-    """Download a precomputed JSONL file from HuggingFace."""
+def _download_precomputed_from_hf(task_name: str, pdir: Path, info: dict | None = None) -> Path:
+    """Download a precomputed JSONL file from HuggingFace.
+
+    If the task registry entry has 'hf_repo'/'hf_filename', uses those
+    instead of the default training repo.
+    """
     from huggingface_hub import hf_hub_download
 
-    filename = f"{task_name}.jsonl"
-    print(f"  [train] Downloading {filename} from HuggingFace: {HF_TRAINING_REPO}")
+    repo = (info or {}).get("hf_repo", HF_TRAINING_REPO)
+    filename = (info or {}).get("hf_filename", f"{task_name}.jsonl")
+    print(f"  [train] Downloading {filename} from HuggingFace: {repo}")
     pdir.mkdir(parents=True, exist_ok=True)
     local_path = hf_hub_download(
-        repo_id=HF_TRAINING_REPO,
+        repo_id=repo,
         filename=filename,
         repo_type="dataset",
         local_dir=str(pdir),
@@ -567,10 +574,11 @@ def load_precomputed_tasks(precomputed_dir: str, args, tokenizer=None) -> list[d
         if n <= 0:
             continue
 
-        jsonl_path = pdir / f"{task_name}.jsonl"
+        local_filename = info.get("hf_filename", f"{task_name}.jsonl")
+        jsonl_path = pdir / local_filename
         if not jsonl_path.exists():
             try:
-                jsonl_path = _download_precomputed_from_hf(task_name, pdir)
+                jsonl_path = _download_precomputed_from_hf(task_name, pdir, info=info)
             except Exception as e:
                 if tokenizer is not None:
                     print(f"  [fallback] No precomputed {task_name} on HF ({e}), live-loading from corpus...")
