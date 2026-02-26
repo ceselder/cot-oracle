@@ -1,24 +1,22 @@
 """
 Flamingo-Style Gated Cross-Attention Oracle
 
-Two modes of operation:
+Two parallel pathways through the same model, stacked in the batch dimension:
+  - CoT stream (batch items 0..B-1): processes CoT tokens, standard self-attention
+  - Oracle stream (batch items B..2B-1): processes oracle prompt, self-attention +
+    gated cross-attention to CoT hidden states at xattn layers
 
-1. **Chimera (single-pass)**: [CoT | Oracle] concatenated in one sequence.
-   At xattn layers, oracle positions cross-attend to CoT hidden states
-   from the same layer. No separate activation extraction needed.
-   CoT hidden states are detached — oracle monitors, doesn't shape CoT.
-
-2. **Pre-extracted KV (legacy)**: Supervisee activations pre-extracted per layer,
-   passed as supervisee_kvs dict.
+The oracle CANNOT read CoT text — it only accesses CoT via cross-attention
+to intermediate hidden states. Sequence length = max(L_cot, L_oracle).
 
 Architecture per cross-attention layer:
     hidden = SelfAttn(hidden)       ← existing LoRA (via PEFT)
     hidden = MLP(hidden)            ← existing LoRA (via PEFT)
-    [oracle only] hidden += tanh(gate) * CrossAttn(Q=oracle_hidden, KV=cot_hidden)
+    [oracle items only] hidden += tanh(gate) * CrossAttn(Q=oracle_hs, KV=cot_hs)
                                     ↑ frozen base weights + manual LoRA adapters
 
 Gates start at 0 (identity at init). Per-layer cross-attention: block i
-attends only to layer i's residual stream.
+attends only to layer i's residual stream. CoT hidden states are detached.
 """
 
 import math
@@ -62,12 +60,12 @@ class LoRALinear(nn.Module):
 
 
 class GatedCrossAttentionLayer(nn.Module):
-    """Gated cross-attention: Q from oracle hidden states, KV from supervisee activations.
+    """Gated cross-attention: Q from oracle hidden states, KV from CoT activations.
 
     Projections initialized as frozen copies of self-attention weights + LoRA adapters.
     Gate starts at 0 → tanh(0) = 0 → identity at initialization.
-    No RoPE (supervisee positions aren't sequential text).
-    No causal mask (oracle freely attends to all supervisee positions).
+    No RoPE (CoT positions aren't shared with oracle sequence).
+    No causal mask (oracle freely attends to all CoT positions).
     """
 
     def __init__(self, config, source_layer: nn.Module, lora_r: int = 64, lora_alpha: int = 128):
@@ -101,7 +99,7 @@ class GatedCrossAttentionLayer(nn.Module):
         """
         Args:
             hidden_states: [B, L_q, D] oracle hidden states
-            kv: [B, T_cot, D] supervisee activations at this layer
+            kv: [B, T_cot, D] CoT activations at this layer
             kv_attention_mask: [B, T_cot] bool mask (True = attend, False = ignore)
         """
         residual = hidden_states
@@ -142,9 +140,8 @@ class GatedCrossAttentionLayer(nn.Module):
 class DecoderLayerWithCrossAttention(nn.Module):
     """Wraps an original decoder layer + appends gated cross-attention.
 
-    Supports two modes (set by the wrapper's runtime state):
-    - Chimera: splits hidden states at _cot_len boundary, oracle cross-attends to CoT
-    - Pre-extracted KV: reads per-layer KVs from _current_kvs dict
+    Parallel mode: batch is [CoT_0..CoT_{B-1}, Oracle_0..Oracle_{B-1}].
+    After self-attn + MLP, splits batch in half: oracle cross-attends to CoT.
     """
 
     def __init__(self, original_layer: nn.Module, xattn_layer: GatedCrossAttentionLayer, wrapper: "FlamingoOracleWrapper", layer_idx: int):
@@ -168,15 +165,15 @@ class DecoderLayerWithCrossAttention(nn.Module):
         else:
             hs = outputs
 
-        cot_len = self._wrapper._cot_len
-        if cot_len is not None and cot_len > 0:
-            # Chimera mode: split at CoT/oracle boundary
-            cot_hs = hs[:, :cot_len, :]
-            oracle_hs = hs[:, cot_len:, :]
+        B = self._wrapper._parallel_B
+        if B is not None:
+            # Parallel mode: first B = CoT, last B = oracle
+            cot_hs = hs[:B]
+            oracle_hs = hs[B:]
             cot_mask = self._wrapper._cot_mask
             # Detach CoT — oracle monitors, doesn't shape CoT representations
             oracle_hs = self._xattn_layer(oracle_hs, cot_hs.detach(), kv_attention_mask=cot_mask)
-            hs = torch.cat([cot_hs, oracle_hs], dim=1)
+            hs = torch.cat([cot_hs, oracle_hs], dim=0)
         else:
             # Pre-extracted KV mode (legacy)
             kvs = self._wrapper._current_kvs
@@ -193,8 +190,9 @@ class DecoderLayerWithCrossAttention(nn.Module):
 class FlamingoOracleWrapper(nn.Module):
     """Wraps a PeftModel with Flamingo-style gated cross-attention layers.
 
-    Each cross-attention layer at block i attends only to supervisee layer i's
-    residual stream. No layer embeddings needed.
+    Parallel mode: CoT and oracle are separate batch items processed through the
+    same transformer. At xattn layers, oracle cross-attends to CoT hidden states.
+    Oracle cannot read CoT text — only accesses CoT via cross-attention.
     """
 
     def __init__(self, peft_model: nn.Module, config, xattn_interval: int = 4, lora_r: int = 64, lora_alpha: int = 128):
@@ -227,7 +225,7 @@ class FlamingoOracleWrapper(nn.Module):
             layers[idx] = wrapped
 
         # Runtime state (set/cleared within forward pass)
-        self._cot_len: int | None = None
+        self._parallel_B: int | None = None
         self._cot_mask: torch.Tensor | None = None
         self._current_kvs: dict[int, torch.Tensor] | None = None
         self._current_kv_masks: dict[int, torch.Tensor] = {}
@@ -242,36 +240,39 @@ class FlamingoOracleWrapper(nn.Module):
         input_ids: torch.Tensor,
         attention_mask: torch.Tensor,
         labels: torch.Tensor | None = None,
-        cot_len: int | None = None,
+        parallel_B: int | None = None,
         cot_mask: torch.Tensor | None = None,
         supervisee_kvs: dict[int, torch.Tensor] | None = None,
         supervisee_kv_masks: dict[int, torch.Tensor] | None = None,
     ):
         """
-        Two modes:
-
-        Chimera mode (cot_len provided):
-            input_ids: [B, max_cot + max_oracle] — [left_pad_cot | cot | oracle | right_pad_oracle]
-            cot_len: int — split point (= max_cot_len), same for all items
-            cot_mask: [B, cot_len] — True for real CoT tokens (not padding)
-            labels: [B, L] — -100 for CoT and padding positions
+        Parallel mode (parallel_B provided):
+            input_ids: [2B, L_max] — [cot_items; oracle_items] stacked in batch dim
+            attention_mask: [2B, L_max]
+            labels: [2B, L_max] — CoT items have all -100, oracle items have real labels
+            parallel_B: int — B (number of data points); first B = CoT, last B = oracle
+            cot_mask: [B, L_max] — True for real CoT tokens (for xattn padding mask)
+            Returns: outputs with logits trimmed to oracle-only [B, L_max, V]
 
         Pre-extracted KV mode (supervisee_kvs provided):
             input_ids: [B, L] oracle input tokens
             supervisee_kvs: {layer_idx: [B, T_cot, D]} per-layer supervisee activations
-            supervisee_kv_masks: {layer_idx: [B, T_cot]} per-layer attention masks
         """
-        if cot_len is not None:
-            self._cot_len = cot_len
+        if parallel_B is not None:
+            self._parallel_B = parallel_B
             self._cot_mask = cot_mask
         else:
-            self._cot_len = None
+            self._parallel_B = None
             self._current_kvs = supervisee_kvs
             self._current_kv_masks = supervisee_kv_masks or {}
 
         outputs = self.base_model(input_ids=input_ids, attention_mask=attention_mask, labels=labels)
 
-        self._cot_len = None
+        if parallel_B is not None:
+            # Return only oracle logits — loss is already oracle-only (CoT labels = -100)
+            outputs.logits = outputs.logits[parallel_B:]
+
+        self._parallel_B = None
         self._cot_mask = None
         self._current_kvs = None
         self._current_kv_masks = {}
@@ -279,13 +280,13 @@ class FlamingoOracleWrapper(nn.Module):
         return outputs
 
     def generate(self, **kwargs):
-        cot_len = kwargs.pop("cot_len", None)
+        parallel_B = kwargs.pop("parallel_B", None)
         cot_mask = kwargs.pop("cot_mask", None)
         supervisee_kvs = kwargs.pop("supervisee_kvs", None)
         supervisee_kv_masks = kwargs.pop("supervisee_kv_masks", None)
 
-        if cot_len is not None:
-            self._cot_len = cot_len
+        if parallel_B is not None:
+            self._parallel_B = parallel_B
             self._cot_mask = cot_mask
         else:
             self._current_kvs = supervisee_kvs
@@ -293,7 +294,7 @@ class FlamingoOracleWrapper(nn.Module):
 
         outputs = self.base_model.generate(**kwargs)
 
-        self._cot_len = None
+        self._parallel_B = None
         self._cot_mask = None
         self._current_kvs = None
         self._current_kv_masks = {}

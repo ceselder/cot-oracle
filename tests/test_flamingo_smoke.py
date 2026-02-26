@@ -40,88 +40,108 @@ def load_model():
     return model, base_model, tokenizer
 
 
-def make_per_layer_kvs(wrapper, B, T_cot, hidden_size):
-    """Create dummy per-layer supervisee KVs for testing."""
-    kvs = {}
-    kv_masks = {}
-    for idx in wrapper.xattn_layer_indices:
-        kvs[idx] = torch.randn(B, T_cot, hidden_size, dtype=DTYPE, device=DEVICE)
-        kv_masks[idx] = torch.ones(B, T_cot, dtype=torch.bool, device=DEVICE)
-    return kvs, kv_masks
-
-
-def test_forward_pass():
-    """Test: FlamingoOracleWrapper forward pass produces correct output shape."""
+def test_parallel_forward_backward():
+    """Test: Parallel mode — CoT and oracle as separate batch items."""
     model, base_model, tokenizer = load_model()
     config = base_model.config
-    hidden_size = config.hidden_size
 
     wrapper = FlamingoOracleWrapper(model, config, xattn_interval=4, lora_r=8, lora_alpha=16)
     wrapper.print_trainable_parameters()
 
-    B, L_oracle = 2, 32
-    T_cot = 20
+    B = 2
+    L_cot, L_oracle = 40, 20
+    L_max = max(L_cot, L_oracle)
 
-    input_ids = torch.randint(0, config.vocab_size, (B, L_oracle), device=DEVICE)
-    attention_mask = torch.ones(B, L_oracle, dtype=torch.bool, device=DEVICE)
-    labels = torch.randint(0, config.vocab_size, (B, L_oracle), device=DEVICE)
-    labels[:, :10] = -100
+    # CoT items: left-padded to L_max
+    cot_ids = torch.randint(0, config.vocab_size, (B, L_cot), device=DEVICE)
+    cot_pad = L_max - L_cot
+    if cot_pad > 0:
+        cot_ids = torch.cat([torch.full((B, cot_pad), tokenizer.pad_token_id, device=DEVICE, dtype=torch.long), cot_ids], dim=1)
+    cot_mask = torch.cat([torch.zeros(B, cot_pad, dtype=torch.bool, device=DEVICE), torch.ones(B, L_cot, dtype=torch.bool, device=DEVICE)], dim=1) if cot_pad > 0 else torch.ones(B, L_cot, dtype=torch.bool, device=DEVICE)
 
-    kvs, kv_masks = make_per_layer_kvs(wrapper, B, T_cot, hidden_size)
+    # Oracle items: left-padded to L_max
+    oracle_ids = torch.randint(0, config.vocab_size, (B, L_oracle), device=DEVICE)
+    oracle_pad = L_max - L_oracle
+    oracle_ids = torch.cat([torch.full((B, oracle_pad), tokenizer.pad_token_id, device=DEVICE, dtype=torch.long), oracle_ids], dim=1)
+    oracle_mask = torch.cat([torch.zeros(B, oracle_pad, dtype=torch.bool, device=DEVICE), torch.ones(B, L_oracle, dtype=torch.bool, device=DEVICE)], dim=1)
+
+    # Labels: CoT = -100, oracle = random targets
+    cot_labels = torch.full((B, L_max), -100, dtype=torch.long, device=DEVICE)
+    oracle_labels = torch.full((B, L_max), -100, dtype=torch.long, device=DEVICE)
+    oracle_labels[:, oracle_pad + 5:] = torch.randint(0, config.vocab_size, (B, L_oracle - 5), device=DEVICE)
+
+    # Stack [CoT; Oracle] in batch dim
+    input_ids = torch.cat([cot_ids, oracle_ids], dim=0)
+    attention_mask = torch.cat([cot_mask, oracle_mask], dim=0)
+    labels = torch.cat([cot_labels, oracle_labels], dim=0)
+    cot_kv_mask = cot_mask  # [B, L_max]
 
     with torch.autocast(device_type=DEVICE, dtype=DTYPE):
         outputs = wrapper(
             input_ids=input_ids, attention_mask=attention_mask, labels=labels,
-            supervisee_kvs=kvs, supervisee_kv_masks=kv_masks,
+            parallel_B=B, cot_mask=cot_kv_mask,
         )
 
-    vocab_size = config.vocab_size
-    assert outputs.logits.shape == (B, L_oracle, vocab_size), \
-        f"Expected ({B}, {L_oracle}, {vocab_size}), got {outputs.logits.shape}"
+    # Logits should be oracle-only [B, L_max, V]
+    assert outputs.logits.shape == (B, L_max, config.vocab_size), \
+        f"Expected ({B}, {L_max}, {config.vocab_size}), got {outputs.logits.shape}"
     assert outputs.loss is not None and outputs.loss.item() > 0
-
-    print(f"  Forward pass: OK (logits shape={outputs.logits.shape}, loss={outputs.loss.item():.4f})")
+    print(f"  Parallel forward: OK (logits shape={outputs.logits.shape}, loss={outputs.loss.item():.4f})")
 
     outputs.loss.backward()
     for idx in wrapper.xattn_layer_indices:
         gate = wrapper.xattn_layers[str(idx)].gate
         assert gate.grad is not None, f"Gate at layer {idx} has no gradient"
-    print(f"  Backward pass: OK (all gates have gradients)")
+    print(f"  Parallel backward: OK (all gates have gradients)")
 
 
-def test_gate_zero_identity():
-    """Test: With gates=0, wrapper output matches base model output."""
+def test_parallel_gate_zero_identity():
+    """Test: In parallel mode, gate=0 should give same oracle logits regardless of CoT content.
+
+    Both calls use [2B, L] batch structure to avoid SDPA kernel differences from batch size.
+    Call 1: real CoT + oracle (with xattn, gates=0)
+    Call 2: different CoT + same oracle (with xattn, gates=0)
+    Since gates=0, CoT content shouldn't affect oracle output.
+    """
     model, base_model, tokenizer = load_model()
     config = base_model.config
-    hidden_size = config.hidden_size
 
     wrapper = FlamingoOracleWrapper(model, config, xattn_interval=4, lora_r=8, lora_alpha=16)
-
     for idx in wrapper.xattn_layer_indices:
         assert wrapper.xattn_layers[str(idx)].gate.item() == 0.0
 
-    B, L = 2, 32
-    T_cot = 10
+    B = 1
+    L_cot, L_oracle = 30, 20
+    L_max = max(L_cot, L_oracle)
 
-    input_ids = torch.randint(0, config.vocab_size, (B, L), device=DEVICE)
-    attention_mask = torch.ones(B, L, dtype=torch.bool, device=DEVICE)
+    # Oracle input (same for both calls)
+    oracle_ids = torch.randint(0, config.vocab_size, (B, L_oracle), device=DEVICE)
+    oracle_pad = L_max - L_oracle
+    oracle_ids_padded = torch.cat([torch.full((B, oracle_pad), tokenizer.pad_token_id, device=DEVICE, dtype=torch.long), oracle_ids], dim=1)
+    oracle_mask_padded = torch.cat([torch.zeros(B, oracle_pad, dtype=torch.bool, device=DEVICE), torch.ones(B, L_oracle, dtype=torch.bool, device=DEVICE)], dim=1)
 
-    kvs, kv_masks = make_per_layer_kvs(wrapper, B, T_cot, hidden_size)
+    # Two different CoTs
+    cot_ids_a = torch.randint(0, config.vocab_size, (B, L_cot), device=DEVICE)
+    cot_ids_b = torch.randint(0, config.vocab_size, (B, L_cot), device=DEVICE)
+    cot_mask = torch.ones(B, L_cot, dtype=torch.bool, device=DEVICE)
 
     wrapper.eval()
     with torch.no_grad(), torch.autocast(device_type=DEVICE, dtype=DTYPE):
-        out_with = wrapper(
-            input_ids=input_ids, attention_mask=attention_mask,
-            supervisee_kvs=kvs, supervisee_kv_masks=kv_masks,
+        out_a = wrapper(
+            input_ids=torch.cat([cot_ids_a, oracle_ids_padded], dim=0),
+            attention_mask=torch.cat([cot_mask, oracle_mask_padded], dim=0),
+            parallel_B=B, cot_mask=cot_mask,
         )
-        out_without = wrapper(
-            input_ids=input_ids, attention_mask=attention_mask,
+        out_b = wrapper(
+            input_ids=torch.cat([cot_ids_b, oracle_ids_padded], dim=0),
+            attention_mask=torch.cat([cot_mask, oracle_mask_padded], dim=0),
+            parallel_B=B, cot_mask=cot_mask,
         )
 
-    diff = (out_with.logits - out_without.logits).abs().max().item()
-    print(f"  Gate=0 identity test: max logit diff = {diff:.2e}")
-    assert diff < 1e-3, f"Gate=0 should produce identical outputs, but max diff = {diff}"
-    print(f"  Gate=0 identity: PASSED")
+    diff = (out_a.logits - out_b.logits).abs().max().item()
+    print(f"  Parallel gate=0 identity: max oracle logit diff (different CoTs) = {diff:.2e}")
+    assert diff < 1e-3, f"Gate=0 should make oracle invariant to CoT content, but max diff = {diff}"
+    print(f"  Parallel gate=0 identity: PASSED")
 
 
 def test_save_load_roundtrip():
@@ -130,25 +150,27 @@ def test_save_load_roundtrip():
 
     model, base_model, tokenizer = load_model()
     config = base_model.config
-    hidden_size = config.hidden_size
 
     wrapper = FlamingoOracleWrapper(model, config, xattn_interval=4, lora_r=8, lora_alpha=16)
 
     # Perturb a gate so it's non-zero
     wrapper.xattn_layers[str(wrapper.xattn_layer_indices[0])].gate.data.fill_(0.5)
 
-    B, L = 1, 16
-    T_cot = 5
+    B, L_cot, L_oracle = 1, 20, 16
+    L_max = max(L_cot, L_oracle)
 
-    input_ids = torch.randint(0, config.vocab_size, (B, L), device=DEVICE)
-    attention_mask = torch.ones(B, L, dtype=torch.bool, device=DEVICE)
-    kvs, kv_masks = make_per_layer_kvs(wrapper, B, T_cot, hidden_size)
+    cot_ids = torch.randint(0, config.vocab_size, (B, L_max), device=DEVICE)
+    cot_mask = torch.ones(B, L_max, dtype=torch.bool, device=DEVICE)
+    oracle_ids = torch.randint(0, config.vocab_size, (B, L_max), device=DEVICE)
+    oracle_mask = torch.ones(B, L_max, dtype=torch.bool, device=DEVICE)
+    input_ids = torch.cat([cot_ids, oracle_ids], dim=0)
+    attention_mask = torch.cat([cot_mask, oracle_mask], dim=0)
 
     wrapper.eval()
     with torch.no_grad(), torch.autocast(device_type=DEVICE, dtype=DTYPE):
         out_before = wrapper(
             input_ids=input_ids, attention_mask=attention_mask,
-            supervisee_kvs=kvs, supervisee_kv_masks=kv_masks,
+            parallel_B=B, cot_mask=cot_mask,
         ).logits.clone()
 
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -158,13 +180,12 @@ def test_save_load_roundtrip():
         wrapper2 = FlamingoOracleWrapper(model2, config, xattn_interval=4, lora_r=8, lora_alpha=16)
         wrapper2.load_flamingo_modules(tmpdir)
 
+    dev2 = next(wrapper2.parameters()).device
     wrapper2.eval()
     with torch.no_grad(), torch.autocast(device_type=DEVICE, dtype=DTYPE):
         out_after = wrapper2(
-            input_ids=input_ids.to(next(wrapper2.parameters()).device),
-            attention_mask=attention_mask.to(next(wrapper2.parameters()).device),
-            supervisee_kvs={k: v.to(next(wrapper2.parameters()).device) for k, v in kvs.items()},
-            supervisee_kv_masks={k: v.to(next(wrapper2.parameters()).device) for k, v in kv_masks.items()},
+            input_ids=input_ids.to(dev2), attention_mask=attention_mask.to(dev2),
+            parallel_B=B, cot_mask=cot_mask.to(dev2),
         ).logits
 
     diff = (out_before - out_after.to(out_before.device)).abs().max().item()
@@ -173,131 +194,19 @@ def test_save_load_roundtrip():
     print(f"  Save/load roundtrip: PASSED")
 
 
-def test_chimera_forward_backward():
-    """Test: Chimera (single-pass) mode — [CoT | Oracle] concatenated."""
-    model, base_model, tokenizer = load_model()
-    config = base_model.config
-
-    wrapper = FlamingoOracleWrapper(model, config, xattn_interval=4, lora_r=8, lora_alpha=16)
-
-    B = 2
-    T_cot = 20  # CoT length
-    L_oracle = 32  # Oracle length
-
-    # Simulate [cot_pad | cot | oracle | oracle_pad] layout
-    # Item 0: full cot (20) + full oracle (32)
-    # Item 1: shorter cot (15) + shorter oracle (28), padded
-    cot_lens = [T_cot, 15]
-    oracle_lens = [L_oracle, 28]
-    max_cot = T_cot
-    max_oracle = L_oracle
-
-    all_ids = []
-    all_labels = []
-    all_mask = []
-    all_cot_mask = []
-
-    for i in range(B):
-        cot_pad = max_cot - cot_lens[i]
-        oracle_pad = max_oracle - oracle_lens[i]
-        ids = [tokenizer.pad_token_id] * cot_pad + \
-              torch.randint(0, config.vocab_size, (cot_lens[i],)).tolist() + \
-              torch.randint(0, config.vocab_size, (oracle_lens[i],)).tolist() + \
-              [tokenizer.pad_token_id] * oracle_pad
-        labs = [-100] * max_cot + \
-               [-100] * 5 + torch.randint(0, config.vocab_size, (oracle_lens[i] - 5,)).tolist() + \
-               [-100] * oracle_pad
-        mask = [False] * cot_pad + [True] * (cot_lens[i] + oracle_lens[i]) + [False] * oracle_pad
-        cmask = [False] * cot_pad + [True] * cot_lens[i]
-
-        all_ids.append(torch.tensor(ids, dtype=torch.long, device=DEVICE))
-        all_labels.append(torch.tensor(labs, dtype=torch.long, device=DEVICE))
-        all_mask.append(torch.tensor(mask, dtype=torch.bool, device=DEVICE))
-        all_cot_mask.append(torch.tensor(cmask, dtype=torch.bool, device=DEVICE))
-
-    input_ids = torch.stack(all_ids)
-    attention_mask = torch.stack(all_mask)
-    labels = torch.stack(all_labels)
-    cot_mask = torch.stack(all_cot_mask)
-
-    with torch.autocast(device_type=DEVICE, dtype=DTYPE):
-        outputs = wrapper(
-            input_ids=input_ids, attention_mask=attention_mask, labels=labels,
-            cot_len=max_cot, cot_mask=cot_mask,
-        )
-
-    total_len = max_cot + max_oracle
-    assert outputs.logits.shape == (B, total_len, config.vocab_size), \
-        f"Expected ({B}, {total_len}, {config.vocab_size}), got {outputs.logits.shape}"
-    assert outputs.loss is not None and outputs.loss.item() > 0
-    print(f"  Chimera forward: OK (logits shape={outputs.logits.shape}, loss={outputs.loss.item():.4f})")
-
-    outputs.loss.backward()
-    for idx in wrapper.xattn_layer_indices:
-        gate = wrapper.xattn_layers[str(idx)].gate
-        assert gate.grad is not None, f"Gate at layer {idx} has no gradient"
-    print(f"  Chimera backward: OK (all gates have gradients)")
-
-
-def test_chimera_gate_zero_identity():
-    """Test: In chimera mode, gate=0 should give same oracle logits as no cross-attention."""
-    model, base_model, tokenizer = load_model()
-    config = base_model.config
-
-    wrapper = FlamingoOracleWrapper(model, config, xattn_interval=4, lora_r=8, lora_alpha=16)
-    for idx in wrapper.xattn_layer_indices:
-        assert wrapper.xattn_layers[str(idx)].gate.item() == 0.0
-
-    B, T_cot, L_oracle = 1, 15, 20
-    max_cot = T_cot
-
-    # Build chimera input
-    cot_ids = torch.randint(0, config.vocab_size, (B, T_cot), device=DEVICE)
-    oracle_ids = torch.randint(0, config.vocab_size, (B, L_oracle), device=DEVICE)
-    input_ids = torch.cat([cot_ids, oracle_ids], dim=1)
-    attention_mask = torch.ones(B, T_cot + L_oracle, dtype=torch.bool, device=DEVICE)
-    cot_mask = torch.ones(B, T_cot, dtype=torch.bool, device=DEVICE)
-
-    wrapper.eval()
-    with torch.no_grad(), torch.autocast(device_type=DEVICE, dtype=DTYPE):
-        # Chimera mode
-        out_chimera = wrapper(
-            input_ids=input_ids, attention_mask=attention_mask,
-            cot_len=max_cot, cot_mask=cot_mask,
-        )
-        # No cross-attention (same input, no cot_len)
-        out_plain = wrapper(
-            input_ids=input_ids, attention_mask=attention_mask,
-        )
-
-    # Compare oracle portion only (CoT portion is identical since xattn only modifies oracle)
-    chimera_oracle_logits = out_chimera.logits[:, max_cot:, :]
-    plain_oracle_logits = out_plain.logits[:, max_cot:, :]
-    diff = (chimera_oracle_logits - plain_oracle_logits).abs().max().item()
-    print(f"  Chimera gate=0 identity: max oracle logit diff = {diff:.2e}")
-    assert diff < 1e-3, f"Gate=0 should produce identical oracle outputs, but max diff = {diff}"
-    print(f"  Chimera gate=0 identity: PASSED")
-
-
 if __name__ == "__main__":
     print("=" * 60)
     print("Flamingo Oracle Smoke Tests")
     print("=" * 60)
 
-    print("\n1. Forward + backward pass (pre-extracted KV)")
-    test_forward_pass()
+    print("\n1. Parallel forward + backward")
+    test_parallel_forward_backward()
 
-    print("\n2. Gate=0 identity (pre-extracted KV)")
-    test_gate_zero_identity()
+    print("\n2. Parallel gate=0 identity")
+    test_parallel_gate_zero_identity()
 
     print("\n3. Save/load roundtrip")
     test_save_load_roundtrip()
-
-    print("\n4. Chimera forward + backward")
-    test_chimera_forward_backward()
-
-    print("\n5. Chimera gate=0 identity")
-    test_chimera_gate_zero_identity()
 
     print("\n" + "=" * 60)
     print("ALL TESTS PASSED")

@@ -361,19 +361,20 @@ def construct_flamingo_batch(
     }
 
 
-def construct_chimera_batch(
+def construct_parallel_batch(
     batch_list: list[TrainingDataPoint],
     tokenizer,
     device: torch.device,
     max_ctx_tokens: int | None = None,
 ) -> dict:
-    """Construct a chimera batch: [CoT | Oracle] concatenated per item.
+    """Construct a parallel batch: CoT and oracle as separate batch items.
 
-    Layout: [cot_left_pad | cot_tokens | oracle_tokens | oracle_right_pad]
-    Split point is always at max_cot_len (fixed for the batch).
-    Labels are -100 for all CoT + padding positions.
+    Returns [2B, L_max] where first B items are CoT, last B items are oracle.
+    Both left-padded to L_max = max(max_cot_len, max_oracle_len).
+    CoT labels are all -100. Only oracle items contribute to loss.
     """
     pad_id = tokenizer.pad_token_id
+    B = len(batch_list)
 
     cots = []
     for dp in batch_list:
@@ -385,34 +386,32 @@ def construct_chimera_batch(
 
     max_cot_len = max(len(c) for c in cots)
     max_oracle_len = max(len(dp.input_ids) for dp in batch_list)
+    L_max = max(max_cot_len, max_oracle_len)
 
-    all_input_ids = []
-    all_labels = []
-    all_attn_mask = []
-    all_cot_mask = []
+    # CoT items: left-padded to L_max, labels all -100
+    cot_ids, cot_masks, cot_kv_masks = [], [], []
+    for c in cots:
+        pad = L_max - len(c)
+        cot_ids.append(torch.tensor([pad_id] * pad + c, dtype=torch.long))
+        cot_masks.append(torch.tensor([False] * pad + [True] * len(c), dtype=torch.bool))
+        cot_kv_masks.append(torch.tensor([False] * pad + [True] * len(c), dtype=torch.bool))
+    cot_labels = [torch.full((L_max,), -100, dtype=torch.long) for _ in range(B)]
 
-    for dp, cot in zip(batch_list, cots):
-        cot_pad = max_cot_len - len(cot)
-        oracle_pad = max_oracle_len - len(dp.input_ids)
+    # Oracle items: left-padded to L_max
+    oracle_ids, oracle_masks, oracle_labels = [], [], []
+    for dp in batch_list:
+        pad = L_max - len(dp.input_ids)
+        oracle_ids.append(torch.tensor([pad_id] * pad + dp.input_ids, dtype=torch.long))
+        oracle_masks.append(torch.tensor([False] * pad + [True] * len(dp.input_ids), dtype=torch.bool))
+        oracle_labels.append(torch.tensor([-100] * pad + dp.labels, dtype=torch.long))
 
-        ids = [pad_id] * cot_pad + cot + dp.input_ids + [pad_id] * oracle_pad
-        labs = [-100] * (max_cot_len + len(dp.input_ids)) + [-100] * oracle_pad
-        # Override with actual oracle labels (context_input_ids has no labels)
-        labs[max_cot_len:max_cot_len + len(dp.labels)] = dp.labels
-        mask = [False] * cot_pad + [True] * (len(cot) + len(dp.input_ids)) + [False] * oracle_pad
-        cmask = [False] * cot_pad + [True] * len(cot)
-
-        all_input_ids.append(torch.tensor(ids, dtype=torch.long))
-        all_labels.append(torch.tensor(labs, dtype=torch.long))
-        all_attn_mask.append(torch.tensor(mask, dtype=torch.bool))
-        all_cot_mask.append(torch.tensor(cmask, dtype=torch.bool))
-
+    # Stack: [cot_0..cot_{B-1}, oracle_0..oracle_{B-1}]
     return {
-        "input_ids": torch.stack(all_input_ids).to(device),
-        "attention_mask": torch.stack(all_attn_mask).to(device),
-        "labels": torch.stack(all_labels).to(device),
-        "cot_len": max_cot_len,
-        "cot_mask": torch.stack(all_cot_mask).to(device),
+        "input_ids": torch.stack(cot_ids + oracle_ids).to(device),
+        "attention_mask": torch.stack(cot_masks + oracle_masks).to(device),
+        "labels": torch.stack(cot_labels + oracle_labels).to(device),
+        "parallel_B": B,
+        "cot_mask": torch.stack(cot_kv_masks).to(device),
     }
 
 
@@ -1147,8 +1146,8 @@ def train(
             batch_types = [dp.datapoint_type for dp in batch_list]
 
             if args.flamingo:
-                # Chimera: single forward pass with [CoT | Oracle] concatenated
-                batch = construct_chimera_batch(
+                # Parallel: CoT + oracle as separate batch items, connected via xattn
+                batch = construct_parallel_batch(
                     batch_list, tokenizer, device,
                     max_ctx_tokens=args.flamingo_max_ctx_tokens,
                 )
@@ -1174,6 +1173,9 @@ def train(
             with torch.no_grad():
                 logits = outputs.logits.detach()
                 labels = batch["labels"] if isinstance(batch, dict) else batch.labels
+                # Parallel flamingo: logits are oracle-only [B], labels are [2B] — slice to oracle
+                if args.flamingo and "parallel_B" in batch:
+                    labels = labels[batch["parallel_B"]:]
                 shift_logits = logits[:, :-1, :].contiguous()
                 shift_labels = labels[:, 1:].contiguous()
                 per_token_loss = F.cross_entropy(
