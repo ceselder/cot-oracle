@@ -30,6 +30,13 @@ def _get_hf_datasets():
     if _hf_datasets is not None:
         return _hf_datasets
 
+    # If datasets is already imported and is the HF package, reuse it
+    # (re-importing causes pyarrow ArrowKeyError on extension type re-registration)
+    existing = sys.modules.get("datasets")
+    if existing is not None and hasattr(existing, "load_dataset"):
+        _hf_datasets = existing
+        return _hf_datasets
+
     # Save and strip local path entries that shadow HF datasets
     _this = str(Path(__file__).resolve().parent)
     _evals = str(Path(__file__).resolve().parent.parent)
