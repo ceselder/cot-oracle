@@ -24,6 +24,9 @@ from cot_utils import (
 )
 
 
+# Noise ablation: when True, replace activation vectors with random noise
+NOISE_ACTIVATIONS = False
+
 AO_CHECKPOINTS = {
     "Qwen/Qwen3-1.7B": "adamkarvonen/checkpoints_cls_latentqa_past_lens_Qwen3-1_7B",
     "Qwen/Qwen3-4B": "adamkarvonen/checkpoints_latentqa_cls_past_lens_Qwen3-4B",
@@ -265,6 +268,8 @@ def add_hook(module, hook):
 
 def get_steering_hook(vectors, positions, device, dtype, steering_coefficient=1.0):
     """Norm-matched additive steering hook (batch=1 only)."""
+    if NOISE_ACTIVATIONS:
+        vectors = torch.randn_like(vectors)
     normed = torch.nn.functional.normalize(vectors, dim=-1).detach()
 
     def hook_fn(module, _input, output):
@@ -313,6 +318,8 @@ def get_batched_steering_hook(
     """
     assert len(vectors) == len(positions)
     B = len(vectors)
+    if NOISE_ACTIVATIONS:
+        vectors = [torch.randn_like(v) for v in vectors]
     normed_list = [torch.nn.functional.normalize(v, dim=-1).detach() for v in vectors]
 
     def hook_fn(module, _input, output):

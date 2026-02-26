@@ -1,0 +1,15 @@
+# Ablation: random noise instead of real activations
+# Control experiment: tests if model learns from activations or just text
+# Uses stride 250 / 3 layers to match the stride250 ablation
+
+activations:
+  stride: 250
+  n_layers: 3
+
+training:
+  batch_size: 4
+  effective_batch_size: 16   # grad_accum=4
+  eval_batch_size: 2
+
+output:
+  wandb_run: ablation-noise

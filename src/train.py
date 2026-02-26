@@ -98,6 +98,7 @@ du_module.get_introspection_prefix = _patched_get_prefix
 
 # ── Position encoding config (module-level, set by main()) ──
 _PE_CONFIG = {"enabled": False, "alpha": 0.1}
+_NOISE_ACTIVATIONS = False  # ablation: replace real activations with random noise
 
 
 # ── Distributed helpers ──
@@ -1378,6 +1379,8 @@ def main():
                         help="Save checkpoint every N steps (shuffled mode)")
     parser.add_argument("--no-step0-eval", action="store_true", default=False,
                         help="Skip evals at step 0 (for quick ablation launches)")
+    parser.add_argument("--noise-activations", action="store_true", default=False,
+                        help="Replace real activations with random noise (ablation control)")
     parser.add_argument("--rot13-start-step", type=int, default=2000)
     parser.add_argument("--start-step", type=int, default=None,
                         help="Starting global step (for resuming; 0 = restart data from beginning)")
@@ -1465,6 +1468,15 @@ def main():
             print(f"Position encoding: ON (alpha={_PE_CONFIG['alpha']})")
         else:
             print("Position encoding: OFF")
+
+    # Noise activations ablation
+    global _NOISE_ACTIVATIONS
+    _NOISE_ACTIVATIONS = getattr(args, "noise_activations", False)
+    if _NOISE_ACTIVATIONS:
+        import core.ao as _ao_module
+        _ao_module.NOISE_ACTIVATIONS = True
+    if rank == 0 and _NOISE_ACTIVATIONS:
+        print("*** NOISE ABLATION: replacing all activations with random noise ***")
 
     tokenizer = load_tokenizer(args.model)
 
