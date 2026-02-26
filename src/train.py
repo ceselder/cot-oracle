@@ -579,8 +579,11 @@ def load_all_tasks(args, tokenizer) -> list[dict]:
 
 # ── Training infrastructure ──
 def train_features_batch(training_batch, model, submodule, steering_coefficient, device, dtype):
+    vectors = training_batch.steering_vectors
+    if _NOISE_ACTIVATIONS:
+        vectors = [torch.randn_like(v) for v in vectors]
     hook_fn = get_hf_activation_steering_hook(
-        vectors=training_batch.steering_vectors,
+        vectors=vectors,
         positions=training_batch.positions,
         steering_coefficient=steering_coefficient,
         device=device,
