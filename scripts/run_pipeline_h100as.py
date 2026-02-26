@@ -101,6 +101,7 @@ def parse_args():
     p.add_argument("--sparse-step", type=int, default=3, help="Frugal: sample every Nth sentence (default 3)")
     p.add_argument("--jump-threshold", type=float, default=0.10, help="Frugal: fill-in trigger threshold (default 0.10)")
     p.add_argument("--resample-limit", type=int, default=None, help="Subsample corpus to N entries for resampling (random)")
+    p.add_argument("--exclude-resampled", type=str, default="auto", help="Path to prior resampling.jsonl to skip already-done IDs. 'auto' = same output-dir, 'none' = no exclusion")
     # Internal worker flags
     p.add_argument("--_phase", choices=["generate", "resample"])
     p.add_argument("--_shard", type=int)
@@ -928,17 +929,32 @@ def main():
 
     # ── Phase 2: Resampling importance ──
     if not args.skip_resample:
+        # Resolve exclusion set from prior resampling runs
+        exclude_ids = set()
+        exclude_path = args.exclude_resampled
+        if exclude_path == "auto":
+            exclude_path = str(resampling_path)
+        if exclude_path != "none" and Path(exclude_path).exists():
+            with open(exclude_path) as f:
+                for line in f:
+                    if line.strip():
+                        exclude_ids.add(json.loads(line)["id"])
+            print(f"  Excluding {len(exclude_ids)} already-resampled entries from {exclude_path}")
+
         resample_input = corpus_path
+        with open(corpus_path) as f:
+            all_lines = f.readlines()
+        if exclude_ids:
+            all_lines = [l for l in all_lines if json.loads(l)["id"] not in exclude_ids]
+            print(f"  After exclusion: {len(all_lines)} entries remaining")
         if args.resample_limit:
             import random as _rng
-            with open(corpus_path) as f:
-                all_lines = f.readlines()
             _rng.shuffle(all_lines)
-            subset = all_lines[:args.resample_limit]
-            resample_input = out_dir / f"corpus_subset_{args.resample_limit}.jsonl"
-            with open(resample_input, "w") as f:
-                f.writelines(subset)
-            print(f"  Subsampled corpus: {len(subset)}/{len(all_lines)} entries → {resample_input}")
+            all_lines = all_lines[:args.resample_limit]
+        resample_input = out_dir / f"corpus_subset_{len(all_lines)}.jsonl"
+        with open(resample_input, "w") as f:
+            f.writelines(all_lines)
+        print(f"  Resampling input: {len(all_lines)} entries → {resample_input}")
 
         print(f"{'='*60}")
         print("Phase 2: Resampling importance")
