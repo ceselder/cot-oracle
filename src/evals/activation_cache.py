@@ -3,10 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-import hashlib
-import os
 from pathlib import Path
-import tempfile
 
 import torch
 
@@ -14,11 +11,6 @@ from core.ao import (
     collect_activations_at_positions,
 )
 from cot_utils import get_cot_positions, get_cot_punctuation_positions
-
-
-CACHE_FORMAT_VERSION = 2
-_CACHE_META_PREFIX = "__cache_"
-_NOISE_MODE = False  # set by train.py when --noise-activations is active
 
 
 @dataclass
@@ -311,32 +303,6 @@ def cache_path(base_dir: Path, eval_name: str, example_id: str) -> Path:
     return Path(base_dir) / eval_name / f"{example_id}.pt"
 
 
-def _sha256_text(text: str | None) -> str | None:
-    if text is None:
-        return None
-    return hashlib.sha256(text.encode("utf-8")).hexdigest()
-
-
-def _invalidate_cache(path: Path) -> None:
-    try:
-        path.unlink(missing_ok=True)
-    except Exception:
-        pass
-
-
-def _meta_get(meta: dict, key: str, default=None):
-    cache_key = f"{_CACHE_META_PREFIX}{key}"
-    if cache_key in meta:
-        return meta.get(cache_key)
-    return meta.get(key, default)
-
-
-def _normalize_layers(layers: list[int] | None) -> list[int] | None:
-    if layers is None:
-        return None
-    return [int(x) for x in layers]
-
-
 def save_bundle(bundle: ActivationBundle, output_path: Path) -> None:
     output_path.parent.mkdir(parents=True, exist_ok=True)
     payload = {
@@ -353,19 +319,7 @@ def save_bundle(bundle: ActivationBundle, output_path: Path) -> None:
         "test_answer": bundle.test_answer,
         "metadata": bundle.metadata or {},
     }
-    fd, tmp_path_str = tempfile.mkstemp(
-        dir=output_path.parent,
-        prefix=f"{output_path.name}.",
-        suffix=".tmp",
-    )
-    os.close(fd)
-    tmp_path = Path(tmp_path_str)
-    try:
-        torch.save(payload, tmp_path)
-        os.replace(tmp_path, output_path)
-    finally:
-        if tmp_path.exists():
-            tmp_path.unlink(missing_ok=True)
+    torch.save(payload, output_path)
 
 
 def load_bundle(path: Path, map_location: str = "cpu") -> ActivationBundle:
@@ -394,20 +348,14 @@ def maybe_load_cached_bundle(
     map_location: str = "cpu",
     stride: int | str | None = None,
     layers: list[int] | None = None,
-    model_name: str | None = None,
-    placeholder_token: str | None = None,
-    oracle_adapter_name: str | None = None,
-    generation_adapter_name: str | None = None,
-    expected_prompt: str | None = None,
-    expected_cot: str | None = None,
-    require_cache_v2: bool = False,
 ) -> ActivationBundle | None:
     """Load a cached activation bundle with optional staleness validation.
 
-    When validation args are provided, stale caches are deleted automatically.
-    If require_cache_v2 is True, old cache formats are treated as stale.
+    When stride or layers are provided, validates that the cached bundle
+    matches the current config.  Stale caches are deleted automatically.
+    When neither is provided, loads unconditionally (backward compat).
     """
-    if base_dir is None or _NOISE_MODE:
+    if base_dir is None:
         return None
     path = cache_path(base_dir, eval_name, example_id)
     if not path.exists():
@@ -416,77 +364,22 @@ def maybe_load_cached_bundle(
     if bundle.activations is None:
         return None
 
-    meta = dict(bundle.metadata or {})
-
-    if require_cache_v2:
-        cached_version = _meta_get(meta, "format_version")
-        if cached_version != CACHE_FORMAT_VERSION:
-            _invalidate_cache(path)
-            return None
-
-    # --- Staleness validation ---
+    # --- Staleness validation (only when caller specifies expected config) ---
     if stride is not None:
-        cached_stride = _meta_get(meta, "stride")
-        if cached_stride is None or str(cached_stride) != str(stride):
-            _invalidate_cache(path)
+        cached_stride = (bundle.metadata or {}).get("stride")
+        if cached_stride is not None and str(cached_stride) != str(stride):
+            path.unlink(missing_ok=True)
+            return None
+        # Old caches without stride metadata are also stale
+        if cached_stride is None:
+            path.unlink(missing_ok=True)
             return None
 
-    normalized_layers = _normalize_layers(layers)
-    if normalized_layers is not None:
-        cached_layers = _meta_get(meta, "layers")
-        if cached_layers is None:
-            _invalidate_cache(path)
-            return None
-        try:
-            cached_layers = [int(x) for x in cached_layers]
-        except Exception:
-            _invalidate_cache(path)
-            return None
-        if cached_layers != normalized_layers:
-            _invalidate_cache(path)
-            return None
+    if layers is not None and len(layers) > 1:
         n_positions = len(bundle.boundary_positions)
-        expected_rows = n_positions * len(normalized_layers)
+        expected_rows = n_positions * len(layers)
         if bundle.activations.shape[0] != expected_rows:
-            _invalidate_cache(path)
-            return None
-
-    if model_name is not None:
-        cached_model_name = _meta_get(meta, "model_name")
-        if cached_model_name != model_name:
-            _invalidate_cache(path)
-            return None
-
-    if placeholder_token is not None:
-        cached_placeholder = _meta_get(meta, "placeholder_token")
-        if cached_placeholder != placeholder_token:
-            _invalidate_cache(path)
-            return None
-
-    if oracle_adapter_name is not None:
-        cached_oracle_adapter = _meta_get(meta, "oracle_adapter_name")
-        if cached_oracle_adapter != oracle_adapter_name:
-            _invalidate_cache(path)
-            return None
-
-    if generation_adapter_name is not None:
-        cached_generation_adapter = _meta_get(meta, "generation_adapter_name")
-        if cached_generation_adapter != generation_adapter_name:
-            _invalidate_cache(path)
-            return None
-
-    if expected_prompt is not None:
-        cached_prompt_sha = _meta_get(meta, "prompt_sha256")
-        expected_prompt_sha = _sha256_text(expected_prompt)
-        if cached_prompt_sha != expected_prompt_sha:
-            _invalidate_cache(path)
-            return None
-
-    if expected_cot is not None:
-        cached_cot_sha = _meta_get(meta, "cot_sha256")
-        expected_cot_sha = _sha256_text(expected_cot)
-        if cached_cot_sha != expected_cot_sha:
-            _invalidate_cache(path)
+            path.unlink(missing_ok=True)
             return None
 
     return bundle
@@ -498,24 +391,18 @@ def save_bundle_with_metadata(
     *,
     stride: int | str | None = None,
     layers: list[int] | None = None,
-    model_name: str | None = None,
-    placeholder_token: str | None = None,
-    oracle_adapter_name: str | None = None,
-    generation_adapter_name: str | None = None,
     clean_response: str | None = None,
     test_response: str | None = None,
     clean_answer: str | None = None,
     test_answer: str | None = None,
-    prompt_for_hash: str | None = None,
-    cot_for_hash: str | None = None,
     extra_metadata: dict | None = None,
     overwrite: bool = False,
 ) -> Path | None:
-    """Save an activation bundle with cache metadata for staleness checks.
+    """Save an activation bundle to the cache directory with stride/layers metadata.
 
     Returns the saved path, or None if nothing was saved.
     """
-    if bundle is None or bundle.activations is None or _NOISE_MODE:
+    if bundle is None or bundle.activations is None:
         return None
     path = cache_path(base_dir, bundle.eval_name, bundle.example_id)
     if path.exists() and not overwrite:
@@ -526,28 +413,10 @@ def save_bundle_with_metadata(
     bundle.clean_answer = clean_answer if clean_answer is not None else bundle.clean_answer
     bundle.test_answer = test_answer if test_answer is not None else bundle.test_answer
     meta = dict(bundle.metadata or {})
-    meta[f"{_CACHE_META_PREFIX}format_version"] = CACHE_FORMAT_VERSION
     if stride is not None:
-        meta[f"{_CACHE_META_PREFIX}stride"] = str(stride)
         meta["stride"] = str(stride)
     if layers is not None:
-        normalized_layers = _normalize_layers(layers)
-        meta[f"{_CACHE_META_PREFIX}layers"] = normalized_layers
-        meta["layers"] = normalized_layers
-    if model_name is not None:
-        meta[f"{_CACHE_META_PREFIX}model_name"] = model_name
-    if placeholder_token is not None:
-        meta[f"{_CACHE_META_PREFIX}placeholder_token"] = placeholder_token
-    if oracle_adapter_name is not None:
-        meta[f"{_CACHE_META_PREFIX}oracle_adapter_name"] = oracle_adapter_name
-    if generation_adapter_name is not None:
-        meta[f"{_CACHE_META_PREFIX}generation_adapter_name"] = generation_adapter_name
-    prompt_sha = _sha256_text(prompt_for_hash if prompt_for_hash is not None else bundle.prompt)
-    cot_sha = _sha256_text(cot_for_hash if cot_for_hash is not None else bundle.cot_text)
-    if prompt_sha is not None:
-        meta[f"{_CACHE_META_PREFIX}prompt_sha256"] = prompt_sha
-    if cot_sha is not None:
-        meta[f"{_CACHE_META_PREFIX}cot_sha256"] = cot_sha
+        meta["layers"] = layers
     if extra_metadata:
         meta.update(extra_metadata)
     bundle.metadata = meta
