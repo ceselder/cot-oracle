@@ -1727,8 +1727,9 @@ def main():
     save_dir = Path(args.save_dir)
 
     # ── Precompute eval activation caches (rank 0 only) ──
+    # Skip in Flamingo mode — evals use steering injection, not cross-attention
     eval_names = getattr(args, "evals", None)
-    if rank == 0 and eval_names:
+    if rank == 0 and eval_names and not args.flamingo:
         from evals.training_eval_hook import precache_eval_activations
         print(f"\n{'=' * 60}")
         print("PRECOMPUTING EVAL ACTIVATIONS")
