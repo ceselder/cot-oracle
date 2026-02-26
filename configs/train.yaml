@@ -20,6 +20,10 @@ tasks:
     n: 10000
     description: "Answer conversational questions about the CoT"
 
+  cotqa:
+    n: 10000
+    description: "Conversational questions about CoTs (from concept corpus, HF)"
+
   compqa:
     n: 8000
     description: "Answer questions about CoT reasoning quality (10 types, Gemini GT)"
@@ -32,16 +36,6 @@ tasks:
   answer_trajectory:
     n: 20000
     description: "What does the model currently think the answer is? (per-sentence, precompute-only)"
-
-  # --- Open-ended QA (articulate understanding of CoT) ---
-  cotqa:
-    n: 10000
-    description: "Conversational questions about CoTs (from concept corpus, HF)"
-
-  compqa:
-    n: 8000
-    description: "Answer questions about CoT reasoning quality (10 types, Gemini GT)"
-
 
   # --- Analytical / classification (computational queries over activations) ---
   correctness:
