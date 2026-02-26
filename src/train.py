@@ -975,7 +975,8 @@ def train(
     model.train()
 
     # Step-0 eval (baseline before any training)
-    if global_step == 0 and rank == 0:
+    skip_step0 = getattr(args, "no_step0_eval", False)
+    if global_step == 0 and rank == 0 and not skip_step0:
         print("\n--- Step 0 eval (pre-training baseline) ---")
         model.eval()
         run_eval(eval_datasets, model, tokenizer, submodule, device, dtype, 0, args.eval_batch_size, args.steering_coefficient, log_dir=log_dir)
