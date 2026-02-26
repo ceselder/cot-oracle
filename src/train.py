@@ -25,6 +25,7 @@ import argparse
 import gc
 import json
 import logging
+import math
 import os
 import random
 import sys
@@ -223,6 +224,196 @@ def materialize_multilayer_steering_vectors(
 
 du_module.materialize_missing_steering_vectors = materialize_multilayer_steering_vectors
 eval_module.materialize_missing_steering_vectors = materialize_multilayer_steering_vectors
+
+
+# ── Flamingo activation extraction ──
+def materialize_flamingo_activations(
+    batch_points: list[TrainingDataPoint],
+    tokenizer,
+    model,
+    max_ctx_tokens: int | None = None,
+) -> tuple[dict[int, torch.Tensor], dict[int, torch.Tensor]]:
+    """Extract supervisee residual stream at each xattn layer position.
+
+    Only extracts layers that have cross-attention (matching the wrapper's
+    xattn_layer_indices), not all layers.
+
+    Returns:
+        kvs: {layer_idx: [B, T_max, D]} padded per-layer activations
+        kv_masks: {layer_idx: [B, T_max]} bool masks (True = real, False = pad)
+    """
+    from nl_probes.utils.activation_utils import get_hf_submodule
+
+    # Unwrap FlamingoOracleWrapper to get PeftModel and xattn indices
+    from flamingo_oracle import FlamingoOracleWrapper
+    if isinstance(model, FlamingoOracleWrapper):
+        peft_model = model.base_model
+        xattn_layers = model.xattn_layer_indices
+    else:
+        peft_model = model
+        xattn_layers = list(range(peft_model.config.num_hidden_layers))
+
+    assert isinstance(peft_model, PeftModel), "Expected PeftModel for activation extraction"
+
+    device = next(peft_model.parameters()).device
+    pad_id = tokenizer.pad_token_id
+
+    # Collect context_input_ids (truncate to max_ctx_tokens if set)
+    contexts = []
+    for dp in batch_points:
+        assert dp.context_input_ids is not None, "context_input_ids required for Flamingo"
+        ctx = list(dp.context_input_ids)
+        if max_ctx_tokens and len(ctx) > max_ctx_tokens:
+            ctx = ctx[-max_ctx_tokens:]
+        contexts.append(ctx)
+
+    # Left-pad contexts to same length
+    max_ctx_len = max(len(c) for c in contexts)
+    input_ids_list = []
+    attn_masks_list = []
+    left_offsets = []
+    for c in contexts:
+        pad_len = max_ctx_len - len(c)
+        input_ids_list.append(torch.tensor([pad_id] * pad_len + c, dtype=torch.long, device=device))
+        attn_masks_list.append(torch.tensor([False] * pad_len + [True] * len(c), dtype=torch.bool, device=device))
+        left_offsets.append(pad_len)
+
+    inputs_BL = {
+        "input_ids": torch.stack(input_ids_list),
+        "attention_mask": torch.stack(attn_masks_list),
+    }
+
+    # Only hook the layers we need (xattn positions)
+    submodules = {layer: get_hf_submodule(peft_model, layer, use_lora=True) for layer in xattn_layers}
+
+    was_training = peft_model.training
+    peft_model.eval()
+    with peft_model.disable_adapter():
+        acts_by_layer = collect_activations_multiple_layers(
+            model=peft_model, submodules=submodules, inputs_BL=inputs_BL,
+            min_offset=None, max_offset=None,
+        )
+    if was_training:
+        peft_model.train()
+
+    B = len(batch_points)
+
+    # Build per-layer padded activations and masks
+    # All items share the same T_max (max_ctx_len after left-padding), but we
+    # strip padding per-item and re-pad to batch max
+    max_real_len = max(len(c) for c in contexts)
+    kvs = {}
+    kv_masks = {}
+
+    for layer in xattn_layers:
+        # acts_by_layer[layer] is [B, max_ctx_len, D] (includes left-padding)
+        layer_acts_list = []
+        layer_mask_list = []
+        for b in range(B):
+            ctx_len = len(contexts[b])
+            offset = left_offsets[b]
+            real_acts = acts_by_layer[layer][b, offset:offset + ctx_len, :]  # [T, D]
+            layer_acts_list.append(real_acts)
+            layer_mask_list.append(torch.ones(ctx_len, dtype=torch.bool, device=device))
+
+        # Pad to max_real_len
+        D = layer_acts_list[0].shape[-1]
+        padded = torch.zeros(B, max_real_len, D, dtype=layer_acts_list[0].dtype, device=device)
+        mask = torch.zeros(B, max_real_len, dtype=torch.bool, device=device)
+        for b in range(B):
+            L = layer_acts_list[b].shape[0]
+            padded[b, :L] = layer_acts_list[b]
+            mask[b, :L] = True
+
+        kvs[layer] = padded.detach()
+        kv_masks[layer] = mask
+
+    return kvs, kv_masks
+
+
+def construct_flamingo_batch(
+    batch_list: list[TrainingDataPoint],
+    supervisee_kvs: dict[int, torch.Tensor],
+    supervisee_kv_masks: dict[int, torch.Tensor],
+    tokenizer,
+    device: torch.device,
+) -> dict:
+    """Construct a batch dict for FlamingoOracleWrapper.forward()."""
+    max_length = max(len(dp.input_ids) for dp in batch_list)
+    pad_id = tokenizer.pad_token_id
+
+    all_input_ids = []
+    all_labels = []
+    all_attn_mask = []
+
+    for dp in batch_list:
+        pad_len = max_length - len(dp.input_ids)
+        all_input_ids.append(torch.tensor([pad_id] * pad_len + dp.input_ids, dtype=torch.long))
+        all_labels.append(torch.tensor([-100] * pad_len + dp.labels, dtype=torch.long))
+        all_attn_mask.append(torch.tensor([False] * pad_len + [True] * len(dp.input_ids), dtype=torch.bool))
+
+    return {
+        "input_ids": torch.stack(all_input_ids).to(device),
+        "attention_mask": torch.stack(all_attn_mask).to(device),
+        "labels": torch.stack(all_labels).to(device),
+        "supervisee_kvs": supervisee_kvs,
+        "supervisee_kv_masks": supervisee_kv_masks,
+    }
+
+
+def construct_chimera_batch(
+    batch_list: list[TrainingDataPoint],
+    tokenizer,
+    device: torch.device,
+    max_ctx_tokens: int | None = None,
+) -> dict:
+    """Construct a chimera batch: [CoT | Oracle] concatenated per item.
+
+    Layout: [cot_left_pad | cot_tokens | oracle_tokens | oracle_right_pad]
+    Split point is always at max_cot_len (fixed for the batch).
+    Labels are -100 for all CoT + padding positions.
+    """
+    pad_id = tokenizer.pad_token_id
+
+    cots = []
+    for dp in batch_list:
+        assert dp.context_input_ids is not None
+        ctx = list(dp.context_input_ids)
+        if max_ctx_tokens and len(ctx) > max_ctx_tokens:
+            ctx = ctx[-max_ctx_tokens:]
+        cots.append(ctx)
+
+    max_cot_len = max(len(c) for c in cots)
+    max_oracle_len = max(len(dp.input_ids) for dp in batch_list)
+
+    all_input_ids = []
+    all_labels = []
+    all_attn_mask = []
+    all_cot_mask = []
+
+    for dp, cot in zip(batch_list, cots):
+        cot_pad = max_cot_len - len(cot)
+        oracle_pad = max_oracle_len - len(dp.input_ids)
+
+        ids = [pad_id] * cot_pad + cot + dp.input_ids + [pad_id] * oracle_pad
+        labs = [-100] * (max_cot_len + len(dp.input_ids)) + [-100] * oracle_pad
+        # Override with actual oracle labels (context_input_ids has no labels)
+        labs[max_cot_len:max_cot_len + len(dp.labels)] = dp.labels
+        mask = [False] * cot_pad + [True] * (len(cot) + len(dp.input_ids)) + [False] * oracle_pad
+        cmask = [False] * cot_pad + [True] * len(cot)
+
+        all_input_ids.append(torch.tensor(ids, dtype=torch.long))
+        all_labels.append(torch.tensor(labs, dtype=torch.long))
+        all_attn_mask.append(torch.tensor(mask, dtype=torch.bool))
+        all_cot_mask.append(torch.tensor(cmask, dtype=torch.bool))
+
+    return {
+        "input_ids": torch.stack(all_input_ids).to(device),
+        "attention_mask": torch.stack(all_attn_mask).to(device),
+        "labels": torch.stack(all_labels).to(device),
+        "cot_len": max_cot_len,
+        "cot_mask": torch.stack(all_cot_mask).to(device),
+    }
 
 
 # ── Data conversion ──
@@ -702,13 +893,17 @@ def train(
 ) -> int:
     """Train on all tasks. Returns the final global_step.
 
-    model: unwrapped PeftModel (for materialization, eval, checkpoint saving)
+    model: unwrapped PeftModel or FlamingoOracleWrapper (for materialization, eval, checkpoint saving)
     ddp_model: DDP-wrapped model (for forward/backward) or same as model if single-GPU
     """
     import wandb
+    from flamingo_oracle import FlamingoOracleWrapper
 
     device = torch.device(f"cuda:{rank}" if world_size > 1 else "cuda")
     dtype = torch.bfloat16
+
+    # For evals, use the underlying PeftModel (evals use steering-based inference)
+    eval_model = model.base_model if isinstance(model, FlamingoOracleWrapper) else model
 
     assert args.effective_batch_size % (args.batch_size * world_size) == 0, \
         f"effective_batch_size ({args.effective_batch_size}) must be divisible by " \
@@ -805,7 +1000,8 @@ def train(
         print(f"  Eval tasks: {', '.join(sorted(eval_datasets.keys()))}")
 
     # Pre-materialize eval steering vectors once (avoids re-extraction every eval call)
-    if rank == 0:
+    # Skip for Flamingo mode — eval uses cross-attention, not steering
+    if rank == 0 and not args.flamingo:
         print(f"\n  Pre-materializing eval steering vectors...")
         mat_start = time.time()
         mat_batch_size = 8
@@ -906,9 +1102,10 @@ def train(
     model.train()
 
     # Step-0 eval (baseline before any training)
+    # Skip all evals in Flamingo mode — evals use steering injection, not cross-attention
     skip_step0 = getattr(args, "no_step0_eval", False)
-    if global_step == 0 and rank == 0 and not skip_step0:
-        _run_unified_eval(model, tokenizer, args.model, 0, args, eval_datasets, log_dir=log_dir)
+    if global_step == 0 and rank == 0 and not skip_step0 and not args.flamingo:
+        _run_unified_eval(eval_model, tokenizer, args.model, 0, args, eval_datasets, log_dir=log_dir)
         model.train()
     if world_size > 1:
         dist.barrier()
@@ -949,25 +1146,34 @@ def train(
 
             batch_types = [dp.datapoint_type for dp in batch_list]
 
-            # Materialize (uses unwrapped model)
-            batch_list = materialize_multilayer_steering_vectors(
-                batch_list, tokenizer, model
-            )
-
-            batch = construct_batch(batch_list, tokenizer, device)
-
-            with torch.autocast(device_type="cuda", dtype=dtype):
-                outputs = train_features_batch(
-                    batch, ddp_model, submodule,
-                    args.steering_coefficient, device, dtype,
+            if args.flamingo:
+                # Chimera: single forward pass with [CoT | Oracle] concatenated
+                batch = construct_chimera_batch(
+                    batch_list, tokenizer, device,
+                    max_ctx_tokens=args.flamingo_max_ctx_tokens,
                 )
-                loss = outputs.loss / grad_accum
-            loss.backward()
+                with torch.autocast(device_type="cuda", dtype=dtype):
+                    outputs = ddp_model(**batch)
+                    loss = outputs.loss / grad_accum
+                loss.backward()
+            else:
+                # Standard steering path
+                batch_list = materialize_multilayer_steering_vectors(
+                    batch_list, tokenizer, model
+                )
+                batch = construct_batch(batch_list, tokenizer, device)
+                with torch.autocast(device_type="cuda", dtype=dtype):
+                    outputs = train_features_batch(
+                        batch, ddp_model, submodule,
+                        args.steering_coefficient, device, dtype,
+                    )
+                    loss = outputs.loss / grad_accum
+                loss.backward()
 
             # Per-task loss (use unscaled loss for logging)
             with torch.no_grad():
                 logits = outputs.logits.detach()
-                labels = batch.labels
+                labels = batch["labels"] if isinstance(batch, dict) else batch.labels
                 shift_logits = logits[:, :-1, :].contiguous()
                 shift_labels = labels[:, 1:].contiguous()
                 per_token_loss = F.cross_entropy(
@@ -1038,6 +1244,16 @@ def train(
                     s_len = max(s_end - s_start, 1)
                     log_dict["train/stage_progress"] = min((global_step - s_start) / s_len, 1.0)
 
+                # Log Flamingo gate values
+                if args.flamingo:
+                    from flamingo_oracle import FlamingoOracleWrapper
+                    wrapper = model.module if isinstance(model, torch.nn.parallel.DistributedDataParallel) else model
+                    if isinstance(wrapper, FlamingoOracleWrapper):
+                        for idx in wrapper.xattn_layer_indices:
+                            gate_val = wrapper.xattn_layers[str(idx)].gate.item()
+                            log_dict[f"flamingo/gate_{idx}"] = gate_val
+                            log_dict[f"flamingo/tanh_gate_{idx}"] = math.tanh(gate_val)
+
                 wandb.log(log_dict, step=global_step)
 
             pbar.set_postfix(loss=f"{accum_loss_sum / grad_accum:.4f}")
@@ -1061,9 +1277,9 @@ def train(
             prev_dominant_task = dominant_task
 
             # Unified eval (task + detection, rank 0 only)
-            if global_step > 0 and global_step % args.eval_steps == 0:
+            if global_step > 0 and global_step % args.eval_steps == 0 and not args.flamingo:
                 if rank == 0:
-                    _, elapsed = _run_unified_eval(model, tokenizer, args.model, global_step, args, eval_datasets, log_dir=log_dir)
+                    _, elapsed = _run_unified_eval(eval_model, tokenizer, args.model, global_step, args, eval_datasets, log_dir=log_dir)
                     eval_time_total += elapsed
                     model.train()
                 if world_size > 1:
@@ -1089,8 +1305,8 @@ def train(
             global_step += 1
 
     # Final eval (rank 0 only)
-    if rank == 0:
-        _run_unified_eval(model, tokenizer, args.model, global_step, args, eval_datasets, log_dir=log_dir)
+    if rank == 0 and not args.flamingo:
+        _run_unified_eval(eval_model, tokenizer, args.model, global_step, args, eval_datasets, log_dir=log_dir)
 
         # Save final
         final_path = save_dir / "final"
@@ -1187,6 +1403,16 @@ def apply_config(args, config: dict):
         if "hint_admission_data_path" in d and not getattr(args, "_cli_hint_admission_data_path", False):
             args.hint_admission_data_path = d["hint_admission_data_path"]
 
+    # Flamingo
+    if "flamingo" in config:
+        f = config["flamingo"]
+        if f.get("enabled") and not getattr(args, "_cli_flamingo", False):
+            args.flamingo = True
+        if "xattn_interval" in f and not getattr(args, "_cli_flamingo_xattn_interval", False):
+            args.flamingo_xattn_interval = int(f["xattn_interval"])
+        if "xattn_lora_r" in f and not getattr(args, "_cli_flamingo_xattn_lora_r", False):
+            args.flamingo_xattn_lora_r = int(f["xattn_lora_r"])
+
     # Model
     if "model" in config:
         m = config["model"]
@@ -1277,6 +1503,16 @@ def main():
     parser.add_argument("--effective-batch-size", type=int, default=32,
                         help="Total effective batch size (invariant to GPU count). "
                              "gradient_accumulation_steps = effective_batch_size / (batch_size * world_size)")
+
+    # Flamingo cross-attention
+    parser.add_argument("--flamingo", action="store_true", default=False,
+                        help="Use Flamingo-style gated cross-attention instead of additive steering")
+    parser.add_argument("--flamingo-xattn-interval", type=int, default=4,
+                        help="Insert cross-attention every N transformer blocks")
+    parser.add_argument("--flamingo-xattn-lora-r", type=int, default=64,
+                        help="LoRA rank for cross-attention projections")
+    parser.add_argument("--flamingo-max-ctx-tokens", type=int, default=2048,
+                        help="Max context tokens for flamingo activation extraction (truncates from left)")
 
     # Eval / save
     parser.add_argument("--eval-steps", type=int, default=2000,
@@ -1435,13 +1671,37 @@ def main():
             is_trainable=True, autocast_adapter_dtype=False,
         )
 
-    # Ensure LoRA params are fp32 (optimizer states stay fp32; autocast handles forward pass)
+    # Flamingo wrapper (after LoRA, before DDP)
+    if args.flamingo:
+        from flamingo_oracle import FlamingoOracleWrapper
+        xattn_lora_r = args.flamingo_xattn_lora_r
+        if rank == 0:
+            print(f"\nWrapping with Flamingo cross-attention (interval={args.flamingo_xattn_interval}, lora_r={xattn_lora_r})")
+        model = FlamingoOracleWrapper(
+            model, base_model.config,
+            xattn_interval=args.flamingo_xattn_interval,
+            lora_r=xattn_lora_r, lora_alpha=xattn_lora_r * 2,
+        )
+
+        # Load Flamingo modules from checkpoint if resuming
+        if args.resume_from:
+            flamingo_path = Path(args.resume_from) / "flamingo_modules.pt"
+            if flamingo_path.exists():
+                model.load_flamingo_modules(str(args.resume_from))
+                if rank == 0:
+                    print(f"  Loaded Flamingo modules from {args.resume_from}")
+
+        if rank == 0:
+            model.print_trainable_parameters()
+
+    # Ensure trainable params are fp32 (optimizer states stay fp32; autocast handles forward pass)
     for p in model.parameters():
         if p.requires_grad:
             p.data = p.data.float()
 
     if rank == 0:
-        model.print_trainable_parameters()
+        if not args.flamingo:
+            model.print_trainable_parameters()
 
     # DDP wrapping
     if world_size > 1:
@@ -1520,20 +1780,23 @@ def main():
     save_dir = Path(args.save_dir)
 
     # ── Precompute eval activation caches (rank 0 only) ──
+    # Skip in Flamingo mode — evals use steering injection, not cross-attention
     eval_names = getattr(args, "evals", None)
-    if rank == 0 and eval_names:
+    if rank == 0 and eval_names and not args.flamingo:
         from evals.training_eval_hook import precache_eval_activations
         print(f"\n{'=' * 60}")
         print("PRECOMPUTING EVAL ACTIVATIONS")
         print(f"{'=' * 60}")
+        # For Flamingo mode, use the underlying PeftModel for eval caching
+        eval_model = model.base_model if args.flamingo else model
         precache_eval_activations(
-            model, tokenizer, model_name=args.model,
+            eval_model, tokenizer, model_name=args.model,
             device=f"cuda:{local_rank}", eval_dir=args.eval_dir,
             activation_cache_dir=args.activation_cache_dir,
             eval_names=eval_names,
             stride=args.stride,
         )
-        model.train()
+        eval_model.train()
         gc.collect()
         torch.cuda.empty_cache()
     if world_size > 1:
