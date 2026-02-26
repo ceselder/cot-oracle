@@ -1088,7 +1088,9 @@ def train(
         wandb.config.update({"task_index_legend": task_to_idx}, allow_val_change=True)
 
     save_dir.mkdir(parents=True, exist_ok=True)
-    log_dir = save_dir / "eval_logs"
+    _run_name = wandb.run.name if wandb.run else (args.wandb_run or "cot-oracle")
+    log_dir = Path("eval_logs") / _run_name
+    log_dir.mkdir(parents=True, exist_ok=True)
 
     if rank == 0:
         print(f"\n  LR: {args.lr}")
