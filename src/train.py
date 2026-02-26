@@ -271,6 +271,10 @@ def materialize_multilayer_steering_vectors(
 
         dp_new = dp.model_copy(deep=True)
         dp_new.steering_vectors = vectors
+        # Trim positions to match actual pooled vector count (short CoTs may
+        # produce fewer chunks than the prompt expected)
+        if vectors.shape[0] != len(dp_new.positions):
+            dp_new.positions = dp_new.positions[:vectors.shape[0]]
         new_batch[idx] = dp_new
 
     return new_batch
