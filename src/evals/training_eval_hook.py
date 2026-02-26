@@ -78,7 +78,8 @@ from cot_utils import get_injection_layers
 # Evals to run during training, in order of cost (cheapest first).
 # This is the fallback if config doesn't specify eval.unfaith_evals.
 TRAINING_EVALS = [
-    "hinted_mcq_truthfulqa",
+    "hinted_mcq_truthfulqa_verbalized",
+    "hinted_mcq_truthfulqa_unverbalized",
     "sycophancy_v2_riya",
     "sentence_insertion",
     "reasoning_termination_riya",
@@ -88,6 +89,44 @@ TRAINING_EVALS = [
     "cot_hint_admission",
     "rot13_reconstruction",
 ]
+
+# Fallback generators for evals that use native HF parquet (not JSON) format.
+# When load_eval_items_hf fails, these are used instead.
+_EVAL_GENERATORS = {}
+
+def _register_eval_generator(name, module_path, func_name):
+    """Lazy-register an eval generator to avoid import overhead."""
+    _EVAL_GENERATORS[name] = (module_path, func_name)
+
+_register_eval_generator(
+    "hinted_mcq_truthfulqa_verbalized",
+    "evals.datasets.hinted_mcq_truthfulqa_verbalized",
+    "generate_hinted_mcq_truthfulqa_verbalized_dataset",
+)
+_register_eval_generator(
+    "hinted_mcq_truthfulqa_unverbalized",
+    "evals.datasets.hinted_mcq_truthfulqa_unverbalized",
+    "generate_hinted_mcq_truthfulqa_unverbalized_dataset",
+)
+_register_eval_generator(
+    "cot_hint_admission",
+    "evals.datasets.hint_admission",
+    "generate_hint_admission_dataset",
+)
+
+
+def _load_eval_items(eval_name: str, eval_dir=None) -> list[EvalItem]:
+    """Load eval items: try HF JSON first, fall back to registered generator."""
+    try:
+        return load_eval_items_hf(eval_name, eval_dir=eval_dir)
+    except (FileNotFoundError, Exception):
+        pass
+    if eval_name in _EVAL_GENERATORS:
+        mod_path, func_name = _EVAL_GENERATORS[eval_name]
+        import importlib
+        mod = importlib.import_module(mod_path)
+        return getattr(mod, func_name)()
+    raise FileNotFoundError(f"No loader found for eval: {eval_name}")
 
 ROT13_ADAPTER_HF = "ceselder/rot13-qwen3-8b-lora"
 ROT13_ADAPTER_NAME = "rot13"
@@ -1269,7 +1308,7 @@ def precache_eval_activations(
 
     total_cached, total_new, total_stale = 0, 0, 0
     for eval_name in eval_list:
-        items = load_eval_items_hf(eval_name, eval_dir=eval_dir)
+        items = _load_eval_items(eval_name, eval_dir=eval_dir)
 
         # Find uncached items (stale caches auto-invalidated by stride/layer mismatch)
         uncached = []
@@ -1415,7 +1454,7 @@ def run_training_evals(
         print(f"  [training_eval] Running {eval_name}...")
 
         try:
-            items = load_eval_items_hf(eval_name, eval_dir=eval_dir)
+            items = _load_eval_items(eval_name, eval_dir=eval_dir)
             items = _subsample(items, max_items_per_eval, seed=hash(eval_name))  # fixed seed: same items every step
 
             # Dispatch to appropriate handler

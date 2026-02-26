@@ -96,7 +96,8 @@ eval:
   # All evals to run during training (pulled from HF)
   # Entries can be plain strings or dicts with baselines for wandb reference lines
   unfaith_evals:
-    - hinted_mcq_truthfulqa
+    - hinted_mcq_truthfulqa_verbalized
+    - hinted_mcq_truthfulqa_unverbalized
     - sycophancy_v2_riya
     - sentence_insertion
     - reasoning_termination_riya
