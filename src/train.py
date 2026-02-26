@@ -1010,6 +1010,7 @@ def train(
         accum_loss_sum = 0.0
         accum_batch_types = []
         accum_batch_tokens = 0
+        accum_context_lengths = []
 
         for start in pbar:
             batch_list = final_training[start : start + args.batch_size]
@@ -1054,6 +1055,7 @@ def train(
             accum_loss_sum += outputs.loss.item()
             accum_batch_types.extend(batch_types)
             accum_batch_tokens += batch_tokens
+            accum_context_lengths.extend(len(dp.context_input_ids) for dp in batch_list if dp.context_input_ids is not None)
 
             micro_step += 1
             if micro_step % grad_accum != 0:
@@ -1081,6 +1083,7 @@ def train(
                     "train/learning_rate": scheduler.get_last_lr()[0],
                     "train/total_tokens": total_tokens,
                     "train/batch_tokens": accum_batch_tokens,
+                    "train/avg_context_length": sum(accum_context_lengths) / len(accum_context_lengths) if accum_context_lengths else 0,
                     "train/step_time": now - last_step_time,
                     "train/wallclock_hours": (now - train_start_time - eval_time_total) / 3600,
                     "eval/wallclock_hours": eval_time_total / 3600,
@@ -1170,6 +1173,7 @@ def train(
             accum_loss_sum = 0.0
             accum_batch_types = []
             accum_batch_tokens = 0
+            accum_context_lengths = []
 
             global_step += 1
 
