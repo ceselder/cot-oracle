@@ -80,12 +80,6 @@ training:
   task_order: shuffled    # "shuffled" (default) or "sequential" (train tasks one at a time)
   seed: 42
 
-# Flamingo cross-attention (alternative to steering injection)
-flamingo:
-  enabled: false
-  xattn_interval: 4       # cross-attention every N transformer blocks (9 layers for Qwen3-8B)
-  xattn_lora_r: 64        # LoRA rank for cross-attention projections
-
 # Activation extraction
 activations:
   stride: 5
