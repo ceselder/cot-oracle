@@ -1,0 +1,27 @@
+{
+  "metrics": {
+    "accuracy": 0.5,
+    "n_items": 56,
+    "labels": [
+      "decorative",
+      "load_bearing"
+    ],
+    "precision": {
+      "decorative": 0.0,
+      "load_bearing": 0.5
+    },
+    "recall": {
+      "decorative": 0.0,
+      "load_bearing": 1.0
+    },
+    "f1": {
+      "decorative": 0.0,
+      "load_bearing": 0.6666666666666666
+    },
+    "support": {
+      "decorative": 28,
+      "load_bearing": 28
+    }
+  },
+  "n_items": 56
+}

@@ -1,0 +1,27 @@
+{
+  "metrics": {
+    "accuracy": 0.56,
+    "n_items": 100,
+    "labels": [
+      "majority",
+      "minority"
+    ],
+    "precision": {
+      "majority": 0.5833333333333334,
+      "minority": 0.546875
+    },
+    "recall": {
+      "majority": 0.42,
+      "minority": 0.7
+    },
+    "f1": {
+      "majority": 0.4883720930232558,
+      "minority": 0.6140350877192983
+    },
+    "support": {
+      "majority": 50,
+      "minority": 50
+    }
+  },
+  "n_items": 100
+}
