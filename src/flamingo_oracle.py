@@ -87,11 +87,11 @@ class GatedCrossAttentionLayer(nn.Module):
 
         sa = source_layer.self_attn
 
-        # Q/K/V/O as frozen base + LoRA
-        self.q_proj = LoRALinear(sa.q_proj, r=lora_r, lora_alpha=lora_alpha)
-        self.k_proj = LoRALinear(sa.k_proj, r=lora_r, lora_alpha=lora_alpha)
-        self.v_proj = LoRALinear(sa.v_proj, r=lora_r, lora_alpha=lora_alpha)
-        self.o_proj = LoRALinear(sa.o_proj, r=lora_r, lora_alpha=lora_alpha)
+        # Q/K/V/O as frozen base + LoRA (no dropout — KV can be 36*T tokens long)
+        self.q_proj = LoRALinear(sa.q_proj, r=lora_r, lora_alpha=lora_alpha, lora_dropout=0.0)
+        self.k_proj = LoRALinear(sa.k_proj, r=lora_r, lora_alpha=lora_alpha, lora_dropout=0.0)
+        self.v_proj = LoRALinear(sa.v_proj, r=lora_r, lora_alpha=lora_alpha, lora_dropout=0.0)
+        self.o_proj = LoRALinear(sa.o_proj, r=lora_r, lora_alpha=lora_alpha, lora_dropout=0.0)
 
         # Copy QK norms (trainable, small)
         self.q_norm = deepcopy(sa.q_norm)
@@ -139,9 +139,9 @@ class GatedCrossAttentionLayer(nn.Module):
             v = v.unsqueeze(2).expand(-1, -1, self.num_kv_groups, -1, -1).reshape(B, self.num_heads, L_kv, self.head_dim)
 
         # Build attention mask for SDPA: [B, 1, L_q, L_kv]
+        # Pass None when all-True to enable flash attention (explicit mask forces fallback)
         attn_mask = None
-        if kv_attention_mask is not None:
-            # kv_attention_mask: [B, L_kv] bool, True=attend
+        if kv_attention_mask is not None and not kv_attention_mask.all():
             attn_mask = kv_attention_mask[:, None, None, :].expand(-1, -1, L_q, -1)
 
         # Scaled dot-product attention (flash/memory-efficient via SDPA)
