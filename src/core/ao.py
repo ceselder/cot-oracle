@@ -250,8 +250,11 @@ def collect_activations_at_positions(
     if was_training:
         model.train()
 
-    acts = acts_BLD[0, positions, :].detach()  # [K, D]
-    acts = _pool_vectors(acts, pooling)
+    if pooling == "windows":
+        acts = _mean_pool_windows(acts_BLD[0], positions).detach()
+    else:
+        acts = acts_BLD[0, positions, :].detach()  # [K, D]
+        acts = _pool_vectors(acts, pooling)
     if position_encoding:
         from position_encoding import apply_position_encoding
         total_length = inputs["input_ids"].shape[1]
@@ -259,8 +262,19 @@ def collect_activations_at_positions(
     return acts
 
 
+def _mean_pool_windows(acts_LD: torch.Tensor, positions: list[int]) -> torch.Tensor:
+    """Mean-pool activation windows between consecutive stride positions."""
+    pooled = []
+    prev = 0
+    for p in positions:
+        window = acts_LD[prev:p + 1, :]
+        pooled.append(window.mean(dim=0))
+        prev = p + 1
+    return torch.stack(pooled, dim=0)
+
+
 def _pool_vectors(vectors: torch.Tensor, mode: str) -> torch.Tensor:
-    """Pool activation vectors: none, single (→1), chunks5 (→5)."""
+    """Pool activation vectors: none, single (->1), chunks5 (->5)."""
     if mode == "single":
         return vectors.mean(dim=0, keepdim=True)
     elif mode == "chunks5":

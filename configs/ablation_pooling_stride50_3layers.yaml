@@ -1,0 +1,15 @@
+# Ablation: mean-pooled activation windows, stride 50, 3 layers
+# Mean-pools all activations in windows between consecutive stride positions.
+
+activations:
+  stride: 50
+  n_layers: 3
+  pooling: windows
+
+training:
+  batch_size: 4
+  effective_batch_size: 16
+  eval_batch_size: 2
+
+output:
+  wandb_run: ablation-pooling-stride50-3layers

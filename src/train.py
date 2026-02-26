@@ -98,7 +98,7 @@ du_module.get_introspection_prefix = _patched_get_prefix
 
 # ── Position encoding config (module-level, set by main()) ──
 _PE_CONFIG = {"enabled": False, "alpha": 0.1}
-# Pooling mode: "none", "single" (1 vec/layer), "chunks5" (5 vecs/layer)
+# Pooling mode: "none", "windows" (mean-pool token windows), "single", "chunks5"
 _POOLING_MODE = "none"
 
 
@@ -119,6 +119,22 @@ def _pool_vectors(vectors: torch.Tensor, mode: str) -> torch.Tensor:
         chunks = torch.chunk(vectors, n, dim=0)
         return torch.stack([c.mean(dim=0) for c in chunks])  # [n, D]
     return vectors
+
+
+def _mean_pool_windows(acts_LD: torch.Tensor, positions: list[int]) -> torch.Tensor:
+    """Mean-pool activation windows between consecutive stride positions.
+
+    Instead of point-sampling at each position, mean-pools all tokens in the
+    window (prev_p+1 .. p] for each stride position. Output has same count K
+    as input positions.
+    """
+    pooled = []
+    prev = 0
+    for p in positions:
+        window = acts_LD[prev:p + 1, :]  # [window_size, D]
+        pooled.append(window.mean(dim=0))
+        prev = p + 1
+    return torch.stack(pooled, dim=0)  # [K, D]
 
 
 def _pooled_count_per_layer(K: int, mode: str) -> int:
@@ -235,8 +251,12 @@ def materialize_multilayer_steering_vectors(
                 raise IndexError(
                     f"Activation index out of range for item {b}: {adjusted} with L={L}"
                 )
-            layer_vecs = acts_BLD[b, adjusted, :]  # [K, D]
-            vectors_parts.append(_pool_vectors(layer_vecs, _POOLING_MODE))
+            if _POOLING_MODE == "windows":
+                layer_vecs = _mean_pool_windows(acts_BLD[b], adjusted)
+            else:
+                layer_vecs = acts_BLD[b, adjusted, :]  # [K, D]
+                layer_vecs = _pool_vectors(layer_vecs, _POOLING_MODE)
+            vectors_parts.append(layer_vecs)
 
         vectors = torch.cat(vectors_parts, dim=0).detach().contiguous()
 
@@ -1433,8 +1453,8 @@ def main():
     parser.add_argument("--no-step0-eval", action="store_true", default=False,
                         help="Skip evals at step 0 (for quick ablation launches)")
     parser.add_argument("--pooling-mode", type=str, default="none",
-                        choices=["none", "single", "chunks5"],
-                        help="Activation pooling: none, single (1/layer), chunks5 (5/layer)")
+                        choices=["none", "windows", "single", "chunks5"],
+                        help="Activation pooling: none, windows (mean-pool token windows), single (1/layer), chunks5 (5/layer)")
     parser.add_argument("--rot13-start-step", type=int, default=2000)
     parser.add_argument("--start-step", type=int, default=None,
                         help="Starting global step (for resuming; 0 = restart data from beginning)")
