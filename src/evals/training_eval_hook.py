@@ -1021,6 +1021,20 @@ def _run_rot13_eval(
     return completed
 
 
+def _word_token_f1(prediction: str, reference: str) -> float:
+    """Word-level F1 between prediction and reference (used for task evals)."""
+    pred_tokens = set(prediction.lower().split())
+    ref_tokens = set(reference.lower().split())
+    if not pred_tokens or not ref_tokens:
+        return 0.0
+    common = pred_tokens & ref_tokens
+    if not common:
+        return 0.0
+    precision = len(common) / len(pred_tokens)
+    recall = len(common) / len(ref_tokens)
+    return 2 * precision * recall / (precision + recall)
+
+
 def _token_f1(tokenizer, reference: str, predicted: str) -> float:
     """Token-level F1 between reference and predicted texts."""
     from collections import Counter
@@ -1362,6 +1376,7 @@ def run_training_evals(
     log_dir: Path | str | None = None,
     eval_batch_size: int = 8,
     stride: int | str = None,
+    task_eval_datasets: dict[str, list] | None = None,
 ) -> dict[str, Any]:
     """Run evals and return results dict for wandb logging.
 
@@ -1380,6 +1395,9 @@ def run_training_evals(
         log_dir: Path to directory for disk logging of eval tables.
         eval_batch_size: Mini-batch size for batched oracle generation.
         stride: Position extraction stride (int for fixed, "punctuation" for punctuation).
+        task_eval_datasets: dict of task_name -> list[TrainingDataPoint] with pre-materialized
+            steering_vectors. If provided, runs task-level generation evals (token F1) before
+            detection evals.
 
     Returns:
         Flat dict of metrics suitable for wandb.log().
@@ -1405,6 +1423,70 @@ def run_training_evals(
     cache_dir = Path(activation_cache_dir) if activation_cache_dir else None
     if cache_dir:
         print(f"  [training_eval] Activation cache dir: {cache_dir} (auto-populates on first run)")
+
+    # ── Task-level evals (generation + token F1) ──
+    if task_eval_datasets:
+        import wandb
+        print(f"  [training_eval] Running {len(task_eval_datasets)} task evals...")
+        task_scores = {}
+        for ds_name, dp_list in task_eval_datasets.items():
+            # Build extracted dicts for _collect_and_batch_oracle
+            extracted = []
+            for dp in dp_list:
+                if dp.steering_vectors is None:
+                    continue
+                oracle_prompt = dp.meta_info.get("prompt", "")
+                extracted.append({
+                    "activations": dp.steering_vectors,
+                    "oracle_prompt": oracle_prompt,
+                    "oracle_response": "",
+                    "target": dp.target_output,
+                    "datapoint_type": dp.datapoint_type,
+                })
+
+            if not extracted:
+                continue
+
+            _collect_and_batch_oracle(
+                extracted, model, tokenizer, model_name, device,
+                eval_name=ds_name, eval_batch_size=eval_batch_size,
+            )
+
+            # Score with word-level token F1
+            scores = []
+            columns = ["id", "type", "oracle_prompt", "prediction", "target", "token_f1", "pred_tokens", "target_tokens"]
+            table = wandb.Table(columns=columns)
+            rows = []
+            for i, ex in enumerate(extracted):
+                pred = ex["oracle_response"].strip()
+                target = ex["target"].strip()
+                score = _word_token_f1(pred, target)
+                scores.append(score)
+                row = [i, ex["datapoint_type"], ex["oracle_prompt"][:300], pred[:500], target[:500], round(score, 3), len(pred.split()), len(target.split())]
+                table.add_data(*row)
+                rows.append(row)
+
+            avg_score = sum(scores) / len(scores)
+            all_metrics[f"eval/{ds_name}"] = avg_score
+            all_metrics[f"eval_n/{ds_name}"] = len(scores)
+            print(f"    {ds_name}: token_f1={avg_score:.3f} (n={len(scores)})")
+
+            if extracted:
+                print(f"      pred='{extracted[0]['oracle_response'].strip()[:120]}'")
+                print(f"      targ='{extracted[0]['target'].strip()[:120]}'")
+
+            all_metrics[f"eval_table/{ds_name}"] = table
+            if _log_dir and rows:
+                _save_table_to_disk(_log_dir, f"eval_table_{ds_name}", step, columns, rows)
+            task_scores[ds_name] = avg_score
+
+        if task_scores:
+            eval_mean = sum(task_scores.values()) / len(task_scores)
+            all_metrics["eval/mean"] = eval_mean
+            print(f"    eval_mean={eval_mean:.3f}")
+
+        torch.cuda.empty_cache()
+        gc.collect()
 
     eval_list = eval_names if eval_names is not None else TRAINING_EVALS
     evals_to_run = [e for e in eval_list if not (skip_rot13 and e == "rot13_reconstruction")]

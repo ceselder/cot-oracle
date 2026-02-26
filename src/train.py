@@ -64,7 +64,6 @@ from nl_probes.utils.dataset_utils import (
     construct_batch,
     create_training_datapoint,
 )
-from nl_probes.utils.eval import run_evaluation
 from nl_probes.utils.steering_hooks import add_hook, get_hf_activation_steering_hook
 from nl_probes.utils.activation_utils import (
     collect_activations_multiple_layers,
@@ -267,6 +266,7 @@ def dicts_to_training_data(
             feature_idx=-1,
             context_input_ids=item["context_input_ids"],
             context_positions=ctx_pos,
+            meta_info={"prompt": item["prompt"]},
         )
         training_data.append(dp)
 
@@ -594,28 +594,6 @@ def train_features_batch(training_batch, model, submodule, steering_coefficient,
     return outputs
 
 
-def _token_f1(prediction: str, reference: str) -> float:
-    pred_tokens = set(prediction.lower().split())
-    ref_tokens = set(reference.lower().split())
-    if not pred_tokens or not ref_tokens:
-        return 0.0
-    common = pred_tokens & ref_tokens
-    if not common:
-        return 0.0
-    precision = len(common) / len(pred_tokens)
-    recall = len(common) / len(ref_tokens)
-    return 2 * precision * recall / (precision + recall)
-
-
-def _save_table_to_disk(log_dir: Path, name: str, global_step: int, columns: list[str], rows: list[list]):
-    """Save a wandb-style table to disk as nicely formatted JSON."""
-    log_dir.mkdir(parents=True, exist_ok=True)
-    records = [dict(zip(columns, row)) for row in rows]
-    path = log_dir / f"{name}_step{global_step}.json"
-    with open(path, "w") as f:
-        json.dump({"step": global_step, "name": name, "n": len(records), "rows": records}, f, indent=2, default=str)
-
-
 def _save_training_state(save_path: Path, global_step, optimizer, scheduler):
     """Save optimizer/scheduler/RNG state for resume."""
     import wandb
@@ -630,73 +608,6 @@ def _save_training_state(save_path: Path, global_step, optimizer, scheduler):
         "wandb_run_name": wandb.run.name if wandb.run else None,
     }
     torch.save(state, save_path / "training_state.pt")
-
-
-def run_eval(
-    eval_datasets, model, tokenizer, submodule, device, dtype,
-    global_step, eval_batch_size, steering_coefficient, log_dir=None,
-):
-    """Run fuzzy eval with token F1 scoring + wandb table logging."""
-    import wandb
-
-    torch.cuda.empty_cache()
-    gc.collect()
-
-    model.eval()
-    gen_kwargs = {"do_sample": False, "max_new_tokens": 100}
-    all_scores = {}
-
-    for ds in eval_datasets:
-        eval_responses = run_evaluation(
-            eval_data=eval_datasets[ds],
-            model=model,
-            tokenizer=tokenizer,
-            submodule=submodule,
-            device=device,
-            dtype=dtype,
-            global_step=global_step,
-            lora_path=None,
-            eval_batch_size=eval_batch_size,
-            steering_coefficient=steering_coefficient,
-            generation_kwargs=gen_kwargs,
-        )
-
-        scores = []
-        columns = ["id", "type", "oracle_prompt", "prediction", "target", "token_f1", "pred_tokens", "target_tokens"]
-        table = wandb.Table(columns=columns)
-        rows = []
-
-        for i, (resp, dp) in enumerate(zip(eval_responses, eval_datasets[ds])):
-            pred = resp.api_response.strip()
-            target = dp.target_output.strip()
-            score = _token_f1(pred, target)
-            scores.append(score)
-            oracle_prompt = getattr(resp, 'prompt', '') or getattr(dp, 'prompt', '') or str(dp.meta_info.get('prompt', ''))[:300]
-            row = [i, dp.datapoint_type, oracle_prompt[:300], pred[:500], target[:500], round(score, 3), len(pred.split()), len(target.split())]
-            table.add_data(*row)
-            rows.append(row)
-
-        avg_score = sum(scores) / len(scores) if scores else 0.0
-        wandb.log({f"eval/{ds}": avg_score, f"eval_n/{ds}": len(scores)}, step=global_step)
-        print(f"  Step {global_step} | {ds}: token_f1={avg_score:.3f} (n={len(scores)})")
-
-        if eval_responses:
-            print(f"    pred='{eval_responses[0].api_response.strip()[:120]}'")
-            print(f"    targ='{eval_datasets[ds][0].target_output.strip()[:120]}'")
-
-        wandb.log({f"eval_table/{ds}": table}, step=global_step)
-        if log_dir and rows:
-            _save_table_to_disk(Path(log_dir), f"eval_table_{ds}", global_step, columns, rows)
-
-        all_scores[ds] = avg_score
-
-    if all_scores:
-        eval_mean = sum(all_scores.values()) / len(all_scores)
-        wandb.log({"eval/mean": eval_mean}, step=global_step)
-        print(f"  Step {global_step} | eval_mean={eval_mean:.3f}")
-
-    model.train()
-    torch.cuda.empty_cache()
 
 
 def _load_gemini_baselines(path: str = "logs/llm_monitor/results.json") -> dict[str, float]:
@@ -717,13 +628,15 @@ def _load_gemini_baselines(path: str = "logs/llm_monitor/results.json") -> dict[
 
 _GEMINI_BASELINES: dict[str, tuple[str, float]] | None = None
 
-def run_evals(model, tokenizer, model_name, global_step, args, log_dir=None):
-    """Run evals if available."""
+
+def _run_unified_eval(model, tokenizer, model_name, global_step, args, eval_datasets, log_dir=None):
+    """Run all evals (task + detection) in a single call."""
     global _GEMINI_BASELINES
     from evals.training_eval_hook import run_training_evals
     import wandb
 
     print(f"\n--- Evals at step {global_step} ---")
+    eval_start = time.time()
     metrics = run_training_evals(
         model, tokenizer, model_name=model_name,
         step=global_step, device="cuda",
@@ -735,7 +648,10 @@ def run_evals(model, tokenizer, model_name, global_step, args, log_dir=None):
         log_dir=log_dir,
         eval_names=getattr(args, "evals", None),
         stride=args.stride,
+        eval_batch_size=args.eval_batch_size,
+        task_eval_datasets=eval_datasets,
     )
+    elapsed = time.time() - eval_start
     if metrics:
         wandb.log(metrics, step=global_step)
         # Print oracle vs Gemini baseline comparison table
@@ -767,7 +683,8 @@ def run_evals(model, tokenizer, model_name, global_step, args, log_dir=None):
                     gem_mean = sum(gem_accs) / len(gem_accs)
                     print(f"  {'MEAN':<30s} {'acc':<10s} {mean_acc:>8.3f} {gem_mean:>8.3f} {mean_acc - gem_mean:>+8.3f}")
             print()
-    return metrics
+    print(f"  Eval took {elapsed:.1f}s")
+    return metrics, elapsed
 
 
 # ── Main training loop ──
@@ -887,6 +804,21 @@ def train(
         print(f"  Training: {len(final_training)}, Eval: {sum(len(v) for v in eval_datasets.values())}")
         print(f"  Eval tasks: {', '.join(sorted(eval_datasets.keys()))}")
 
+    # Pre-materialize eval steering vectors once (avoids re-extraction every eval call)
+    if rank == 0:
+        print(f"\n  Pre-materializing eval steering vectors...")
+        mat_start = time.time()
+        mat_batch_size = 8
+        all_eval_items = [dp for dps in eval_datasets.values() for dp in dps]
+        for i in range(0, len(all_eval_items), mat_batch_size):
+            batch = all_eval_items[i : i + mat_batch_size]
+            materialized = materialize_multilayer_steering_vectors(batch, tokenizer, model)
+            for orig, mat in zip(batch, materialized):
+                orig.steering_vectors = mat.steering_vectors
+        print(f"  Pre-materialized {len(all_eval_items)} eval items in {time.time() - mat_start:.1f}s")
+    if world_size > 1:
+        dist.barrier()
+
     # Optimizer + scheduler
     num_batches = len(final_training) // args.batch_size
     total_steps = (num_batches // grad_accum) * args.epochs
@@ -903,7 +835,7 @@ def train(
 
     # Dynamic eval/save cadence: ~10 evals over the relevant span
     if task_order == "sequential":
-        reference_steps = min(len(items) // (args.batch_size * grad_accum) for items in train_per_type.values() if len(items) >= args.batch_size)
+        reference_steps = max(len(items) // (args.batch_size * grad_accum) for items in train_per_type.values() if len(items) >= args.batch_size)
     else:
         reference_steps = total_steps
     args.eval_steps = max(-(-reference_steps // 10), 1)
@@ -976,10 +908,7 @@ def train(
     # Step-0 eval (baseline before any training)
     skip_step0 = getattr(args, "no_step0_eval", False)
     if global_step == 0 and rank == 0 and not skip_step0:
-        print("\n--- Step 0 eval (pre-training baseline) ---")
-        model.eval()
-        run_eval(eval_datasets, model, tokenizer, submodule, device, dtype, 0, args.eval_batch_size, args.steering_coefficient, log_dir=log_dir)
-        run_evals(model, tokenizer, args.model, 0, args, log_dir=log_dir)
+        _run_unified_eval(model, tokenizer, args.model, 0, args, eval_datasets, log_dir=log_dir)
         model.train()
     if world_size > 1:
         dist.barrier()
@@ -1130,32 +1059,12 @@ def train(
                 dist.barrier()
             prev_dominant_task = dominant_task
 
-            # Task-level eval (rank 0 only, step 0 handled by pre-loop baseline eval)
+            # Unified eval (task + detection, rank 0 only)
             if global_step > 0 and global_step % args.eval_steps == 0:
                 if rank == 0:
-                    print(f"\n--- Task eval at step {global_step} ---")
-                    eval_start = time.time()
-                    run_eval(
-                        eval_datasets, model, tokenizer, submodule,
-                        device, dtype, global_step, args.eval_batch_size,
-                        args.steering_coefficient, log_dir=log_dir,
-                    )
-                    eval_time_total += time.time() - eval_start
+                    _, elapsed = _run_unified_eval(model, tokenizer, args.model, global_step, args, eval_datasets, log_dir=log_dir)
+                    eval_time_total += elapsed
                     model.train()
-                if world_size > 1:
-                    dist.barrier()
-
-            # Detection eval (rank 0 only)
-            if global_step > 0 and global_step % args.eval_steps == 0:
-                if rank == 0:
-                    gc.collect()
-                    torch.cuda.empty_cache()
-                    eval_start = time.time()
-                    run_evals(model, tokenizer, args.model, global_step, args, log_dir=log_dir)
-                    eval_time_total += time.time() - eval_start
-                    model.train()
-                    gc.collect()
-                    torch.cuda.empty_cache()
                 if world_size > 1:
                     dist.barrier()
 
@@ -1180,14 +1089,7 @@ def train(
 
     # Final eval (rank 0 only)
     if rank == 0:
-        print(f"\n--- Final eval at step {global_step} ---")
-        run_eval(
-            eval_datasets, model, tokenizer, submodule,
-            device, dtype, global_step, args.eval_batch_size,
-            args.steering_coefficient, log_dir=log_dir,
-        )
-
-        run_evals(model, tokenizer, args.model, global_step, args, log_dir=log_dir)
+        _run_unified_eval(model, tokenizer, args.model, global_step, args, eval_datasets, log_dir=log_dir)
 
         # Save final
         final_path = save_dir / "final"
