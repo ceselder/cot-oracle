@@ -21,7 +21,7 @@ tasks:
     description: "Predict final answer from partial CoT"
 
   answer_trajectory:
-    n: 20000
+    n: 40000
     description: "What does the model currently think the answer is? (per-sentence, precompute-only)"
 
   # --- Open-ended QA (articulate understanding of CoT) ---
