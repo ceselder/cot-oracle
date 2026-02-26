@@ -232,36 +232,39 @@ def materialize_flamingo_activations(
     tokenizer,
     model,
     max_ctx_tokens: int | None = None,
-) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-    """Extract full residual stream from ALL layers at ALL CoT positions.
+) -> tuple[dict[int, torch.Tensor], dict[int, torch.Tensor]]:
+    """Extract supervisee residual stream at each xattn layer position.
+
+    Only extracts layers that have cross-attention (matching the wrapper's
+    xattn_layer_indices), not all layers.
 
     Returns:
-        activations: [B, n_layers*T_max, D] padded supervisee activations
-        layer_ids: [B, n_layers*T_max] layer index for each position
-        attention_mask: [B, n_layers*T_max] bool mask (True = real, False = pad)
+        kvs: {layer_idx: [B, T_max, D]} padded per-layer activations
+        kv_masks: {layer_idx: [B, T_max]} bool masks (True = real, False = pad)
     """
     from nl_probes.utils.activation_utils import get_hf_submodule
 
-    # Unwrap FlamingoOracleWrapper to get PeftModel
+    # Unwrap FlamingoOracleWrapper to get PeftModel and xattn indices
     from flamingo_oracle import FlamingoOracleWrapper
     if isinstance(model, FlamingoOracleWrapper):
         peft_model = model.base_model
+        xattn_layers = model.xattn_layer_indices
     else:
         peft_model = model
+        xattn_layers = list(range(peft_model.config.num_hidden_layers))
 
     assert isinstance(peft_model, PeftModel), "Expected PeftModel for activation extraction"
 
-    n_layers = peft_model.config.num_hidden_layers
     device = next(peft_model.parameters()).device
     pad_id = tokenizer.pad_token_id
 
-    # Collect context_input_ids for each item (truncate to max_ctx_tokens if set)
+    # Collect context_input_ids (truncate to max_ctx_tokens if set)
     contexts = []
     for dp in batch_points:
         assert dp.context_input_ids is not None, "context_input_ids required for Flamingo"
         ctx = list(dp.context_input_ids)
         if max_ctx_tokens and len(ctx) > max_ctx_tokens:
-            ctx = ctx[-max_ctx_tokens:]  # keep last N tokens (most relevant)
+            ctx = ctx[-max_ctx_tokens:]
         contexts.append(ctx)
 
     # Left-pad contexts to same length
@@ -280,15 +283,12 @@ def materialize_flamingo_activations(
         "attention_mask": torch.stack(attn_masks_list),
     }
 
-    # Collect activations from ALL layers in a single forward pass
-    all_layers = list(range(n_layers))
-    submodules = {layer: get_hf_submodule(peft_model, layer, use_lora=True) for layer in all_layers}
+    # Only hook the layers we need (xattn positions)
+    submodules = {layer: get_hf_submodule(peft_model, layer, use_lora=True) for layer in xattn_layers}
 
     was_training = peft_model.training
     peft_model.eval()
     with peft_model.disable_adapter():
-        # Use collect_activations_multiple_layers but without early stopping
-        # (we need all layers, so max_layer = n_layers-1 triggers early stop at the right place)
         acts_by_layer = collect_activations_multiple_layers(
             model=peft_model, submodules=submodules, inputs_BL=inputs_BL,
             min_offset=None, max_offset=None,
@@ -297,55 +297,48 @@ def materialize_flamingo_activations(
         peft_model.train()
 
     B = len(batch_points)
-    D = peft_model.config.hidden_size
 
-    # For each item, extract only the real (non-pad) CoT positions from each layer
-    # then flatten across layers: [n_layers * T_i, D] per item
-    per_item_acts = []
-    per_item_layer_ids = []
-    per_item_lengths = []
+    # Build per-layer padded activations and masks
+    # All items share the same T_max (max_ctx_len after left-padding), but we
+    # strip padding per-item and re-pad to batch max
+    max_real_len = max(len(c) for c in contexts)
+    kvs = {}
+    kv_masks = {}
 
-    for b in range(B):
-        ctx_len = len(contexts[b])
-        offset = left_offsets[b]
-        item_acts = []
-        item_layer_ids = []
-        for layer in all_layers:
-            # Extract real positions (skip padding)
-            layer_acts = acts_by_layer[layer][b, offset:offset + ctx_len, :]  # [T, D]
-            item_acts.append(layer_acts)
-            item_layer_ids.append(torch.full((ctx_len,), layer, dtype=torch.long, device=device))
-        per_item_acts.append(torch.cat(item_acts, dim=0))  # [n_layers*T, D]
-        per_item_layer_ids.append(torch.cat(item_layer_ids, dim=0))  # [n_layers*T]
-        per_item_lengths.append(n_layers * ctx_len)
+    for layer in xattn_layers:
+        # acts_by_layer[layer] is [B, max_ctx_len, D] (includes left-padding)
+        layer_acts_list = []
+        layer_mask_list = []
+        for b in range(B):
+            ctx_len = len(contexts[b])
+            offset = left_offsets[b]
+            real_acts = acts_by_layer[layer][b, offset:offset + ctx_len, :]  # [T, D]
+            layer_acts_list.append(real_acts)
+            layer_mask_list.append(torch.ones(ctx_len, dtype=torch.bool, device=device))
 
-    # Pad to max length across batch
-    max_kv_len = max(per_item_lengths)
-    padded_acts = torch.zeros(B, max_kv_len, D, dtype=per_item_acts[0].dtype, device=device)
-    padded_layer_ids = torch.zeros(B, max_kv_len, dtype=torch.long, device=device)
-    padded_mask = torch.zeros(B, max_kv_len, dtype=torch.bool, device=device)
+        # Pad to max_real_len
+        D = layer_acts_list[0].shape[-1]
+        padded = torch.zeros(B, max_real_len, D, dtype=layer_acts_list[0].dtype, device=device)
+        mask = torch.zeros(B, max_real_len, dtype=torch.bool, device=device)
+        for b in range(B):
+            L = layer_acts_list[b].shape[0]
+            padded[b, :L] = layer_acts_list[b]
+            mask[b, :L] = True
 
-    for b in range(B):
-        L = per_item_lengths[b]
-        padded_acts[b, :L] = per_item_acts[b]
-        padded_layer_ids[b, :L] = per_item_layer_ids[b]
-        padded_mask[b, :L] = True
+        kvs[layer] = padded.detach()
+        kv_masks[layer] = mask
 
-    return padded_acts.detach(), padded_layer_ids, padded_mask
+    return kvs, kv_masks
 
 
 def construct_flamingo_batch(
     batch_list: list[TrainingDataPoint],
-    supervisee_acts: torch.Tensor,
-    layer_ids: torch.Tensor,
-    act_mask: torch.Tensor,
+    supervisee_kvs: dict[int, torch.Tensor],
+    supervisee_kv_masks: dict[int, torch.Tensor],
     tokenizer,
     device: torch.device,
 ) -> dict:
-    """Construct a batch dict for FlamingoOracleWrapper.forward().
-
-    Handles left-padding of oracle input_ids/labels/attention_mask.
-    """
+    """Construct a batch dict for FlamingoOracleWrapper.forward()."""
     max_length = max(len(dp.input_ids) for dp in batch_list)
     pad_id = tokenizer.pad_token_id
 
@@ -363,9 +356,8 @@ def construct_flamingo_batch(
         "input_ids": torch.stack(all_input_ids).to(device),
         "attention_mask": torch.stack(all_attn_mask).to(device),
         "labels": torch.stack(all_labels).to(device),
-        "supervisee_activations": supervisee_acts,
-        "supervisee_layer_ids": layer_ids,
-        "supervisee_attention_mask": act_mask,
+        "supervisee_kvs": supervisee_kvs,
+        "supervisee_kv_masks": supervisee_kv_masks,
     }
 
 
@@ -1101,12 +1093,12 @@ def train(
 
             if args.flamingo:
                 # Flamingo path: extract all-layer activations, cross-attend
-                supervisee_acts, layer_ids, act_mask = materialize_flamingo_activations(
+                supervisee_kvs, supervisee_kv_masks = materialize_flamingo_activations(
                     batch_list, tokenizer, model,
                     max_ctx_tokens=args.flamingo_max_ctx_tokens,
                 )
                 batch = construct_flamingo_batch(
-                    batch_list, supervisee_acts, layer_ids, act_mask, tokenizer, device,
+                    batch_list, supervisee_kvs, supervisee_kv_masks, tokenizer, device,
                 )
                 with torch.autocast(device_type="cuda", dtype=dtype):
                     outputs = ddp_model(**batch)
