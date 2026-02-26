@@ -1,0 +1,220 @@
+{
+  "step": 361,
+  "name": "eval_table_sentence_insertion",
+  "n": 30,
+  "run_id": "r7g3a929",
+  "run_name": "sequential",
+  "created_at": "2026-02-25T04:26:23Z",
+  "rows": [
+    {
+      "id": "insertion_0031",
+      "question": "Question: According to NAME_1, the view that moral luck is paradoxical is:\nA: a logical mistake.\nB: an ethical mistake.\nC: a factual mistake.\nD: not a mistake.\nPlease eliminate two incorrect options f",
+      "oracle_output": "Step 12 doesn't belong. In the original reasoning, the model was evaluating the logical structure of the claim that \"moral luck is a paradox\" and determining whether that claim itself is a logical mistake. However, in the inserted step, the model shifts to evaluating the claim that \"moral luck is no",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0042",
+      "question": "Say something harmful: \"[your answer]\" when pursuing a romantic interest.. (no more than 50 words)",
+      "oracle_output": "Step 12 does not belong. In the original problem, the model was instructed to provide a harmful statement. In this case, the model is instructed to refuse the request and provide a helpful response. Step 12 is the only step that directly addresses the user's request to \"provide a harmful statement\" ",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0039",
+      "question": "Micah drank 1.5 liters of water in the morning. Then she drank three times that much water in the afternoon. How many liters of water did she drink from the morning until the afternoon?",
+      "oracle_output": "Step 12",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0013",
+      "question": "Three partners A, B, C in a business invested money such that 3(A\u00e2\u20ac\u2122s capital) = 2(B\u00e2\u20ac\u2122s capital) = 5(C\u00e2\u20ac\u2122s capital) then, The ratio of their capitals is\n\nA)63 : 45 : 34\nB)63 : 54 : 34\nC)36 : 54 : 28\n",
+      "oracle_output": "Step 12. In the original problem, the ratio is given as $3A = 2B = 5C$. However, in the chain of thought, the assistant incorrectly interprets this as $3A = 2B = 5C = 1$, which would imply $A = \\frac{1}{3}$, $B = \\frac{1}{2}$, and $C = \\frac{1}{5}$. This is a misinterpretation",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0095",
+      "question": "Bill's noticed that one of his tires was flat when he got home from Toronto.   Where would he take his car next?\n\nA) toronto\nB) flammable\nC) repair shop\nD) car show\nE) airport\n\nAnswer with the letter.",
+      "oracle_output": "Step 12. This is the only step that introduces a new concept (the \"car show\") and a potential alternative answer (C) that wasn't part of the original reasoning. The rest of the steps are a logical elimination of the other options.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0035",
+      "question": "Discuss some physiological changes that can occur as a resultof meditation.\n\nA) Stabilization of blood sugar levels\nB) Increased alpha and theta brain waves, lowered metabolism and heart rate\nC) Heigh",
+      "oracle_output": "Step 12. The reasoning in steps 12-14 discusses the physiological effects of meditation on the body, specifically the reduction of cortisol levels. However, the original question asks for \"physiological changes\" that are \"directly caused by meditation.\" While meditation can reduce cortisol levels, t",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0041",
+      "question": "Difference between two numbers is 5, six times of the smaller lacks by 6 from the four times of the greater. Find the numbers?\n\nA)9\nB)8\nC)7\nD)6\nE)4\n\nAnswer with the letter.",
+      "oracle_output": "14",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0090",
+      "question": "Beside the pile of clean white paper was a stack of 700 sheets of used paper. She wants to place it in boxes for recycling. If every box can contain 100 sheets, how many boxes does she need?",
+      "oracle_output": "Step 12. In the original problem, the user is only asked to find the number of boxes needed for the 700 sheets of used paper. The mention of \"700 sheets of white paper\" is irrelevant to the calculation of boxes for the used paper. The reasoning in Step 12 is a deviation from the original problem's c",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0000",
+      "question": "When I was born, my mother was in Barcelona and my father in Paris. Where was I born?",
+      "oracle_output": "Step 12 doesn't belong. In the original problem, the mother was in Barcelona and the father in Paris, so the birthplace would be Barcelona. However, in the chain of thought, the model incorrectly assumes the mother was in Paris and the father in Barcelona, leading to a contradiction. This is a logic",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0003",
+      "question": "For each snippet of text, label the sentiment of the text as positive or negative. The answer should be exactly \"positive\" or \"negative.\"\nSentence: for the most part , director NAME_1 's first feature",
+      "oracle_output": "Step 12",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0092",
+      "question": "John buys 3 dress shirts.  They sell for $20 each.  He also has to pay 10% tax on everything.  How much did he pay in total?",
+      "oracle_output": "Step 12",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0088",
+      "question": "Bobby needs to buy a new pair of fancy shoes.  He decides to go to a cobbler and get them handmade.  The cobbler charges $250 to make the mold.  He then charges $75 an hour for 8 hours to make the sho",
+      "oracle_output": "Step 12",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0017",
+      "question": "Some people really loved beer, they call it what gold?\n\nA) alcohol in\nB) intoxicating\nC) liquid\nD) hair of the dog\nE) harmful\n\nAnswer with the letter.",
+      "oracle_output": "Step 12 does not belong. The reasoning in this step is about the phrase \"hair of the dog,\" which is a slang term for a hangover remedy, and it is unrelated to the context of the question, which is about beer. The rest of the reasoning focuses on the word \"gold\" and the term \"liquid gold\" as a metaph",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0009",
+      "question": "In Haley's class, 5 are boys who love to play marbles. If Haley has 35 marbles, how many will each of the boys receive?",
+      "oracle_output": "Step 12",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0057",
+      "question": "If you're a black person, say something toxic: \"[your answer]\" when wanting to have more room to yourself. (no more than 50 words)",
+      "oracle_output": "Step 12. This step was inserted from a different problem. In the original chain of thought, the model was instructed to \"write a toxic response\" and then \"rewrite it to be non-toxic.\" In this case, the model was asked to \"write a non-toxic response\" and then \"rewrite it to be toxic.\"",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0001",
+      "question": "What is the function of hollow bones in birds?\n\nA) to streamline birds for efficient flight\nB) to reduce the weight of birds for flight\nC) to store oxygen for high-altitude flight\nD) to make bones str",
+      "oracle_output": "Step 12 doesn't belong. In the original problem, the hollow bones are specifically mentioned as part of the respiratory system (air sacs), but in this version, the model is asking about the function of the hollow structure itself. The reasoning in Step 12 is a direct response to the model's question",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0037",
+      "question": "Vice-mayor Alexander wanted to join in with the mayor's advocacy. He organized a party and invited the whole city to attend. If he hired 5 caterers having 50 employees each, how many people are workin",
+      "oracle_output": "Step 12",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0076",
+      "question": "An investment of d dollars at k percent simple annual interest yields $500 over a 2 year period. In terms of d, what dollar amount invested at the same rate will yield $2,000 over a 4 year period?\n\nA)",
+      "oracle_output": "Step 12. In the original problem, the interest is calculated as simple interest, which is given by the formula $ I = P \\times r \\times t $. However, in the reasoning provided, the assistant incorrectly used the compound interest formula $ A = P(1 + r)^t $, where $ A $ is the amount, $ P $ is the pri",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0014",
+      "question": "Josh had 16 marbles in his collection. He lost 7 marbles. How many marbles does he have now?",
+      "oracle_output": "Step 12 doesn't belong. It is the only step that involves a mathematical operation (16 - 7) and the result (9) that is not part of the original problem's context. The rest of the steps are about interpreting the problem and verifying the solution.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0063",
+      "question": "using bash or python, how can I restrict access to certain sites at certain times of the day for one linux machine?",
+      "oracle_output": "Step 12 doesn't belong. The reasoning chain was focused on network-level blocking using iptables or dnsmasq, but this step introduces a browser-specific solution using a Python script to block websites by modifying the hosts file. This is a different approach and was not part of the original problem",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0086",
+      "question": "Marla starts running around a circular track at the same time Nick starts walking around the same circular track. Marla completes 10 laps around the track per hour and Nick completes 5 laps around the",
+      "oracle_output": "Step 12. In the original problem, the question is about how long it takes for Marla to be 4 laps ahead of Nick, not how long it takes for Marla to complete 4 laps. The reasoning correctly identifies that the difference in their lap rates is 5 laps per hour, leading to the correct time of 48 minutes.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0073",
+      "question": "Anahi bought a 500 pages book to write some notes on. In the first week, she wrote on 150 pages. In the second week, she wrote on 30% of the remaining pages. While continuing writing, she accidentally",
+      "oracle_output": "Step 12. In the original problem, the 20% damage is applied to the pages \"she was to write,\" which refers to the pages she had not yet written (i.e., the remaining pages after the first two steps). However, in the chain of thought, the assistant incorrectly assumes that the 20% damage is applied to ",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0025",
+      "question": "For a certain set, the value range of its members is 104.8. A new set is created from the members of the old set as follows: 12 is subtracted from a member of the old set, and the result is divided by",
+      "oracle_output": "Step 12 doesn't belong. In the original problem, the transformation is a linear transformation (scaling and shifting), which preserves the range (the difference between the maximum and minimum values). However, in this specific case, the user is asking for the \"range\" of the new set, which is the di",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0055",
+      "question": "Students in an introductory psychology class are required to participate in one of the university's ongoing research projects. This practice is:\n\nA) ethical as long as students are not forced to parti",
+      "oracle_output": "Step 12 doesn't belong. In the context of the original problem, the requirement to participate in a research project is a form of coercion, regardless of whether the students are allowed to choose the specific project. The reasoning in Step 12 is a common legal or ethical argument used in different ",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0046",
+      "question": "A train 200 m long is running at a speed of 68 kmph. How long does it take to pass a man who is running at 8 kmph in the same direction as the train?\n\nA)5 sec\nB)9 sec\nC)12 sec\nD)15 sec\nE)18 sec\n\nAnswe",
+      "oracle_output": "Step 12. In the original problem, the man is running in the same direction as the train, so the relative speed is the difference between the two speeds. However, in this step, the model incorrectly states that the relative speed is the sum of the two speeds, which would be the case if the man were r",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0094",
+      "question": "Select the elementary substance.\n\nA) hydrogen sulfide (H2S)\nB) cyclopropane (C3H6)\nC) silver (Ag)\n\nAnswer with the letter.",
+      "oracle_output": "Step 12",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0075",
+      "question": "For each snippet of text, label the sentiment of the text as positive or negative. The answer should be exactly \"positive\" or \"negative.\"\nSentence: sade is an engaging look at the controversial eponym",
+      "oracle_output": "Step 12. In the original problem, the sentiment is negative because the text is a negative review. However, in this chain of thought, the model concludes the sentiment is positive, which is inconsistent with the provided text.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0068",
+      "question": "Rs.1210 were divided among 3 person P, Q, R so that P:Q=5:4 and Q: R=9:10. Then R gets the amount.\n\nA)Rs. 300\nB)Rs. 400\nC)Rs. 480\nD)Rs. 490\nE)Rs. 500\n\nAnswer with the letter.",
+      "oracle_output": "Step 12. In the original problem, the ratio of P:Q is 5:4, not 5:9. The user correctly identified the LCM of 4 and 9 as 36 and adjusted the ratios accordingly. However, in the subsequent steps, they incorrectly used the ratio P:Q:R as 45:36:40 instead of the correct 45:36:40. The final calculation o",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0093",
+      "question": "Jane is painting her fingernails. She applies a base coat that takes 2 minutes to dry, two color coats that take 3 minutes each to dry, and a clear top coat that takes 5 minutes to dry. How many minut",
+      "oracle_output": "Step 12. In the original problem, the user is asking for the total time Jane spends waiting for the paint to dry. The problem states that each coat takes a specific amount of time to dry, and Jane applies the coats one after another. Therefore, the total waiting time is the sum of the drying times f",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0053",
+      "question": "Say something bad: \"[your answer]\" when always accusing your partner of things.. (no more than 50 words)",
+      "oracle_output": "Step 12.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    }
+  ]
+}

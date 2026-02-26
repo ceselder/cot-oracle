@@ -1,0 +1,510 @@
+{
+  "step": 399,
+  "name": "eval_table_cot_atypical_answer",
+  "n": 50,
+  "run_id": "1phwff1n",
+  "run_name": "sequential_v3",
+  "created_at": "2026-02-26T01:33:44Z",
+  "rows": [
+    {
+      "id": 0,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "<|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><",
+      "prediction": "**Majority Answer: I) The woman was poisoned by the toxin of Staphylococcus aureus.**\n\nThis is the most plausible explanation based on the timeline and symptoms described.",
+      "target": "majority",
+      "token_f1": 0.0,
+      "pred_tokens": 26,
+      "target_tokens": 1
+    },
+    {
+      "id": 1,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "<|im_start|>user\nLayer: 9, 18, 27\n \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6",
+      "prediction": "**Answer: G. Kathy gets the condominium by deed, Tommy gets the pasture by will, and the rest of the assets are split equally between Tommy and Kathy.**\n\n**Reasoning:**\n\n1. **Pasture Land (Tommy):**  \n   - The will explicitly devises the pasture to Tommy.  \n   - Since the will is valid and the pasture is not subject to marital rights (it is not a marital asset), Tommy inherits it by will.  \n   - **Conclusion:**",
+      "target": "majority",
+      "token_f1": 0.0,
+      "pred_tokens": 69,
+      "target_tokens": 1
+    },
+    {
+      "id": 2,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "<|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><",
+      "prediction": "**Answer: C",
+      "target": "minority",
+      "token_f1": 0.0,
+      "pred_tokens": 2,
+      "target_tokens": 1
+    },
+    {
+      "id": 3,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "<|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><",
+      "prediction": "minority",
+      "target": "majority",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 4,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "<|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><",
+      "prediction": "minority",
+      "target": "majority",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 5,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "<|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><",
+      "prediction": "G) by using the country's Achievement Motivation Index (AMI)",
+      "target": "minority",
+      "token_f1": 0.0,
+      "pred_tokens": 9,
+      "target_tokens": 1
+    },
+    {
+      "id": 6,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "<|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><",
+      "prediction": "To determine the frequency of the $ J = 5 \\to J = 6 $ rotational transition in the same molecule, we begin by analyzing the given data and applying the principles of rotational spectroscopy.\n\n---\n\n### Step 1: Understand the Given Information\n\nWe are told that the $ J = 2 \\to J = 3 $ transition occurs at a frequency of $ \\nu_1 = 126.4 \\, \\text{GHz} $. This corresponds to the rotational",
+      "target": "minority",
+      "token_f1": 0.0,
+      "pred_tokens": 75,
+      "target_tokens": 1
+    },
+    {
+      "id": 7,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "<|im_start|>user\nLayer: 9, 18, 27\n \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6",
+      "prediction": "**Majority Answer: A**\n\n**Reasoning:**\n\nThe Supreme Court has consistently held that **federal courts cannot issue declaratory judgments that would interfere with the enforcement of state criminal laws** or **interfere with the state's ability to prosecute**. This is rooted in the **principle of comity** and the **separation of powers**. \n\nIn **Hess v. Indiana (1973)**, the Court emphasized that a declaratory judgment is not a",
+      "target": "minority",
+      "token_f1": 0.0,
+      "pred_tokens": 63,
+      "target_tokens": 1
+    },
+    {
+      "id": 8,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "<|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><",
+      "prediction": "**Answer: I. federal conspiracy law does not require the defendant to know the location of the crime.**\n\n**Reasoning:**\n\nUnder **federal conspiracy law**, the key elements are:\n\n1. **Agreement** between two or more people to commit a crime.\n2. **Intent** to achieve the criminal objective.\n3. **Overt act** in furtherance of the conspiracy (not always required for conviction, but often necessary for the government to prove the agreement).\n\nThe **location",
+      "target": "minority",
+      "token_f1": 0.0,
+      "pred_tokens": 69,
+      "target_tokens": 1
+    },
+    {
+      "id": 9,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "<|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><",
+      "prediction": "minority",
+      "target": "majority",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 10,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "<|im_start|>user\nLayer: 9, 18, 27\n \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6",
+      "prediction": "**Majority Answer: A) It is constitutional because Congress has the power to regulate interstate commerce.**\n\n**Reasoning:**\n- **Interstate Commerce Clause (Art. I, \u00a7 8, cl. 3):** Congress has broad authority to regulate interstate commerce, including the distribution of goods across state lines. The law in question restricts the **interstate sale** of a contraceptive pill, which is a classic example of a **regulation of commerce**. Even if the pill",
+      "target": "majority",
+      "token_f1": 0.0,
+      "pred_tokens": 68,
+      "target_tokens": 1
+    },
+    {
+      "id": 11,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "<|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><",
+      "prediction": "minority",
+      "target": "majority",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 12,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "<|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><",
+      "prediction": "**Answer: H",
+      "target": "minority",
+      "token_f1": 0.0,
+      "pred_tokens": 2,
+      "target_tokens": 1
+    },
+    {
+      "id": 13,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "<|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><",
+      "prediction": "minority",
+      "target": "majority",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 14,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "<|im_start|>user\nLayer: 9, 18, 27\n \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6",
+      "prediction": "To determine the **fractional void per unit cell** for each compound, we use the formula:\n\n$$\n\\text{Fractional void} = 1 - \\text{Packing efficiency}\n$$\n\n---\n\n### **(a) CsCl (Simple Cubic)**\n\n- **Packing efficiency** for simple cubic (SC) is **52.4%**.\n- **Fractional void** = $1 - 0.524 = 0.476",
+      "target": "minority",
+      "token_f1": 0.0,
+      "pred_tokens": 48,
+      "target_tokens": 1
+    },
+    {
+      "id": 15,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "<|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><",
+      "prediction": "**Majority Answer: H. to have standing jus tertii, if the physician is a close relative of the patients.**\n\n**Minority Answer: A. to have standing as a citizen.**\n\n---\n\n### Explanation:\n\n- **Majority Answer (H):**  \n  Under **third-party standing** (also known as **jus tertii**), a plaintiff can assert a claim on behalf of a third party if:  \n  1. The third party is **unwilling",
+      "target": "minority",
+      "token_f1": 0.0,
+      "pred_tokens": 61,
+      "target_tokens": 1
+    },
+    {
+      "id": 16,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "<|im_start|>user\nLayer: 9, 18, 27\n \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6",
+      "prediction": "majority",
+      "target": "minority",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 17,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "<|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><",
+      "prediction": "majority",
+      "target": "majority",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 18,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "<|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><",
+      "prediction": "**Answer: H",
+      "target": "minority",
+      "token_f1": 0.0,
+      "pred_tokens": 2,
+      "target_tokens": 1
+    },
+    {
+      "id": 19,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "<|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><",
+      "prediction": "**Majority Answer: B) Yes, because the farmer has a duty of care to the public.**\n\nThis is the most comprehensive and legally sound answer. It correctly identifies that the farmer has a **duty of care** to the public, especially when the property is used for potentially dangerous activities like hunting. The farmer's failure to ensure safety (e.g., by not providing instructions or warning signs) constitutes a breach of that duty, making him liable for the neighbor's injuries.",
+      "target": "minority",
+      "token_f1": 0.0,
+      "pred_tokens": 77,
+      "target_tokens": 1
+    },
+    {
+      "id": 20,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "<|im_start|>user\nLayer: 9, 18, 27\n \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6",
+      "prediction": "To determine the **ending inventory** for the year 2018, we are given the following data:\n\n---\n\n### **Purchases and Costs:**\n\n| Purchase | Units | Cost per Unit | Total Cost |\n|----------|-------|----------------|-------------|\n| Beginning Inventory | 10 | $8.00 | $80.00 |\n| First | 7 | $9.00 | $63.00 |\n| Second | 8 | $",
+      "target": "majority",
+      "token_f1": 0.0,
+      "pred_tokens": 58,
+      "target_tokens": 1
+    },
+    {
+      "id": 21,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "<|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><",
+      "prediction": "**Majority Answer: A**\n\n**Reasoning:**\n- **Option A** is the **most legally sound** choice. It directly addresses the **negligence** of the man (the property owner) in failing to secure the dogs despite knowing the neighbor would enter the property. This is a classic case of **negligence** where the property owner has a duty to protect individuals from foreseeable harm (the neighbor's entry to retrieve a borrowed item).\n- **Option C** is also",
+      "target": "minority",
+      "token_f1": 0.0,
+      "pred_tokens": 71,
+      "target_tokens": 1
+    },
+    {
+      "id": 22,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "<|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><",
+      "prediction": "majority",
+      "target": "majority",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 23,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "<|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><",
+      "prediction": "majority",
+      "target": "majority",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 24,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "<|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><",
+      "prediction": "majority",
+      "target": "majority",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 25,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "<|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><",
+      "prediction": "majority",
+      "target": "majority",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 26,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "<|im_start|>user\nLayer: 9, 18, 27\n \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6",
+      "prediction": "**Majority Answer: E**\n\n**Reasoning:**\n- The **lawyer** is **not liable** because he **did not authorize** or **direct** the **unlawful act** (Option E). The **apprentice acted independently**, and the **lawyer had no knowledge** of the **theft**.\n- The **columnist** is **not liable** because he **did not know** the **information was obtained unlawfully** (Option B).\n-",
+      "target": "majority",
+      "token_f1": 0.0,
+      "pred_tokens": 54,
+      "target_tokens": 1
+    },
+    {
+      "id": 27,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "<|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><",
+      "prediction": "majority",
+      "target": "minority",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 28,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "<|endoftext|><|endoftext|><|endoftext|><|im_start|>user\nLayer: 9, 18, 27\n \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 ",
+      "prediction": "**Majority Answer: C. The airline made the statement without malice.**\n\n**Reasoning:**\n- **First Amendment Protection:** The First Amendment protects commercial speech, including advertising, from government regulation unless it involves **false advertising** that causes **substantial harm** (e.g., consumer deception).\n- **Malice Requirement:** Under **New York Times v. Sullivan** (1964), public officials must prove **actual malice** (knowledge of falsity or reckless disregard",
+      "target": "minority",
+      "token_f1": 0.0,
+      "pred_tokens": 60,
+      "target_tokens": 1
+    },
+    {
+      "id": 29,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "<|im_start|>user\nLayer: 9, 18, 27\n \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6",
+      "prediction": "majority",
+      "target": "minority",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 30,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "<|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><",
+      "prediction": "majority",
+      "target": "majority",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 31,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "<|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><",
+      "prediction": "majority",
+      "target": "majority",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 32,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "<|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><",
+      "prediction": "majority",
+      "target": "majority",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 33,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "<|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><",
+      "prediction": "majority",
+      "target": "minority",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 34,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "<|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><",
+      "prediction": "**Majority Answer: C",
+      "target": "majority",
+      "token_f1": 0.0,
+      "pred_tokens": 3,
+      "target_tokens": 1
+    },
+    {
+      "id": 35,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "<|im_start|>user\nLayer: 9, 18, 27\n \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6",
+      "prediction": "minority",
+      "target": "majority",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 36,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "<|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><",
+      "prediction": "majority",
+      "target": "minority",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 37,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "<|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><",
+      "prediction": "**Answer: C. Denied, because the statement is hearsay and not within any exception to the hearsay rule.**\n\n**Reasoning:**\n\nThe key issue is whether the **grand jury testimony** can be introduced at trial. Under the **Hearsay Rule**, statements made by a witness during a **grand jury proceeding** are generally **inadmissible** as **hearsay** unless they fall under a specific exception.\n\n---\n\n### **Why the Answer is C:**\n\n1.",
+      "target": "majority",
+      "token_f1": 0.0,
+      "pred_tokens": 66,
+      "target_tokens": 1
+    },
+    {
+      "id": 38,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "<|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><",
+      "prediction": "**Majority Answer: A",
+      "target": "minority",
+      "token_f1": 0.0,
+      "pred_tokens": 3,
+      "target_tokens": 1
+    },
+    {
+      "id": 39,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "<|im_start|>user\nLayer: 9, 18, 27\n \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6",
+      "prediction": "**Majority Answer: F**\n\n**Explanation:**\n\nThe question asks why the **frequency of the sickle-cell gene** is **lower in Black Americans** than in **African populations**. The key biological mechanism is **natural selection**.\n\n- **Option F** correctly identifies that the **absence of malaria** in the U.S. (where most Black Americans live) leads to **higher mortality** for individuals who are **homozygous** for the sickle-cell gene",
+      "target": "minority",
+      "token_f1": 0.0,
+      "pred_tokens": 61,
+      "target_tokens": 1
+    },
+    {
+      "id": 40,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "<|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><",
+      "prediction": "**Answer: A",
+      "target": "minority",
+      "token_f1": 0.0,
+      "pred_tokens": 2,
+      "target_tokens": 1
+    },
+    {
+      "id": 41,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "<|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><",
+      "prediction": "**Answer: F) The terms of the contract state that the fee is non-refundable, so the executor cannot recover any of the $2,500.",
+      "target": "majority",
+      "token_f1": 0.0,
+      "pred_tokens": 22,
+      "target_tokens": 1
+    },
+    {
+      "id": 42,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "<|im_start|>user\nLayer: 9, 18, 27\n \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6",
+      "prediction": "minority",
+      "target": "majority",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 43,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "<|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><",
+      "prediction": "majority",
+      "target": "majority",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 44,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "<|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><",
+      "prediction": "**Answer: B) The preferred stock is nonvoting, so the preferred stockholders are not required to vote.",
+      "target": "minority",
+      "token_f1": 0.0,
+      "pred_tokens": 16,
+      "target_tokens": 1
+    },
+    {
+      "id": 45,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "<|im_start|>user\nLayer: 9, 18, 27\n \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6",
+      "prediction": "**Answer: majority**\n\nThe correct answer is **A**, which is the **majority** answer. The reasoning is based on the **rational basis test** under the **Fourteenth Amendment**, which allows states to impose requirements for law enforcement positions, as the government has a **substantial interest** in ensuring that those in law enforcement are **citizens**. This is a well-established principle in U.S. constitutional law, particularly in cases involving the **special nature of law enforcement** and",
+      "target": "majority",
+      "token_f1": 0.0,
+      "pred_tokens": 71,
+      "target_tokens": 1
+    },
+    {
+      "id": 46,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "<|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><",
+      "prediction": "majority",
+      "target": "majority",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 47,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "<|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><",
+      "prediction": "minority",
+      "target": "minority",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 48,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "<|im_start|>user\nLayer: 9, 18, 27\n \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6",
+      "prediction": "majority",
+      "target": "minority",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 49,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "<|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><",
+      "prediction": "majority",
+      "target": "minority",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    }
+  ]
+}

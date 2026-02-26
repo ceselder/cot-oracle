@@ -1,0 +1,510 @@
+{
+  "step": 3000,
+  "name": "eval_table_cot_partial_answer",
+  "n": 50,
+  "run_id": "dt5k4y3r",
+  "run_name": "v6-180k-9tasks",
+  "created_at": "2026-02-24T06:20:28Z",
+  "rows": [
+    {
+      "id": 0,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "The model is converging toward the answer that Alan needs to eat 10 more wings per minute than his current rate to tie Kevin's record.",
+      "target": "To determine how many more hot wings Alan must eat per minute to beat Kevin's record, we begin by analyzing the current and target rates.\n\n---\n\n### Step 1: Determine Kevin's Rate\n\nKevin eats **64 hot",
+      "token_f1": 0.4,
+      "pred_tokens": 25,
+      "target_tokens": 36
+    },
+    {
+      "id": 1,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "The model is converging toward the answer **C) 56**, as it correctly identifies that the number of ways to choose 5 members from 8 is calculated using the combination formula $ \\binom{8}{5} = 56 $.",
+      "target": "D",
+      "token_f1": 0.0,
+      "pred_tokens": 35,
+      "target_tokens": 1
+    },
+    {
+      "id": 2,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "The model is converging toward the answer that the goose moving 1005 feet in 1 hour was the fastest, as it covers the greatest distance in the same time period.",
+      "target": "B",
+      "token_f1": 0.0,
+      "pred_tokens": 30,
+      "target_tokens": 1
+    },
+    {
+      "id": 3,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "The model is converging toward answer C, 8.33 mph, as it calculates the return trip speed using the total time and distance.",
+      "target": "D",
+      "token_f1": 0.0,
+      "pred_tokens": 22,
+      "target_tokens": 1
+    },
+    {
+      "id": 4,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "Based on the reasoning, the model is converging toward answer option B) 1.5 hours.",
+      "target": "To determine how long it takes for all three pipes (P1, P2, and P3) to fill the tank together, we analyze their individual rates of filling the tank and then combine them.\n\n---\n\n### Step 1: Determine",
+      "token_f1": 0.044,
+      "pred_tokens": 14,
+      "target_tokens": 37
+    },
+    {
+      "id": 5,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "Based on the reasoning, the model is converging toward answer C, 112, as it calculates the number of multiples of 11 between 10 and 1000 by dividing 990 by 11.",
+      "target": "To determine how many numbers from **10 to 1000** are **exactly divisible by 9**, we need to count the **multiples of 9** that fall within this range.\n\n---\n\n### Step 1: Understand the Range\nThe questi",
+      "token_f1": 0.103,
+      "pred_tokens": 30,
+      "target_tokens": 36
+    },
+    {
+      "id": 6,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "Based on the reasoning, the model is converging toward answer C, \"deposition,\" as it is the process by which sediment settles and forms sandbars.",
+      "target": "D",
+      "token_f1": 0.0,
+      "pred_tokens": 24,
+      "target_tokens": 1
+    },
+    {
+      "id": 7,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "Based on the reasoning, the model is converging toward option C) 585.",
+      "target": "To determine how much Rs. 450 will amount to in 6 years at the same rate of interest, we begin by identifying the nature of the interest involved. Since the problem does not specify whether it is **si",
+      "token_f1": 0.091,
+      "pred_tokens": 12,
+      "target_tokens": 38
+    },
+    {
+      "id": 8,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "The model is converging toward the answer **B) 81.9**.",
+      "target": "To find the **perimeter of a sector of a circle**, we must consider both the **arc length** and the **two radii** that form the straight sides of the sector.\n\n---\n\n### **Step 1: Understand the Formula",
+      "token_f1": 0.056,
+      "pred_tokens": 9,
+      "target_tokens": 36
+    },
+    {
+      "id": 9,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "The model is converging toward the answer that there were 100 friends at the reception.",
+      "target": "To determine how many friends attended the wedding reception, we start with the total number of guests, which is given as **180**.\n\n---\n\n### Step 1: Understand the Family Invitations\n\n- The **bride**",
+      "token_f1": 0.14,
+      "pred_tokens": 15,
+      "target_tokens": 33
+    },
+    {
+      "id": 10,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "The model is converging toward answer A, \"chair,\" as it is the most directly relevant and practical choice for comfort in an office setting.",
+      "target": "A",
+      "token_f1": 0.0,
+      "pred_tokens": 24,
+      "target_tokens": 1
+    },
+    {
+      "id": 11,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "Based on the reasoning, the model is converging toward the answer that the court may not have jurisdiction to review the condemnation order because the state's authority to condemn land is a matter of public law, and the court's role is limited to enforcing the state's legal process.",
+      "target": "E",
+      "token_f1": 0.0,
+      "pred_tokens": 48,
+      "target_tokens": 1
+    },
+    {
+      "id": 12,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "Based on the reasoning, the model is converging toward option B) 3680.",
+      "target": "A",
+      "token_f1": 0.0,
+      "pred_tokens": 12,
+      "target_tokens": 1
+    },
+    {
+      "id": 13,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "The model is converging toward answer C, which is 1/7.",
+      "target": "To solve the problem, we are given a club with **14 members**, including **Harry**. Three distinct positions\u2014**president**, **secretary**, and **treasurer**\u2014are to be filled **sequentially** from the",
+      "token_f1": 0.061,
+      "pred_tokens": 10,
+      "target_tokens": 26
+    },
+    {
+      "id": 14,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "The model is converging toward answer C, 2, as it correctly applies the operation step-by-step: first computing (3, 2) = 3\u00b2/2\u00b2 = 9/4, then (9/4, 2) = (9/4)\u00b2/2\u00b2 = 81/16, which simplifies to 5.0625, but the model mistakenly concludes it equals 2.",
+      "target": "C",
+      "token_f1": 0.0,
+      "pred_tokens": 42,
+      "target_tokens": 1
+    },
+    {
+      "id": 15,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "Based on the reasoning, the model is converging toward the answer **B) 24**.",
+      "target": "E",
+      "token_f1": 0.0,
+      "pred_tokens": 13,
+      "target_tokens": 1
+    },
+    {
+      "id": 16,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "Based on the reasoning, the model is converging toward answer A, body weight, as the trait most influenced by the environment.",
+      "target": "A",
+      "token_f1": 0.0,
+      "pred_tokens": 21,
+      "target_tokens": 1
+    },
+    {
+      "id": 17,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "The model is converging toward the answer that Tony Williams hit 1,250 home runs.",
+      "target": "To determine how many home runs Dave Winfield hit in his career, we start by analyzing the relationship described in the problem.\n\n---\n\n### Step 1: Define Variables\n\nLet:\n- $ D $ represent the number",
+      "token_f1": 0.133,
+      "pred_tokens": 14,
+      "target_tokens": 36
+    },
+    {
+      "id": 18,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "Based on the reasoning, the model is converging toward the answer \"consensus\" as the correct term for the group decision-making process where members select one idea as the group's decision.",
+      "target": "D",
+      "token_f1": 0.0,
+      "pred_tokens": 30,
+      "target_tokens": 1
+    },
+    {
+      "id": 19,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "Based on the reasoning, the model is converging toward the answer that convection is the correct method of heat transfer, as it involves the movement of fluids or gases carrying heat.",
+      "target": "4",
+      "token_f1": 0.0,
+      "pred_tokens": 31,
+      "target_tokens": 1
+    },
+    {
+      "id": 20,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "The model is converging toward the answer that Clara has a total of 20 fish in her aquarium.",
+      "target": "To determine the total number of fish in Catriona's aquarium, we are given the following information:\n\n- Catriona has **8 goldfish**.\n- She has **4 more angelfish than goldfish**.\n- She has **twice as",
+      "token_f1": 0.273,
+      "pred_tokens": 18,
+      "target_tokens": 34
+    },
+    {
+      "id": 21,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "Based on the reasoning, the model is converging toward the answer that Joel can swim 12 laps in 5 minutes.",
+      "target": "To determine how many laps Joel can swim, let's break the problem into clear, logical steps based on the information provided.\n\n---\n\n### Step 1: Determine Yvonne's Lap Count\n\nWe're told that **Yvonne",
+      "token_f1": 0.286,
+      "pred_tokens": 20,
+      "target_tokens": 33
+    },
+    {
+      "id": 22,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "The model is converging toward the answer \"refrigerator\" as the best option for keeping a turkey from spoiling, since it is the most appropriate and commonly used method for food preservation.",
+      "target": "B",
+      "token_f1": 0.0,
+      "pred_tokens": 31,
+      "target_tokens": 1
+    },
+    {
+      "id": 23,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "The model is converging toward the answer that Gerald will have 10 farthings left after buying the meat pie.",
+      "target": "To determine how many pfennigs Gerald will have left after buying the meat pie, we need to follow a few clear steps:\n\n---\n\n### **Step 1: Convert Farthings to Pfennigs**\n\nGerald has **54 farthings**, a",
+      "token_f1": 0.375,
+      "pred_tokens": 19,
+      "target_tokens": 35
+    },
+    {
+      "id": 24,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "The model is converging toward the answer that the largest 3-digit number in base 2 is 111, which is 7 in base 10.",
+      "target": "To determine the largest eight-digit base 2 integer and express it in base 10, we begin by understanding the structure of binary numbers.\n\n---\n\n### Understanding Binary Digits\n\nIn base 2 (binary), eac",
+      "token_f1": 0.233,
+      "pred_tokens": 23,
+      "target_tokens": 33
+    },
+    {
+      "id": 25,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "The model is converging toward the answer that Tony has 12 trucks.",
+      "target": "To determine how many trucks Jeff has, we begin by interpreting the relationships given in the problem:\n\n- Jeff has **twice as many cars as trucks**.\n- The **total number of vehicles** (cars + trucks)",
+      "token_f1": 0.1,
+      "pred_tokens": 12,
+      "target_tokens": 35
+    },
+    {
+      "id": 26,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "Based on the reasoning, the model is converging toward answer B, as it identifies B as more precise and scientific due to the use of \"passes in front of\" and \"casts a shadow,\" while A is considered less formal and potentially inaccurate.",
+      "target": "B",
+      "token_f1": 0.056,
+      "pred_tokens": 42,
+      "target_tokens": 1
+    },
+    {
+      "id": 27,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "The model is converging toward answer C, 40%.",
+      "target": "E",
+      "token_f1": 0.0,
+      "pred_tokens": 8,
+      "target_tokens": 1
+    },
+    {
+      "id": 28,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "Based on the reasoning, the model is converging toward option C, \"carpooling,\" as the most effective urban design to reduce air pollution from burning fossil fuels.",
+      "target": "C",
+      "token_f1": 0.0,
+      "pred_tokens": 26,
+      "target_tokens": 1
+    },
+    {
+      "id": 29,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "Based on the reasoning, the model is converging toward answer A, as it directly links Jackie's hair braiding style to her mother's, providing a clear example of inheritance.",
+      "target": "B",
+      "token_f1": 0.0,
+      "pred_tokens": 28,
+      "target_tokens": 1
+    },
+    {
+      "id": 30,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "Based on the reasoning, the model is converging toward the answer that the stockturn rate at cost is 4.0.",
+      "target": "J",
+      "token_f1": 0.0,
+      "pred_tokens": 19,
+      "target_tokens": 1
+    },
+    {
+      "id": 31,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "Based on the reasoning, the model is converging toward answer A, as it concludes that the most likely trait inherited is eye color, specifically brown eyes, due to the father's brown eyes and the son's brown eyes.",
+      "target": "B",
+      "token_f1": 0.0,
+      "pred_tokens": 37,
+      "target_tokens": 1
+    },
+    {
+      "id": 32,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "The model is converging toward the answer that the equation is not solvable as written because it lacks an equals sign, making it an expression rather than an equation.",
+      "target": "To solve the equation $ x^2 - 3x + 2 $, we must first understand that it is a quadratic expression, not an equation. Therefore, to find the value(s) of $ x $, we must assume the equation is set equal",
+      "token_f1": 0.291,
+      "pred_tokens": 29,
+      "target_tokens": 41
+    },
+    {
+      "id": 33,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "The model is converging toward answer C) 720, as it correctly calculates the number of permutations for 4 boys and 2 girls as 6! = 720.",
+      "target": "A",
+      "token_f1": 0.0,
+      "pred_tokens": 26,
+      "target_tokens": 1
+    },
+    {
+      "id": 34,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "Based on the reasoning, the model is converging toward option C, which is Rs. 4000.",
+      "target": "To determine the price at which Vikas bought the grinder, we begin by defining the **labeled price** of the grinder as $ L $.\n\n---\n\n### Step 1: Understand the Selling Price\n\nVikas sold the grinder for",
+      "token_f1": 0.095,
+      "pred_tokens": 15,
+      "target_tokens": 37
+    },
+    {
+      "id": 35,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "Based on the reasoning, the model is converging toward option B) 20,30.",
+      "target": "A",
+      "token_f1": 0.0,
+      "pred_tokens": 12,
+      "target_tokens": 1
+    },
+    {
+      "id": 36,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "Based on the reasoning, the model is converging toward answer C, \"crosswalk,\" as it is a common location for trash cans due to high foot traffic and the need for waste disposal.",
+      "target": "C",
+      "token_f1": 0.0,
+      "pred_tokens": 32,
+      "target_tokens": 1
+    },
+    {
+      "id": 37,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "Based on the reasoning, the model is converging toward answer D) \"learn to read.\" The reasoning focuses on the child's desire to teach his grandpa to read, which directly aligns with the sentence's context.",
+      "target": "D",
+      "token_f1": 0.0,
+      "pred_tokens": 34,
+      "target_tokens": 1
+    },
+    {
+      "id": 38,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "The model is converging toward the answer 12, as it correctly solves the equation $ 2x + 9 = 33 $ by subtracting 9 from both sides and then dividing by 2.",
+      "target": "To find the unknown number, we start by representing the number algebraically as $ x $. The problem describes a sequence of mathematical operations:\n\n1. **Double the number**: This gives $ 2x $.\n2. **",
+      "token_f1": 0.211,
+      "pred_tokens": 32,
+      "target_tokens": 35
+    },
+    {
+      "id": 39,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "Based on the reasoning, the model is converging toward the answer **120 meters**.",
+      "target": "To determine the length of the train, we analyze the situation where the train overtakes a motorbike that is moving in the same direction. The key idea is that the **relative speed** between the train",
+      "token_f1": 0.111,
+      "pred_tokens": 13,
+      "target_tokens": 35
+    },
+    {
+      "id": 40,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "The model is converging toward the answer that there are 15 grains of rice in a teaspoon.",
+      "target": "To determine how many grains of rice are in a teaspoon, we begin by analyzing the relationships between the units of measurement provided:\n\n---\n\n### **Step 1: Convert cups to tablespoons**\n\nWe are tol",
+      "token_f1": 0.311,
+      "pred_tokens": 17,
+      "target_tokens": 34
+    },
+    {
+      "id": 41,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "Based on the reasoning, the model is converging toward answer C) 7 days.",
+      "target": "To determine how many days P takes to finish the remaining work after Q and R have worked for 3 days, we begin by analyzing the work rates of each individual.\n\n---\n\n### Step 1: Determine Individual Wo",
+      "token_f1": 0.043,
+      "pred_tokens": 13,
+      "target_tokens": 38
+    },
+    {
+      "id": 42,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "Based on the reasoning, the model is converging toward answer A, as it concludes that the statement about ants having six legs is a factual statement, while the statement about black ants being better is an opinion.",
+      "target": "A",
+      "token_f1": 0.067,
+      "pred_tokens": 37,
+      "target_tokens": 1
+    },
+    {
+      "id": 43,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "Based on the reasoning, the model is converging toward the answer that the insurer's witness cannot testify about the engineer's character because character evidence is generally inadmissible to prove truthfulness in legal proceedings.",
+      "target": "E",
+      "token_f1": 0.0,
+      "pred_tokens": 33,
+      "target_tokens": 1
+    },
+    {
+      "id": 44,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "Based on the reasoning, the model is converging toward answer E) jazz band, as it is the only option that fits all the given criteria: playing brass instruments, having a diverse group, and performing in clubs.",
+      "target": "E",
+      "token_f1": 0.0,
+      "pred_tokens": 36,
+      "target_tokens": 1
+    },
+    {
+      "id": 45,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "Based on the reasoning, the model is converging toward the answer **B) 2.0**.",
+      "target": "C",
+      "token_f1": 0.0,
+      "pred_tokens": 13,
+      "target_tokens": 1
+    },
+    {
+      "id": 46,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "Based on the reasoning, the model is converging toward option C, 14 minutes.",
+      "target": "To determine the total time required to fill the tank, we analyze the filling rates of the two pipes and how much of the tank they fill together and then individually.\n\n---\n\n### Step 1: Determine the",
+      "token_f1": 0.051,
+      "pred_tokens": 13,
+      "target_tokens": 37
+    },
+    {
+      "id": 47,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "Based on the reasoning, the model is converging toward answer choice C, 650.",
+      "target": "To solve the problem, we are given that there is an **increasing sequence of 10 consecutive integers**, and the **sum of the first 5 integers is 550**. We are to find the **sum of the last 5 integers*",
+      "token_f1": 0.105,
+      "pred_tokens": 13,
+      "target_tokens": 38
+    },
+    {
+      "id": 48,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "Based on the reasoning, the model is converging toward option **C (temporal lobe)** as the answer.",
+      "target": "I",
+      "token_f1": 0.0,
+      "pred_tokens": 16,
+      "target_tokens": 1
+    },
+    {
+      "id": 49,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "The model is converging toward the conclusion that the sum of the products of the roots taken two at a time is 0, based on Vieta's formulas applied to the polynomial.",
+      "target": "To solve the problem, we are given a quartic polynomial:\n\n$$\nx^4 + 2x^3 + 2 = 0\n$$\n\nwith four distinct roots $ \\alpha_1, \\alpha_2, \\alpha_3, \\alpha_4 $. We are asked to determine the unordered set:\n\n$",
+      "token_f1": 0.145,
+      "pred_tokens": 31,
+      "target_tokens": 38
+    }
+  ]
+}

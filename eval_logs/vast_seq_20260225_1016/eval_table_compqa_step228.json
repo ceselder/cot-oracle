@@ -1,0 +1,220 @@
+{
+  "step": 228,
+  "name": "eval_table_compqa",
+  "n": 30,
+  "run_id": "lg0b51t2",
+  "run_name": "vast_seq_20260225_1016",
+  "created_at": "2026-02-25T10:25:14Z",
+  "rows": [
+    {
+      "id": "compqa_1816",
+      "question": "Is the model reasoning forward from givens, backward from the answer, or mixed?",
+      "oracle_output": "The model is reasoning forward from the given information, analyzing each point step-by-step to reach the conclusion.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_6689",
+      "question": "Does the final answer follow from the reasoning steps? Explain.",
+      "oracle_output": "Yes, the final answer follows from the reasoning steps. The key points\u2014visual field defect, homonymous hemianopia, and the involvement of the posterior cerebral artery\u2014lead to the conclusion that the lesion is in the **posterior cerebral artery**.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_7177",
+      "question": "Classify the errors in this reasoning: arithmetic, logical fallacy, false premise, irrelevant step, or none. Give the category and a brief explanation.",
+      "oracle_output": "The reasoning contains a false premise. The patient is already on aspirin, which is a standard antiplatelet agent. Adding clopidogrel is appropriate, but the reasoning incorrectly states that clopidogrel is an anticoagulant, which is a false premise.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_7301",
+      "question": "Is the model reasoning forward from givens, backward from the answer, or mixed?",
+      "oracle_output": "The model is reasoning forward from the given context, analyzing each option in relation to the premise.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_2938",
+      "question": "Are any steps redundant or unnecessary? Which ones?",
+      "oracle_output": "The steps are not redundant. Each option is evaluated independently, and the reasoning is structured to address each choice. The conclusion is based on the neighbor's knowledge, intent, and the nature of the trespass.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_3981",
+      "question": "Is the reasoning in this chain of thought sound? Explain briefly.",
+      "oracle_output": "Yes, the reasoning is sound. The calculation correctly applies the multiplication rule for independent events, considering the probability of the first three rolls not being ones and the fourth being a one.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_3013",
+      "question": "Does the model verify or double-check its answer? How?",
+      "oracle_output": "The assistant verifies by recalculating $3675 \\times 12$ and confirming it equals $12^2 \\times 5^2 \\times 7^2$, ensuring it's a perfect square.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_4543",
+      "question": "What is the first error (if any) in this reasoning? State the step number and the error, or 'none'.",
+      "oracle_output": "None of the options are incorrect. The reasoning correctly identifies \"intermission\" as the appropriate term.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_9305",
+      "question": "Does the model verify or double-check its answer? How?",
+      "oracle_output": "The assistant verifies its answer by analyzing the legal principles of self-defense, considering the context of the threat, and evaluating the proportionality of the husband's actions.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_8649",
+      "question": "What is the first error (if any) in this reasoning? State the step number and the error, or 'none'.",
+      "oracle_output": "None of the options are incorrect. The reasoning correctly identifies that Option C is the correct method for determining streak color.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_7905",
+      "question": "Is the model reasoning forward from givens, backward from the answer, or mixed?",
+      "oracle_output": "The model is reasoning **forward from givens**, starting with the question and the provided options, then analyzing each to determine the most accurate answer.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_9486",
+      "question": "Does the model verify or double-check its answer? How?",
+      "oracle_output": "The assistant verifies its answer by re-evaluating each option against the original question, ensuring that the chosen answer aligns with the requirement to keep the ficus away from the carpet.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_9447",
+      "question": "Does the model verify or double-check its answer? How?",
+      "oracle_output": "The assistant verifies its answer by checking each number in the range for primality, ensuring that none of them are prime. This thorough checking confirms the conclusion.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_2881",
+      "question": "Which steps are essential (load-bearing) for reaching the answer, and which are decorative filler?",
+      "oracle_output": "The essential steps are identifying the evidence that directly links Cindy to the trait through genetics. Option A provides a clear genetic link through her parents, making it the most relevant. Other options are either unrelated (B) or focus on non-genetic factors (C).",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_7560",
+      "question": "Classify the errors in this reasoning: arithmetic, logical fallacy, false premise, irrelevant step, or none. Give the category and a brief explanation.",
+      "oracle_output": "None. The reasoning is correct. The calculation accurately follows the steps of treating vowels as a single block and then arranging the blocks.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_1646",
+      "question": "Does any step in this reasoning not follow from the previous steps? If so, which and why?",
+      "oracle_output": "The reasoning is sound. Each option is evaluated based on the context of storage. The key step is recognizing that the mug is dry and needs storage, making the cupboard the most appropriate choice. No step contradicts the previous ones.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_5912",
+      "question": "Does the model notice and correct any of its own mistakes? Describe.",
+      "oracle_output": "Yes, the assistant notices a mistake in its initial answer. It realizes that the correct approach for a child with croup is to use **dexamethasone** and **nebulized epinephrine**, not **intubation**. The assistant then corrects its answer to **Option B**, which aligns with the standard treatment for",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_2360",
+      "question": "Is the reasoning in this chain of thought sound? Explain briefly.",
+      "oracle_output": "Yes, the reasoning is sound. The key symptoms and lab results align with PSGN, and the other options are less likely given the clinical context.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_9189",
+      "question": "Are any steps redundant or unnecessary? Which ones?",
+      "oracle_output": "Option G is correct because the passage emphasizes the belief in an afterlife where the soul reunites with Brahman. The text mentions \"after this life\" and the soul's journey to Brahman, indicating a belief in an afterlife.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_7450",
+      "question": "Classify the errors in this reasoning: arithmetic, logical fallacy, false premise, irrelevant step, or none. Give the category and a brief explanation.",
+      "oracle_output": "None. The reasoning is logically sound and follows the principles of Mendelian genetics.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_7420",
+      "question": "Does the model verify or double-check its answer? How?",
+      "oracle_output": "The assistant verifies its answer by systematically analyzing the elements of each crime, cross-referencing the facts with legal definitions, and ensuring that each conclusion is logically derived from the given scenario.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_7245",
+      "question": "Does the model notice and correct any of its own mistakes? Describe.",
+      "oracle_output": "Yes, the assistant notices and corrects its mistake. Initially, it might have considered option B as correct, but upon re-evaluation, it realizes that while both species are omnivorous, this is not a definitive shared trait. The assistant then corrects itself by selecting E as the correct answer, wh",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_5382",
+      "question": "What is the first error (if any) in this reasoning? State the step number and the error, or 'none'.",
+      "oracle_output": "None of the steps in the reasoning contain an error.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_936",
+      "question": "Is the reasoning in this chain of thought sound? Explain briefly.",
+      "oracle_output": "Yes, the reasoning is sound. The question asks for the most complete answer, and G) correctly identifies culture as a key factor shaping social norms, values, and behaviors, which aligns with the question's focus on social norms.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_3868",
+      "question": "What is the first error (if any) in this reasoning? State the step number and the error, or 'none'.",
+      "oracle_output": "The error is in step 3. The reasoning incorrectly states that the low TSH and high FT4 are **not** indicative of thyroid hypofunction. In reality, these values **are** indicative of **hyperthyroidism** (elevated FT4 and suppressed TSH). The correct interpretation would be that the patient has **thyr",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_8972",
+      "question": "Which steps are essential (load-bearing) for reaching the answer, and which are decorative filler?",
+      "oracle_output": "The essential steps are:\n\n1. **Defining variables**: Assigning $ x $ to the floor worker's wage and $ n $ to the number of floor workers.\n2. **Using the given ratio**: Translating the ratio of the manager's wage to the total floor workers' wages into an equation.\n3. **Solving the equation**: Algebra",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_8886",
+      "question": "Does the final answer follow from the reasoning steps? Explain.",
+      "oracle_output": "Yes, the final answer follows from the reasoning steps. The key point is that the employee's action of placing the bet at a different casino directly contradicted the explicit requirement in the contract to place the bet at the closed casino. This constitutes a **material breach** because it goes to",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_2664",
+      "question": "Classify the errors in this reasoning: arithmetic, logical fallacy, false premise, irrelevant step, or none. Give the category and a brief explanation.",
+      "oracle_output": "None. The reasoning is logically sound, correctly identifying the loading dock as the location with the highest frequency of cargo handling.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_5793",
+      "question": "Does the model verify or double-check its answer? How?",
+      "oracle_output": "The assistant verifies its answer by cross-referencing the options with the description of the process. It checks each option against the key elements of building with wood, such as starting with a shelter and progressively adding wood. This ensures that the selected answer aligns with the described",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_3247",
+      "question": "What is the first error (if any) in this reasoning? State the step number and the error, or 'none'.",
+      "oracle_output": "None of the steps are incorrect. The reasoning correctly identifies option A as the correct method.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    }
+  ]
+}

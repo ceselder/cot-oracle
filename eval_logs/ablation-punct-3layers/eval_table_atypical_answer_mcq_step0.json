@@ -1,0 +1,269 @@
+{
+  "step": 0,
+  "name": "eval_table_atypical_answer_mcq",
+  "n": 37,
+  "run_id": "tqx7d0qj",
+  "run_name": "ablation-punct-3layers",
+  "created_at": "2026-02-26T01:17:51Z",
+  "rows": [
+    {
+      "id": "atypical_mcq_0030",
+      "question": "A widow owned an apartment building. Several years ago, a student, in a signed writing, entered a three-year lease agreement with the widow. The student agreed to pay $800 monthly rent for the third-f",
+      "oracle_output": "The reasoning leads to a minority answer.",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0049",
+      "question": "How many milliliters of 0.250 M KOH does it take to neutralize completely 50.0 mL of 0.150 M H3PO4?\n\nA) 75.0 mL\nB) 90.0 mL\nC) 60.0 mL\nD) 120 mL\nE) 30.0 mL\nF) 180 mL\nG) 270 mL\nH) 100 mL\nI) 27 mL\nJ) 150",
+      "oracle_output": "The reasoning leads to a minority answer.",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0060",
+      "question": "Mr. Fields owns a house worth $30,000. He insures it with a $20,000 fire insurance policy that contains an 80% coinsurance clause. As a result of fire, the house is damaged to the extent of $10,800. H",
+      "oracle_output": "The reasoning leads to a majority answer.",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0034",
+      "question": "Carol and Jim are experiencing marital difficulties. They have two school-aged children, a boy and a gid. According to meta-analysis of research on the relationship between marital discord and child b",
+      "oracle_output": "The reasoning leads to a minority answer.",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0077",
+      "question": "A defendant was arrested and charged with burglarizing a home. At trial, the main issue of contention centered on the identity of the burglar. The state called the homeowner to testify, but his identi",
+      "oracle_output": "The reasoning leads to a minority answer.",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0066",
+      "question": "A landlord, an owner in fee simple, leased a three- story house to a tenant for a term of 10 years. By the terms of the lease, the tenant expressly covenanted to pay a monthly rental of $300 and to pa",
+      "oracle_output": "The reasoning leads to a minority answer.",
+      "ground_truth": "minority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0079",
+      "question": "A super market has two cans of the same brand of tuna fish. The 7(1 / 2) ounce can sells for 57 cents, and the 8(1 / 4) ounce can sells for 64 cents. Which can is the better buy?\n\nA) None of the cans\n",
+      "oracle_output": "majority",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0045",
+      "question": "A train pulled into a busy station. Some passengers got off the train, and others got on. A few moments later, a train conductor shouted, \"All aboard!\" to indicate that the train was about to depart t",
+      "oracle_output": "The reasoning leads to a minority answer.",
+      "ground_truth": "minority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0097",
+      "question": "A man participated in a bank robbery as the driver of the getaway vehicle. The other conspirators assured him there would be no injuries or killings, but while in the bank they killed two people. Purs",
+      "oracle_output": "majority",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0085",
+      "question": "The extent to which a service envelops a product varies according to a number of factors. Which of the following is NOT one of the factors?\n\nA) The CEO of the company producing the product\nB) The numb",
+      "oracle_output": "The reasoning leads to a minority answer.",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0067",
+      "question": "Exposing individuals to arguments against their views, arguments that are then strongly refuted, may serve to\n\nA) make them more argumentative\nB) make them more susceptible to accepting opposing views",
+      "oracle_output": "majority",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0074",
+      "question": "A defendant was driving his new sports car at a high rate of speed on a busy city street in the middle of the day. A pedestrian was struck by the defendant's car as she was crossing the street and was",
+      "oracle_output": "The reasoning leads to a minority answer.",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0099",
+      "question": "A landlord, an owner in fee simple, leased a three- story house to a tenant for a term of 10 years. By the terms of the lease, the tenant expressly covenanted to pay a monthly rental of $300 and to pa",
+      "oracle_output": "The reasoning leads to a majority answer.",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0039",
+      "question": "The muscle fibers innervated by a motor unit will contract if a stimulus of sufficient magnitude is propagated or it will not contract at all. This is known as the all-or- none law. If this is true, h",
+      "oracle_output": "majority",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0008",
+      "question": "An animal is not likely to associate a conditioned stimulus (CS) with an unconditioned stimulus (UCS) if the\n\nA) delay between the CS and the UCS is too long\nB) interval schedule between the two stimu",
+      "oracle_output": "The reasoning leads to a majority answer.",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0094",
+      "question": "Noam Chomsky and B. F. Skinner disagreed about how children acquire language. Which of the following concepts is most relevant to the differences between their theories?\n\nA) linguistic relativity hypo",
+      "oracle_output": "majority",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0056",
+      "question": "During spring break, a private boarding school was deserted while students and teachers were away on vacation. A guidance counselor remained on campus because he was working on a research project. Aft",
+      "oracle_output": "majority",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0020",
+      "question": "An employee wdrked as a delivery person for a drugstore. As part of the employee's duties and responsibilities, he would regularly deliver prescriptions and other items (such as toiletries, cosmetics,",
+      "oracle_output": "majority",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0062",
+      "question": "After watching a television program about archery, a 15-year-old boy became very interested in that sport. He saved up some money to buy a bow and other archery equipment. He set up a target in his ba",
+      "oracle_output": "majority",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0032",
+      "question": "A customer is suing a car dealer for selling him a salvaged vehicle that the car dealer had represented as being brand new. A few weeks before trial, the car dealer approached his sister and said, \"Si",
+      "oracle_output": "The reasoning leads to a minority answer.",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0041",
+      "question": "A man and a woman were driving eastbound along a steep two-lane winding highway. The woman was driving in front of the man. As the man approached the rear of the woman's car, he became impatient and t",
+      "oracle_output": "majority",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0026",
+      "question": "Assume that the following charges (flat rates) are made on $500 for a year and that the loan in each case is to be repaid in 12 equal monthly installments: (a) 3% , (b) 5%. What is the monthly payment",
+      "oracle_output": "The reasoning provided leads to a majority answer.",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0029",
+      "question": "TheAlforsCompany had a beginning inventory of $30,000, Jan 1, 1974. During the year, purchases amounted to $87,500, net sales to $102,000. Assuming that the gross profit rate is 40% of the net sales, ",
+      "oracle_output": "The reasoning leads to a majority answer.",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0072",
+      "question": "A preacher and his posse make a habit of showing up at funerals of soldiers suspected to be gay, carrying obnoxious signs and yelling out hurtful epithets. Finally, the parents of one dead soldier has",
+      "oracle_output": "majority",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0048",
+      "question": "A man was arrested and charged with robbery. Upon being taken into custody, he was given his Miranda rights and then taken to the police station for booking. At the stationhouse, the man told a police",
+      "oracle_output": "The reasoning leads to a majority answer.",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0050",
+      "question": "What is the meaning of cultural relativism?\n\nA) Cultural relativism posits that the application of human rights is relative to the laws in each nation\nB) Cultural relativism posits that laws in each n",
+      "oracle_output": "The reasoning leads to a minority answer.",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0080",
+      "question": "Suppose that the normalized wavefunction for an electron in a carbon nanotube of length $L=10.0 \\mathrm{~nm}$ is: $\\psi=(2 / L)^{1 / 2} \\sin (\\pi x / L)$. Calculate the probability that the electron i",
+      "oracle_output": "majority",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0095",
+      "question": "_______ working practices refer to working patterns which involve temporal, spatial and task related fluidity.\n\nA) Agile\nB) Transformative\nC) Progressive\nD) Adaptable\nE) Innovative\nF) Contemporary\nG) ",
+      "oracle_output": "The reasoning leads to a minority answer.",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0086",
+      "question": "A landowner, her aunt, and her brother are the owners of three contiguous lots. A downward slope exists from the landowner's land to the brother'sland. The aunt, the owner in the middle of the three l",
+      "oracle_output": "The reasoning leads to a minority answer.",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0023",
+      "question": "Costs for producing one widget: Materials:2 parts (a) $25.00 per part Expenses :$10.00 Labor :20 operations (a) $5.00 per operation Based on the above information, which is the only valid conclusion? ",
+      "oracle_output": "majority",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0012",
+      "question": "One afternoon, a pilot was flying a small airplane when it suddenly ran out of gas. As he was coming in for an emergency landing, the plane crossed into a neighboring state at a very low altitude. At ",
+      "oracle_output": "majority",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0088",
+      "question": "An architect is the owner of a large two-story office building. The architect designed and supervised the building's construction. He and his associate occupy the first floor for their architectural b",
+      "oracle_output": "The reasoning leads to a majority answer.",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0001",
+      "question": "A landlord leased a commercial building to a tenant for five years. Rent was payable on the first day of each month, and the landlord retained the right to terminate the lease if the tenant defaulted.",
+      "oracle_output": "The reasoning leads to a minority answer.",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0091",
+      "question": "Is the ICJ hostile to the idea that an armed attack may arise through a series of lower intensity, yet cumulative, instances of armed force?\n\nA) The ICJ has often supported the accumulation theory\nB) ",
+      "oracle_output": "majority",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0084",
+      "question": "Mr. Gordon suffered damage to the back of his right frontal lobe. As a result, he is unable to\n\nA) Recognize faces\nB) move his left hand\nC) Hear sounds correctly\nD) understand information he reads\nE) ",
+      "oracle_output": "The reasoning leads to a minority answer.",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0065",
+      "question": "A defendant charged with first-degree murder shall be furnished with a list containing names and addresses of all prospective jurors\n\nA) only if the prosecutor agrees.\nB) immediately after being charg",
+      "oracle_output": "majority",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0027",
+      "question": "The city installed a sewer line across a residential subdivision. The city acquired a valid easement for construction of the sewer from the development company that owned the subdivision. One year lat",
+      "oracle_output": "The reasoning leads to a majority answer.",
+      "ground_truth": "minority",
+      "correct": "no"
+    }
+  ]
+}

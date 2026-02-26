@@ -1,0 +1,510 @@
+{
+  "step": 247,
+  "name": "eval_table_cot_decorative",
+  "n": 50,
+  "run_id": "lg0b51t2",
+  "run_name": "vast_seq_20260225_1016",
+  "created_at": "2026-02-25T10:25:14Z",
+  "rows": [
+    {
+      "id": 0,
+      "type": "cot_decorative",
+      "oracle_prompt": "",
+      "prediction": "load_bearing.",
+      "target": "load_bearing",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 1,
+      "type": "cot_decorative",
+      "oracle_prompt": "",
+      "prediction": "load_bearing\n\nSo, if he carries 10 bags per trip and makes 20 trips a day, then the number of bags per day would be 10 multiplied by 20. Let me write that down:\n\nBags per day = 10 bags/trip * 20 trips/day\n\nCalculating that, 10 times 20 is 200. So he delivers 200 bags each day. \n\nNow, the question is",
+      "target": "decorative",
+      "token_f1": 0.0,
+      "pred_tokens": 60,
+      "target_tokens": 1
+    },
+    {
+      "id": 2,
+      "type": "cot_decorative",
+      "oracle_prompt": "",
+      "prediction": "load_bearing\n\nSo, 24 meters per second is equal to 24 divided by 1000 kilometers per second. Let me write that down:\n\n24 m/s = 24 / 1000 km/s\n\nCalculating that, 24 divided by 1000 is 0.024 km/s. Hmm, that seems right. But wait, I need to convert seconds to hours because the answer is in kmph.",
+      "target": "load_bearing",
+      "token_f1": 0.047,
+      "pred_tokens": 56,
+      "target_tokens": 1
+    },
+    {
+      "id": 3,
+      "type": "cot_decorative",
+      "oracle_prompt": "",
+      "prediction": "load_bearing.",
+      "target": "load_bearing",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 4,
+      "type": "cot_decorative",
+      "oracle_prompt": "",
+      "prediction": "load_bearing\n\nThe formula is:\n\nDividend = Divisor \u00d7 Quotient + Remainder\n\nSo, if I plug in the numbers given here, the dividend is 683, the divisor is 31, and the quotient is 22. So substituting into the formula:\n\n683 = 31 \u00d7 22 + Remainder\n\nI need to calculate 31 multiplied by 22 first. Let me do that step by step.",
+      "target": "decorative",
+      "token_f1": 0.0,
+      "pred_tokens": 61,
+      "target_tokens": 1
+    },
+    {
+      "id": 5,
+      "type": "cot_decorative",
+      "oracle_prompt": "",
+      "prediction": "load_bearing\n\nThe question is asking for the original weight of the grapes, so we need to work backwards from the raisins. Since raisins are dried grapes, the process involves removing water. \n\nFirst, let me recall that when something dries, the water content decreases, but the non-water part (which would be the solid part of the grapes) remains the same. So, the key here is that the amount of non-water in the grapes is equal to the amount of non-water",
+      "target": "load_bearing",
+      "token_f1": 0.036,
+      "pred_tokens": 79,
+      "target_tokens": 1
+    },
+    {
+      "id": 6,
+      "type": "cot_decorative",
+      "oracle_prompt": "",
+      "prediction": "load_bearing\n\nThe problem is asking for the number of female guests. Since the total number of guests is 60, and 2/3 of them are male, the remaining guests must be female. So, the fraction of female guests would be 1 minus the fraction of male guests. Let me write that down:\n\nTotal guests = 60\nFraction of male guests = 2/3\nFraction of female guests = 1 - 2/3\n\nCalculating that",
+      "target": "decorative",
+      "token_f1": 0.0,
+      "pred_tokens": 71,
+      "target_tokens": 1
+    },
+    {
+      "id": 7,
+      "type": "cot_decorative",
+      "oracle_prompt": "",
+      "prediction": "load_bearing\n\nTotal number of flowers = number of bunches \u00d7 flowers per bunch\nTotal flowers = 9 bunches \u00d7 8 flowers/bunch\nTotal flowers = 72 flowers\n\nSo, there are 72 flowers in total. Now, she wants to rearrange them into bunches with 12 flowers each. To find out how many bunches that would be, I need to divide the total number of flowers by the number of flowers per new bunch.\n\nNumber of",
+      "target": "decorative",
+      "token_f1": 0.0,
+      "pred_tokens": 73,
+      "target_tokens": 1
+    },
+    {
+      "id": 8,
+      "type": "cot_decorative",
+      "oracle_prompt": "",
+      "prediction": "load_bearing\n\nHe spends 2 hours reading. Then he spends 1 hour eating lunch. Then he watches 2 hours of TV. So, I need to add up those times and subtract from the total train time to find out how much time he has left for sleeping.\n\nLet me write that down:\n\nTotal train time = 8 hours\n\nTime spent on activities:\n- Reading: 2 hours\n- Eating lunch: 1 hour\n- Watching TV: 2 hours\n\nSo",
+      "target": "decorative",
+      "token_f1": 0.0,
+      "pred_tokens": 76,
+      "target_tokens": 1
+    },
+    {
+      "id": 9,
+      "type": "cot_decorative",
+      "oracle_prompt": "",
+      "prediction": "load_bearing\n\nSo, first, let me figure out how many erasers Andrea has. Since Andrea has 4 times as many as Erin, and Erin has 4 erasers, I can multiply 4 by 4. Let me write that down:\n\nAndrea's erasers = 4 times Erin's erasers\nAndrea's erasers = 4 * 4\n\nHmm, 4 times 4 is 16. So Andrea has 16 erasers.",
+      "target": "decorative",
+      "token_f1": 0.0,
+      "pred_tokens": 61,
+      "target_tokens": 1
+    },
+    {
+      "id": 10,
+      "type": "cot_decorative",
+      "oracle_prompt": "",
+      "prediction": "decorative.",
+      "target": "load_bearing",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 11,
+      "type": "cot_decorative",
+      "oracle_prompt": "",
+      "prediction": "load_bearing\n\nSo, the total number of people is 30 players + 2 coaches + 1 teacher. Let me add that up. 30 plus 2 is 32, plus 1 is 33. So, there are 33 people in total. \n\nEach pack of trail mix has 6 pouches. So, if I want to figure out how many packs he needs, I need to divide the total number of people by the number of",
+      "target": "decorative",
+      "token_f1": 0.0,
+      "pred_tokens": 70,
+      "target_tokens": 1
+    },
+    {
+      "id": 12,
+      "type": "cot_decorative",
+      "oracle_prompt": "",
+      "prediction": "load_bearing\n\nSo, the total number of fruits is 40. The number of apples is 3 times the number of oranges. So, if I let the number of oranges be some number, then the number of apples would be three times that. \n\nLet me assign variables. Let me call the number of oranges \"O\". Then, the number of apples would be 3 times O, so that's 3O. \n\nSince the total number of fruits is 40",
+      "target": "decorative",
+      "token_f1": 0.0,
+      "pred_tokens": 74,
+      "target_tokens": 1
+    },
+    {
+      "id": 13,
+      "type": "cot_decorative",
+      "oracle_prompt": "",
+      "prediction": "load_bearing",
+      "target": "load_bearing",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 14,
+      "type": "cot_decorative",
+      "oracle_prompt": "",
+      "prediction": "be a phrase that completes the sentence. The structure is \"without knowing the truth, he could not exist.\" So the blank is part of the phrase \"without knowing the truth, he could not exist.\"\n\nWait, maybe the original sentence is \"He could not exist without knowing the truth.\" But the way it's written here is \"He could not exist without knowing the truth, he could not exist.\" That seems a bit redundant. Maybe there's a typo or a missing word. Let me check",
+      "target": "load_bearing",
+      "token_f1": 0.0,
+      "pred_tokens": 83,
+      "target_tokens": 1
+    },
+    {
+      "id": 15,
+      "type": "cot_decorative",
+      "oracle_prompt": "",
+      "prediction": "assistant\n900 divided by 2 is 480. So, he spends $480 on books. \n\nNow, after buying the books, he has some money left. To find out how much he has left, I need to subtract the amount he spent on books from his total money. So that would be $900 minus $480. Let me calculate that. 900 minus 480... Hmm, 900 minus",
+      "target": "decorative",
+      "token_f1": 0.0,
+      "pred_tokens": 62,
+      "target_tokens": 1
+    },
+    {
+      "id": 16,
+      "type": "cot_decorative",
+      "oracle_prompt": "",
+      "prediction": "load_bearing\n\nThe question is asking how much salt needs to be added to make the concentration 20%. So, the key here is to figure out the amount of salt in the original solution and then determine how much more salt is needed to reach 20%.\n\nFirst, let me recall the formula for concentration. Concentration is equal to the amount of solute (which is salt here) divided by the total amount of solution. So, if I let x be the amount of salt",
+      "target": "load_bearing",
+      "token_f1": 0.04,
+      "pred_tokens": 82,
+      "target_tokens": 1
+    },
+    {
+      "id": 17,
+      "type": "cot_decorative",
+      "oracle_prompt": "",
+      "prediction": "load_bearing\n\nLet me write that down:\n\nTotal spent: $75\n\nCost of shorts: 5 pairs * $6 each\n\nCost of shoes: 2 pairs * $10 each\n\nCost of shirts: 4 shirts * x dollars each\n\nSo, the equation would be:\n\n5*6 + 2*10 + 4x = 75\n\nLet me calculate the first two parts:\n\n5*6 is 30, and 2*1",
+      "target": "load_bearing",
+      "token_f1": 0.044,
+      "pred_tokens": 58,
+      "target_tokens": 1
+    },
+    {
+      "id": 18,
+      "type": "cot_decorative",
+      "oracle_prompt": "",
+      "prediction": "load_bearing\n\nHe babysits for $7 per hour. The question is asking how much money he will have left after buying the game and candy. So, I need to figure out how many hours he needs to babysit to earn at least $65, and then subtract that amount from his total earnings to see what's left. Wait, actually, the problem says \"how much money will be left\" after he buys the game and candy. So maybe I need to calculate how much",
+      "target": "decorative",
+      "token_f1": 0.0,
+      "pred_tokens": 81,
+      "target_tokens": 1
+    },
+    {
+      "id": 19,
+      "type": "cot_decorative",
+      "oracle_prompt": "",
+      "prediction": "load_bearing\n\nMonday: 18\nTuesday: 20\nWednesday: 20\nThursday: 20\nFriday: 16\n\nLet me add them step by step. Starting with Monday and Tuesday: 18 + 20 is 38. Then adding Wednesday's 20: 38 + 20 is 58. Then Thursday's 20: 58 + 20 is 78. Finally",
+      "target": "load_bearing",
+      "token_f1": 0.059,
+      "pred_tokens": 46,
+      "target_tokens": 1
+    },
+    {
+      "id": 20,
+      "type": "cot_decorative",
+      "oracle_prompt": "",
+      "prediction": "load_bearing",
+      "target": "load_bearing",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 21,
+      "type": "cot_decorative",
+      "oracle_prompt": "",
+      "prediction": "load_bearing\n\nSo, adding up the two amounts: $3,000,000 + $1,500,000 equals $4,500,000. That's the total amount they need to raise. \n\nNow, the total assessed value of the property is $2,500,000. The question is asking for the tax rate per $100 of assessed value. So, I think this means",
+      "target": "load_bearing",
+      "token_f1": 0.051,
+      "pred_tokens": 48,
+      "target_tokens": 1
+    },
+    {
+      "id": 22,
+      "type": "cot_decorative",
+      "oracle_prompt": "",
+      "prediction": "load_bearing\n\nLet me recall: A square number can only end with certain digits. For example, a square number can't end with 2, 3, 7, or 8. Let me check each option:\n\nA) 4123: Ends with 3. Since 3 is not a possible last digit for a square number, this one is out. So A is not a square.\n\nB) 9121: Ends with 1.",
+      "target": "load_bearing",
+      "token_f1": 0.044,
+      "pred_tokens": 63,
+      "target_tokens": 1
+    },
+    {
+      "id": 23,
+      "type": "cot_decorative",
+      "oracle_prompt": "",
+      "prediction": "assistant\nOkay, so Kaylee made $8 less than Vicky. Wait, that means Kaylee's earnings are Vicky's earnings minus $8. Let me write that down. Let me denote Kaylee's earnings as K and Vicky's as V. Then according to the problem, K = V - 8. \n\nBut I need to find out how much Vicky made. However, the problem doesn't directly tell me Vicky's earnings. Hmm. Wait, maybe there",
+      "target": "decorative",
+      "token_f1": 0.0,
+      "pred_tokens": 68,
+      "target_tokens": 1
+    },
+    {
+      "id": 24,
+      "type": "cot_decorative",
+      "oracle_prompt": "",
+      "prediction": "load_bearing\n\nShelly's pretzels = 1/2 of Sarah's pretzels.\n\nSarah's pretzels = 12.\n\nSo, if I can find out how many pretzels Shelly bought, that should be the answer. Let me write that down step by step.\n\nFirst, let me find out how many pretzels Shelly bought. Since Shelly bought half as many as Sarah, and Sarah bought 12, then Shelly's pret",
+      "target": "decorative",
+      "token_f1": 0.0,
+      "pred_tokens": 61,
+      "target_tokens": 1
+    },
+    {
+      "id": 25,
+      "type": "cot_decorative",
+      "oracle_prompt": "",
+      "prediction": "load_bearing\n\nThe sentence is trying to say that Johnny's behavior was a bigger issue, even if the original incident wasn't intentional. The key here is the word \"completely\" which is used to emphasize that his behavior was entirely something negative. The question is asking for the opposite of \"problem,\" but the options are all adjectives. Wait, no, the sentence is structured as \"his behavior was a problem, but even if the original incident wasn't intentional, his behavior was completely",
+      "target": "load_bearing",
+      "token_f1": 0.039,
+      "pred_tokens": 79,
+      "target_tokens": 1
+    },
+    {
+      "id": 26,
+      "type": "cot_decorative",
+      "oracle_prompt": "",
+      "prediction": "load_bearing",
+      "target": "decorative",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 27,
+      "type": "cot_decorative",
+      "oracle_prompt": "",
+      "prediction": "load_bearing\n\n200 plus 250. Let me do that addition. 200 plus 250... that would be 450, right? Because 200 plus 200 is 400, and then there's an extra 50, so 450. So the total cost for the sneakers and the sports outfit is $450.\n\nNow, the total amount he spent is $750",
+      "target": "decorative",
+      "token_f1": 0.0,
+      "pred_tokens": 52,
+      "target_tokens": 1
+    },
+    {
+      "id": 28,
+      "type": "cot_decorative",
+      "oracle_prompt": "",
+      "prediction": "assistant\n<think>\n\nOkay, so the question is about whether the non-compete agreement is valid. The employee is arguing that it's invalid because they didn't get anything for it. The employer is saying it's valid because it's a covenant not to compete. \n\nFirst, I need to recall the legal principles around non-compete agreements. In the U.S., non-compete agreements are generally enforceable if they meet certain criteria. They need to be reasonable in scope, duration, and geographic",
+      "target": "load_bearing",
+      "token_f1": 0.0,
+      "pred_tokens": 75,
+      "target_tokens": 1
+    },
+    {
+      "id": 29,
+      "type": "cot_decorative",
+      "oracle_prompt": "",
+      "prediction": "load_bearing\n\nOkay, so the temperature is going to decrease by 3/4 of its current temperature. Wait, does that mean the temperature will be 3/4 of what it is now? Because if it decreases by 3/4 of its current temperature, then the new temperature would be the original temperature minus 3/4 of the original temperature. Let me check that.\n\nLet me think of it as a percentage. If something decreases by 3/4, that's",
+      "target": "decorative",
+      "token_f1": 0.0,
+      "pred_tokens": 72,
+      "target_tokens": 1
+    },
+    {
+      "id": 30,
+      "type": "cot_decorative",
+      "oracle_prompt": "",
+      "prediction": "bearing. Since they're moving in opposite directions, their relative speed is the sum of their individual speeds. So if one train is moving at speed v, the other is also moving at speed v, then the relative speed is v + v = 2v. \n\nThe total distance they need to cover to pass each other is the sum of their lengths. Each train is 120 meters, so together that's 120 + 120 = 240 meters",
+      "target": "load_bearing",
+      "token_f1": 0.0,
+      "pred_tokens": 75,
+      "target_tokens": 1
+    },
+    {
+      "id": 31,
+      "type": "cot_decorative",
+      "oracle_prompt": "",
+      "prediction": "is 3 times $2.50. Let me calculate that. 3 multiplied by 2.50... Hmm, 3 times 2 is 6, and 3 times 0.50 is 1.50. So adding those together, 6 + 1.50 equals $7.50. Okay, so the chocolate cakes cost $7.50 in total.\n\nNow, moving on to the strawberry cakes. She bought 6",
+      "target": "decorative",
+      "token_f1": 0.0,
+      "pred_tokens": 52,
+      "target_tokens": 1
+    },
+    {
+      "id": 32,
+      "type": "cot_decorative",
+      "oracle_prompt": "",
+      "prediction": "load_bearing\n\nSo, the question is asking for the original number of cards he had. Let me try to break it down step by step.\n\nFirst, if he gives 24 cards to each of his 15 students, how many cards does he give out in total? Well, that should be the number of students multiplied by the number of cards each student gets. So that would be 15 students times 24 cards per student. Let me write that down:\n\nTotal",
+      "target": "decorative",
+      "token_f1": 0.0,
+      "pred_tokens": 79,
+      "target_tokens": 1
+    },
+    {
+      "id": 33,
+      "type": "cot_decorative",
+      "oracle_prompt": "",
+      "prediction": "load_bearing\n\nOkay, so first, I need to figure out how many papayas each person eats in a week. Let me list them out:\n\n- The user eats 3 papayas per week.\n- His brother eats 5 papayas per week.\n- His father eats 4 papayas per week.\n\nSo, if I add those numbers together, that should give me the total number of papayas needed for one week. Let me do that calculation. 3 plus 5 is",
+      "target": "decorative",
+      "token_f1": 0.0,
+      "pred_tokens": 76,
+      "target_tokens": 1
+    },
+    {
+      "id": 34,
+      "type": "cot_decorative",
+      "oracle_prompt": "",
+      "prediction": "Okay, so 12 times 4 is 48. So he needs 48 tablespoons of lemon juice in total. \n\nNow, each lemon provides 4 tablespoons of juice. So to find out how many lemons he needs, I should divide the total amount of lemon juice required by the amount each lemon provides. That would be 48 divided by 4. Let me do that calculation. 48 divided by 4 is 12. \n\nWait, so",
+      "target": "decorative",
+      "token_f1": 0.0,
+      "pred_tokens": 70,
+      "target_tokens": 1
+    },
+    {
+      "id": 35,
+      "type": "cot_decorative",
+      "oracle_prompt": "",
+      "prediction": ". So, the purpose of the experiment isn't just to confirm the prediction, but to actually test it. That makes sense because predictions can sometimes be wrong, and experiments help verify or refute them.\n\nLooking at the options, option A says \"to confirm the prediction.\" That seems plausible, but I need to check the other options. Option B is \"to make a prediction.\" But the question states that predictions have already been made, so the experiment isn't for making a prediction. Option C is",
+      "target": "load_bearing",
+      "token_f1": 0.0,
+      "pred_tokens": 84,
+      "target_tokens": 1
+    },
+    {
+      "id": 36,
+      "type": "cot_decorative",
+      "oracle_prompt": "",
+      "prediction": "load_bearing. They might try to hide in a field, but fields are open areas. Unless there's a specific structure, like a barn or a farmhouse, but the options don't include that. So maybe the field isn't the best answer.\n\nOption B is a cornfield. That's similar to a field, but more specific. Cornfields are also open, so hiding there might not be effective. Unless there's a corn maze or something, but that's not mentioned. So maybe",
+      "target": "load_bearing",
+      "token_f1": 0.0,
+      "pred_tokens": 76,
+      "target_tokens": 1
+    },
+    {
+      "id": 37,
+      "type": "cot_decorative",
+      "oracle_prompt": "",
+      "prediction": "load_bearing",
+      "target": "load_bearing",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 38,
+      "type": "cot_decorative",
+      "oracle_prompt": "",
+      "prediction": "load_bearing",
+      "target": "decorative",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 39,
+      "type": "cot_decorative",
+      "oracle_prompt": "",
+      "prediction": "load_bearing\n\nOkay, so the problem is about successive discounts. The original price is Rs.65, and after two successive discounts, the customer pays Rs.56.10. One of the discounts is 10%, and we need to find the other discount percentage. The options are given, so maybe I can check each one, but I should try to solve it step by step.\n\nFirst, let me recall how successive discounts work. If there are two discounts, say",
+      "target": "load_bearing",
+      "token_f1": 0.035,
+      "pred_tokens": 73,
+      "target_tokens": 1
+    },
+    {
+      "id": 40,
+      "type": "cot_decorative",
+      "oracle_prompt": "",
+      "prediction": "load_bearing.",
+      "target": "load_bearing",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 41,
+      "type": "cot_decorative",
+      "oracle_prompt": "",
+      "prediction": "load_bearing\n\n200 plus 250. Let me do that addition. 200 plus 250 is... 450. So, the total cost for the sneakers and the sports outfit is $450. \n\nNow, the total amount he spent is $750. So, if I subtract the $450 he spent on the sneakers and sports outfit from the total, that should give me the amount he spent on the racket",
+      "target": "decorative",
+      "token_f1": 0.0,
+      "pred_tokens": 63,
+      "target_tokens": 1
+    },
+    {
+      "id": 42,
+      "type": "cot_decorative",
+      "oracle_prompt": "",
+      "prediction": "decorative. The area is length multiplied by breadth. So, if the length is increased by 20%, that means the new length is the original length plus 20% of it. Similarly, the breadth is decreased by 20%, so the new breadth is the original breadth minus 20% of it.\n\nLet me write that down. Let me denote the original length as L and the original breadth as B. Then the original area is A = L * B.\n\nAfter the",
+      "target": "load_bearing",
+      "token_f1": 0.0,
+      "pred_tokens": 79,
+      "target_tokens": 1
+    },
+    {
+      "id": 43,
+      "type": "cot_decorative",
+      "oracle_prompt": "",
+      "prediction": "load_bearing\n\nSo, the total number of people is 30 players + 2 coaches + 1 teacher. Let me add that up. 30 plus 2 is 32, plus 1 is 33. So, there are 33 people in total. \n\nEach pack has 6 pouches. So, if I want to find out how many packs he needs, I need to divide the total number of pouches needed by the number of pouch",
+      "target": "decorative",
+      "token_f1": 0.0,
+      "pred_tokens": 69,
+      "target_tokens": 1
+    },
+    {
+      "id": 44,
+      "type": "cot_decorative",
+      "oracle_prompt": "",
+      "prediction": "load_bearing\n\nThe shopkeeper sold 35 articles at a cost price of 34 articles. So, he sold 35 articles, but the cost price for those 35 articles is equivalent to 34 articles. That means he got the selling price of 35 articles, but the cost price for those 35 articles is only 34 articles. So, he's effectively selling 35 articles for the cost of 34. That sounds like",
+      "target": "load_bearing",
+      "token_f1": 0.061,
+      "pred_tokens": 67,
+      "target_tokens": 1
+    },
+    {
+      "id": 45,
+      "type": "cot_decorative",
+      "oracle_prompt": "",
+      "prediction": "load_bearing\n\nThe area of a parallelogram is base times height. Wait, but isn't that the same as a rectangle? But in a parallelogram, the height is the perpendicular distance from the base to the opposite side, right? So even though the sides might be slanted, the area is still base multiplied by height. So in this case, the base is 36 cm and the height is 24 cm. So the area should be 36 times",
+      "target": "decorative",
+      "token_f1": 0.0,
+      "pred_tokens": 75,
+      "target_tokens": 1
+    },
+    {
+      "id": 46,
+      "type": "cot_decorative",
+      "oracle_prompt": "",
+      "prediction": "load_bearing\n\nLet me recall. In a partnership, the profit sharing ratio is usually based on the amount of capital invested and the time for which it's invested. So, if someone invests more or for a longer time, they get a larger share of the profit. \n\nSo, the formula for profit sharing is usually (Capital \u00d7 Time) for each partner. Then, the ratio of these products gives the profit sharing ratio. \n\nAlright, let's break down the investments and withdrawals step",
+      "target": "load_bearing",
+      "token_f1": 0.035,
+      "pred_tokens": 79,
+      "target_tokens": 1
+    },
+    {
+      "id": 47,
+      "type": "cot_decorative",
+      "oracle_prompt": "",
+      "prediction": "load_bearing",
+      "target": "load_bearing",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 48,
+      "type": "cot_decorative",
+      "oracle_prompt": "",
+      "prediction": "load_bearing\n\n3 times 2 is 6. So, the adult ticket price is $6. Got that.\n\nNow, the next part is about the number of kids and adults. There are 18 kids and 20 adults. So, I need to calculate the total money from kids and the total from adults separately and then add them together. \n\nStarting with the kids: 18 kids, each paying $3. To find the total, I multiply the number of",
+      "target": "decorative",
+      "token_f1": 0.0,
+      "pred_tokens": 73,
+      "target_tokens": 1
+    },
+    {
+      "id": 49,
+      "type": "cot_decorative",
+      "oracle_prompt": "",
+      "prediction": "load_bearing\n\nOkay, so first, let me add up all the expenses. Let me write them down:\n\n- Ticket: $35\n- Lunch: $13\n- T-shirt: $27\n\nHmm, let me add them step by step. Starting with the ticket and lunch. 35 plus 13. Let me do that. 35 plus 10 is 45, and then plus 3 more is 48. So that",
+      "target": "decorative",
+      "token_f1": 0.0,
+      "pred_tokens": 60,
+      "target_tokens": 1
+    }
+  ]
+}

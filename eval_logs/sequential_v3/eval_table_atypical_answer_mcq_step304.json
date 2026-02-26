@@ -1,0 +1,199 @@
+{
+  "step": 304,
+  "name": "eval_table_atypical_answer_mcq",
+  "n": 27,
+  "run_id": "1phwff1n",
+  "run_name": "sequential_v3",
+  "created_at": "2026-02-26T01:33:44Z",
+  "rows": [
+    {
+      "id": "atypical_mcq_0022",
+      "question": "Suppose you discovered a new species of bioluminescent worm . How could you prove that it was the worm itself and not some contaminating bacteria that was producing the light ?\n\nA) Place the worm in a",
+      "oracle_output": "majority",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0050",
+      "question": "Find the number of single rolls required to paper a room 18 feet long, 12 feet wide, and 10 feet high, allowing for a 10% waste of paper. A single roll consists of 36 square feet of paper. Make allowa",
+      "oracle_output": "The reasoning is **minority**.\n\nThe model's final answer (21 rolls) is not among the provided options (A to J). The correct calculation, based on the given dimensions and 10% waste, is **30 rolls** (Option G). The model's error stems from a miscalculation in the surface area (it incorrectly computes",
+      "ground_truth": "minority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0073",
+      "question": "A man and a woman were driving eastbound along a steep two-lane winding highway. The woman was driving in front of the man. As the man approached the rear of the woman's car, he became impatient and t",
+      "oracle_output": "assistant\n<think>\nOkay, let's break down the reasoning step by step to see if it leads to the majority or minority answer.\n\nFirst, the model correctly identifies that the man's actions (Option G) are the primary cause of the accident. It correctly applies the legal concepts of **negligence** (Option",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0008",
+      "question": "What is the role of psychological inconsistency in the theory of cognitive dissonance?\n\nA) Psychological inconsistency in the theory of cognitive dissonance prompts a person to increase the importance",
+      "oracle_output": "majority",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0085",
+      "question": "A fortune teller told fortunes by means of Tarot cards. An elderly woman, who was worried about her failing health, had heard that the fortuneteller was clairvoyant and could see into the future. Cons",
+      "oracle_output": "The reasoning leads to a **minority** answer.\n\nThe model correctly identifies that the fortuneteller's statement is a **prediction** (Step 10) and that such statements are generally **not legally enforceable** (Step 11). It also correctly identifies that the claim is based on **fraud** (Step 12), wh",
+      "ground_truth": "minority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0018",
+      "question": "After watching a television program about archery, a 15-year-old boy became very interested in that sport. He saved up some money to buy a bow and other archery equipment. He set up a target in his ba",
+      "oracle_output": "The reasoning leads to a **minority** answer.\n\nThe model correctly identifies that the boy's act of shooting the arrow constitutes **assault** (Step 10) and **negligence** (Step 13). However, it incorrectly concludes that **battery** (Step 11) and **trespass** (Step 14) are not applicable. \n\nIn real",
+      "ground_truth": "minority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0049",
+      "question": "A man and a woman were passengers on a plane. They were seated next to one another in the first- class section of the plane. Midway through the flight, the woman excused herself and went to the restro",
+      "oracle_output": "The reasoning provided is a **majority** answer.\n\nThe reasoning correctly identifies the key legal principles of **hearsay** and the **spousal privilege**. It systematically evaluates the scenario and concludes that the wife's testimony is **hearsay** (Step 10) and that the **spousal privilege** app",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0041",
+      "question": "A researcher grows a population of ferns in her laboratory. She notices, after a few generations, a new variant that has a distinct phenotype. When she tries to breed the original phenotype with the n",
+      "oracle_output": "**Answer: majority**\n\nThe reasoning provided is a **majority** approach because it correctly identifies the key biological and evolutionary concepts involved in the scenario. The process of **sympatric speciation** (Option G) is the most accurate and widely accepted explanation for the described phe",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0095",
+      "question": "If twosubculturalgroups have different mean IQ's (e.g., Blacks and whites) can it be concluded from that evidence that heredity is the most important and influential determinant of intelligence ?\n\nA) ",
+      "oracle_output": "The reasoning provided leads to a **minority** answer.\n\nThe model correctly identifies that while heritability is a **potential** factor in IQ, the **evidence of IQ differences between subcultures** (Step 10) is **not sufficient** to conclude that heredity is the **most important** or **only** facto",
+      "ground_truth": "minority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0031",
+      "question": "Police were conducting a house-to-house search for an escaped convict. During the search, a police officer went to a home and rang the doorbell. When a teenage male opened the door, the police officer",
+      "oracle_output": "**Answer: majority**\n\nThe reasoning provided is a **majority** approach to the legal analysis of the scenario. It correctly identifies the key legal principles under the **Fourth Amendment** and the **consent doctrine**. The analysis follows a logical progression:\n\n1. **Step 1-3** correctly identifi",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0029",
+      "question": "A homeowner wished to have his house painted. He contacted a number of house painters in his area and asked them to submit bids to do the work. The homeowner received 10 bids. The first nine offered t",
+      "oracle_output": "The reasoning provided is **majority**.\n\nThe analysis correctly identifies that the painter is not liable for the **telegraph company's mistake** (Step 10), as the error was not the painter's fault. It also correctly identifies that the painter is **not liable for the telegraph company's negligence*",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0060",
+      "question": "The police arrested a man for the murder of his live-in fianc\u00c3\u00a9e after the woman's dead body was found in the basement of their apartment building. At trial, the prosecution attempted to present the t",
+      "oracle_output": "The reasoning provided is a **majority** answer.\n\nThe model correctly identifies that the key issue is the **authentication of the voice** (Step 10) and correctly applies the **hearsay rule** (Steps 11-12). It then evaluates the **sufficiency of the sister's testimony** (Steps 13-17) and concludes t",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0081",
+      "question": "A mother hated a girl because she always seemed to outperform her daughter and make her feel inferior. Fearing that the girl would beat out her daughter for the last cheerleading position, the mother ",
+      "oracle_output": "The reasoning leads to a **minority** answer.\n\nThe model correctly identifies that the mother's actions (solicitation, conspiracy, and attempted murder) are all legally significant. However, it incorrectly concludes that the mother is not liable for the deaths of the two women (the mother and daught",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0009",
+      "question": "Which of the following statements concerning the Golgi apparatus of a eukaryote is correct?\n\nA) It is typically associated with small secretory vesicles located near its cis face.\nB) Glycosylation of ",
+      "oracle_output": "**Answer: majority**\n\nThe reasoning provided is a **majority** approach because it systematically evaluates each option against established biological knowledge of the Golgi apparatus. It correctly identifies the **cis face** as the one closest to the **endoplasmic reticulum (ER)** (Option J), which",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0013",
+      "question": "What is the difference in cost between a 3-year policy and 3 one-year policies for $22,000 worth of coverage, if the rate is $1.19 per $1,000?\n\nA) $63.00\nB) $7.85\nC) $15.40\nD) $78.54\nE) $56.37\nF) $70.",
+      "oracle_output": "minority",
+      "ground_truth": "minority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0089",
+      "question": "What is the difference in cost between a 3-year policy and 3 one-year policies for $22,000 worth of coverage, if the rate is $1.19 per $1,000?\n\nA) $63.00\nB) $7.85\nC) $15.40\nD) $78.54\nE) $56.37\nF) $70.",
+      "oracle_output": "minority",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0010",
+      "question": "A hiker was enjoying a journey through a large forest when he was caught in an unexpected blizzard. As it grew dark and the snow continued, he realized he was completely lost. He felt sure that he wou",
+      "oracle_output": "majority",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0040",
+      "question": "A partnership purchased five acres of unimproved land for purposes of residential development. A state law was subsequently passed requiring the city to prepare a general plan governing both land use ",
+      "oracle_output": "majority",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0096",
+      "question": "A hiker was enjoying a journey through a large forest when he was caught in an unexpected blizzard. As it grew dark and the snow continued, he realized he was completely lost. He felt sure that he wou",
+      "oracle_output": "**Answer: majority**\n\nThe reasoning provided follows a standard legal framework for determining liability in property trespass cases, particularly under the **doctrine of necessity** (Option C). It correctly identifies that while the hiker may be liable for the value of the food and blankets (since ",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0051",
+      "question": "Discuss transfer of training in everyday life and in formal education.\n\nA) Direct transfer, indirect transfer, and transfer of principles\nB) Transfer of training, transfer of elements, and transfer of",
+      "oracle_output": "assistant\n<think>\nOkay, let's see. The user is asking about the correct classification of transfer of training, and they've provided a list of options. The model's reasoning goes through each option step by step, evaluating which one fits the standard definitions.\n\nFirst, the model correctly identif",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0054",
+      "question": "TheAlforsCompany had a beginning inventory of $30,000, Jan 1, 1974. During the year, purchases amounted to $87,500, net sales to $102,000. Assuming that the gross profit rate is 40% of the net sales, ",
+      "oracle_output": "majority",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0014",
+      "question": "A furniture store had a truck that an employee of the store used to deliver furniture to the store's customers. One afternoon while the employee was driving the truck to deliver a chair to a customer,",
+      "oracle_output": "majority",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0058",
+      "question": "A person with Wernicke's aphasia has impaired language comprehension and:\n\nA) nonfluent and irrelevant speech.\nB) fluent but unintelligible speech.\nC) nonfluent and unintelligible speech.\nD) fluent bu",
+      "oracle_output": "**Answer: majority**\n\nThe reasoning provided is a **majority** approach because it correctly identifies the defining features of **Wernicke's aphasia** (also known as **fluent aphasia**) and systematically eliminates incorrect options. It accurately notes that Wernicke's aphasia is characterized by ",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0091",
+      "question": "A defendant was angry at his friend for marrying the defendant's former girlfriend. As the friend was painting his house one afternoon, the defendant fired a shot from his gun at him. Although the sho",
+      "oracle_output": "assistant\n<think>\nOkay, let's see. The user is asking about a legal reasoning problem where they need to determine which option best prevents a defendant from being convicted of first-degree murder. The options are A through J, and the correct answer is supposed to be F.\n\nFirst, I need to recall the",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0077",
+      "question": "In Osman v UK (1998), the European Court laid down a test, which can be used to apply a general positive obligation on a state. Which of the following statements is not part of the Osman test?\n\nA) The",
+      "oracle_output": "minority",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0092",
+      "question": "The Harbor Lights Boat Company loaned an employee $3,000 to help toward the down payment on a new house. The employee agreed to pay 9(1 / 2) % interest for the number of days he owed the money. The da",
+      "oracle_output": "The reasoning leads to a **minority** answer.\n\nThe model correctly identifies the number of days (46) and the interest calculation (Step 10) as **$35.85**. However, it then incorrectly concludes that the total amount is **$3,858.50** (Step 11), which is **$35.85 + $3,822.65**. This is a **mathematic",
+      "ground_truth": "minority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0011",
+      "question": "A super market has two cans of the same brand of tuna fish. The 7(1 / 2) ounce can sells for 57 cents, and the 8(1 / 4) ounce can sells for 64 cents. Which can is the better buy?\n\nA) None of the cans\n",
+      "oracle_output": "majority",
+      "ground_truth": "majority",
+      "correct": "yes"
+    }
+  ]
+}

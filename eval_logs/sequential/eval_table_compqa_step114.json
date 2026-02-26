@@ -1,0 +1,220 @@
+{
+  "step": 114,
+  "name": "eval_table_compqa",
+  "n": 30,
+  "run_id": "r7g3a929",
+  "run_name": "sequential",
+  "created_at": "2026-02-25T04:26:23Z",
+  "rows": [
+    {
+      "id": "compqa_1627",
+      "question": "What is the first error (if any) in this reasoning? State the step number and the error, or 'none'.",
+      "oracle_output": "None of the steps in the reasoning are incorrect. The calculation is logically sound and follows the correct mathematical principles.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_3111",
+      "question": "What is the first error (if any) in this reasoning? State the step number and the error, or 'none'.",
+      "oracle_output": "None of the steps in the reasoning contain an error.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_7894",
+      "question": "Classify the errors in this reasoning: arithmetic, logical fallacy, false premise, irrelevant step, or none. Give the category and a brief explanation.",
+      "oracle_output": "None. The reasoning is logically sound and does not contain any errors.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_5514",
+      "question": "Does any step in this reasoning not follow from the previous steps? If so, which and why?",
+      "oracle_output": "No, each step in the reasoning follows logically from the previous steps. The conclusion that **C) Desk** is the most likely location for spare labels is well-supported by the reasoning provided.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_832",
+      "question": "Classify the errors in this reasoning: arithmetic, logical fallacy, false premise, irrelevant step, or none. Give the category and a brief explanation.",
+      "oracle_output": "None. The reasoning is logically sound and follows a clear diagnostic pathway based on the patient's symptoms and history.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_1129",
+      "question": "Is the model reasoning forward from givens, backward from the answer, or mixed?",
+      "oracle_output": "The assistant is reasoning forward from the givens. It starts with the provided information about the rectangle and uses logical steps to derive the circumference of the circle.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_1680",
+      "question": "Is the reasoning in this chain of thought sound? Explain briefly.",
+      "oracle_output": "Yes, the reasoning is sound. The chain of thought correctly identifies that zoning laws are typically enforced by local governments, which are part of the municipal structure.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_4092",
+      "question": "Are any steps redundant or unnecessary? Which ones?",
+      "oracle_output": "A. Drinking water is the most appropriate answer as it directly involves the consumption of a substance (water), which aligns with the definition of 'consumption' in the context of the question.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_1310",
+      "question": "Classify the errors in this reasoning: arithmetic, logical fallacy, false premise, irrelevant step, or none. Give the category and a brief explanation.",
+      "oracle_output": "None. The reasoning is logically sound and does not contain any errors.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_2976",
+      "question": "Does any step in this reasoning not follow from the previous steps? If so, which and why?",
+      "oracle_output": "No, each step in the reasoning follows logically from the previous steps. The conclusion that **A. Shame** is the correct answer is supported by the reasoning process, which eliminates other options based on their relevance to the question.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_9317",
+      "question": "Does the model notice and correct any of its own mistakes? Describe.",
+      "oracle_output": "No, the model does not notice or correct its own mistakes. It generates responses based on its training data and does not have the capability to self-correct or update its knowledge.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_1959",
+      "question": "Is the model reasoning forward from givens, backward from the answer, or mixed?",
+      "oracle_output": "The assistant is reasoning **backward from the answer**, starting with the conclusion and working to justify it using logical steps.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_7428",
+      "question": "What is the first error (if any) in this reasoning? State the step number and the error, or 'none'.",
+      "oracle_output": "None of the steps in the reasoning are factually inconsistent. The reasoning correctly identifies the most appropriate setting for applying hair gel.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_7151",
+      "question": "Is the reasoning in this chain of thought sound? Explain briefly.",
+      "oracle_output": "Yes, the reasoning is sound. The question asks where kids are found, and the cafeteria is a place where they are typically found. The other options describe activities or types of places, not locations.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_7622",
+      "question": "Does the final answer follow from the reasoning steps? Explain.",
+      "oracle_output": "Yes, the final answer follows from the reasoning steps. The reasoning explains that in primates, castration does not necessarily prevent sexual behavior if the individual is mature and experienced, as learned behaviors and social connections play a significant role. This contrasts with",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_6991",
+      "question": "Does the final answer follow from the reasoning steps? Explain.",
+      "oracle_output": "Yes, the final answer follows from the reasoning steps. The reasoning concludes that **B: Annual foot exam** is the most appropriate recommendation for a patient with diabetes, and the final answer provided is **B",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_1118",
+      "question": "Which steps are essential (load-bearing) for reaching the answer, and which are decorative filler?",
+      "oracle_output": "The essential steps for reaching the answer are:  \n1. Identify the main clause and its subject.  \n2. Determine if the sentence contains a dependent clause.  \n3. Recognize the conjunction that links the clauses.  \n4. Assess the relationship between the clauses.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_9530",
+      "question": "Which steps are essential (load-bearing) for reaching the answer, and which are decorative filler?",
+      "oracle_output": "The essential step for reaching the answer is **C) Bus stop**. This is directly related to the question, as the question asks what a bus station must be. The other options are either unrelated (A, B) or not directly relevant to the function of a bus station (D).",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_4136",
+      "question": "Does the final answer follow from the reasoning steps? Explain.",
+      "oracle_output": "Yes, the final answer follows from the reasoning steps. The riddle uses the phrase \"throw a ___ in December\" to imply an action that is typically associated with winter, and among the options provided, \"snowball\" is the most",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_4397",
+      "question": "Which steps are essential (load-bearing) for reaching the answer, and which are decorative filler?",
+      "oracle_output": "The essential steps for reaching the answer are:\n\n1. **Identify the patient's symptoms and lab results**: The patient presents with fatigue, dyspnea, and tachycardia, along with a low hemoglobin level and elevated reticulocyte count. These findings point to anemia and a compensatory response to anem",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_9276",
+      "question": "Does the model notice and correct any of its own mistakes? Describe.",
+      "oracle_output": "No, the assistant does not notice or correct its own mistakes. It provides an answer based on its initial reasoning, which may be incorrect.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_1880",
+      "question": "Does any step in this reasoning not follow from the previous steps? If so, which and why?",
+      "oracle_output": "No, each step in the reasoning follows logically from the previous steps. The conclusion that the McCollough Effect supports the idea of specialized color detectors in the visual system is well-supported by the reasoning provided.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_1426",
+      "question": "Are any steps redundant or unnecessary? Which ones?",
+      "oracle_output": "A and C are redundant. A is a nonspecific finding and C is a differential diagnosis that is not supported by the patient's history. B and D are relevant and necessary for the diagnosis.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_2925",
+      "question": "Is the reasoning in this chain of thought sound? Explain briefly.",
+      "oracle_output": "Yes, the reasoning in the chain of thought is sound. The explanation correctly identifies that option C involves a living thing (tree) and a non-living thing (air), which fits the definition of a causal relationship between a living and a non-living entity.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_5313",
+      "question": "What is the first error (if any) in this reasoning? State the step number and the error, or 'none'.",
+      "oracle_output": "B",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_1414",
+      "question": "Classify the errors in this reasoning: arithmetic, logical fallacy, false premise, irrelevant step, or none. Give the category and a brief explanation.",
+      "oracle_output": "The reasoning contains a **false premise**. The statement that the Hohokam did not have a calendar system is incorrect. The Hohokam did develop a complex calendar system based on astronomical observations, which aligns with the",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_4425",
+      "question": "Are any steps redundant or unnecessary? Which ones?",
+      "oracle_output": "A is the most appropriate answer. The patient presents with **left-sided weakness** and **loss of pain and temperature sensation on the left**, which is consistent with a **Brown-S\u00e9quard syndrome**. This condition results from a **partial cord",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_8098",
+      "question": "Is the reasoning in this chain of thought sound? Explain briefly.",
+      "oracle_output": "Yes, the reasoning is sound. The chain of thought correctly identifies that a **museum** is the most appropriate answer, as it is explicitly designed for the purpose of **learning about the past** through curated exhibits and educational resources.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_2950",
+      "question": "Does the model verify or double-check its answer? How?",
+      "oracle_output": "The assistant verifies its answer by cross-referencing the patient's symptoms with the most relevant diagnostic criteria, ensuring that the selected diagnosis aligns with the clinical presentation.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_1496",
+      "question": "What is the first error (if any) in this reasoning? State the step number and the error, or 'none'.",
+      "oracle_output": "Step 3: The assistant correctly sets up the equation $ 4(D + 3) = 36 $, which is accurate based on the given information.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    }
+  ]
+}

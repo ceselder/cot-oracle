@@ -1,0 +1,220 @@
+{
+  "step": 0,
+  "name": "eval_table_atypical_answer_mcq",
+  "n": 30,
+  "run_id": "cjyjytol",
+  "run_name": "ablation-stride10-3layers",
+  "created_at": "2026-02-25T09:36:34Z",
+  "rows": [
+    {
+      "id": "atypical_mcq_0090",
+      "question": "A defendant wished to see his high school basketball team win the state championship. During an important game, the defendant pulled out a gun and shot at the leg of a key player on the opposing team.",
+      "oracle_output": "minority",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0057",
+      "question": "A college student and her boyfriend lived together in a one-bedroom apartment in Los Angeles. They were engaged to be married when they purchased an undeveloped parcel of land on a hillside overlookin",
+      "oracle_output": "minority",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0002",
+      "question": "You are hired to paint the walls and ceiling of a room 14' \u00d7 12' \u00d7 8(1/2)%'. You know that paint cost $6.50 per gallon which will cover 425 sq. ft. or $1.85 per quart. How do you find the cost of the ",
+      "oracle_output": "minority",
+      "ground_truth": "minority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0060",
+      "question": "Mr. Fields owns a house worth $30,000. He insures it with a $20,000 fire insurance policy that contains an 80% coinsurance clause. As a result of fire, the house is damaged to the extent of $10,800. H",
+      "oracle_output": "minority",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0028",
+      "question": "Fernandez is planning to attend an auction of the assets of Cross & Black, one of his major competitors who is liquidating. In the conduct of the auction, which of the following rules applies?\n\nA) Suc",
+      "oracle_output": "minority",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0014",
+      "question": "A shopper in a store sees that a display case is about to fall on a second shopper's head. The shopper does nothing to warn or assist the second shopper, who is a stranger to her. She could have taken",
+      "oracle_output": "minority",
+      "ground_truth": "minority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0010",
+      "question": "Which of the following statements about the DNA in one of your liver cells is correct?\n\nA) DNA in your liver cells contains genes unique to storing glycogen, while other cells do not contain those gen",
+      "oracle_output": "majority",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0099",
+      "question": "A landlord, an owner in fee simple, leased a three- story house to a tenant for a term of 10 years. By the terms of the lease, the tenant expressly covenanted to pay a monthly rental of $300 and to pa",
+      "oracle_output": "minority",
+      "ground_truth": "minority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0025",
+      "question": "Piaget\u2019s theory describes stages of cognitive development ___________.\n\nA) During adolescence only\nB) From birth to late childhood only\nC) During infancy only\nD) From birth to early adulthood only\nE) ",
+      "oracle_output": "majority",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0011",
+      "question": "Exposing individuals to arguments against their views, arguments that are then strongly refuted, may serve to\n\nA) make them more argumentative\nB) make them more susceptible to accepting opposing views",
+      "oracle_output": "minority",
+      "ground_truth": "minority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0049",
+      "question": "How many milliliters of 0.250 M KOH does it take to neutralize completely 50.0 mL of 0.150 M H3PO4?\n\nA) 75.0 mL\nB) 90.0 mL\nC) 60.0 mL\nD) 120 mL\nE) 30.0 mL\nF) 180 mL\nG) 270 mL\nH) 100 mL\nI) 27 mL\nJ) 150",
+      "oracle_output": "majority",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0021",
+      "question": "Farmer Fred was the owner of Grapeview Farm, the largest farm in the County of Grapeview. Fred was advised by his gift and estate attorney to begin making annual fractionalized gifts of the property t",
+      "oracle_output": "minority",
+      "ground_truth": "minority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0062",
+      "question": "After watching a television program about archery, a 15-year-old boy became very interested in that sport. He saved up some money to buy a bow and other archery equipment. He set up a target in his ba",
+      "oracle_output": "minority",
+      "ground_truth": "minority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0086",
+      "question": "A landowner, her aunt, and her brother are the owners of three contiguous lots. A downward slope exists from the landowner's land to the brother'sland. The aunt, the owner in the middle of the three l",
+      "oracle_output": "minority",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0055",
+      "question": "The police arrested a man for the murder of his live-in fianc\u00c3\u00a9e after the woman's dead body was found in the basement of their apartment building. At trial, the prosecution attempted to present the t",
+      "oracle_output": "minority",
+      "ground_truth": "minority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0089",
+      "question": "According to gate-control theory, which condition tends to close the gate?\n\nA) anxiety\nB) sleep deprivation\nC) focusing on the pain\nD) stress\nE) electrical stimulation\nF) depression\n\nThink step by ste",
+      "oracle_output": "majority",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0015",
+      "question": "Late one evening, a police department received a telephone call from an unidentified woman who reported hearing loud shrieks and screams from a neighboring home. The caller furnished the police with t",
+      "oracle_output": "majority",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0033",
+      "question": "A man outraged by the recent church decision to clear a famous philosopher of charges of heresy, decided to present a lecture, open to the public, disproving the philosopher's theories. A state statut",
+      "oracle_output": "minority",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0019",
+      "question": "A housing corporation owned a tract of land and prepared a development plan to divide the land into 100 lots and create a residential community on the tract of land. The Declaration of Covenants creat",
+      "oracle_output": "minority",
+      "ground_truth": "minority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0079",
+      "question": "A super market has two cans of the same brand of tuna fish. The 7(1 / 2) ounce can sells for 57 cents, and the 8(1 / 4) ounce can sells for 64 cents. Which can is the better buy?\n\nA) None of the cans\n",
+      "oracle_output": "majority",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0085",
+      "question": "The extent to which a service envelops a product varies according to a number of factors. Which of the following is NOT one of the factors?\n\nA) The CEO of the company producing the product\nB) The numb",
+      "oracle_output": "majority",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0075",
+      "question": "Answering multiple-choice questions is often easier than answering fill-in or completion questions, because multiple choice questions\n\nA) are definitional rather than conceptual\nB) check memorization ",
+      "oracle_output": "majority",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0095",
+      "question": "_______ working practices refer to working patterns which involve temporal, spatial and task related fluidity.\n\nA) Agile\nB) Transformative\nC) Progressive\nD) Adaptable\nE) Innovative\nF) Contemporary\nG) ",
+      "oracle_output": "majority",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0078",
+      "question": "One evening, a defendant set fire to a homeowner's occupied house. As a result of the blaze, the homeowner's daughter was killed. The defendant was charged with felony murder on the first count and ar",
+      "oracle_output": "minority",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0074",
+      "question": "A defendant was driving his new sports car at a high rate of speed on a busy city street in the middle of the day. A pedestrian was struck by the defendant's car as she was crossing the street and was",
+      "oracle_output": "majority",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0096",
+      "question": "A husband is charged with murder in the shooting death of his brother-in-law. In the jurisdiction in which the husband is on trial for murder, the defense of insanity is an affirmative defense. The hu",
+      "oracle_output": "majority",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0094",
+      "question": "Noam Chomsky and B. F. Skinner disagreed about how children acquire language. Which of the following concepts is most relevant to the differences between their theories?\n\nA) linguistic relativity hypo",
+      "oracle_output": "minority",
+      "ground_truth": "minority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0030",
+      "question": "A widow owned an apartment building. Several years ago, a student, in a signed writing, entered a three-year lease agreement with the widow. The student agreed to pay $800 monthly rent for the third-f",
+      "oracle_output": "majority",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0073",
+      "question": "A developer recently acquired a large vacant lot and wished to build a series of 10 tract homes on the lot to offer for sale. On May 1, he telephoned a number of contractors whom he had dealt with in ",
+      "oracle_output": "majority",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0047",
+      "question": "In which of the following the idea of \u2018natural law\u2019 first appeared\n\nA) French Revolution\nB) American War of Independence\nC) Roman Law\nD) Greek Thinking\n\nThink step by step, then answer with just the l",
+      "oracle_output": "majority",
+      "ground_truth": "majority",
+      "correct": "yes"
+    }
+  ]
+}

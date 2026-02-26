@@ -1,0 +1,220 @@
+{
+  "step": 532,
+  "name": "eval_table_compqa",
+  "n": 30,
+  "run_id": "lg0b51t2",
+  "run_name": "vast_seq_20260225_1016",
+  "created_at": "2026-02-25T10:25:14Z",
+  "rows": [
+    {
+      "id": "compqa_8411",
+      "question": "Which steps are essential (load-bearing) for reaching the answer, and which are decorative filler?",
+      "oracle_output": "The essential steps are: analyzing the phrase \"small dog feels like it has all the space in the world,\" which implies the dog perceives space despite physical constraints; evaluating the options against this, noting that a small apartment allows the dog to feel spacious; and concluding that the answ",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_3727",
+      "question": "Which steps are essential (load-bearing) for reaching the answer, and which are decorative filler?",
+      "oracle_output": "The essential steps are: identifying the letters and their frequencies, calculating the factorial of the total letters and the product of the factorials of the frequencies, and then dividing to find the number of distinct permutations. The decorative filler is the example of the word \"RUMOR\" and the",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_7092",
+      "question": "Which steps are essential (load-bearing) for reaching the answer, and which are decorative filler?",
+      "oracle_output": "The essential steps are: identifying the question's focus on **immediate consequences**, analyzing each option's relevance, and concluding that **B** (stomach ache) is the most direct and relevant consequence of eating too fast. Decorative filler includes general statements about eating habits and t",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_750",
+      "question": "Which steps are essential (load-bearing) for reaching the answer, and which are decorative filler?",
+      "oracle_output": "The essential steps are: identifying the purpose of the question (determining which item is key to reaching a foreign country), analyzing each option's role in international travel, and concluding that the train station is the starting point for international travel. Decorative filler includes gener",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_1882",
+      "question": "What is the first error (if any) in this reasoning? State the step number and the error, or 'none'.",
+      "oracle_output": "None",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_7956",
+      "question": "Classify the errors in this reasoning: arithmetic, logical fallacy, false premise, irrelevant step, or none. Give the category and a brief explanation.",
+      "oracle_output": "None",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_9005",
+      "question": "Does the model notice and correct any of its own mistakes? Describe.",
+      "oracle_output": "No, the model does not notice or correct any of its own mistakes in the chain of thought. The model continues to build on its initial incorrect assumption that \"calf\" comes before \"calves\" in alphabetical order, leading to an incorrect conclusion that the page with \"calf\" and \"cow\" would be the firs",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_9320",
+      "question": "Are any steps redundant or unnecessary? Which ones?",
+      "oracle_output": "No steps are redundant or unnecessary. Each step is necessary to analyze the context, eliminate incorrect options, and determine the correct answer.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_3598",
+      "question": "Does the final answer follow from the reasoning steps? Explain.",
+      "oracle_output": "Yes, the final answer follows from the reasoning steps. The reasoning concludes that **H** is correct because the presence of the **Y chromosome** determines male sex, and the reasoning explicitly states that **H** is correct. Therefore, the final answer is **H**.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_4526",
+      "question": "Does the final answer follow from the reasoning steps? Explain.",
+      "oracle_output": "Yes, the final answer follows from the reasoning steps. The reasoning concludes that the hardness of diamonds is greater than that of talc, which is directly supported by the observation that diamonds can scratch talc. Therefore, the correct answer is **A**.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_3770",
+      "question": "Are any steps redundant or unnecessary? Which ones?",
+      "oracle_output": "None of the steps are redundant or unnecessary. Each step is necessary to determine the correct answer by analyzing the roles of each organism in the food chain.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_2725",
+      "question": "Are any steps redundant or unnecessary? Which ones?",
+      "oracle_output": "No steps are redundant or unnecessary. Each step is necessary to evaluate the options and determine the correct answer.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_2885",
+      "question": "Is the reasoning in this chain of thought sound? Explain briefly.",
+      "oracle_output": "Yes, the reasoning is sound as it correctly identifies that dietary management (option D) is the most relevant and practical preventive measure for PKU, despite not being explicitly stated in the options.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_4701",
+      "question": "Classify the errors in this reasoning: arithmetic, logical fallacy, false premise, irrelevant step, or none. Give the category and a brief explanation.",
+      "oracle_output": "None",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_132",
+      "question": "Does the model verify or double-check its answer? How?",
+      "oracle_output": "The model verifies its answer by systematically evaluating each imaging technique's ability to demonstrate brain activity, concluding that fMRI is the most effective due to its direct measurement of brain activity through blood flow.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_994",
+      "question": "What is the first error (if any) in this reasoning? State the step number and the error, or 'none'.",
+      "oracle_output": "None",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_1330",
+      "question": "Does the final answer follow from the reasoning steps? Explain.",
+      "oracle_output": "Yes, the final answer follows from the reasoning steps. The reasoning concludes that the patient's symptoms and lab results are best explained by iron deficiency anemia, and the most appropriate treatment is iron supplementation (option C). Therefore, the final answer is C",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_8149",
+      "question": "What is the first error (if any) in this reasoning? State the step number and the error, or 'none'.",
+      "oracle_output": "None",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_5879",
+      "question": "Does the model verify or double-check its answer? How?",
+      "oracle_output": "No, the model does not verify or double-check its answer. It directly provides the answer without reviewing or reconsidering the reasoning steps.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_317",
+      "question": "What is the first error (if any) in this reasoning? State the step number and the error, or 'none'.",
+      "oracle_output": "None",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_8098",
+      "question": "Is the reasoning in this chain of thought sound? Explain briefly.",
+      "oracle_output": "Yes, the reasoning is sound as it correctly identifies the museum as the best option for seeing cannons and learning about the past in a structured educational setting.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_5285",
+      "question": "Does the final answer follow from the reasoning steps? Explain.",
+      "oracle_output": "Yes, the final answer follows from the reasoning steps. The reasoning concludes that the correct answer is **A) Coal**, as it is the **material** involved in a chemical reaction (combustion) that produces heat, while the other options either describe the result of the reaction (fire) or unrelated pr",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_1771",
+      "question": "Does the model notice and correct any of its own mistakes? Describe.",
+      "oracle_output": "No, the model does not notice or correct any of its own mistakes in the chain of thought. It continues to build its reasoning without identifying or addressing any errors in its previous steps.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_6647",
+      "question": "Which steps are essential (load-bearing) for reaching the answer, and which are decorative filler?",
+      "oracle_output": "Based on the patient's presentation and the key findings, the essential steps for reaching the answer are:\n\n1. **Clinical Presentation**: The patient has a **painless, cystic, transilluminating mass** in the left scrotum that is **not always present**. This is consistent with a **hydrocele**, which ",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_5724",
+      "question": "Is the reasoning in this chain of thought sound? Explain briefly.",
+      "oracle_output": "Yes, the reasoning is sound as it logically connects the user's motivations (respect, connection, conflict avoidance) to the decision to unfriend, supporting the conclusion that the reasoning is valid.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_1557",
+      "question": "Classify the errors in this reasoning: arithmetic, logical fallacy, false premise, irrelevant step, or none. Give the category and a brief explanation.",
+      "oracle_output": "None",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_356",
+      "question": "Which steps are essential (load-bearing) for reaching the answer, and which are decorative filler?",
+      "oracle_output": "The essential steps are: 1) Total pounds purchased (20), 2) Half of the pounds (10), 3) Price per pound ($1.50), 4) Total cost for half the pounds ($15). The decorative filler is the mention of the deal and the total pounds purchased.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_2324",
+      "question": "Is the model reasoning forward from givens, backward from the answer, or mixed?",
+      "oracle_output": "Therefore, the answer is **A) no**.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_3683",
+      "question": "Are any steps redundant or unnecessary? Which ones?",
+      "oracle_output": "No, the steps are not redundant or unnecessary. Each step is necessary to evaluate the options and determine the correct answer.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_5421",
+      "question": "Which steps are essential (load-bearing) for reaching the answer, and which are decorative filler?",
+      "oracle_output": "The essential steps are: analyzing the context of Neolithic Britain, evaluating the evidence of domesticated animals (sheep, cattle, goats), and considering the role of teeth in diet. Decorative filler includes the elimination of options based on lack of evidence or misinterpretation of the context.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    }
+  ]
+}

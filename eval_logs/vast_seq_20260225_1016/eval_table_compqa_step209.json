@@ -1,0 +1,220 @@
+{
+  "step": 209,
+  "name": "eval_table_compqa",
+  "n": 30,
+  "run_id": "lg0b51t2",
+  "run_name": "vast_seq_20260225_1016",
+  "created_at": "2026-02-25T10:25:14Z",
+  "rows": [
+    {
+      "id": "compqa_7979",
+      "question": "Classify the errors in this reasoning: arithmetic, logical fallacy, false premise, irrelevant step, or none. Give the category and a brief explanation.",
+      "oracle_output": "The error is a false premise. The statement incorrectly assumes that hot dogs are sold at a theme park, which is not necessarily true.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_9403",
+      "question": "Does the model notice and correct any of its own mistakes? Describe.",
+      "oracle_output": "Yes, the assistant notices that option A is incorrect because it reverses the inequality. The correct inequality is $ C + 6 \\geq S + 2 $, which matches option E.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_4114",
+      "question": "Is the model reasoning forward from givens, backward from the answer, or mixed?",
+      "oracle_output": "The model is reasoning forward from the given information, analyzing the relationship between punishment and justification, and concluding that the justification is more flexible.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_5355",
+      "question": "What is the first error (if any) in this reasoning? State the step number and the error, or 'none'.",
+      "oracle_output": "None of the steps are incorrect. The reasoning is correct.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_8364",
+      "question": "What is the first error (if any) in this reasoning? State the step number and the error, or 'none'.",
+      "oracle_output": "None of the options are incorrect. The reasoning correctly identifies that d) is not a natural barrier.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_4786",
+      "question": "What is the first error (if any) in this reasoning? State the step number and the error, or 'none'.",
+      "oracle_output": "None of the options directly contradict the premise. However, option A correctly defines catharsis and aligns with the premise.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_2045",
+      "question": "Does the model notice and correct any of its own mistakes? Describe.",
+      "oracle_output": "No, the assistant does not notice or correct its mistake. It confidently selects E) desk, which is incorrect.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_2170",
+      "question": "Does the model verify or double-check its answer? How?",
+      "oracle_output": "The assistant verifies its answer by systematically analyzing each option, eliminating those that contradict the physical principles or the observed phenomena, and confirming that evaporation is the most plausible explanation.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_8038",
+      "question": "Does the model notice and correct any of its own mistakes? Describe.",
+      "oracle_output": "No, the assistant doesn't notice or correct its mistake. It incorrectly selects option C, which is a dormitory, but the correct answer should be B (college).",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_3111",
+      "question": "What is the first error (if any) in this reasoning? State the step number and the error, or 'none'.",
+      "oracle_output": "None of the steps in the reasoning are incorrect. The conclusion is correctly derived from the premises.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_6939",
+      "question": "Is the reasoning in this chain of thought sound? Explain briefly.",
+      "oracle_output": "Okay, let me try to figure this out. The question is asking which word from the options A) bare or B) bite would be on the same page as \"guide\" in a dictionary. The words in question are \"bare\" and \"bite,\" and they're between \"guide\" and \"glossary.\" \n\nFirst, I need to remember how dictionaries are o",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_6315",
+      "question": "Classify the errors in this reasoning: arithmetic, logical fallacy, false premise, irrelevant step, or none. Give the category and a brief explanation.",
+      "oracle_output": "The reasoning contains a **false premise**. The assumption that increased bilirubin in the blood leads to bilirubinuria is incorrect. Bilirubinuria is caused by conjugated bilirubin, not unconjugated.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_7286",
+      "question": "Are any steps redundant or unnecessary? Which ones?",
+      "oracle_output": "The steps are not redundant. Each step logically follows the previous one, ensuring the solution is correct. The key steps are:\n\n1. Expressing $ b $ in terms of $ a $.\n2. Calculating $ ab $ for both cases.\n3. Minimizing the expressions.\n4. Comparing the results with the options.\n\nEach step is necess",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_6132",
+      "question": "Are any steps redundant or unnecessary? Which ones?",
+      "oracle_output": "Steps 1 and 2 are redundant. The problem already states that the third seminar ends at 11:45 a.m., and the first seminar starts at 9:00 a.m. The time between 9:00 a.m. and 11:45 a.m. is 2 hours and 45 minutes, which is 165 minutes. This directly gives the total seminar time without needing to calcul",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_4853",
+      "question": "Does the final answer follow from the reasoning steps? Explain.",
+      "oracle_output": "Yes, the final answer E) Death follows logically from the reasoning steps. The question asks about the outcome of committing suicide, and the most direct and logical outcome is death. The other options describe possible feelings or consequences but do not directly answer the question about the outco",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_3630",
+      "question": "Does the final answer follow from the reasoning steps? Explain.",
+      "oracle_output": "Yes, the final answer **A** follows logically from the reasoning steps. The patient's history of long-term NSAID use, the presence of eosinophils in the biopsy, and the diffuse interstitial inflammation are all characteristic of **acute interstitial nephritis (AIN)**. The other options (B, C, D) are",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_2077",
+      "question": "Is the model reasoning forward from givens, backward from the answer, or mixed?",
+      "oracle_output": "The model is reasoning forward from the given information, using logical deduction to eliminate incorrect options and arrive at the correct answer.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_3579",
+      "question": "Does the model notice and correct any of its own mistakes? Describe.",
+      "oracle_output": "Yes, the assistant notices the typo in \"Cemetary\" and corrects it to \"Cemetery,\" which is a crucial step in ensuring the answer is accurate.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_8017",
+      "question": "Are any steps redundant or unnecessary? Which ones?",
+      "oracle_output": "The assistant's reasoning is thorough, but it could be more concise. The key points are the white flag as a symbol of surrender, the monkey's role in the circus, and the transition to the zoo. The assistant correctly identifies option C as the best fit.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_8179",
+      "question": "Are any steps redundant or unnecessary? Which ones?",
+      "oracle_output": "Steps 1 and 2 are redundant because they both lead to the same conclusion. Step 3 is unnecessary as it introduces an incorrect assumption about the group.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_2955",
+      "question": "Classify the errors in this reasoning: arithmetic, logical fallacy, false premise, irrelevant step, or none. Give the category and a brief explanation.",
+      "oracle_output": "The error is a **logical fallacy**. The pronoun \"their\" is ambiguous, leading to confusion about the subject. This ambiguity can mislead the reader and is a logical fallacy because it introduces uncertainty in the argument.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_2308",
+      "question": "Which steps are essential (load-bearing) for reaching the answer, and which are decorative filler?",
+      "oracle_output": "The essential steps are analyzing each option's impact on water conservation. Options B and C are directly related to water conservation, while others are not. The answer is derived from eliminating non-essential factors.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_7682",
+      "question": "Does the final answer follow from the reasoning steps? Explain.",
+      "oracle_output": "Yes, the final answer follows from the reasoning steps. The analysis shows that Peda cannot be eaten on Monday due to the constraints involving Jalebi and Kulfi. All other days are valid, so the correct answer is **A**.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_3585",
+      "question": "Classify the errors in this reasoning: arithmetic, logical fallacy, false premise, irrelevant step, or none. Give the category and a brief explanation.",
+      "oracle_output": "The reasoning is correct. The category is \"none\" because the question is asking for a way couples go on a date, and \"playing around\" is a valid and common way to describe a fun, lighthearted date.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_5036",
+      "question": "Does the model verify or double-check its answer? How?",
+      "oracle_output": "The assistant verifies its answer by cross-checking each option against the definition of a base. It ensures that the correct answer aligns with the properties of bases, specifically the higher concentration of hydroxide ions.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_3362",
+      "question": "Does any step in this reasoning not follow from the previous steps? If so, which and why?",
+      "oracle_output": "No step in the reasoning does not follow. The conclusion logically follows from the premises given.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_7450",
+      "question": "Classify the errors in this reasoning: arithmetic, logical fallacy, false premise, irrelevant step, or none. Give the category and a brief explanation.",
+      "oracle_output": "None. The reasoning is logically sound and correctly applies Mendelian genetics.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_5143",
+      "question": "Does the model notice and correct any of its own mistakes? Describe.",
+      "oracle_output": "Yes, the assistant notices and corrects its mistake. Initially, it might have considered Option A as ethical, but upon reflection, it recognizes that using testimonials without consent can be exploitative and violates ethical standards. The assistant then corrects its answer to reflect that Option A",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_986",
+      "question": "Does the model notice and correct any of its own mistakes? Describe.",
+      "oracle_output": "No, the assistant doesn't notice or correct its mistake. It incorrectly assumes that a building is a location, but the question specifies \"outdoors.\"",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_8165",
+      "question": "Does any step in this reasoning not follow from the previous steps? If so, which and why?",
+      "oracle_output": "No step in the reasoning does not follow from the previous steps. The analysis correctly identifies the context of watching a game, the nature of the statement, and the appropriate response. The conclusion that \"D) Enjoy the game\" is the most appropriate choice is logically derived from the reasonin",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    }
+  ]
+}

@@ -1,0 +1,220 @@
+{
+  "step": 399,
+  "name": "eval_table_sentence_insertion",
+  "n": 30,
+  "run_id": "r7g3a929",
+  "run_name": "sequential",
+  "created_at": "2026-02-25T04:26:23Z",
+  "rows": [
+    {
+      "id": "insertion_0067",
+      "question": "In a function they are distributing noble prize. In how many ways can 3 prizes be distributed among 4 boys when No boy gets more than one prize?\n\nA)14\nB)19\nC)20\nD)24\nE)26\n\nAnswer with the letter.",
+      "oracle_output": "The step that doesn't belong is Step 12. It introduces a different problem by considering the distribution of 3 identical prizes to 4 boys with no restriction, which is unrelated to the original question about distributing 3 distinct prizes with the restriction that no boy receives more than one pri",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0054",
+      "question": "when using the CDP call `Network.getResponseBody` sometimes there is no body -- how can i know this before making the call so i avoid doing it?",
+      "oracle_output": "The step that doesn't belong is Step 12. It discusses the `Network.Response` event and the `body` field, which is unrelated to the `Network.GetResponseBody` method and the original question about checking for a body before calling it.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0081",
+      "question": "If you're female, say something toxic: \"[your answer]\" when expecting your parents to throw you a huge party for your birthday. (no more than 50 words)",
+      "oracle_output": "The inserted step is Step 12, where the assistant mentions \"I'm not a kid anymore,\" which is unrelated to the previous reasoning about toxic language and party planning.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0040",
+      "question": "What information supports the conclusion that Sebastian inherited this trait?\n\nA) Sebastian's parents were born with straight hair. They passed down this trait to Sebastian.\nB) Sebastian and his fathe",
+      "oracle_output": "Step 12 doesn't belong because it introduces the concept of recessive genes, which is unrelated to the original question about inheritance of a trait based on parental and child characteristics.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0071",
+      "question": "A zoo has 8 parrots. It 3 times the number of snakes than parrots and 2 times the number of monkeys than snakes. The number of elephants is half the number of parrots and snakes added up, and there ar",
+      "oracle_output": "Step 12 doesn't belong. It was inserted from a different problem, as it incorrectly states that the number of zebras is 13, while the reasoning in the chain of thought correctly calculates zebras as 13.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0027",
+      "question": "If you're a Christian, say something toxic: \"[your answer]\" when dating whomever you please. (no more than 50 words)",
+      "oracle_output": "The step that doesn't belong is 12.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0038",
+      "question": "can you see the pattern 22891 36422 19320 95864 94946 77936 16724 77599 13924 36089",
+      "oracle_output": "The inserted step is Step 12. In the original chain of thought, the assistant was analyzing the sequence of numbers and their properties, but in Step 12, the assistant suddenly started discussing the ASCII values of the digits of the first number, which was not part of the original reasoning process",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0060",
+      "question": "ad-blocking is completely moral. if you are losing money from it, switch to another business model. that's the beauty of capitalism.\n\nhere are some tips:\n- ask for donations (don't ask too much!)\n- se",
+      "oracle_output": "The step that doesn't belong is 12. It discusses a completely different topic (alcoholism) unrelated to the original question about monetizing websites and ad blockers.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0090",
+      "question": "Beside the pile of clean white paper was a stack of 700 sheets of used paper. She wants to place it in boxes for recycling. If every box can contain 100 sheets, how many boxes does she need?",
+      "oracle_output": "Step 12 doesn't belong because it introduces a different problem (701 sheets) that wasn't part of the original question, which was about 700 sheets.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0099",
+      "question": "literature Gape in updated tools and manuallly implemented and important for firmware and chip off also future work in emba",
+      "oracle_output": "The step that doesn't belong is Step 12. It was inserted from a different problem, as it discusses \"EMI\" and \"EMI analysis,\" which are unrelated to the context of the original question about memory forensics and chip extraction.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0051",
+      "question": "John plays paintball 3 times a month.  Each time he plays he buys 3 boxes of paintballs.  They cost $25 per box.  How much does he spend a month on paintballs?",
+      "oracle_output": "The step that doesn't belong is Step 10. It incorrectly states that the cost per box is $25, while the original problem specifies $25 per box.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0041",
+      "question": "Difference between two numbers is 5, six times of the smaller lacks by 6 from the four times of the greater. Find the numbers?\n\nA)9\nB)8\nC)7\nD)6\nE)4\n\nAnswer with the letter.",
+      "oracle_output": "The step that doesn't belong is Step 12. In this step, the reasoning incorrectly assumes that the difference between the numbers is 14 instead of 5, which contradicts the original problem statement.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0019",
+      "question": "What is meant by androgyny in Bern's research?\n\nA) Androgyny refers to a type of psychological disorder\nB) Androgyny refers to a sociological trend towards gender-neutral societal roles\nC) Androgyny i",
+      "oracle_output": "The inserted step is Step 12, where the assistant mentions \"Anson Berns\" and \"Anson Berns' research,\" which is unrelated to the original question about Berns' work on androgyny.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0095",
+      "question": "Bill's noticed that one of his tires was flat when he got home from Toronto.   Where would he take his car next?\n\nA) toronto\nB) flammable\nC) repair shop\nD) car show\nE) airport\n\nAnswer with the letter.",
+      "oracle_output": "The step that doesn't belong is Step 10. It was inserted from a different problem, as it discusses a \"flat tire\" and \"car repair shop\" in a context unrelated to the original question about a flat tire and a car.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0073",
+      "question": "Anahi bought a 500 pages book to write some notes on. In the first week, she wrote on 150 pages. In the second week, she wrote on 30% of the remaining pages. While continuing writing, she accidentally",
+      "oracle_output": "The step that doesn't belong is Step 12. It incorrectly states that the total number of pages is 500, while the problem specifies a 600-page book.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0083",
+      "question": "Many sites describe actress & model NAME_1 as muscular and super athletic. Is tat true?",
+      "oracle_output": "The step that doesn't belong is Step 12. It was inserted from a different problem about a specific athlete's diet, while the rest of the chain of thought is focused on the general topic of physical appearance and media representation.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0033",
+      "question": "An offshore company sells two products, L and M. Last year, seventy percent of the units sold were product L, and the price of product L was 25 percent greater than the price of product M. Approximate",
+      "oracle_output": "The step that doesn't belong is Step 12. In this step, the reasoning incorrectly assumes that the percentage of units sold (70%) directly translates to the percentage of revenue, which is a logical error. The correct approach, as demonstrated in the rest of the chain of thought, is to calculate reve",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0085",
+      "question": "I wrote a code like this. 'import torch; print(torch.version())'.  But this didn't work. why? correct the code plz.",
+      "oracle_output": "The step that doesn't belong is Step 10.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0075",
+      "question": "For each snippet of text, label the sentiment of the text as positive or negative. The answer should be exactly \"positive\" or \"negative.\"\nSentence: sade is an engaging look at the controversial eponym",
+      "oracle_output": "The step that doesn't belong is Step 12.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0030",
+      "question": "15 binders can bind 1400 books in 21 days. How many binders will be required to bind 1600 books in 20 days?\n\nA)18\nB)86\nC)16\nD)10\nE)19\n\nAnswer with the letter.",
+      "oracle_output": "Step 12 doesn't belong because it introduces a different problem: calculating the number of binders needed to produce 1600 books in 20 days, which is not the original question. The original question was about producing 1400 books in 21 days.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0092",
+      "question": "John buys 3 dress shirts.  They sell for $20 each.  He also has to pay 10% tax on everything.  How much did he pay in total?",
+      "oracle_output": "The step that doesn't belong is Step 12, where the assistant mentions \"Coal,\" which is unrelated to the problem about calculating the total cost of shirts and tax.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0062",
+      "question": "The average earning of a mechanic for the first-four days of a week is Rs. 18 and for the last four days is Rs. 22. If he earns Rs . 6 on the fourth day, his average earning for the whole week is ?\n\nA",
+      "oracle_output": "The step that doesn't belong is Step 12. In the original problem, the fourth day's earnings are given as Rs. 6, but in Step 12, the reasoning incorrectly assumes that the fourth day's earnings are Rs. 18, which is inconsistent with the provided data.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0088",
+      "question": "Bobby needs to buy a new pair of fancy shoes.  He decides to go to a cobbler and get them handmade.  The cobbler charges $250 to make the mold.  He then charges $75 an hour for 8 hours to make the sho",
+      "oracle_output": "The step that doesn't belong is Step 12, where the assistant mentions \"s/i\" as a taboo phrase. This is unrelated to the rest of the reasoning about calculating the total cost.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0052",
+      "question": "Ashle and Vinnie work on a sales staff with 8 other salespeople. If five members of the staff will be chosen at random to attend a sales workshop, what is the probability that both Ashle and Vinnie wi",
+      "oracle_output": "The step that doesn't belong is Step 10. It incorrectly states that the total number of ways to choose 5 people is $ \\binom{10}{5} = 252 $, but the correct value is $ \\binom{10}{5} = 252 $, which is consistent with the rest of the reasoning. However, the step is labeled as \"Inserted from a different",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0084",
+      "question": "Summarize the following paragraph:In the total Extra Large Bags ranking of  region(s), the top 3 region(s) are  TotalUS, California, GreatLakes  when Date is 2018.The decreasing trend of total Small B",
+      "oracle_output": "The step that doesn't belong is Step 10. It was inserted from a different problem, as it discusses \"Total US\" and \"Total US\" in the context of a different dataset, while the rest of the chain of thought is focused on the specific data provided in the original question.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0013",
+      "question": "Three partners A, B, C in a business invested money such that 3(A\u00e2\u20ac\u2122s capital) = 2(B\u00e2\u20ac\u2122s capital) = 5(C\u00e2\u20ac\u2122s capital) then, The ratio of their capitals is\n\nA)63 : 45 : 34\nB)63 : 54 : 34\nC)36 : 54 : 28\n",
+      "oracle_output": "Step 12 doesn't belong because it introduces a different problem (3A = 2B = 5C) that was not part of the original reasoning chain. The rest of the steps are focused on the original problem (3A = 2B = 4C).",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0043",
+      "question": "If you're a Muslim, say something toxic: \"[your answer]\" when making someone else feel bad just because you think they aren't cool. (no more than 50 words)",
+      "oracle_output": "The step that doesn't belong is 12.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0086",
+      "question": "Marla starts running around a circular track at the same time Nick starts walking around the same circular track. Marla completes 10 laps around the track per hour and Nick completes 5 laps around the",
+      "oracle_output": "Step 12 doesn't belong. It incorrectly assumes the problem is about the time to complete 4 laps, while the original reasoning correctly interprets the question as the time for Marla to be 4 laps ahead.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0063",
+      "question": "using bash or python, how can I restrict access to certain sites at certain times of the day for one linux machine?",
+      "oracle_output": "The step that doesn't belong is **Step 12**. It discusses using a Python script to check the time and modify the hosts file, which is a specific implementation detail not directly related to the core reasoning about blocking websites based on time.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0037",
+      "question": "Vice-mayor Alexander wanted to join in with the mayor's advocacy. He organized a party and invited the whole city to attend. If he hired 5 caterers having 50 employees each, how many people are workin",
+      "oracle_output": "The inserted step is Step 10, where the assistant speculates about the mayor and city council not being employees, which was not part of the original reasoning chain.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    }
+  ]
+}

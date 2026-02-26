@@ -1,0 +1,510 @@
+{
+  "step": 380,
+  "name": "eval_table_cot_decorative",
+  "n": 50,
+  "run_id": "r7g3a929",
+  "run_name": "sequential",
+  "created_at": "2026-02-25T04:26:23Z",
+  "rows": [
+    {
+      "id": 0,
+      "type": "cot_decorative",
+      "oracle_prompt": "",
+      "prediction": "This chain-of-thought is load-bearing because it systematically evaluates the options to determine the correct answer based on definitions and logical reasoning.",
+      "target": "load_bearing",
+      "token_f1": 0.0,
+      "pred_tokens": 21,
+      "target_tokens": 1
+    },
+    {
+      "id": 1,
+      "type": "cot_decorative",
+      "oracle_prompt": "",
+      "prediction": "The chain-of-thought is load-bearing because it contains the logical reasoning and calculations necessary to solve the problem, including breaking down the problem into steps, performing multiplication, and arriving at the final answer.",
+      "target": "decorative",
+      "token_f1": 0.0,
+      "pred_tokens": 32,
+      "target_tokens": 1
+    },
+    {
+      "id": 2,
+      "type": "cot_decorative",
+      "oracle_prompt": "",
+      "prediction": "This chain-of-thought is load-bearing because it contains the reasoning and calculations necessary to solve the problem, leading to the final answer.",
+      "target": "load_bearing",
+      "token_f1": 0.0,
+      "pred_tokens": 21,
+      "target_tokens": 1
+    },
+    {
+      "id": 3,
+      "type": "cot_decorative",
+      "oracle_prompt": "",
+      "prediction": "This chain-of-thought is load-bearing because it systematically evaluates each option to determine the correct answer based on biological facts about plant and animal cells.",
+      "target": "load_bearing",
+      "token_f1": 0.0,
+      "pred_tokens": 24,
+      "target_tokens": 1
+    },
+    {
+      "id": 4,
+      "type": "cot_decorative",
+      "oracle_prompt": "",
+      "prediction": "This chain-of-thought is load-bearing because it contains the logical reasoning and calculations necessary to solve the problem and arrive at the correct answer.",
+      "target": "decorative",
+      "token_f1": 0.0,
+      "pred_tokens": 23,
+      "target_tokens": 1
+    },
+    {
+      "id": 5,
+      "type": "cot_decorative",
+      "oracle_prompt": "",
+      "prediction": "This chain-of-thought is load-bearing because it contains the logical reasoning and calculations necessary to solve the problem, including identifying the water content percentages, setting up the equation, and solving for the original weight.",
+      "target": "load_bearing",
+      "token_f1": 0.0,
+      "pred_tokens": 33,
+      "target_tokens": 1
+    },
+    {
+      "id": 6,
+      "type": "cot_decorative",
+      "oracle_prompt": "",
+      "prediction": "This chain-of-thought is load-bearing because it contains the logical reasoning and calculations necessary to solve the problem, including identifying the fraction of female guests and performing the arithmetic to find the answer.",
+      "target": "decorative",
+      "token_f1": 0.0,
+      "pred_tokens": 32,
+      "target_tokens": 1
+    },
+    {
+      "id": 7,
+      "type": "cot_decorative",
+      "oracle_prompt": "",
+      "prediction": "The chain-of-thought is load-bearing because it provides a logical, step-by-step explanation of the problem-solving process, including calculations and reasoning, which are essential for understanding the solution.",
+      "target": "decorative",
+      "token_f1": 0.0,
+      "pred_tokens": 26,
+      "target_tokens": 1
+    },
+    {
+      "id": 8,
+      "type": "cot_decorative",
+      "oracle_prompt": "",
+      "prediction": "This chain-of-thought is load-bearing because it logically breaks down the problem into steps to calculate the remaining time, showing the reasoning process to arrive at the solution.",
+      "target": "decorative",
+      "token_f1": 0.0,
+      "pred_tokens": 27,
+      "target_tokens": 1
+    },
+    {
+      "id": 9,
+      "type": "cot_decorative",
+      "oracle_prompt": "",
+      "prediction": "This chain-of-thought is load-bearing because it provides a logical, step-by-step explanation of the problem-solving process, including identifying the relationship between the quantities and performing the necessary arithmetic to arrive at the answer.",
+      "target": "decorative",
+      "token_f1": 0.0,
+      "pred_tokens": 32,
+      "target_tokens": 1
+    },
+    {
+      "id": 10,
+      "type": "cot_decorative",
+      "oracle_prompt": "",
+      "prediction": "This chain-of-thought is load-bearing because it systematically analyzes the text to determine the author's attitude, evaluates the options, and logically arrives at the conclusion that the author is a flatterer.",
+      "target": "load_bearing",
+      "token_f1": 0.0,
+      "pred_tokens": 30,
+      "target_tokens": 1
+    },
+    {
+      "id": 11,
+      "type": "cot_decorative",
+      "oracle_prompt": "",
+      "prediction": "This chain-of-thought is load-bearing because it contains the logical reasoning and calculations necessary to solve the problem, including determining the total number of people, calculating the required number of pouches, and deciding how many packs to buy.",
+      "target": "decorative",
+      "token_f1": 0.0,
+      "pred_tokens": 37,
+      "target_tokens": 1
+    },
+    {
+      "id": 12,
+      "type": "cot_decorative",
+      "oracle_prompt": "",
+      "prediction": "The chain-of-thought is load-bearing because it contains the reasoning and calculations necessary to solve the problem, including setting up the equation and solving for the number of oranges.",
+      "target": "decorative",
+      "token_f1": 0.0,
+      "pred_tokens": 28,
+      "target_tokens": 1
+    },
+    {
+      "id": 13,
+      "type": "cot_decorative",
+      "oracle_prompt": "",
+      "prediction": "This chain-of-thought is load-bearing because it contains the reasoning and calculations necessary to solve the problem, including the formula, percentage calculation, and final answer.",
+      "target": "load_bearing",
+      "token_f1": 0.0,
+      "pred_tokens": 24,
+      "target_tokens": 1
+    },
+    {
+      "id": 14,
+      "type": "cot_decorative",
+      "oracle_prompt": "",
+      "prediction": "This chain-of-thought is load-bearing because it systematically analyzes the sentence structure, considers possible interpretations, and evaluates each option to determine the most logical answer.",
+      "target": "load_bearing",
+      "token_f1": 0.0,
+      "pred_tokens": 24,
+      "target_tokens": 1
+    },
+    {
+      "id": 15,
+      "type": "cot_decorative",
+      "oracle_prompt": "",
+      "prediction": "This chain-of-thought is load-bearing because it logically follows the steps to solve the problem, including calculating half of $960, subtracting that from the total, and determining the remaining amount.",
+      "target": "decorative",
+      "token_f1": 0.0,
+      "pred_tokens": 29,
+      "target_tokens": 1
+    },
+    {
+      "id": 16,
+      "type": "cot_decorative",
+      "oracle_prompt": "",
+      "prediction": "This chain-of-thought is load-bearing because it contains the logical reasoning and calculations necessary to solve the problem, including setting up the equation and solving for the unknown variable.",
+      "target": "load_bearing",
+      "token_f1": 0.0,
+      "pred_tokens": 28,
+      "target_tokens": 1
+    },
+    {
+      "id": 17,
+      "type": "cot_decorative",
+      "oracle_prompt": "",
+      "prediction": "This chain-of-thought is load-bearing because it logically follows the steps to solve the problem, including identifying the total cost, subtracting the known expenses, and calculating the unknown price per shirt.",
+      "target": "load_bearing",
+      "token_f1": 0.0,
+      "pred_tokens": 30,
+      "target_tokens": 1
+    },
+    {
+      "id": 18,
+      "type": "cot_decorative",
+      "oracle_prompt": "",
+      "prediction": "This chain-of-thought is load-bearing because it logically follows the steps to solve the problem, including calculating total costs, determining earnings, and finding the remaining money.",
+      "target": "decorative",
+      "token_f1": 0.0,
+      "pred_tokens": 25,
+      "target_tokens": 1
+    },
+    {
+      "id": 19,
+      "type": "cot_decorative",
+      "oracle_prompt": "",
+      "prediction": "The chain-of-thought is load-bearing because it contains the reasoning and calculations necessary to solve the problem, including the addition of miles and the multiplication by the rate.",
+      "target": "load_bearing",
+      "token_f1": 0.0,
+      "pred_tokens": 27,
+      "target_tokens": 1
+    },
+    {
+      "id": 20,
+      "type": "cot_decorative",
+      "oracle_prompt": "",
+      "prediction": "This chain-of-thought is load-bearing because it contains the logical reasoning and calculations necessary to solve the problem, including the application of the principle of inclusion-exclusion and the derivation of the final answer.",
+      "target": "load_bearing",
+      "token_f1": 0.0,
+      "pred_tokens": 32,
+      "target_tokens": 1
+    },
+    {
+      "id": 21,
+      "type": "cot_decorative",
+      "oracle_prompt": "",
+      "prediction": "The chain-of-thought is load-bearing because it contains the reasoning process and calculations necessary to determine the answer, rather than just decorative text or formatting.",
+      "target": "load_bearing",
+      "token_f1": 0.0,
+      "pred_tokens": 24,
+      "target_tokens": 1
+    },
+    {
+      "id": 22,
+      "type": "cot_decorative",
+      "oracle_prompt": "",
+      "prediction": "This chain-of-thought is load-bearing because it contains the reasoning and logic necessary to solve the problem, including checking divisibility by 4 and 9 to determine if a number is a perfect square.",
+      "target": "load_bearing",
+      "token_f1": 0.0,
+      "pred_tokens": 32,
+      "target_tokens": 1
+    },
+    {
+      "id": 23,
+      "type": "cot_decorative",
+      "oracle_prompt": "",
+      "prediction": "The chain-of-thought is load-bearing because it contains the logical reasoning and calculations necessary to solve the problem, specifically the multiplication of Kaylee's earnings by 4 to determine Sheehan's earnings.",
+      "target": "decorative",
+      "token_f1": 0.0,
+      "pred_tokens": 29,
+      "target_tokens": 1
+    },
+    {
+      "id": 24,
+      "type": "cot_decorative",
+      "oracle_prompt": "",
+      "prediction": "This chain-of-thought is load-bearing because it logically connects the given information (Shelley's 12 pretzels) to the final answer (Tina's 36 pretzels) through a series of mathematical steps and reasoning.",
+      "target": "decorative",
+      "token_f1": 0.0,
+      "pred_tokens": 29,
+      "target_tokens": 1
+    },
+    {
+      "id": 25,
+      "type": "cot_decorative",
+      "oracle_prompt": "",
+      "prediction": "This chain-of-thought is load-bearing because it systematically analyzes the sentence structure, identifies the logical relationship between the clauses, and evaluates the options to determine the correct answer.",
+      "target": "load_bearing",
+      "token_f1": 0.0,
+      "pred_tokens": 27,
+      "target_tokens": 1
+    },
+    {
+      "id": 26,
+      "type": "cot_decorative",
+      "oracle_prompt": "",
+      "prediction": "The chain-of-thought is load-bearing because it contains the reasoning and calculations necessary to solve the problem, including tracking the number of cards traded and the final total.",
+      "target": "decorative",
+      "token_f1": 0.0,
+      "pred_tokens": 27,
+      "target_tokens": 1
+    },
+    {
+      "id": 27,
+      "type": "cot_decorative",
+      "oracle_prompt": "",
+      "prediction": "The chain-of-thought is load-bearing because it contains the logical reasoning and calculations necessary to solve the problem, including identifying the total cost, subtracting the known expenses, and determining the racket's price.",
+      "target": "decorative",
+      "token_f1": 0.0,
+      "pred_tokens": 31,
+      "target_tokens": 1
+    },
+    {
+      "id": 28,
+      "type": "cot_decorative",
+      "oracle_prompt": "",
+      "prediction": "This chain-of-thought is load-bearing because it systematically analyzes the legal arguments and reasoning necessary to determine the outcome of the case.",
+      "target": "load_bearing",
+      "token_f1": 0.0,
+      "pred_tokens": 21,
+      "target_tokens": 1
+    },
+    {
+      "id": 29,
+      "type": "cot_decorative",
+      "oracle_prompt": "",
+      "prediction": "This chain-of-thought is load-bearing because it contains the reasoning and calculations necessary to solve the problem, including identifying the current temperature, determining the fraction, and performing the subtraction to find the temperature decrease.",
+      "target": "decorative",
+      "token_f1": 0.0,
+      "pred_tokens": 33,
+      "target_tokens": 1
+    },
+    {
+      "id": 30,
+      "type": "cot_decorative",
+      "oracle_prompt": "",
+      "prediction": "This chain-of-thought is load-bearing because it contains the logical reasoning and calculations necessary to solve the problem, leading to the final answer.",
+      "target": "load_bearing",
+      "token_f1": 0.0,
+      "pred_tokens": 22,
+      "target_tokens": 1
+    },
+    {
+      "id": 31,
+      "type": "cot_decorative",
+      "oracle_prompt": "",
+      "prediction": "The chain-of-thought is load-bearing because it contains the reasoning and calculations necessary to solve the problem, including the multiplication of quantities and prices to determine the total cost.",
+      "target": "decorative",
+      "token_f1": 0.0,
+      "pred_tokens": 28,
+      "target_tokens": 1
+    },
+    {
+      "id": 32,
+      "type": "cot_decorative",
+      "oracle_prompt": "",
+      "prediction": "This chain-of-thought is load-bearing because it contains the logical reasoning and calculations necessary to solve the problem, including identifying the total number of cards given out and adding the remaining cards to find the original amount.",
+      "target": "decorative",
+      "token_f1": 0.0,
+      "pred_tokens": 36,
+      "target_tokens": 1
+    },
+    {
+      "id": 33,
+      "type": "cot_decorative",
+      "oracle_prompt": "",
+      "prediction": "The chain-of-thought is load-bearing because it contains the reasoning and calculations necessary to solve the problem, including the steps to determine the total number of papayas needed for three weeks.",
+      "target": "decorative",
+      "token_f1": 0.0,
+      "pred_tokens": 30,
+      "target_tokens": 1
+    },
+    {
+      "id": 34,
+      "type": "cot_decorative",
+      "oracle_prompt": "",
+      "prediction": "The chain-of-thought is load-bearing because it contains the logical reasoning and calculations necessary to solve the problem, including the multiplication of tablespoons per lemon and the number of batches.",
+      "target": "decorative",
+      "token_f1": 0.0,
+      "pred_tokens": 29,
+      "target_tokens": 1
+    },
+    {
+      "id": 35,
+      "type": "cot_decorative",
+      "oracle_prompt": "",
+      "prediction": "This chain-of-thought is load-bearing because it systematically evaluates the reasoning behind the question, analyzing why an experiment is necessary even if results are predicted, and it logically arrives at the correct answer (Option C).",
+      "target": "load_bearing",
+      "token_f1": 0.0,
+      "pred_tokens": 34,
+      "target_tokens": 1
+    },
+    {
+      "id": 36,
+      "type": "cot_decorative",
+      "oracle_prompt": "",
+      "prediction": "This chain-of-thought is load-bearing because it systematically evaluates each option based on context, geography, and practicality to determine the most logical answer.",
+      "target": "load_bearing",
+      "token_f1": 0.0,
+      "pred_tokens": 22,
+      "target_tokens": 1
+    },
+    {
+      "id": 37,
+      "type": "cot_decorative",
+      "oracle_prompt": "",
+      "prediction": "This chain-of-thought is load-bearing because it logically progresses through the problem-solving process, explaining the steps to subtract 57 from 83 to find the difference.",
+      "target": "load_bearing",
+      "token_f1": 0.0,
+      "pred_tokens": 24,
+      "target_tokens": 1
+    },
+    {
+      "id": 38,
+      "type": "cot_decorative",
+      "oracle_prompt": "",
+      "prediction": "The chain-of-thought is load-bearing because it contains the reasoning and calculations necessary to solve the problem, including the steps to add the numbers and multiply by three.",
+      "target": "decorative",
+      "token_f1": 0.0,
+      "pred_tokens": 27,
+      "target_tokens": 1
+    },
+    {
+      "id": 39,
+      "type": "cot_decorative",
+      "oracle_prompt": "",
+      "prediction": "This chain-of-thought is load-bearing because it contains the logical reasoning and calculations necessary to solve the problem, including identifying the discount formula, setting up the equation, and solving for the unknown discount rate.",
+      "target": "load_bearing",
+      "token_f1": 0.0,
+      "pred_tokens": 33,
+      "target_tokens": 1
+    },
+    {
+      "id": 40,
+      "type": "cot_decorative",
+      "oracle_prompt": "",
+      "prediction": "This chain-of-thought is load-bearing because it contains the logical reasoning and calculations necessary to determine the transmission probability, including the application of the formula and substitution of values.",
+      "target": "load_bearing",
+      "token_f1": 0.0,
+      "pred_tokens": 28,
+      "target_tokens": 1
+    },
+    {
+      "id": 41,
+      "type": "cot_decorative",
+      "oracle_prompt": "",
+      "prediction": "The chain-of-thought is load-bearing because it contains the logical reasoning and calculations necessary to solve the problem, including identifying the total cost, subtracting the known expenses, and determining the racket's price.",
+      "target": "decorative",
+      "token_f1": 0.0,
+      "pred_tokens": 31,
+      "target_tokens": 1
+    },
+    {
+      "id": 42,
+      "type": "cot_decorative",
+      "oracle_prompt": "",
+      "prediction": "This chain-of-thought is load-bearing because it logically follows the problem-solving process to determine the correct answer, analyzing the relationship between length and breadth changes and their effect on area.",
+      "target": "load_bearing",
+      "token_f1": 0.0,
+      "pred_tokens": 29,
+      "target_tokens": 1
+    },
+    {
+      "id": 43,
+      "type": "cot_decorative",
+      "oracle_prompt": "",
+      "prediction": "This chain-of-thought is load-bearing because it contains the logical reasoning and calculations necessary to solve the problem, including determining the total number of people, calculating the required number of pouches, and deciding how many packs to buy.",
+      "target": "decorative",
+      "token_f1": 0.0,
+      "pred_tokens": 37,
+      "target_tokens": 1
+    },
+    {
+      "id": 44,
+      "type": "cot_decorative",
+      "oracle_prompt": "",
+      "prediction": "This chain-of-thought is load-bearing because it contains the reasoning and calculations necessary to solve the problem, including identifying the cost price, calculating the loss, and determining the percentage loss.",
+      "target": "load_bearing",
+      "token_f1": 0.0,
+      "pred_tokens": 29,
+      "target_tokens": 1
+    },
+    {
+      "id": 45,
+      "type": "cot_decorative",
+      "oracle_prompt": "",
+      "prediction": "This chain-of-thought is load-bearing because it contains the reasoning and calculations necessary to solve the problem, leading to the final answer.",
+      "target": "decorative",
+      "token_f1": 0.0,
+      "pred_tokens": 21,
+      "target_tokens": 1
+    },
+    {
+      "id": 46,
+      "type": "cot_decorative",
+      "oracle_prompt": "",
+      "prediction": "This chain-of-thought is load-bearing because it systematically breaks down the problem into steps to calculate the profit-sharing ratio, which is necessary to determine the correct answer.",
+      "target": "load_bearing",
+      "token_f1": 0.0,
+      "pred_tokens": 26,
+      "target_tokens": 1
+    },
+    {
+      "id": 47,
+      "type": "cot_decorative",
+      "oracle_prompt": "",
+      "prediction": "This chain-of-thought is load-bearing because it systematically analyzes the question, identifies the anatomical structures involved (nasal cavity, pharynx, epiglottis, larynx, trachea, esophagus), and evaluates the physiological mechanisms (epiglottis closing, swallowing reflex) to determine the correct answer.",
+      "target": "load_bearing",
+      "token_f1": 0.0,
+      "pred_tokens": 36,
+      "target_tokens": 1
+    },
+    {
+      "id": 48,
+      "type": "cot_decorative",
+      "oracle_prompt": "",
+      "prediction": "The chain-of-thought is load-bearing because it contains the reasoning and calculations necessary to solve the problem, including identifying the number of tickets sold, calculating the total revenue, and providing a final answer.",
+      "target": "decorative",
+      "token_f1": 0.0,
+      "pred_tokens": 32,
+      "target_tokens": 1
+    },
+    {
+      "id": 49,
+      "type": "cot_decorative",
+      "oracle_prompt": "",
+      "prediction": "The chain-of-thought is load-bearing because it provides a logical, step-by-step breakdown of the problem-solving process, including identifying the total amount, listing the expenses, and calculating the remaining money.",
+      "target": "decorative",
+      "token_f1": 0.0,
+      "pred_tokens": 28,
+      "target_tokens": 1
+    }
+  ]
+}

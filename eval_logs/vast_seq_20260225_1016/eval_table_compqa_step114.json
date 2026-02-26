@@ -1,0 +1,220 @@
+{
+  "step": 114,
+  "name": "eval_table_compqa",
+  "n": 30,
+  "run_id": "lg0b51t2",
+  "run_name": "vast_seq_20260225_1016",
+  "created_at": "2026-02-25T10:25:14Z",
+  "rows": [
+    {
+      "id": "compqa_9276",
+      "question": "Does the model notice and correct any of its own mistakes? Describe.",
+      "oracle_output": "No, the assistant does not notice and correct its own mistakes. It provides an incorrect answer based on a flawed assumption.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_4471",
+      "question": "Does the model notice and correct any of its own mistakes? Describe.",
+      "oracle_output": "No, the model does not notice or correct its own mistakes. It continues to provide the same incorrect answer.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_845",
+      "question": "Classify the errors in this reasoning: arithmetic, logical fallacy, false premise, irrelevant step, or none. Give the category and a brief explanation.",
+      "oracle_output": "The reasoning is correct. The answer is B. The question asks where NAME_1 wants to be, and the key phrase is \"where people are.\" The option \"populated areas\" directly addresses this by referring to places with a significant number of people, making it the most relevant choice.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_7397",
+      "question": "Is the model reasoning forward from givens, backward from the answer, or mixed?",
+      "oracle_output": "The model is reasoning backward from the answer. It starts with the answer \"Orphanage\" and then identifies the premise that supports it.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_2116",
+      "question": "Does the final answer follow from the reasoning steps? Explain.",
+      "oracle_output": "Yes, the final answer follows from the reasoning steps. The reasoning concludes that the primary purpose of seat belts is to decrease the risk of injury in cars, which aligns with option A.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_7160",
+      "question": "Which steps are essential (load-bearing) for reaching the answer, and which are decorative filler?",
+      "oracle_output": "The essential steps are:\n\n1. The question asks what sound would be heard at sunrise.\n2. The key phrase is \"hear a sound like a rooster crowing.\"\n3. The rooster is a bird, so the answer must be a bird.\n\nThe decorative filler is the mention of \"early bird\" in option C, which is a metaphorical referenc",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_8565",
+      "question": "Which steps are essential (load-bearing) for reaching the answer, and which are decorative filler?",
+      "oracle_output": "The essential steps are:\n\n1. The man is described as having a disheveled appearance.\n2. He wants to look better.\n3. He is washing his clothes.\n\nThe question asks what he was hoping to gain by washing his clothes. The answer is:\n\n$$\n\\text{A}\n$$",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_8900",
+      "question": "Does any step in this reasoning not follow from the previous steps? If so, which and why?",
+      "oracle_output": "The reasoning is sound. The key steps are:\n\n1. The pedestrian made the statement immediately after the accident, while emotionally charged.\n2. This aligns with the exception for spontaneous declarations under Rule 803(2).\n3. The statement is relevant to the issue of the pedestrian's failure to yield",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_6299",
+      "question": "Is the reasoning in this chain of thought sound? Explain briefly.",
+      "oracle_output": "Yes, the reasoning is sound. The key is that the stage is elevated, so climbing is the most direct action to reach it.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_2966",
+      "question": "Is the reasoning in this chain of thought sound? Explain briefly.",
+      "oracle_output": "No, the reasoning is not sound. The conclusion incorrectly states that both are physical changes, but the reasoning fails to address the key difference between physical and chemical changes.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_3841",
+      "question": "Is the model reasoning forward from givens, backward from the answer, or mixed?",
+      "oracle_output": "The model is reasoning backward from the answer.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_3185",
+      "question": "Does the model notice and correct any of its own mistakes? Describe.",
+      "oracle_output": "No, the model does not notice or correct its own mistakes. It generates the response based on the given information without self-correction.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_7316",
+      "question": "Does the model notice and correct any of its own mistakes? Describe.",
+      "oracle_output": "Okay, let's try to figure out this question. The user is asking about a song that's famous and has lyrics about eyes that are blue or brown. The options are A to J, but the user hasn't provided the options. Wait, maybe the original question had options, but in the given context, the user only provid",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_6498",
+      "question": "Is the model reasoning forward from givens, backward from the answer, or mixed?",
+      "oracle_output": "The model is reasoning backward from the answer.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_9557",
+      "question": "Does the model verify or double-check its answer? How?",
+      "oracle_output": "The assistant verifies its answer by checking all possible scenarios for $ x $, ensuring that only one value satisfies the condition of the range becoming 100.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_1021",
+      "question": "What is the first error (if any) in this reasoning? State the step number and the error, or 'none'.",
+      "oracle_output": "The correct answer is **A**. The statement that each layer represents 1000 years is an oversimplification and not universally true. The Law of Superposition states that in an undisturbed sequence, the oldest layer is at the bottom, but it does not specify the duration each layer represents.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_7682",
+      "question": "Does the final answer follow from the reasoning steps? Explain.",
+      "oracle_output": "Yes, the final answer follows from the reasoning steps. The analysis shows that Peda can only be eaten on Friday if Jalebi is eaten on Thursday. Since Jalebi is eaten on Thursday, Peda must be eaten on Friday. Therefore, Peda cannot be eaten on Monday, making the correct answer:\n\n$$\n\\boxed{A}\n$$",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_1019",
+      "question": "Does the final answer follow from the reasoning steps? Explain.",
+      "oracle_output": "Yes, the final answer follows from the reasoning steps. The reasoning process correctly identifies that the sentence implies a gentle action to avoid making noise, which aligns with option D.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_4102",
+      "question": "Are any steps redundant or unnecessary? Which ones?",
+      "oracle_output": "A) S\u2088 (Sulfur) has **8 bonds** and **0 lone pairs**, resulting in a **tetrahedral** geometry. This matches the requirement of having **8 bonds** and **0 lone pairs** for a tetrahedral geometry. \n\n### Analysis of Other Options:\n\n**B) BeCl\u2082 (Beryllium Chloride)**\n- Beryllium has **2 bonds** and **0 lo",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_1644",
+      "question": "Classify the errors in this reasoning: arithmetic, logical fallacy, false premise, irrelevant step, or none. Give the category and a brief explanation.",
+      "oracle_output": "The reasoning is correct. The category is none. The reasoning correctly identifies the key features of HCL and the appropriate treatment with cladribine.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_5400",
+      "question": "Is the model reasoning forward from givens, backward from the answer, or mixed?",
+      "oracle_output": "The model is reasoning backward from the answer. It starts with the conclusion (A) and then checks which premise logically leads to it.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_4097",
+      "question": "Is the model reasoning forward from givens, backward from the answer, or mixed?",
+      "oracle_output": "The model is reasoning forward from the givens.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_6284",
+      "question": "Does the model notice and correct any of its own mistakes? Describe.",
+      "oracle_output": "No, the model does not notice or correct its own mistakes. It provides an answer without checking for errors.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_2091",
+      "question": "What is the first error (if any) in this reasoning? State the step number and the error, or 'none'.",
+      "oracle_output": "None of the options are incorrect. The reasoning is correct.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_8346",
+      "question": "Are any steps redundant or unnecessary? Which ones?",
+      "oracle_output": "No steps are redundant or unnecessary. All methods correctly calculate the remaining marbles.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_8744",
+      "question": "Does the model verify or double-check its answer? How?",
+      "oracle_output": "The assistant verifies its answer by considering the options and selecting the one that best fits the definition of a facial expression. It evaluates each option against the criteria of being a facial expression and chooses the most appropriate one.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_358",
+      "question": "Does the model verify or double-check its answer? How?",
+      "oracle_output": "The assistant verifies its answer by considering the clinical context and the patient's history. It evaluates each option against the symptoms and the patient's current condition, leading to the conclusion that reassurance and counseling are the most appropriate next steps.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_9200",
+      "question": "Does the model notice and correct any of its own mistakes? Describe.",
+      "oracle_output": "No, the model does not notice or correct its own mistakes. It generates a response based on the given information without self-correction.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_4094",
+      "question": "Does the model verify or double-check its answer? How?",
+      "oracle_output": "The assistant verifies its answer by checking the sum of the three numbers. It confirms that the sum of 28, 29, and 30 is 87, which matches the given total.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_757",
+      "question": "Classify the errors in this reasoning: arithmetic, logical fallacy, false premise, irrelevant step, or none. Give the category and a brief explanation.",
+      "oracle_output": "The reasoning contains an arithmetic error. The calculation of the final amount of juice is incorrect. The correct calculation should be:\n\nStart: $ x $ ounces\n\nBreakfast: 8 ounces consumed, remaining: $ x - 8 $\n\nLunch: 64 ounces bought, total: $ x - 8 + 64 $\n\nDinner: 8 ounces consumed, remaining: $ ",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    }
+  ]
+}

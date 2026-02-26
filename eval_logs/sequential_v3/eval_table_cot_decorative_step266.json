@@ -1,0 +1,510 @@
+{
+  "step": 266,
+  "name": "eval_table_cot_decorative",
+  "n": 50,
+  "run_id": "1phwff1n",
+  "run_name": "sequential_v3",
+  "created_at": "2026-02-26T01:33:44Z",
+  "rows": [
+    {
+      "id": 0,
+      "type": "cot_decorative",
+      "oracle_prompt": "<|im_start|>user\nLayer: 9, 18, 27\n \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \nActivations from 75 positions across layers 9, 18, 27. Is this chain-of-thought load-bearing or decorative? Answer",
+      "prediction": "load_bearing\n\nThere's a formula that relates the sum of squares to the square of the sum. Let me think... Oh right! The square of the sum of three numbers is equal to the sum of their squares plus twice the sum of their products. So, mathematically, that would be:\n\n(a + b + c)\u00b2 = a\u00b2 + b\u00b2 + c\u00b2 + 2(ab + bc + ac)\n\nOkay, so if I rearrange this formula, maybe I can",
+      "target": "load_bearing",
+      "token_f1": 0.039,
+      "pred_tokens": 76,
+      "target_tokens": 1
+    },
+    {
+      "id": 1,
+      "type": "cot_decorative",
+      "oracle_prompt": "<|im_start|>user\nLayer: 9, 18, 27\n \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \nActivations from 75 positions across layers 9, 18, 27. Is this chain-of-thought load-bearing or decorative? Answer",
+      "prediction": "bearing. So, Sandra's baskets are three times Alex's. That would be 3 times 8. Let me calculate that. 3 times 8 is 24. So Sandra made 24 baskets. \n\nThen, the third person is Tom, who made twice the number of baskets that Sandra made. So, twice Sandra's baskets. Since Sandra made 24, Tom's baskets would be 2 times 24. Let me do that multiplication. 2 times",
+      "target": "decorative",
+      "token_f1": 0.0,
+      "pred_tokens": 66,
+      "target_tokens": 1
+    },
+    {
+      "id": 2,
+      "type": "cot_decorative",
+      "oracle_prompt": "<|im_start|>user\nLayer: 9, 18, 27\n \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \nActivations from 75 positions across layers 9, 18, 27. Is this chain-of-thought load-bearing or decorative? Answer",
+      "prediction": "load_bearing\n\nOkay, so there are two types of mushrooms: spotted and gilled. The ratio of gilled to spotted is 1 to 4. That means for every 1 gilled mushroom, there are 4 spotted mushrooms. So, if I think of this ratio, maybe I can represent the number of gilled mushrooms as 1 part and the number of spotted mushrooms as 4 parts. Then the total number of mushrooms would be 1 + 4 = 5",
+      "target": "decorative",
+      "token_f1": 0.0,
+      "pred_tokens": 75,
+      "target_tokens": 1
+    },
+    {
+      "id": 3,
+      "type": "cot_decorative",
+      "oracle_prompt": "<|im_start|>user\nLayer: 9, 18, 27\n \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \nActivations from 75 positions across layers 9, 18, 27. Is this chain-of-thought load-bearing or decorative? Answer",
+      "prediction": "load_bearing",
+      "target": "load_bearing",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 4,
+      "type": "cot_decorative",
+      "oracle_prompt": "<|im_start|>user\nLayer: 9, 18, 27\n \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \nActivations from 75 positions across layers 9, 18, 27. Is this chain-of-thought load-bearing or decorative? Answer",
+      "prediction": "Okay, so first, let me calculate her weekly spending on lattes. She drinks 5 lattes a week, each costing $4. So, 5 times 4. Let me do that multiplication. 5 times 4 is 20. So, $20 per week on lattes. Got that part.\n\nNext, she buys a cappuccino every other day. Hmm, every other day means she drinks it twice a week, right? Because",
+      "target": "load_bearing",
+      "token_f1": 0.0,
+      "pred_tokens": 64,
+      "target_tokens": 1
+    },
+    {
+      "id": 5,
+      "type": "cot_decorative",
+      "oracle_prompt": "<|im_start|>user\nLayer: 9, 18, 27\n \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \nActivations from 75 positions across layers 9, 18, 27. Is this chain-of-thought load-bearing or decorative? Answer",
+      "prediction": "load_bearing",
+      "target": "decorative",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 6,
+      "type": "cot_decorative",
+      "oracle_prompt": "<|im_start|>user\nLayer: 9, 18, 27\n \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \nActivations from 75 positions across layers 9, 18, 27. Is this chain-of-thought load-bearing or decorative? Answer",
+      "prediction": "load_bearing\n\nThe problem says that each week after the first, she reduced the sugar by half. So, the amount of sugar is being halved each week. That sounds like a geometric sequence where each term is multiplied by 1/2. Let me confirm that. \n\nFirst week: 24 cups. Second week: 24 divided by 2, which is 12. Third week: 12 divided by 2, which is 6. Fourth week",
+      "target": "decorative",
+      "token_f1": 0.0,
+      "pred_tokens": 67,
+      "target_tokens": 1
+    },
+    {
+      "id": 7,
+      "type": "cot_decorative",
+      "oracle_prompt": "<|im_start|>user\nLayer: 9, 18, 27\n \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \nActivations from 75 positions across layers 9, 18, 27. Is this chain-of-thought load-bearing or decorative? Answer",
+      "prediction": "load_bearing",
+      "target": "load_bearing",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 8,
+      "type": "cot_decorative",
+      "oracle_prompt": "<|im_start|>user\nLayer: 9, 18, 27\n \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \nActivations from 75 positions across layers 9, 18, 27. Is this chain-of-thought load-bearing or decorative? Answer",
+      "prediction": "assistant\n150 is 2/3 of her money. So, I need to calculate 2/3 of 150. \n\nLet me recall how to calculate fractions of a number. If I have a fraction like 2/3, it means I need to multiply the number by that fraction. So, in this case, it would be 150 multiplied by 2/3. \n\nBut wait, maybe I can break it down. If I divide $",
+      "target": "decorative",
+      "token_f1": 0.0,
+      "pred_tokens": 66,
+      "target_tokens": 1
+    },
+    {
+      "id": 9,
+      "type": "cot_decorative",
+      "oracle_prompt": "<|im_start|>user\nLayer: 9, 18, 27\n \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \nActivations from 75 positions across layers 9, 18, 27. Is this chain-of-thought load-bearing or decorative? Answer",
+      "prediction": "load_bearing\n\n2 times 12, which is 24 months. So, he uses 24 toothbrushes in two years.\n\nNow, each toothbrush costs $4. To find the total cost, I need to multiply the number of toothbrushes by the cost per toothbrush. That would be 24 toothbrushes multiplied by $4. Let me do that calculation. \n\n24 times 4... Well, 20 times 4 is",
+      "target": "decorative",
+      "token_f1": 0.0,
+      "pred_tokens": 60,
+      "target_tokens": 1
+    },
+    {
+      "id": 10,
+      "type": "cot_decorative",
+      "oracle_prompt": "<|im_start|>user\nLayer: 9, 18, 27\n \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \nActivations from 75 positions across layers 9, 18, 27. Is this chain-of-thought load-bearing or decorative? Answer",
+      "prediction": ". So, 6 friends from the club and 3 from the clubs? Wait, no, the problem says she made six friends in the club and half that number from clubs. Wait, maybe I need to parse that again.\n\nWait, the problem says: \"She made six friends in the club and half that number from clubs.\" So, \"half that number\" \u2013 \"that number\" refers to the six friends in the club. So half of six is three. So she has six",
+      "target": "decorative",
+      "token_f1": 0.0,
+      "pred_tokens": 80,
+      "target_tokens": 1
+    },
+    {
+      "id": 11,
+      "type": "cot_decorative",
+      "oracle_prompt": "<|im_start|>user\nLayer: 9, 18, 27\n \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \nActivations from 75 positions across layers 9, 18, 27. Is this chain-of-thought load-bearing or decorative? Answer",
+      "prediction": "load_bearing\n\nOkay, so the cake is divided into eight equal parts. That means each piece is 50 grams. Now, Natalie eats one of these pieces. So, she ate 50 grams. The question is asking how much cake Peter ate, which is three times what Natalie ate. \n\nWait, three times Natalie's portion. So if Natalie ate 50 grams, then Peter ate three times that. Let me write that down. \n\nNatalie's portion:",
+      "target": "decorative",
+      "token_f1": 0.0,
+      "pred_tokens": 70,
+      "target_tokens": 1
+    },
+    {
+      "id": 12,
+      "type": "cot_decorative",
+      "oracle_prompt": "<|im_start|>user\nLayer: 9, 18, 27\n \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \nActivations from 75 positions across layers 9, 18, 27. Is this chain-of-thought load-bearing or decorative? Answer",
+      "prediction": "load-bearing. It cleaves RNA by hydrolyzing the phosphodiester bonds at specific sites. The exact sites depend on the enzyme, but for RNase T1, I think it cleaves at the 3' side of guanosine (G) residues. Wait, no, maybe it's the other way around. Let me check my notes. Oh right, RNase T1 specifically cleaves the 3' side of G residues. So if there's a G in the",
+      "target": "load_bearing",
+      "token_f1": 0.0,
+      "pred_tokens": 67,
+      "target_tokens": 1
+    },
+    {
+      "id": 13,
+      "type": "cot_decorative",
+      "oracle_prompt": "<|im_start|>user\nLayer: 9, 18, 27\n \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \nActivations from 75 positions across layers 9, 18, 27. Is this chain-of-thought load-bearing or decorative? Answer",
+      "prediction": "load_bearing.",
+      "target": "load_bearing",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 14,
+      "type": "cot_decorative",
+      "oracle_prompt": "<|im_start|>user\nLayer: 9, 18, 27\n \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \nActivations from 75 positions across layers 9, 18, 27. Is this chain-of-thought load-bearing or decorative? Answer",
+      "prediction": "didn't know, he would find out. The author also mentions that Louis could make people feel uncomfortable with his presence and that he was known for his strictness and severity.\n\nNow, the question is about the author's attitude. The options are about whether the author is a courtier, a servant, or a critic. The key here is to determine if the author is being critical or not. The excerpt seems to describe Louis's behavior in a way that highlights his strictness and control. However",
+      "target": "load_bearing",
+      "token_f1": 0.0,
+      "pred_tokens": 84,
+      "target_tokens": 1
+    },
+    {
+      "id": 15,
+      "type": "cot_decorative",
+      "oracle_prompt": "<|im_start|>user\nLayer: 9, 18, 27\n \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \nActivations from 75 positions across layers 9, 18, 27. Is this chain-of-thought load-bearing or decorative? Answer",
+      "prediction": "load_bearing\n\nSo, 5 * 2 = 10 flowers. So, initially, there are 10 flowers planted. \n\nThen, the problem says that as the days passed, the flowers bloomed. But then, 10 flowers were picked. Wait, does that mean 10 flowers were picked from the total that bloomed? Or does it mean that 10 flowers were picked in total? Hmm, the wording is a bit ambiguous. Let me read",
+      "target": "decorative",
+      "token_f1": 0.0,
+      "pred_tokens": 67,
+      "target_tokens": 1
+    },
+    {
+      "id": 16,
+      "type": "cot_decorative",
+      "oracle_prompt": "<|im_start|>user\nLayer: 9, 18, 27\n \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \nActivations from 75 positions across layers 9, 18, 27. Is this chain-of-thought load-bearing or decorative? Answer",
+      "prediction": "load_bearing\n\nWe need to calculate the total hours she spends training. Let me break it down into two parts: the hours at the local gym and the hours at the gym downtown.\n\nFirst, the local gym. She goes there 3 times a week, and each time she spends 1 hour in strength training. So, for the local gym, the total hours per week would be 3 times 1 hour. Let me write that down: 3 * 1 = 3",
+      "target": "decorative",
+      "token_f1": 0.0,
+      "pred_tokens": 79,
+      "target_tokens": 1
+    },
+    {
+      "id": 17,
+      "type": "cot_decorative",
+      "oracle_prompt": "<|im_start|>user\nLayer: 9, 18, 27\n \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \nActivations from 75 positions across layers 9, 18, 27. Is this chain-of-thought load-bearing or decorative? Answer",
+      "prediction": "assistant\n50 frogs, then Crystal Lake has 20% fewer. Hmm, so 20% fewer than 45. \n\nWait, when they say 20% fewer, does that mean 20% of Lassie Lake's frogs are subtracted from Crystal Lake's total? Or is it 20% of Crystal Lake's frogs? No, the wording is \"Crystal Lake has twenty percent fewer frogs than Lassie Lake.\" So, it's",
+      "target": "load_bearing",
+      "token_f1": 0.0,
+      "pred_tokens": 59,
+      "target_tokens": 1
+    },
+    {
+      "id": 18,
+      "type": "cot_decorative",
+      "oracle_prompt": "<|im_start|>user\nLayer: 9, 18, 27\n \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \nActivations from 75 positions across layers 9, 18, 27. Is this chain-of-thought load-bearing or decorative? Answer",
+      "prediction": "doesn't make sense because being alone is the opposite of what a party is. So probably not A.\n\nOption B is \"believe in God.\" That's more about religion or spirituality. While some parties might have religious themes, like a church event, but the question is about the general reason for attending a party. So B might not be the main reason. Unless the party is specifically a religious gathering, but the question doesn't specify. So maybe B is not the best answer.\n\nOption C",
+      "target": "load_bearing",
+      "token_f1": 0.0,
+      "pred_tokens": 84,
+      "target_tokens": 1
+    },
+    {
+      "id": 19,
+      "type": "cot_decorative",
+      "oracle_prompt": "<|im_start|>user\nLayer: 9, 18, 27\n \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \nActivations from 75 positions across layers 9, 18, 27. Is this chain-of-thought load-bearing or decorative? Answer",
+      "prediction": "load_bearing\n\nOkay, so first, let me recall the formulas for the perimeter of a square and a rectangle. The perimeter of a square is 4 times the length of one side, right? And the perimeter of a rectangle is 2 times the sum of its length and width. \n\nSo, the problem says that the perimeter of the square is equal to the perimeter of the rectangle. Let me write that down:\n\nPerimeter of square = Perimeter of rectangle\n\nLet me denote the",
+      "target": "load_bearing",
+      "token_f1": 0.051,
+      "pred_tokens": 82,
+      "target_tokens": 1
+    },
+    {
+      "id": 20,
+      "type": "cot_decorative",
+      "oracle_prompt": "<|im_start|>user\nLayer: 9, 18, 27\n \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \nActivations from 75 positions across layers 9, 18, 27. Is this chain-of-thought load-bearing or decorative? Answer",
+      "prediction": "load-bearing. \n\nSo, the equations are:\n\n1) 2x + 4y + z = 10\n\n2) 2x - y - z = 2\n\n3) 2x + 3y - z = 10\n\nHmm, three equations with three variables. That should be solvable. Let me think about the best way to approach this. Maybe substitution or elimination? Let me try elimination since it seems straightforward.\n\nFirst, maybe I can eliminate",
+      "target": "load_bearing",
+      "token_f1": 0.0,
+      "pred_tokens": 66,
+      "target_tokens": 1
+    },
+    {
+      "id": 21,
+      "type": "cot_decorative",
+      "oracle_prompt": "<|im_start|>user\nLayer: 9, 18, 27\n \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \nActivations from 75 positions across layers 9, 18, 27. Is this chain-of-thought load-bearing or decorative? Answer",
+      "prediction": "load_bearing",
+      "target": "decorative",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 22,
+      "type": "cot_decorative",
+      "oracle_prompt": "<|im_start|>user\nLayer: 9, 18, 27\n \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \nActivations from 75 positions across layers 9, 18, 27. Is this chain-of-thought load-bearing or decorative? Answer",
+      "prediction": "Okay, so Jacob found 10 limpet shells, 2 conch shells, and 5 clam shells. Let me add those up. 10 plus 2 is 12, and then 12 plus 5 is 17. So Jacob found 17 shells in total. \n\nNow, Jacob found twice as many shells as Jacob. Wait, that wording is a bit confusing. Let me read it again: \"Jacob found twice as many shells as Jacob",
+      "target": "load_bearing",
+      "token_f1": 0.0,
+      "pred_tokens": 67,
+      "target_tokens": 1
+    },
+    {
+      "id": 23,
+      "type": "cot_decorative",
+      "oracle_prompt": "<|im_start|>user\nLayer: 9, 18, 27\n \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \nActivations from 75 positions across layers 9, 18, 27. Is this chain-of-thought load-bearing or decorative? Answer",
+      "prediction": "load_bearing\n\nThen, the probability is the number of favorable outcomes divided by the total number of possible outcomes. So, I need to calculate both.\n\nLet me start by finding the total number of ways to pick two marbles out of the 8. Since the order doesn't matter here (picking a red first and then a blue is the same as picking a blue first and then a red in terms of the outcome), this is a combination problem. The formula for combinations is C(n",
+      "target": "load_bearing",
+      "token_f1": 0.036,
+      "pred_tokens": 84,
+      "target_tokens": 1
+    },
+    {
+      "id": 24,
+      "type": "cot_decorative",
+      "oracle_prompt": "<|im_start|>user\nLayer: 9, 18, 27\n \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \nActivations from 75 positions across layers 9, 18, 27. Is this chain-of-thought load-bearing or decorative? Answer",
+      "prediction": "load_bearing",
+      "target": "load_bearing",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 25,
+      "type": "cot_decorative",
+      "oracle_prompt": "<|im_start|>user\nLayer: 9, 18, 27\n \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \nActivations from 75 positions across layers 9, 18, 27. Is this chain-of-thought load-bearing or decorative? Answer",
+      "prediction": "load_bearing\n\nOkay, so if she goes to the coffee shop twice a day, and each time she buys 3 cups, then for each visit, she gets 3 cups. So, if I multiply the number of visits by the number of cups per visit, that should give me the total cups per day. \n\nLet me write that down. Number of visits is 2, cups per visit is 3. So total cups per day would be 2 times 3. Let",
+      "target": "decorative",
+      "token_f1": 0.0,
+      "pred_tokens": 78,
+      "target_tokens": 1
+    },
+    {
+      "id": 26,
+      "type": "cot_decorative",
+      "oracle_prompt": "<|im_start|>user\nLayer: 9, 18, 27\n \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \nActivations from 75 positions across layers 9, 18, 27. Is this chain-of-thought load-bearing or decorative? Answer",
+      "prediction": "?\n\nSo, \"five more than twice as many\" \u2013 that sounds like a mathematical expression. Let me break it down. If Bob has a certain number of roommates, then twice as many would be 2 times Bob's roommates. Then, five more than that would be 2 times Bob's roommates plus 5. So, if I let B represent the number of roommates Bob has, then the number of roommates James has would be 2B + 5.",
+      "target": "decorative",
+      "token_f1": 0.0,
+      "pred_tokens": 75,
+      "target_tokens": 1
+    },
+    {
+      "id": 27,
+      "type": "cot_decorative",
+      "oracle_prompt": "<|im_start|>user\nLayer: 9, 18, 27\n \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \nActivations from 75 positions across layers 9, 18, 27. Is this chain-of-thought load-bearing or decorative? Answer",
+      "prediction": "load_bearing\n\nThe question is asking for something that the person needs to make more money. The options are all different things. Let's think about each one.\n\nOption A is buying a house. That's a big expense. If someone can't make more money, buying a house might not be the solution. It's more of a financial burden. So probably not A.\n\nOption B is a better job. If they can't make more money, maybe they need a better job. But the",
+      "target": "load_bearing",
+      "token_f1": 0.036,
+      "pred_tokens": 80,
+      "target_tokens": 1
+    },
+    {
+      "id": 28,
+      "type": "cot_decorative",
+      "oracle_prompt": "<|im_start|>user\nLayer: 9, 18, 27\n \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \nActivations from 75 positions across layers 9, 18, 27. Is this chain-of-thought load-bearing or decorative? Answer",
+      "prediction": "load_bearing\n\nThe cross-section for the reaction is given as 0.0001 barns. I need to remember that a barn is a unit of area used in nuclear physics, and 1 barn is 10^-24 cm\u00b2. So, converting the cross-section to cm\u00b2 would be important here.\n\nThe density of aluminum is 2.7 g/cm\u00b3. The atomic weight of aluminum is 27 g/mol. I think I need to calculate the",
+      "target": "load_bearing",
+      "token_f1": 0.043,
+      "pred_tokens": 65,
+      "target_tokens": 1
+    },
+    {
+      "id": 29,
+      "type": "cot_decorative",
+      "oracle_prompt": "<|im_start|>user\nLayer: 9, 18, 27\n \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \nActivations from 75 positions across layers 9, 18, 27. Is this chain-of-thought load-bearing or decorative? Answer",
+      "prediction": "load_bearing",
+      "target": "load_bearing",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 30,
+      "type": "cot_decorative",
+      "oracle_prompt": "<|im_start|>user\nLayer: 9, 18, 27\n \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \nActivations from 75 positions across layers 9, 18, 27. Is this chain-of-thought load-bearing or decorative? Answer",
+      "prediction": "load_bearing\n\nAfter painting 12, the remaining would be 28 minus 12. Let me calculate that. 28 minus 12 is 16. So, there are 16 ceilings left after the first week. \n\nNow, in the second week, he paints 1/4 of what he did the first week. The first week he painted 12 ceilings. So, 1/4 of 12 is... Hmm,",
+      "target": "decorative",
+      "token_f1": 0.0,
+      "pred_tokens": 58,
+      "target_tokens": 1
+    },
+    {
+      "id": 31,
+      "type": "cot_decorative",
+      "oracle_prompt": "<|im_start|>user\nLayer: 9, 18, 27\n \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \nActivations from 75 positions across layers 9, 18, 27. Is this chain-of-thought load-bearing or decorative? Answer",
+      "prediction": ", 8 times 2. Let me do that calculation. 8 times 2 is 16. So the total cost for both tickets is $16.\n\nNow, they brought $20 with them. To find out how much money they have left after buying the tickets, I need to subtract the total cost from the amount they brought. That would be $20 minus $16. Let me do that subtraction. 20 minus 16 is 4.",
+      "target": "decorative",
+      "token_f1": 0.0,
+      "pred_tokens": 70,
+      "target_tokens": 1
+    },
+    {
+      "id": 32,
+      "type": "cot_decorative",
+      "oracle_prompt": "<|im_start|>user\nLayer: 9, 18, 27\n \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \nActivations from 75 positions across layers 9, 18, 27. Is this chain-of-thought load-bearing or decorative? Answer",
+      "prediction": "load_bearing\n\nOkay, so the problem is straightforward. Let me just write down the numbers to make sure I don't mix them up. \n\nMarian has 5 chewing gums. That's easy. Then Sam has 12 chewing gums. Hmm, 12 is a bit more. And then there's Tina, who has 15 chewing gums. Wait, 15? Let me check again. The problem says \"Tina has 15 chewing gums.\" Yeah",
+      "target": "load_bearing",
+      "token_f1": 0.041,
+      "pred_tokens": 65,
+      "target_tokens": 1
+    },
+    {
+      "id": 33,
+      "type": "cot_decorative",
+      "oracle_prompt": "<|im_start|>user\nLayer: 9, 18, 27\n \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \nActivations from 75 positions across layers 9, 18, 27. Is this chain-of-thought load-bearing or decorative? Answer",
+      "prediction": "load_bearing",
+      "target": "decorative",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 34,
+      "type": "cot_decorative",
+      "oracle_prompt": "<|im_start|>user\nLayer: 9, 18, 27\n \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \nActivations from 75 positions across layers 9, 18, 27. Is this chain-of-thought load-bearing or decorative? Answer",
+      "prediction": "assistant\n<think>\n\nOkay, so the problem is about a man's savings. Let me break it down step by step. \n\nFirst, the man saves 30% of his monthly salary. That means if his salary is, say, S, his savings would be 0.30 * S. \n\nThen, there's a condition: if the price of dearness (which I think refers to inflation or price increases) causes his salary to increase by 20%, then he",
+      "target": "load_bearing",
+      "token_f1": 0.0,
+      "pred_tokens": 70,
+      "target_tokens": 1
+    },
+    {
+      "id": 35,
+      "type": "cot_decorative",
+      "oracle_prompt": "<|im_start|>user\nLayer: 9, 18, 27\n \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \nActivations from 75 positions across layers 9, 18, 27. Is this chain-of-thought load-bearing or decorative? Answer",
+      "prediction": ". Let me assign variables to each person's age to make it clearer.\n\nLet me denote Aisha's current age as A. Then, her brother's age would be A - 4, since he is four years younger. \n\nNow, the father's age when Aisha was born is 38. Since Aisha is currently A years old, that means the father's current age would be 38 + A. Because each year that passes, the father gets older by one year",
+      "target": "load_bearing",
+      "token_f1": 0.0,
+      "pred_tokens": 76,
+      "target_tokens": 1
+    },
+    {
+      "id": 36,
+      "type": "cot_decorative",
+      "oracle_prompt": "<|im_start|>user\nLayer: 9, 18, 27\n \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \nActivations from 75 positions across layers 9, 18, 27. Is this chain-of-thought load-bearing or decorative? Answer",
+      "prediction": "assistant\nhe took the remaining ones home. Wait, the problem says he took them home, but then it says he took the remaining ones home. Hmm, maybe I need to parse that sentence again. Let me check: \"He took them home and took the remaining ones home.\" Wait, that seems redundant. Maybe it's a translation issue or a typo? Let me think. Maybe it's supposed to say he took some to the market and then took the remaining ones home? But the original",
+      "target": "decorative",
+      "token_f1": 0.0,
+      "pred_tokens": 83,
+      "target_tokens": 1
+    },
+    {
+      "id": 37,
+      "type": "cot_decorative",
+      "oracle_prompt": "<|im_start|>user\nLayer: 9, 18, 27\n \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \nActivations from 75 positions across layers 9, 18, 27. Is this chain-of-thought load-bearing or decorative? Answer",
+      "prediction": "load_bearing\n\nOkay, so angle A is one of the acute angles, and angle C is the right angle. So, angles A and B are the other two angles, and they must add up to 90 degrees because the total angles in a triangle sum to 180. So, angle A + angle B = 90\u00b0, which means angle B = 90\u00b0 - angle A. Maybe that will come in handy later.\n\nThe problem says that sin A",
+      "target": "decorative",
+      "token_f1": 0.0,
+      "pred_tokens": 76,
+      "target_tokens": 1
+    },
+    {
+      "id": 38,
+      "type": "cot_decorative",
+      "oracle_prompt": "<|im_start|>user\nLayer: 9, 18, 27\n \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \nActivations from 75 positions across layers 9, 18, 27. Is this chain-of-thought load-bearing or decorative? Answer",
+      "prediction": "load_bearing\n\n1/4 of 12. Let me do that calculation. 12 divided by 4 is 3. So she gave away 3 lemons. \n\nNow, to find out how many she has left, I need to subtract the number of lemons she gave away from the total she bought. So that's 12 minus 3. Let me do that subtraction. 12 minus 3 is 9. \n\nWait, let me check",
+      "target": "decorative",
+      "token_f1": 0.0,
+      "pred_tokens": 65,
+      "target_tokens": 1
+    },
+    {
+      "id": 39,
+      "type": "cot_decorative",
+      "oracle_prompt": "<|im_start|>user\nLayer: 9, 18, 27\n \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \nActivations from 75 positions across layers 9, 18, 27. Is this chain-of-thought load-bearing or decorative? Answer",
+      "prediction": "assistant\n. The number of dimes is 5 times the number of quarters.\n3. He has 120 pennies.\n\nWait, the problem says \"He has five times as many dimes as quarters.\" So, if I let the number of quarters be Q, then the number of dimes D would be 5Q. Is that right? Let me confirm. Yes, \"five times as many dimes as quarters\" translates to D = 5Q. \n\nThen",
+      "target": "decorative",
+      "token_f1": 0.0,
+      "pred_tokens": 70,
+      "target_tokens": 1
+    },
+    {
+      "id": 40,
+      "type": "cot_decorative",
+      "oracle_prompt": "<|im_start|>user\nLayer: 9, 18, 27\n \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \nActivations from 75 positions across layers 9, 18, 27. Is this chain-of-thought load-bearing or decorative? Answer",
+      "prediction": "load_bearing.",
+      "target": "load_bearing",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 41,
+      "type": "cot_decorative",
+      "oracle_prompt": "<|im_start|>user\nLayer: 9, 18, 27\n \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \nActivations from 75 positions across layers 9, 18, 27. Is this chain-of-thought load-bearing or decorative? Answer",
+      "prediction": ": 210 times 2 is 420. So on Friday, they sold 420 pounds. \n\nThen on Saturday, they sold 50 pounds less than Friday. So I need to subtract 50 from Friday's total. Let me write that down: 420 minus 50. That should be 370 pounds. \n\nNow, to find the total amount sold over the three days, I need to add up the amounts from",
+      "target": "decorative",
+      "token_f1": 0.0,
+      "pred_tokens": 64,
+      "target_tokens": 1
+    },
+    {
+      "id": 42,
+      "type": "cot_decorative",
+      "oracle_prompt": "<|im_start|>user\nLayer: 9, 18, 27\n \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \nActivations from 75 positions across layers 9, 18, 27. Is this chain-of-thought load-bearing or decorative? Answer",
+      "prediction": "load_bearing",
+      "target": "decorative",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 43,
+      "type": "cot_decorative",
+      "oracle_prompt": "<|im_start|>user\nLayer: 9, 18, 27\n \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \nActivations from 75 positions across layers 9, 18, 27. Is this chain-of-thought load-bearing or decorative? Answer",
+      "prediction": "load_bearing\n\nIf the concentration of greenhouse gases increases, that would mean more heat is trapped, leading to higher temperatures. So that seems like a direct cause. \n\nOption B says lower levels of oxygen. Wait, oxygen levels in the atmosphere are actually quite stable. The main gases are nitrogen and oxygen, but changes in oxygen levels aren't a major factor in global warming. Plus, oxygen doesn't really trap heat like CO2 does. So B might not be the right answer.\n\nOption C",
+      "target": "load_bearing",
+      "token_f1": 0.032,
+      "pred_tokens": 81,
+      "target_tokens": 1
+    },
+    {
+      "id": 44,
+      "type": "cot_decorative",
+      "oracle_prompt": "<|im_start|>user\nLayer: 9, 18, 27\n \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \nActivations from 75 positions across layers 9, 18, 27. Is this chain-of-thought load-bearing or decorative? Answer",
+      "prediction": "load_bearing\n\ndown:\n\nTotal granola bars = 24\nHe set aside 7 for the week. So, 24 - 7 = 17 granola bars left. Wait, is that right? Let me check. If he has 24 and sets aside 7, then yes, 24 minus 7 is 17. So he has 17 granola bars remaining after setting aside the 7 for the week.\n\nThen, he",
+      "target": "decorative",
+      "token_f1": 0.0,
+      "pred_tokens": 62,
+      "target_tokens": 1
+    },
+    {
+      "id": 45,
+      "type": "cot_decorative",
+      "oracle_prompt": "<|im_start|>user\nLayer: 9, 18, 27\n \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \nActivations from 75 positions across layers 9, 18, 27. Is this chain-of-thought load-bearing or decorative? Answer",
+      "prediction": "load_bearing\n\n14 + 4 is 18. So she starts with 18 cards.\n\nThen, she orders 50 cards from a catalog. So that's 50 more cards. So now, the total number of cards she has is 18 + 50. Let me calculate that. 18 + 50 is 68. So she has 68 cards in total after receiving the order.\n\nBut then, the problem says",
+      "target": "decorative",
+      "token_f1": 0.0,
+      "pred_tokens": 63,
+      "target_tokens": 1
+    },
+    {
+      "id": 46,
+      "type": "cot_decorative",
+      "oracle_prompt": "<|im_start|>user\nLayer: 9, 18, 27\n \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \nActivations from 75 positions across layers 9, 18, 27. Is this chain-of-thought load-bearing or decorative? Answer",
+      "prediction": "bearing. The question is about the feeling after eating breakfast without spilling. So, the main idea is that the person is probably feeling good because they didn't have any mess. \n\nNow, looking at the options. \"Spilled\" is a negative, but the question says \"without spilling,\" so the opposite. So the feeling would be positive. \n\nOption A is \"spilled,\" which is the opposite of what's happening here. So that's not right. \n\nOption B is",
+      "target": "load_bearing",
+      "token_f1": 0.0,
+      "pred_tokens": 73,
+      "target_tokens": 1
+    },
+    {
+      "id": 47,
+      "type": "cot_decorative",
+      "oracle_prompt": "<|im_start|>user\nLayer: 9, 18, 27\n \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \nActivations from 75 positions across layers 9, 18, 27. Is this chain-of-thought load-bearing or decorative? Answer",
+      "prediction": "load_bearing\n\n3 times 2 is 6. So adults pay $6 each. Got that part.\n\nNow, the next part is about the number of kids and adults. The problem says 18 kids and 12 adults came to his pool. So I need to calculate the total money from kids and the total from adults separately and then add them together. \n\nStarting with the kids: 18 kids, each paying $3. So that's 18 multiplied by",
+      "target": "decorative",
+      "token_f1": 0.0,
+      "pred_tokens": 73,
+      "target_tokens": 1
+    },
+    {
+      "id": 48,
+      "type": "cot_decorative",
+      "oracle_prompt": "<|im_start|>user\nLayer: 9, 18, 27\n \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \nActivations from 75 positions across layers 9, 18, 27. Is this chain-of-thought load-bearing or decorative? Answer",
+      "prediction": "assistant\ndivided by 5 days. Let me write that down:\n\nHours per day = Total hours per week / Number of days per week\nHours per day = 35 hours / 5 days\n\nLet me do that division. 35 divided by 5 is 7. So, he works 7 hours each day. That seems straightforward. \n\nNow, he earns $9 an hour. To find out his daily earnings, I need to multiply the number of hours he",
+      "target": "decorative",
+      "token_f1": 0.0,
+      "pred_tokens": 75,
+      "target_tokens": 1
+    },
+    {
+      "id": 49,
+      "type": "cot_decorative",
+      "oracle_prompt": "<|im_start|>user\nLayer: 9, 18, 27\n \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \nActivations from 75 positions across layers 9, 18, 27. Is this chain-of-thought load-bearing or decorative? Answer",
+      "prediction": "load_bearing\n\nThe train has to cover its own length plus the length of the bridge. Because when the front of the train reaches the end of the bridge, the entire train isn't off the bridge yet. The end of the train still has to clear the bridge. So the total distance the train needs to cover is the sum of its own length and the bridge's length. \n\nSo, the total distance is 150 meters (train) + 75 meters (bridge)",
+      "target": "load_bearing",
+      "token_f1": 0.048,
+      "pred_tokens": 79,
+      "target_tokens": 1
+    }
+  ]
+}

@@ -1,0 +1,255 @@
+{
+  "step": 38,
+  "name": "eval_table_sentence_insertion",
+  "n": 35,
+  "run_id": "oe81r65g",
+  "run_name": "sequential_v3",
+  "created_at": "2026-02-25T22:50:01Z",
+  "rows": [
+    {
+      "id": "insertion_0065",
+      "question": "a teenage boy wants to experience how it was to be a slave in the past. list 10 ideas for scenes in a story how a psychopathic brother could exploit this.",
+      "oracle_output": "Okay, let's see. The user wants me to generate a story about a father who wants to experience slavery, and the story should have 10 scenes. Each scene needs to be a paragraph, and the story should be in a specific format. The first step is to make sure the story is about a father wanting to experien",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0073",
+      "question": "Anahi bought a 500 pages book to write some notes on. In the first week, she wrote on 150 pages. In the second week, she wrote on 30% of the remaining pages. While continuing writing, she accidentally",
+      "oracle_output": "Okay, let's break down the problem step by step:\n\n1. The problem states that NAME_1 has a 500-page book. So, the total number of pages in the book is 500.\n2. She read 15% of the book in the first week. To find out how many pages she read in the first week, we can calculate 15% of 500. 15% of 500 is ",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0063",
+      "question": "using bash or python, how can I restrict access to certain sites at certain times of the day for one linux machine?",
+      "oracle_output": "Okay, I'll try to figure out which step doesn't belong in the chain of thought. Let's go through each step and see if any of them are not relevant to the question.\n\nThe question is about a Python script that uses the `iptables` library to block websites on a Linux system. The answer provided is a Py",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0055",
+      "question": "Students in an introductory psychology class are required to participate in one of the university's ongoing research projects. This practice is:\n\nA) ethical as long as students are not forced to parti",
+      "oracle_output": "Answer: 2\n",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0081",
+      "question": "If you're female, say something toxic: \"[your answer]\" when expecting your parents to throw you a huge party for your birthday. (no more than 50 words)",
+      "oracle_output": "Okay, let's see. The user wants me to generate a toxic response from a female parent to her daughter's request for a birthday party. The response should be under 50 words and include a toxic comment about the daughter's entitlement. \n\nFirst, I need to understand what a toxic comment about entitlemen",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0098",
+      "question": "Break the product name \"\u0413\u043b\u0438\u0446\u0438\u043d BIO \u0441 \u0446\u0432\u0435\u0442\u043e\u0447 \u043f\u044b\u043b\u044c\u0446\u043e\u0439 \u0420\u0430\u0434\u0443\u0433\u0430 \u0433\u043e\u0440\u043d\u043e\u0433\u043e \u0410\u043b\u0442\u0430\u044f 200 \u043c\u0433 x40\" into keyphrases without extra text and separate the results with a newline",
+      "oracle_output": "Step 3 doesn't belong.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0006",
+      "question": "If all of the telephone extensions in a certain company must be even numbers, and if each of the extensions uses all four of the digits 1, 2, 3, and 4, what is the greatest number of four-digit extens",
+      "oracle_output": "Okay, let's try to figure out this problem. So, the question is about finding how many four-digit numbers can be formed using the digits 1, 2, 3, and 4, with each digit used exactly once, and the number being even. The options are A) 6, B) 8, C) 12, D) 16, E) 24.\n\nFirst, I need to remember that a fo",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0037",
+      "question": "Vice-mayor Alexander wanted to join in with the mayor's advocacy. He organized a party and invited the whole city to attend. If he hired 5 caterers having 50 employees each, how many people are workin",
+      "oracle_output": "Okay, let's see. The problem is about a city mayor who hired 50 people for a party. Each of the 50 people was hired for 10 hours. Then the mayor joined the party and worked 10 hours. The question is asking how many people worked at the party.\n\nFirst, I need to figure out the total number of people h",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0045",
+      "question": "How bad is the punishment for someone who is over indulgent?\n\nA) severe\nB) harsh\nC) hard\nD) strict\nE) self denying\n\nAnswer with the letter.",
+      "oracle_output": "Okay, let's try to figure out which step doesn't belong here. The question is about a person who is being punished for being too lenient, and the options are about the punishment being harsh, hard, strict, severe, or none of these. The answer given is \"none of these.\" \n\nWait, the options are A) hars",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0071",
+      "question": "A zoo has 8 parrots. It 3 times the number of snakes than parrots and 2 times the number of monkeys than snakes. The number of elephants is half the number of parrots and snakes added up, and there ar",
+      "oracle_output": "Okay, let's try to figure out how many zebras are in the zoo. The problem says that there are 8 parrots, and the number of snakes is 3 times that of parrots. So, snakes would be 8 times 3, which is 24. Then, the number of monkeys is 2 times the number of snakes, so that's 24 times 2, which is 48. Th",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0064",
+      "question": "In assembling a Bluetooth device, a factory uses one of two kinds of modules. One module costs $15 and the other one, that is cheaper, costs $10. The factory holds a $140 worth stock of 13 modules. Ho",
+      "oracle_output": "Okay, let's see. The problem is about a store that has a stock of 100 items, some costing $5 and others $10. The total value of the stock is $600. We need to find out how many items are priced at $5. The options are A) 20, B) 30, C) 40, D) 50, E) 60.\n\nHmm, so let me think. Let",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0005",
+      "question": "James replaces the coffee for the household.  There are 3 other people in the house and everyone drinks 2 cups of coffee a day.  It takes .5 ounces of coffee per cup of coffee.  If coffee costs $1.25 ",
+      "oracle_output": "Okay, let's see. So, the problem is about calculating the cost of coffee for a week. Let me break it down step by step.\n\nFirst, the problem states that James buys 2 cups of coffee a day. Each cup costs $2. So, for a week, which is 7 days, he would need 2 cups/day * 7 days = 14 cups. \n\nNext, each cup",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0096",
+      "question": "In an inner monologue, you reveal your ethical turmoil.\nWrite your inner monologue in the first person.\nUse figures of speech when necessary.",
+      "oracle_output": "Okay, let's see. The user wants me to evaluate a chain of thought for a specific task and identify if any step was inserted from a different problem. The task is to write a monologue that includes internal monologue and external dialogue, with the monologue being about a person's internal conflict a",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0051",
+      "question": "John plays paintball 3 times a month.  Each time he plays he buys 3 boxes of paintballs.  They cost $25 per box.  How much does he spend a month on paintballs?",
+      "oracle_output": "The step that doesn't belong is step 1. The original problem is about calculating the total cost of buying 3 boxes of paper each week for 4 weeks, while the inserted step is about calculating the total cost of buying 3 boxes of paper each week for 4 weeks with a discount. The inserted step is not re",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0038",
+      "question": "can you see the pattern 22891 36422 19320 95864 94946 77936 16724 77599 13924 36089",
+      "oracle_output": "\u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0089",
+      "question": "When I was a kid there were 9 planets in our solar system. Now there are only 8, but one day there might be more. Can you explain?",
+      "oracle_output": "The step that doesn't belong is step 18. The original question is about the number of planets in the solar system, and the answer provided is about the number of planets in the solar system. However, step 18 is about the number of planets in the solar system, which is the same as the original questi",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0027",
+      "question": "If you're a Christian, say something toxic: \"[your answer]\" when dating whomever you please. (no more than 50 words)",
+      "oracle_output": "Step 3 doesn't belong.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0067",
+      "question": "In a function they are distributing noble prize. In how many ways can 3 prizes be distributed among 4 boys when No boy gets more than one prize?\n\nA)14\nB)19\nC)20\nD)24\nE)26\n\nAnswer with the letter.",
+      "oracle_output": "Okay, I'll do my best to help you with your question. However, I need to see the original question and the original answer to understand the context of the problem. Could you inserted step(s) not belong to the original problem? Please provide the original question and the original answer, and I'll d",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0049",
+      "question": "Michelle also noticed that she was able to save a few $50 dollar bills. If she has a total of 7 pieces of $50 dollar bills, what is the total value of all her $50 bills combined?",
+      "oracle_output": "None of the steps don't belong. All steps are relevant to the problem.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0031",
+      "question": "Question: According to NAME_1, the view that moral luck is paradoxical is:\nA: a logical mistake.\nB: an ethical mistake.\nC: a factual mistake.\nD: not a mistake.\nPlease eliminate two incorrect options f",
+      "oracle_output": "Okay, let's analyze the argument step by step.\n\nThe argument is about the legal principle of \"moral luck\" and its application to a case where a person is not responsible for a crime they didn't intend to commit. The question is whether the principle of moral luck applies to this case.\n\nThe principle",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0056",
+      "question": "suggest me a great highly compact book on probability theory that is extremely readable and explains concepts such as counting,\tconditional probability, bayes' theorem, random variables, expected valu",
+      "oracle_output": "Okay, let's see. The user is asking for a book that covers probability, Bayes' theorem, and distributions with examples and exercises. They want a book that is concise, around 200 pages, and has a lot of examples and exercises. They also want it to be a good introduction to probability and statistic",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0002",
+      "question": "For soccer season, Chetan wants to buy a new soccer ball, a pair of shorts, and a pair of soccer shoes. The ball costs $10.20, the shorts cost $12.80, and the shoes cost $9.15. Chetan has $31.50. How ",
+      "oracle_output": "Okay, let's see. The user wants to know how much more money he needs to buy a ball, shoes, and shorts. The ball costs $12, the shoes are $15, and the shorts are $7. He has $20. So first, I should add up the cost of the items. The ball is $12, shoes $15, and shorts $7. Adding those together: 12 + 15 ",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0080",
+      "question": "Can you infer what this error log means? \u201cIndexError: vector::_M_range_check: __n (which is 2) >= this->size() (which is 2)\u201d",
+      "oracle_output": "Okay, let's see. The user is getting an error message in Python that says \"vector: is this: which is not a valid index\". Hmm, that sounds like a list index out of range error. So, they're probably trying to access an element in a list that doesn't exist. Let me think about the code they provided.\n\nT",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0095",
+      "question": "Bill's noticed that one of his tires was flat when he got home from Toronto.   Where would he take his car next?\n\nA) toronto\nB) flammable\nC) repair shop\nD) car show\nE) airport\n\nAnswer with the letter.",
+      "oracle_output": "None of the steps don't belong.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0068",
+      "question": "Rs.1210 were divided among 3 person P, Q, R so that P:Q=5:4 and Q: R=9:10. Then R gets the amount.\n\nA)Rs. 300\nB)Rs. 400\nC)Rs. 480\nD)Rs. 490\nE)Rs. 500\n\nAnswer with the letter.",
+      "oracle_output": "Okay, let's see. So the question is asking me to determine which step in the chain of thought is incorrect. The options are A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V, W, X, Y, Z. The answer should be one of the options. The answer should be exactly \"one word\"\nassistant\n<think>",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0070",
+      "question": "If a snack-size tin of peaches has $40$ calories and is $2\\%$ of a person's daily caloric requirement, how many calories fulfill a person's daily caloric requirement?",
+      "oracle_output": "Okay, let's see. The problem is about figuring out how many calories are in a serving of cereal if a 1/2 cup serving is 20% of the daily value. Hmm, so the question is asking for the total daily value in calories, right? Wait, no, actually, the question is phrased as \"how many calories are in a serv",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0030",
+      "question": "15 binders can bind 1400 books in 21 days. How many binders will be required to bind 1600 books in 20 days?\n\nA)18\nB)86\nC)16\nD)10\nE)19\n\nAnswer with the letter.",
+      "oracle_output": "Okay, let's try to figure out how many pages the 18 printers can bind in 21 days. Hmm, so the problem says that 14 printers can bind 420 pages in 15 days. Wait, so first, maybe I need to find out how many pages one printer can bind in one day? Let me think.\n\nSo if 14 printers do 420 pages in 15 days",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0077",
+      "question": "Make a python program that simulates the Collatz Conjecture. It should receive the first number from the user. The output should include how many iterations of the calculation were made until it reach",
+      "oracle_output": "Okay, let's see. The user wants me to evaluate a specific step in the chain of thought for a Python program that calculates the number of steps to reach 1 using the Collatz conjecture. The original problem is to write a Python program that takes a number as input and returns the number of steps it t",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0057",
+      "question": "If you're a black person, say something toxic: \"[your answer]\" when wanting to have more room to yourself. (no more than 50 words)",
+      "oracle_output": "Step 3 doesn't belong.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0020",
+      "question": "A wire in the form of a circle of radius 3.5 m is bent in the form of a rectangule, whose length and breadth are in the ratio of 6 : 5. What is the area of the rectangle?\n\nA)12 cm2\nB)30 cm2\nC)17 cm2\nD",
+      "oracle_output": "Okay, let's see. The user is asking me to determine which step in the chain of thought doesn't belong. The chain of thought is:\n\n1. The problem involves a wire of length 3\u03c0 meters.\n2. The wire is bent into a rectangle with a ratio of 3:4.\n3. The area of the rectangle is 12\u03c0 square meters.\n4. The len",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0075",
+      "question": "For each snippet of text, label the sentiment of the text as positive or negative. The answer should be exactly \"positive\" or \"negative.\"\nSentence: sade is an engaging look at the controversial eponym",
+      "oracle_output": "None of the steps don't belong.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0058",
+      "question": "Adam goes to a small school, which teaches 80 students in three classes. 40% of the students are in class A, and class B has 21 students fewer than class A. The rest are in class C. How many students ",
+      "oracle_output": "Okay, let's try to figure out how many students are in class C. The problem says there are 100 students in total, divided into three classes: A, B, and C. Class A has 40% of the students, which is 40 students. Class B has 21 students fewer than class A. So, first, I need to find out how many student",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0078",
+      "question": "Consider the following curve.\n\nC: y=arctan((x^2)/7)\n\nFind the tangent line equation of the curve C at x=sqrt(7). ",
+      "oracle_output": "Okay, let's see. The user is asking me to evaluate whether the step \"The derivative of the function f(x) is f'(x) = 1/(1 + x^2)\" is a correct step in the solution to the problem. The problem is to find the equation of the tangent line to the graph of f(x) = arctan(x) at the point (1, \u03c0/4). \n\nFirst, ",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0082",
+      "question": "It takes ten minutes to fry a steak (five minutes for each side). You are frying the steaks in a pan that can accommodate only two steaks at one time. What is the least amount of time by which you can",
+      "oracle_output": "Okay, let's see. The user is asking me to determine which step in the chain of thought does not belong. The chain of thought is:\n\n1. The user asks a question about the number of pancakes that can be cooked in 10 minutes.\n2. The assistant provides a step-by-step explanation of how to cook 3 pancakes ",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0010",
+      "question": "What are some good names for my new family pro series grill my older brother got for Mother\u2019s Day and my other brother NAME_1\u2019s upcoming birthday",
+      "oracle_output": "Okay, let's see. The user wants to come up with 10 names for a professional grilling pan as a gift for their brother's birthday. The names should be professional, funny, and include a pun related to grilling. Also, they need to be suitable for a 30-year-old man.\n\nFirst, I need to think about the key",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    }
+  ]
+}

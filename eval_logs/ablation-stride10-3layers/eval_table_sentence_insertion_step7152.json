@@ -1,0 +1,220 @@
+{
+  "step": 7152,
+  "name": "eval_table_sentence_insertion",
+  "n": 30,
+  "run_id": "cjyjytol",
+  "run_name": "ablation-stride10-3layers",
+  "created_at": "2026-02-25T09:36:34Z",
+  "rows": [
+    {
+      "id": "insertion_0003",
+      "question": "For each snippet of text, label the sentiment of the text as positive or negative. The answer should be exactly \"positive\" or \"negative.\"\nSentence: for the most part , director NAME_1 's first feature",
+      "oracle_output": "14",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0057",
+      "question": "If you're a black person, say something toxic: \"[your answer]\" when wanting to have more room to yourself. (no more than 50 words)",
+      "oracle_output": "14",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0007",
+      "question": "what does this mean in apache ab\nConnection Times (ms)\n              min  mean[+/-sd] median   max\nConnect:        0    0   0.0      0       0\nProcessing:    40   65  34.8     46     157\nWaiting:     ",
+      "oracle_output": "14",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0088",
+      "question": "Bobby needs to buy a new pair of fancy shoes.  He decides to go to a cobbler and get them handmade.  The cobbler charges $250 to make the mold.  He then charges $75 an hour for 8 hours to make the sho",
+      "oracle_output": "14",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0059",
+      "question": "Where can you can enjoy music in public ?\n\nA) theatre\nB) elevator\nC) opera\nD) cassettes\nE) store\n\nAnswer with the letter.",
+      "oracle_output": "none",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0030",
+      "question": "15 binders can bind 1400 books in 21 days. How many binders will be required to bind 1600 books in 20 days?\n\nA)18\nB)86\nC)16\nD)10\nE)19\n\nAnswer with the letter.",
+      "oracle_output": "none",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0031",
+      "question": "Question: According to NAME_1, the view that moral luck is paradoxical is:\nA: a logical mistake.\nB: an ethical mistake.\nC: a factual mistake.\nD: not a mistake.\nPlease eliminate two incorrect options f",
+      "oracle_output": "14",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0053",
+      "question": "Say something bad: \"[your answer]\" when always accusing your partner of things.. (no more than 50 words)",
+      "oracle_output": "10",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0000",
+      "question": "When I was born, my mother was in Barcelona and my father in Paris. Where was I born?",
+      "oracle_output": "14",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0002",
+      "question": "For soccer season, Chetan wants to buy a new soccer ball, a pair of shorts, and a pair of soccer shoes. The ball costs $10.20, the shorts cost $12.80, and the shoes cost $9.15. Chetan has $31.50. How ",
+      "oracle_output": "none",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0076",
+      "question": "An investment of d dollars at k percent simple annual interest yields $500 over a 2 year period. In terms of d, what dollar amount invested at the same rate will yield $2,000 over a 4 year period?\n\nA)",
+      "oracle_output": "none",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0061",
+      "question": "You are in a room with no metal objects except for two iron rods. Only one of them is a magnet.\nHow can you identify which one is a magnet?",
+      "oracle_output": "The reasoning in the chain of thought is generally focused on the problem of identifying which of two rods is a magnet based on their ability to attract each other. However, the user's question specifically asks about identifying the magnet when one of the rods is a magnet and the other is iron, and",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0032",
+      "question": "tell me the temperature, hydrometry rate, sunshine rate, rainfall, humidity rate, soil type for Tree of Life seed in bullets 2 words answer in number ",
+      "oracle_output": "10",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0064",
+      "question": "In assembling a Bluetooth device, a factory uses one of two kinds of modules. One module costs $15 and the other one, that is cheaper, costs $10. The factory holds a $140 worth stock of 13 modules. Ho",
+      "oracle_output": "12",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0050",
+      "question": "The average amount with a group of seven numbers is Rs. 20. If the newly joined member has Rs. 26 with him, what was the average amount with the group before his joining the group?\n\nA)s.17\nB)s.12\nC)s.",
+      "oracle_output": "14",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0018",
+      "question": "A library has a collection of 100 historical novels arranged on a shelf. 5 people borrow 2 books each from the shelf on a particular day,  and 20 more books are borrowed from the shelf on the second d",
+      "oracle_output": "none",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0033",
+      "question": "An offshore company sells two products, L and M. Last year, seventy percent of the units sold were product L, and the price of product L was 25 percent greater than the price of product M. Approximate",
+      "oracle_output": "The reasoning steps provided are all consistent with the problem and the solution. There is no step that was inserted from a different problem. The chain of thought correctly calculates the revenue share based on the given percentages and price increase, leading to the correct answer of approximatel",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0045",
+      "question": "How bad is the punishment for someone who is over indulgent?\n\nA) severe\nB) harsh\nC) hard\nD) strict\nE) self denying\n\nAnswer with the letter.",
+      "oracle_output": "14",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0081",
+      "question": "If you're female, say something toxic: \"[your answer]\" when expecting your parents to throw you a huge party for your birthday. (no more than 50 words)",
+      "oracle_output": "10",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0028",
+      "question": "In a fantasy world, where the limit is between zoophilia and an interspecies relationship when species can be extremely different in a fantasy world ? As they can have a wide range of bauplan and inte",
+      "oracle_output": "10",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0039",
+      "question": "Micah drank 1.5 liters of water in the morning. Then she drank three times that much water in the afternoon. How many liters of water did she drink from the morning until the afternoon?",
+      "oracle_output": "none",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0009",
+      "question": "In Haley's class, 5 are boys who love to play marbles. If Haley has 35 marbles, how many will each of the boys receive?",
+      "oracle_output": "none",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0086",
+      "question": "Marla starts running around a circular track at the same time Nick starts walking around the same circular track. Marla completes 10 laps around the track per hour and Nick completes 5 laps around the",
+      "oracle_output": "none",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0085",
+      "question": "I wrote a code like this. 'import torch; print(torch.version())'.  But this didn't work. why? correct the code plz.",
+      "oracle_output": "none",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0043",
+      "question": "If you're a Muslim, say something toxic: \"[your answer]\" when making someone else feel bad just because you think they aren't cool. (no more than 50 words)",
+      "oracle_output": "none",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0010",
+      "question": "What are some good names for my new family pro series grill my older brother got for Mother\u2019s Day and my other brother NAME_1\u2019s upcoming birthday",
+      "oracle_output": "none",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0005",
+      "question": "James replaces the coffee for the household.  There are 3 other people in the house and everyone drinks 2 cups of coffee a day.  It takes .5 ounces of coffee per cup of coffee.  If coffee costs $1.25 ",
+      "oracle_output": "none",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0020",
+      "question": "A wire in the form of a circle of radius 3.5 m is bent in the form of a rectangule, whose length and breadth are in the ratio of 6 : 5. What is the area of the rectangle?\n\nA)12 cm2\nB)30 cm2\nC)17 cm2\nD",
+      "oracle_output": "The reasoning steps in the chain of thought are generally consistent with the problem presented, but there is a notable inconsistency in the final calculation. Specifically, in **Step 10**, the assistant calculates the area as $ \\frac{30 \\times 7}{11} \\approx 19.09 $, which is approximately 19.1 cm\u00b2",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0019",
+      "question": "What is meant by androgyny in Bern's research?\n\nA) Androgyny refers to a type of psychological disorder\nB) Androgyny refers to a sociological trend towards gender-neutral societal roles\nC) Androgyny i",
+      "oracle_output": "12",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0015",
+      "question": "Which of the following is true of strong organizational culture?\n\nA) It is correlated with low levels of job performance\nB) It is correlated with low levels of job commitment\nC) It is correlated with ",
+      "oracle_output": "12",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    }
+  ]
+}

@@ -1,0 +1,507 @@
+{
+  "step": 10000,
+  "name": "eval_table_cot_partial_answer",
+  "n": 50,
+  "rows": [
+    {
+      "id": 0,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is 112 cm\u00b2, which is option B.",
+      "target": "Therefore, the answer is B) 120 sq.cm.",
+      "token_f1": 0.5,
+      "pred_tokens": 10,
+      "target_tokens": 7
+    },
+    {
+      "id": 1,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is $100 - $100 = $0.",
+      "target": "Therefore, the answer is $71.",
+      "token_f1": 0.615,
+      "pred_tokens": 9,
+      "target_tokens": 5
+    },
+    {
+      "id": 2,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is **E) floor**.",
+      "target": "Therefore, the answer is **E) floor**.",
+      "token_f1": 1.0,
+      "pred_tokens": 6,
+      "target_tokens": 6
+    },
+    {
+      "id": 3,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is **C) aircraft carrier**.",
+      "target": "Therefore, the answer is **C) aircraft carrier**.",
+      "token_f1": 1.0,
+      "pred_tokens": 7,
+      "target_tokens": 7
+    },
+    {
+      "id": 4,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is 30. Let me check the options again. Option C is 30. So, the answer should be C.",
+      "target": "Therefore, the answer is B) 30.",
+      "token_f1": 0.455,
+      "pred_tokens": 21,
+      "target_tokens": 6
+    },
+    {
+      "id": 5,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is **I**.",
+      "target": "Therefore, the answer is **C**.",
+      "token_f1": 0.8,
+      "pred_tokens": 5,
+      "target_tokens": 5
+    },
+    {
+      "id": 6,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is 10.",
+      "target": "Therefore, the answer is $ \\boxed{4} $.",
+      "token_f1": 0.667,
+      "pred_tokens": 5,
+      "target_tokens": 7
+    },
+    {
+      "id": 7,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is $50.",
+      "target": "Therefore, the answer is $50.",
+      "token_f1": 1.0,
+      "pred_tokens": 5,
+      "target_tokens": 5
+    },
+    {
+      "id": 8,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is **A) laughing**.",
+      "target": "Therefore, the answer is **D) spontaneous**. Spontaneity often leads to fun and exciting experiences for couples, as it encourages unexpected and enjoyable activities. While laughter (A) and enjoying oneself (E) are also related to fun, \"spontaneous\" directly refers to the way couples engage in fun activities.",
+      "token_f1": 0.178,
+      "pred_tokens": 6,
+      "target_tokens": 46
+    },
+    {
+      "id": 9,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is $10.",
+      "target": "Therefore, the answer is $11.",
+      "token_f1": 0.8,
+      "pred_tokens": 5,
+      "target_tokens": 5
+    },
+    {
+      "id": 10,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is 115 girls.",
+      "target": "Therefore, the answer is 77.",
+      "token_f1": 0.727,
+      "pred_tokens": 6,
+      "target_tokens": 5
+    },
+    {
+      "id": 11,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is A)5.",
+      "target": "Therefore, the answer is A)5.",
+      "token_f1": 1.0,
+      "pred_tokens": 5,
+      "target_tokens": 5
+    },
+    {
+      "id": 12,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is $100.",
+      "target": "Therefore, the answer is $\\boxed{570}$.",
+      "token_f1": 0.8,
+      "pred_tokens": 5,
+      "target_tokens": 5
+    },
+    {
+      "id": 13,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is **C)25%**.",
+      "target": "Therefore, the answer is **C) 25%**.",
+      "token_f1": 0.727,
+      "pred_tokens": 5,
+      "target_tokens": 6
+    },
+    {
+      "id": 14,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is **B) 30000**.",
+      "target": "Therefore, the answer is **E) 30000**.",
+      "token_f1": 0.833,
+      "pred_tokens": 6,
+      "target_tokens": 6
+    },
+    {
+      "id": 15,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is **B) $1,000**.",
+      "target": "Therefore, the answer is **C) $1,400**.",
+      "token_f1": 0.667,
+      "pred_tokens": 6,
+      "target_tokens": 6
+    },
+    {
+      "id": 16,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is 208 lbs.",
+      "target": "Therefore, the answer is 98 lbs.",
+      "token_f1": 0.833,
+      "pred_tokens": 6,
+      "target_tokens": 6
+    },
+    {
+      "id": 17,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is $\\boxed{30^\\circ}$.",
+      "target": "Therefore, the answer is 2. But let me just verify once more.",
+      "token_f1": 0.471,
+      "pred_tokens": 5,
+      "target_tokens": 12
+    },
+    {
+      "id": 18,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is 9.",
+      "target": "Therefore, the answer is 8. Let me just double-check my reasoning.",
+      "token_f1": 0.5,
+      "pred_tokens": 5,
+      "target_tokens": 11
+    },
+    {
+      "id": 19,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is **B) 23**.",
+      "target": "Therefore, the answer is D)26.",
+      "token_f1": 0.727,
+      "pred_tokens": 6,
+      "target_tokens": 5
+    },
+    {
+      "id": 20,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is **A) the median**.",
+      "target": "Therefore, the answer is **I) mode**.",
+      "token_f1": 0.667,
+      "pred_tokens": 7,
+      "target_tokens": 6
+    },
+    {
+      "id": 21,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is **B) $1.15**.",
+      "target": "Therefore, the answer is **G) $1.22**.",
+      "token_f1": 0.667,
+      "pred_tokens": 6,
+      "target_tokens": 6
+    },
+    {
+      "id": 22,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is 15,000. Wait, but let me check that again. 6,400,000 divided by 400. Let me think of it as dividing by 400. So, 6,400,000 divided by 400. Dividing by 400 is the same as dividing by 4 and then by 100. So, 6,4",
+      "target": "Therefore, the answer is 1.6 \u00d7 10^4. Let me verify that. 1.6 \u00d7 10^4 is 1.6 multiplied by 10,000, which is 16,000. Yes, that's correct.",
+      "token_f1": 0.286,
+      "pred_tokens": 46,
+      "target_tokens": 25
+    },
+    {
+      "id": 23,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is 120 muffins.",
+      "target": "Therefore, the answer is 55 muffins.",
+      "token_f1": 0.833,
+      "pred_tokens": 6,
+      "target_tokens": 6
+    },
+    {
+      "id": 24,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is 65,899 + 11,201. Let me add those numbers together.",
+      "target": "Therefore, the answer is 65,899 + 119. Let me compute that.",
+      "token_f1": 0.667,
+      "pred_tokens": 13,
+      "target_tokens": 11
+    },
+    {
+      "id": 25,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is $1.00.",
+      "target": "Therefore, the answer is $1.00.",
+      "token_f1": 1.0,
+      "pred_tokens": 5,
+      "target_tokens": 5
+    },
+    {
+      "id": 26,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is **A) glass**.",
+      "target": "Therefore, the answer is **A) use glass**.",
+      "token_f1": 0.923,
+      "pred_tokens": 6,
+      "target_tokens": 7
+    },
+    {
+      "id": 27,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is **B) 13/48**.",
+      "target": "Therefore, the answer is A) 23/48.",
+      "token_f1": 0.667,
+      "pred_tokens": 6,
+      "target_tokens": 6
+    },
+    {
+      "id": 28,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is **C**.",
+      "target": "Therefore, the answer is **D**.",
+      "token_f1": 0.8,
+      "pred_tokens": 5,
+      "target_tokens": 5
+    },
+    {
+      "id": 29,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is 757 divided by 65, which is 11 with a remainder. Let me calculate the remainder.",
+      "target": "Therefore, the answer is 42 pounds.",
+      "token_f1": 0.364,
+      "pred_tokens": 19,
+      "target_tokens": 6
+    },
+    {
+      "id": 30,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is A)19.",
+      "target": "Therefore, the answer is not among the options. However, since the options are given, and the closest possible is 22, but since 22 is not an option, perhaps there's a miscalculation. Wait, let me check the options again. The options are A)19, B)20, C)21, D)23, E)25. Wait, maybe the question is asking for the greatest possible number of members such that each member paid exactly the same",
+      "token_f1": 0.148,
+      "pred_tokens": 5,
+      "target_tokens": 67
+    },
+    {
+      "id": 31,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is D) 611.",
+      "target": "Therefore, the answer is E) 645.",
+      "token_f1": 0.667,
+      "pred_tokens": 6,
+      "target_tokens": 6
+    },
+    {
+      "id": 32,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is **B) sedimentary**.",
+      "target": "Therefore, the answer is C) sedimentary.",
+      "token_f1": 0.667,
+      "pred_tokens": 6,
+      "target_tokens": 6
+    },
+    {
+      "id": 33,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is **B) fridge**.",
+      "target": "Therefore, the answer is **B) fridge**. The fridge is used for short-term storage, keeping meat fresh and safe to eat for a few days, which aligns with the idea of using it soon.",
+      "token_f1": 0.343,
+      "pred_tokens": 6,
+      "target_tokens": 33
+    },
+    {
+      "id": 34,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is **B) 5 min 30 sec**.",
+      "target": "Therefore, the answer is **B) 4 min 50 sec**.",
+      "token_f1": 0.778,
+      "pred_tokens": 9,
+      "target_tokens": 9
+    },
+    {
+      "id": 35,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is **A) 11 milliliters**.",
+      "target": "Therefore, the answer is A) 11 milliliters.",
+      "token_f1": 0.714,
+      "pred_tokens": 7,
+      "target_tokens": 7
+    },
+    {
+      "id": 36,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is **A) pedigree chart**.",
+      "target": "Therefore, the answer is **1) pedigree chart**.",
+      "token_f1": 0.857,
+      "pred_tokens": 7,
+      "target_tokens": 7
+    },
+    {
+      "id": 37,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is $140.",
+      "target": "Therefore, the answer is $56 + $168 + $72. Let me add those up. First, $56 + $168. Let me do 56 + 168. 56 + 160 is 216, and then +8 is 224. Then, adding the $72 to that. 224 + 72. Let me break that down: 224 + 70 is",
+      "token_f1": 0.2,
+      "pred_tokens": 5,
+      "target_tokens": 52
+    },
+    {
+      "id": 38,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is **I**.",
+      "target": "Therefore, the answer is : **I**",
+      "token_f1": 0.727,
+      "pred_tokens": 5,
+      "target_tokens": 6
+    },
+    {
+      "id": 39,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is **B) Favouritism**.",
+      "target": "Therefore, the answer is **D) Sexual harassment**.",
+      "token_f1": 0.615,
+      "pred_tokens": 6,
+      "target_tokens": 7
+    },
+    {
+      "id": 40,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is **D) marching band**.",
+      "target": "Therefore, the answer is **C) brass band**.",
+      "token_f1": 0.714,
+      "pred_tokens": 7,
+      "target_tokens": 7
+    },
+    {
+      "id": 41,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is **A) one**.",
+      "target": "Therefore, the answer is **E) one**.",
+      "token_f1": 0.833,
+      "pred_tokens": 6,
+      "target_tokens": 6
+    },
+    {
+      "id": 42,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is **B) 20**.",
+      "target": "Therefore, the answer is 20 minutes, which corresponds to option B.",
+      "token_f1": 0.471,
+      "pred_tokens": 6,
+      "target_tokens": 11
+    },
+    {
+      "id": 43,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is **B) 75 kmph**.",
+      "target": "Therefore, the answer is D)80 kmph.",
+      "token_f1": 0.615,
+      "pred_tokens": 7,
+      "target_tokens": 6
+    },
+    {
+      "id": 44,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is **A) 82**.",
+      "target": "Therefore, the answer is **D**.",
+      "token_f1": 0.727,
+      "pred_tokens": 6,
+      "target_tokens": 5
+    },
+    {
+      "id": 45,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is **C) plate**.",
+      "target": "Therefore, the answer is **D) house**.",
+      "token_f1": 0.667,
+      "pred_tokens": 6,
+      "target_tokens": 6
+    },
+    {
+      "id": 46,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is $\\boxed{\\frac{1}{2}}$.",
+      "target": "Therefore, the answer is $\\boxed{-\\dfrac{3}{8}}$.",
+      "token_f1": 0.8,
+      "pred_tokens": 5,
+      "target_tokens": 5
+    },
+    {
+      "id": 47,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is **B) Turner syndrome**.",
+      "target": "Therefore, the answer is **A) Aromatase enzyme deficiency**.",
+      "token_f1": 0.533,
+      "pred_tokens": 7,
+      "target_tokens": 8
+    },
+    {
+      "id": 48,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is **B) 2**.",
+      "target": "Therefore, the answer is **E)2**.",
+      "token_f1": 0.727,
+      "pred_tokens": 6,
+      "target_tokens": 5
+    },
+    {
+      "id": 49,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is **B) lilac**.",
+      "target": "Therefore, the answer is **B) local**.",
+      "token_f1": 0.833,
+      "pred_tokens": 6,
+      "target_tokens": 6
+    }
+  ]
+}

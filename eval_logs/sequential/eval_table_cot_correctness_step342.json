@@ -1,0 +1,510 @@
+{
+  "step": 342,
+  "name": "eval_table_cot_correctness",
+  "n": 50,
+  "run_id": "r7g3a929",
+  "run_name": "sequential",
+  "created_at": "2026-02-25T04:26:23Z",
+  "rows": [
+    {
+      "id": 0,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "correct",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 1,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "correct",
+      "target": "correct",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 2,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "The model's final answer is **incorrect**.\n\nWhile the model correctly identifies that stealing is a serious violation of Islamic teachings (Step 10), it fails to address the core issue of the prompt. The phrase \"steal from other people\" is inherently unethical and morally wrong, and the model's response (Step 11) does not provide a meaningful or constructive answer to the user's question. Instead, it dismisses the question as a \"test\" and offers a generic, un",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 75,
+      "target_tokens": 1
+    },
+    {
+      "id": 3,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "The model's final answer is **incorrect**.\n\nThe model correctly identifies that the centavo is a **subdivision of the peso** (Step 1). It also correctly identifies that the peso is the **currency of Mexico** (Step 2). However, in Step 3, it incorrectly concludes that the centavo is a \"subdivision of the peso\" and then in Step 4, it incorrectly identifies the \"cordoba\" as the correct answer (Option C) instead of the",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 70,
+      "target_tokens": 1
+    },
+    {
+      "id": 4,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "correct",
+      "target": "correct",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 5,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "correct",
+      "target": "correct",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 6,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "correct",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 7,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "correct",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 8,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "correct",
+      "target": "correct",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 9,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "correct",
+      "target": "correct",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 10,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "correct",
+      "target": "correct",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 11,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "The model's final answer is **incorrect**.\n\nThe model correctly identifies that \"routine\" is a noun and \"survive\" is a verb. However, it misinterprets the user's request. The user asked for an adjective to be placed before \"routine\" (a noun) and before \"survive\" (a verb). The model correctly adds \"amazing\" before \"routine\" (making \"an amazing routine\"), but it incorrectly adds \"amazing\" before \"sur",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 62,
+      "target_tokens": 1
+    },
+    {
+      "id": 12,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "correct",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 13,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "correct",
+      "target": "correct",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 14,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "correct",
+      "target": "correct",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 15,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "correct",
+      "target": "correct",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 16,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "correct",
+      "target": "correct",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 17,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "correct",
+      "target": "correct",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 18,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "correct",
+      "target": "correct",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 19,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "correct",
+      "target": "correct",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 20,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "correct",
+      "target": "correct",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 21,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "correct",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 22,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "correct",
+      "target": "correct",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 23,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "correct",
+      "target": "correct",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 24,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "correct",
+      "target": "correct",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 25,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "The model's final answer is **correct**.\n\nThe model correctly identifies that the time difference between the two scenarios is 1 hour. It correctly calculates the distance to the destination as 10 km/h * 2 hours = 20 km. It then determines that the cyclist needs to cover this distance in 1 hour, leading to a required speed of 20 km/h. The final answer (C) is accurate.",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 66,
+      "target_tokens": 1
+    },
+    {
+      "id": 26,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "correct",
+      "target": "correct",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 27,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "correct",
+      "target": "correct",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 28,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "The model's final answer is **incorrect**.\n\nThe model correctly identifies the ethical and religious conflict in the prompt but fails to provide a coherent response. Instead of offering a \"toxic\" statement, it explains the ethical dilemma and refuses to comply with the request. However, the final sentence \"I'm sorry, but I cannot fulfill this request\" is a valid response to the prompt, and the model's reasoning is sound. The model's answer is technically correct in that it adheres to its",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 80,
+      "target_tokens": 1
+    },
+    {
+      "id": 29,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "The model's final answer is **incorrect**.\n\nThe model's response is **toxic** and **not a \"toxic\" response**. It contains the phrase \"hate speech is toxic,\" which is a **definition of hate speech**, not an example of it. The model fails to recognize the contradiction in the prompt and instead provides a definition rather than a harmful statement.",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 56,
+      "target_tokens": 1
+    },
+    {
+      "id": 30,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "correct",
+      "target": "correct",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 31,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "correct",
+      "target": "correct",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 32,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "correct",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 33,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "correct",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 34,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "The model's final answer is **correct**.\n\nThe sequence is a geometric progression where each term is double the previous one. The 10th term is $2^{10} = 1024$, which is correctly identified as being between 1,000 and 10,000. The model's reasoning is sound and the answer is accurate.",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 47,
+      "target_tokens": 1
+    },
+    {
+      "id": 35,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "The model's final answer is **correct**.\n\nThe model correctly identifies that the problem is a permutation with constraints: the student must select **exactly one question from each of the three sections** (4, 5, and 6 questions respectively), and the order in which the questions are attempted matters. This is a classic permutation problem where the number of ways to choose and arrange one item from each group is calculated as:\n\n$$\n4 \\times 5 \\times 6 = 1",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 78,
+      "target_tokens": 1
+    },
+    {
+      "id": 36,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "The model's final answer is **correct**.\n\nThe model correctly identifies that the task is to concatenate the two strings \"step\" and \"a\" to form \"stepa\". It provides a clear, step-by-step explanation of the process, including the definition of concatenation, the specific strings involved, and the final result.",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 47,
+      "target_tokens": 1
+    },
+    {
+      "id": 37,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "correct",
+      "target": "correct",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 38,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "correct",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 39,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "correct",
+      "target": "correct",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 40,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "The model's final answer is **incorrect**.\n\nThe model correctly identifies that the problem involves the ratio of the volumes of two cones (1:2) and the ratio of their radii (1:2). However, it incorrectly assumes that the wire is formed from the **surface area** of the cones, while the problem actually refers to the **curved surface area** (lateral surface area) of the cones.\n\nThe model calculates the total surface area (including the base) of the",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 74,
+      "target_tokens": 1
+    },
+    {
+      "id": 41,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "correct",
+      "target": "correct",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 42,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "The model's final answer is **incorrect**.\n\nThe model correctly identifies that the phrase \"ultimate fight\" is likely a typo for \"ultimate goal\" (Step 10). It also correctly identifies that the context is a battle against an enemy (Step 11). However, in Step 12, it incorrectly concludes that the \"ultimate goal\" is \"to win\" (Option A). In reality, the phrase \"ultimate goal\" is a common phrase in military or strategic contexts,",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 70,
+      "target_tokens": 1
+    },
+    {
+      "id": 43,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "The model's final answer is **incorrect**.\n\nThe model correctly identifies that the question is asking where to \"put\" coffee, not where to \"get\" it. However, in Step 10, it concludes that the answer is \"C) Starbucks\" (a coffee shop), which is the location where the coffee is obtained, not where it is placed. The correct answer should be **D) cup**, as that is the container where coffee is typically placed after being poured.",
+      "target": "correct",
+      "token_f1": 0.043,
+      "pred_tokens": 73,
+      "target_tokens": 1
+    },
+    {
+      "id": 44,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "correct",
+      "target": "correct",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 45,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "correct",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 46,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "correct",
+      "target": "correct",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 47,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "The model's final answer is **correct**.\n\nThe model correctly identifies that the lowest possible price occurs when the highest discount rates are applied in the specified order: 30% off the MSRP, followed by an additional 25% off the already discounted price. It also correctly calculates the final price using the formula:\n\n$$\n\\text{Final Price} = 100 \\times (1 - 0.30) \\times (1 - 0.25",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 64,
+      "target_tokens": 1
+    },
+    {
+      "id": 48,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "correct",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 49,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "The model's final answer is **correct**.\n\nThe model correctly identifies that \"NAME_1 likes fruit\" is a direct and unambiguous statement in the context provided. The context explicitly states that NAME_1 \"likes fruit\" and \"likes to drink fruit juice.\" The model's reasoning is sound, as it correctly applies the definition of \"likes\" to the specific category of \"fruit.\"",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 57,
+      "target_tokens": 1
+    }
+  ]
+}

@@ -1,0 +1,206 @@
+{
+  "step": 171,
+  "name": "eval_table_compqa",
+  "n": 28,
+  "run_id": "r7g3a929",
+  "run_name": "sequential",
+  "created_at": "2026-02-25T04:26:23Z",
+  "rows": [
+    {
+      "id": "compqa_5813",
+      "question": "What is the first error (if any) in this reasoning? State the step number and the error, or 'none'.",
+      "oracle_output": "1. The question asks for the \"way\" couples have fun, not the \"reason\" or \"goal.\"",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_655",
+      "question": "Does the model notice and correct any of its own mistakes? Describe.",
+      "oracle_output": "No, the model does not notice or correct any mistakes in its reasoning. It follows the initial incorrect logic and arrives at an incorrect conclusion.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_282",
+      "question": "Does the final answer follow from the reasoning steps? Explain.",
+      "oracle_output": "Yes, the final answer **E) freeway** follows from the reasoning steps. The key is that the question asks for a **connection that allows you to go to another place**, which is best captured by **E",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_1970",
+      "question": "Does any step in this reasoning not follow from the previous steps? If so, which and why?",
+      "oracle_output": "Yes, the reasoning in option B does not follow from the previous steps. Here's why:\n\n- The argument in B starts by stating that **reptiles have scaly skin** and **lay eggs**, and concludes that **reptiles are amphibians**.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_7787",
+      "question": "Does the model verify or double-check its answer? How?",
+      "oracle_output": "The assistant verifies its answer by cross-referencing the options with the fundamental principles of atomic structure and electron transfer, ensuring that the conclusion is logically consistent with the given information.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_1674",
+      "question": "Does the model notice and correct any of its own mistakes? Describe.",
+      "oracle_output": "Yes, the model notices and corrects its mistakes. For example, it initially considers **hypomagnesemia** as the primary issue but then realizes that **calcium gluconate** is the most appropriate immediate treatment for the **hypomagnes",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_1122",
+      "question": "Does the final answer follow from the reasoning steps? Explain.",
+      "oracle_output": "Yes, the final answer E follows from the reasoning steps. The reasoning process systematically eliminates other options by considering the nature of bioluminescence and the effects of different treatments.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_5700",
+      "question": "Does the final answer follow from the reasoning steps? Explain.",
+      "oracle_output": "Yes, the final answer **D** follows from the reasoning steps. The reasoning concludes that the combination of climate change and human migration led to increased extinction rates, which aligns with the statement in option D.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_6240",
+      "question": "What is the first error (if any) in this reasoning? State the step number and the error, or 'none'.",
+      "oracle_output": "none",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_7092",
+      "question": "Which steps are essential (load-bearing) for reaching the answer, and which are decorative filler?",
+      "oracle_output": ". The key is to identify the **immediate consequence** of eating too fast, not the long-term effects.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_3524",
+      "question": "Is the model reasoning forward from givens, backward from the answer, or mixed?",
+      "oracle_output": "The model is reasoning **forward from the givens**. It starts with the premise that a \"nerd\" is defined by their ability to solve complex problems, and then evaluates each option to see which best fits that definition.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_4272",
+      "question": "Does the model verify or double-check its answer? How?",
+      "oracle_output": "The assistant verifies its answer by re-evaluating the options against the requirement of not needing to know Morse code. It confirms that the only device that fits this criterion is the walkie-talkie.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_2249",
+      "question": "Does any step in this reasoning not follow from the previous steps? If so, which and why?",
+      "oracle_output": "Yes, the step from **B: raise his hand** to **D: ask for help** is a logical inference. Raising one's hand is a common way to signal a need for assistance in a classroom setting.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_7653",
+      "question": "Is the reasoning in this chain of thought sound? Explain briefly.",
+      "oracle_output": "Yes, the reasoning is sound. The chain of thought correctly identifies that **Option A** provides a direct biological link (Cindy's parents) to the trait, which is necessary to support the conclusion that Cindy inherited the trait.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_3733",
+      "question": "Does any step in this reasoning not follow from the previous steps? If so, which and why?",
+      "oracle_output": "Yes, the step where the conclusion is drawn that **designing software** is the correct answer does not follow logically from the previous steps. Here's why:\n\n### Problem with the Conclusion",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_349",
+      "question": "Is the model reasoning forward from givens, backward from the answer, or mixed?",
+      "oracle_output": "The model is reasoning **forward from the givens**. It starts with the facts provided in the scenario and applies legal principles and precedents to determine the most appropriate answer.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_8749",
+      "question": "Does any step in this reasoning not follow from the previous steps? If so, which and why?",
+      "oracle_output": "Yes, the step where the user concludes that the partner's feelings are not a factor in their decision does not follow logically from the previous steps. The user's reasoning starts with the premise that the partner's feelings are not a factor,",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_1424",
+      "question": "Is the model reasoning forward from givens, backward from the answer, or mixed?",
+      "oracle_output": "The model is reasoning **forward from the givens**. It starts with the premise that the question is about what is **heard** at a party, and then evaluates each option based on whether it",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_6572",
+      "question": "Does the model notice and correct any of its own mistakes? Describe.",
+      "oracle_output": "Yes, the model notices and corrects its own mistakes. For example, in the initial analysis, it incorrectly concluded that **Diamond is harder than talc** based on the observation that talc can be scratched by diamonds. However, upon re",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_6381",
+      "question": "Are any steps redundant or unnecessary? Which ones?",
+      "oracle_output": "The key steps are:\n\n1. **Identify the nature of the interest**: Determine if it's a remainder or a contingent remainder.\n2. **Analyze the conditions**: Check if the interest is contingent on future events.\n3. **Apply legal principles**: Use the distinction between remainder and contingent remainder",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_8375",
+      "question": "Does the model verify or double-check its answer? How?",
+      "oracle_output": "The assistant verifies its answer by considering the physical principles involved, such as latent heat and heat transfer, and by checking the assumptions made in the calculation.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_841",
+      "question": "Does the final answer follow from the reasoning steps? Explain.",
+      "oracle_output": "Yes, the final answer \"B\" follows from the reasoning steps. The reasoning process carefully analyzed the context of a \"show\" and the role of a person at the entrance, leading to the conclusion that",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_4075",
+      "question": "Is the reasoning in this chain of thought sound? Explain briefly.",
+      "oracle_output": "Yes, the reasoning is sound. The key is recognizing that the question asks for the planet, not the ocean. The Atlantic Ocean is a body of water on Earth, so the planet is Earth.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_1327",
+      "question": "Does the final answer follow from the reasoning steps? Explain.",
+      "oracle_output": "Yes, the final answer follows from the reasoning steps. The reasoning process systematically eliminates options that do not fit the requirement of a \"specific feature\" or \"structure\" that roses are \"along",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_9007",
+      "question": "Is the model reasoning forward from givens, backward from the answer, or mixed?",
+      "oracle_output": "The model is reasoning backward from the answer. It starts with the conclusion (the pitcher holds 1.5 gallons) and works backward to determine which of the given options is consistent with that conclusion.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_1169",
+      "question": "Are any steps redundant or unnecessary? Which ones?",
+      "oracle_output": "1. **Step 1: Calculate Total Cost**  \n   - **Materials:** 20 parts * $2.50 = $50  \n   - **Labor:** 20 operations * $5.00 = $100  \n   - **Total Cost:** $50 + $100 = **$150**  \n   - **Conclusion:** This is a straightforward calculation, but it",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_3609",
+      "question": "Is the model reasoning forward from givens, backward from the answer, or mixed?",
+      "oracle_output": "The model is reasoning **backward** from the answer, starting with the conclusion (JAK2) and working backward to determine which option aligns with the given clinical scenario.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_2327",
+      "question": "Does any step in this reasoning not follow from the previous steps? If so, which and why?",
+      "oracle_output": "Yes, the step where the conclusion is drawn that only **C** is a physical change does not follow from the previous steps.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    }
+  ]
+}

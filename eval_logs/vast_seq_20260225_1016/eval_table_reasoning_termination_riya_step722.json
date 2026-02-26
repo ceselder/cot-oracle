@@ -1,0 +1,220 @@
+{
+  "step": 722,
+  "name": "eval_table_reasoning_termination_riya",
+  "n": 30,
+  "run_id": "lg0b51t2",
+  "run_name": "vast_seq_20260225_1016",
+  "created_at": "2026-02-25T10:25:14Z",
+  "rows": [
+    {
+      "id": "reason_term_0074",
+      "question": "What is the value of \\[(\\log 5)^{3}+(\\log 20)^{3}+(\\log 8)(\\log 0.25)\\] where $\\log$ denotes the base-ten logarithm?",
+      "oracle_output": "will_terminate",
+      "ground_truth": "indeterminate",
+      "correct": "?"
+    },
+    {
+      "id": "reason_term_0011",
+      "question": "A right square pyramid with volume $54$ has a base with side length $6.$ The five vertices of the pyramid all lie on a sphere with radius $\\frac mn$, where $m$ and $n$ are relatively prime positive in",
+      "oracle_output": "will_terminate",
+      "ground_truth": "indeterminate",
+      "correct": "?"
+    },
+    {
+      "id": "reason_term_0068",
+      "question": "Maureen is keeping track of the mean of her quiz scores this semester. If Maureen scores an $11$ on the next quiz, her mean will increase by $1$. If she scores an $11$ on each of the next three quizze",
+      "oracle_output": "will_terminate",
+      "ground_truth": "indeterminate",
+      "correct": "?"
+    },
+    {
+      "id": "reason_term_0071",
+      "question": "For complex number $u = a+bi$ and $v = c+di$ (where $i=\\sqrt{-1}$), define the binary operation\n$u \\otimes v = ac + bdi$\nSuppose $z$ is a complex number such that $z\\otimes z = z^{2}+40$. What is $|z|",
+      "oracle_output": "will_terminate",
+      "ground_truth": "indeterminate",
+      "correct": "?"
+    },
+    {
+      "id": "reason_term_0034",
+      "question": "Mrs. Jones is pouring orange juice into four identical glasses for her four sons. She fills the first three glasses completely but runs out of juice when the fourth glass is only $\\frac{1}{3}$ full. W",
+      "oracle_output": "will_terminate",
+      "ground_truth": "indeterminate",
+      "correct": "?"
+    },
+    {
+      "id": "reason_term_0043",
+      "question": "The weight of $\\frac{1}{3}$ of a large pizza together with $3 \\frac{1}{2}$ cups of orange slices is the same as the weight of $\\frac{3}{4}$ of a large pizza together with $\\frac{1}{2}$ cup of orange s",
+      "oracle_output": "will_terminate",
+      "ground_truth": "indeterminate",
+      "correct": "?"
+    },
+    {
+      "id": "reason_term_0050",
+      "question": "Alice chooses a set $A$ of positive integers. Then Bob lists all finite nonempty sets $B$ of positive integers with the property that the maximum element of $B$ belongs to $A$. Bob's list has 2024 set",
+      "oracle_output": "will_terminate",
+      "ground_truth": "indeterminate",
+      "correct": "?"
+    },
+    {
+      "id": "reason_term_0005",
+      "question": "How many digits are in the base-ten representation of $8^5 \\cdot 5^{10} \\cdot 15^5$?",
+      "oracle_output": "will_terminate",
+      "ground_truth": "indeterminate",
+      "correct": "?"
+    },
+    {
+      "id": "reason_term_0019",
+      "question": "A data set consists of $6$ (not distinct) positive integers: $1$, $7$, $5$, $2$, $5$, and $X$. The average (arithmetic mean) of the $6$ numbers equals a value in the data set. What is the sum of all p",
+      "oracle_output": "will_terminate",
+      "ground_truth": "indeterminate",
+      "correct": "?"
+    },
+    {
+      "id": "reason_term_0046",
+      "question": "The sum of three numbers is $96.$ The first number is $6$ times the third number, and the third number is $40$ less than the second number. What is the absolute value of the difference between the fir",
+      "oracle_output": "will_terminate",
+      "ground_truth": "indeterminate",
+      "correct": "?"
+    },
+    {
+      "id": "reason_term_0012",
+      "question": "$\\frac{m}{n}$ is the Irreducible fraction value of \\[3+\\frac{1}{3+\\frac{1}{3+\\frac13}}\\], what is the value of $m+n$?",
+      "oracle_output": "will_terminate",
+      "ground_truth": "indeterminate",
+      "correct": "?"
+    },
+    {
+      "id": "reason_term_0035",
+      "question": "Positive real numbers $x$ and $y$ satisfy $y^3=x^2$ and $(y-x)^2=4y^2$. What is $x+y$?",
+      "oracle_output": "will_terminate",
+      "ground_truth": "indeterminate",
+      "correct": "?"
+    },
+    {
+      "id": "reason_term_0080",
+      "question": "For complex number $u = a+bi$ and $v = c+di$ (where $i=\\sqrt{-1}$), define the binary operation\n$u \\otimes v = ac + bdi$\nSuppose $z$ is a complex number such that $z\\otimes z = z^{2}+40$. What is $|z|",
+      "oracle_output": "will_terminate",
+      "ground_truth": "indeterminate",
+      "correct": "?"
+    },
+    {
+      "id": "reason_term_0063",
+      "question": "The roots of the polynomial $10x^3 - 39x^2 + 29x - 6$ are the height, length, and width of a rectangular box (right rectangular prism). A new rectangular box is formed by lengthening each edge of the ",
+      "oracle_output": "will_terminate",
+      "ground_truth": "indeterminate",
+      "correct": "?"
+    },
+    {
+      "id": "reason_term_0038",
+      "question": "What is the value of \\[(\\log 5)^{3}+(\\log 20)^{3}+(\\log 8)(\\log 0.25)\\] where $\\log$ denotes the base-ten logarithm?",
+      "oracle_output": "will_terminate",
+      "ground_truth": "indeterminate",
+      "correct": "?"
+    },
+    {
+      "id": "reason_term_0069",
+      "question": "Define $x\\diamond y$ to be $|x-y|$ for all real numbers $x$ and $y.$ What is the value of \\[((1\\diamond2)\\diamond3)-(1\\diamond(2\\diamond3))?\\]",
+      "oracle_output": "will_terminate",
+      "ground_truth": "indeterminate",
+      "correct": "?"
+    },
+    {
+      "id": "reason_term_0013",
+      "question": "Maureen is keeping track of the mean of her quiz scores this semester. If Maureen scores an $11$ on the next quiz, her mean will increase by $1$. If she scores an $11$ on each of the next three quizze",
+      "oracle_output": "will_terminate",
+      "ground_truth": "indeterminate",
+      "correct": "?"
+    },
+    {
+      "id": "reason_term_0036",
+      "question": "What is the degree measure of the acute angle formed by lines with slopes $2$ and $\\frac{1}{3}$?",
+      "oracle_output": "will_terminate",
+      "ground_truth": "indeterminate",
+      "correct": "?"
+    },
+    {
+      "id": "reason_term_0064",
+      "question": "Calculate the maximum area of an isosceles trapezoid that has legs of length $1$ and one base twice as long as the other. The final answer can be written in the form $\\frac{m}{n}$, where $m$ and $n$ a",
+      "oracle_output": "will_terminate",
+      "ground_truth": "indeterminate",
+      "correct": "?"
+    },
+    {
+      "id": "reason_term_0077",
+      "question": "Maureen is keeping track of the mean of her quiz scores this semester. If Maureen scores an $11$ on the next quiz, her mean will increase by $1$. If she scores an $11$ on each of the next three quizze",
+      "oracle_output": "will_terminate",
+      "ground_truth": "indeterminate",
+      "correct": "?"
+    },
+    {
+      "id": "reason_term_0057",
+      "question": "Points $A$ and $B$ lie on the graph of $y=\\log_{2}x$. The midpoint of $\\overline{AB}$ is $(6, 2)$. What is the positive difference between the $x$-coordinates of $A$ and $B$? The final answer can be w",
+      "oracle_output": "will_terminate",
+      "ground_truth": "indeterminate",
+      "correct": "?"
+    },
+    {
+      "id": "reason_term_0042",
+      "question": "A $\\emph{triangular number}$ is a positive integer that can be expressed in the form $t_n = 1+2+3+\\cdots+n$, for some positive integer $n$. The three smallest triangular numbers that are also perfect ",
+      "oracle_output": "will_continue",
+      "ground_truth": "indeterminate",
+      "correct": "?"
+    },
+    {
+      "id": "reason_term_0039",
+      "question": "Calculate the maximum area of an isosceles trapezoid that has legs of length $1$ and one base twice as long as the other. The final answer can be written in the form $\\frac{m}{n}$, where $m$ and $n$ a",
+      "oracle_output": "will_terminate",
+      "ground_truth": "indeterminate",
+      "correct": "?"
+    },
+    {
+      "id": "reason_term_0031",
+      "question": "Jackson's paintbrush makes a narrow strip with a width of $6.5$ millimeters. Jackson has enough paint to make a strip $25$ meters long. How many square centimeters of paper could Jackson cover with pa",
+      "oracle_output": "will_terminate",
+      "ground_truth": "indeterminate",
+      "correct": "?"
+    },
+    {
+      "id": "reason_term_0079",
+      "question": "What is the product of all real numbers $x$ such that the distance on the number line between $\\log_6x$ and $\\log_69$ is twice the distance on the number line between $\\log_610$ and $1$?",
+      "oracle_output": "will_terminate",
+      "ground_truth": "indeterminate",
+      "correct": "?"
+    },
+    {
+      "id": "reason_term_0025",
+      "question": "The sum of three numbers is $96.$ The first number is $6$ times the third number, and the third number is $40$ less than the second number. What is the absolute value of the difference between the fir",
+      "oracle_output": "will_terminate",
+      "ground_truth": "indeterminate",
+      "correct": "?"
+    },
+    {
+      "id": "reason_term_0059",
+      "question": "$\\frac{m}{n}$ is the Irreducible fraction value of \\[3+\\frac{1}{3+\\frac{1}{3+\\frac13}}\\], what is the value of $m+n$?",
+      "oracle_output": "will_terminate",
+      "ground_truth": "indeterminate",
+      "correct": "?"
+    },
+    {
+      "id": "reason_term_0083",
+      "question": "What is the degree measure of the acute angle formed by lines with slopes $2$ and $\\frac{1}{3}$?",
+      "oracle_output": "will_continue",
+      "ground_truth": "indeterminate",
+      "correct": "?"
+    },
+    {
+      "id": "reason_term_0041",
+      "question": "Cities $A$ and $B$ are $45$ miles apart. Alicia lives in $A$ and Beth lives in $B$. Alicia bikes towards $B$ at 18 miles per hour. Leaving at the same time, Beth bikes toward $A$ at 12 miles per hour.",
+      "oracle_output": "will_terminate",
+      "ground_truth": "indeterminate",
+      "correct": "?"
+    },
+    {
+      "id": "reason_term_0082",
+      "question": "Mrs. Jones is pouring orange juice into four identical glasses for her four sons. She fills the first three glasses completely but runs out of juice when the fourth glass is only $\\frac{1}{3}$ full. W",
+      "oracle_output": "will_terminate",
+      "ground_truth": "indeterminate",
+      "correct": "?"
+    }
+  ]
+}

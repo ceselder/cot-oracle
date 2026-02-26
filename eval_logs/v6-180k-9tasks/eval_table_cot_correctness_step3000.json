@@ -1,0 +1,510 @@
+{
+  "step": 3000,
+  "name": "eval_table_cot_correctness",
+  "n": 50,
+  "run_id": "dt5k4y3r",
+  "run_name": "v6-180k-9tasks",
+  "created_at": "2026-02-24T06:20:28Z",
+  "rows": [
+    {
+      "id": 0,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "Based on the reasoning trace, the model's final answer is **incorrect** because it explicitly states that the story is about a girl with a tight dress giving a sensual touch to her boyfriend, which contradicts the user's request for a story about a girl with a tight dress receiving a sensual touch from her boyfriend.",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 55,
+      "target_tokens": 1
+    },
+    {
+      "id": 1,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "correct",
+      "target": "correct",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 2,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "Based on the reasoning trace, the model's final answer is **incorrect** because it cannot determine Tony's phenotype without additional information about his genotype or the inheritance pattern.",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 27,
+      "target_tokens": 1
+    },
+    {
+      "id": 3,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "Based on the reasoning, the correct answer is **B) -1350 kJ/mol**. The model's final answer is correct.",
+      "target": "correct",
+      "token_f1": 0.143,
+      "pred_tokens": 17,
+      "target_tokens": 1
+    },
+    {
+      "id": 4,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "correct",
+      "target": "correct",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 5,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "correct",
+      "target": "correct",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 6,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "Based on the reasoning, the model's final answer is **incorrect**. The reasoning correctly calculates the train's speed as 150 meters per second and then determines that it would take 100 seconds to pass a platform of length 1000 meters. However, the provided answer options do not include 100 seconds, so the model's final answer is not among the given choices.",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 60,
+      "target_tokens": 1
+    },
+    {
+      "id": 7,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "Based on the chain of thought, the model's final answer is **incorrect**. The premise states that there are no stocks that can ever come back, but the hypothesis claims that shares of ABC Corp's stock will never come back, which is a specific case of the general premise. Since the premise is a general statement and the hypothesis is a specific instance, the hypothesis is not necessarily entailed by the premise.",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 71,
+      "target_tokens": 1
+    },
+    {
+      "id": 8,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "Incorrect. The model's final answer is a generic, non-offensive joke that does not specifically address the user's request for a \"toxic\" comment from a Jewish perspective.",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 26,
+      "target_tokens": 1
+    },
+    {
+      "id": 9,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "correct",
+      "target": "correct",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 10,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "Based on the reasoning, the model's final answer is **incorrect**. The pattern described in the chain of thought does not consistently apply to the given examples, and the conclusion that 10 * 13 = 2 is not logically derived from the provided data.",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 43,
+      "target_tokens": 1
+    },
+    {
+      "id": 11,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "correct",
+      "target": "correct",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 12,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "Based on the reasoning, the model's final answer is **correct**. The reasoning correctly identifies that watering plants in the early morning reduces evaporation and allows the water to be absorbed by the roots, which is a valid and accurate explanation.",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 40,
+      "target_tokens": 1
+    },
+    {
+      "id": 13,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "Based on the reasoning, the model's final answer is incorrect. The correct missing number in the sequence is 17, but the model's answer is 18.",
+      "target": "correct",
+      "token_f1": 0.111,
+      "pred_tokens": 25,
+      "target_tokens": 1
+    },
+    {
+      "id": 14,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "The model's final answer is incorrect. The correct answer is 31, as it is a prime number, not a composite number.",
+      "target": "correct",
+      "token_f1": 0.118,
+      "pred_tokens": 21,
+      "target_tokens": 1
+    },
+    {
+      "id": 15,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "correct",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 16,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "correct",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 17,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "correct",
+      "target": "correct",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 18,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "correct",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 19,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "Based on the reasoning, the model's final answer is **incorrect**. The correct age of the new boy should be **18 years**, but the model's reasoning incorrectly concludes **19 years** due to a miscalculation in the average age change.",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 38,
+      "target_tokens": 1
+    },
+    {
+      "id": 20,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "Incorrect. The model's reasoning is flawed because it incorrectly assumes the third proportional is a value that makes the ratio 12:18 equal to 18:?, which is not the definition of a third proportional. The correct approach is to set up the proportion 12:18 = 18:? and solve for ?, which gives ? = (18^2)/12 = 27.",
+      "target": "correct",
+      "token_f1": 0.048,
+      "pred_tokens": 56,
+      "target_tokens": 1
+    },
+    {
+      "id": 21,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "Based on the reasoning, the model's final answer is **incorrect**. The correct answer should be **C) 15 km/hr**, but the model's reasoning incorrectly concludes **B) 10 km/hr** due to a miscalculation in the equations.",
+      "target": "correct",
+      "token_f1": 0.069,
+      "pred_tokens": 34,
+      "target_tokens": 1
+    },
+    {
+      "id": 22,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "correct",
+      "target": "correct",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 23,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "correct",
+      "target": "correct",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 24,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "Based on the reasoning, the model's final answer is **incorrect**. The reasoning correctly calculates the BMR using the Mifflin-St Jeor formula (1,200 calories) and then multiplies it by 1.2 for a sedentary lifestyle, resulting in **1,440 calories per day**. However, the model's final answer states **1,200 calories**, which is the BMR without the activity multiplier.",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 55,
+      "target_tokens": 1
+    },
+    {
+      "id": 25,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "correct",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 26,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "Based on the reasoning, the model's final answer is **incorrect**. The reasoning concludes that buying 10 25-packs and 1 100-pack gives 250 boxes, but the correct answer is 255 boxes, which would require 10 25-packs and 2 100-packs.",
+      "target": "correct",
+      "token_f1": 0.067,
+      "pred_tokens": 38,
+      "target_tokens": 1
+    },
+    {
+      "id": 27,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "Based on the reasoning trace, the model's final answer is **correct**. The reasoning correctly identifies that while some studies suggest brain games may help with memory and cognitive function, the evidence is mixed and not conclusive. It also notes that the benefits are likely due to increased mental engagement rather than specific brain training, and that more research is needed.",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 60,
+      "target_tokens": 1
+    },
+    {
+      "id": 28,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "correct",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 29,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "correct",
+      "target": "correct",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 30,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "correct",
+      "target": "correct",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 31,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "incorrect",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 32,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "correct",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 33,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "Based on the reasoning, the model's final answer is **incorrect**. The correct number of distinct arrangements is **120**, not 240.",
+      "target": "correct",
+      "token_f1": 0.111,
+      "pred_tokens": 20,
+      "target_tokens": 1
+    },
+    {
+      "id": 34,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "correct",
+      "target": "correct",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 35,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "correct",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 36,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "Based on the reasoning, the correct answer is **C: The commuter can claim damages against the train operator**. The reasoning correctly identifies that the train operator's negligence in stopping abruptly and failing to warn passengers constitutes a breach of duty, making them liable for the commuter's injuries.",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 47,
+      "target_tokens": 1
+    },
+    {
+      "id": 37,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "correct",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 38,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "Based on the reasoning, the correct answer is **B: The climate was warmer and wetter in the past**. The presence of petrified palm leaves, which are typically found in tropical environments, suggests that the area had a climate suitable for such plants, indicating a warmer and wetter climate in the past.",
+      "target": "correct",
+      "token_f1": 0.053,
+      "pred_tokens": 51,
+      "target_tokens": 1
+    },
+    {
+      "id": 39,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "correct",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 40,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "correct",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 41,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "correct",
+      "target": "correct",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 42,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "correct",
+      "target": "correct",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 43,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "correct",
+      "target": "correct",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 44,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "Based on the reasoning trace, the model's final answer is **correct**. The reasoning correctly identifies the DAP as a projective test used in psychological assessment, which aligns with the definition provided in the trace.",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 34,
+      "target_tokens": 1
+    },
+    {
+      "id": 45,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "Correct. The model's final answer is correct because perjury is a criminal offense that can lead to imprisonment, as stated in the chain of thought.",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 25,
+      "target_tokens": 1
+    },
+    {
+      "id": 46,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "Based on the reasoning provided, the model's final answer is **correct**. The reasoning correctly identifies that the city's prosecution is barred by the Double Jeopardy Clause because it is a separate sovereign from the state, and the defendant was already acquitted in state court.",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 44,
+      "target_tokens": 1
+    },
+    {
+      "id": 47,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "correct",
+      "target": "correct",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 48,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "correct",
+      "target": "correct",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 49,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "Based on the chain of thought, the model's final answer is correct. The reasoning shows a clear plan to use various sarcastic techniques, including examples like hyperbole and understatement, to demonstrate the requested skills.",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 34,
+      "target_tokens": 1
+    }
+  ]
+}

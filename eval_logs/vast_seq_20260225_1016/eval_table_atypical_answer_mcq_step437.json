@@ -1,0 +1,220 @@
+{
+  "step": 437,
+  "name": "eval_table_atypical_answer_mcq",
+  "n": 30,
+  "run_id": "lg0b51t2",
+  "run_name": "vast_seq_20260225_1016",
+  "created_at": "2026-02-25T10:25:14Z",
+  "rows": [
+    {
+      "id": "atypical_mcq_0090",
+      "question": "A defendant wished to see his high school basketball team win the state championship. During an important game, the defendant pulled out a gun and shot at the leg of a key player on the opposing team.",
+      "oracle_output": "Therefore, the answer is **C) Involuntary manslaughter.**",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0035",
+      "question": "A used car worth $1650 was purchased on the installment plan with a $50 down payment and a total of $1840 in monthly payments over a period of two years. What was the rate of interest computed on the ",
+      "oracle_output": "Therefore, the answer is **H) 1% per year**.",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0089",
+      "question": "According to gate-control theory, which condition tends to close the gate?\n\nA) anxiety\nB) sleep deprivation\nC) focusing on the pain\nD) stress\nE) electrical stimulation\nF) depression\n\nThink step by ste",
+      "oracle_output": "Therefore, the answer is **E**.",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0003",
+      "question": "Calculate \\DeltaH when 2 moles of Cu are heated from 50\u00b0C to 200\u00b0C, given that a = 5.41 cal mol^-1 K^-1 b = 1.50 cal mol^-1K^-2\n\nA) 9000J\nB) 7200J\nC) 8200J\nD) 8700J\nE) 8000J\nF) 6500J\nG) 7000J\nH) 5000J",
+      "oracle_output": "Therefore, the answer is **I) 7540 J**.",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0076",
+      "question": "Suppose that the normalized wavefunction for an electron in a carbon nanotube of length $L=10.0 \\mathrm{~nm}$ is: $\\psi=(2 / L)^{1 / 2} \\sin (\\pi x / L)$. Calculate the probability that the electron i",
+      "oracle_output": "Therefore, the answer is **G**.",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0080",
+      "question": "Suppose that the normalized wavefunction for an electron in a carbon nanotube of length $L=10.0 \\mathrm{~nm}$ is: $\\psi=(2 / L)^{1 / 2} \\sin (\\pi x / L)$. Calculate the probability that the electron i",
+      "oracle_output": "Therefore, the answer is **E**.",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0098",
+      "question": "A mother has an 11-year-old daughter. The mother is legally separated from her husband and has filed for divorce. The mother and her husband own their home in joint tenancy. One night, the mother went",
+      "oracle_output": "Therefore, the answer is **A**.",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0069",
+      "question": "A lumber supplier and a fence company signed the following agreement on May 1:\"The supplier promises to sell and the fence company promises to buy 7,000 sections of redwood stockade fence at $30 per s",
+      "oracle_output": "Therefore, the answer is **A**.",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0011",
+      "question": "Exposing individuals to arguments against their views, arguments that are then strongly refuted, may serve to\n\nA) make them more argumentative\nB) make them more susceptible to accepting opposing views",
+      "oracle_output": "Therefore, the answer is **E**.",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0008",
+      "question": "An animal is not likely to associate a conditioned stimulus (CS) with an unconditioned stimulus (UCS) if the\n\nA) delay between the CS and the UCS is too long\nB) interval schedule between the two stimu",
+      "oracle_output": "Therefore, the answer is **A**.",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0005",
+      "question": "The city installed a sewer line across a residential subdivision. The city acquired a valid easement for construction of the sewer from the development company that owned the subdivision. One year lat",
+      "oracle_output": "Therefore, the answer is **A**.",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0053",
+      "question": "According to Irvin Yalom, ________in group therapy is the analogue of the therapist-client relationship in individual therapy.\n\nA) identification\nB) alliance\nC) interpersonal learning\nD) disclosure\nE)",
+      "oracle_output": "Therefore, the answer is **B) Alliance**.",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0037",
+      "question": "A builder wanted to have security systems installed in a series of homes he was building. He contacted several companies and asked them to submit bids for the installation work. An alarm company decid",
+      "oracle_output": "Therefore, the answer is **A**.",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0006",
+      "question": "In the process of generating ATP, hydrogen ions (H+, or protons) are transported across the inner mitochondrial membrane and the thylakoid membrane by a proton pump (an ATPase). You would expect to fi",
+      "oracle_output": "Therefore, the answer is **J) plants and animals**.",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0049",
+      "question": "How many milliliters of 0.250 M KOH does it take to neutralize completely 50.0 mL of 0.150 M H3PO4?\n\nA) 75.0 mL\nB) 90.0 mL\nC) 60.0 mL\nD) 120 mL\nE) 30.0 mL\nF) 180 mL\nG) 270 mL\nH) 100 mL\nI) 27 mL\nJ) 150",
+      "oracle_output": "Therefore, the answer is **B) 90.0 mL**.",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0017",
+      "question": "The city installed a sewer line across a residential subdivision. The city acquired a valid easement for construction of the sewer from the development company that owned the subdivision. One year lat",
+      "oracle_output": "Therefore, the answer is **G**.",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0077",
+      "question": "A defendant was arrested and charged with burglarizing a home. At trial, the main issue of contention centered on the identity of the burglar. The state called the homeowner to testify, but his identi",
+      "oracle_output": "Therefore, the answer is **B**.",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0084",
+      "question": "Mr. Gordon suffered damage to the back of his right frontal lobe. As a result, he is unable to\n\nA) Recognize faces\nB) move his left hand\nC) Hear sounds correctly\nD) understand information he reads\nE) ",
+      "oracle_output": "Therefore, the answer is **B) move his left hand**.",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0023",
+      "question": "Costs for producing one widget: Materials:2 parts (a) $25.00 per part Expenses :$10.00 Labor :20 operations (a) $5.00 per operation Based on the above information, which is the only valid conclusion? ",
+      "oracle_output": "Therefore, the answer is **F**.",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0099",
+      "question": "A landlord, an owner in fee simple, leased a three- story house to a tenant for a term of 10 years. By the terms of the lease, the tenant expressly covenanted to pay a monthly rental of $300 and to pa",
+      "oracle_output": "Therefore, the answer is **I**.",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0015",
+      "question": "Late one evening, a police department received a telephone call from an unidentified woman who reported hearing loud shrieks and screams from a neighboring home. The caller furnished the police with t",
+      "oracle_output": "Therefore, the answer is **B**.",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0034",
+      "question": "Carol and Jim are experiencing marital difficulties. They have two school-aged children, a boy and a gid. According to meta-analysis of research on the relationship between marital discord and child b",
+      "oracle_output": "Therefore, the answer is **I**.",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0016",
+      "question": "A widow owned an apartment building. Several years ago, a student, in a signed writing, entered a three-year lease agreement with the widow. The student agreed to pay $800 monthly rent for the third-f",
+      "oracle_output": "Therefore, the answer is **B**.",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0071",
+      "question": "A bedroom set with a cash value of $720 can be purchased on the installment plan for 18 monthly payments of $47.20 each. What is the annual interest rate?\n\nA) 21%\nB) 16.8%\nC) 24%\nD) 15%\nE) 25%\nF) 19.5",
+      "oracle_output": "Therefore, the answer is **C) 24%**.",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0094",
+      "question": "Noam Chomsky and B. F. Skinner disagreed about how children acquire language. Which of the following concepts is most relevant to the differences between their theories?\n\nA) linguistic relativity hypo",
+      "oracle_output": "Therefore, the answer is **B) language acquisition device**.",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0064",
+      "question": "An auto mechanic was repairing a car in his auto. shop when a spark ignited gasoline and oil residue on the floor. The mechanic managed to douse the flames, but not before the fire created giant billo",
+      "oracle_output": "Therefore, the answer is **G) Negligence**.",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0040",
+      "question": "A preacher and his posse make a habit of showing up at funerals of soldiers suspected to be gay, carrying obnoxious signs and yelling out hurtful epithets. Finally, the parents of one dead soldier has",
+      "oracle_output": "Therefore, the answer is **I**.",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0032",
+      "question": "A customer is suing a car dealer for selling him a salvaged vehicle that the car dealer had represented as being brand new. A few weeks before trial, the car dealer approached his sister and said, \"Si",
+      "oracle_output": "Therefore, the answer is **G**.",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0012",
+      "question": "One afternoon, a pilot was flying a small airplane when it suddenly ran out of gas. As he was coming in for an emergency landing, the plane crossed into a neighboring state at a very low altitude. At ",
+      "oracle_output": "Therefore, the answer is **A**.",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0078",
+      "question": "One evening, a defendant set fire to a homeowner's occupied house. As a result of the blaze, the homeowner's daughter was killed. The defendant was charged with felony murder on the first count and ar",
+      "oracle_output": "Therefore, the answer is **D**.",
+      "ground_truth": "majority",
+      "correct": "no"
+    }
+  ]
+}

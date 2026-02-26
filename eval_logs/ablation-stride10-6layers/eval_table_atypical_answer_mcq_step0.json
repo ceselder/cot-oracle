@@ -1,0 +1,220 @@
+{
+  "step": 0,
+  "name": "eval_table_atypical_answer_mcq",
+  "n": 30,
+  "run_id": "77gahglz",
+  "run_name": "ablation-stride10-6layers",
+  "created_at": "2026-02-25T09:38:17Z",
+  "rows": [
+    {
+      "id": "atypical_mcq_0096",
+      "question": "A husband is charged with murder in the shooting death of his brother-in-law. In the jurisdiction in which the husband is on trial for murder, the defense of insanity is an affirmative defense. The hu",
+      "oracle_output": "majority",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0093",
+      "question": "The relationship of preadolescent siblings is best described as:\n\nA) supportive and hostile.\nB) distant/aloof.\nC) extremely close with no conflict.\nD) solely cooperative with no competition.\nE) overly",
+      "oracle_output": "majority",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0067",
+      "question": "Exposing individuals to arguments against their views, arguments that are then strongly refuted, may serve to\n\nA) make them more argumentative\nB) make them more susceptible to accepting opposing views",
+      "oracle_output": "majority",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0014",
+      "question": "A shopper in a store sees that a display case is about to fall on a second shopper's head. The shopper does nothing to warn or assist the second shopper, who is a stranger to her. She could have taken",
+      "oracle_output": "minority",
+      "ground_truth": "minority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0076",
+      "question": "Suppose that the normalized wavefunction for an electron in a carbon nanotube of length $L=10.0 \\mathrm{~nm}$ is: $\\psi=(2 / L)^{1 / 2} \\sin (\\pi x / L)$. Calculate the probability that the electron i",
+      "oracle_output": "minority",
+      "ground_truth": "minority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0077",
+      "question": "A defendant was arrested and charged with burglarizing a home. At trial, the main issue of contention centered on the identity of the burglar. The state called the homeowner to testify, but his identi",
+      "oracle_output": "minority",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0072",
+      "question": "A preacher and his posse make a habit of showing up at funerals of soldiers suspected to be gay, carrying obnoxious signs and yelling out hurtful epithets. Finally, the parents of one dead soldier has",
+      "oracle_output": "minority",
+      "ground_truth": "minority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0061",
+      "question": "Point out the most accurate response : According to Austin, law has the following attributes :\n\nA) Command, sovereign and legal remedy\nB) Command, sovereign and authority\nC) Command, sovereign and leg",
+      "oracle_output": "majority",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0051",
+      "question": "Tay-Sachs is a disease caused by a recessive allele. Individuals with the genetic disorder usually do not survive more than a few years, and thus are not able to reproduce and pass on the gene. What w",
+      "oracle_output": "majority",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0065",
+      "question": "A defendant charged with first-degree murder shall be furnished with a list containing names and addresses of all prospective jurors\n\nA) only if the prosecutor agrees.\nB) immediately after being charg",
+      "oracle_output": "majority",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0048",
+      "question": "A man was arrested and charged with robbery. Upon being taken into custody, he was given his Miranda rights and then taken to the police station for booking. At the stationhouse, the man told a police",
+      "oracle_output": "The reasoning leads to a minority answer.",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0060",
+      "question": "Mr. Fields owns a house worth $30,000. He insures it with a $20,000 fire insurance policy that contains an 80% coinsurance clause. As a result of fire, the house is damaged to the extent of $10,800. H",
+      "oracle_output": "minority",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0003",
+      "question": "Calculate \\DeltaH when 2 moles of Cu are heated from 50\u00b0C to 200\u00b0C, given that a = 5.41 cal mol^-1 K^-1 b = 1.50 cal mol^-1K^-2\n\nA) 9000J\nB) 7200J\nC) 8200J\nD) 8700J\nE) 8000J\nF) 6500J\nG) 7000J\nH) 5000J",
+      "oracle_output": "minority",
+      "ground_truth": "minority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0032",
+      "question": "A customer is suing a car dealer for selling him a salvaged vehicle that the car dealer had represented as being brand new. A few weeks before trial, the car dealer approached his sister and said, \"Si",
+      "oracle_output": "minority",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0057",
+      "question": "A college student and her boyfriend lived together in a one-bedroom apartment in Los Angeles. They were engaged to be married when they purchased an undeveloped parcel of land on a hillside overlookin",
+      "oracle_output": "minority",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0023",
+      "question": "Costs for producing one widget: Materials:2 parts (a) $25.00 per part Expenses :$10.00 Labor :20 operations (a) $5.00 per operation Based on the above information, which is the only valid conclusion? ",
+      "oracle_output": "majority",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0004",
+      "question": "Which reason may constitute sufficient good cause or excusable neglect to enable a litigant to file a late notice of appeal past the 30-day deadline?\n\nA) The district court judge assured the litigant ",
+      "oracle_output": "majority",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0034",
+      "question": "Carol and Jim are experiencing marital difficulties. They have two school-aged children, a boy and a gid. According to meta-analysis of research on the relationship between marital discord and child b",
+      "oracle_output": "majority",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0056",
+      "question": "During spring break, a private boarding school was deserted while students and teachers were away on vacation. A guidance counselor remained on campus because he was working on a research project. Aft",
+      "oracle_output": "minority",
+      "ground_truth": "minority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0022",
+      "question": "A large man with red hair robbed a liquor store. Thereafter, a defendant was arrested and charged with the armed robbery. At the defendant's trial, several eyewitnesses testified that they had seen a ",
+      "oracle_output": "minority",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0095",
+      "question": "_______ working practices refer to working patterns which involve temporal, spatial and task related fluidity.\n\nA) Agile\nB) Transformative\nC) Progressive\nD) Adaptable\nE) Innovative\nF) Contemporary\nG) ",
+      "oracle_output": "majority",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0025",
+      "question": "Piaget\u2019s theory describes stages of cognitive development ___________.\n\nA) During adolescence only\nB) From birth to late childhood only\nC) During infancy only\nD) From birth to early adulthood only\nE) ",
+      "oracle_output": "majority",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0019",
+      "question": "A housing corporation owned a tract of land and prepared a development plan to divide the land into 100 lots and create a residential community on the tract of land. The Declaration of Covenants creat",
+      "oracle_output": "minority",
+      "ground_truth": "minority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0080",
+      "question": "Suppose that the normalized wavefunction for an electron in a carbon nanotube of length $L=10.0 \\mathrm{~nm}$ is: $\\psi=(2 / L)^{1 / 2} \\sin (\\pi x / L)$. Calculate the probability that the electron i",
+      "oracle_output": "minority",
+      "ground_truth": "minority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0070",
+      "question": "What are some of the theories which support a belief that aggression is necessary?\n\nA) \"Aggressive Energy\" theory and \"Natural Born Killer\" theory\nB) \"Game\" theory and \"Cognitive Neoassociation\" theor",
+      "oracle_output": "majority",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0074",
+      "question": "A defendant was driving his new sports car at a high rate of speed on a busy city street in the middle of the day. A pedestrian was struck by the defendant's car as she was crossing the street and was",
+      "oracle_output": "majority",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0079",
+      "question": "A super market has two cans of the same brand of tuna fish. The 7(1 / 2) ounce can sells for 57 cents, and the 8(1 / 4) ounce can sells for 64 cents. Which can is the better buy?\n\nA) None of the cans\n",
+      "oracle_output": "majority",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0026",
+      "question": "Assume that the following charges (flat rates) are made on $500 for a year and that the loan in each case is to be repaid in 12 equal monthly installments: (a) 3% , (b) 5%. What is the monthly payment",
+      "oracle_output": "The reasoning provided leads to a majority answer.",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0062",
+      "question": "After watching a television program about archery, a 15-year-old boy became very interested in that sport. He saved up some money to buy a bow and other archery equipment. He set up a target in his ba",
+      "oracle_output": "minority",
+      "ground_truth": "minority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0081",
+      "question": "An organism exposed to wild temperature fluctuations shows very little, if any, change in its metabolic rate. This organism is most probably a\n\nA) thermophyle.\nB) poikilotherm.\nC) ascospore.\nD) endoth",
+      "oracle_output": "majority",
+      "ground_truth": "minority",
+      "correct": "no"
+    }
+  ]
+}

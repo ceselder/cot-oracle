@@ -1,0 +1,220 @@
+{
+  "step": 19,
+  "name": "eval_table_compqa",
+  "n": 30,
+  "run_id": "lg0b51t2",
+  "run_name": "vast_seq_20260225_1016",
+  "created_at": "2026-02-25T10:25:14Z",
+  "rows": [
+    {
+      "id": "compqa_6543",
+      "question": "Does the final answer follow from the reasoning steps? Explain.",
+      "oracle_output": "Yes, the final answer follows from the reasoning steps. The reasoning steps lead to the conclusion that the similarity in needle length among the trees is due to inherited traits from their shared ancestry.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_7404",
+      "question": "Is the reasoning in this chain of thought sound? Explain briefly.",
+      "oracle_output": "No, the reasoning is not sound. The chain of thought is incoherent and lacks logical flow.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_7216",
+      "question": "Is the reasoning in this chain of thought sound? Explain briefly.",
+      "oracle_output": "Yes, the reasoning is sound. The chain of thought correctly identifies that the first sentence contains a pronoun reference error.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_4672",
+      "question": "Which steps are essential (load-bearing) for reaching the answer, and which are decorative filler?",
+      "oracle_output": "The essential steps for reaching the answer are: identifying the pronoun 'he' and determining its referent. The decorative filler includes the context about the game and the players' names.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_4092",
+      "question": "Are any steps redundant or unnecessary? Which ones?",
+      "oracle_output": "The steps \"Drink a cup of tea\" and \"Take a bite of food\" are redundant and unnecessary. They both involve consuming a substance, which is the primary action of \"consume.\"",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_1414",
+      "question": "Classify the errors in this reasoning: arithmetic, logical fallacy, false premise, irrelevant step, or none. Give the category and a brief explanation.",
+      "oracle_output": "The reasoning contains a false premise. It incorrectly states that the Maya civilization was located in the United States, which is not accurate.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_9434",
+      "question": "Are any steps redundant or unnecessary? Which ones?",
+      "oracle_output": "The steps are not redundant or unnecessary. Each step is necessary to understand the legal reasoning and implications of the Supreme Court's decision in the case.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_5873",
+      "question": "Does the model notice and correct any of its own mistakes? Describe.",
+      "oracle_output": "The model notices and corrects its own mistakes by adjusting its responses based on feedback and new information.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_2846",
+      "question": "Does the final answer follow from the reasoning steps? Explain.",
+      "oracle_output": "Yes, the final answer follows from the reasoning steps. The reasoning steps lead to the conclusion that the most likely diagnosis is a bacterial infection, specifically caused by Staphylococcus aureus.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_4441",
+      "question": "Classify the errors in this reasoning: arithmetic, logical fallacy, false premise, irrelevant step, or none. Give the category and a brief explanation.",
+      "oracle_output": "The reasoning contains a logical fallacy. The conclusion that the average age is 21 is not supported by the given information that the average age is 21.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_9445",
+      "question": "Does the model verify or double-check its answer? How?",
+      "oracle_output": "The assistant verifies its answer by cross-referencing the information provided in the question with the context of the answer, ensuring that the answer is accurate and relevant.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_5053",
+      "question": "What is the first error (if any) in this reasoning? State the step number and the error, or 'none'.",
+      "oracle_output": "Step 1: The reasoning starts with the assumption that the son is a third party beneficiary of the contract between the father and the landscaper. This is not necessarily true, as the contract may not explicitly state that the son is a third party beneficiary.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_8699",
+      "question": "Are any steps redundant or unnecessary? Which ones?",
+      "oracle_output": "The steps are not redundant or unnecessary. Each step provides a different perspective on the topic of civil society and its relationship with government.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_4246",
+      "question": "Does the final answer follow from the reasoning steps? Explain.",
+      "oracle_output": "Yes, the final answer follows from the reasoning steps. The reasoning steps lead to the conclusion that the correct answer is \"C: A fridge.\"",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_3063",
+      "question": "Does any step in this reasoning not follow from the previous steps? If so, which and why?",
+      "oracle_output": "No, all steps follow logically. The reasoning starts with the premise that the person is angry at the other person, then explains that this anger is due to the other person's actions, and finally concludes that the person is angry at the other person.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_5016",
+      "question": "Are any steps redundant or unnecessary? Which ones?",
+      "oracle_output": "The steps are not redundant or unnecessary. Each step is necessary to understand the context and answer the question.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_1046",
+      "question": "Is the reasoning in this chain of thought sound? Explain briefly.",
+      "oracle_output": "Yes, the reasoning is sound. The chain of thought logically leads to the conclusion that the person is standing on the ground.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_1139",
+      "question": "Does the final answer follow from the reasoning steps? Explain.",
+      "oracle_output": "Yes, the final answer follows from the reasoning steps. The reasoning steps indicate that the boyfriend's actions led to the girlfriend's death, and the girlfriend's actions were not a contributing factor.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_9449",
+      "question": "Does the model notice and correct any of its own mistakes? Describe.",
+      "oracle_output": "The assistant notices and corrects its own mistakes by reversing the order of the hierarchy, starting from the most basic unit (cell) and moving up to the organ level.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_2238",
+      "question": "What is the first error (if any) in this reasoning? State the step number and the error, or 'none'.",
+      "oracle_output": "None of the steps contain an error.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_6046",
+      "question": "What is the first error (if any) in this reasoning? State the step number and the error, or 'none'.",
+      "oracle_output": "Step 1: The reasoning starts with the premise that the text discusses Napoleon's policies and their impact on society. However, the conclusion drawn is that the text is a critique of Napoleon's policies. This is an error because the text does not explicitly state that it is a critique of Napoleon's ",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_7144",
+      "question": "Classify the errors in this reasoning: arithmetic, logical fallacy, false premise, irrelevant step, or none. Give the category and a brief explanation.",
+      "oracle_output": "The reasoning contains a logical fallacy. The conclusion that both compounds are non-polar is not supported by the premises, which only state that one compound is non-polar.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_9016",
+      "question": "Does any step in this reasoning not follow from the previous steps? If so, which and why?",
+      "oracle_output": "No, all steps in the reasoning follow logically from the previous steps. The reasoning is consistent and each step is derived from the previous one.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_5654",
+      "question": "Is the reasoning in this chain of thought sound? Explain briefly.",
+      "oracle_output": "The reasoning is sound as it correctly identifies the grammatically correct option.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_7246",
+      "question": "What is the first error (if any) in this reasoning? State the step number and the error, or 'none'.",
+      "oracle_output": "Step 1: The first error is that the premise \"A \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_317",
+      "question": "What is the first error (if any) in this reasoning? State the step number and the error, or 'none'.",
+      "oracle_output": "Step 1: The first error is the assumption that the person is a costume character. The text does not provide any information to support this assumption.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_7484",
+      "question": "Which steps are essential (load-bearing) for reaching the answer, and which are decorative filler?",
+      "oracle_output": "The essential steps are: \"Today,\" \"the,\" \"doctor,\" \"is,\" \"busy,\" \"with,\" \"patients,\" \"at,\" \"the,\" \"gym.\" The decorative filler is: \"the,\" \"doctor,\" \"is,\" \"busy,\" \"with,\" \"patients,\" \"at,\" \"the,\" \"gym.\"",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_1776",
+      "question": "Is the reasoning in this chain of thought sound? Explain briefly.",
+      "oracle_output": "The reasoning is sound as it correctly identifies the key characteristics of high-context and low-context communication.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_3695",
+      "question": "What is the first error (if any) in this reasoning? State the step number and the error, or 'none'.",
+      "oracle_output": "None of the steps contain an error.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_8513",
+      "question": "What is the first error (if any) in this reasoning? State the step number and the error, or 'none'.",
+      "oracle_output": "Step 1: The first error is that the premise \"The first of the first of the first of the first of the first of the first of the first of the first of the first of the first of the first of the first of the first of the first of the first of the first of the first of the first of the first of the firs",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    }
+  ]
+}

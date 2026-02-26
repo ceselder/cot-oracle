@@ -1,0 +1,510 @@
+{
+  "step": 250,
+  "name": "eval_table_cot_atypical_answer",
+  "n": 50,
+  "run_id": "s74t1fge",
+  "run_name": "sequential_v4",
+  "created_at": "2026-02-26T06:24:55Z",
+  "rows": [
+    {
+      "id": 0,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "Activations from 489 positions across layers 9, 18, 27. Is this a majority or minority answer for this question? Answer: majority or minority.",
+      "prediction": "The majority of the symptoms described\u2014nausea, diarrhea, and vomiting\u2014occur within a few hours after consuming the food, which is consistent with a **foodborne illness**. Among the options provided, **Staphylococcus aureus** is the most likely culprit because:\n\n- **Staphylococcus aureus** produces **toxins** that are **heat-stable** and can survive boiling. This matches the scenario where the woman boiled the beans but still became",
+      "target": "majority",
+      "token_f1": 0.04,
+      "pred_tokens": 61,
+      "target_tokens": 1
+    },
+    {
+      "id": 1,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "Activations from 576 positions across layers 9, 18, 27. Is this a majority or minority answer for this question? Answer: majority or minority.",
+      "prediction": "The correct answer is **G**. Here's the breakdown:\n\n- **Pasture Land**: Deeded to Tommy by Bob. Valid deed, so Tommy owns it. (Correct)\n- **Condominium**: Deeded to Bob and Kathy by Bob. Valid deed, so Kathy owns it via tenancy by the entireties. (Correct)\n- **Rest of Assets**: Deeded to Tommy and Kathy by Bob. Valid deed, so they split equally. (Correct)\n- **Pren",
+      "target": "majority",
+      "token_f1": 0.0,
+      "pred_tokens": 64,
+      "target_tokens": 1
+    },
+    {
+      "id": 2,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "Activations from 366 positions across layers 9, 18, 27. Is this a majority or minority answer for this question? Answer: majority or minority.",
+      "prediction": "The correct answer is **C**. \n\n**Explanation:**  \nAccording to the VCLT, a reservation is invalid only if it is **incompatible with a peremptory norm of international law** (Article 19(1)(b)). This is a **majority** answer because it directly aligns with the VCLT's provisions. \n\n**Why not the others?**  \n- **Option A** refers to a majority of states, which is not a valid basis for",
+      "target": "minority",
+      "token_f1": 0.0,
+      "pred_tokens": 61,
+      "target_tokens": 1
+    },
+    {
+      "id": 3,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "Activations from 153 positions across layers 9, 18, 27. Is this a majority or minority answer for this question? Answer: majority or minority.",
+      "prediction": "minority",
+      "target": "majority",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 4,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "Activations from 390 positions across layers 9, 18, 27. Is this a majority or minority answer for this question? Answer: majority or minority.",
+      "prediction": "The correct answer is **H**. The idea that evolution occurs through a process of natural selection is a specific and original proposal by Charles Darwin. This is a key part of his theory of evolution by natural selection, which he presented in his book **On the Origin of Species**. The other options either refer to concepts that were proposed earlier or are not directly attributable to Darwin's original work.",
+      "target": "majority",
+      "token_f1": 0.0,
+      "pred_tokens": 69,
+      "target_tokens": 1
+    },
+    {
+      "id": 5,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "Activations from 456 positions across layers 9, 18, 27. Is this a majority or minority answer for this question? Answer: majority or minority.",
+      "prediction": "The correct answer is **G) Administering the Thematic Apperception Test (TAT) and analyzing the stories told by individuals**. This method is a well-established psychological tool for measuring individual achievement motivation, as it involves projective techniques where individuals interpret ambiguous images, and their responses are analyzed for underlying motivations. While other options may relate to achievement in some way, they do not directly measure nAch as effectively as the TAT.",
+      "target": "minority",
+      "token_f1": 0.0,
+      "pred_tokens": 69,
+      "target_tokens": 1
+    },
+    {
+      "id": 6,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "Activations from 483 positions across layers 9, 18, 27. Is this a majority or minority answer for this question? Answer: majority or minority.",
+      "prediction": "The majority of the answer choices are close to 288 GHz, but the closest one is **288 GHz** (Option E). However, the exact calculation gives us approximately 288 GHz, which is not listed among the options. The closest option is **288 GHz**, which is likely the intended answer. However, the options provided do not include this exact value, so there might be a rounding difference or a different approach in the problem setup. But based on",
+      "target": "minority",
+      "token_f1": 0.0,
+      "pred_tokens": 76,
+      "target_tokens": 1
+    },
+    {
+      "id": 7,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "Activations from 594 positions across layers 9, 18, 27. Is this a majority or minority answer for this question? Answer: majority or minority.",
+      "prediction": "The correct answer is **A**. The Supreme Court has consistently held that a declaratory judgment is not a substitute for a criminal prosecution and should not be issued if it would interfere with the state's ability to enforce its laws. In this case, the plaintiff's fears of future prosecution and the police's warning to his friends indicate a genuine threat, but the Court would likely reject the declaratory judgment to avoid undermining the state's enforcement of its protest laws. Therefore, th",
+      "target": "minority",
+      "token_f1": 0.0,
+      "pred_tokens": 84,
+      "target_tokens": 1
+    },
+    {
+      "id": 8,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "Activations from 378 positions across layers 9, 18, 27. Is this a majority or minority answer for this question? Answer: majority or minority.",
+      "prediction": "The correct answer is **I.** The defendant's actions meet the elements of conspiracy to commit assault in a national park, as the agreement and intent are present, and the location of the park is not a required element for the conspiracy charge.",
+      "target": "minority",
+      "token_f1": 0.0,
+      "pred_tokens": 42,
+      "target_tokens": 1
+    },
+    {
+      "id": 9,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "Activations from 354 positions across layers 9, 18, 27. Is this a majority or minority answer for this question? Answer: majority or minority.",
+      "prediction": "The correct answer is **E) 80**. This is the **majority** answer because it is the only option that matches the calculated value of 80 extra members.",
+      "target": "majority",
+      "token_f1": 0.0,
+      "pred_tokens": 26,
+      "target_tokens": 1
+    },
+    {
+      "id": 10,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "Activations from 654 positions across layers 9, 18, 27. Is this a majority or minority answer for this question? Answer: majority or minority.",
+      "prediction": "The correct answer is **A) The law is constitutional because Congress has the power to regulate interstate commerce.**\n\n### Explanation:\n\n- **Interstate Commerce Clause**: The law restricts the **distribution** of the contraceptive pill across state lines, which is a classic example of **interstate commerce**. Congress has broad authority under the Commerce Clause to regulate activities that substantially affect interstate commerce, especially when it comes to **public health and safety**.\n\n- **",
+      "target": "majority",
+      "token_f1": 0.0,
+      "pred_tokens": 78,
+      "target_tokens": 1
+    },
+    {
+      "id": 11,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "Activations from 267 positions across layers 9, 18, 27. Is this a majority or minority answer for this question? Answer: majority or minority.",
+      "prediction": "The answer is **F) Preconceptions**. This is the only option that is not part of Schein's model of organizational culture.",
+      "target": "majority",
+      "token_f1": 0.0,
+      "pred_tokens": 20,
+      "target_tokens": 1
+    },
+    {
+      "id": 12,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "Activations from 528 positions across layers 9, 18, 27. Is this a majority or minority answer for this question? Answer: majority or minority.",
+      "prediction": "The correct answer is **J: both tires and bicycles**. \n\n### Reasoning:\n- **Ad valorem property tax** is based on the **location** of the property, not its use or distribution status.\n- **Tires** are stored in the warehouse, which is within the county's jurisdiction. Therefore, they are subject to ad valorem tax.\n- **Bicycles** are stored on the docks, which are also within the county's jurisdiction. Thus, they are also",
+      "target": "minority",
+      "token_f1": 0.0,
+      "pred_tokens": 69,
+      "target_tokens": 1
+    },
+    {
+      "id": 13,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "Activations from 393 positions across layers 9, 18, 27. Is this a majority or minority answer for this question? Answer: majority or minority.",
+      "prediction": "The question asks which theory best fits the idea that a child's misbehavior has one of four goals: attention, power, revenge, or peer approval. \n\nLet's analyze each option:\n\nA) Bandura's social learning theory: Focuses on learning through observation and imitation. It doesn't specifically address the goals behind misbehavior. \u274c\n\nB) Skinner's operant conditioning: Emphasizes reinforcement and punishment. It doesn't delve into the underlying goals of behavior. \u274c\n\nC",
+      "target": "majority",
+      "token_f1": 0.0,
+      "pred_tokens": 68,
+      "target_tokens": 1
+    },
+    {
+      "id": 14,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "Activations from 1746 positions across layers 9, 18, 27. Is this a majority or minority answer for this question? Answer: majority or minority.",
+      "prediction": "The majority of the answer is A: 0.29, 0.35, 0.26.",
+      "target": "minority",
+      "token_f1": 0.0,
+      "pred_tokens": 10,
+      "target_tokens": 1
+    },
+    {
+      "id": 15,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "Activations from 588 positions across layers 9, 18, 27. Is this a majority or minority answer for this question? Answer: majority or minority.",
+      "prediction": "The correct answer is **G: have standing jus tertii, if the physician is willing to suffer the risk of harm to his patients.**\n\n### Explanation:\n\n- **Standing (jus tertii)** allows a plaintiff to assert a claim on behalf of a third party if:\n  1. The plaintiff has a **close relationship** with the third party.\n  2. The third party is **unwilling or unable** to assert their own claim.\n  3. The plaintiff",
+      "target": "minority",
+      "token_f1": 0.0,
+      "pred_tokens": 70,
+      "target_tokens": 1
+    },
+    {
+      "id": 16,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "Activations from 636 positions across layers 9, 18, 27. Is this a majority or minority answer for this question? Answer: majority or minority.",
+      "prediction": "The correct answer is **D) the agreement was recorded in the chain of title.** This is the majority answer because it correctly identifies the key legal principle that recorded easements with conditions bind subsequent purchasers. The other options either misinterpret the nature of the agreement or focus on irrelevant factors like payment or estate.",
+      "target": "minority",
+      "token_f1": 0.0,
+      "pred_tokens": 54,
+      "target_tokens": 1
+    },
+    {
+      "id": 17,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "Activations from 480 positions across layers 9, 18, 27. Is this a majority or minority answer for this question? Answer: majority or minority.",
+      "prediction": "The correct answer is **G)**: \"The government must prove that the defendant knew that his actions were illegal.\" This aligns with the legal standard that **knowingly** in criminal law typically requires **knowledge of the illegality**, not necessarily the intent to commit a crime. The Supreme Court is likely to affirm this interpretation, as it reflects the standard meaning of \"knowingly\" in criminal statutes.",
+      "target": "majority",
+      "token_f1": 0.0,
+      "pred_tokens": 63,
+      "target_tokens": 1
+    },
+    {
+      "id": 18,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "Activations from 345 positions across layers 9, 18, 27. Is this a majority or minority answer for this question? Answer: majority or minority.",
+      "prediction": "The majority of the options are incorrect. However, the correct answer is **I**.",
+      "target": "minority",
+      "token_f1": 0.0,
+      "pred_tokens": 13,
+      "target_tokens": 1
+    },
+    {
+      "id": 19,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "Activations from 567 positions across layers 9, 18, 27. Is this a majority or minority answer for this question? Answer: majority or minority.",
+      "prediction": "The correct answer is **B) Yes, because the farmer had a duty of care to protect the property from dangerous activities.**\n\nThis answer is **majority** because it aligns with the legal principle that landowners have a duty to ensure their property is safe, especially when it's used for potentially dangerous activities like hunting. The farmer's failure to train or warn the friend, and the lack of safety measures, supports this conclusion.",
+      "target": "minority",
+      "token_f1": 0.0,
+      "pred_tokens": 71,
+      "target_tokens": 1
+    },
+    {
+      "id": 20,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "Activations from 1200 positions across layers 9, 18, 27. Is this a majority or minority answer for this question? Answer: majority or minority.",
+      "prediction": "assistant\n<think>\n\nOkay, let me try to figure out the ending inventory for the given data. The question provides the inventory data for 2018, and we need to calculate the ending inventory using three different methods: weighted average, LIFO, and FIFO. The answer choices are given, and I need to match the correct one.\n\nFirst, let me recall what each method entails:\n\n1. **Weighted Average Method**: This method calculates the average cost per unit of all the inventory",
+      "target": "majority",
+      "token_f1": 0.0,
+      "pred_tokens": 78,
+      "target_tokens": 1
+    },
+    {
+      "id": 21,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "Activations from 648 positions across layers 9, 18, 27. Is this a majority or minority answer for this question? Answer: majority or minority.",
+      "prediction": "The correct answer is **A: The man failed to secure the property knowing the neighbor would enter the yard to retrieve the item**. This option directly addresses the man's negligence in securing the property, which is a key factor in determining liability. The other options either focus on insufficient elements (like trespassing) or misinterpret the legal responsibilities. Therefore, the answer is a **majority** answer.",
+      "target": "minority",
+      "token_f1": 0.0,
+      "pred_tokens": 64,
+      "target_tokens": 1
+    },
+    {
+      "id": 22,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "Activations from 366 positions across layers 9, 18, 27. Is this a majority or minority answer for this question? Answer: majority or minority.",
+      "prediction": "assistant\n<think>\n\nOkay, let's break this down. The question is about whether Penny's actions are legal and ethical. The key points are that she bills the insurance company for her full fee when patients cancel appointments with less than 24 hours' notice. \n\nFirst, I need to consider the legality. In most places, there are laws about notice periods for canceling appointments. For example, in the U.S., some states have specific rules about how much notice is required. If Penny",
+      "target": "majority",
+      "token_f1": 0.0,
+      "pred_tokens": 79,
+      "target_tokens": 1
+    },
+    {
+      "id": 23,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "Activations from 411 positions across layers 9, 18, 27. Is this a majority or minority answer for this question? Answer: majority or minority.",
+      "prediction": "The correct answer is **E**: \"Seven periods: mythological, theological, philosophical, metaphysical, empirical, analytical, and contemporary.\"\n\nThis option provides a comprehensive and historically accurate progression of the study of social behavior, covering all major phases from ancient times to the present. It aligns with the standard historical narrative in the field of sociology and related disciplines.",
+      "target": "majority",
+      "token_f1": 0.0,
+      "pred_tokens": 55,
+      "target_tokens": 1
+    },
+    {
+      "id": 24,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "Activations from 402 positions across layers 9, 18, 27. Is this a majority or minority answer for this question? Answer: majority or minority.",
+      "prediction": "The correct answer is **I**. Chromosomal variations can result in intersex conditions, which are characterized by **intersex traits** and are often due to abnormalities in sex chromosomes. This directly addresses the question of how chromosomal variations affect sex determination.",
+      "target": "majority",
+      "token_f1": 0.0,
+      "pred_tokens": 39,
+      "target_tokens": 1
+    },
+    {
+      "id": 25,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "Activations from 219 positions across layers 9, 18, 27. Is this a majority or minority answer for this question? Answer: majority or minority.",
+      "prediction": "majority",
+      "target": "majority",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 26,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "Activations from 618 positions across layers 9, 18, 27. Is this a majority or minority answer for this question? Answer: majority or minority.",
+      "prediction": "The correct answer is **E**. The key point is that the columnist did not authorize or direct the apprentice's actions. Since the apprentice acted independently, the columnist is not liable for the unauthorized copying and publication. The other options either focus on the wrongdoer (apprentice) or misinterpret the legal liability.",
+      "target": "majority",
+      "token_f1": 0.0,
+      "pred_tokens": 50,
+      "target_tokens": 1
+    },
+    {
+      "id": 27,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "Activations from 288 positions across layers 9, 18, 27. Is this a majority or minority answer for this question? Answer: majority or minority.",
+      "prediction": "assistant\n<think>\n\nOkay, let's tackle this question step by step. The question is asking which stage of sleep is characterized by EEG patterns that show alpha and beta waves. The options are stages 1, 2, 3, 4, REM, consciousness, unconsciousness, coma, death, and NREM.\n\nFirst, I need to recall what each sleep stage entails. From what I remember, sleep is divided into NREM (Non-Rapid Eye Movement) and REM (R",
+      "target": "minority",
+      "token_f1": 0.0,
+      "pred_tokens": 69,
+      "target_tokens": 1
+    },
+    {
+      "id": 28,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "Activations from 588 positions across layers 9, 18, 27. Is this a majority or minority answer for this question? Answer: majority or minority.",
+      "prediction": "The correct answer is **C) The airline made the statement without malice.** This aligns with the legal principle that false statements in commercial speech are protected under the First Amendment if they are not made with actual malice. The other options either address different legal aspects or do not directly support the defense based on the First Amendment.",
+      "target": "minority",
+      "token_f1": 0.0,
+      "pred_tokens": 58,
+      "target_tokens": 1
+    },
+    {
+      "id": 29,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "Activations from 591 positions across layers 9, 18, 27. Is this a majority or minority answer for this question? Answer: majority or minority.",
+      "prediction": "The correct answer is **B) resulting trust**. \n\n### Explanation:\n\nThe daughter's claim is based on the **promise** made by the widower to transfer the farm to her if she cared for him. This promise, though not in writing, was **relied upon** by the daughter, who **changed her life** to stay and care for him. This creates a **resulting trust**, where the **beneficiary (daughter)** is entitled to the property because the **prom",
+      "target": "minority",
+      "token_f1": 0.0,
+      "pred_tokens": 71,
+      "target_tokens": 1
+    },
+    {
+      "id": 30,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "Activations from 216 positions across layers 9, 18, 27. Is this a majority or minority answer for this question? Answer: majority or minority.",
+      "prediction": "majority",
+      "target": "majority",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 31,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "Activations from 426 positions across layers 9, 18, 27. Is this a majority or minority answer for this question? Answer: majority or minority.",
+      "prediction": "The correct answer is **B)**. The distributor has the right to accept or reject orders, and the retailer's claim for damages is not supported by the agreement.",
+      "target": "majority",
+      "token_f1": 0.0,
+      "pred_tokens": 27,
+      "target_tokens": 1
+    },
+    {
+      "id": 32,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "Activations from 315 positions across layers 9, 18, 27. Is this a majority or minority answer for this question? Answer: majority or minority.",
+      "prediction": "majority",
+      "target": "majority",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 33,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "Activations from 852 positions across layers 9, 18, 27. Is this a majority or minority answer for this question? Answer: majority or minority.",
+      "prediction": "The question asks us to estimate how many gene pairs are involved in the variation of the trait, given the data from the F\u2081 and F\u2082 generations. The data includes the mean, variance, and the cause of variation for each generation.\n\n### Step 1: Understand the Data\n\nFrom the data:\n\n- **Strain A**: Mean = 2.0 mm, Variance = 1.0 mm\u00b2 (environmental cause)\n- **Strain B**: Mean = 39",
+      "target": "minority",
+      "token_f1": 0.0,
+      "pred_tokens": 69,
+      "target_tokens": 1
+    },
+    {
+      "id": 34,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "Activations from 474 positions across layers 9, 18, 27. Is this a majority or minority answer for this question? Answer: majority or minority.",
+      "prediction": "**Answer:** majority\n\n**Explanation:** The majority of the answer choices suggest that the activity cycle is influenced by external factors like tides, temperature, or barometric pressure. However, the correct answer (C) suggests that the activity cycle is **independent of the tides**, which aligns with the observation that the crabs maintain their cycle even without tides. This makes (C) the correct choice, and the majority of other options are incorrect.",
+      "target": "majority",
+      "token_f1": 0.043,
+      "pred_tokens": 68,
+      "target_tokens": 1
+    },
+    {
+      "id": 35,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "Activations from 1098 positions across layers 9, 18, 27. Is this a majority or minority answer for this question? Answer: majority or minority.",
+      "prediction": "assistant\n<think>\n\nOkay, let me try to figure out this problem step by step. So, the question is about calculating the increase in stockholders' taxes after a new product is introduced. The company has a net income of $30,000, and the stockholders are Derman and Herman, each receiving half of the dividends. The new product adds $10,000 pre-tax to the net income. We need to find the increase in their taxes after this",
+      "target": "majority",
+      "token_f1": 0.0,
+      "pred_tokens": 73,
+      "target_tokens": 1
+    },
+    {
+      "id": 36,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "Activations from 471 positions across layers 9, 18, 27. Is this a majority or minority answer for this question? Answer: majority or minority.",
+      "prediction": "The correct answer is **A) Admissible, because it goes to the credibility of the defendant as a witness**. This is a majority answer because it aligns with the legal principles of credibility and impeachment under Rule 608.",
+      "target": "minority",
+      "token_f1": 0.0,
+      "pred_tokens": 37,
+      "target_tokens": 1
+    },
+    {
+      "id": 37,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "Activations from 615 positions across layers 9, 18, 27. Is this a majority or minority answer for this question? Answer: majority or minority.",
+      "prediction": "The correct answer is **C: The statement is hearsay and is not admissible under any exception to the hearsay rule.**\n\n### Explanation:\n- **Hearsay Rule**: Grand jury statements are generally **inadmissible** as evidence in a trial because they are **hearsay**. Hearsay is an out-of-court statement offered to prove the truth of the matter asserted.\n- **Exceptions to Hearsay**: Even if the statement were made under oath (as in a",
+      "target": "majority",
+      "token_f1": 0.0,
+      "pred_tokens": 69,
+      "target_tokens": 1
+    },
+    {
+      "id": 38,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "Activations from 450 positions across layers 9, 18, 27. Is this a majority or minority answer for this question? Answer: majority or minority.",
+      "prediction": "The correct answer is **A) No, because the neighbor knew about the dogs' ferocity and chose to enter the yard anyway.**\n\nThis is a **majority** answer because it aligns with the legal principle that a trespasser who knows about dangers on the property and chooses to enter assumes the risk. The other options either misinterpret the facts or apply incorrect legal standards.",
+      "target": "minority",
+      "token_f1": 0.0,
+      "pred_tokens": 62,
+      "target_tokens": 1
+    },
+    {
+      "id": 39,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "Activations from 879 positions across layers 9, 18, 27. Is this a majority or minority answer for this question? Answer: majority or minority.",
+      "prediction": "The correct answer is **F**. The presence of malaria in Africa leads to the **absence** of the sickle-cell genotype in African populations. This is because the **homozygous** form of the gene (SS) is **fatal** in malaria-endemic regions, leading to **natural selection** against it. In contrast, in the U.S., where malaria is **not present**, the **homozygous** form is not selected against, and thus the",
+      "target": "minority",
+      "token_f1": 0.0,
+      "pred_tokens": 63,
+      "target_tokens": 1
+    },
+    {
+      "id": 40,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "Activations from 411 positions across layers 9, 18, 27. Is this a majority or minority answer for this question? Answer: majority or minority.",
+      "prediction": "assistant\n<think>\n\nOkay, let's break this down. The question is about a federal civil case where the jury was supposed to have six jurors, but two were replaced by alternates, and then one alternate became ill. The attorneys stipulated to use a five-juror jury. The options are about whether this was valid.\n\nFirst, I remember that in federal civil cases, the jury size is typically six jurors. The Federal Rules of Civil Procedure, specifically Rule 48, require a",
+      "target": "minority",
+      "token_f1": 0.0,
+      "pred_tokens": 78,
+      "target_tokens": 1
+    },
+    {
+      "id": 41,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "Activations from 549 positions across layers 9, 18, 27. Is this a majority or minority answer for this question? Answer: majority or minority.",
+      "prediction": "The correct answer is **F) The terms of the agreement state that the fee is nonrefundable, so the executor cannot recover any of the $2,500.**\n\n### Explanation:\n\nThe key factor in this scenario is the **nonrefundable nature of the fee** as specified in the agreement. The contract explicitly states that the $2,500 fee is **nonrefundable**, and the fan signed the agreement, indicating acceptance of this term. \n\nEven though the fan",
+      "target": "majority",
+      "token_f1": 0.0,
+      "pred_tokens": 70,
+      "target_tokens": 1
+    },
+    {
+      "id": 42,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "Activations from 603 positions across layers 9, 18, 27. Is this a majority or minority answer for this question? Answer: majority or minority.",
+      "prediction": "",
+      "target": "majority",
+      "token_f1": 0.0,
+      "pred_tokens": 0,
+      "target_tokens": 1
+    },
+    {
+      "id": 43,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "Activations from 228 positions across layers 9, 18, 27. Is this a majority or minority answer for this question? Answer: majority or minority.",
+      "prediction": "The correct answer is **G**, which is a majority answer because it accurately defines psychosomatic disorders and describes the appropriate treatment approach.",
+      "target": "majority",
+      "token_f1": 0.1,
+      "pred_tokens": 22,
+      "target_tokens": 1
+    },
+    {
+      "id": 44,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "Activations from 543 positions across layers 9, 18, 27. Is this a majority or minority answer for this question? Answer: majority or minority.",
+      "prediction": "The correct answer is **B) The preferred stock is nonvoting, so its vote doesn\u2019t count**. This is incorrect because the preferred stock, although nonvoting, is still part of the total shares, and the majority of the total shares (1,100 out of 2,000) voted in favor. However, the key issue is whether the preferred stockholders' vote is required. Since the preferred stock is nonvoting, their vote does not count",
+      "target": "minority",
+      "token_f1": 0.0,
+      "pred_tokens": 68,
+      "target_tokens": 1
+    },
+    {
+      "id": 45,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "Activations from 747 positions across layers 9, 18, 27. Is this a majority or minority answer for this question? Answer: majority or minority.",
+      "prediction": "The correct answer is **A: constitutional, because it is a rational basis for the special demands of the police function.**\n\n### Explanation:\n\n- **Rational Basis Test (A):** The statute requires U.S. citizenship for police officers, which is a **rational basis** for the government's interest in ensuring the safety and trustworthiness of law enforcement personnel. The government has a **substantial interest** in maintaining a police force that is loyal to the state and the nation, and",
+      "target": "majority",
+      "token_f1": 0.0,
+      "pred_tokens": 75,
+      "target_tokens": 1
+    },
+    {
+      "id": 46,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "Activations from 333 positions across layers 9, 18, 27. Is this a majority or minority answer for this question? Answer: majority or minority.",
+      "prediction": "The correct answer is **B: The number of action potentials per second**. This is the majority answer because it directly relates to how the brain encodes stimulus intensity through the rate of firing.",
+      "target": "majority",
+      "token_f1": 0.074,
+      "pred_tokens": 33,
+      "target_tokens": 1
+    },
+    {
+      "id": 47,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "Activations from 414 positions across layers 9, 18, 27. Is this a majority or minority answer for this question? Answer: majority or minority.",
+      "prediction": "The correct answer is **G**. \n\n**Explanation:**\n\n- **Option G** states: \"Slander does not require the plaintiff to suffer emotional damages.\" This is **incorrect** because, in many jurisdictions (especially in the U.S.), **slander** (spoken defamation) typically requires the plaintiff to prove **actual damages** (such as harm to reputation, financial loss, or emotional distress). Emotional damages are a form of actual damages, and in some cases, **libel**",
+      "target": "minority",
+      "token_f1": 0.0,
+      "pred_tokens": 65,
+      "target_tokens": 1
+    },
+    {
+      "id": 48,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "Activations from 612 positions across layers 9, 18, 27. Is this a majority or minority answer for this question? Answer: majority or minority.",
+      "prediction": "The majority of the answer choices are in the range of 60,000 to 100,000 g/mol. However, the calculated molecular weight is approximately **63,000 g/mol**, which is closest to **60,000 g/mol**. Therefore, the answer is:\n\n**B) 60,000 g/mol** is the **majority** answer.",
+      "target": "minority",
+      "token_f1": 0.0,
+      "pred_tokens": 41,
+      "target_tokens": 1
+    },
+    {
+      "id": 49,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "Activations from 501 positions across layers 9, 18, 27. Is this a majority or minority answer for this question? Answer: majority or minority.",
+      "prediction": "The correct answer is **majority**. The reasoning provided in the answer aligns with the majority legal perspective that an owner is not liable for the actions of a security company's employee if the employee was acting within the scope of their employment. The key points include the termination notice not being communicated, the guard's actions being part of his duties, and the owner not being responsible for the guard's negligence. This is a standard principle in tort law, where employers are ",
+      "target": "minority",
+      "token_f1": 0.0,
+      "pred_tokens": 85,
+      "target_tokens": 1
+    }
+  ]
+}

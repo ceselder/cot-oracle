@@ -1,0 +1,192 @@
+{
+  "step": 304,
+  "name": "eval_table_compqa",
+  "n": 26,
+  "run_id": "r7g3a929",
+  "run_name": "sequential",
+  "created_at": "2026-02-25T04:26:23Z",
+  "rows": [
+    {
+      "id": "compqa_3655",
+      "question": "Does the final answer follow from the reasoning steps? Explain.",
+      "oracle_output": "yes",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_8059",
+      "question": "Which steps are essential (load-bearing) for reaching the answer, and which are decorative filler?",
+      "oracle_output": "essential for understanding the context and the specific policies of the New Deal. The question is about the response to the Townsend Plan, which is a key part of the New Deal's social welfare policies.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_8704",
+      "question": "Which steps are essential (load-bearing) for reaching the answer, and which are decorative filler?",
+      "oracle_output": "essential for understanding the question and the options. The key is recognizing the difference between a compound and a mixture. The answer hinges on this distinction, making it a critical step.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_307",
+      "question": "Is the model reasoning forward from givens, backward from the answer, or mixed?",
+      "oracle_output": "mixed. The model starts by analyzing the options, identifies the key elements (pronoun, antecedent), and applies the definition of vague pronoun reference to determine which options fit. This involves both forward reasoning (analyzing each option) and",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_8282",
+      "question": "Does the final answer follow from the reasoning steps? Explain.",
+      "oracle_output": "Yes, the final answer follows from the reasoning steps. The problem is solved by converting the dollar amount to cents, dividing by the value of a quarter in cents, and confirming the result with an alternative method. The answer is consistent",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_5378",
+      "question": "Does the model verify or double-check its answer? How?",
+      "oracle_output": "that the question is about what the soldier would have seen, not what he expected. Therefore, the answer is C",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_4040",
+      "question": "What is the first error (if any) in this reasoning? State the step number and the error, or 'none'.",
+      "oracle_output": "1. **Statement A:** \"Barr bodies are formed in the early stages of development in the cells of the female body.\" This is correct. Barr bodies are formed during the early stages of development in female cells.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_339",
+      "question": "Which steps are essential (load-bearing) for reaching the answer, and which are decorative filler?",
+      "oracle_output": "essential for understanding the sequence of events in geological formations. The Law of Superposition is a foundational principle in geology that allows scientists to determine the relative ages of rock layers.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_2690",
+      "question": "Does the final answer follow from the reasoning steps? Explain.",
+      "oracle_output": "yes",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_1245",
+      "question": "Is the reasoning in this chain of thought sound? Explain briefly.",
+      "oracle_output": "yes",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_4892",
+      "question": "Does the final answer follow from the reasoning steps? Explain.",
+      "oracle_output": "yes",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_1113",
+      "question": "Is the reasoning in this chain of thought sound? Explain briefly.",
+      "oracle_output": "yes",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_3912",
+      "question": "Is the reasoning in this chain of thought sound? Explain briefly.",
+      "oracle_output": "yes. The reasoning is sound as it correctly identifies the apartment as the location where the ficus can be placed on the carpet without being dirty, while avoiding the other options that either don't make sense or are not suitable for the plant",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_5907",
+      "question": "What is the first error (if any) in this reasoning? State the step number and the error, or 'none'.",
+      "oracle_output": "none",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_1489",
+      "question": "Does the model notice and correct any of its own mistakes? Describe.",
+      "oracle_output": ".",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_7305",
+      "question": "Are any steps redundant or unnecessary? Which ones?",
+      "oracle_output": "redundant. The combination formula already accounts for the order of selection, so using permutations is unnecessary. The multiplication principle is sufficient and more straightforward",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_5554",
+      "question": "Does the final answer follow from the reasoning steps? Explain.",
+      "oracle_output": "yes",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_5491",
+      "question": "Does the final answer follow from the reasoning steps? Explain.",
+      "oracle_output": "yes",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_1899",
+      "question": "Are any steps redundant or unnecessary? Which ones?",
+      "oracle_output": " redundant. The key is that the newspaper is a private entity, so the First Amendment does not require it to publish the ad. The other options either misinterpret the First Amendment or focus on irrelevant aspects like personal feelings or legal obligations.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_2283",
+      "question": "What is the first error (if any) in this reasoning? State the step number and the error, or 'none'.",
+      "oracle_output": "none",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_5507",
+      "question": "Is the reasoning in this chain of thought sound? Explain briefly.",
+      "oracle_output": "J",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_4203",
+      "question": "Does the model verify or double-check its answer? How?",
+      "oracle_output": "that the experiment is about the effect of arm length on the distance the ball travels. The other options involve different variables (ball type, ball weight) or are not directly related to the experiment's purpose. Therefore, the answer is",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_634",
+      "question": "Does the final answer follow from the reasoning steps? Explain.",
+      "oracle_output": "yes",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_2287",
+      "question": "What is the first error (if any) in this reasoning? State the step number and the error, or 'none'.",
+      "oracle_output": "1",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_7454",
+      "question": "Is the reasoning in this chain of thought sound? Explain briefly.",
+      "oracle_output": "I",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_8115",
+      "question": "Does any step in this reasoning not follow from the previous steps? If so, which and why?",
+      "oracle_output": "not follow. The hypothesis is about the effect of attending lectures, not about the effect of the lecture content. The content of the lecture is not being manipulated; it's the attendance that is. Therefore, the independent variable is not the content of the",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    }
+  ]
+}

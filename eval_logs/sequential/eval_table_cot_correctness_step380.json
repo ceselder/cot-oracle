@@ -1,0 +1,510 @@
+{
+  "step": 380,
+  "name": "eval_table_cot_correctness",
+  "n": 50,
+  "run_id": "r7g3a929",
+  "run_name": "sequential",
+  "created_at": "2026-02-25T04:26:23Z",
+  "rows": [
+    {
+      "id": 0,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "No, the model's final answer is incorrect. The model claims the quote is from \"The Little Prince\" by Antoine de Saint-Exup\u00e9ry, but the actual source is the 1932 book \"The Road Back\" by Erich Maria Remarque.",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 36,
+      "target_tokens": 1
+    },
+    {
+      "id": 1,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "The model's final answer is **correct**.\n\nThe model correctly identifies that the number of balls in a triangular arrangement is the sum of the first $ n $ natural numbers, $ T_n = \\frac{n(n+1)}{2} $. It then sets up the equation $ T_n + 19 = S $, where $ S $ is the square of the side length of the square. By testing the given options, it finds that $ n = 15 $ satisfies the",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 77,
+      "target_tokens": 1
+    },
+    {
+      "id": 2,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "The model's final answer is incorrect. The chain of thought correctly identifies that stealing is wrong and that the question is likely testing Islamic teachings, but it fails to provide a direct response to the prompt. The model's reasoning ends with an incomplete thought about the user's intent, and the final answer is missing.",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 54,
+      "target_tokens": 1
+    },
+    {
+      "id": 3,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "The model's final answer is incorrect. The question asks for the country where a centavo is used, but the provided options are all currencies (peso, dollar, euro, etc.), not countries. The correct answer would be a country like the Philippines or Mexico, which use the centavo as a subdivision of their currency.",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 52,
+      "target_tokens": 1
+    },
+    {
+      "id": 4,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "The model's final answer is **correct**.\n\nThe model correctly identifies that if both 72 and 108 are divisible by $ x $, then $ x $ must be a common divisor of both numbers. The GCD of 72 and 108 is 36, so $ x $ must be a factor of 36. Since 36 is divisible by 12, 18, and 36, all three statements (I",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 65,
+      "target_tokens": 1
+    },
+    {
+      "id": 5,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "Yes, the model's final answer is correct. The model correctly adds 179 and 38 to get 217 birds in the tree.",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 21,
+      "target_tokens": 1
+    },
+    {
+      "id": 6,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "The model's final answer is incorrect. The chain of thought correctly identifies the need for a short, toxic comment about shared living space, but the final response is a generic, neutral statement (\"I'm sorry, but I'm not comfortable sharing a space with someone who doesn't respect boundaries\") that lacks the specific, toxic language the chain of thought was analyzing.",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 59,
+      "target_tokens": 1
+    },
+    {
+      "id": 7,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "No, the model's final answer is incorrect. The model concludes that \"cell-surface adhesion\" is a correct method for cholesterol uptake, but the correct answer is \"B) pinocytosis.\" The model's reasoning correctly identifies that LDL is taken up via receptor-mediated endocytosis, which is a form of pinocytosis, but it incorrectly labels the process as \"cell-surface adhesion\" instead of the more accurate term \"pinocytosis.\"",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 62,
+      "target_tokens": 1
+    },
+    {
+      "id": 8,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "The model's final answer is correct. The length of the platform is calculated as $120 \\, \\text{m} - 100 \\, \\text{m} = 20 \\, \\text{m}$, which matches option B.",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 29,
+      "target_tokens": 1
+    },
+    {
+      "id": 9,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "The model's final answer is **correct**.\n\nThe sentence states that the person was \"bad\" but \"everything he said was...\" The contrast between being \"bad\" and having \"good\" words implies that the speaker is highlighting the positive aspect of his speech despite his negative character. The word \"good\" fits this contrast, making it the correct choice.",
+      "target": "correct",
+      "token_f1": 0.045,
+      "pred_tokens": 55,
+      "target_tokens": 1
+    },
+    {
+      "id": 10,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "The model's final answer is correct. The bowl originally had 15 candies.",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 12,
+      "target_tokens": 1
+    },
+    {
+      "id": 11,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "The model's final answer is **incorrect**. The model correctly identifies that \"survive\" is a verb and not a noun, but it fails to address the user's request to add an adjective before the noun \"survive.\" The user likely intended to add an adjective before the noun \"survive,\" but the model's response does not provide a grammatically correct sentence with an adjective before the noun.",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 64,
+      "target_tokens": 1
+    },
+    {
+      "id": 12,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "The model's final answer is **correct**. The text does not contain any abbreviations. The model correctly identified that \"Electrowinning\" and \"electrolyte\" are full terms, not abbreviations, and there are no other abbreviations present.",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 33,
+      "target_tokens": 1
+    },
+    {
+      "id": 13,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "Yes, the model's final answer is correct. The reasoning correctly identifies that Superman's refusal to kill stems from his belief that every life is valuable, which aligns with option C.",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 30,
+      "target_tokens": 1
+    },
+    {
+      "id": 14,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "The model's final answer is **correct**.\n\nThe model correctly calculates the ratio of investments (1:2) and uses the formula for profit sharing in a partnership with varying capital contributions. It correctly determines that the second partner joined after 6 months, which matches option C.",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 44,
+      "target_tokens": 1
+    },
+    {
+      "id": 15,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "Yes, the model's final answer is correct. The model correctly adds 17 (Mike's jelly beans) and 24 (Sedrich's jelly beans) to find the total of 41 jelly beans.",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 28,
+      "target_tokens": 1
+    },
+    {
+      "id": 16,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "Yes, the model's final answer is correct. The model correctly calculates the total cost as $30 (10 books \u00d7 $3) and the total selling price as $40 (10 books \u00d7 $4). Subtracting the cost from the selling price gives a profit of $10.",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 43,
+      "target_tokens": 1
+    },
+    {
+      "id": 17,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "No, the model's final answer is incorrect. The model concludes that all vertebrates have a backbone, but the correct answer is that all vertebrates have a spinal column, which is a more accurate and comprehensive term for the structure that defines vertebrates.",
+      "target": "correct",
+      "token_f1": 0.067,
+      "pred_tokens": 42,
+      "target_tokens": 1
+    },
+    {
+      "id": 18,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "Yes, the model's final answer is correct. The total duration of the three songs is 1 hour and 15 minutes, which is 75 minutes. Since Roger's playlist is 1 hour and 15 minutes long, the fourth song must be 0 minutes long.",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 42,
+      "target_tokens": 1
+    },
+    {
+      "id": 19,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "Yes, the model's final answer is correct.",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 7,
+      "target_tokens": 1
+    },
+    {
+      "id": 20,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "The model's final answer is **incorrect**. The correct profit percentage is **10%**, not 1%. The model correctly calculated the profit percentage as 10% but mistakenly selected option A (1%) instead of D (10%).",
+      "target": "correct",
+      "token_f1": 0.071,
+      "pred_tokens": 33,
+      "target_tokens": 1
+    },
+    {
+      "id": 21,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "Yes, the model's final answer is correct.",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 7,
+      "target_tokens": 1
+    },
+    {
+      "id": 22,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "The model's final answer is correct. The model correctly calculates the total length of the curtains by adding the height of the room (8 feet) and the additional 5 inches required for pooling, resulting in 8 feet 5 inches.",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 39,
+      "target_tokens": 1
+    },
+    {
+      "id": 23,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "The model's final answer is correct.",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 6,
+      "target_tokens": 1
+    },
+    {
+      "id": 24,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "The model's final answer is **incorrect**.\n\nThe model correctly calculates the de Broglie wavelength for each particle using the formula $ \\lambda = \\frac{h}{mv} $, but it fails to convert the result from meters to nanometers. The correct conversion is $ 1 \\, \\text{m} = 10^9 \\, \\text{nm} $, so the final answer should be $ 1.0 \\times 10^{-7}",
+      "target": "correct",
+      "token_f1": 0.044,
+      "pred_tokens": 59,
+      "target_tokens": 1
+    },
+    {
+      "id": 25,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "The model's final answer is **incorrect**.\n\nThe model correctly identifies that the time difference is 1 hour, but it incorrectly assumes that the second speed (12 km/h) is faster than the first (10 km/h). In reality, the second speed is slower, so the time should be longer than 12 hours. The correct calculation shows that the second speed is 15 km/h, not 12 km/h.",
+      "target": "correct",
+      "token_f1": 0.045,
+      "pred_tokens": 64,
+      "target_tokens": 1
+    },
+    {
+      "id": 26,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "The model's final answer is correct. The model correctly calculates the total cost price (CP) as $1600 and the total selling price (SP) as $1600, concluding that there is no overall profit or loss.",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 34,
+      "target_tokens": 1
+    },
+    {
+      "id": 27,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "The model's final answer is **incorrect**.\n\nThe model correctly identifies the formula for vapor pressure lowering (\u0394P = X_solute * P\u00b0) and calculates the mole fraction of the solute. However, it incorrectly assumes that the vapor pressure of the solution is 760 mmHg (which is the standard atmospheric pressure), when the problem states that the vapor pressure of the solution is 755 mmHg. Using 760 mmHg instead of",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 68,
+      "target_tokens": 1
+    },
+    {
+      "id": 28,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "The model's final answer is correct. The chain of thought correctly identifies the request as harmful and unethical, and the response politely declines to fulfill it while explaining the reasoning.",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 30,
+      "target_tokens": 1
+    },
+    {
+      "id": 29,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "The model's final answer is incorrect. The chain of thought correctly identifies that the request is toxic and advises against fulfilling it, but the final answer is a placeholder (\"[your answer]\") rather than a specific response.",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 36,
+      "target_tokens": 1
+    },
+    {
+      "id": 30,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "The model's final answer is correct. The model correctly calculates the sum of the height and base of the Great Pyramid of Giza by first determining the base (254 feet) and then adding it to the height (481 feet), resulting in a total of 735 feet.",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 46,
+      "target_tokens": 1
+    },
+    {
+      "id": 31,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "The model's final answer is correct. The model correctly calculates the profit percentage by determining the cost price per orange, then using the formula for profit percentage, and arrives at the answer 10%.",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 33,
+      "target_tokens": 1
+    },
+    {
+      "id": 32,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "No, the model's final answer is incorrect. The Act of Supremacy (1534) was primarily about asserting Henry VIII's authority over the Church of England, not about suppressing dissent or heresy. The correct answer would be \"B\" or \"C,\" depending on the specific options provided.",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 44,
+      "target_tokens": 1
+    },
+    {
+      "id": 33,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "No, the model's final answer is incorrect. The model incorrectly selected \"D\" (Michigan Club) as the answer, but the correct answer is \"A\" (Wall Street). The reasoning correctly identifies that Wall Street is a major financial district where investment bankers are based, while the Michigan Club is a fictional location from the TV show \"Mad Men.\"",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 56,
+      "target_tokens": 1
+    },
+    {
+      "id": 34,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "The model's final answer is correct. The sequence is a geometric progression where each term is double the previous one. The 10th term is $2^{10} = 1024$, which is between 1,000 and 10,000.",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 33,
+      "target_tokens": 1
+    },
+    {
+      "id": 35,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "The model's final answer is **correct**.\n\nThe reasoning correctly identifies that the problem requires choosing 1 question from each of the three sections (4, 5, and 6 questions respectively) and multiplying the number of choices for each section. The calculation $4 \\times 5 \\times 6 = 120$ matches the provided option A.",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 52,
+      "target_tokens": 1
+    },
+    {
+      "id": 36,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "No, the model's final answer is incorrect. The model claims the result is \"a malvolent entity that is averse to returning items in an unusable state,\" but the correct result of concatenating the two strings is simply \"a malvolent entity that is averse to returning items in an unusable state.\"",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 50,
+      "target_tokens": 1
+    },
+    {
+      "id": 37,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "Yes, the model's final answer is correct. The model correctly subtracts the new length (9 inches) from the original length (12 inches) to determine that 3 inches were cut off.",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 30,
+      "target_tokens": 1
+    },
+    {
+      "id": 38,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "The model's final answer is incorrect because it does not provide a list of specific appliances or features. Instead, it only outlines a plan for how to approach the task, such as identifying appliances, considering integration methods, and suggesting use cases.",
+      "target": "incorrect",
+      "token_f1": 0.051,
+      "pred_tokens": 41,
+      "target_tokens": 1
+    },
+    {
+      "id": 39,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "The model's final answer is **correct**. The derivation correctly applies the integral of Planck's law over all wavelengths, leading to the Stefan-Boltzmann law $ E = \\sigma T^4 $, where $ \\sigma = \\frac{2\\pi^5 k^4}{15 h^3 c^2} $.",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 38,
+      "target_tokens": 1
+    },
+    {
+      "id": 40,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "The model's final answer is incorrect. The problem as stated does not provide enough information to determine the length of the wire, as it only gives the volume ratio and the ratio of the radii, but not the actual dimensions or the relationship between the wire's length and the cones' dimensions.",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 51,
+      "target_tokens": 1
+    },
+    {
+      "id": 41,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "The model's final answer is correct.",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 6,
+      "target_tokens": 1
+    },
+    {
+      "id": 42,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "The model's final answer is incorrect. The reasoning correctly identifies that the question is likely asking for the ultimate goal of the battle, and the most logical answer is \"win.\" However, the model's final answer states \"survive,\" which is not the most direct or logical choice based on the context of a battle.",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 53,
+      "target_tokens": 1
+    },
+    {
+      "id": 43,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "The model's final answer is **incorrect**. The question asks where to put coffee, not where to get it. The correct answer should be a container like a \"cup\" (Option D), not a place to purchase it like Starbucks (Option B).",
+      "target": "correct",
+      "token_f1": 0.067,
+      "pred_tokens": 40,
+      "target_tokens": 1
+    },
+    {
+      "id": 44,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "The model's final answer is correct.",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 6,
+      "target_tokens": 1
+    },
+    {
+      "id": 45,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "The model's final answer is incorrect. The correct answer is **B) 21**, as the pattern alternates between adding 8 and subtracting 6.",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 22,
+      "target_tokens": 1
+    },
+    {
+      "id": 46,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "The model's final answer is **correct**.\n\nThe model correctly applies the formula for freezing point depression: \u0394T = Kf \u00d7 m. It calculates the molality (m) as 0.4 mol / 0.5 kg = 0.8 mol/kg. Then, it multiplies by the given Kf (3.3\u00b0C\u00b7kg/mol) to get \u0394T = 2.64\u00b0C. Finally, it subtracts this from the pure solvent's freezing",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 57,
+      "target_tokens": 1
+    },
+    {
+      "id": 47,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "The model's final answer is **incorrect**.\n\nThe model correctly identifies that the lowest possible price occurs when the original price is $19.99 and the discounts are applied in the order of 30% followed by 25%. However, the model's calculation is flawed. Applying a 30% discount to $19.99 results in $13.993, and then applying a 25% discount to that amount results in $10",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 62,
+      "target_tokens": 1
+    },
+    {
+      "id": 48,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "The model's final answer is **correct**.\n\nThe patient's symptoms\u2014intense energy, racing thoughts, decreased need for sleep, and guilt after the episode\u2014align with a manic episode, which is a key feature of bipolar disorder. The model correctly identifies the most likely diagnosis as bipolar disorder, specifically bipolar I disorder, based on the presence of a manic episode and a history of depressive symptoms.",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 62,
+      "target_tokens": 1
+    },
+    {
+      "id": 49,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "The model's final answer is correct. The context explicitly states that NAME_1 likes bananas, which are a type of fruit, so the answer \"Yes\" is logically supported.",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 27,
+      "target_tokens": 1
+    }
+  ]
+}

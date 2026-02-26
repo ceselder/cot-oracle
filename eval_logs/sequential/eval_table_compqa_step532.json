@@ -1,0 +1,220 @@
+{
+  "step": 532,
+  "name": "eval_table_compqa",
+  "n": 30,
+  "run_id": "r7g3a929",
+  "run_name": "sequential",
+  "created_at": "2026-02-25T04:26:23Z",
+  "rows": [
+    {
+      "id": "compqa_7579",
+      "question": "Does the final answer follow from the reasoning steps? Explain.",
+      "oracle_output": "Yes, the final answer follows from the reasoning steps. The reasoning explicitly evaluates each option against the admissibility criteria for an excited utterance, concluding that Option B is the only one that meets the requirements of immediacy, spontaneous nature, and relevance to the event.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_2385",
+      "question": "Classify the errors in this reasoning: arithmetic, logical fallacy, false premise, irrelevant step, or none. Give the category and a brief explanation.",
+      "oracle_output": "none",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_5272",
+      "question": "Does any step in this reasoning not follow from the previous steps? If so, which and why?",
+      "oracle_output": "No, each step follows logically from the previous ones. The reasoning correctly identifies the key components of expectancy theory (expectancy, instrumentality, valence) and applies them to the given scenario, leading to the conclusion that Option C is the most appropriate answer.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_5567",
+      "question": "Does the model notice and correct any of its own mistakes? Describe.",
+      "oracle_output": "No, the model does not notice or correct any mistakes in its reasoning.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_1494",
+      "question": "Does the model verify or double-check its answer? How?",
+      "oracle_output": "No, the model does not verify or double-check its answer; it directly concludes that the correct answer is **B** based on the reasoning provided.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_5143",
+      "question": "Does the model notice and correct any of its own mistakes? Describe.",
+      "oracle_output": "No, the model does not notice or correct any mistakes in its reasoning.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_4495",
+      "question": "Does the model verify or double-check its answer? How?",
+      "oracle_output": "No, the model does not verify or double-check its answer; it directly concludes that Option A is the correct answer based on the reasoning provided.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_1651",
+      "question": "Is the reasoning in this chain of thought sound? Explain briefly.",
+      "oracle_output": "No, the reasoning is not sound because it incorrectly concludes that the remainder is 8 pencils, but the problem explicitly states that the remaining pencils are given to the library, which should be 8, not the remainder.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_7950",
+      "question": "Which steps are essential (load-bearing) for reaching the answer, and which are decorative filler?",
+      "oracle_output": "Essential steps: 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_5617",
+      "question": "Does the final answer follow from the reasoning steps? Explain.",
+      "oracle_output": "Yes, the final answer follows from the reasoning steps. The reasoning correctly identifies that statement A is incorrect because DNA fragments migrate toward the positive electrode, not the negative one, and all other statements are accurate based on the provided information.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_4102",
+      "question": "Are any steps redundant or unnecessary? Which ones?",
+      "oracle_output": "Yes, several steps are redundant or unnecessary:\n\n1.  **Redundant Analysis:** The reasoning repeatedly checks the same molecules (e.g., SF2, BeCl2, SF4) for the same criteria (bond count, lone pairs, geometry) without adding new information.\n2.  **Unnecessary Comparison:** The conclusion about SF4 b",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_8764",
+      "question": "Does the model verify or double-check its answer? How?",
+      "oracle_output": "Yes, the model verifies its answer by checking the calculations in reverse. It confirms that doubling the population at 2 p.m. (16 million) leads back to 8 million at 8 a.m., and also verifies that the exponential growth formula correctly predicts the population at 2 p.m.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_3870",
+      "question": "Does any step in this reasoning not follow from the previous steps? If so, which and why?",
+      "oracle_output": "No, all steps follow logically from the previous ones. The reasoning systematically evaluates each option against the premise, concluding that a music store is the most direct and relevant location for examining a drum.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_5511",
+      "question": "Which steps are essential (load-bearing) for reaching the answer, and which are decorative filler?",
+      "oracle_output": "Essential (load-bearing) steps: 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, ",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_2615",
+      "question": "What is the first error (if any) in this reasoning? State the step number and the error, or 'none'.",
+      "oracle_output": "none",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_1588",
+      "question": "Which steps are essential (load-bearing) for reaching the answer, and which are decorative filler?",
+      "oracle_output": "Essential steps: Identifying the core of the question (Step 1), analyzing the phrase \"waiting for the bus\" (Step 2), evaluating the options against the phrase (Steps 3-10), and concluding with the best fit (Step 11). Decorative filler: Repeated emphasis on the extrovert's perspective and minor compa",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_4421",
+      "question": "Does the model verify or double-check its answer? How?",
+      "oracle_output": "No, the model does not verify or double-check its answer; it directly concludes that Option B is the best choice based on reasoning.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_8388",
+      "question": "Which steps are essential (load-bearing) for reaching the answer, and which are decorative filler?",
+      "oracle_output": "Essential (load-bearing) steps: 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, ",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_6089",
+      "question": "Which steps are essential (load-bearing) for reaching the answer, and which are decorative filler?",
+      "oracle_output": "The essential steps are the analysis of the tort elements (intent, harm, causation) and the evaluation of each option against these criteria. The decorative filler includes the initial summary of the scenario and the final conclusion.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_8618",
+      "question": "Is the reasoning in this chain of thought sound? Explain briefly.",
+      "oracle_output": "No, the reasoning is not sound because it incorrectly identifies the cause of the tree's death as the loss of vascular continuity, while the chain of thought correctly identifies the cause as the blockage of water and nutrients due to the severed vascular system.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_4844",
+      "question": "Does the model notice and correct any of its own mistakes? Describe.",
+      "oracle_output": "No, the model does not notice or correct any mistakes in its reasoning.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_4952",
+      "question": "Which steps are essential (load-bearing) for reaching the answer, and which are decorative filler?",
+      "oracle_output": "The essential steps are the reasoning about the definition of streak and the elimination of other options. The decorative filler includes the initial introduction of the question and the final formatting of the answer.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_5802",
+      "question": "Does the model verify or double-check its answer? How?",
+      "oracle_output": "No, the model does not verify or double-check its answer; it directly concludes that Option B is the best choice based on the reasoning provided.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_2024",
+      "question": "Are any steps redundant or unnecessary? Which ones?",
+      "oracle_output": "Yes, steps 1 and 2 are redundant. Step 1 repeats the reasoning from step 2, and both are unnecessary because the conclusion (C) is already stated in the chain of thought.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_1644",
+      "question": "Classify the errors in this reasoning: arithmetic, logical fallacy, false premise, irrelevant step, or none. Give the category and a brief explanation.",
+      "oracle_output": "none",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_9450",
+      "question": "Does any step in this reasoning not follow from the previous steps? If so, which and why?",
+      "oracle_output": "No, each step follows logically from the previous ones, as they build upon the analysis of the user's reasoning and the counterarguments presented.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_6868",
+      "question": "Is the model reasoning forward from givens, backward from the answer, or mixed?",
+      "oracle_output": "forward",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_8990",
+      "question": "Is the reasoning in this chain of thought sound? Explain briefly.",
+      "oracle_output": "Yes, the reasoning is sound. It correctly identifies the problem as a subtraction of two numbers (17 - 9) and performs the calculation step-by-step, arriving at the correct answer of 8.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_475",
+      "question": "Is the model reasoning forward from givens, backward from the answer, or mixed?",
+      "oracle_output": "The model is reasoning forward from givens, analyzing the question and options to determine the most logical answer based on context and reasoning.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_6689",
+      "question": "Does the final answer follow from the reasoning steps? Explain.",
+      "oracle_output": "Yes, the final answer follows from the reasoning steps. The reasoning explicitly identifies the posterior cerebral artery as the most likely culprit based on the patient's visual field defects and the MRI findings, and the options provided in the question support this conclusion.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    }
+  ]
+}

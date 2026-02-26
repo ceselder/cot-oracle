@@ -1,0 +1,510 @@
+{
+  "step": 361,
+  "name": "eval_table_cot_atypical_answer",
+  "n": 50,
+  "run_id": "1phwff1n",
+  "run_name": "sequential_v3",
+  "created_at": "2026-02-26T01:33:44Z",
+  "rows": [
+    {
+      "id": 0,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "<|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><",
+      "prediction": "To determine the most likely cause of the woman's symptoms, we must analyze the timeline and nature of the illness in relation to the food preparation and consumption.\n\n---\n\n### **Key Facts:**\n- The woman consumed a **canned chicken and beans** meal.\n- She **boiled the contents for 30 minutes** before eating.\n- She experienced **nausea, diarrhea, and vomiting** **a few hours later**.\n- The symptoms are **not allergic** in nature.\n-",
+      "target": "majority",
+      "token_f1": 0.0,
+      "pred_tokens": 72,
+      "target_tokens": 1
+    },
+    {
+      "id": 1,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "<|im_start|>user\nLayer: 9, 18, 27\n \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6",
+      "prediction": "To determine the correct answer, we must analyze the legal implications of the facts provided, particularly focusing on the **prenuptial agreement**, the **deed of conveyance**, and the **will**.\n\n---\n\n### Key Legal Concepts\n\n1. **Prenuptial Agreement**:\n   - The agreement explicitly states that **Kathy relinquishes all rights to the property**.\n   - This is a **valid and enforceable contract** in most jurisdictions, including Florida (where the scenario is",
+      "target": "majority",
+      "token_f1": 0.0,
+      "pred_tokens": 66,
+      "target_tokens": 1
+    },
+    {
+      "id": 2,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "<|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><",
+      "prediction": "To determine the correct answer, we must analyze the legal framework governing **reservations** under the **Vienna Convention on the Law of Treaties (VCLT)**, specifically **Article 19** and **Article 29**.\n\n---\n\n### Key Legal Principles\n\n1. **Definition of a Reservation** (Article 19):  \n   A reservation is a **notices** by a State Party to a treaty that **intends to modify** the legal effect of the treaty",
+      "target": "minority",
+      "token_f1": 0.0,
+      "pred_tokens": 63,
+      "target_tokens": 1
+    },
+    {
+      "id": 3,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "<|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><",
+      "prediction": "majority",
+      "target": "majority",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 4,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "<|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><",
+      "prediction": "To determine the correct answer, we must identify the **first proposal** made by **Charles Darwin** that is central to the theory of evolution.\n\n---\n\n### Step-by-Step Analysis:\n\n#### **Option A: That humans evolved from apes**\n- **Analysis:** While Darwin did propose that humans and apes share a common ancestor, this idea was not his **first** proposal. The concept of a common ancestry between humans and apes was already being discussed by others, such as Lamarck and",
+      "target": "majority",
+      "token_f1": 0.0,
+      "pred_tokens": 76,
+      "target_tokens": 1
+    },
+    {
+      "id": 5,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "<|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><",
+      "prediction": "To determine whether the answer is a **majority** or **minority**, we must assess the **most widely accepted or standard method** for measuring **Need for Achievement (nAch)** in both **individuals** and **countries**.\n\n---\n\n### Key Concepts:\n\n- **Need for Achievement (nAch)** is a **psychological construct** that refers to the **drive to excel, succeed, and reach high standards**.\n- It is a **trait** that can be measured",
+      "target": "minority",
+      "token_f1": 0.0,
+      "pred_tokens": 65,
+      "target_tokens": 1
+    },
+    {
+      "id": 6,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "<|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><",
+      "prediction": "To determine the frequency of the $ J = 5 \\to 6 $ rotational transition in the same diatomic molecule, we begin by analyzing the given information and applying the principles of rotational spectroscopy.\n\n---\n\n### **Step 1: Understand the Relationship Between Rotational Transitions and Frequency**\n\nFor a diatomic molecule, the rotational energy levels are given by:\n\n$$\nE_J = \\frac{\\hbar^2}{2I} J(J+1)\n$$\n\nwhere:\n- $",
+      "target": "minority",
+      "token_f1": 0.0,
+      "pred_tokens": 66,
+      "target_tokens": 1
+    },
+    {
+      "id": 7,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "<|im_start|>user\nLayer: 9, 18, 27\n \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6",
+      "prediction": "A",
+      "target": "minority",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 8,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "<|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><",
+      "prediction": "To determine the correct answer, we must analyze the legal elements of **conspiracy to commit a crime** under federal law, particularly in the context of the **\"knowing\" requirement** and the **location of the crime**.\n\n---\n\n### **Key Legal Principles**\n\nUnder **federal conspiracy law** (18 U.S.C. \u00a7 371), the essential elements of a conspiracy are:\n\n1. **An agreement** between two or more people to commit a crime.\n2.",
+      "target": "minority",
+      "token_f1": 0.0,
+      "pred_tokens": 67,
+      "target_tokens": 1
+    },
+    {
+      "id": 9,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "<|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><",
+      "prediction": "To determine whether the answer is a **majority** or **minority**, we must understand the context of the question and the nature of the options provided.\n\n---\n\n### Understanding the Question\n\nThe question presents a scenario where a **charter club** has **60 members** and charges **$200 per member** annually. The **director** proposes a policy: **for every additional member beyond 60**, the **annual fee per member is reduced by $2**. The",
+      "target": "majority",
+      "token_f1": 0.0,
+      "pred_tokens": 69,
+      "target_tokens": 1
+    },
+    {
+      "id": 10,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "<|im_start|>user\nLayer: 9, 18, 27\n \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6",
+      "prediction": "To determine whether the correct answer is a **majority** or **minority** interpretation, we must analyze the legal reasoning behind the law in question and the constitutional principles it invokes.\n\n---\n\n### **Key Legal Framework**\n\nThe law in question is a **state law** that **prohibits the sale of a contraceptive pill to individuals without a prescription**. The law is **based on a study** indicating that the drug could be **harmful to individuals with pre-existing conditions**. The",
+      "target": "majority",
+      "token_f1": 0.0,
+      "pred_tokens": 75,
+      "target_tokens": 1
+    },
+    {
+      "id": 11,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "<|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><",
+      "prediction": "minority",
+      "target": "majority",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 12,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "<|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><",
+      "prediction": "To determine the correct answer, we must understand the legal principle of **ad valorem property tax** and how it applies to goods stored in a county.\n\n---\n\n### Key Legal Principle\n\n**Ad valorem property tax** is a tax based on the **value of the property** located within the taxing jurisdiction (in this case, the county). The tax applies to **property located within the county**, regardless of whether it is actively being used or is in the process of being distributed. The **location",
+      "target": "minority",
+      "token_f1": 0.0,
+      "pred_tokens": 82,
+      "target_tokens": 1
+    },
+    {
+      "id": 13,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "<|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><",
+      "prediction": "To determine the correct answer, we must identify the psychological theory that best aligns with the idea that **misbehavior is motivated by specific psychological goals** (attention, power, revenge, or affiliation).\n\n---\n\n### Key Concept:\nThe question presents a **behavioral interpretation** of misbehavior, where the child is seen as **intentionally acting to achieve a psychological goal**. This is a core idea in **behavioral psychology**, particularly in the context of **behavior modification*",
+      "target": "majority",
+      "token_f1": 0.0,
+      "pred_tokens": 72,
+      "target_tokens": 1
+    },
+    {
+      "id": 14,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "<|im_start|>user\nLayer: 9, 18, 27\n \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6",
+      "prediction": "To determine the **fractional void per unit cell** for each compound, we analyze the **structure type** and the **ionic radii** provided:\n\n---\n\n### **Step 1: Understand the Structure and Packing Efficiency**\n\n- **CsCl (Cesium Chloride)**:  \n  - **Structure**: Simple cubic (SC)  \n  - **Packing efficiency** for a simple cubic structure is **52.4%**  \n  - **Fractional void** = $1 -",
+      "target": "minority",
+      "token_f1": 0.0,
+      "pred_tokens": 56,
+      "target_tokens": 1
+    },
+    {
+      "id": 15,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "<|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><",
+      "prediction": "To determine the correct answer, we must analyze the **standing** of the plaintiff in this scenario, which involves a **physician challenging a state law** that prohibits the sale of contraceptive devices to **married women**. The physician argues that this law prevents him from providing necessary medical advice to his patients.\n\n---\n\n### Key Legal Concepts\n\n1. **Standing in U.S. Law**:\n   - A plaintiff must demonstrate a **\"personal stake\"** in the outcome of the case.\n   -",
+      "target": "minority",
+      "token_f1": 0.0,
+      "pred_tokens": 75,
+      "target_tokens": 1
+    },
+    {
+      "id": 16,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "<|im_start|>user\nLayer: 9, 18, 27\n \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6",
+      "prediction": "To determine the correct answer, we must analyze the legal principles of **easements** and **recorded agreements** in the context of property conveyance.\n\n---\n\n### Key Facts:\n\n- In **1986**, the **doctor** and **mining company** entered into an **agreement**.\n- The **doctor** agreed to **not block the mining company's access** to a path across his land.\n- The **mining company** paid the doctor **$70",
+      "target": "minority",
+      "token_f1": 0.0,
+      "pred_tokens": 63,
+      "target_tokens": 1
+    },
+    {
+      "id": 17,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "<|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><",
+      "prediction": "To determine whether the correct answer is a **majority** or **minority** interpretation of the legal term **\"knowingly\"**, we must analyze the **statutory language** and the **legal principles** that govern its application in criminal law.\n\n---\n\n### **Statutory Language and Legal Interpretation**\n\nThe statute in question states:\n\n> \"knowingly acquire or attempt to acquire, or knowingly possess or attempt to possess, or knowingly transport or attempt to transport, or knowingly receive or attempt",
+      "target": "majority",
+      "token_f1": 0.0,
+      "pred_tokens": 73,
+      "target_tokens": 1
+    },
+    {
+      "id": 18,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "<|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><",
+      "prediction": "To determine the correct answer, we must evaluate the relationship between **job satisfaction** and the listed outcomes based on established psychological and organizational behavior research.\n\n---\n\n### Key Concepts:\n\n- **Job Satisfaction** is defined as a person's overall emotional state regarding their job, influenced by factors like pay, work environment, and personal fulfillment.\n- Research consistently shows that **job satisfaction is a strong predictor of employee turnover** (i.e., the lik",
+      "target": "minority",
+      "token_f1": 0.0,
+      "pred_tokens": 81,
+      "target_tokens": 1
+    },
+    {
+      "id": 19,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "<|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><",
+      "prediction": "To determine whether the neighbor is likely to be successful in an action for negligence, we must analyze the legal principles of **landowner liability** and **duty of care** in the context of **dangerous recreational activities**.\n\n---\n\n### Key Legal Principles\n\n1. **Landowner's Duty of Care**:\n   - A landowner owes a **duty of care** to **invitees** (those on the property with permission) and **licensees** (those on the property with",
+      "target": "minority",
+      "token_f1": 0.0,
+      "pred_tokens": 68,
+      "target_tokens": 1
+    },
+    {
+      "id": 20,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "<|im_start|>user\nLayer: 9, 18, 27\n \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6",
+      "prediction": "To determine the **ending inventory** for the year using the three inventory methods (Weighted Average, LIFO, and FIFO), we begin by analyzing the data provided:\n\n---\n\n### **Step 1: Total Units and Cost**\n\n- **Total units purchased:**  \n  $10 + 7 + 9 + 8 + 10 + 6 = 50$ units\n\n- **Total cost of purchases:**  \n  $10 \\times 8 + 7 \\",
+      "target": "majority",
+      "token_f1": 0.0,
+      "pred_tokens": 62,
+      "target_tokens": 1
+    },
+    {
+      "id": 21,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "<|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><",
+      "prediction": "To determine the correct answer, we must analyze the legal and factual scenario presented in the question through the lens of **tort law**, specifically **negligence** and **trespass**.\n\n---\n\n### **Factual Summary**\n\n- The **man** borrowed a **shovel** from the **neighbor**.\n- The **neighbor** entered the **man's property** to retrieve the **shovel**.\n- The **man** owns **German shepherds** and has **Beware",
+      "target": "minority",
+      "token_f1": 0.0,
+      "pred_tokens": 60,
+      "target_tokens": 1
+    },
+    {
+      "id": 22,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "<|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><",
+      "prediction": "To determine the correct answer, we must evaluate the **legal** and **ethical** implications of Penny Pincher's actions.\n\n---\n\n### **Legal Analysis**\n\nPenny Pincher is **charging the insurance company** for a service that was **not provided** (i.e., the patient canceled the appointment). This is a clear case of **fraudulent billing**. In most jurisdictions, it is **illegal** to bill for services that were never rendered. This is a violation of:\n\n- **",
+      "target": "majority",
+      "token_f1": 0.0,
+      "pred_tokens": 70,
+      "target_tokens": 1
+    },
+    {
+      "id": 23,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "<|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><",
+      "prediction": "To determine whether the correct answer is a **majority** or **minority** among the provided options, we must first understand the **historical progression of the study of social behavior** and then compare it to the options given.\n\n---\n\n### **Understanding the Historical Development**\n\nThe study of social behavior has evolved through several key phases:\n\n1. **Pre-scientific (Ancient and Theological):**  \n   - Early civilizations (e.g., Greek, Roman, and religious traditions) explored",
+      "target": "majority",
+      "token_f1": 0.0,
+      "pred_tokens": 68,
+      "target_tokens": 1
+    },
+    {
+      "id": 24,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "<|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><",
+      "prediction": "To determine whether the correct answer is a **majority** or **minority** among the provided options, we must first identify the most accurate and scientifically supported choice.\n\n---\n\n### Analysis of the Options:\n\n**Option I:** *Chromosomal variations can result in intersex conditions.*  \n\u2705 **Correct.**  \nIntersex conditions, such as **Klinefelter syndrome (XXY)**, **Turner syndrome (XO)**, and **Androgen Insensitivity Syndrome (AIS",
+      "target": "majority",
+      "token_f1": 0.0,
+      "pred_tokens": 58,
+      "target_tokens": 1
+    },
+    {
+      "id": 25,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "<|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><",
+      "prediction": "To determine whether the answer is a **majority** or **minority**, we must understand the context of the question and the nature of the options provided.\n\n---\n\n### Understanding the Question\n\nThe question involves a commission structure for Mr. Jones:\n\n- **1% commission** on **all sales**.\n- An **additional 1.5% commission** on **sales exceeding $1,000,000**.\n\nMr. Jones sells **$1,200,",
+      "target": "majority",
+      "token_f1": 0.0,
+      "pred_tokens": 58,
+      "target_tokens": 1
+    },
+    {
+      "id": 26,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "<|im_start|>user\nLayer: 9, 18, 27\n \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6",
+      "prediction": "To determine the correct answer, we must analyze the legal and factual scenario presented in the question.\n\n---\n\n### **Factual Summary**\n\n- A **lawyer** is the **plaintiff**.\n- The **lawyer** is a **candidate for a public office**.\n- An **apprentice** (not the lawyer) **illegally entered the lawyer\u2019s office**, **copied private documents**, and **sent them to a columnist**.\n- The **columnist** **published",
+      "target": "majority",
+      "token_f1": 0.0,
+      "pred_tokens": 61,
+      "target_tokens": 1
+    },
+    {
+      "id": 27,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "<|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><",
+      "prediction": "majority",
+      "target": "minority",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 28,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "<|endoftext|><|endoftext|><|endoftext|><|im_start|>user\nLayer: 9, 18, 27\n \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 ",
+      "prediction": "To determine the correct answer, we must analyze the scenario through the lens of the **First Amendment to the U.S. Constitution**, which protects **freedom of speech**, including **commercial speech**. However, this protection is not absolute and can be limited in certain circumstances, particularly when the speech involves **false or misleading information** that causes **actual harm**.\n\n---\n\n### Key Legal Framework\n\n1. **Commercial Speech and the First Amendment**:\n   - Commercial speech (e.g",
+      "target": "minority",
+      "token_f1": 0.0,
+      "pred_tokens": 72,
+      "target_tokens": 1
+    },
+    {
+      "id": 29,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "<|im_start|>user\nLayer: 9, 18, 27\n \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6",
+      "prediction": "To determine the correct answer, we must analyze the legal relationship between the widower and his daughter in the context of the facts provided.\n\n---\n\n### Key Facts:\n\n- The widower is a 77-year-old farmer who owns a 40-acre farm.\n- He has a daughter and a son.\n- The daughter married and moved in with the widower, helping with farming.\n- The widower, in a moment of desperation, promises the daughter that if she stays and cares for him",
+      "target": "minority",
+      "token_f1": 0.0,
+      "pred_tokens": 80,
+      "target_tokens": 1
+    },
+    {
+      "id": 30,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "<|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><",
+      "prediction": "majority",
+      "target": "majority",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 31,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "<|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><",
+      "prediction": "To determine the correct answer, we must analyze the contractual relationship between the **retailer** and the **distributor** based on the language of the agreement and the actions taken by the distributor.\n\n---\n\n### Key Contractual Language\n\nThe agreement states:\n\n> \"The order for windows and other products would be binding on the distributor only if it was accepted by the distributor.\"\n\nThis is a **conditional acceptance clause**. It means that the **distributor has the sole discretion** to a",
+      "target": "majority",
+      "token_f1": 0.0,
+      "pred_tokens": 81,
+      "target_tokens": 1
+    },
+    {
+      "id": 32,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "<|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><",
+      "prediction": "majority",
+      "target": "majority",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 33,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "<|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><",
+      "prediction": "To determine the number of gene pairs controlling the variation in the length of the flower petal, we apply the principles of **quantitative genetics**, specifically the **additive genetic variance** and the **F\u2082 generation variance**.\n\n---\n\n### **Step 1: Understand the Data**\n\nWe are given the following:\n\n- **Strain A**: Variance = 2.1 mm\u00b2 (environmental)\n- **Strain B**: Variance = 1.8 mm\u00b2 (environmental",
+      "target": "minority",
+      "token_f1": 0.0,
+      "pred_tokens": 62,
+      "target_tokens": 1
+    },
+    {
+      "id": 34,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "<|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><",
+      "prediction": "To determine the correct answer, we must focus on the **core mechanism** that allows the fiddler crabs to maintain their activity cycle **even when removed from the tidal environment**.\n\n---\n\n### Key Observations:\n\n- The crabs are **removed from the tidal environment** (i.e., no tides, no water, no saltwater).\n- Despite this, they **continue to exhibit the same activity cycle**.\n- This implies that the **activity cycle is not dependent on the external",
+      "target": "majority",
+      "token_f1": 0.0,
+      "pred_tokens": 73,
+      "target_tokens": 1
+    },
+    {
+      "id": 35,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "<|im_start|>user\nLayer: 9, 18, 27\n \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6",
+      "prediction": "To determine the **increase in stockholders' taxes** resulting from the new product, we need to carefully analyze the **corporate tax implications** and the **individual tax consequences** of the additional income.\n\n---\n\n### **Step 1: Understand the Current Situation**\n\n- **Levenger Corporation's income**: $30,000\n- **Corporate tax rate**: 33% (from the 1949 tax table)\n- **Corporate tax liability**:  \n  $",
+      "target": "majority",
+      "token_f1": 0.0,
+      "pred_tokens": 58,
+      "target_tokens": 1
+    },
+    {
+      "id": 36,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "<|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><",
+      "prediction": "To determine the admissibility of the prosecutor's question during cross-examination, we must analyze the legal standards governing the use of prior criminal convictions in a criminal trial.\n\n---\n\n### **Legal Framework**\n\nUnder **Federal Rule of Evidence 609**, a criminal conviction may be used to attack the credibility of a witness if:\n- The conviction is for a **crime of dishonesty or false statement** (e.g., perjury, fraud, or obstruction of justice), or\n- The conviction",
+      "target": "minority",
+      "token_f1": 0.0,
+      "pred_tokens": 74,
+      "target_tokens": 1
+    },
+    {
+      "id": 37,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "<|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><",
+      "prediction": "To determine whether the correct answer is a **majority** or **minority** interpretation, we must analyze the legal principles governing the admissibility of statements made during a **grand jury**.\n\n---\n\n### **Key Legal Principles**\n\n1. **Grand Jury Statements and Admissibility**:\n   - **Grand jury proceedings are not trials**. They are **preliminary** to a criminal prosecution and are not subject to the same rules of evidence as a trial.\n   - **Statements made",
+      "target": "majority",
+      "token_f1": 0.0,
+      "pred_tokens": 69,
+      "target_tokens": 1
+    },
+    {
+      "id": 38,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "<|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><",
+      "prediction": "To determine whether the neighbor is **liable** in a legal context, we must analyze the situation through the lens of **landowner liability**, **trespasser protection**, and **contributory negligence**.\n\n---\n\n### Key Facts:\n- The man owns four **aggressive dogs**.\n- He **posts \"Beware of Dogs\" signs** around the property.\n- The **neighbor** enters the yard **without permission** to retrieve a **shovel**.\n- The neighbor **knows**",
+      "target": "minority",
+      "token_f1": 0.0,
+      "pred_tokens": 64,
+      "target_tokens": 1
+    },
+    {
+      "id": 39,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "<|im_start|>user\nLayer: 9, 18, 27\n \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6",
+      "prediction": "To determine whether the correct answer is a **majority** or **minority** choice, we must first understand the biological and evolutionary mechanism at play in the scenario.\n\n---\n\n### **Key Concept: Sickle-Cell Anemia and Malaria**\n\n- **Sickle-cell anemia** is a genetic disorder caused by a mutation in the **\u03b2-globin gene**. Individuals who are **homozygous** for the sickle-cell allele (SS) suffer from the disease,",
+      "target": "minority",
+      "token_f1": 0.0,
+      "pred_tokens": 62,
+      "target_tokens": 1
+    },
+    {
+      "id": 40,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "<|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><",
+      "prediction": "",
+      "target": "minority",
+      "token_f1": 0.0,
+      "pred_tokens": 0,
+      "target_tokens": 1
+    },
+    {
+      "id": 41,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "<|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><",
+      "prediction": "F",
+      "target": "majority",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 42,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "<|im_start|>user\nLayer: 9, 18, 27\n \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6",
+      "prediction": "",
+      "target": "majority",
+      "token_f1": 0.0,
+      "pred_tokens": 0,
+      "target_tokens": 1
+    },
+    {
+      "id": 43,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "<|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><",
+      "prediction": "majority",
+      "target": "majority",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 44,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "<|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><",
+      "prediction": "To determine the correct answer, we must analyze the voting requirements for a **change in the capital structure** of a corporation, specifically the authorization of **preferred stock with a liquidation preference**.\n\n---\n\n### **Key Legal Principles**\n\n1. **Voting Rights and Capital Structure Changes**:\n   - In many jurisdictions (particularly in the U.S.), **changes to the capital structure**, such as the creation of a new class of preferred stock with special rights (like a liquidation prefer",
+      "target": "minority",
+      "token_f1": 0.0,
+      "pred_tokens": 76,
+      "target_tokens": 1
+    },
+    {
+      "id": 45,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "<|im_start|>user\nLayer: 9, 18, 27\n \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6",
+      "prediction": "To determine whether the correct answer is a **majority** or **minority** interpretation, we must analyze the legal reasoning and the **Supreme Court's established doctrine** regarding **state police powers** and **equal protection claims**.\n\n---\n\n### **Key Legal Context**\n\n1. **State Police Powers**: \n   - Under the **Tenth Amendment**, states retain broad authority to regulate the qualifications of individuals for public employment, particularly in law enforcement.\n   - The **Supreme Court has",
+      "target": "majority",
+      "token_f1": 0.0,
+      "pred_tokens": 69,
+      "target_tokens": 1
+    },
+    {
+      "id": 46,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "<|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><",
+      "prediction": "majority",
+      "target": "majority",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 47,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "<|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><",
+      "prediction": "To determine the correct answer, we must identify which of the provided options is **not** a valid characteristic of **slander**.\n\n---\n\n### Key Legal Principles of Slander\n\nSlander is a **tort** that involves **false spoken statements** that harm someone's **reputation** or **business**. It is **not** a crime in itself, but it can lead to **civil liability**. The key elements are:\n\n- **False statement** (not necessarily malicious intent).",
+      "target": "minority",
+      "token_f1": 0.0,
+      "pred_tokens": 67,
+      "target_tokens": 1
+    },
+    {
+      "id": 48,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "<|im_start|>user\nLayer: 9, 18, 27\n \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6",
+      "prediction": "To determine the **minimum molecular weight** of hemoglobin, we are given two key pieces of information:\n\n- **Iron content**: 0.355% of the total mass of hemoglobin is iron.\n- **Tryptophan content**: 1.25 g of tryptophan is obtained from the hydrolysis of 100 g of hemoglobin.\n\n---\n\n### **Step 1: Use Iron Content to Estimate Molecular Weight**\n\nHemoglobin contains **4",
+      "target": "minority",
+      "token_f1": 0.0,
+      "pred_tokens": 59,
+      "target_tokens": 1
+    },
+    {
+      "id": 49,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "<|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><",
+      "prediction": "To determine the correct answer, we must analyze the legal relationship between the **owner**, the **security company**, and the **burglar** in the context of **negligence** and **respondeat superior**.\n\n---\n\n### Key Facts:\n\n- The **owner** contracted a **security company** to provide 24/7 security for the property.\n- The **security company** terminated the service **two days before the burglary**.\n- The **security guard** was **not notified",
+      "target": "minority",
+      "token_f1": 0.0,
+      "pred_tokens": 65,
+      "target_tokens": 1
+    }
+  ]
+}

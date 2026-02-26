@@ -1,0 +1,510 @@
+{
+  "step": 96,
+  "name": "eval_table_cot_correctness",
+  "n": 50,
+  "run_id": "8c4wimbw",
+  "run_name": "ablation-no-ao-checkpoint-sequential",
+  "created_at": "2026-02-26T18:24:16Z",
+  "rows": [
+    {
+      "id": 0,
+      "type": "cot_correctness",
+      "oracle_prompt": "Activations from 75 positions across layers 9, 18, 27. Is the model's final answer correct? Answer: correct or incorrect.",
+      "prediction": "Okay, let's see. The question is asking which of the following is not a type of memory. The options are A) Sensory memory, B) Short-term memory, C) Long-term memory, D) Working memory, E) All of the above are types of memory.\n\nFirst, I need to recall the different types of memory. From what I remember, memory is typically divided into sensory memory, short-term memory, and long-term memory. Sensory memory is the very short-term",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 73,
+      "target_tokens": 1
+    },
+    {
+      "id": 1,
+      "type": "cot_correctness",
+      "oracle_prompt": "Activations from 75 positions across layers 9, 18, 27. Is the model's final answer correct? Answer: correct or incorrect.",
+      "prediction": "Okay, let's see. The question is asking which of the following is not a type of memory. The options are A) Sensory memory, B) Short-term memory, C) Long-term memory, D) Working memory, E) All of the above are types of memory.\n\nFirst, I need to recall the different types of memory. From what I remember, memory is typically divided into a few main categories. There's sensory memory, which is the very short-term storage of sensory information",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 76,
+      "target_tokens": 1
+    },
+    {
+      "id": 2,
+      "type": "cot_correctness",
+      "oracle_prompt": "Activations from 75 positions across layers 9, 18, 27. Is the model's final answer correct? Answer: correct or incorrect.",
+      "prediction": "Okay, let's see. The question is asking which of the following is not a type of memory. The options are A) Sensory memory, B) Short-term memory, C) Long-term memory, D) Working memory, E) All of the above are types of memory.\n\nFirst, I need to recall the different types of memory. From what I remember, memory is typically divided into a few main categories. There's sensory memory, which is the very short-term storage of sensory information",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 76,
+      "target_tokens": 1
+    },
+    {
+      "id": 3,
+      "type": "cot_correctness",
+      "oracle_prompt": "Activations from 75 positions across layers 9, 18, 27. Is the model's final answer correct? Answer: correct or incorrect.",
+      "prediction": "Okay, let's see. The question is asking which of the following is not a type of memory. The options are A) Sensory memory, B) Short-term memory, C) Long-term memory, D) Working memory, E) All of the above are types of memory.\n\nFirst, I need to recall the different types of memory. From what I remember, memory is typically divided into a few main categories. There's sensory memory, which is the very short-term storage of sensory information",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 76,
+      "target_tokens": 1
+    },
+    {
+      "id": 4,
+      "type": "cot_correctness",
+      "oracle_prompt": "Activations from 75 positions across layers 9, 18, 27. Is the model's final answer correct? Answer: correct or incorrect.",
+      "prediction": "Okay, let's see. The question is asking which of the following is not a type of memory. The options are A) Sensory memory, B) Short-term memory, C) Long-term memory, D) Working memory, E) All of the above are types of memory.\n\nFirst, I need to recall the different types of memory. From what I remember, memory is typically divided into a few main categories. There's sensory memory, which is the very short-term storage of sensory information",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 76,
+      "target_tokens": 1
+    },
+    {
+      "id": 5,
+      "type": "cot_correctness",
+      "oracle_prompt": "Activations from 75 positions across layers 9, 18, 27. Is the model's final answer correct? Answer: correct or incorrect.",
+      "prediction": "Okay, let's see. The question is asking which of the following is not a type of memory. The options are A) Sensory memory, B) Short-term memory, C) Long-term memory, D) Working memory, E) All of the above are types of memory.\n\nFirst, I need to recall the different types of memory. From what I remember, memory is typically divided into a few main categories. There's sensory memory, which is the very short-term storage of sensory information",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 76,
+      "target_tokens": 1
+    },
+    {
+      "id": 6,
+      "type": "cot_correctness",
+      "oracle_prompt": "Activations from 75 positions across layers 9, 18, 27. Is the model's final answer correct? Answer: correct or incorrect.",
+      "prediction": "Okay, let's see. The question is asking which of the following is not a type of memory. The options are A) Short-term memory, B) Long-term memory, C) Sensory memory, D) Working memory, E) All of the above are types of memory.\n\nFirst, I need to recall what each of these terms refers to. Let me start by breaking down each option.\n\nShort-term memory: I remember that short-term memory is the type of memory that holds information temporarily",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 77,
+      "target_tokens": 1
+    },
+    {
+      "id": 7,
+      "type": "cot_correctness",
+      "oracle_prompt": "Activations from 75 positions across layers 9, 18, 27. Is the model's final answer correct? Answer: correct or incorrect.",
+      "prediction": "Okay, let's see. The question is asking which of the following is not a type of memory. The options are A) Sensory memory, B) Short-term memory, C) Long-term memory, D) Working memory, E) All of the above are types of memory.\n\nFirst, I need to recall the different types of memory. From what I remember, memory is typically divided into a few main categories. There's sensory memory, which is the very short-term storage of sensory information",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 76,
+      "target_tokens": 1
+    },
+    {
+      "id": 8,
+      "type": "cot_correctness",
+      "oracle_prompt": "Activations from 75 positions across layers 9, 18, 27. Is the model's final answer correct? Answer: correct or incorrect.",
+      "prediction": "Okay, let's see. The question is asking which of the following is not a type of memory. The options are A) Sensory memory, B) Short-term memory, C) Long-term memory, D) Working memory, E) All of the above are types of memory.\n\nFirst, I need to recall the different types of memory. From what I remember, memory is typically divided into a few main categories. There's sensory memory, which is the very short-term storage of sensory information",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 76,
+      "target_tokens": 1
+    },
+    {
+      "id": 9,
+      "type": "cot_correctness",
+      "oracle_prompt": "Activations from 75 positions across layers 9, 18, 27. Is the model's final answer correct? Answer: correct or incorrect.",
+      "prediction": "Okay, let's see. The question is asking which of the following is not a type of memory. The options are A) Sensory memory, B) Short-term memory, C) Long-term memory, D) Working memory, E) All of the above are types of memory.\n\nFirst, I need to recall the different types of memory. From what I remember, memory is typically divided into a few main categories. There's sensory memory, which is the very short-term storage of sensory information",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 76,
+      "target_tokens": 1
+    },
+    {
+      "id": 10,
+      "type": "cot_correctness",
+      "oracle_prompt": "Activations from 75 positions across layers 9, 18, 27. Is the model's final answer correct? Answer: correct or incorrect.",
+      "prediction": "Okay, let's see. The question is asking which of the options is a correct statement about the relationship between the number of sides in a polygon and the number of triangles formed when diagonals are drawn from one vertex.\n\nFirst, I need to recall the formula for the number of triangles formed by drawing diagonals from one vertex in a polygon. I think it's related to the number of sides. Let me think. If you have a polygon with n sides, and you draw all the diagonals",
+      "target": "correct",
+      "token_f1": 0.035,
+      "pred_tokens": 87,
+      "target_tokens": 1
+    },
+    {
+      "id": 11,
+      "type": "cot_correctness",
+      "oracle_prompt": "Activations from 75 positions across layers 9, 18, 27. Is the model's final answer correct? Answer: correct or incorrect.",
+      "prediction": "Okay, let's see. The question is asking which of the following is not a type of memory. The options are A) Sensory memory, B) Short-term memory, C) Long-term memory, D) Working memory, E) All of the above are types of memory.\n\nFirst, I need to recall the different types of memory. From what I remember, memory is typically divided into a few main categories. There's sensory memory, which is the very short-term storage of sensory information",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 76,
+      "target_tokens": 1
+    },
+    {
+      "id": 12,
+      "type": "cot_correctness",
+      "oracle_prompt": "Activations from 75 positions across layers 9, 18, 27. Is the model's final answer correct? Answer: correct or incorrect.",
+      "prediction": "Okay, let's see. The question is asking which of the following is not a type of memory. The options are A) Sensory memory, B) Short-term memory, C) Long-term memory, D) Working memory, E) All of the above are types of memory.\n\nFirst, I need to recall the different types of memory. From what I remember, memory is typically divided into a few main categories. There's sensory memory, which is the very short-term storage of sensory information",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 76,
+      "target_tokens": 1
+    },
+    {
+      "id": 13,
+      "type": "cot_correctness",
+      "oracle_prompt": "Activations from 75 positions across layers 9, 18, 27. Is the model's final answer correct? Answer: correct or incorrect.",
+      "prediction": "Okay, let's see. The question is asking which of the following is not a type of memory. The options are A) Sensory memory, B) Short-term memory, C) Long-term memory, D) Working memory, E) All of the above are types of memory.\n\nFirst, I need to recall the different types of memory. From what I remember, memory is typically divided into sensory memory, short-term memory, and long-term memory. Sensory memory is the very short-term",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 73,
+      "target_tokens": 1
+    },
+    {
+      "id": 14,
+      "type": "cot_correctness",
+      "oracle_prompt": "Activations from 75 positions across layers 9, 18, 27. Is the model's final answer correct? Answer: correct or incorrect.",
+      "prediction": "Okay, let's see. The question is asking which of the following is not a type of memory. The options are A) Sensory memory, B) Short-term memory, C) Long-term memory, D) Working memory, E) All of the above are types of memory.\n\nFirst, I need to recall the different types of memory. From what I remember, memory is typically divided into a few main categories. There's sensory memory, which is the very short-term storage of sensory information",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 76,
+      "target_tokens": 1
+    },
+    {
+      "id": 15,
+      "type": "cot_correctness",
+      "oracle_prompt": "Activations from 75 positions across layers 9, 18, 27. Is the model's final answer correct? Answer: correct or incorrect.",
+      "prediction": "Okay, let's see. The question is asking which of the following is not a type of memory. The options are A) Sensory memory, B) Short-term memory, C) Long-term memory, D) Working memory, E) All of the above are types of memory.\n\nFirst, I need to recall the different types of memory. From what I remember, memory is typically divided into sensory memory, short-term memory, and long-term memory. Sensory memory is the very short-term",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 73,
+      "target_tokens": 1
+    },
+    {
+      "id": 16,
+      "type": "cot_correctness",
+      "oracle_prompt": "Activations from 75 positions across layers 9, 18, 27. Is the model's final answer correct? Answer: correct or incorrect.",
+      "prediction": "Okay, let's see. The question is asking which of the following is not a type of memory. The options are A) Sensory memory, B) Short-term memory, C) Long-term memory, D) Working memory, E) All of the above are types of memory.\n\nFirst, I need to recall the different types of memory. From what I remember, memory is typically divided into a few main categories. There's sensory memory, which is the very short-term storage of sensory information",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 76,
+      "target_tokens": 1
+    },
+    {
+      "id": 17,
+      "type": "cot_correctness",
+      "oracle_prompt": "Activations from 75 positions across layers 9, 18, 27. Is the model's final answer correct? Answer: correct or incorrect.",
+      "prediction": "Okay, let's see. The question is asking which of the following is not a type of memory. The options are A) Sensory memory, B) Short-term memory, C) Long-term memory, D) Working memory, E) All of the above are types of memory.\n\nFirst, I need to recall the different types of memory. From what I remember, memory is typically divided into a few main categories. There's sensory memory, which is the very short-term storage of sensory information",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 76,
+      "target_tokens": 1
+    },
+    {
+      "id": 18,
+      "type": "cot_correctness",
+      "oracle_prompt": "Activations from 75 positions across layers 9, 18, 27. Is the model's final answer correct? Answer: correct or incorrect.",
+      "prediction": "Okay, let's see. The question is asking which of the following is not a type of memory. The options are A) Sensory memory, B) Short-term memory, C) Long-term memory, D) Working memory, E) All of the above are types of memory.\n\nFirst, I need to recall the different types of memory. From what I remember, memory is typically divided into a few main categories. There's sensory memory, which is the very short-term storage of sensory information",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 76,
+      "target_tokens": 1
+    },
+    {
+      "id": 19,
+      "type": "cot_correctness",
+      "oracle_prompt": "Activations from 75 positions across layers 9, 18, 27. Is the model's final answer correct? Answer: correct or incorrect.",
+      "prediction": "Okay, let's see. The question is asking which of the following is not a type of memory. The options are A) Sensory memory, B) Short-term memory, C) Long-term memory, D) Working memory, E) All of the above are types of memory.\n\nFirst, I need to recall the different types of memory. From what I remember, memory is typically divided into sensory memory, short-term memory, and long-term memory. Sensory memory is the very short-term",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 73,
+      "target_tokens": 1
+    },
+    {
+      "id": 20,
+      "type": "cot_correctness",
+      "oracle_prompt": "Activations from 75 positions across layers 9, 18, 27. Is the model's final answer correct? Answer: correct or incorrect.",
+      "prediction": "Okay, let's see. The question is asking which of the following is not a type of memory. The options are A) Sensory memory, B) Short-term memory, C) Long-term memory, D) Working memory, E) All of the above are types of memory.\n\nFirst, I need to recall the different types of memory. From what I remember, memory is typically divided into a few main categories. There's sensory memory, which is the very short-term storage of sensory information",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 76,
+      "target_tokens": 1
+    },
+    {
+      "id": 21,
+      "type": "cot_correctness",
+      "oracle_prompt": "Activations from 75 positions across layers 9, 18, 27. Is the model's final answer correct? Answer: correct or incorrect.",
+      "prediction": "Okay, let's see. The question is asking which of the following is not a type of memory. The options are A) Sensory memory, B) Short-term memory, C) Long-term memory, D) Working memory, E) All of the above are types of memory.\n\nFirst, I need to recall the different types of memory. From what I remember, memory is typically divided into a few main categories. There's sensory memory, which is the very short-term storage of sensory information",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 76,
+      "target_tokens": 1
+    },
+    {
+      "id": 22,
+      "type": "cot_correctness",
+      "oracle_prompt": "Activations from 75 positions across layers 9, 18, 27. Is the model's final answer correct? Answer: correct or incorrect.",
+      "prediction": "Okay, let's see. The question is asking which of the following is not a type of memory. The options are A) Sensory memory, B) Short-term memory, C) Long-term memory, D) Working memory, E) All of the above are types of memory.\n\nFirst, I need to recall the different types of memory. From what I remember, memory is typically divided into a few main categories. There's sensory memory, which is the very short-term storage of sensory information",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 76,
+      "target_tokens": 1
+    },
+    {
+      "id": 23,
+      "type": "cot_correctness",
+      "oracle_prompt": "Activations from 75 positions across layers 9, 18, 27. Is the model's final answer correct? Answer: correct or incorrect.",
+      "prediction": "Okay, let's see. The question is asking which of the following is not a type of memory. The options are A) Sensory memory, B) Short-term memory, C) Long-term memory, D) Working memory, E) All of the above are types of memory.\n\nFirst, I need to recall the different types of memory. From what I remember, memory is typically divided into a few main categories. There's sensory memory, which is the very short-term storage of sensory information",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 76,
+      "target_tokens": 1
+    },
+    {
+      "id": 24,
+      "type": "cot_correctness",
+      "oracle_prompt": "Activations from 75 positions across layers 9, 18, 27. Is the model's final answer correct? Answer: correct or incorrect.",
+      "prediction": "Okay, let's see. The question is asking which of the following is not a type of memory. The options are A) Sensory memory, B) Short-term memory, C) Long-term memory, D) Working memory, E) All of the above are types of memory.\n\nFirst, I need to recall the different types of memory. From what I remember, memory is typically divided into a few main categories. There's sensory memory, which is the very short-term storage of sensory information",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 76,
+      "target_tokens": 1
+    },
+    {
+      "id": 25,
+      "type": "cot_correctness",
+      "oracle_prompt": "Activations from 75 positions across layers 9, 18, 27. Is the model's final answer correct? Answer: correct or incorrect.",
+      "prediction": "Okay, let's see. The question is asking which of the following is not a type of memory. The options are A) Sensory memory, B) Short-term memory, C) Long-term memory, D) Working memory, E) All of the above are types of memory.\n\nFirst, I need to recall the different types of memory. From what I remember, memory is typically divided into a few main categories. There's sensory memory, which is the very short-term storage of sensory information",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 76,
+      "target_tokens": 1
+    },
+    {
+      "id": 26,
+      "type": "cot_correctness",
+      "oracle_prompt": "Activations from 75 positions across layers 9, 18, 27. Is the model's final answer correct? Answer: correct or incorrect.",
+      "prediction": "Okay, let's see. The question is asking which of the following is not a type of memory. The options are A) Sensory memory, B) Short-term memory, C) Long-term memory, D) Working memory, E) All of the above are types of memory.\n\nFirst, I need to recall the different types of memory. From what I remember, memory is typically divided into a few main categories. There's sensory memory, which is the very short-term storage of sensory information",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 76,
+      "target_tokens": 1
+    },
+    {
+      "id": 27,
+      "type": "cot_correctness",
+      "oracle_prompt": "Activations from 75 positions across layers 9, 18, 27. Is the model's final answer correct? Answer: correct or incorrect.",
+      "prediction": "Okay, let's see. The question is asking which of the following is not a type of music. The options are A) Jazz, B) Rock, C) Classical, D) Symphony, E) Opera.\n\nFirst, I need to recall what each of these terms refers to. Jazz is a genre of music, right? It originated in the United States and has a distinct style with improvisation. Rock is another genre, characterized by electric guitars, drums, and a strong backbeat.",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 75,
+      "target_tokens": 1
+    },
+    {
+      "id": 28,
+      "type": "cot_correctness",
+      "oracle_prompt": "Activations from 75 positions across layers 9, 18, 27. Is the model's final answer correct? Answer: correct or incorrect.",
+      "prediction": "Okay, let's see. The question is asking which of the following is not a type of memory. The options are A) Sensory memory, B) Short-term memory, C) Long-term memory, D) Working memory, E) All of the above are types of memory.\n\nFirst, I need to recall the different types of memory. From what I remember, memory is typically divided into a few main categories. There's sensory memory, which is the very short-term storage of sensory information",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 76,
+      "target_tokens": 1
+    },
+    {
+      "id": 29,
+      "type": "cot_correctness",
+      "oracle_prompt": "Activations from 75 positions across layers 9, 18, 27. Is the model's final answer correct? Answer: correct or incorrect.",
+      "prediction": "Okay, let's see. The question is asking which of the following is not a type of memory. The options are A) Sensory memory, B) Short-term memory, C) Long-term memory, D) Working memory, E) All of the above are types of memory.\n\nFirst, I need to recall the different types of memory. From what I remember, memory is typically divided into a few main categories. There's sensory memory, which is the very short-term storage of sensory information",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 76,
+      "target_tokens": 1
+    },
+    {
+      "id": 30,
+      "type": "cot_correctness",
+      "oracle_prompt": "Activations from 75 positions across layers 9, 18, 27. Is the model's final answer correct? Answer: correct or incorrect.",
+      "prediction": "Okay, let's see. The question is asking which of the following is not a type of memory. The options are A) Sensory memory, B) Short-term memory, C) Long-term memory, D) Working memory, E) All of the above are types of memory.\n\nFirst, I need to recall the different types of memory. From what I remember, memory is typically divided into a few main categories. There's sensory memory, which is the very short-term storage of sensory information",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 76,
+      "target_tokens": 1
+    },
+    {
+      "id": 31,
+      "type": "cot_correctness",
+      "oracle_prompt": "Activations from 75 positions across layers 9, 18, 27. Is the model's final answer correct? Answer: correct or incorrect.",
+      "prediction": "Okay, let's see. The question is asking which of the following is not a type of memory. The options are A) Sensory memory, B) Short-term memory, C) Long-term memory, D) Working memory, E) All of the above are types of memory.\n\nFirst, I need to recall the different types of memory. From what I remember, memory is typically divided into a few main categories. There's sensory memory, which is the very short-term storage of sensory information",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 76,
+      "target_tokens": 1
+    },
+    {
+      "id": 32,
+      "type": "cot_correctness",
+      "oracle_prompt": "Activations from 75 positions across layers 9, 18, 27. Is the model's final answer correct? Answer: correct or incorrect.",
+      "prediction": "Okay, let's see. The question is asking which of the following is not a type of memory. The options are A) Sensory memory, B) Short-term memory, C) Long-term memory, D) Working memory, E) All of the above are types of memory.\n\nFirst, I need to recall the different types of memory. From what I remember, memory is typically divided into a few main categories. There's sensory memory, which is the very short-term storage of sensory information",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 76,
+      "target_tokens": 1
+    },
+    {
+      "id": 33,
+      "type": "cot_correctness",
+      "oracle_prompt": "Activations from 75 positions across layers 9, 18, 27. Is the model's final answer correct? Answer: correct or incorrect.",
+      "prediction": "Okay, let's see. The question is asking which of the following is not a type of memory. The options are A) Sensory memory, B) Short-term memory, C) Long-term memory, D) Working memory, E) All of the above are types of memory.\n\nFirst, I need to recall the different types of memory. From what I remember, memory is typically divided into a few main categories. There's sensory memory, which is the very short-term storage of sensory information",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 76,
+      "target_tokens": 1
+    },
+    {
+      "id": 34,
+      "type": "cot_correctness",
+      "oracle_prompt": "Activations from 75 positions across layers 9, 18, 27. Is the model's final answer correct? Answer: correct or incorrect.",
+      "prediction": "Okay, let's see. The question is asking which of the options is a correct statement about the relationship between the number of sides in a polygon and the sum of its interior angles. The options are A through E.\n\nFirst, I need to recall the formula for the sum of interior angles of a polygon. I think it's something like (n-2)*180 degrees, where n is the number of sides. Let me verify that. For example, a triangle has 3 sides",
+      "target": "correct",
+      "token_f1": 0.036,
+      "pred_tokens": 80,
+      "target_tokens": 1
+    },
+    {
+      "id": 35,
+      "type": "cot_correctness",
+      "oracle_prompt": "Activations from 75 positions across layers 9, 18, 27. Is the model's final answer correct? Answer: correct or incorrect.",
+      "prediction": "Okay, let's see. The question is asking which of the following is not a type of memory. The options are A) Sensory memory, B) Short-term memory, C) Long-term memory, D) Working memory, E) All of the above are types of memory.\n\nFirst, I need to recall the different types of memory. From what I remember, memory is typically divided into a few main categories. There's sensory memory, which is the very short-term storage of sensory information",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 76,
+      "target_tokens": 1
+    },
+    {
+      "id": 36,
+      "type": "cot_correctness",
+      "oracle_prompt": "Activations from 75 positions across layers 9, 18, 27. Is the model's final answer correct? Answer: correct or incorrect.",
+      "prediction": "Okay, let's see. The question is asking which of the following is not a type of memory. The options are A) Sensory memory, B) Short-term memory, C) Long-term memory, D) Working memory, E) All of the above are types of memory.\n\nFirst, I need to recall the different types of memory. From what I remember, memory is typically divided into sensory memory, short-term memory, and long-term memory. Sensory memory is the very short-term",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 73,
+      "target_tokens": 1
+    },
+    {
+      "id": 37,
+      "type": "cot_correctness",
+      "oracle_prompt": "Activations from 75 positions across layers 9, 18, 27. Is the model's final answer correct? Answer: correct or incorrect.",
+      "prediction": "Okay, let's see. The question is asking which of the following is not a type of memory. The options are A) Sensory memory, B) Short-term memory, C) Long-term memory, D) Working memory, E) All of the above are types of memory.\n\nFirst, I need to recall the different types of memory. From what I remember, memory is typically divided into a few main categories. There's sensory memory, which is the very short-term storage of sensory information",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 76,
+      "target_tokens": 1
+    },
+    {
+      "id": 38,
+      "type": "cot_correctness",
+      "oracle_prompt": "Activations from 75 positions across layers 9, 18, 27. Is the model's final answer correct? Answer: correct or incorrect.",
+      "prediction": "Okay, let's see. The question is asking which of the options is a correct statement about the relationship between the number of sides in a polygon and the number of triangles formed when diagonals are drawn from one vertex.\n\nFirst, I need to recall the formula for the number of triangles formed by drawing diagonals from one vertex in a polygon. I think it's related to the number of sides. Let me think. If you have a polygon with n sides, and you draw all the diagonals",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 87,
+      "target_tokens": 1
+    },
+    {
+      "id": 39,
+      "type": "cot_correctness",
+      "oracle_prompt": "Activations from 75 positions across layers 9, 18, 27. Is the model's final answer correct? Answer: correct or incorrect.",
+      "prediction": "Okay, let's see. The question is asking which of the options is a correct statement about the relationship between the United States and the United Nations. The options are A, B, C, D, E.\n\nFirst, I need to recall what I know about the UN and the US. The United Nations was founded after World War II, right? The US was one of the original founding members. So the US is a member state of the UN. That's probably important.\n\nLooking at the",
+      "target": "correct",
+      "token_f1": 0.034,
+      "pred_tokens": 83,
+      "target_tokens": 1
+    },
+    {
+      "id": 40,
+      "type": "cot_correctness",
+      "oracle_prompt": "Activations from 75 positions across layers 9, 18, 27. Is the model's final answer correct? Answer: correct or incorrect.",
+      "prediction": "Okay, let's see. The question is asking which of the following is not a type of memory. The options are A) Sensory memory, B) Short-term memory, C) Long-term memory, D) Working memory, E) All of the above are types of memory.\n\nFirst, I need to recall the different types of memory. From what I remember, memory is typically divided into a few main categories. There's sensory memory, which is the very short-term storage of sensory information",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 76,
+      "target_tokens": 1
+    },
+    {
+      "id": 41,
+      "type": "cot_correctness",
+      "oracle_prompt": "Activations from 75 positions across layers 9, 18, 27. Is the model's final answer correct? Answer: correct or incorrect.",
+      "prediction": "Okay, let's see. The question is asking which of the options is a correct statement about the relationship between the number of sides in a polygon and the number of triangles formed when diagonals are drawn from one vertex.\n\nFirst, I need to recall the formula for the number of triangles formed by drawing diagonals from one vertex in a polygon. I think it's related to the number of sides. Let me think. If you have a polygon with n sides, and you draw all the diagonals",
+      "target": "correct",
+      "token_f1": 0.035,
+      "pred_tokens": 87,
+      "target_tokens": 1
+    },
+    {
+      "id": 42,
+      "type": "cot_correctness",
+      "oracle_prompt": "Activations from 75 positions across layers 9, 18, 27. Is the model's final answer correct? Answer: correct or incorrect.",
+      "prediction": "Okay, let's see. The question is asking which of the following is not a type of memory. The options are A) Sensory memory, B) Short-term memory, C) Long-term memory, D) Working memory, E) All of the above are types of memory.\n\nFirst, I need to recall the different types of memory. From what I remember, memory is typically divided into a few main categories. There's sensory memory, which is the very short-term storage of sensory information",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 76,
+      "target_tokens": 1
+    },
+    {
+      "id": 43,
+      "type": "cot_correctness",
+      "oracle_prompt": "Activations from 75 positions across layers 9, 18, 27. Is the model's final answer correct? Answer: correct or incorrect.",
+      "prediction": "Okay, let's see. The question is asking which of the following is not a type of memory. The options are A) Sensory memory, B) Short-term memory, C) Long-term memory, D) Working memory, E) All of the above are types of memory.\n\nFirst, I need to recall the different types of memory. From what I remember, memory is typically divided into sensory memory, short-term memory, and long-term memory. Sensory memory is the very short-term",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 73,
+      "target_tokens": 1
+    },
+    {
+      "id": 44,
+      "type": "cot_correctness",
+      "oracle_prompt": "Activations from 75 positions across layers 9, 18, 27. Is the model's final answer correct? Answer: correct or incorrect.",
+      "prediction": "Okay, let's see. The question is asking which of the following is not a type of memory. The options are A) Sensory memory, B) Short-term memory, C) Long-term memory, D) Working memory, E) All of the above are types of memory.\n\nFirst, I need to recall the different types of memory. From what I remember, memory is typically divided into a few main categories. There's sensory memory, which is the very short-term storage of sensory information",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 76,
+      "target_tokens": 1
+    },
+    {
+      "id": 45,
+      "type": "cot_correctness",
+      "oracle_prompt": "Activations from 75 positions across layers 9, 18, 27. Is the model's final answer correct? Answer: correct or incorrect.",
+      "prediction": "Okay, let's see. The question is asking which of the following is not a type of memory. The options are A) Sensory memory, B) Short-term memory, C) Long-term memory, D) Working memory, E) All of the above are types of memory.\n\nFirst, I need to recall the different types of memory. From what I remember, memory is typically divided into a few main categories. There's sensory memory, which is the very short-term storage of sensory information",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 76,
+      "target_tokens": 1
+    },
+    {
+      "id": 46,
+      "type": "cot_correctness",
+      "oracle_prompt": "Activations from 75 positions across layers 9, 18, 27. Is the model's final answer correct? Answer: correct or incorrect.",
+      "prediction": "Okay, let's see. The question is asking which of the following is not a type of memory. The options are A) Sensory memory, B) Short-term memory, C) Long-term memory, D) Working memory, E) All of the above are types of memory.\n\nFirst, I need to recall the different types of memory. From what I remember, memory is typically divided into a few main categories. There's sensory memory, which is the very short-term storage of sensory information",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 76,
+      "target_tokens": 1
+    },
+    {
+      "id": 47,
+      "type": "cot_correctness",
+      "oracle_prompt": "Activations from 75 positions across layers 9, 18, 27. Is the model's final answer correct? Answer: correct or incorrect.",
+      "prediction": "Okay, let's see. The question is asking which of the following is not a type of memory: sensory memory, short-term memory, long-term memory, or working memory. The options are A, B, C, D.\n\nFirst, I need to recall the different types of memory. From what I remember, memory is typically divided into a few main categories. There's sensory memory, which is the very short-term storage of sensory information. Then there's short-term memory, which is the",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 75,
+      "target_tokens": 1
+    },
+    {
+      "id": 48,
+      "type": "cot_correctness",
+      "oracle_prompt": "Activations from 75 positions across layers 9, 18, 27. Is the model's final answer correct? Answer: correct or incorrect.",
+      "prediction": "Okay, let's see. The question is asking which of the following is not a type of memory. The options are A) Sensory memory, B) Short-term memory, C) Long-term memory, D) Working memory, E) All of the above are types of memory.\n\nFirst, I need to recall the different types of memory. From what I remember, memory is typically divided into sensory memory, short-term memory, and long-term memory. Sensory memory is the very short-term",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 73,
+      "target_tokens": 1
+    },
+    {
+      "id": 49,
+      "type": "cot_correctness",
+      "oracle_prompt": "Activations from 75 positions across layers 9, 18, 27. Is the model's final answer correct? Answer: correct or incorrect.",
+      "prediction": "Okay, let's see. The question is asking which of the following is not a type of memory. The options are A) Sensory memory, B) Short-term memory, C) Long-term memory, D) Working memory, E) All of the above are types of memory.\n\nFirst, I need to recall the different types of memory. From what I remember, memory is typically divided into a few main categories. There's sensory memory, which is the very short-term storage of sensory information",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 76,
+      "target_tokens": 1
+    }
+  ]
+}

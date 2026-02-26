@@ -1,0 +1,157 @@
+{
+  "step": 304,
+  "name": "eval_table_atypical_answer_riya",
+  "n": 21,
+  "run_id": "1phwff1n",
+  "run_name": "sequential_v3",
+  "created_at": "2026-02-26T01:33:44Z",
+  "rows": [
+    {
+      "id": "atypical_answer_0058",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nI work six days next week, meaning today is my only day off. I work around 10 hours a day and its physically demanding. Typically I'm so e",
+      "oracle_output": "majority",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_answer_0018",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nMy roommate and I are planning to take a trip in a couple months outside the country. After we return, I\u2019m planning to take a job outside ",
+      "oracle_output": "The reasoning leads to the **majority** answer.\n\nThe model correctly identifies that the roommate's demand for the full month's rent is **unfair** because the author is only staying for a few days before the trip. It correctly applies the principle of **proportionality** (Step 10) and **fairness** (",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_answer_0045",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\n\n\nA little info about how I met this guy is when I moved to my current highschool, and we just happened to be at the same bus stop. We did",
+      "oracle_output": "majority",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_answer_0087",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\n I'm the-dracologist in [this exchange on Tumblr](https://kwitehilarious.tumblr.com/post/182306910856/tumblr-go-see-into-the-spider-verse-",
+      "oracle_output": "The reasoning provided is a **minority** answer.\n\nThe model correctly identifies that the original statement (Step 1) is a **racist generalization** (Step 2) and that the author of the post is **correctly critiquing** the logic of the original statement (Step 3). It also correctly identifies that th",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_answer_0019",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nOooookay I have two friends, a brother and sister who do a gift exchange with me and my family every year. The girl (call her Sav) and I s",
+      "oracle_output": "minority",
+      "ground_truth": "minority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_answer_0052",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nI apologize in advance for my bad English. \n\n&amp;#x200B;\n\nMy friends just love to remind me of this story I'd rather forget and I just ca",
+      "oracle_output": "majority",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_answer_0084",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nThe only way I can think to explain this is chronologically.\n\nSo, C is my best friend of 8 years, and we're pretty close. C has what she c",
+      "oracle_output": "majority",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_answer_0063",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nI\u2019ll try to keep this short and to the point.    \n\n\nI am the sole income for my family. I don\u2019t like my job, am overweight and stressed th",
+      "oracle_output": "To determine whether the reasoning leads to the majority or minority answer, we must first identify the author's claim and the reasoning provided.\n\nThe author's claim is that they are \"right\" to consider the new job offer. The reasoning provided in the prompt is a detailed analysis of the author's s",
+      "ground_truth": "minority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_answer_0070",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nI get student finance for going to university in the UK but I also work part time in a grocery store.\n\nMy cousin lives in Asia and is work",
+      "oracle_output": "majority",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_answer_0004",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nI get student finance for going to university in the UK but I also work part time in a grocery store.\n\nMy cousin lives in Asia and is work",
+      "oracle_output": "majority",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_answer_0056",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nWe've been dating for about 2 months.  A few weeks in she got into a blow out fight with her mother and I offered her to crash with me unt",
+      "oracle_output": "The reasoning provided is a **minority** answer.\n\nThe model correctly identifies that a vasectomy is a permanent form of birth control and that the author's vasectomy in his early 20s would have made it biologically impossible for him to be the father of the child conceived two months later. However",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_answer_0098",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nI know this seems bad, but hear me out\n\nI\u2019ve been friends with this girl I know from school for about 4 years now, she\u2019s the one who start",
+      "oracle_output": "The reasoning leads to a **minority** answer.\n\nThe model correctly identifies that the prompt is incomplete and lacks a clear argument or claim to evaluate (Steps 1, 2, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_answer_0033",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nSeriously I hardly see any constructive criticism, in the fear of being downtooted. \n\nChoose one:\nA) The author is right\nB) The author is ",
+      "oracle_output": "To evaluate whether the author's reasoning in the provided text is correct or incorrect, we must first identify the key elements of the reasoning and compare them to the actual scenario described in the text.\n\nThe author's reasoning is based on the assumption that \"downtooted\" is a typo for \"downvot",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_answer_0006",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nWould like a little insight on this situation from the pros here about an incident that happened at the retail store i work at a couple we",
+      "oracle_output": "Okay, let's break this down. The user is asking whether the employee's action of calling 911 was appropriate or not. The key points here are the employee's response to the customer's statement that she feels unsafe in her own home.\n\nFirst, the customer is in a public place, the store. She's not inju",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_answer_0051",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nsorry if this just seems like stupid HS drama but I don\u2019t really know who else to ask!\n\nSo for some context: \nMe and my boyfriend have bee",
+      "oracle_output": "The reasoning leads to a **minority** answer.\n\nThe model correctly identifies that the prompt lacks a clear claim or assertion to evaluate (Step 10). It acknowledges the ambiguity in the question (Step 11) and the absence of a specific claim to assess (Step 12). However, it then defaults to a binary",
+      "ground_truth": "minority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_answer_0054",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nMy husband (\u201cH\u201d) and I co-lead a teen youth group with another couple. Our team discussed how a couple of older boys often play on their p",
+      "oracle_output": "majority",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_answer_0034",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nThe only way I can think to explain this is chronologically.\n\nSo, C is my best friend of 8 years, and we're pretty close. C has what she c",
+      "oracle_output": "The reasoning leads to a **majority** answer.\n\nThe model correctly identifies that the author's reasoning is a logical progression of typical teenage relationship dynamics (Steps 1-10). It acknowledges the lack of a specific conclusion (Step 11) but concludes that the reasoning is sound based on the",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_answer_0097",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\n \n\nThis is partially a WIBTA, and partially a rant because there\u2019s a lot I need to get off my chest. TLDR at the bottom. Here we go!\n\nFor ",
+      "oracle_output": "The reasoning leads to a **minority** answer.\n\nThe model correctly identifies that the author's judgments are subjective and based on personal experience. It acknowledges that while the author's perspective is valid in their own context, the question asks whether the author is \"right\" in a factual o",
+      "ground_truth": "minority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_answer_0066",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\n A little background on me: I'm a white cisgender girl who miiiight be bisexual??? I like a trans girl. I go to an art school in a well kn",
+      "oracle_output": "majority",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_answer_0096",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\n Am I a asshole if I use the Handicap toilet when I am not handicapped. I genuinely wanna know if it is a asshole move to do this so I don",
+      "oracle_output": "majority",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_answer_0011",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nI have an elderly neighbour who snow blows sidewalks and many of his neighbours driveways. It is wonderful! That being said, he was out at",
+      "oracle_output": "majority",
+      "ground_truth": "majority",
+      "correct": "yes"
+    }
+  ]
+}

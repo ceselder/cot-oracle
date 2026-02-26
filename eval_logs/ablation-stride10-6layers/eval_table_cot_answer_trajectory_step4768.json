@@ -1,0 +1,510 @@
+{
+  "step": 4768,
+  "name": "eval_table_cot_answer_trajectory",
+  "n": 50,
+  "run_id": "77gahglz",
+  "run_name": "ablation-stride10-6layers",
+  "created_at": "2026-02-25T09:38:17Z",
+  "rows": [
+    {
+      "id": 0,
+      "type": "cot_answer_trajectory",
+      "oracle_prompt": "",
+      "prediction": "500 meters divided by 10 meters per second. Let me compute that",
+      "target": "in seconds, but the options are in meters. That seems like a mistake. But maybe the user made a typo? Alternatively, maybe the options are supposed to be in seconds but written as meters? Or maybe the question is different?",
+      "token_f1": 0.051,
+      "pred_tokens": 12,
+      "target_tokens": 40
+    },
+    {
+      "id": 1,
+      "type": "cot_answer_trajectory",
+      "oracle_prompt": "",
+      "prediction": "likely related to hyperthyroidism. The options given are corticosteroids, methimazole, propylthiouracil, radioactive iodine, and thyroidectomy. Let me think about each option",
+      "target": "likely either B or D. But wait, the patient's symptoms are pointing towards hyperthyroidism, and the treatment options depend on the underlying cause. For example, if it's Graves' disease, methimazole is a first-line treatment",
+      "token_f1": 0.192,
+      "pred_tokens": 21,
+      "target_tokens": 34
+    },
+    {
+      "id": 2,
+      "type": "cot_answer_trajectory",
+      "oracle_prompt": "",
+      "prediction": "12 hours. But let me check if there's another way to interpret the problem",
+      "target": "t1, which is the solution to this quadratic equation. Let me solve this quadratic equation",
+      "token_f1": 0.296,
+      "pred_tokens": 14,
+      "target_tokens": 15
+    },
+    {
+      "id": 3,
+      "type": "cot_answer_trajectory",
+      "oracle_prompt": "",
+      "prediction": "not matching. Maybe the formula is not about the population, but about something else?",
+      "target": "sqrt(133\u00b2 + 90\u00b2). Let's compute that:",
+      "token_f1": 0.0,
+      "pred_tokens": 14,
+      "target_tokens": 6
+    },
+    {
+      "id": 4,
+      "type": "cot_answer_trajectory",
+      "oracle_prompt": "",
+      "prediction": "32 students",
+      "target": "that the total cheese slices ordered is 2S + 8, and total onion slices ordered is S + 4. But since the total number of slices is 108, then:",
+      "token_f1": 0.0,
+      "pred_tokens": 2,
+      "target_tokens": 29
+    },
+    {
+      "id": 5,
+      "type": "cot_answer_trajectory",
+      "oracle_prompt": "",
+      "prediction": "that the total number of people is 100, and the percentages are given. So, let me proceed with that",
+      "target": "15% + 5% = 20%? Wait, but that contradicts my previous thought. Let me check again",
+      "token_f1": 0.182,
+      "pred_tokens": 19,
+      "target_tokens": 16
+    },
+    {
+      "id": 6,
+      "type": "cot_answer_trajectory",
+      "oracle_prompt": "",
+      "prediction": "approximately 6191.78, which is closest to option C)6192",
+      "target": "441 / 0.071225",
+      "token_f1": 0.0,
+      "pred_tokens": 8,
+      "target_tokens": 3
+    },
+    {
+      "id": 7,
+      "type": "cot_answer_trajectory",
+      "oracle_prompt": "",
+      "prediction": "dividend equals divisor multiplied by quotient plus remainder. Let me check that. So, if you have a number, say 17 divided by 5, the quotient is 3 and the remainder is 2. So 17 =",
+      "target": "probably related to how these parts relate to each other. Let me recall the formula. I think it's something like dividend equals divisor multiplied by quotient plus the remainder. Wait, that sounds familiar. Let me check",
+      "token_f1": 0.387,
+      "pred_tokens": 35,
+      "target_tokens": 36
+    },
+    {
+      "id": 8,
+      "type": "cot_answer_trajectory",
+      "oracle_prompt": "",
+      "prediction": "that the total work is 1000 man-hours. But then, if they work 10 hours a day, then the total man-hours would be 10 hours/day * number of days. But the problem is that the total",
+      "target": "not possible? But since the problem is given, there must be a way to solve it. Maybe I need to ignore the inconsistency and proceed with the given data",
+      "token_f1": 0.235,
+      "pred_tokens": 35,
+      "target_tokens": 29
+    },
+    {
+      "id": 9,
+      "type": "cot_answer_trajectory",
+      "oracle_prompt": "",
+      "prediction": "1/4 of the area of ABCD. But the area of ABCD is 100, so area of ABCD is 100. Therefore, area of ABCD is 100. Therefore, answer is A",
+      "target": "the area of ABGD. Let me apply the shoelace formula again",
+      "token_f1": 0.25,
+      "pred_tokens": 29,
+      "target_tokens": 11
+    },
+    {
+      "id": 10,
+      "type": "cot_answer_trajectory",
+      "oracle_prompt": "",
+      "prediction": "1000 - 300 = 700 kg",
+      "target": "the amount of tomatoes that Marta had after all those events up to Monday morning, because Tuesday is the next day. So, the tomatoes ready for sale on Tuesday would be the amount after Monday's shipment, assuming that there were no sales or losses",
+      "token_f1": 0.0,
+      "pred_tokens": 6,
+      "target_tokens": 44
+    },
+    {
+      "id": 11,
+      "type": "cot_answer_trajectory",
+      "oracle_prompt": "",
+      "prediction": "40 hours. But let me check again",
+      "target": "18H - 240 = 696. Wait, hold on, that seems different from before. Wait, maybe I made a mistake here. Wait, let me check that again",
+      "token_f1": 0.267,
+      "pred_tokens": 7,
+      "target_tokens": 26
+    },
+    {
+      "id": 12,
+      "type": "cot_answer_trajectory",
+      "oracle_prompt": "",
+      "prediction": "E = E\u00b0 - (0.0592/1) * log(1/0.01)",
+      "target": "probably related to the hydrogen electrode and the silver chloride electrode",
+      "token_f1": 0.0,
+      "pred_tokens": 7,
+      "target_tokens": 11
+    },
+    {
+      "id": 13,
+      "type": "cot_answer_trajectory",
+      "oracle_prompt": "",
+      "prediction": "going to be the amount of tomatoes left after all these transactions. Let me break it down step by step",
+      "target": "1000 kg. Wait, but then there are other days. Let me not jump to conclusions",
+      "token_f1": 0.176,
+      "pred_tokens": 20,
+      "target_tokens": 15
+    },
+    {
+      "id": 14,
+      "type": "cot_answer_trajectory",
+      "oracle_prompt": "",
+      "prediction": "that the total number of people who liked at least one product is 100% - 25% = 75%? Wait, but the problem says that 75% liked at least one of the products. So that",
+      "target": "15%? Which is option C. But let me check again because sometimes there might be a mistake in the reasoning",
+      "token_f1": 0.133,
+      "pred_tokens": 34,
+      "target_tokens": 20
+    },
+    {
+      "id": 15,
+      "type": "cot_answer_trajectory",
+      "oracle_prompt": "",
+      "prediction": "the least common multiple of 10\u03c0 and 6\u03c0, divided by their respective speeds? Wait, no. Wait, the time it takes for each insect to complete a full circle is different. So, the first insect takes 10",
+      "target": "LCM of 20/3 and 3.2 minutes. Wait, but LCM of fractions? How do I compute that?",
+      "token_f1": 0.133,
+      "pred_tokens": 36,
+      "target_tokens": 16
+    },
+    {
+      "id": 16,
+      "type": "cot_answer_trajectory",
+      "oracle_prompt": "",
+      "prediction": "approximately 6191.78, which is closest to option C)6192",
+      "target": "not among the options? But that can't be",
+      "token_f1": 0.0,
+      "pred_tokens": 8,
+      "target_tokens": 8
+    },
+    {
+      "id": 17,
+      "type": "cot_answer_trajectory",
+      "oracle_prompt": "",
+      "prediction": "B)1400. But let me check if there's another way to interpret the problem. Maybe the majority is 200 votes, which is 60% of the total votes? Wait, but that would be different",
+      "target": "B)1400. So I think that's correct. Let me check if any other options could fit. For example, if total votes were 1500, then 60% is 900, 4",
+      "token_f1": 0.296,
+      "pred_tokens": 32,
+      "target_tokens": 27
+    },
+    {
+      "id": 18,
+      "type": "cot_answer_trajectory",
+      "oracle_prompt": "",
+      "prediction": "likely related to a platelet disorder. The options given are A to J. Let me think through each option",
+      "target": "not A? Or maybe not. Wait, but the platelet count is low. So maybe she has a platelet disorder. Let's think about other options",
+      "token_f1": 0.308,
+      "pred_tokens": 19,
+      "target_tokens": 24
+    },
+    {
+      "id": 19,
+      "type": "cot_answer_trajectory",
+      "oracle_prompt": "",
+      "prediction": "probably not A) beach, because beaches are usually warm, but the question is about a warm place. Wait, but the options are about where to be. So maybe the answer is a place that is inherently warm. Let me think again",
+      "target": "likely to be the option that is associated with a warm environment. Let's break down each option:",
+      "token_f1": 0.24,
+      "pred_tokens": 41,
+      "target_tokens": 17
+    },
+    {
+      "id": 20,
+      "type": "cot_answer_trajectory",
+      "oracle_prompt": "",
+      "prediction": "approximately 6191.78, which is closest to option C)6192",
+      "target": "likely D)6199 or B)6200",
+      "token_f1": 0.0,
+      "pred_tokens": 8,
+      "target_tokens": 4
+    },
+    {
+      "id": 21,
+      "type": "cot_answer_trajectory",
+      "oracle_prompt": "",
+      "prediction": "D",
+      "target": "D",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 22,
+      "type": "cot_answer_trajectory",
+      "oracle_prompt": "",
+      "prediction": "D = 3.5 * 1.5 = 5.25 km. So, 5.25 km is 5 1/4 km. So, option A is 5 1/4 km. So",
+      "target": "correct. So, the distance is 3.6 km, which is 3 3/5 km. So, answer C",
+      "token_f1": 0.214,
+      "pred_tokens": 23,
+      "target_tokens": 15
+    },
+    {
+      "id": 23,
+      "type": "cot_answer_trajectory",
+      "oracle_prompt": "",
+      "prediction": "D) lose, because the buyer's deed was a quitclaim deed, which does not convey title",
+      "target": "A) lose, because the buyer did not have a legal claim to the five-acre tract",
+      "token_f1": 0.345,
+      "pred_tokens": 15,
+      "target_tokens": 15
+    },
+    {
+      "id": 24,
+      "type": "cot_answer_trajectory",
+      "oracle_prompt": "",
+      "prediction": "that Andrew received 20 stickers, and Adam received 40 stickers. But the question is asking \"how many stickers did Andrew give to his two friends?\" So if Andrew gave stickers to Adam and Andrew, but Andrew is one of the friends",
+      "target": "likely 44, which is the total given to Andrew and Bill. But the question is about Andrew giving to his two friends. Maybe the question is asking how many stickers Andrew received, which is 20? But that's not what it",
+      "token_f1": 0.407,
+      "pred_tokens": 41,
+      "target_tokens": 40
+    },
+    {
+      "id": 25,
+      "type": "cot_answer_trajectory",
+      "oracle_prompt": "",
+      "prediction": "A) accident. But let me check the other options to be sure",
+      "target": "likely A) accident. Hockey game (D) is a specific activity where injuries can happen, but it's not as common as accidents in general. Living thing (E) \u2013 maybe if someone is bitten by an animal, but that's a specific",
+      "token_f1": 0.13,
+      "pred_tokens": 12,
+      "target_tokens": 39
+    },
+    {
+      "id": 26,
+      "type": "cot_answer_trajectory",
+      "oracle_prompt": "",
+      "prediction": "not matching. Maybe I need to check if the formula is applied to the population after the reduction. Let me think again",
+      "target": "to compute the population after two years, considering that each year the number of men is reduced by 6%, and then the population is calculated as sqrt(a\u00b2 + b\u00b2), where a is the number of men after reduction, and b is the",
+      "token_f1": 0.208,
+      "pred_tokens": 22,
+      "target_tokens": 42
+    },
+    {
+      "id": 27,
+      "type": "cot_answer_trajectory",
+      "oracle_prompt": "",
+      "prediction": "that the patient has a left-sided lesion, so the right-sided corticospinal tract is intact. Therefore, the patient would have left-sided weakness (ipsilateral) and right-sided loss of pain and temperature (contralateral). So, the",
+      "target": "that in Brown-S\u00e9quard, the patient has ipsilateral motor deficit (corticospinal tract), ipsilateral loss of proprioception and fine touch (dorsal columns), and contralateral loss of pain and temperature (spinothal",
+      "token_f1": 0.375,
+      "pred_tokens": 32,
+      "target_tokens": 28
+    },
+    {
+      "id": 28,
+      "type": "cot_answer_trajectory",
+      "oracle_prompt": "",
+      "prediction": "180 meters. But let me check the options again. Option B is 180. So that's one of the options. But let me check if there's another way to approach this problem, just to make sure I didn't",
+      "target": "B) 180?",
+      "token_f1": 0.0,
+      "pred_tokens": 37,
+      "target_tokens": 2
+    },
+    {
+      "id": 29,
+      "type": "cot_answer_trajectory",
+      "oracle_prompt": "",
+      "prediction": "not matching. Maybe the formula is not about the population, but about something else?",
+      "target": "not matching, which suggests that there is a misunderstanding in the problem. Given that the answer choices are 140-145, and the only way to get a number in that range is if the formula is applied differently",
+      "token_f1": 0.205,
+      "pred_tokens": 14,
+      "target_tokens": 37
+    },
+    {
+      "id": 30,
+      "type": "cot_answer_trajectory",
+      "oracle_prompt": "",
+      "prediction": "465, which is option A. So I think that's correct",
+      "target": "2209? But according to our previous calculation, the answer is 465. But maybe there's a miscalculation here?",
+      "token_f1": 0.077,
+      "pred_tokens": 10,
+      "target_tokens": 17
+    },
+    {
+      "id": 31,
+      "type": "cot_answer_trajectory",
+      "oracle_prompt": "",
+      "prediction": "100 meters. So, option C",
+      "target": "D) 100 m",
+      "token_f1": 0.25,
+      "pred_tokens": 5,
+      "target_tokens": 3
+    },
+    {
+      "id": 32,
+      "type": "cot_answer_trajectory",
+      "oracle_prompt": "",
+      "prediction": "500 meters divided by 10 meters per second. Let me compute that",
+      "target": "60*(5/18) = 300/18 = 16.666... m/s. So, 16.666 m/s",
+      "token_f1": 0.0,
+      "pred_tokens": 12,
+      "target_tokens": 9
+    },
+    {
+      "id": 33,
+      "type": "cot_answer_trajectory",
+      "oracle_prompt": "",
+      "prediction": "that there are 100 employees, 80 of whom are full-time, and 100 of whom have worked for at least a year. But that would mean that all employees have worked for at least a year, which would",
+      "target": "that the number of employees who are FT and W is what we need",
+      "token_f1": 0.263,
+      "pred_tokens": 37,
+      "target_tokens": 14
+    },
+    {
+      "id": 34,
+      "type": "cot_answer_trajectory",
+      "oracle_prompt": "",
+      "prediction": "approximately 19.56%, which is closest to 19.56%, so option G",
+      "target": "C) 20%",
+      "token_f1": 0.0,
+      "pred_tokens": 10,
+      "target_tokens": 2
+    },
+    {
+      "id": 35,
+      "type": "cot_answer_trajectory",
+      "oracle_prompt": "",
+      "prediction": "not matching. Maybe the formula is different?",
+      "target": "not among the choices, but since I have to choose from the given options, perhaps there is a miscalculation",
+      "token_f1": 0.24,
+      "pred_tokens": 7,
+      "target_tokens": 19
+    },
+    {
+      "id": 36,
+      "type": "cot_answer_trajectory",
+      "oracle_prompt": "",
+      "prediction": "that the area of ABD is 200, and the area of ABC is 200, so the area of ABD is 200. Therefore, the answer is A)100? Wait, but that",
+      "target": "going to depend on coordinates of G, and then compute areas. But since the area of CEGF is 50, we can set up equations accordingly. However, since the problem is general, maybe we can assign specific values to b and",
+      "token_f1": 0.25,
+      "pred_tokens": 29,
+      "target_tokens": 40
+    },
+    {
+      "id": 37,
+      "type": "cot_answer_trajectory",
+      "oracle_prompt": "",
+      "prediction": "B) $325. But let me check if there's another way to think about it",
+      "target": "530 * 0.5 = $265. Same result. So that's correct. Therefore, answer is B. But wait, the options include B as $265. So why is this question here? Maybe",
+      "token_f1": 0.05,
+      "pred_tokens": 14,
+      "target_tokens": 29
+    },
+    {
+      "id": 38,
+      "type": "cot_answer_trajectory",
+      "oracle_prompt": "",
+      "prediction": "that the buyer can't claim title because the deed was void. But the question is about the buyer's action to quiet title. So, if the buyer sues to quiet title, who would win?",
+      "target": "probably that the buyer loses because the daughter had the title to the five acres after buying from the farmer, and the foreclosure sale would take back the entire tract, including the five acres. But the buyer had a quitclaim deed from the farmer. However",
+      "token_f1": 0.31,
+      "pred_tokens": 33,
+      "target_tokens": 45
+    },
+    {
+      "id": 39,
+      "type": "cot_answer_trajectory",
+      "oracle_prompt": "",
+      "prediction": "12. But let me check again",
+      "target": "44. So in the problem, if it's asking how many stickers Zander gave to his two friends, then 44 is the answer. If it's asking something else, then maybe not. But given the information, that's",
+      "token_f1": 0.057,
+      "pred_tokens": 6,
+      "target_tokens": 35
+    },
+    {
+      "id": 40,
+      "type": "cot_answer_trajectory",
+      "oracle_prompt": "",
+      "prediction": "that the brothers are seated with two sisters between them, but the sisters are not necessarily the same as the ones between the other brothers",
+      "target": "likely that the brothers are seated with two sisters between them, meaning that the brothers are separated by two sisters. But since there are three brothers, this would require that the brothers are arranged with two sisters between each pair. But since there are only two",
+      "token_f1": 0.5,
+      "pred_tokens": 25,
+      "target_tokens": 46
+    },
+    {
+      "id": 41,
+      "type": "cot_answer_trajectory",
+      "oracle_prompt": "",
+      "prediction": "B) regressive",
+      "target": "\"regressive\" (B) as the opposite",
+      "token_f1": 0.0,
+      "pred_tokens": 2,
+      "target_tokens": 5
+    },
+    {
+      "id": 42,
+      "type": "cot_answer_trajectory",
+      "oracle_prompt": "",
+      "prediction": "that the internal angle at D is half the measure of the arc that is opposite to it, which is arc AB. But arc AB is 100 degrees, so angle D would be 50 degrees. But that contradicts the previous",
+      "target": "different. Let me correct the equations",
+      "token_f1": 0.061,
+      "pred_tokens": 40,
+      "target_tokens": 6
+    },
+    {
+      "id": 43,
+      "type": "cot_answer_trajectory",
+      "oracle_prompt": "",
+      "prediction": "D)1400. But let me check again",
+      "target": "same as before. So, 0.175 * 8000 = 1400. 0.175 * 8000: 0.1 *8000=80",
+      "token_f1": 0.0,
+      "pred_tokens": 6,
+      "target_tokens": 14
+    },
+    {
+      "id": 44,
+      "type": "cot_answer_trajectory",
+      "oracle_prompt": "",
+      "prediction": "that the brothers are seated with two sisters between them. So, for example, the brothers are seated with two sisters between them, and then the rest of the seats are filled with the other two sisters and the two grandparents. But how does that work",
+      "target": "not possible? But the answer choices are given, so I must have misinterpreted the problem",
+      "token_f1": 0.15,
+      "pred_tokens": 45,
+      "target_tokens": 15
+    },
+    {
+      "id": 45,
+      "type": "cot_answer_trajectory",
+      "oracle_prompt": "",
+      "prediction": "D) the buyer, because the buyer is the one who has the legal title and the deed is valid. But I'm not sure. Alternatively, maybe the buyer can't claim adverse possession because the original owner (farmer) is still alive and",
+      "target": "likely A or D or E or H",
+      "token_f1": 0.0,
+      "pred_tokens": 40,
+      "target_tokens": 8
+    },
+    {
+      "id": 46,
+      "type": "cot_answer_trajectory",
+      "oracle_prompt": "",
+      "prediction": "about whether the developer's actions meet the definition of bribery. But the question is about conspiracy to commit bribery. So, conspiracy requires an agreement between two or more people to commit a crime. So, the developer and the member must have had an agreement",
+      "target": "about whether the developer's actions meet the statute's requirements",
+      "token_f1": 0.3,
+      "pred_tokens": 44,
+      "target_tokens": 9
+    },
+    {
+      "id": 47,
+      "type": "cot_answer_trajectory",
+      "oracle_prompt": "",
+      "prediction": "A",
+      "target": "A",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 48,
+      "type": "cot_answer_trajectory",
+      "oracle_prompt": "",
+      "prediction": "32 students",
+      "target": "32 students. But let me check again",
+      "token_f1": 0.222,
+      "pred_tokens": 2,
+      "target_tokens": 7
+    },
+    {
+      "id": 49,
+      "type": "cot_answer_trajectory",
+      "oracle_prompt": "",
+      "prediction": "that the brothers are seated with two sisters between them. So, the brothers are seated with two sisters between them, meaning that between any two brothers, there are two sisters. But since there are only three brothers, how can this be?",
+      "target": "that the brothers are seated with two sisters between them. But how?",
+      "token_f1": 0.595,
+      "pred_tokens": 41,
+      "target_tokens": 12
+    }
+  ]
+}

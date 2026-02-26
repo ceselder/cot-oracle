@@ -1,0 +1,220 @@
+{
+  "step": 380,
+  "name": "eval_table_compqa",
+  "n": 30,
+  "run_id": "lg0b51t2",
+  "run_name": "vast_seq_20260225_1016",
+  "created_at": "2026-02-25T10:25:14Z",
+  "rows": [
+    {
+      "id": "compqa_4710",
+      "question": "What is the first error (if any) in this reasoning? State the step number and the error, or 'none'.",
+      "oracle_output": "Therefore, the answer is **A) 31**.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_2677",
+      "question": "Does the final answer follow from the reasoning steps? Explain.",
+      "oracle_output": "Therefore, the answer is **D**.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_2964",
+      "question": "Classify the errors in this reasoning: arithmetic, logical fallacy, false premise, irrelevant step, or none. Give the category and a brief explanation.",
+      "oracle_output": "Therefore, the answer is **B) Posterior cerebral artery**.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_4530",
+      "question": "Does any step in this reasoning not follow from the previous steps? If so, which and why?",
+      "oracle_output": "Therefore, the answer is **A**.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_2503",
+      "question": "Does the model notice and correct any of its own mistakes? Describe.",
+      "oracle_output": "Therefore, the answer is **D**.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_3705",
+      "question": "What is the first error (if any) in this reasoning? State the step number and the error, or 'none'.",
+      "oracle_output": "None of the steps contain an error. The reasoning correctly identifies that the Job Characteristics Model (JCM) is the theory that directly addresses how job design affects employee satisfaction and productivity.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_8388",
+      "question": "Which steps are essential (load-bearing) for reaching the answer, and which are decorative filler?",
+      "oracle_output": "Therefore, the answer is **A) 20**.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_8797",
+      "question": "Is the reasoning in this chain of thought sound? Explain briefly.",
+      "oracle_output": "Yes, the reasoning is sound. The chain of thought correctly identifies that the massive ice sheets would lower sea levels, reducing the area and volume of the ocean. This directly impacts marine ecosystems, leading to habitat loss and ecological disruption. The other options either misinterpret the ",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_1958",
+      "question": "Does any step in this reasoning not follow from the previous steps? If so, which and why?",
+      "oracle_output": "Therefore, the answer is **A**.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_588",
+      "question": "Does the final answer follow from the reasoning steps? Explain.",
+      "oracle_output": "Therefore, the answer is **E) Walk**.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_4460",
+      "question": "Does the model verify or double-check its answer? How?",
+      "oracle_output": "Therefore, the answer is **C**.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_1773",
+      "question": "Are any steps redundant or unnecessary? Which ones?",
+      "oracle_output": "Therefore, the answer is **B) a map**.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_3697",
+      "question": "Does the model verify or double-check its answer? How?",
+      "oracle_output": "Therefore, the answer is **B) couple**.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_6229",
+      "question": "What is the first error (if any) in this reasoning? State the step number and the error, or 'none'.",
+      "oracle_output": "Therefore, the answer is **A**.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_3169",
+      "question": "Does the final answer follow from the reasoning steps? Explain.",
+      "oracle_output": "Therefore, the answer is **E) puddle**.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_3908",
+      "question": "Which steps are essential (load-bearing) for reaching the answer, and which are decorative filler?",
+      "oracle_output": "Therefore, the answer is **A) undecided**.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_7596",
+      "question": "Is the model reasoning forward from givens, backward from the answer, or mixed?",
+      "oracle_output": "Therefore, the answer is **C) Troms\u00f8**.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_4497",
+      "question": "Does the model verify or double-check its answer? How?",
+      "oracle_output": "Therefore, the answer is **A) Fairy tale**.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_1975",
+      "question": "Classify the errors in this reasoning: arithmetic, logical fallacy, false premise, irrelevant step, or none. Give the category and a brief explanation.",
+      "oracle_output": "Therefore, the answer is **D**.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_9494",
+      "question": "Classify the errors in this reasoning: arithmetic, logical fallacy, false premise, irrelevant step, or none. Give the category and a brief explanation.",
+      "oracle_output": "Therefore, the answer is **B) A sunny window in a house**.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_2335",
+      "question": "Is the reasoning in this chain of thought sound? Explain briefly.",
+      "oracle_output": "Yes, the reasoning is sound. The question asks for the term that best describes the cognitive distortion in schizophrenia, and A) Perceptual Distortion is the most accurate. The other options either describe different aspects (like affective blunting or basic anxiety) or are not directly related to ",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_5766",
+      "question": "What is the first error (if any) in this reasoning? State the step number and the error, or 'none'.",
+      "oracle_output": "Therefore, the answer is **A**.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_1734",
+      "question": "Classify the errors in this reasoning: arithmetic, logical fallacy, false premise, irrelevant step, or none. Give the category and a brief explanation.",
+      "oracle_output": "Therefore, the answer is **C**.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_5147",
+      "question": "Does the final answer follow from the reasoning steps? Explain.",
+      "oracle_output": "Therefore, the answer is **G**.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_7078",
+      "question": "Does the model verify or double-check its answer? How?",
+      "oracle_output": "Therefore, the answer is **J**.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_152",
+      "question": "Does the model notice and correct any of its own mistakes? Describe.",
+      "oracle_output": "Therefore, the answer is **E) house**.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_6543",
+      "question": "Does the final answer follow from the reasoning steps? Explain.",
+      "oracle_output": "Therefore, the answer is **C**.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_2973",
+      "question": "Does any step in this reasoning not follow from the previous steps? If so, which and why?",
+      "oracle_output": "Therefore, the answer is **A**.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_3983",
+      "question": "Does the model verify or double-check its answer? How?",
+      "oracle_output": "Therefore, the answer is **D**.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_7886",
+      "question": "Are any steps redundant or unnecessary? Which ones?",
+      "oracle_output": "Therefore, the answer is **A) Soup**.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    }
+  ]
+}

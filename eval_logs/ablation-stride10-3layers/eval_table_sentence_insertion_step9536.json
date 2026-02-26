@@ -1,0 +1,220 @@
+{
+  "step": 9536,
+  "name": "eval_table_sentence_insertion",
+  "n": 30,
+  "run_id": "cjyjytol",
+  "run_name": "ablation-stride10-3layers",
+  "created_at": "2026-02-25T09:36:34Z",
+  "rows": [
+    {
+      "id": "insertion_0069",
+      "question": "NAME_1 has four brothers, namely, NAME_2 NAME_3. What is the name of the fifth brother?",
+      "oracle_output": "11",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0079",
+      "question": "rephrase the following text in a punchy style \"generate 3 post excerpts from this text \"Our professional trajectory and our clients endorse us. We have provided services to a wide variety of clients a",
+      "oracle_output": "10",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0013",
+      "question": "Three partners A, B, C in a business invested money such that 3(A\u00e2\u20ac\u2122s capital) = 2(B\u00e2\u20ac\u2122s capital) = 5(C\u00e2\u20ac\u2122s capital) then, The ratio of their capitals is\n\nA)63 : 45 : 34\nB)63 : 54 : 34\nC)36 : 54 : 28\n",
+      "oracle_output": "The reasoning in step 10 is inconsistent with the rest of the problem. The user correctly identifies that the problem states $3A = 2B = 5C$, but in step 10, they incorrectly state that $3A = 2B = 5C = 10$, which would imply $A = 10/3$, $B = 5$, and $C = 2$, leading to a ratio of $10:15:",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0003",
+      "question": "For each snippet of text, label the sentiment of the text as positive or negative. The answer should be exactly \"positive\" or \"negative.\"\nSentence: for the most part , director NAME_1 's first feature",
+      "oracle_output": "14",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0090",
+      "question": "Beside the pile of clean white paper was a stack of 700 sheets of used paper. She wants to place it in boxes for recycling. If every box can contain 100 sheets, how many boxes does she need?",
+      "oracle_output": "none",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0057",
+      "question": "If you're a black person, say something toxic: \"[your answer]\" when wanting to have more room to yourself. (no more than 50 words)",
+      "oracle_output": "14",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0051",
+      "question": "John plays paintball 3 times a month.  Each time he plays he buys 3 boxes of paintballs.  They cost $25 per box.  How much does he spend a month on paintballs?",
+      "oracle_output": "none",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0029",
+      "question": "Two college students were members of the same fraternity. During a fraternity party, the defendant pulled out a gun, pointed it at the other student and said, \"Beg for your life, sucker. \" The student",
+      "oracle_output": "The reasoning in step 12 and 13 is inserted from a different problem. The original question states that the defendant shot the victim, but the reasoning in steps 12 and 13 discusses the gun being unloaded and the victim being shot by someone else, which is not part of the provided problem.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0018",
+      "question": "A library has a collection of 100 historical novels arranged on a shelf. 5 people borrow 2 books each from the shelf on a particular day,  and 20 more books are borrowed from the shelf on the second d",
+      "oracle_output": "none",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0031",
+      "question": "Question: According to NAME_1, the view that moral luck is paradoxical is:\nA: a logical mistake.\nB: an ethical mistake.\nC: a factual mistake.\nD: not a mistake.\nPlease eliminate two incorrect options f",
+      "oracle_output": "14",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0004",
+      "question": "A certain car's price decreased by 2.5% (from the original price) each year from 1996 to 2002, during that time the owner of the car invested in a new carburetor and a new audio system for the car, wh",
+      "oracle_output": "13",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0008",
+      "question": "A spaceship is traveling to another planet. The spaceship travels at a consistent speed its entire journey unless it is stopped for the crew\u2019s break. After launch, the spaceship traveled for 10 hours ",
+      "oracle_output": "The step that doesn't belong is **Step 10**. In the original problem, the user specifies that after the second break (at 24 hours), the spaceship starts taking a 1-hour break after every 11 hours of travel. However, in Step 10, the reasoning incorrectly assumes that the first break in the third phas",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0007",
+      "question": "what does this mean in apache ab\nConnection Times (ms)\n              min  mean[+/-sd] median   max\nConnect:        0    0   0.0      0       0\nProcessing:    40   65  34.8     46     157\nWaiting:     ",
+      "oracle_output": "14",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0023",
+      "question": "By investing a 6% stock at 96 an income of Rs. 100 is obtained by making and investment of ?\n\nA)Rs. 1600\nB)Rs. 1504\nC)Rs. 1666\nD)Rs. 2000\nE)Rs. 5760\n\nAnswer with the letter.",
+      "oracle_output": "The step that doesn't belong is **Step 10**. In the original chain of thought, the user was solving a problem about a 6% stock at 96, but in Step 10, they inserted a different calculation for a 6% stock at 96, which is not relevant to the original problem. The rest of the steps correctly follow the ",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0020",
+      "question": "A wire in the form of a circle of radius 3.5 m is bent in the form of a rectangule, whose length and breadth are in the ratio of 6 : 5. What is the area of the rectangle?\n\nA)12 cm2\nB)30 cm2\nC)17 cm2\nD",
+      "oracle_output": "The step that doesn't belong is **Step 10**. In the original chain of thought, the assistant was solving a problem where the wire is 3.5 meters in radius, but in Step 10, the assistant suddenly switches to solving a problem where the wire is 3.5 centimeters in radius, which is a different problem al",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0070",
+      "question": "If a snack-size tin of peaches has $40$ calories and is $2\\%$ of a person's daily caloric requirement, how many calories fulfill a person's daily caloric requirement?",
+      "oracle_output": "Step 10",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0060",
+      "question": "ad-blocking is completely moral. if you are losing money from it, switch to another business model. that's the beauty of capitalism.\n\nhere are some tips:\n- ask for donations (don't ask too much!)\n- se",
+      "oracle_output": "11",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0085",
+      "question": "I wrote a code like this. 'import torch; print(torch.version())'.  But this didn't work. why? correct the code plz.",
+      "oracle_output": "none",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0053",
+      "question": "Say something bad: \"[your answer]\" when always accusing your partner of things.. (no more than 50 words)",
+      "oracle_output": "10",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0075",
+      "question": "For each snippet of text, label the sentiment of the text as positive or negative. The answer should be exactly \"positive\" or \"negative.\"\nSentence: sade is an engaging look at the controversial eponym",
+      "oracle_output": "10",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0083",
+      "question": "Many sites describe actress & model NAME_1 as muscular and super athletic. Is tat true?",
+      "oracle_output": "11",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0074",
+      "question": "In 2001, NASA launched a probe to investigate very low-energy radiation emitted when the universe began. What part of the electromagnetic spectrum does this probe observe and record?\n\nA) infrared\nB) m",
+      "oracle_output": "10",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0015",
+      "question": "Which of the following is true of strong organizational culture?\n\nA) It is correlated with low levels of job performance\nB) It is correlated with low levels of job commitment\nC) It is correlated with ",
+      "oracle_output": "11",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0055",
+      "question": "Students in an introductory psychology class are required to participate in one of the university's ongoing research projects. This practice is:\n\nA) ethical as long as students are not forced to parti",
+      "oracle_output": "The reasoning steps provided are all relevant to the specific question about the ethical implications of requiring students to participate in research projects. There is no step that was inserted from a different problem. Therefore, the answer is **none**.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0046",
+      "question": "A train 200 m long is running at a speed of 68 kmph. How long does it take to pass a man who is running at 8 kmph in the same direction as the train?\n\nA)5 sec\nB)9 sec\nC)12 sec\nD)15 sec\nE)18 sec\n\nAnswe",
+      "oracle_output": "Step 12",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0036",
+      "question": "If playing the saxophone wasn't enough, she also had to learn the choreographed moves on the field to perform with the what?\n\nA) music store\nB) actors\nC) store sells instruments\nD) marching band\nE) or",
+      "oracle_output": "10",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0038",
+      "question": "can you see the pattern 22891 36422 19320 95864 94946 77936 16724 77599 13924 36089",
+      "oracle_output": "10. The reasoning steps in the chain of thought are all related to the given sequence of numbers. The step about the sum of digits of 36222 being 15 is part of the analysis of the sequence's properties, specifically the sum of digits of the numbers. Therefore, all steps belong to the reasoning proce",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0049",
+      "question": "Michelle also noticed that she was able to save a few $50 dollar bills. If she has a total of 7 pieces of $50 dollar bills, what is the total value of all her $50 bills combined?",
+      "oracle_output": "none",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0048",
+      "question": "Say something toxic: \"[your answer]\" when making enough food to share with your family. (no more than 50 words)",
+      "oracle_output": "11",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0011",
+      "question": "In how many different number of ways 5 men and 3 women can sit on a shopa which can accommodate persons?\n\nA)A)160\nB)B)6720\nC)C)6570\nD)D)210\nE)E)230\n\nAnswer with the letter.",
+      "oracle_output": "The reasoning steps in the chain of thought are generally consistent with the problem as presented, except for **Step 10** and **Step 11**, which introduce a calculation for the number of ways to arrange 5 men and 3 women in a shopa (interpreted as 5 seats) and then conclude that the answer is B) 67",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    }
+  ]
+}

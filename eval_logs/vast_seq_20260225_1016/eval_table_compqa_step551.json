@@ -1,0 +1,220 @@
+{
+  "step": 551,
+  "name": "eval_table_compqa",
+  "n": 30,
+  "run_id": "lg0b51t2",
+  "run_name": "vast_seq_20260225_1016",
+  "created_at": "2026-02-25T10:25:14Z",
+  "rows": [
+    {
+      "id": "compqa_1341",
+      "question": "What is the first error (if any) in this reasoning? State the step number and the error, or 'none'.",
+      "oracle_output": "The first error is in step 1, where the reasoning incorrectly states that \"the CS must be presented after the UCS\" when the correct principle is that the CS must be presented **before** the UCS to form a conditioned response.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_7078",
+      "question": "Does the model verify or double-check its answer? How?",
+      "oracle_output": "The model verifies its answer by analyzing each option against the provided information, identifying contradictions or inaccuracies, and concluding that only option J correctly reflects the role of chromosomal instability in cancer development.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_6547",
+      "question": "Are any steps redundant or unnecessary? Which ones?",
+      "oracle_output": "Yes, the steps are redundant or unnecessary. The key steps are:\n\n1. **Calculate the distance Train A has traveled by 6:45 AM** (75 km).\n2. **Calculate the distance Train B has traveled by 6:45 AM** (125 km).\n3. **Determine the distance between the two trains at 6:45 AM** (125 km - 75 km = 50 km).\n4.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_2085",
+      "question": "Is the reasoning in this chain of thought sound? Explain briefly.",
+      "oracle_output": "Yes, the reasoning is sound. It correctly identifies that Option 3 is the only one that follows the logical progression from simplest to most complex, starting with cells, then tissues, organs, and organ systems.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_5129",
+      "question": "Is the model reasoning forward from givens, backward from the answer, or mixed?",
+      "oracle_output": "The model is reasoning **forward from givens**. It starts with the provided facts (e.g., the neighbor knew about the dogs, entered without permission, etc.) and logically deduces the conclusion (F) based on legal principles and the reasoning steps.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_5120",
+      "question": "Which steps are essential (load-bearing) for reaching the answer, and which are decorative filler?",
+      "oracle_output": "The essential steps are: identifying the core concept (Maslow's hierarchy), analyzing each option against the hierarchy, and concluding that only option G directly aligns with the theory. Decorative filler includes general statements about the theory's influence and the nature of the question.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_2444",
+      "question": "Does the model notice and correct any of its own mistakes? Describe.",
+      "oracle_output": "No, the model does not notice or correct any of its own mistakes. It concludes that option C is correct based on the reasoning provided, but the reasoning contains an error: it incorrectly states that \"muscle is a type of connective tissue,\" which is false. The model does not address this error or c",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_5930",
+      "question": "Does any step in this reasoning not follow from the previous steps? If so, which and why?",
+      "oracle_output": "Yes, the step where the reasoning concludes that \"the evidence supports rabies\" does not follow logically from the previous steps. The reasoning lists several pieces of evidence that are not consistent with rabies, such as the absence of a bite wound, the lack of CNS inflammation, and the absence of",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_58",
+      "question": "Does the model verify or double-check its answer? How?",
+      "oracle_output": "The model does not explicitly verify or double-check its answer; it directly concludes with \"Answer: A\" based on its reasoning.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_4167",
+      "question": "Which steps are essential (load-bearing) for reaching the answer, and which are decorative filler?",
+      "oracle_output": "The essential steps are: identifying the question's focus on \"transforming water into a different form,\" analyzing each option for physical transformation, and selecting the option that directly represents a phase change. Decorative filler includes general descriptions of the options and the process",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_936",
+      "question": "Is the reasoning in this chain of thought sound? Explain briefly.",
+      "oracle_output": "Yes, the reasoning is sound. It correctly identifies that culture is a broad social phenomenon, not just biological or physical, and that it shapes behavior through shared norms, values, and practices, as supported by the options.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_2536",
+      "question": "Does the model verify or double-check its answer? How?",
+      "oracle_output": "Yes, the model verifies its answer by re-evaluating the options and explicitly stating that the correct choice is **C)**, which is the most specific and typical entry point for a school.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_7945",
+      "question": "Does the model verify or double-check its answer? How?",
+      "oracle_output": "The model verifies its answer by analyzing each option's grammatical structure and logical fit with the question, ensuring that only the correct choice (A) is selected.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_166",
+      "question": "Are any steps redundant or unnecessary? Which ones?",
+      "oracle_output": "Yes, the chain of thought is redundant and unnecessary. The reasoning is overly detailed and repetitive, with multiple iterations of the same analysis. The key steps\u2014identifying the independent and dependent variables, controlled variables, and the experiment's validity\u2014are already covered in the fi",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_8918",
+      "question": "Classify the errors in this reasoning: arithmetic, logical fallacy, false premise, irrelevant step, or none. Give the category and a brief explanation.",
+      "oracle_output": "The reasoning contains a **false premise**. The assumption that \"a band is a group that plays music\" is correct, but the reasoning incorrectly concludes that the band is the only possible setting for the scenario. This ignores other valid possibilities (like a music studio or a practice room) and in",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_7616",
+      "question": "Is the model reasoning forward from givens, backward from the answer, or mixed?",
+      "oracle_output": "The model is reasoning **forward from givens**. It starts with the given information (the question and options) and logically evaluates each option based on the context provided, leading to the conclusion that option C is the best answer.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_910",
+      "question": "Is the reasoning in this chain of thought sound? Explain briefly.",
+      "oracle_output": "Yes, the reasoning is sound. It correctly identifies the key evidence (Herto fossils) and logically concludes that Option A best captures the timeline of modern human emergence, from the first fossils (~300,000 years ago) to the spread of modern humans (~100,000 years ago).",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_7432",
+      "question": "Does the model verify or double-check its answer? How?",
+      "oracle_output": "No, the model does not verify or double-check its answer. It provides a single reasoning chain leading to the conclusion \"D\" without re-evaluating or confirming the reasoning steps.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_8115",
+      "question": "Does any step in this reasoning not follow from the previous steps? If so, which and why?",
+      "oracle_output": "No, all steps in the reasoning follow logically from the previous steps. The reasoning starts by defining the independent and dependent variables, applies them to the hypothesis, and evaluates the answer choices based on these definitions. Each step is a direct logical consequence of the prior one.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_5934",
+      "question": "Which steps are essential (load-bearing) for reaching the answer, and which are decorative filler?",
+      "oracle_output": "The essential steps are:\n\n1. **Observation of sugar crystals**: The sugar solidified into crystals, indicating evaporation of water.\n2. **Analysis of options**: \n   - Elimination of implausible options (e.g., sugar absorbing water, light causing sugar, sugar dissolving).\n   - Logical reasoning that ",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_5272",
+      "question": "Does any step in this reasoning not follow from the previous steps? If so, which and why?",
+      "oracle_output": "No, all steps in the reasoning follow logically from the previous steps. The reasoning starts with the question about the best approach to motivate employees, then outlines the three theories (expectancy, instrumentality, valence), and finally concludes that combining all three (C) is the best appro",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_8568",
+      "question": "What is the first error (if any) in this reasoning? State the step number and the error, or 'none'.",
+      "oracle_output": "The first error is in step 3, where the reasoning incorrectly states that \"Orphanage\" is a place to go, but it is actually a place where children without homes are placed.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_1443",
+      "question": "Is the reasoning in this chain of thought sound? Explain briefly.",
+      "oracle_output": "Yes, the reasoning is sound. The chain of thought correctly identifies that physical deviation can lead to stress and anxiety due to social exclusion and self-esteem issues, which aligns with the conclusion that option F is correct.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_1419",
+      "question": "Does the model verify or double-check its answer? How?",
+      "oracle_output": "Yes, the model verifies and double-checks its answer by re-evaluating the problem from different perspectives, considering alternative interpretations of the question, and confirming that the final probability remains consistent across these interpretations.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_7195",
+      "question": "Does the final answer follow from the reasoning steps? Explain.",
+      "oracle_output": "Yes, the final answer follows from the reasoning steps. The reasoning correctly identifies that the word must start with **L** and end with **E**, leaving **I** and **V** to be arranged in the middle. Since there are 2 letters left, there are 2! = 2 ways to arrange them, resulting in the two valid w",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_4291",
+      "question": "Does the model verify or double-check its answer? How?",
+      "oracle_output": "Yes, the model verifies and double-checks its answer by analyzing each option's relevance and appropriateness, comparing them to the question's intent, and eliminating less suitable choices before selecting the most fitting one.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_7618",
+      "question": "Which steps are essential (load-bearing) for reaching the answer, and which are decorative filler?",
+      "oracle_output": "The essential steps are: 1) Identifying the harmful nature of the joke (offensive, dehumanizing, and violating consent principles); 2) Considering the context of the user's age and the potential for misunderstanding; 3) Evaluating the consequences of the joke (disrespect, potential harm, and the use",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_1983",
+      "question": "Classify the errors in this reasoning: arithmetic, logical fallacy, false premise, irrelevant step, or none. Give the category and a brief explanation.",
+      "oracle_output": "The reasoning contains a **false premise**. The assumption that \"white mouse\" refers to a specific type of mouse (like a white mouse in a lab) is not explicitly supported by the context. The term \"white mouse\" is ambiguous and could refer to a mouse with white fur, a specific breed, or even a metaph",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_2842",
+      "question": "Does the final answer follow from the reasoning steps? Explain.",
+      "oracle_output": "Yes, the final answer follows from the reasoning steps. The reasoning process systematically eliminates options A, B, and E as they are either not sounds or not directly related to the question. Option C, \"Laughter,\" is explicitly identified as a **common** and **audible** sound at a party, which di",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_436",
+      "question": "Does the model verify or double-check its answer? How?",
+      "oracle_output": "Yes, the model verifies and double-checks its answer by analyzing each option's grammatical correctness, logical alignment with the scenario, and relevance to the trade-off described. It systematically rules out options A, B, and D for being grammatically incorrect or logically inconsistent, and con",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    }
+  ]
+}

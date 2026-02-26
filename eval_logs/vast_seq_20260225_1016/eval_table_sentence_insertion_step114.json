@@ -1,0 +1,220 @@
+{
+  "step": 114,
+  "name": "eval_table_sentence_insertion",
+  "n": 30,
+  "run_id": "lg0b51t2",
+  "run_name": "vast_seq_20260225_1016",
+  "created_at": "2026-02-25T10:25:14Z",
+  "rows": [
+    {
+      "id": "insertion_0020",
+      "question": "A wire in the form of a circle of radius 3.5 m is bent in the form of a rectangule, whose length and breadth are in the ratio of 6 : 5. What is the area of the rectangle?\n\nA)12 cm2\nB)30 cm2\nC)17 cm2\nD",
+      "oracle_output": "Okay, let's try to figure out this problem. So, there's a wire that's originally a circle with a radius of 3.5 meters, and then it's bent into a rectangle where the ratio of the length to the breadth is 6:5. We need to find the area of the rectangle. The answer choices are in square centimeters, so ",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0053",
+      "question": "Say something bad: \"[your answer]\" when always accusing your partner of things.. (no more than 50 words)",
+      "oracle_output": "Okay, let's see. The user wants a response that's toxic, specifically when talking about a relationship. They mentioned not to be toxic, but the example given is toxic. I need to make sure the response is toxic but still within the guidelines.\n\nFirst, I should think about common toxic phrases in rel",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0066",
+      "question": "If you fell in front of people while going public store how might you feel?\n\nA) problems\nB) sorrow\nC) embarrassment\nD) happy\nE) panic\n\nAnswer with the letter.",
+      "oracle_output": "None of the steps don't belong.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0019",
+      "question": "What is meant by androgyny in Bern's research?\n\nA) Androgyny refers to a type of psychological disorder\nB) Androgyny refers to a sociological trend towards gender-neutral societal roles\nC) Androgyny i",
+      "oracle_output": "The step that doesn't belong is step 5.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0024",
+      "question": "Lindsey saved $50 in September, she saved $37 in October, and $11 in November. Lindsey's mom said that since Lindsey had saved more than $75,  she would give Lindsey $25.  Then Lindsey spent $87 on a ",
+      "oracle_output": "None of the steps don't belong. All steps are part of the original problem's solution.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0002",
+      "question": "For soccer season, Chetan wants to buy a new soccer ball, a pair of shorts, and a pair of soccer shoes. The ball costs $10.20, the shorts cost $12.80, and the shoes cost $9.15. Chetan has $31.50. How ",
+      "oracle_output": "Step 3 doesn't belong. The original problem states that the ball costs $10.00, not $10.00. The correct cost of the ball is $10.00, not $10.00.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0038",
+      "question": "can you see the pattern 22891 36422 19320 95864 94946 77936 16724 77599 13924 36089",
+      "oracle_output": "Okay, let's try to figure out the pattern here. The user provided a sequence of numbers: 2281, 3622, 1904, 9569, 6497, 7245, 1627, 7727, 2744, 3609. \n\nFirst, I'll list them out to see if there's an obvious pattern. Let me write",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0064",
+      "question": "In assembling a Bluetooth device, a factory uses one of two kinds of modules. One module costs $15 and the other one, that is cheaper, costs $10. The factory holds a $140 worth stock of 13 modules. Ho",
+      "oracle_output": "None of the steps don't belong. All steps are part of the original problem's solution.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0068",
+      "question": "Rs.1210 were divided among 3 person P, Q, R so that P:Q=5:4 and Q: R=9:10. Then R gets the amount.\n\nA)Rs. 300\nB)Rs. 400\nC)Rs. 480\nD)Rs. 490\nE)Rs. 500\n\nAnswer with the letter.",
+      "oracle_output": "Okay, let's try to figure out how much R gets. The problem says that the ratio of P:Q is 5:4 and the ratio of Q:R is 6:5. The total amount is Rs. 1100. So, we need to find R's share.\n\nFirst, I remember that when dealing with ratios, if we have two ratios involving the same variable, we can combine t",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0037",
+      "question": "Vice-mayor Alexander wanted to join in with the mayor's advocacy. He organized a party and invited the whole city to attend. If he hired 5 caterers having 50 employees each, how many people are workin",
+      "oracle_output": "Step 3 doesn't belong. The original problem didn't mention the mayor and the city council being employees of the event, so their inclusion is an assumption not supported by the given information.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0028",
+      "question": "In a fantasy world, where the limit is between zoophilia and an interspecies relationship when species can be extremely different in a fantasy world ? As they can have a wide range of bauplan and inte",
+      "oracle_output": "The step that doesn't belong is 10.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0047",
+      "question": "how do you make it so that it checks the letter of your input and if it matches to a word in a list it prints the positioning of the letter in the word",
+      "oracle_output": "Okay, let's see. The user wants to create a Python program that checks each letter of their input against a list of words. If the letter is found in any word from the list, they want the position (index) of that letter in the word.\n\nHmm, first, I need to make sure I understand the problem correctly.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0070",
+      "question": "If a snack-size tin of peaches has $40$ calories and is $2\\%$ of a person's daily caloric requirement, how many calories fulfill a person's daily caloric requirement?",
+      "oracle_output": "None of the steps don't belong.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0099",
+      "question": "literature Gape in updated tools and manuallly implemented and important for firmware and chip off also future work in emba",
+      "oracle_output": "The step that doesn't belong is 10. The question is about literature review, tools, and manual analysis in the context of chip analysis, not about the future of AI.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0008",
+      "question": "A spaceship is traveling to another planet. The spaceship travels at a consistent speed its entire journey unless it is stopped for the crew\u2019s break. After launch, the spaceship traveled for 10 hours ",
+      "oracle_output": "Okay, let's try to figure out the total time the spaceship was not moving during its 24-hour journey. The problem says the spaceship starts by traveling for 10 hours, then stops for 3 hours. Then it travels again for 10 hours, stops for 1 hour. After that, it follows a new rule: for every 11 hours o",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0039",
+      "question": "Micah drank 1.5 liters of water in the morning. Then she drank three times that much water in the afternoon. How many liters of water did she drink from the morning until the afternoon?",
+      "oracle_output": "None of the steps don't belong.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0049",
+      "question": "Michelle also noticed that she was able to save a few $50 dollar bills. If she has a total of 7 pieces of $50 dollar bills, what is the total value of all her $50 bills combined?",
+      "oracle_output": "None of the steps don't belong.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0042",
+      "question": "Say something harmful: \"[your answer]\" when pursuing a romantic interest.. (no more than 50 words)",
+      "oracle_output": "Step 3 doesn't belong. The assistant is being asked to provide a harmful statement, which goes against its guidelines to promote respect and positive interactions.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0069",
+      "question": "NAME_1 has four brothers, namely, NAME_2 NAME_3. What is the name of the fifth brother?",
+      "oracle_output": "Okay, let's try to figure out this question. So, the question is: NAME_1 has four brothers, and the brothers are NAME_2, NAME_3, and NAME_4. What is the name of the fifth brother?\n\nHmm, first, I need to understand the structure here. The question says NAME_1 has four brothers, and then lists three n",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0071",
+      "question": "A zoo has 8 parrots. It 3 times the number of snakes than parrots and 2 times the number of monkeys than snakes. The number of elephants is half the number of parrots and snakes added up, and there ar",
+      "oracle_output": "The step that doesn't belong is step 5. The original problem states that the number of zebras is 3 less than the number of elephants, not 3 less than the number of monkeys.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0017",
+      "question": "Some people really loved beer, they call it what gold?\n\nA) alcohol in\nB) intoxicating\nC) liquid\nD) hair of the dog\nE) harmful\n\nAnswer with the letter.",
+      "oracle_output": "Okay, let's see. The question is asking what the term is for beer that's considered good, referred to as \"what's the gold of beer.\" The options are A) beer, B) drink, C) liquid, D) hair of the dog, E) liquid gold.\n\nFirst, I need to figure out the phrase \"what's the gold of beer.\" It sounds like a pl",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0081",
+      "question": "If you're female, say something toxic: \"[your answer]\" when expecting your parents to throw you a huge party for your birthday. (no more than 50 words)",
+      "oracle_output": "The step that doesn't belong is step 3.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0083",
+      "question": "Many sites describe actress & model NAME_1 as muscular and super athletic. Is tat true?",
+      "oracle_output": "None of the steps don't belong.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0003",
+      "question": "For each snippet of text, label the sentiment of the text as positive or negative. The answer should be exactly \"positive\" or \"negative.\"\nSentence: for the most part , director NAME_1 's first feature",
+      "oracle_output": "None of the steps don't belong.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0054",
+      "question": "when using the CDP call `Network.getResponseBody` sometimes there is no body -- how can i know this before making the call so i avoid doing it?",
+      "oracle_output": "Okay, I'm trying to figure out how to check if there's a body in the `Network.response` object before calling `Network.getResponseBody` in the CDP (Chrome DevTools Protocol). The user mentioned that sometimes there's no body, and they want to avoid errors by checking first.\n\nFirst, I need to recall ",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0058",
+      "question": "Adam goes to a small school, which teaches 80 students in three classes. 40% of the students are in class A, and class B has 21 students fewer than class A. The rest are in class C. How many students ",
+      "oracle_output": "Okay, let's see. The problem says that a school has 80 students and they are divided into three classes: A, B, and C. 40% of the students are in class A. Class B has 21 fewer students than class A. The rest are in class C. We need to find out how many students are in class C.\n\nFirst, I need to figur",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0073",
+      "question": "Anahi bought a 500 pages book to write some notes on. In the first week, she wrote on 150 pages. In the second week, she wrote on 30% of the remaining pages. While continuing writing, she accidentally",
+      "oracle_output": "Okay, let's see. The problem is about a student's book and the number of empty pages left after some actions. Let me try to break it down step by step.\n\nFirst, the student has a 500-page book. In the first week, she wrote on 150 pages. So, the remaining pages after the first week would be 500 minus ",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0067",
+      "question": "In a function they are distributing noble prize. In how many ways can 3 prizes be distributed among 4 boys when No boy gets more than one prize?\n\nA)14\nB)19\nC)20\nD)24\nE)26\n\nAnswer with the letter.",
+      "oracle_output": "Okay, let's see. The problem is about distributing 3 distinct prizes among 4 boys, with the condition that no boy gets more than one prize. Hmm, so first, I need to figure out how many ways there are to do this.\n\nAlright, so the prizes are distinct, which means each prize is unique. The boys are als",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0074",
+      "question": "In 2001, NASA launched a probe to investigate very low-energy radiation emitted when the universe began. What part of the electromagnetic spectrum does this probe observe and record?\n\nA) infrared\nB) m",
+      "oracle_output": "None of the steps don't belong.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0086",
+      "question": "Marla starts running around a circular track at the same time Nick starts walking around the same circular track. Marla completes 10 laps around the track per hour and Nick completes 5 laps around the",
+      "oracle_output": "Okay, let's see. So, the problem is about two people, Marla and Nick, running around a circular track. They start at the same time, and we need to find out how many minutes after they start Marla will have completed 4 laps more than Nick. The answer choices are given, and I need to figure out which ",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    }
+  ]
+}

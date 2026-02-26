@@ -1,0 +1,510 @@
+{
+  "step": 3000,
+  "name": "eval_table_cot_answer_prediction",
+  "n": 50,
+  "run_id": "dt5k4y3r",
+  "run_name": "v6-180k-9tasks",
+  "created_at": "2026-02-24T06:20:28Z",
+  "rows": [
+    {
+      "id": 0,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "Based on the reasoning, the model's final answer is A) New York City.",
+      "target": "A",
+      "token_f1": 0.0,
+      "pred_tokens": 13,
+      "target_tokens": 1
+    },
+    {
+      "id": 1,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "Based on the reasoning, the cost of 20 packs of nuts is $100.",
+      "target": "To determine how much money Betty will pay for 20 packs of nuts, we begin by analyzing the information provided:\n\n---\n\n### Step 1: Determine Betty's Age\n\nWe are told that:\n\n- Doug is 40 years old.\n- T",
+      "token_f1": 0.213,
+      "pred_tokens": 13,
+      "target_tokens": 39
+    },
+    {
+      "id": 2,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "To solve the problem of arranging 4 physics, 2 math, and 3 chemistry books on a shelf such that all books of the same subject are together, we can break the process into two main steps:\n\n---\n\n### **Step 1: Group the Books by Subject**\n\nSince all books of the same subject must be together, we can treat each subject as a single \"block\" or \"unit.\" This gives us:\n\n- 1 block of physics books\n- 1 block of math",
+      "target": "To determine the number of ways to arrange 4 physics, 2 math, and 4 chemistry books",
+      "token_f1": 0.282,
+      "pred_tokens": 80,
+      "target_tokens": 16
+    },
+    {
+      "id": 3,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "To solve the problem, we analyze the process of replacing liquid in a container with a specific ratio of milk to water.\n\n---\n\n### **Initial Setup**\n\nWe start with a container holding **10 liters** of a mixture where the ratio of **milk to water is 3:2**.\n\n- Total parts = 3 + 2 = 5\n- Milk = $ \\frac{3}{5} \\times 10 = 6 $ liters\n- Water = $ \\",
+      "target": "To determine the final ratio of milk to water in the mixture after two successive replacements, we follow a step-by-step process based on the given initial conditions and the nature of the replacement",
+      "token_f1": 0.297,
+      "pred_tokens": 71,
+      "target_tokens": 33
+    },
+    {
+      "id": 4,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "Based on the information provided, the distance between Tribe S and Tribe B cannot be determined because there is no direct or indirect information linking them. The distances given are between Tribe P and R (60 miles), Tribe S and B (40 miles), and Tribe R and B (unknown). Without additional data, the distance between S and B remains unknown.",
+      "target": "To solve this problem, we are given the following key information about distances between tribes:\n\n1. **Tribe R is 60 miles away from Tribe P.**\n2. **Tribe S is 40 miles away from Tribe B.**\n3. **Trib",
+      "token_f1": 0.294,
+      "pred_tokens": 60,
+      "target_tokens": 37
+    },
+    {
+      "id": 5,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "To determine the number of different ways 4 boys and 2 girls can sit on a bench, we consider the total number of people involved. There are 4 boys + 2 girls = 6 individuals.\n\nSince the bench is a straight line and each person is distinct, the number of ways to arrange them is the number of permutations of 6 distinct objects, which is calculated as:\n\n$$\n6! = 6 \\times 5 \\times 4 \\times 3 \\times",
+      "target": "A",
+      "token_f1": 0.04,
+      "pred_tokens": 78,
+      "target_tokens": 1
+    },
+    {
+      "id": 6,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "Based on the reasoning provided, the model's final answer is that the state law is **unconstitutional** because it conflicts with the federal law, and federal law takes precedence under the Supremacy Clause.",
+      "target": "A",
+      "token_f1": 0.0,
+      "pred_tokens": 32,
+      "target_tokens": 1
+    },
+    {
+      "id": 7,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "Based on the reasoning, the model's final answer is **B. 18.00%**.",
+      "target": "F",
+      "token_f1": 0.0,
+      "pred_tokens": 11,
+      "target_tokens": 1
+    },
+    {
+      "id": 8,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "Based on the reasoning, the model's final answer is B: To share information.",
+      "target": "D",
+      "token_f1": 0.0,
+      "pred_tokens": 13,
+      "target_tokens": 1
+    },
+    {
+      "id": 9,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "Based on the reasoning, the model's final answer is B) The judge's instruction is incorrect because the act of stealing the car is not sufficient to prove malicious destruction of property.",
+      "target": "I",
+      "token_f1": 0.0,
+      "pred_tokens": 31,
+      "target_tokens": 1
+    },
+    {
+      "id": 10,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "Based on the reasoning provided, the model's final answer is D) confusing.",
+      "target": "B",
+      "token_f1": 0.0,
+      "pred_tokens": 12,
+      "target_tokens": 1
+    },
+    {
+      "id": 11,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "Based on the reasoning, the correct answer is **C: The agreement is not enforceable because it is not in writing**. The reasoning highlights that the agreement was oral and not in writing, violating the Statute of Frauds, and that the parties' actions (like the supplier's delivery) do not make it enforceable.",
+      "target": "F",
+      "token_f1": 0.0,
+      "pred_tokens": 51,
+      "target_tokens": 1
+    },
+    {
+      "id": 12,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "Based on the given ratios and total earnings, the model's final answer is 6000.",
+      "target": "To determine how much Mr. Ramesh earned, we begin by analyzing the given ratios of their earnings:\n\n- **Mr. Gangadhar : Mr. Ramesh = 2 : 1**\n- **Mr. Ramesh : Mr. Shridhar = 3 : 2**\n\nThese two ratios i",
+      "token_f1": 0.14,
+      "pred_tokens": 14,
+      "target_tokens": 41
+    },
+    {
+      "id": 13,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "To solve the problem, we are given two equations:\n\n1. $ x + y = 2 $\n2. $ x^2 - 10y^2 = 1 $\n\nWe are asked to find the value of $ x - 2y $.\n\n---\n\n### Step 1: Express $ x $ in terms of $ y $\n\nFrom the first equation:\n$$\nx = 2 - y\n$$\n\n---\n\n### Step 2: Substitute into the second equation\n\nSubstitute",
+      "target": "To solve the system of equations:\n\n1. $ x + y = 2 $\n2. $ x^2 - xy - 10 - 2y^2 = 0 $\n\nwe aim to determine the value of $ x - 2y $.\n\n---\n\n### Step 1: Express One Variable in Terms of the Other\n\nFrom the",
+      "token_f1": 0.675,
+      "pred_tokens": 73,
+      "target_tokens": 52
+    },
+    {
+      "id": 14,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "Based on the dissociation of sulfurous acid (H2SO3), the first dissociation produces more H+ and HSO3^- than the second, which produces SO3^2-. Since HSO3^- is a stronger acid than SO3^2-, its concentration will be higher than that of SO3^2- in the solution. Therefore, the correct order is [H+] > [HSO3^-] > [SO3^2-].",
+      "target": "G",
+      "token_f1": 0.0,
+      "pred_tokens": 52,
+      "target_tokens": 1
+    },
+    {
+      "id": 15,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "To solve the problem, we analyze the given information step by step:\n\n---\n\n### **Step 1: Understand the Initial Ratio**\n\nThe can is initially filled with milk and water in the ratio **2:1**. This means that for every **2 parts** of milk, there is **1 part** of water.\n\nLet the total capacity of the can be **C**. Then:\n\n- Milk = $ \\frac{2}{3}C $\n- Water = $ \\frac{1",
+      "target": "To determine the **capacity of the can**, we analyze the information provided:\n\n- Initially, the mixture in the can has a **ratio of milk to water of 1:5**.\n- Adding **2 liters of milk** fills the can",
+      "token_f1": 0.304,
+      "pred_tokens": 69,
+      "target_tokens": 37
+    },
+    {
+      "id": 16,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "Based on the reasoning, the model's final answer is option D: \"The mother had the right to require the photographer to arrange for the child's safety during the photo sessions.\"",
+      "target": "A",
+      "token_f1": 0.0,
+      "pred_tokens": 30,
+      "target_tokens": 1
+    },
+    {
+      "id": 17,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "Based on the chain of thought, the model's final answer is B, as it is the more formal and professional message.",
+      "target": "B",
+      "token_f1": 0.0,
+      "pred_tokens": 21,
+      "target_tokens": 1
+    },
+    {
+      "id": 18,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "D",
+      "target": "C",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 19,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "To solve the problem, we begin by analyzing the given information:\n\n- The **area** of the rectangular park is **5500 square meters**.\n- The **ratio of the sides** is **3:2**, meaning the length is 3 parts and the width is 2 parts.\n- The **cost of fencing** is **80 paise per meter**, which is **0.8 rupees per meter**.\n\n---\n\n### Step 1: Express the sides in terms",
+      "target": "D",
+      "token_f1": 0.0,
+      "pred_tokens": 67,
+      "target_tokens": 1
+    },
+    {
+      "id": 20,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "To determine the return rate of the $1,500 investment, we start by calculating the total return from both investments combined.\n\n1. **Total Investment**:  \n   $500 + $1,500 = $2,000\n\n2. **Total Return Rate**:  \n   The combined return rate is 7%, so the total return is:  \n   $2,000 \u00d7 0.07 = $140\n\n3. **",
+      "target": "To determine the yearly return percentage of the $1,500 investment, we start by analyzing the total investment and the combined yearly return.\n\n---\n\n### Step 1: Calculate the Total Investment\n\nThe two",
+      "token_f1": 0.4,
+      "pred_tokens": 50,
+      "target_tokens": 32
+    },
+    {
+      "id": 21,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "Based on the reasoning, the model's final answer is B) 1000.",
+      "target": "C",
+      "token_f1": 0.0,
+      "pred_tokens": 11,
+      "target_tokens": 1
+    },
+    {
+      "id": 22,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "To determine the correct inequality that represents the acceptable length of a screw, we start by analyzing the rejection criteria:\n\n- **Rejected if too short**: Less than 2.4 inches.\n- **Rejected if too long**: More than 2.6 inches.\n\nThis means the **acceptable range** is the complement of these rejection conditions. Therefore, the length $ k $ of a screw must satisfy:\n\n$$\n2.4 \\leq k \\leq 2.6\n$$\n\nThis",
+      "target": "E",
+      "token_f1": 0.0,
+      "pred_tokens": 69,
+      "target_tokens": 1
+    },
+    {
+      "id": 23,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "Based on the reasoning, the model concludes that a test tube's volume is typically around 100 milliliters, so the answer is B.",
+      "target": "B",
+      "token_f1": 0.0,
+      "pred_tokens": 22,
+      "target_tokens": 1
+    },
+    {
+      "id": 24,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "Based on the reasoning, the model's final answer is B) dizziness.",
+      "target": "E",
+      "token_f1": 0.0,
+      "pred_tokens": 11,
+      "target_tokens": 1
+    },
+    {
+      "id": 25,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "Based on the reasoning, the model's final answer is A) stress.",
+      "target": "E",
+      "token_f1": 0.0,
+      "pred_tokens": 11,
+      "target_tokens": 1
+    },
+    {
+      "id": 26,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "D",
+      "target": "D",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 27,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "Based on the reasoning, the model's final answer is E, the car.",
+      "target": "E",
+      "token_f1": 0.0,
+      "pred_tokens": 12,
+      "target_tokens": 1
+    },
+    {
+      "id": 28,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "Based on the reasoning, the model's final answer is B) no, because \"over\" comes before \"occur\" alphabetically, so \"order\" would not be found on the same page.",
+      "target": "B",
+      "token_f1": 0.0,
+      "pred_tokens": 27,
+      "target_tokens": 1
+    },
+    {
+      "id": 29,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "To solve the problem, we are given a sequence of positive real numbers $(a_1, a_2, \\dots, a_n)$ with the following conditions:\n\n- $\\sum_{i=1}^n a_i = 50$\n- $\\sum_{i=1}^n a_i^2 = 1296$\n- $\\sum_{i=1}^n a_i^3 = 216$\n\nWe are asked to find all possible values",
+      "target": "To determine the **sum of all possible values of $ n $** for which there exists a sequence of positive real numbers $ (a_1, a_2, \\ldots, a_n) $ satisfying:\n\n$$\n\\sum_{i=1}^n a_i = 96, \\quad \\sum_{i=1}^",
+      "token_f1": 0.424,
+      "pred_tokens": 44,
+      "target_tokens": 36
+    },
+    {
+      "id": 30,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "To determine the rate of simple interest on the National Savings Certificate (NSC), we use the formula for simple interest:\n\n$$\n\\text{Simple Interest (SI)} = \\frac{P \\times R \\times T}{100}\n$$\n\nWhere:\n- $ P $ is the principal amount,\n- $ R $ is the rate of interest (in percentage),\n- $ T $ is the time in years.\n\n---\n\n### Step 1: Identify the given values\n\n- **Principal",
+      "target": "To determine the rate of **simple interest (S.I.)**, we begin by identifying the key components of the problem:\n\n---\n\n### Given:\n- **Principal (P)** = Rs. 500  \n- **Maturity Value** = Rs. 1000  \n- **T",
+      "token_f1": 0.324,
+      "pred_tokens": 70,
+      "target_tokens": 35
+    },
+    {
+      "id": 31,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "To solve the problem, we analyze the change in average weight when a new person joins the group.\n\n---\n\n### Step 1: Define Variables\n\nLet the original number of boys be $ n $, and their average weight be 30 kg.  \nThen, the total weight of the group is:\n$$\n\\text{Total weight} = 30n\n$$\n\n---\n\n### Step 2: Add the New Boy\n\nA new boy joins the group, making the total number of",
+      "target": "To solve this problem, we begin by analyzing the given information and applying the concept of averages.\n\n---\n\n### Step 1: Define Variables\n\nLet the **original number of boys** in the group be $ n $.",
+      "token_f1": 0.494,
+      "pred_tokens": 74,
+      "target_tokens": 36
+    },
+    {
+      "id": 32,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "Based on the reasoning, the model's final answer is **$80,000**.",
+      "target": "E",
+      "token_f1": 0.0,
+      "pred_tokens": 10,
+      "target_tokens": 1
+    },
+    {
+      "id": 33,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "Based on the reasoning, the model's final answer is **-2150 kJ/mol**.",
+      "target": "D",
+      "token_f1": 0.0,
+      "pred_tokens": 11,
+      "target_tokens": 1
+    },
+    {
+      "id": 34,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "To solve the problem, we analyze the man's journey in two parts: going to the island and returning.\n\n---\n\n### **Understanding the Scenario**\n\n- **Man's rowing speed in still water:** 5 km/h  \n- **River current speed:** 3 km/h  \n- **Total time for the round trip:** 1 hour  \n- **Goal:** Find the **total distance** traveled.\n\n---\n\n### **Step 1: Determine Effective Speeds**\n\nWhen the man rows **with**",
+      "target": "To solve this problem, we need to determine the **total distance** the man travels when rowing to a place and back, given the following:\n\n- His **rowing speed in still water** is **5 km/h**.\n- The **r",
+      "token_f1": 0.39,
+      "pred_tokens": 66,
+      "target_tokens": 37
+    },
+    {
+      "id": 35,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "Based on the reasoning, the model's final answer is **C. 7.8**.",
+      "target": "I",
+      "token_f1": 0.0,
+      "pred_tokens": 11,
+      "target_tokens": 1
+    },
+    {
+      "id": 36,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "D",
+      "target": "D",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 37,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "Based on the reasoning, the model's final answer is D) big city.",
+      "target": "E",
+      "token_f1": 0.0,
+      "pred_tokens": 12,
+      "target_tokens": 1
+    },
+    {
+      "id": 38,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "Based on the patient's presentation of sudden motor deficits, ataxia, and sensory changes, the most likely diagnosis is a stroke. The presence of a positive Babinski sign and bilateral hand deformities suggests a central nervous system lesion, consistent with a stroke. The history of hypertension and diabetes mellitus are significant risk factors for stroke. The \"clunk\" sound upon pushing on the head is a non-specific finding and does not override the clinical picture. Therefore, the best answer",
+      "target": "D",
+      "token_f1": 0.0,
+      "pred_tokens": 80,
+      "target_tokens": 1
+    },
+    {
+      "id": 39,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "Based on the reasoning, the model's final answer is 14.",
+      "target": "18",
+      "token_f1": 0.0,
+      "pred_tokens": 10,
+      "target_tokens": 1
+    },
+    {
+      "id": 40,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "Based on the reasoning, the difference between the sums of the two sets of seven consecutive integers is 14. Therefore, the answer is C) 14.",
+      "target": "To solve the problem, we are given two sets of **7 consecutive positive integers** that share **exactly one integer** in common. We are to determine how much **greater** the sum of the set with the **",
+      "token_f1": 0.213,
+      "pred_tokens": 25,
+      "target_tokens": 36
+    },
+    {
+      "id": 41,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "To determine how long it takes for the dog to catch the sheep, we analyze the situation using relative motion.\n\n---\n\n### **Step 1: Understand the Given Information**\n\n- **Sheep's speed**: 12 feet per second  \n- **Dog's speed**: 20 feet per second  \n- **Initial distance**: 160 feet  \n\nThe sheep starts running away from the dog, and the dog begins chasing it immediately. We are to find the **time** it takes for",
+      "target": "To determine how long it takes for the sheepdog to catch the sheep, we analyze the situation using the concept of **relative speed**.\n\n---\n\n### **Understanding the Problem**\n\n- **Initial distance betw",
+      "token_f1": 0.474,
+      "pred_tokens": 71,
+      "target_tokens": 32
+    },
+    {
+      "id": 42,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "Based on the reasoning, the number of trailing zeros in 60! is 14 and in 120! is 28. Therefore, the total number of trailing zeros in 60! \u00d7 120! is 14 + 28 = 42. The correct answer is E) 42.",
+      "target": "B",
+      "token_f1": 0.0,
+      "pred_tokens": 41,
+      "target_tokens": 1
+    },
+    {
+      "id": 43,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "Based on the chain of thought, the bartender is considered a **contributory cause** because their actions (serving alcohol to an intoxicated person) directly contributed to the accident.",
+      "target": "E",
+      "token_f1": 0.0,
+      "pred_tokens": 27,
+      "target_tokens": 1
+    },
+    {
+      "id": 44,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "Based on the reasoning, the model's final answer is A) Europe.",
+      "target": "A",
+      "token_f1": 0.0,
+      "pred_tokens": 11,
+      "target_tokens": 1
+    },
+    {
+      "id": 45,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "Based on the reasoning, the correct answer is C) -2.",
+      "target": "To solve the inequality:\n\n$$\n10^{z-1} < 0.000125 < 10^z\n$$\n\nwe aim to find the integer value of $ z $ that satisfies this condition.\n\n---\n\n### Step 1: Express 0.000125 in Scientific Notation\n\nWe obser",
+      "token_f1": 0.051,
+      "pred_tokens": 10,
+      "target_tokens": 37
+    },
+    {
+      "id": 46,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "Based on the linear relationship derived from the given data points, the cost for transporting 200 miles is $19.00 and for 400 miles is $38.00.",
+      "target": "A",
+      "token_f1": 0.0,
+      "pred_tokens": 25,
+      "target_tokens": 1
+    },
+    {
+      "id": 47,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "Based on the reasoning, the correct answer is A) Backward conditioning is a form of classical conditioning.",
+      "target": "F",
+      "token_f1": 0.0,
+      "pred_tokens": 17,
+      "target_tokens": 1
+    },
+    {
+      "id": 48,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "Based on the reasoning, the model's final answer is 12.",
+      "target": "To determine how many times Tammy caught the ball, we'll break the problem down step by step using the given information.\n\n---\n\n### Step 1: Define Variables\n\nLet:\n- $ J $ = number of catches Joe made",
+      "token_f1": 0.048,
+      "pred_tokens": 10,
+      "target_tokens": 38
+    },
+    {
+      "id": 49,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "Based on the reasoning, the total cost is calculated as follows:\n\n- Shoes: $150 + $120 = $270\n- Tax: 10% of $270 = $27\n- Total: $270 + $27 = $297\n\nTherefore, the final answer is $297.",
+      "target": "To determine how much John paid in total for his shoes, we follow a step-by-step process:\n\n---\n\n### Step 1: Calculate the total pre-tax cost\n\nJohn buys two items:\n- A pair of Nikes costing **$150**\n-",
+      "token_f1": 0.167,
+      "pred_tokens": 38,
+      "target_tokens": 37
+    }
+  ]
+}

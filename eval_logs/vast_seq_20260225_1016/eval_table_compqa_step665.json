@@ -1,0 +1,220 @@
+{
+  "step": 665,
+  "name": "eval_table_compqa",
+  "n": 30,
+  "run_id": "lg0b51t2",
+  "run_name": "vast_seq_20260225_1016",
+  "created_at": "2026-02-25T10:25:14Z",
+  "rows": [
+    {
+      "id": "compqa_133",
+      "question": "Does the model notice and correct any of its own mistakes? Describe.",
+      "oracle_output": "No, the model does not notice or correct any of its own mistakes. The model's reasoning is entirely correct and does not contain any errors. It correctly identifies the stages of complete metamorphosis and correctly eliminates the incorrect options.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_3071",
+      "question": "What is the first error (if any) in this reasoning? State the step number and the error, or 'none'.",
+      "oracle_output": "none",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_212",
+      "question": "Are any steps redundant or unnecessary? Which ones?",
+      "oracle_output": "Yes, the steps are redundant or unnecessary. Specifically:\n\n1. **Step 2** is unnecessary because the problem explicitly states that Stephen cannot be in positions 1 or 7. The reasoning in Step 2 is a restatement of the problem's constraints and does not add any new information.\n\n2. **Step 3** is als",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_5146",
+      "question": "Does any step in this reasoning not follow from the previous steps? If so, which and why?",
+      "oracle_output": "Yes, the reasoning contains a flaw in the evaluation of **Option B**.\n\n---\n\n### Flawed Step: Evaluation of Option B\n\nThe reasoning states:\n\n> \"B) Suburb: A suburb is a residential area that is typically not attached to other buildings. This is a possible answer.\"\n\nHowever, this is **not a valid eval",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_5012",
+      "question": "What is the first error (if any) in this reasoning? State the step number and the error, or 'none'.",
+      "oracle_output": "none",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_6320",
+      "question": "What is the first error (if any) in this reasoning? State the step number and the error, or 'none'.",
+      "oracle_output": "none",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_2143",
+      "question": "Is the reasoning in this chain of thought sound? Explain briefly.",
+      "oracle_output": "Yes, the reasoning is sound. The chain of thought correctly identifies the key clue in the context: the man is \"looking for the hole.\" The word \"hole\" is central to the scenario, and the options are evaluated based on their relevance to the context. The reasoning methodically eliminates the incorrec",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_514",
+      "question": "Classify the errors in this reasoning: arithmetic, logical fallacy, false premise, irrelevant step, or none. Give the category and a brief explanation.",
+      "oracle_output": "Category: None\n\nExplanation: The reasoning is logically sound and free of errors. It correctly identifies the user's request as a request for a polite response to a social situation, not a legal or ethical violation. The model accurately distinguishes between the user's request for a polite response",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_4156",
+      "question": "Does any step in this reasoning not follow from the previous steps? If so, which and why?",
+      "oracle_output": "Yes, the reasoning contains a flaw in the step where it eliminates option C.\n\n**Step-by-step breakdown of the flaw:**\n\n1. **Step 1 (Elimination of Option C):** The reasoning states that \"Option C is incorrect because tRNA sequences are not conserved between species.\" This is a **false premise**. In ",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_1041",
+      "question": "Is the reasoning in this chain of thought sound? Explain briefly.",
+      "oracle_output": "Yes, the reasoning is sound. The chain of thought correctly identifies the key elements of the question: the shark's journey from the African coast to New York City. It logically eliminates options that are irrelevant (A, B, D) and correctly identifies the Atlantic Ocean as the only body of water th",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_1501",
+      "question": "Does the model verify or double-check its answer? How?",
+      "oracle_output": "The model verifies its answer by systematically testing multiple values of $ r $ and $ y $ that satisfy the condition $ r < -1 $ and $ y < 0 $, and by analyzing the algebraic structure of the inequality. It confirms that the inequality $ \\frac{y}{r} > r + y $ holds for all such values, and it also c",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_7905",
+      "question": "Is the model reasoning forward from givens, backward from the answer, or mixed?",
+      "oracle_output": "The model is reasoning **forward from givens**.\n\nIt starts with the definition of sensory memory and the question, then systematically evaluates each option against the definition. It identifies the key characteristics of sensory memory (short duration, active while input is present) and uses this t",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_5324",
+      "question": "Which steps are essential (load-bearing) for reaching the answer, and which are decorative filler?",
+      "oracle_output": "**Essential (Load-Bearing) Steps:**\n\n1. **Understanding the Core Requirement:**  \n   The question asks for an activity that is **exclusively** done **inside**. This means the correct answer must be **uniquely** associated with indoor environments, not just possible in them.\n\n2. **Analyzing Each Opti",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_4397",
+      "question": "Which steps are essential (load-bearing) for reaching the answer, and which are decorative filler?",
+      "oracle_output": "**Essential (Load-Bearing) Steps:**\n\n1. **Step 1:** Identifies the patient's symptoms (fatigue, tachycardia) and lab results (low Hb, low MCV, low reticulocyte count) as consistent with **anemia of chronic disease (ACD)**.\n2. **Step 2:** Correctly identifies the **pathophysiology** of ACD: **inadequ",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_2984",
+      "question": "Is the reasoning in this chain of thought sound? Explain briefly.",
+      "oracle_output": "Yes, the reasoning is sound. The chain of thought correctly identifies the key steps: understanding the problem, converting the fraction to a decimal, performing the multiplication, and eliminating incorrect answer choices based on units. The conclusion logically follows from the given information.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_4136",
+      "question": "Does the final answer follow from the reasoning steps? Explain.",
+      "oracle_output": "Yes, the final answer follows from the reasoning steps.\n\nThe reasoning process correctly identifies that the riddle is a play on words, where \"throwing snow\" is meant to be interpreted as \"throwing\" in the sense of \"throwing a snowball\" (a common winter activity). The key steps are:\n\n1. **Eliminatin",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_8612",
+      "question": "Is the reasoning in this chain of thought sound? Explain briefly.",
+      "oracle_output": "Yes, the reasoning is sound. The chain of thought correctly identifies that the question asks for a **place** where children play, not a specific activity or object. It systematically eliminates options that are not places (A, B, D) and correctly identifies the **family room** (E) as the only valid ",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_3770",
+      "question": "Are any steps redundant or unnecessary? Which ones?",
+      "oracle_output": "Yes, the steps are redundant or unnecessary. The chain of reasoning is unnecessarily complex and verbose. The key steps are:\n\n1. Define the trophic levels.\n2. Identify the correct trophic level for the rabbit.\n3. Match the rabbit to the correct option.\n\nThe rest of the reasoning is unnecessary elabo",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_5661",
+      "question": "Are any steps redundant or unnecessary? Which ones?",
+      "oracle_output": "Yes, the steps are redundant or unnecessary. The chain of reasoning is overly detailed and repetitive, especially in the analysis of Option A. The core issue is that the pronoun \"she\" in Option A refers to a specific person (Megan) in the preceding clause, making the reference clear and unambiguous.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_6926",
+      "question": "Does the final answer follow from the reasoning steps? Explain.",
+      "oracle_output": "Yes, the final answer follows from the reasoning steps.\n\nThe reasoning begins by analyzing the question: \"Where did John put the pencils after he bought them?\" The key is to determine the most logical place for someone to place pencils immediately after purchasing them. The reasoning then evaluates ",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_4920",
+      "question": "Does the model notice and correct any of its own mistakes? Describe.",
+      "oracle_output": "The model does not notice or correct any mistakes in its reasoning. It correctly identifies that \"terribly\" is an adverb in both sentences, but it incorrectly concludes that \"terribly\" is an adjective in sentence B. The model's reasoning is flawed in this regard.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_2060",
+      "question": "Are any steps redundant or unnecessary? Which ones?",
+      "oracle_output": "Yes, the steps are redundant or unnecessary. The reasoning is overly detailed and repetitive, with multiple iterations of the same logic. The key steps are:\n\n1. **Identify the problem**: The patient has a large hiatal hernia.\n2. **Determine the appropriate treatment**: Large hiatal hernias are best ",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_4530",
+      "question": "Does any step in this reasoning not follow from the previous steps? If so, which and why?",
+      "oracle_output": "Yes, the reasoning contains a flaw in the evaluation of option C.\n\nThe reasoning states: \"C) 'barely sufficient' is a bit of a contradiction. It is not a standard term.\" However, this is incorrect. \"Barely sufficient\" is a standard and commonly used phrase in English to describe something that meets",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_7565",
+      "question": "What is the first error (if any) in this reasoning? State the step number and the error, or 'none'.",
+      "oracle_output": "none",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_1118",
+      "question": "Which steps are essential (load-bearing) for reaching the answer, and which are decorative filler?",
+      "oracle_output": "**Essential (load-bearing) steps:**\n\n1. **Identifying the structure of each option**  \n   - This step is critical because it determines whether the sentence is a compound or a simple sentence.  \n   - **Option A** has two independent clauses connected by \"so,\" making it a compound sentence.  \n   - **",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_5813",
+      "question": "What is the first error (if any) in this reasoning? State the step number and the error, or 'none'.",
+      "oracle_output": "none",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_4505",
+      "question": "Does the final answer follow from the reasoning steps? Explain.",
+      "oracle_output": "Yes, the final answer follows from the reasoning steps.\n\nThe reasoning begins by analyzing the options based on the common usage of paper clips in office settings. It correctly identifies that paper clips are typically used to secure documents, not stored in filing cabinets (A), hospitals (C), or ca",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_3443",
+      "question": "Does the model verify or double-check its answer? How?",
+      "oracle_output": "The model verifies its answer by systematically analyzing each option against the scientific principles of sound wave propagation. It identifies the correct factor (medium) and eliminates incorrect options based on their relevance to the speed of sound.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_6658",
+      "question": "Which steps are essential (load-bearing) for reaching the answer, and which are decorative filler?",
+      "oracle_output": "**Essential (load-bearing) steps:**\n\n1. **Identifying the key information:** The patient has **Parkinson's disease**, and the question asks for the **antiviral drug** used to **relieve symptoms**.\n2. **Understanding the role of antiviral drugs:** The question specifies that the drug must be an **ant",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_8221",
+      "question": "Does the final answer follow from the reasoning steps? Explain.",
+      "oracle_output": "Yes, the final answer follows from the reasoning steps.\n\nThe reasoning correctly identifies that the question asks for the **most general** place where horses are likely to be found. It systematically eliminates options that are either too specific (A, B, C) or not places at all (E). The key step is",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    }
+  ]
+}

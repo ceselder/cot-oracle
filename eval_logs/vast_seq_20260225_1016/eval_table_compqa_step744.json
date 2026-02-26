@@ -1,0 +1,220 @@
+{
+  "step": 744,
+  "name": "eval_table_compqa",
+  "n": 30,
+  "run_id": "lg0b51t2",
+  "run_name": "vast_seq_20260225_1016",
+  "created_at": "2026-02-25T10:25:14Z",
+  "rows": [
+    {
+      "id": "compqa_5573",
+      "question": "Does the model verify or double-check its answer? How?",
+      "oracle_output": "The model does not explicitly verify or double-check its answer. It follows a linear reasoning process, evaluating each option in sequence and selecting the one that best fits the criteria of being a \"preventative\" measure. However, it does not re-evaluate or cross-check its conclusion against the o",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_4479",
+      "question": "Does any step in this reasoning not follow from the previous steps? If so, which and why?",
+      "oracle_output": "Yes, the reasoning contains a step that does not follow from the previous steps.\n\nSpecifically, the step where the model concludes that **\"the stomach is the only place that is considered to hold food\"** does not logically follow from the earlier analysis. The model had already established that **D)",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_5507",
+      "question": "Is the reasoning in this chain of thought sound? Explain briefly.",
+      "oracle_output": "Yes, the reasoning is sound. The chain of thought correctly identifies the scenario as an example of **punishment** (option J), specifically **positive punishment**, where an **aversive stimulus** (being sent to the principal's office) is introduced to **decrease** the behavior (talking out of turn)",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_8853",
+      "question": "Does any step in this reasoning not follow from the previous steps? If so, which and why?",
+      "oracle_output": "No, all steps in the reasoning follow logically from the previous steps.\n\n1. The reasoning correctly identifies the question as asking for the **primary reason** for engaging in the act of listening.\n2. It correctly eliminates options A, B, and C by showing that they are either **goals** (A, C) or *",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_5617",
+      "question": "Does the final answer follow from the reasoning steps? Explain.",
+      "oracle_output": "Yes, the final answer follows from the reasoning steps.\n\nThe reasoning systematically evaluates each option against the known principles of gel electrophoresis:\n\n- **Option A** is identified as incorrect because it reverses the direction of DNA migration (from negative to positive electrode).\n- **Op",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_9097",
+      "question": "Does any step in this reasoning not follow from the previous steps? If so, which and why?",
+      "oracle_output": "Yes, the reasoning contains a step that does not follow from the previous steps.\n\n**Step 10** is the conclusion that \"sun\" is the only abstract concept, and therefore the answer is **A**. However, this step does not logically follow from the previous steps.\n\n**Why it doesn't follow:**\n\n- The reasoni",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_6639",
+      "question": "Which steps are essential (load-bearing) for reaching the answer, and which are decorative filler?",
+      "oracle_output": "**Essential (load-bearing) steps:**\n\n1. **Step 1:** Identifies the question's goal (improving soil structure).\n2. **Step 2:** Defines soil structure and its importance.\n3. **Step 3:** Explains the role of organic matter in soil structure.\n4. **Step 4:** Evaluates each option against the role of orga",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_7555",
+      "question": "Does any step in this reasoning not follow from the previous steps? If so, which and why?",
+      "oracle_output": "No, all steps in the reasoning follow logically from the previous steps.\n\nThe reasoning correctly identifies the key elements of the question: the lock is on a specific entry point (a door), and the options are evaluated based on their specificity and relevance to the question. The elimination of op",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_7078",
+      "question": "Does the model verify or double-check its answer? How?",
+      "oracle_output": "The model verifies its answer by systematically analyzing each option against the provided information. It checks whether each choice aligns with the definition of CIN and its role in cancer development. The model identifies and corrects any misinterpretations, such as the incorrect causality in opt",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_4978",
+      "question": "Which steps are essential (load-bearing) for reaching the answer, and which are decorative filler?",
+      "oracle_output": "**Essential (Load-Bearing) Steps:**\n\n1. **Understanding the Pattern:**  \n   - The problem describes a geometric sequence where the number of new members each week is multiplied by 5.  \n   - This is a key insight because it defines the relationship between the number of weeks and the total members.\n\n",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_3116",
+      "question": "Is the model reasoning forward from givens, backward from the answer, or mixed?",
+      "oracle_output": "The model's reasoning is **forward from givens**.\n\nThe model begins by analyzing the original sentence and the options, then systematically eliminates incorrect choices (A, C, D) based on their logical and grammatical inconsistencies. It then identifies the correct answer (B) as the only one that lo",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_7177",
+      "question": "Classify the errors in this reasoning: arithmetic, logical fallacy, false premise, irrelevant step, or none. Give the category and a brief explanation.",
+      "oracle_output": "Category: None\n\nExplanation: The reasoning is logically sound and free of errors. The model correctly identifies that the patient has had a stent placed and is at risk for stent thrombosis. It correctly identifies that the standard of care for such patients is to add a P2Y12 inhibitor to antiplatele",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_2925",
+      "question": "Is the reasoning in this chain of thought sound? Explain briefly.",
+      "oracle_output": "Yes, the reasoning is sound. The chain of thought correctly identifies the key difference between living and non-living things. It correctly applies the definition of a living thing (able to grow, respond to stimuli, reproduce, etc.) and a non-living thing (inanimate, lacks these characteristics). T",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_2634",
+      "question": "Does the model notice and correct any of its own mistakes? Describe.",
+      "oracle_output": "The model does not notice or correct any mistakes in its reasoning. It systematically evaluates each option against the premise, correctly identifies the most supported answer (C), and does not revisit or revise its reasoning.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_6071",
+      "question": "Classify the errors in this reasoning: arithmetic, logical fallacy, false premise, irrelevant step, or none. Give the category and a brief explanation.",
+      "oracle_output": "Category: None\n\nExplanation: The reasoning is logically sound and free of errors. The model correctly identifies that the key criteria are \"not for sale\" and \"used for large paper.\" It systematically eliminates each option by checking these criteria, leading to the correct conclusion that the artist",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_5474",
+      "question": "Does the final answer follow from the reasoning steps? Explain.",
+      "oracle_output": "Yes, the final answer follows from the reasoning steps.\n\nThe reasoning is logically sound and follows a clear, step-by-step approach:\n\n1. **Step 1** correctly calculates the cost price per pen by dividing the total cost by the number of pens.\n2. **Step 2** correctly applies the 20% profit margin to ",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_8085",
+      "question": "Does the model verify or double-check its answer? How?",
+      "oracle_output": "The model does not explicitly verify or double-check its answer. It follows a linear reasoning path, starting with the assumption that the white flag symbolizes \"surrender\" and then applies this to the context of the circus and the monkey. It does not consider alternative interpretations of the whit",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_2955",
+      "question": "Classify the errors in this reasoning: arithmetic, logical fallacy, false premise, irrelevant step, or none. Give the category and a brief explanation.",
+      "oracle_output": "none",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_4332",
+      "question": "Does the model notice and correct any of its own mistakes? Describe.",
+      "oracle_output": "The model does not notice or correct any mistakes in its reasoning. It correctly identifies that low-speed centrifugation is used to pellet larger, denser components like nuclei, mitochondria, and cell membranes, while smaller, lighter, or soluble components like DNA, proteins, and secretory vesicle",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_6054",
+      "question": "Does any step in this reasoning not follow from the previous steps? If so, which and why?",
+      "oracle_output": "Yes, the reasoning contains a step that does not follow from the previous steps.\n\nThe step that does not follow is:\n\n> **Step 10**: \"Therefore, the correct answer is F) Cross-validation.\"\n\nThis conclusion does not logically follow from the previous steps. The reasoning correctly identifies that cros",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_1970",
+      "question": "Does any step in this reasoning not follow from the previous steps? If so, which and why?",
+      "oracle_output": "Yes, the reasoning contains a logical error in the evaluation of **Option A**.\n\n---\n\n### Step-by-Step Analysis:\n\n1. **Premise:**  \n   - \"Amphibians have moist skin, lay eggs in water, and have a life cycle that includes a larval stage.\"  \n   - This is a **definition** of amphibians. It is a **genera",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_5304",
+      "question": "Which steps are essential (load-bearing) for reaching the answer, and which are decorative filler?",
+      "oracle_output": "**Essential (Load-Bearing) Steps:**\n\n1. **Identifying the key symptoms:** The patient presents with **menorrhagia** (heavy menstrual bleeding) and **pelvic fullness**, which are **classic signs of uterine fibroids** (Option A). These symptoms are **directly linked to the presence of fibroids** and a",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_8723",
+      "question": "Are any steps redundant or unnecessary? Which ones?",
+      "oracle_output": "Yes, the steps are redundant or unnecessary. The chain of reasoning is overly detailed and repetitive, especially in the final paragraph. The key steps are:\n\n1. **Identify the goal**: Find a chess pawn.\n2. **Understand the pawn's nature**: It is a game piece, not a standalone item.\n3. **Determine wh",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_1269",
+      "question": "Is the model reasoning forward from givens, backward from the answer, or mixed?",
+      "oracle_output": "The model is reasoning **forward from givens**.\n\nThe model begins by analyzing the definition of a ring road and the question's phrasing (\"where would you find a ring road\"). It then systematically evaluates each option against the definition, eliminating those that do not fit (e.g., \"travel around ",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_4295",
+      "question": "Does any step in this reasoning not follow from the previous steps? If so, which and why?",
+      "oracle_output": "Yes, the reasoning contains a step that does not follow from the previous steps.\n\nSpecifically, the step that says:  \n> \"The Constitution does not require the prosecution to prove affirmative defenses, but the defendant must prove them by a preponderance of the evidence.\"  \ndoes not follow from the ",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_4425",
+      "question": "Are any steps redundant or unnecessary? Which ones?",
+      "oracle_output": "Yes, the steps are redundant or unnecessary. The reasoning process is overly detailed and includes unnecessary information, such as the specific anatomical pathways (spinothalamic tract, corticospinal tract) and the specific spinal cord levels (T10, T11, T12) that are not required to answer the ques",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_8922",
+      "question": "Does any step in this reasoning not follow from the previous steps? If so, which and why?",
+      "oracle_output": "No, all steps in the reasoning follow logically from the previous steps.\n\nThe reasoning begins by correctly identifying the purpose of low-speed centrifugation (separating large, dense, or membrane-bound components) and the purpose of high-speed centrifugation (separating smaller, soluble components",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_2532",
+      "question": "Does any step in this reasoning not follow from the previous steps? If so, which and why?",
+      "oracle_output": "Yes, the reasoning contains a flaw in Step 2.\n\nStep 2 incorrectly assumes that the problem is about \"arranging\" two paintings in a specific order, and then eliminates option C (which is 3) as \"not relevant\" because it does not involve a specific order. However, the problem explicitly states that the",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_3602",
+      "question": "What is the first error (if any) in this reasoning? State the step number and the error, or 'none'.",
+      "oracle_output": "none",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_2421",
+      "question": "What is the first error (if any) in this reasoning? State the step number and the error, or 'none'.",
+      "oracle_output": "none",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    }
+  ]
+}

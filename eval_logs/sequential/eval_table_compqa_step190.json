@@ -1,0 +1,199 @@
+{
+  "step": 190,
+  "name": "eval_table_compqa",
+  "n": 27,
+  "run_id": "r7g3a929",
+  "run_name": "sequential",
+  "created_at": "2026-02-25T04:26:23Z",
+  "rows": [
+    {
+      "id": "compqa_5265",
+      "question": "Does any step in this reasoning not follow from the previous steps? If so, which and why?",
+      "oracle_output": "Yes, the step where we conclude that the question is asking for the **weight** of a quarter is not directly supported by the original question. The original question is about the **length** of a quarter. However,",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_5617",
+      "question": "Does the final answer follow from the reasoning steps? Explain.",
+      "oracle_output": "yes",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_8546",
+      "question": "Does the model verify or double-check its answer? How?",
+      "oracle_output": "Yes, the model verifies its answer by checking the consistency of the conditional probability formula and the sample space. It confirms that the conditional probability is correctly calculated as 1/2, which matches the answer",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_958",
+      "question": "Does any step in this reasoning not follow from the previous steps? If so, which and why?",
+      "oracle_output": "Yes, the step where we eliminate options B and C is based on the fact that 2 tons (3,200 pounds) and 200 pounds are far below the typical maximum takeoff weight of a helicopter. This is a",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_8588",
+      "question": "Which steps are essential (load-bearing) for reaching the answer, and which are decorative filler?",
+      "oracle_output": "essential for the reasoning. The question is about the phenotype of the offspring, and the answer is based on the assumption that the dominant allele is expressed in the absence of the recessive allele.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_3228",
+      "question": "Are any steps redundant or unnecessary? Which ones?",
+      "oracle_output": "Yes, the step of considering the vowels as a single block is necessary to ensure they are together. Without this step, we would not account for the constraint that vowels must be together.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_715",
+      "question": "Is the reasoning in this chain of thought sound? Explain briefly.",
+      "oracle_output": "Yes, the reasoning is sound. The key is understanding that inactivation is a process that occurs in the early stages of development, leading to the formation of a Barr body, which is a condensed, inactive X chromosome.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_1988",
+      "question": "Which steps are essential (load-bearing) for reaching the answer, and which are decorative filler?",
+      "oracle_output": ". The question asks for the **characteristic** of early successional plant communities, and the options are about what is **true** for these communities.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_341",
+      "question": "Does the model verify or double-check its answer? How?",
+      "oracle_output": "Yes, the model verifies its answer by checking the consistency of the equations and ensuring that the solution satisfies all given conditions. It also considers the possibility of different interpretations of the problem and confirms that the chosen interpretation leads to a consistent",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_3394",
+      "question": "Does any step in this reasoning not follow from the previous steps? If so, which and why?",
+      "oracle_output": "Yes, the step where we conclude that \"G) is a process of gain and loss\" is correct. However, the question asks which of the following is NOT a correct statement about the theory. Since all other options are correct, the answer is",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_8153",
+      "question": "What is the first error (if any) in this reasoning? State the step number and the error, or 'none'.",
+      "oracle_output": "none",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_6563",
+      "question": "Does the final answer follow from the reasoning steps? Explain.",
+      "oracle_output": "yes",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_1434",
+      "question": "Is the reasoning in this chain of thought sound? Explain briefly.",
+      "oracle_output": "Yes, the reasoning is sound. The key is recognizing that the problem is about selecting a committee where the order of selection does not matter, which is a classic combination problem. The answer is correctly calculated as 56",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_4337",
+      "question": "Does the model notice and correct any of its own mistakes? Describe.",
+      "oracle_output": "Yes, the model notices that the initial answer (B) doesn't fit the riddle's requirement of being hard to remove. It then re-evaluates the options and finds that the correct answer is (C)",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_6501",
+      "question": "Does the model notice and correct any of its own mistakes? Describe.",
+      "oracle_output": " mistakes in its reasoning. For example, if the model initially thought that chromosomal abnormalities directly determine sex, it might later correct itself by considering that sex is determined by the presence of specific sex chromosomes, not just the number",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_5083",
+      "question": "Which steps are essential (load-bearing) for reaching the answer, and which are decorative filler?",
+      "oracle_output": ". The question is about identifying the **tissue** that is **not** connective tissue. The key is to recognize that **muscle** is a **type of connective tissue**, while **skin** is a **tissue** but",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_9260",
+      "question": "Does the model notice and correct any of its own mistakes? Describe.",
+      "oracle_output": " mistakes in its reasoning, such as misinterpreting the condition as a requirement for the grantee to use the property for church purposes, which is not the case. The condition is a requirement for the grantee to **not** use the property",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_3636",
+      "question": "Does any step in this reasoning not follow from the previous steps? If so, which and why?",
+      "oracle_output": "Yes, the step where we conclude that only A is correct does not follow from the previous steps. The previous steps correctly identify that A is a valid definition of catharsis, but they do not rule out other options",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_5954",
+      "question": "Does the model verify or double-check its answer? How?",
+      "oracle_output": "Yes, the model verifies its answer by cross-checking the options against the question's requirements. It ensures that the selected answer (E) is the most appropriate based on the context and the question's focus on the physical location where children play",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_8618",
+      "question": "Is the reasoning in this chain of thought sound? Explain briefly.",
+      "oracle_output": "Yes, the reasoning is sound. The key point is that cutting the vascular bundle disrupts the transport of water and nutrients, leading to the described effects. The mention of the tree living for a few weeks is consistent with the gradual loss of",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_744",
+      "question": "Does the model notice and correct any of its own mistakes? Describe.",
+      "oracle_output": " mistakes by analyzing the situation and providing a clear, logical explanation.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_9295",
+      "question": "Is the reasoning in this chain of thought sound? Explain briefly.",
+      "oracle_output": "yes",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_4345",
+      "question": "What is the first error (if any) in this reasoning? State the step number and the error, or 'none'.",
+      "oracle_output": "1",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_5023",
+      "question": "Does the model verify or double-check its answer? How?",
+      "oracle_output": "Yes, the model verifies its answer by cross-referencing the options with the question and the passage. It checks if each option directly addresses the question and aligns with the information provided",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_7935",
+      "question": "Does the model notice and correct any of its own mistakes? Describe.",
+      "oracle_output": "Yes, the model notices and corrects its mistakes. For example, in the first analysis, it initially considered \"differences\" as a noun, but upon re-evaluation, it realized that the question is asking for the result of taking differences, which",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_5567",
+      "question": "Does the model notice and correct any of its own mistakes? Describe.",
+      "oracle_output": "E",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_7160",
+      "question": "Which steps are essential (load-bearing) for reaching the answer, and which are decorative filler?",
+      "oracle_output": "essential for reaching the answer. The key is understanding that the question is about the sound heard at sunrise, and the only option that refers to a sound (crowing) is E",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    }
+  ]
+}

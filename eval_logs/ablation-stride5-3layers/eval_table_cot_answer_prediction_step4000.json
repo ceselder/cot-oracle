@@ -1,0 +1,507 @@
+{
+  "step": 4000,
+  "name": "eval_table_cot_answer_prediction",
+  "n": 50,
+  "rows": [
+    {
+      "id": 0,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "A",
+      "target": "A",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 1,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "C",
+      "target": "C",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 2,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "C",
+      "target": "C",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 3,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "A",
+      "target": "A",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 4,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "A",
+      "target": "B",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 5,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "To solve the problem, we are given the condition:\n\n$$\nn^2 + 1 \\text{ is divisible by } n + 1\n$$\n\nThis means that when we divide $ n^2 + 1 $ by $ n + 1 $, the remainder is zero. To analyze this, we can use **polynomial division** or the **Remainder Theorem**.\n\n---\n\n### Step 1: Apply the Remainder Theorem\n\nThe Remainder Theorem",
+      "target": "To solve the problem, we are given the condition that $ n^2 + 1 $ is divisible by $ n + 1 $, and we are asked to find all **positive integers** $ n $ for which this is true.\n\n---\n\n### Step 1: Use the",
+      "token_f1": 0.613,
+      "pred_tokens": 66,
+      "target_tokens": 46
+    },
+    {
+      "id": 6,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "A",
+      "target": "A",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 7,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "16",
+      "target": "16",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 8,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "To determine the expression for $ f\\left(\\frac{1}{x}\\right) $ in terms of $ f(x) $, we begin with the given function:\n\n$$\nf(x) = \\frac{x^2 - 1}{x}\n$$\n\n---\n\n### Step 1: Compute $ f\\left(\\frac{1}{x}\\right) $\n\nSubstitute $ \\frac{1}{x} $ into the function:\n\n$$\nf\\left(\\frac{1}{",
+      "target": "A",
+      "token_f1": 0.0,
+      "pred_tokens": 44,
+      "target_tokens": 1
+    },
+    {
+      "id": 9,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "To determine how much more Jane pays this year compared to last year for her monthly expenses, we need to calculate the total annual cost for both years and then find the difference.\n\n---\n\n### **Last Year's Monthly Expenses**\n\nJane's monthly expenses last year were:\n\n- **Car payment:** $1000",
+      "target": "To determine how much more Jessica pays for her expenses this year compared to last year, we begin by analyzing her monthly and annual expenses for both years.\n\n---\n\n### **Last Year's Expenses**\n\nJess",
+      "token_f1": 0.657,
+      "pred_tokens": 49,
+      "target_tokens": 34
+    },
+    {
+      "id": 10,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "D",
+      "target": "G",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 11,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "To determine which ratio is the **greatest**, we can convert each ratio into its decimal form by dividing the numerator by the denominator. This allows for a direct comparison of their values.\n\n---\n\n### Step-by-Step Conversion:\n\n1. **A) 7/15**  \n   $$\n   \\frac{7}{15} \\approx 0.4667\n   $$\n\n2. **B) 15/24**  \n   $$\n   \\",
+      "target": "To determine which ratio is the greatest among the given options, we can convert each ratio into a decimal by dividing the numerator by the denominator. This allows for a straightforward comparison of",
+      "token_f1": 0.629,
+      "pred_tokens": 49,
+      "target_tokens": 33
+    },
+    {
+      "id": 12,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "D",
+      "target": "D",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 13,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "To solve this probability problem, we begin by understanding the setup:\n\n- There are **10 pairs of white socks** and **10 pairs of black socks**, making a total of **20 pairs**.\n- Since each pair consists of 2 socks, the total number of socks is:\n  $$\n  20 \\text{ pairs} \\times 2 = 40 \\text{ socks}\n  $$\n- We are selecting **3 socks** at random, and",
+      "target": "To determine the probability that John will get a matching pair when he randomly picks out 3 socks from a bag containing 10 pairs of dark blue socks and 10 pairs of black socks, we need to carefully a",
+      "token_f1": 0.3,
+      "pred_tokens": 65,
+      "target_tokens": 39
+    },
+    {
+      "id": 14,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "To determine the **maximum number of hot dogs** you can buy with **$20**, we analyze the pricing structure:\n\n- **10-pack**: $1.55 for 10 hot dogs  \n- **20-pack**: $3.10 for 20 hot dogs  \n- **25-pack**: $2.25 for 25 hot dogs  \n\n---\n\n### Step 1: Calculate the Cost per Hot Dog\n\nWe",
+      "target": "C",
+      "token_f1": 0.0,
+      "pred_tokens": 50,
+      "target_tokens": 1
+    },
+    {
+      "id": 15,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "To determine how many square feet of the garden are left for other vegetables, we begin by calculating the total area of the rectangular garden.\n\n---\n\n### Step 1: Calculate the Total Area\n\nThe garden is 23 feet long and 15 feet wide. The area of a rectangle is given by:\n\n$$\n\\text{Area} = \\text{length} \\times \\text{width} = 23 \\times 15\n$$\n\nPerforming the multiplication:\n\n$$",
+      "target": "To determine how many square feet are left for other vegetables in Tom's garden, we begin by calculating the **total area** of the garden:\n\n$$\n\\text{Total area} = \\text{length} \\times \\text{width} = 2",
+      "token_f1": 0.553,
+      "pred_tokens": 66,
+      "target_tokens": 33
+    },
+    {
+      "id": 16,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "21",
+      "target": "28",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 17,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "C",
+      "target": "C",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 18,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "To solve the problem, we are given:\n\n- A reading list of **10 books**, of which **4 are novels** and **6 are non-fiction**.\n- Each student must read **4 books**.\n- The constraint is that a student can read **at most 2 novels**.\n\nWe are to find the number of **valid selections** of 4 books that satisfy this constraint.\n\n---\n\n### Step 1: Understand the Constraint\n\nThe constraint \"at most 2 novels\"",
+      "target": "To solve the problem, we are given a reading list of 10 books, consisting of 4 poems and 6 novels. Each student is required to select 4 books from the list, **with the constraint that at most 2 novels",
+      "token_f1": 0.482,
+      "pred_tokens": 72,
+      "target_tokens": 39
+    },
+    {
+      "id": 19,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "To determine how many **kilometres** a man can cover in **3 hours 45 minutes** if he runs **75 metres in one second**, we follow a structured approach:\n\n---\n\n### **Step 1: Convert Time to Seconds**\n\nThe total time given is **3 hours 45 minutes**. We convert this into seconds:\n\n- **3 hours** = $ 3 \\times 3600 = 10800 $ seconds  \n- **4",
+      "target": "To determine how many kilometers the man can cover in 3 hours and 45 minutes, given that he can cover 12 meters per second, we proceed with a step-by-step conversion and calculation.\n\n---\n\n### **Step",
+      "token_f1": 0.463,
+      "pred_tokens": 63,
+      "target_tokens": 35
+    },
+    {
+      "id": 20,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "C",
+      "target": "A",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 21,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "To determine what fraction of her savings Clara spent on the stereo and television, we analyze the information step by step.\n\n---\n\n### Step 1: Understand the Spending\n\nClara spends:\n\n- **1/4 of her savings** on a stereo.\n- **1/2 of her savings** on a television.\n\nWe are to find the total fraction of her savings spent on both items.\n\n---\n\n### Step 2: Add the Fractions\n\nSince both amounts are expressed as fractions of the same whole",
+      "target": "To solve the problem, we need to determine what fraction of Carol\u2019s total savings she spent on both the stereo and the television.\n\n---\n\n### Step 1: Understand the spending on the stereo\n\nCarol spends",
+      "token_f1": 0.56,
+      "pred_tokens": 78,
+      "target_tokens": 35
+    },
+    {
+      "id": 22,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "To determine the effect of a 20% reduction in tax and a 25% increase in consumption on revenue, we analyze the relationship between tax, consumption, and revenue.\n\n---\n\n### Step 1: Understand the Variables\n\nLet:\n-",
+      "target": "To determine the effect on revenue when the **tax on a commodity is reduced by 20%** and **consumption increases by 15%**, we start by understanding the relationship between **tax rate**, **consumptio",
+      "token_f1": 0.357,
+      "pred_tokens": 36,
+      "target_tokens": 31
+    },
+    {
+      "id": 23,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "To determine the number of different ways the boy can go abroad and return, we analyze the situation as follows:\n\n---\n\n### Step 1: Understand the Problem\n\n- The boy has **7 choices** of ships to go abroad.\n- He has **5 choices** of ships to return.\n- The problem asks for the **total number of different ways** he can make",
+      "target": "D",
+      "token_f1": 0.0,
+      "pred_tokens": 61,
+      "target_tokens": 1
+    },
+    {
+      "id": 24,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "To determine the percentage of **non-Honda cars** that are **red**, we are given the following information:\n\n- **Total number of cars in Mumbai**: 2,700,000  \n- **Number of Honda cars**: 1,500,000  \n- **Percentage of red cars among Honda cars**: 60%  \n- **Percentage of red cars among non-Honda cars**: 20%  \n\n---\n\n### Step 1: Calculate",
+      "target": "To determine the **percentage of non-Honda cars that are red**, we begin by analyzing the data provided and calculating step by step.\n\n---\n\n### **Step 1: Total Car Population**\n- Total cars in Mumbai:",
+      "token_f1": 0.485,
+      "pred_tokens": 53,
+      "target_tokens": 34
+    },
+    {
+      "id": 25,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "D",
+      "target": "E",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 26,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "C",
+      "target": "H",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 27,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "C",
+      "target": "A",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 28,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "To determine which number **does not have a divisor greater than 1 that is the square of an integer**, we need to analyze each option and check whether it has any **perfect square divisors** other than 1.\n\n---\n\n### Step-by-Step Analysis\n\n#### **A) 63**\n- Prime factorization: $ 63 = 7 \\times 9 = 7 \\times 3^2 $\n- **Divisors:** 1, 3, 7",
+      "target": "To determine which number **does not** have a divisor greater than 1 that is the square of an integer, we need to analyze the divisors of each option and check whether any of them are perfect squares",
+      "token_f1": 0.598,
+      "pred_tokens": 63,
+      "target_tokens": 37
+    },
+    {
+      "id": 29,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "To determine the average of all 80 results, we begin by calculating the total sum of the two groups of results and then divide by the total number of results.\n\n---\n\n### Step 1: Calculate the Total Sum of Each Group\n\n- **Group 1:** 40 results with an average of 30  \n  $$\n  \\text{Total sum} = 40 \\times 30 = 1200\n  $$\n\n- **Group 2",
+      "target": "A",
+      "token_f1": 0.0,
+      "pred_tokens": 64,
+      "target_tokens": 1
+    },
+    {
+      "id": 30,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "C",
+      "target": "C",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 31,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "To determine how many employees have read **both** the latest J. Saramago and H. Kundera books, we are given the following information:\n\n- Total number of employees: **72**\n- **1/4** of the employees have read the latest Saramago book:  \n  $$\n  \\frac{1}{4} \\times 72 = 18\n  $$\n- **1/3** of the employees have read the latest Kunder",
+      "target": "To solve this problem, we are given the following information:\n\n- Total number of workers in the bookstore: **72**\n- **1/4** of the workers have read the latest book by J. Saramago \u2192 $ \\frac{1}{4} \\ti",
+      "token_f1": 0.567,
+      "pred_tokens": 56,
+      "target_tokens": 36
+    },
+    {
+      "id": 32,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "To determine the present age of the father, we are given two key pieces of information:\n\n1. The father's current age is **3 years more than 3 times the age of his son**.\n2. In **6 years**, the father's age will be **10 years more than twice the age of his son**.\n\n---\n\n### Step 1: Define Variables\n\nLet the present age of the son be $ x $ years.  \nThen, the present age of the father is",
+      "target": "To solve the problem, we begin by defining variables for the present ages:\n\n- Let $ S $ represent the **present age of the son**.\n- Let $ F $ represent the **present age of the father**.\n\n---\n\n### Ste",
+      "token_f1": 0.329,
+      "pred_tokens": 78,
+      "target_tokens": 40
+    },
+    {
+      "id": 33,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "To determine the length of the rectangular plot, we begin by analyzing the given information:\n\n- The **length** of the plot is **20 meters more** than its **breadth**.\n- The **cost of fencing** the plot is **Rs. 5300**, at a rate of **Rs. 26.50 per meter**.\n\n---\n\n### Step 1: Calculate the Total Perimeter\n\nThe total cost of fencing is the product of the **perimeter",
+      "target": "To determine the **length** of the rectangular plot, we start with the given information:\n\n- The **length** is **20 meters more** than the **breadth**.\n- The **cost of fencing** the plot is **Rs. 26.5",
+      "token_f1": 0.618,
+      "pred_tokens": 65,
+      "target_tokens": 34
+    },
+    {
+      "id": 34,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "To determine how long it takes for a **50-meter long train** moving at **36 km/h** to pass a **telegraph post**, we need to analyze the situation carefully.\n\n---\n\n### Understanding the Problem\n\n- The **telegraph post** is a **point object** (",
+      "target": "C",
+      "token_f1": 0.0,
+      "pred_tokens": 41,
+      "target_tokens": 1
+    },
+    {
+      "id": 35,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "A",
+      "target": "E",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 36,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "B",
+      "target": "B",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 37,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "D",
+      "target": "D",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 38,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "To determine the annual return on the $1,500 investment, we begin by analyzing the total return from both investments combined.\n\n---\n\n### Step 1: Calculate the Total Investment\n\nThe two investments are:\n\n- $500\n- $1,500\n\nSo, the total investment is:\n\n$$\n500 + 1500 = 2000\n$$\n\n---\n\n### Step 2: Calculate the Total Return\n\nThe total return is given",
+      "target": "To determine the yearly return percentage of the $1,500 investment, we start by analyzing the total investment and the combined yearly return.\n\n---\n\n### Step 1: Calculate the Total Investment\n\nThe two",
+      "token_f1": 0.548,
+      "pred_tokens": 61,
+      "target_tokens": 32
+    },
+    {
+      "id": 39,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "A",
+      "target": "B",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 40,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "To determine the total number of eggs George ate, we need to analyze the number of eggs consumed at each meal and sum them up.\n\n---\n\n### Breakfast\nGeorge had **2 eggs** in an egg-omelet.  \n**Eggs at breakfast = 2**\n\n---\n\n### Lunch\nHe had an **egg salad sandwich** made with 3 eggs.  \n**Eggs at lunch = 3**\n\n---\n\n### Dinner\nFor dinner, he had **1 egg** in a po",
+      "target": "6",
+      "token_f1": 0.0,
+      "pred_tokens": 70,
+      "target_tokens": 1
+    },
+    {
+      "id": 41,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "To solve the problem, we begin by analyzing the given information:\n\n- Initially, there are **30 students** with an **average age of 20 years**.\n- After **4 more students** join, the **average age increases by 1 year**, making the new average **21 years**.\n- We are asked to find the **average age of the 4 new students**.\n\n---\n\n### Step 1: Calculate the Total Age of the Original 30 Students",
+      "target": "To solve the problem, we analyze the change in the average age of the group as new students are added.\n\n---\n\n### Step 1: Calculate the total age of the original group\n\nThe original group consists of *",
+      "token_f1": 0.493,
+      "pred_tokens": 70,
+      "target_tokens": 38
+    },
+    {
+      "id": 42,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "D",
+      "target": "D",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 43,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "To determine how many different arrangements of socks can be made when five socks of different colors (green, yellow, indigo, violet, and orange) are laid next to each other, we need to consider the nature of the problem.\n\n---\n\n###",
+      "target": "To determine the number of different arrangements of the five socks, we begin by analyzing the key information given:\n\n- There are **five socks**, each of a **different solid color**: yellow, green, b",
+      "token_f1": 0.355,
+      "pred_tokens": 40,
+      "target_tokens": 33
+    },
+    {
+      "id": 44,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "To determine the probability that Mark returns **at the end of the day** on the **second day**, we need to analyze the sequence of events based on the given conditions:\n\n---\n\n### **Understanding the Problem**\n\n- Mark starts his trip on **Monday**.\n- He returns **at the end of the day** on the **second day** if and only if **rain falls on the second day**, **but not on the first day**.\n- The probability of rain on any day is **",
+      "target": "To determine the probability that Malachi returns home at the end of the day on **Monday**, we need to understand the conditions under which this would occur.\n\n---\n\n### Understanding the Scenario\n\n- M",
+      "token_f1": 0.395,
+      "pred_tokens": 81,
+      "target_tokens": 34
+    },
+    {
+      "id": 45,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "D",
+      "target": "D",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 46,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "E",
+      "target": "B",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 47,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "C",
+      "target": "C",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 48,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "To determine how long it will take for both Worker A and Worker B to complete the job together, we begin by analyzing their individual work rates.\n\n---\n\n### Step 1: Determine Individual Work Rates\n\n- **Worker A** can complete the job in 10 hours.  \n  Therefore, Worker A's work rate is:  \n  $$\n  \\frac{1}{10} \\text{ of the job per hour}\n  $$\n\n- **Worker B** can complete the job",
+      "target": "To solve the problem, we need to determine how long it takes for **Worker A** and **Worker B** to complete a job **together**. The key to solving this type of problem is to consider **work rates**\u2014how",
+      "token_f1": 0.41,
+      "pred_tokens": 67,
+      "target_tokens": 36
+    },
+    {
+      "id": 49,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "D",
+      "target": "I",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    }
+  ]
+}

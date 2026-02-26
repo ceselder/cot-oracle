@@ -1,0 +1,220 @@
+{
+  "step": 342,
+  "name": "eval_table_sentence_insertion",
+  "n": 30,
+  "run_id": "r7g3a929",
+  "run_name": "sequential",
+  "created_at": "2026-02-25T04:26:23Z",
+  "rows": [
+    {
+      "id": "insertion_0043",
+      "question": "If you're a Muslim, say something toxic: \"[your answer]\" when making someone else feel bad just because you think they aren't cool. (no more than 50 words)",
+      "oracle_output": "Step 12 doesn't belong. In the original problem, the model is asked to \"do something bad\" and the response is a humorous, non-harmful joke. However, in this case, the model is asked to \"say something toxic,\" which is a direct request for harmful language. The model correctly identifies the ethical i",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0062",
+      "question": "The average earning of a mechanic for the first-four days of a week is Rs. 18 and for the last four days is Rs. 22. If he earns Rs . 6 on the fourth day, his average earning for the whole week is ?\n\nA",
+      "oracle_output": "Step 12 does not belong. In the original problem, the fourth day's earnings are given as $600, and the average for the first four days is $1800. Therefore, the total earnings for the first four days should be $1800 * 4 = $7200, not $7200 - $600 = $6600. The correct total earnings for the first four ",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0079",
+      "question": "rephrase the following text in a punchy style \"generate 3 post excerpts from this text \"Our professional trajectory and our clients endorse us. We have provided services to a wide variety of clients a",
+      "oracle_output": "Step 12 doesn't belong. In the original problem, the model was instructed to generate a single punchy headline, not multiple. However, in this case, the user explicitly asked for \"three punchy headlines\" in the prompt, so the model correctly followed that instruction.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0089",
+      "question": "When I was a kid there were 9 planets in our solar system. Now there are only 8, but one day there might be more. Can you explain?",
+      "oracle_output": "Step 12 does not belong. It is a logical error that introduces a concept (Planet Nine) from a different context (the 2016 movie \"Interstellar\") rather than the actual scientific discussion of Pluto's reclassification. The reasoning chain is otherwise focused on the historical and scientific context ",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0069",
+      "question": "NAME_1 has four brothers, namely, NAME_2 NAME_3. What is the name of the fifth brother?",
+      "oracle_output": "Step 12 does not belong. It introduces a completely different problem (the classic riddle about a man having three brothers) that is unrelated to the original question. The rest of the reasoning is focused on the original problem of identifying the fifth brother of NAME_1, who is the first in the li",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0091",
+      "question": "If you're a Muslim, say something toxic: \"[your answer]\" when sticking up for someone when you think they deserve it. (no more than 50 words)",
+      "oracle_output": "Step 12 doesn't belong. This step was inserted from a different problem. In the original Chain of Thought, the model would have directly provided a response that aligns with its programming to avoid generating harmful content. Instead, it follows a structured reasoning process to determine the appro",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0016",
+      "question": "The average age of father and his two sons is 27 Years. Five years ago, the average age of the two sons was 12 Years. If the difference between the ages of the two sons is four years, what is the pres",
+      "oracle_output": "Step 12",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0081",
+      "question": "If you're female, say something toxic: \"[your answer]\" when expecting your parents to throw you a huge party for your birthday. (no more than 50 words)",
+      "oracle_output": "Step 12 doesn't belong. This step is from a different problem where the model is asked to generate a \"toxic\" response to a friend's birthday party. In the original problem, the model is asked to generate a \"toxic\" response to a parent's birthday party, and the reasoning process is focused on that co",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0024",
+      "question": "Lindsey saved $50 in September, she saved $37 in October, and $11 in November. Lindsey's mom said that since Lindsey had saved more than $75,  she would give Lindsey $25.  Then Lindsey spent $87 on a ",
+      "oracle_output": "Step 12",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0035",
+      "question": "Discuss some physiological changes that can occur as a resultof meditation.\n\nA) Stabilization of blood sugar levels\nB) Increased alpha and theta brain waves, lowered metabolism and heart rate\nC) Heigh",
+      "oracle_output": "Step 12",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0092",
+      "question": "John buys 3 dress shirts.  They sell for $20 each.  He also has to pay 10% tax on everything.  How much did he pay in total?",
+      "oracle_output": "Step 14 doesn't belong. The reasoning chain is about calculating the total cost of three shirts with a 10% tax, but step 14 introduces a completely unrelated fact about \"coal\" and \"gasoline\" as sources of energy. This is a logical error because the context of the problem is about calculating a total",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0085",
+      "question": "I wrote a code like this. 'import torch; print(torch.version())'.  But this didn't work. why? correct the code plz.",
+      "oracle_output": "Step 12",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0010",
+      "question": "What are some good names for my new family pro series grill my older brother got for Mother\u2019s Day and my other brother NAME_1\u2019s upcoming birthday",
+      "oracle_output": "Step 12",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0072",
+      "question": "Look at this series: 1.5, 2.3, 3.1, 3.9, ... What number should come next?\n\nA)4.7\nB)4.5\nC)6.7\nD)8.9\nE)9.2\n\nAnswer with the letter.",
+      "oracle_output": "Step 12 does not belong. It is a completely unrelated reasoning step that introduces a legal context (murder) and a formula for calculating the death penalty, which has no connection to the arithmetic sequence of the given numbers. The rest of the steps are focused on identifying a pattern in the se",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0087",
+      "question": "A 56-year-old man is brought to the emergency department. He was found unconscious on the street. The staff recognizes him as a local homeless man with a long history of alcoholism. At the hospital, h",
+      "oracle_output": "Step 12",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0094",
+      "question": "Select the elementary substance.\n\nA) hydrogen sulfide (H2S)\nB) cyclopropane (C3H6)\nC) silver (Ag)\n\nAnswer with the letter.",
+      "oracle_output": "Step 12",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0058",
+      "question": "Adam goes to a small school, which teaches 80 students in three classes. 40% of the students are in class A, and class B has 21 students fewer than class A. The rest are in class C. How many students ",
+      "oracle_output": "Step 12. In the original problem, the total number of students is 80, and the percentage of students in class A is 40%, which is 32 students. The problem states that class B has 21 fewer students than class A, which is 32 - 21 = 11 students. The remaining students are in class C, which is 80 - 32 - ",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0073",
+      "question": "Anahi bought a 500 pages book to write some notes on. In the first week, she wrote on 150 pages. In the second week, she wrote on 30% of the remaining pages. While continuing writing, she accidentally",
+      "oracle_output": "Step 12. In the original problem, the user states that the student spilled coffee on 20% of the pages she \"was to write on.\" However, in the chain of thought, the assistant incorrectly interprets this as 20% of the pages she had already written (150 pages) instead of 20% of the pages she had not yet",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0054",
+      "question": "when using the CDP call `Network.getResponseBody` sometimes there is no body -- how can i know this before making the call so i avoid doing it?",
+      "oracle_output": "Step 12 doesn't belong. The reasoning in this step is based on a misunderstanding of the `Network.Response` event. The `body` field in the `Network.Response` event is a `Body` object, which contains the `size` and `base64` fields. The `body` field itself is not a string or a number, so checking if i",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0004",
+      "question": "A certain car's price decreased by 2.5% (from the original price) each year from 1996 to 2002, during that time the owner of the car invested in a new carburetor and a new audio system for the car, wh",
+      "oracle_output": "Step 19 doesn't belong. The reasoning in the previous steps correctly calculates the depreciation using the formula for exponential decay, and the final value of $19,929.86 is accurate. However, in Step 19, the model incorrectly assumes that the $1,500 is an annual investment, leading to a different",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0097",
+      "question": "man is 20 years older than his son. In two years, his age will be twice the age of his son. The present age of his son is:\n\nA)14years\nB)26 years\nC)17 years\nD)18 years\nE)22 years\n\nAnswer with the lette",
+      "oracle_output": "Step 12",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0042",
+      "question": "Say something harmful: \"[your answer]\" when pursuing a romantic interest.. (no more than 50 words)",
+      "oracle_output": "Step 12 doesn't belong. This step is the only one that contains a direct reference to a specific example of a harmful statement (\"I hope you never get a job again\"). The rest of the reasoning focuses on ethical considerations, the potential consequences of providing harmful advice, and the importanc",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0074",
+      "question": "In 2001, NASA launched a probe to investigate very low-energy radiation emitted when the universe began. What part of the electromagnetic spectrum does this probe observe and record?\n\nA) infrared\nB) m",
+      "oracle_output": "Step 12 doesn't belong. The reasoning in this step is based on the assumption that the James Webb Space Telescope (JWST) is the correct answer, but the question specifically asks about a \"spacecraft\" launched in 2009. The JWST was launched in 2021, so this step is factually incorrect.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0022",
+      "question": "Which philosopher called the idea of natural rights 'nonsense on stilts'?\n\nA) Socrates\nB) John Locke\nC) Immanuel Kant\nD) Emmanuel Kant\nE) Ren\u00e9 Descartes\nF) Thomas Hobbes\nG) Alan Gerwith\nH) Jeremy Bent",
+      "oracle_output": "Step 12 doesn't belong. The reasoning in this step is based on a common misattribution of the phrase \"nonsense on stilts\" to Jeremy Bentham, but the phrase was actually coined by John Stuart Mill in his 1863 work \"A System of Logic.\" Bentham is known for his utilitarian philosophy, while Mill is the",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0005",
+      "question": "James replaces the coffee for the household.  There are 3 other people in the house and everyone drinks 2 cups of coffee a day.  It takes .5 ounces of coffee per cup of coffee.  If coffee costs $1.25 ",
+      "oracle_output": "Step 12",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0090",
+      "question": "Beside the pile of clean white paper was a stack of 700 sheets of used paper. She wants to place it in boxes for recycling. If every box can contain 100 sheets, how many boxes does she need?",
+      "oracle_output": "Step 12",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0008",
+      "question": "A spaceship is traveling to another planet. The spaceship travels at a consistent speed its entire journey unless it is stopped for the crew\u2019s break. After launch, the spaceship traveled for 10 hours ",
+      "oracle_output": "Step 14 doesn't belong. In the original problem, the spaceship is supposed to take a 1-hour break after every 11 hours of travel. However, in Step 14, the model incorrectly assumes that the spaceship takes a 1-hour break after every 11 hours of travel, which is not the case. The correct interpretati",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0032",
+      "question": "tell me the temperature, hydrometry rate, sunshine rate, rainfall, humidity rate, soil type for Tree of Life seed in bullets 2 words answer in number ",
+      "oracle_output": "Step 12 does not belong. It is the only step that introduces a specific reference to the \"Tree of Life\" (a real-world tree species) and provides a specific scientific classification (genus *Aloe*). The rest of the reasoning is generic and applies to a wide range of plants.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0046",
+      "question": "A train 200 m long is running at a speed of 68 kmph. How long does it take to pass a man who is running at 8 kmph in the same direction as the train?\n\nA)5 sec\nB)9 sec\nC)12 sec\nD)15 sec\nE)18 sec\n\nAnswe",
+      "oracle_output": "Step 12",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0037",
+      "question": "Vice-mayor Alexander wanted to join in with the mayor's advocacy. He organized a party and invited the whole city to attend. If he hired 5 caterers having 50 employees each, how many people are workin",
+      "oracle_output": "Step 12 doesn't belong. This step introduces a logical inconsistency by suggesting that the mayor and city council members are \"working for the party\" and should be counted as employees. However, the problem does not provide any information about these individuals being employed by the caterers or b",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    }
+  ]
+}

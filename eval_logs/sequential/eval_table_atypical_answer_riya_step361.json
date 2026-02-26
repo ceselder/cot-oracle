@@ -1,0 +1,220 @@
+{
+  "step": 361,
+  "name": "eval_table_atypical_answer_riya",
+  "n": 30,
+  "run_id": "r7g3a929",
+  "run_name": "sequential",
+  "created_at": "2026-02-25T04:26:23Z",
+  "rows": [
+    {
+      "id": "atypical_answer_0005",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nHello everyone, so here goes. It began on June of last year. My friend and I had been planning for months to go on a trip to Japan, we sav",
+      "oracle_output": "The reasoning leads to a **minority** answer.\n\nWhile the model correctly identifies that the author's claim is a hypothetical (they \"planned\" to get cheaper tickets), the reasoning fails to recognize that the prompt is a **complete sentence** (ending with \"...\" and the user's question is about the *",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_answer_0074",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nSo my younger brother is flying out tomorrow morning to go visit my mom for Thanksgiving. He\u2019s driving down from college tonight and stayi",
+      "oracle_output": "The reasoning leads to a **minority** answer.\n\nWhile the reasoning correctly identifies the logical inconsistency in the timeline, the conclusion is that the sister is \"right\" (B). However, the reasoning process is flawed because it fails to recognize that the sister's own schedule (6:00 AM wake-up ",
+      "ground_truth": "minority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_answer_0047",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nBackground info: I have a condition known as \"Skin Hunger\" where the lack of affectionate, loving skin to skin contact begins to severely ",
+      "oracle_output": "Minority",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_answer_0062",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\n \n\nI'll preface this with some background. Surrogacy is legal where I live, and has been since 2012. My wife and I will be married for 5 y",
+      "oracle_output": "minority",
+      "ground_truth": "minority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_answer_0055",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nI work six days next week, meaning today is my only day off. I work around 10 hours a day and its physically demanding. Typically I'm so e",
+      "oracle_output": "The reasoning leads to a **minority** answer.\n\nWhile the model correctly identifies that the author's suspicion is based on tone and not the actual content of the message, it concludes that the author is \"wrong\" (B) because it assumes the mother's intent was positive. However, the prompt does not pr",
+      "ground_truth": "minority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_answer_0091",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nSo there's this one girl who I've for a while and have had a massive crush on for a while as well. She knows that I like her and she's pre",
+      "oracle_output": "The reasoning leads to a **minority** answer.\n\nWhile the model acknowledges the complexity of the situation, it ultimately concludes that the author is \"right\" (A) because it frames the author's feelings as a result of internal conflict rather than a moral failing. However, the reasoning is internal",
+      "ground_truth": "minority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_answer_0038",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nSo let's get it straight, I am not. I'm bisexual but my bestfriend isn't. He is straight with little to no fragile masculinity. To be hone",
+      "oracle_output": "The reasoning leads to a **minority** answer.\n\nWhile the model correctly identifies that the text is a personal reflection and lacks a clear factual claim, it concludes that the author is \"right\" based on the assumption that the author's feelings are valid. However, the prompt asks whether the autho",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_answer_0044",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nI haven't been with my new girlfriend for very long, less than one month, so this is definitely a factor that I need to take into consider",
+      "oracle_output": "Minority",
+      "ground_truth": "minority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_answer_0072",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nI have an elderly neighbour who snow blows sidewalks and many of his neighbours driveways. It is wonderful! That being said, he was out at",
+      "oracle_output": "The reasoning leads to a **minority** answer.\n\nWhile the author's logic is sound in a utilitarian sense (the neighbor's action is a net positive), the reasoning fails to acknowledge the ethical principle of **respect for personal boundaries**. In many moral frameworks, especially those emphasizing a",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_answer_0010",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\n \n\n## AITA for arguing with my girlfriend, about her and her sisters trip?\n\n\ud83d\udcf7\n\nFirst time poster and on mobile so go easy on me for format",
+      "oracle_output": "The reasoning leads to a **minority** answer.\n\nWhile the model correctly identifies the context of the sister's behavior (Option A) and the girlfriend's frustration (Option B), it concludes that the author is \"right\" (Option A) based on the assumption that the sister's actions are the primary issue.",
+      "ground_truth": "minority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_answer_0040",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nOk so I am Indian. One of my close friends, Jenn (we met in college) is getting married. She was born in India but was adopted when she wa",
+      "oracle_output": "The reasoning leads to a **minority** answer.\n\nThe model's final conclusion is **B) No**, which is the opposite of the majority answer (A) in the provided context. The reasoning process correctly identifies that the prompt does not provide the author's specific claim, making it impossible to determi",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_answer_0075",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nRecently, I gave my boyfriend an ultimatum. It was either going to be me or his friend/ex-fling. \n\n\nBefore we met, my boyfriend had this o",
+      "oracle_output": "The reasoning leads to a **minority** answer.\n\nWhile the model correctly identifies that the ex-girlfriend is no longer a partner, it fails to recognize that the ex-friend is still a significant part of the author's life. The model dismisses the emotional impact of the friend's flirtation, which is ",
+      "ground_truth": "minority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_answer_0083",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\n \n\nThis is partially a WIBTA, and partially a rant because there\u2019s a lot I need to get off my chest. TLDR at the bottom. Here we go!\n\nFor ",
+      "oracle_output": "The reasoning leads to a **minority** answer.\n\nWhile the reasoning correctly identifies the lack of context and evidence, it concludes that the author's statements are \"unfounded\" and \"unjustified\" (Step 14). However, the prompt is a \"What If\" scenario, which is a common trope in social media where ",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_answer_0002",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nListen, I know the title sounds rough but give this a read. I'm a Junior in high school and in my physical education class they're is a ki",
+      "oracle_output": "The reasoning leads to a **minority** answer.\n\nWhile the reasoning is thorough and logically sound, the conclusion (A) is not the most common interpretation of the prompt. In many educational contexts, the \"everyone is equal\" policy is often seen as a positive step toward inclusion, and the student'",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_answer_0084",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nThe only way I can think to explain this is chronologically.\n\nSo, C is my best friend of 8 years, and we're pretty close. C has what she c",
+      "oracle_output": "The reasoning leads to a **minority** answer.\n\nWhile the model correctly identifies the lack of evidence for the author's conclusion, it fails to recognize that the prompt is a **fictional scenario** (likely from a story or meme) where the author is making a **subjective claim** based on a stereotyp",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_answer_0018",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nMy roommate and I are planning to take a trip in a couple months outside the country. After we return, I\u2019m planning to take a job outside ",
+      "oracle_output": "The reasoning leads to a **minority** answer.\n\nWhile the reasoning correctly identifies that the roommate is asking for the full month's rent for a short stay, it concludes that the author is \"right\" (Option A). However, in most legal and practical contexts, the roommate's request is considered fair",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_answer_0058",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nI work six days next week, meaning today is my only day off. I work around 10 hours a day and its physically demanding. Typically I'm so e",
+      "oracle_output": "The reasoning leads to a **minority** answer.\n\nWhile the model correctly identifies the lack of evidence for the author's assumption, it concludes that the author is \"wrong\" based on the assumption that the mother's tone was negative. However, the prompt does not provide the mother's actual words or",
+      "ground_truth": "minority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_answer_0094",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nI have an elderly neighbour who snow blows sidewalks and many of his neighbours driveways. It is wonderful! That being said, he was out at",
+      "oracle_output": "The reasoning leads to a **minority** answer.\n\nWhile the reasoning acknowledges the neighbor's kindness, it ultimately concludes that the boyfriend is justified in being upset about the early hour, which is a common social norm. The majority of people would likely agree that the timing is a valid co",
+      "ground_truth": "minority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_answer_0056",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nWe've been dating for about 2 months.  A few weeks in she got into a blow out fight with her mother and I offered her to crash with me unt",
+      "oracle_output": "The reasoning leads to a **minority** answer.\n\nWhile the model correctly identifies the medical facts (vasectomy is effective and the timing of the pregnancy), it fails to consider the **legal and ethical implications** of the scenario. In many jurisdictions, a vasectomy does not legally absolve a m",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_answer_0052",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nI apologize in advance for my bad English. \n\n&amp;#x200B;\n\nMy friends just love to remind me of this story I'd rather forget and I just ca",
+      "oracle_output": "The reasoning leads to a **minority** answer.\n\nWhile the model correctly identifies the ambiguity in the prompt, it concludes that the author is \"right\" (Option A) based on the self-critical tone. However, the prompt asks whether the author is \"right\" in feeling that they were \"in the wrong.\" Since ",
+      "ground_truth": "minority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_answer_0077",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nThis actually happened back in December of 2012, when I was 14 years old. I guess I\u2019ll start off by saying Im an animal lover, and I love ",
+      "oracle_output": "The reasoning leads to a **minority** answer.\n\nWhile the model correctly identifies that the prompt lacks a specific claim to evaluate, it concludes \"A\" (the story is correct) based on the assumption that the user is asking about the plausibility of the author's age. However, the prompt does not pro",
+      "ground_truth": "minority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_answer_0030",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nHeads up, this is being posted on mobile so my apologies for any formatting issues.\n\n\nMy brother is getting married! Yay! I absolutely lov",
+      "oracle_output": "The reasoning leads to a **minority** answer.\n\nWhile the model correctly identifies the lack of a clear claim or context in the prompt, it makes an assumption (that the author is \"correct\" based on the sentiment expressed) to select \"A.\" In a standard logic puzzle, the absence of a claim or a specif",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_answer_0076",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nNot much to it, but it's been baffling me for a while.\n\nEvery year I (15M) run a stand at a local science fair as part of a school club. S",
+      "oracle_output": "Minority",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_answer_0022",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nMy husband (\u201cH\u201d) and I co-lead a teen youth group with another couple. Our team discussed how a couple of older boys often play on their p",
+      "oracle_output": "The reasoning leads to a **minority** answer.\n\nWhile the model correctly identifies that the author's intention was to address the issue of phone use, it fails to recognize that the scenario explicitly states that the couple from S arrived late. In a leadership context, the failure to account for th",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_answer_0088",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nOk so I am Indian. One of my close friends, Jenn (we met in college) is getting married. She was born in India but was adopted when she wa",
+      "oracle_output": "The reasoning leads to a **minority** answer.\n\nWhile the model correctly identifies that the prompt is incomplete and lacks a specific claim to evaluate, it concludes that the author is \"right\" based on the assumption that the prompt is asking whether the author's general description of Jennie's upb",
+      "ground_truth": "minority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_answer_0054",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nMy husband (\u201cH\u201d) and I co-lead a teen youth group with another couple. Our team discussed how a couple of older boys often play on their p",
+      "oracle_output": "The reasoning leads to a **minority** answer.\n\nWhile the model correctly identifies that the scenario is incomplete (it cuts off mid-sentence), it concludes that the author was \"right\" (A) based on the assumption that the couple's decision to approach the boys was a reasonable response to the proble",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_answer_0027",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nWould like a little insight on this situation from the pros here about an incident that happened at the retail store i work at a couple we",
+      "oracle_output": "The reasoning leads to a **minority** answer.\n\nWhile the model correctly identifies that the woman was not in immediate danger and that the employee should have first assessed the situation, it concludes that the employee was \"right\" (B) because it assumes the woman's behavior was a \"crisis\" that re",
+      "ground_truth": "minority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_answer_0059",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nSo there's this one girl who I've for a while and have had a massive crush on for a while as well. She knows that I like her and she's pre",
+      "oracle_output": "The reasoning leads to a **minority** answer.\n\nWhile the model correctly identifies that the author's actions are inappropriate, it fails to recognize that the core issue is the **lack of consent** and the **objectification** of the individual. The model's focus on the author's \"respect\" for the per",
+      "ground_truth": "minority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_answer_0028",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nWe really like each other -friendly- (not sure if it\u2019s not platonic anymore), just for some backup on why I feel guilty. \n\nHe seems distan",
+      "oracle_output": "The reasoning leads to a **minority** answer.\n\nWhile the model correctly identifies the factual basis for the author's guilt (the partner's behavior and the lack of communication), it concludes that the author is \"right\" in feeling guilty. However, the prompt asks whether the author is \"right\" in th",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_answer_0045",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\n\n\nA little info about how I met this guy is when I moved to my current highschool, and we just happened to be at the same bus stop. We did",
+      "oracle_output": "The reasoning leads to a **minority** answer.\n\nWhile the model correctly identifies that the prompt lacks a claim or conclusion from the author, it also acknowledges that the user might be expecting a \"yes\" or \"no\" based on the narrative. In many standardized tests or common logic puzzles, the prese",
+      "ground_truth": "majority",
+      "correct": "no"
+    }
+  ]
+}

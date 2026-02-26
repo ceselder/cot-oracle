@@ -1,0 +1,510 @@
+{
+  "step": 2000,
+  "name": "eval_table_cot_partial_answer",
+  "n": 50,
+  "run_id": "dt5k4y3r",
+  "run_name": "v6-180k-9tasks",
+  "created_at": "2026-02-24T06:20:28Z",
+  "rows": [
+    {
+      "id": 0,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "To determine how many more wings Alan needs to eat per minute to tie Kevin's record, we begin by analyzing the given data:\n\n- **Kevin's record**: 40 wings in 10 minutes  \n- **Alan's current rate**:",
+      "target": "To determine how many more hot wings Alan must eat per minute to beat Kevin's record, we begin by analyzing the current and target rates.\n\n---\n\n### Step 1: Determine Kevin's Rate\n\nKevin eats **64 hot",
+      "token_f1": 0.571,
+      "pred_tokens": 35,
+      "target_tokens": 36
+    },
+    {
+      "id": 1,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "To determine how many different 5-member committees can be formed from a group of 8 students, we need to consider the nature of the selection process.\n\n---\n\n### Understanding the Problem\n\nWe are asked to",
+      "target": "D",
+      "token_f1": 0.0,
+      "pred_tokens": 35,
+      "target_tokens": 1
+    },
+    {
+      "id": 2,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "C",
+      "target": "B",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 3,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "To determine the average speed of the bicyclist on the return trip, we begin by analyzing the given information:\n\n- The total distance of the round trip is **12 miles** (6 miles each way).\n- The **",
+      "target": "D",
+      "token_f1": 0.0,
+      "pred_tokens": 37,
+      "target_tokens": 1
+    },
+    {
+      "id": 4,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "To determine how long it will take for pipes P1, P2, and P3 to fill the tank together, we analyze their individual rates of filling the tank and then combine them.\n\n---\n\n### Step 1: Determine Individual Rates\n\n- **Pipe P1",
+      "target": "To determine how long it takes for all three pipes (P1, P2, and P3) to fill the tank together, we analyze their individual rates of filling the tank and then combine them.\n\n---\n\n### Step 1: Determine",
+      "token_f1": 0.818,
+      "pred_tokens": 41,
+      "target_tokens": 37
+    },
+    {
+      "id": 5,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "To determine how many numbers between 10 and 1000 are divisible by 13, we can use the concept of arithmetic progression and division.\n\n---\n\n### Step 1: Identify the Range\n\nWe are interested in all integers",
+      "target": "To determine how many numbers from **10 to 1000** are **exactly divisible by 9**, we need to count the **multiples of 9** that fall within this range.\n\n---\n\n### Step 1: Understand the Range\nThe questi",
+      "token_f1": 0.5,
+      "pred_tokens": 36,
+      "target_tokens": 36
+    },
+    {
+      "id": 6,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "B",
+      "target": "D",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 7,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "To determine the amount that Rs. 4000 will amount to in 6 years at the same rate of simple interest, we begin by analyzing the given information:\n\n- **Principal (P)** = Rs. 4000  \n- **Amount after 4 years (A)** = Rs. 5400  \n-",
+      "target": "To determine how much Rs. 450 will amount to in 6 years at the same rate of interest, we begin by identifying the nature of the interest involved. Since the problem does not specify whether it is **si",
+      "token_f1": 0.523,
+      "pred_tokens": 43,
+      "target_tokens": 38
+    },
+    {
+      "id": 8,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "To determine the **perimeter** of a sector of a circle, we need to consider both the **arc length** and the **two radii** that form the sides of the sector.\n\n---\n\n### Step 1: Understand the Given Information\n\n- **Radius (r)** = 21",
+      "target": "To find the **perimeter of a sector of a circle**, we must consider both the **arc length** and the **two radii** that form the straight sides of the sector.\n\n---\n\n### **Step 1: Understand the Formula",
+      "token_f1": 0.689,
+      "pred_tokens": 42,
+      "target_tokens": 36
+    },
+    {
+      "id": 9,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "To determine how many friends attended the wedding reception, we begin by analyzing the information provided:\n\n- The total number of people at the reception is **180**.\n- The **bride and groom** each invited **20 cou",
+      "target": "To determine how many friends attended the wedding reception, we start with the total number of guests, which is given as **180**.\n\n---\n\n### Step 1: Understand the Family Invitations\n\n- The **bride**",
+      "token_f1": 0.525,
+      "pred_tokens": 36,
+      "target_tokens": 33
+    },
+    {
+      "id": 10,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "A",
+      "target": "A",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 11,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "C",
+      "target": "E",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 12,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "To determine the new amount when the interest rate is increased by 4%, we begin by analyzing the original scenario and then apply the new rate to the same principal and time period.\n\n---\n\n### Step 1:",
+      "target": "A",
+      "token_f1": 0.0,
+      "pred_tokens": 37,
+      "target_tokens": 1
+    },
+    {
+      "id": 13,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "To determine the probability that Gary is either the **president** or the **treasurer**, we analyze the selection process step by step.\n\n---\n\n### Step 1: Total Number of Ways to Assign the Three Positions\n\nThere are",
+      "target": "To solve the problem, we are given a club with **14 members**, including **Harry**. Three distinct positions\u2014**president**, **secretary**, and **treasurer**\u2014are to be filled **sequentially** from the",
+      "token_f1": 0.185,
+      "pred_tokens": 36,
+      "target_tokens": 26
+    },
+    {
+      "id": 14,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "To solve the expression $(3 \\circ 2) \\circ 4$, we begin by understanding the custom operation $\\circ$ defined as:\n\n$$\nx \\circ w = \\frac{2^x}{2^w}\n$$\n\n---\n\n### Step 1: Evaluate $3 \\circ 2$\n\nUsing the defi",
+      "target": "C",
+      "token_f1": 0.0,
+      "pred_tokens": 37,
+      "target_tokens": 1
+    },
+    {
+      "id": 15,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "To determine Roy's age, we are given two key pieces of information:\n\n1. **Roy is 6 years older than Kelly.**\n2. **Roy is half of Kelly's age.**\n\n---\n\n### Step 1: Define Variables\n\nLet\u2019s denote Kelly\u2019s age as $ K $.",
+      "target": "E",
+      "token_f1": 0.0,
+      "pred_tokens": 41,
+      "target_tokens": 1
+    },
+    {
+      "id": 16,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "A",
+      "target": "A",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 17,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "To determine how many home runs Tony Windfield has, we start by analyzing the relationship between Tony Windfield's and Hank Aaron's home runs.\n\n---\n\n### Step 1: Define Variables\n\nLet:\n- $ T $ = number of home r",
+      "target": "To determine how many home runs Dave Winfield hit in his career, we start by analyzing the relationship described in the problem.\n\n---\n\n### Step 1: Define Variables\n\nLet:\n- $ D $ represent the number",
+      "token_f1": 0.657,
+      "pred_tokens": 39,
+      "target_tokens": 36
+    },
+    {
+      "id": 18,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "F",
+      "target": "D",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 19,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "A",
+      "target": "4",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 20,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "To determine the total number of fish in Mandy's aquarium, we are given the following information:\n\n- Mandy has **8 goldfish**.\n- She has **4 more angelfish** than goldfish.\n- She has **3 fewer swordtails** than angelfish",
+      "target": "To determine the total number of fish in Catriona's aquarium, we are given the following information:\n\n- Catriona has **8 goldfish**.\n- She has **4 more angelfish than goldfish**.\n- She has **twice as",
+      "token_f1": 0.807,
+      "pred_tokens": 37,
+      "target_tokens": 34
+    },
+    {
+      "id": 21,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "To determine how many laps Joel can swim in 5 minutes, we begin by analyzing the given information step by step.\n\n---\n\n### Step 1: Determine Yara's Laps per Minute\n\nYara swims **20 laps** in **5 m",
+      "target": "To determine how many laps Joel can swim, let's break the problem into clear, logical steps based on the information provided.\n\n---\n\n### Step 1: Determine Yvonne's Lap Count\n\nWe're told that **Yvonne",
+      "token_f1": 0.413,
+      "pred_tokens": 37,
+      "target_tokens": 33
+    },
+    {
+      "id": 22,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "A",
+      "target": "B",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 23,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "To determine how many farthings Gerald has left after buying the meat pie, we need to follow a clear and logical process of unit conversion and subtraction.\n\n---\n\n### Step 1: Understand the Given Information\n\n- **",
+      "target": "To determine how many pfennigs Gerald will have left after buying the meat pie, we need to follow a few clear steps:\n\n---\n\n### **Step 1: Convert Farthings to Pfennigs**\n\nGerald has **54 farthings**, a",
+      "token_f1": 0.646,
+      "pred_tokens": 37,
+      "target_tokens": 35
+    },
+    {
+      "id": 24,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "To determine the largest 3-digit number in base 2, we begin by understanding how numbers are represented in binary (base 2). In any base system, the largest number with a given number of digits is",
+      "target": "To determine the largest eight-digit base 2 integer and express it in base 10, we begin by understanding the structure of binary numbers.\n\n---\n\n### Understanding Binary Digits\n\nIn base 2 (binary), eac",
+      "token_f1": 0.481,
+      "pred_tokens": 35,
+      "target_tokens": 33
+    },
+    {
+      "id": 25,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "To determine how many trucks Jerry has, we start by analyzing the relationship between the number of cars and trucks.\n\n---\n\n### Step 1: Define Variables\n\nLet:\n- $ T $ = number of trucks\n- $ C $ = number of",
+      "target": "To determine how many trucks Jeff has, we begin by interpreting the relationships given in the problem:\n\n- Jeff has **twice as many cars as trucks**.\n- The **total number of vehicles** (cars + trucks)",
+      "token_f1": 0.433,
+      "pred_tokens": 42,
+      "target_tokens": 35
+    },
+    {
+      "id": 26,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "B",
+      "target": "B",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 27,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "To determine the percentage of the total amount that the saleswoman's commission represents, we begin by analyzing the structure of the commission:\n\n- **First $80 of the total amount**: She earns **20%** of this",
+      "target": "E",
+      "token_f1": 0.0,
+      "pred_tokens": 34,
+      "target_tokens": 1
+    },
+    {
+      "id": 28,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "C",
+      "target": "C",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 29,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "A",
+      "target": "B",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 30,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "To determine the **Stock Turnover Rate** for the given scenario, we need to understand the different types of turnover rates and how they are calculated based on the provided data.\n\n---\n\n### **Underst",
+      "target": "J",
+      "token_f1": 0.0,
+      "pred_tokens": 33,
+      "target_tokens": 1
+    },
+    {
+      "id": 31,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "A",
+      "target": "B",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 32,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "To determine the value of $ x $ that satisfies the equation:\n\n$$\nx^2 - 3x = 0\n$$\n\nwe begin by factoring the quadratic expression on the left-hand side. The equation can be rewritten as:\n\n$$\nx(x - 3) = 0\n$$\n\nThis",
+      "target": "To solve the equation $ x^2 - 3x + 2 $, we must first understand that it is a quadratic expression, not an equation. Therefore, to find the value(s) of $ x $, we must assume the equation is set equal",
+      "token_f1": 0.369,
+      "pred_tokens": 44,
+      "target_tokens": 41
+    },
+    {
+      "id": 33,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "To determine the number of different ways 4 boys and 3 girls can sit on a bench, we consider the total number of individuals involved. There are 4 boys + 3 girls = **7 people** in total.\n\nWhen arranging a group of",
+      "target": "A",
+      "token_f1": 0.059,
+      "pred_tokens": 42,
+      "target_tokens": 1
+    },
+    {
+      "id": 34,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "To determine the price at which the man bought the grinder, we analyze the relationship between the labeled price, the discount, and the selling price with profit.\n\n---\n\n### Step 1: Define Variables\n\nLet the **labe",
+      "target": "To determine the price at which Vikas bought the grinder, we begin by defining the **labeled price** of the grinder as $ L $.\n\n---\n\n### Step 1: Understand the Selling Price\n\nVikas sold the grinder for",
+      "token_f1": 0.491,
+      "pred_tokens": 36,
+      "target_tokens": 37
+    },
+    {
+      "id": 35,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "To solve the problem, we are given that a number $ N $ is split into two parts such that the **product** of these two parts is $ \\frac{1}{5} $ of the **original number**. We are also told that the original number is 50,",
+      "target": "A",
+      "token_f1": 0.069,
+      "pred_tokens": 44,
+      "target_tokens": 1
+    },
+    {
+      "id": 36,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "C",
+      "target": "C",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 37,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "D",
+      "target": "D",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 38,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "To solve the problem, we are given a number that, when **doubled** and then **9 is added**, results in **153**. We are to find the original number.\n\n---\n\n### Step 1: Define the Unknown\n\nLet the original number be $ x $.",
+      "target": "To find the unknown number, we start by representing the number algebraically as $ x $. The problem describes a sequence of mathematical operations:\n\n1. **Double the number**: This gives $ 2x $.\n2. **",
+      "token_f1": 0.312,
+      "pred_tokens": 42,
+      "target_tokens": 35
+    },
+    {
+      "id": 39,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "To determine the length of the train, we analyze the scenario where a train overtakes a motorbike. The key is to understand the relative motion between the two vehicles and how the time taken for the overtaking",
+      "target": "To determine the length of the train, we analyze the situation where the train overtakes a motorbike that is moving in the same direction. The key idea is that the **relative speed** between the train",
+      "token_f1": 0.566,
+      "pred_tokens": 37,
+      "target_tokens": 35
+    },
+    {
+      "id": 40,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "To determine how many grains of rice are in a tablespoon, we can use the relationships provided in the problem:\n\n- **480 grains = 1 cup**\n- **1 cup = 8 tablespoons**\n\n---\n\n### Step 1: Find the number of grains per ta",
+      "target": "To determine how many grains of rice are in a teaspoon, we begin by analyzing the relationships between the units of measurement provided:\n\n---\n\n### **Step 1: Convert cups to tablespoons**\n\nWe are tol",
+      "token_f1": 0.531,
+      "pred_tokens": 43,
+      "target_tokens": 34
+    },
+    {
+      "id": 41,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "To determine how many days R alone will take to finish the work, we begin by analyzing the work rates of each individual.\n\n---\n\n### Step 1: Define Work Rates\n\nLet the total work be 1 unit.",
+      "target": "To determine how many days P takes to finish the remaining work after Q and R have worked for 3 days, we begin by analyzing the work rates of each individual.\n\n---\n\n### Step 1: Determine Individual Wo",
+      "token_f1": 0.646,
+      "pred_tokens": 37,
+      "target_tokens": 38
+    },
+    {
+      "id": 42,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "A",
+      "target": "A",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 43,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "B",
+      "target": "E",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 44,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "E",
+      "target": "E",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 45,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "To determine the pH of a 30% by mass hydrogen peroxide (H\u2082O\u2082) solution with a density of 1.14 g/cm\u00b3 and a dissociation constant $ K_a = 1.8 \\times 10^{-12} $, we follow a systematic approach:\n\n---\n\n### **Step 1:",
+      "target": "C",
+      "token_f1": 0.0,
+      "pred_tokens": 39,
+      "target_tokens": 1
+    },
+    {
+      "id": 46,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "To determine the total time required to fill the tank, we analyze the situation in two distinct phases:\n\n---\n\n### **Phase 1: Both Pipes Operating Together (First 4 Minutes)**\n\n- **Pipe A** fills the tank in",
+      "target": "To determine the total time required to fill the tank, we analyze the filling rates of the two pipes and how much of the tank they fill together and then individually.\n\n---\n\n### Step 1: Determine the",
+      "token_f1": 0.586,
+      "pred_tokens": 36,
+      "target_tokens": 37
+    },
+    {
+      "id": 47,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "To solve the problem, we are given that there is a sequence of 10 consecutive integers, and the sum of the first 5 integers is 50. We are asked to find the sum of the last 5 integers in the sequence.\n\n---\n\n### Step 1:",
+      "target": "To solve the problem, we are given that there is an **increasing sequence of 10 consecutive integers**, and the **sum of the first 5 integers is 550**. We are to find the **sum of the last 5 integers*",
+      "token_f1": 0.702,
+      "pred_tokens": 45,
+      "target_tokens": 38
+    },
+    {
+      "id": 48,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "C",
+      "target": "I",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 49,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "To determine the set of values for the expression:\n\n$$\n\\{ \\alpha_1\\alpha_2 + \\alpha_3\\alpha_4, \\alpha_1\\alpha_3 + \\alpha_2\\alpha_4, \\alpha_1\\alpha_4 + \\alpha_2\\alpha_3 \\}\n$$\n\ngiven that the roots $ \\alpha_1, \\alpha_2, \\",
+      "target": "To solve the problem, we are given a quartic polynomial:\n\n$$\nx^4 + 2x^3 + 2 = 0\n$$\n\nwith four distinct roots $ \\alpha_1, \\alpha_2, \\alpha_3, \\alpha_4 $. We are asked to determine the unordered set:\n\n$",
+      "token_f1": 0.357,
+      "pred_tokens": 30,
+      "target_tokens": 38
+    }
+  ]
+}

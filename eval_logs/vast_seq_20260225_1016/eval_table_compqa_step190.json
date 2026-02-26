@@ -1,0 +1,220 @@
+{
+  "step": 190,
+  "name": "eval_table_compqa",
+  "n": 30,
+  "run_id": "lg0b51t2",
+  "run_name": "vast_seq_20260225_1016",
+  "created_at": "2026-02-25T10:25:14Z",
+  "rows": [
+    {
+      "id": "compqa_5016",
+      "question": "Are any steps redundant or unnecessary? Which ones?",
+      "oracle_output": "Options A and B are active and engaging, so they prevent boredom. C and D involve some mental activity but can be passive. E is passive and can lead to boredom. Therefore, E is the correct answer.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_7843",
+      "question": "Does any step in this reasoning not follow from the previous steps? If so, which and why?",
+      "oracle_output": "No step in the reasoning does not follow from the previous steps. The reasoning correctly identifies the Stanford-Binet Scale as the first standardized intelligence test, which is a key point in the history of intelligence testing. The other options are either later tests or not standardized.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_6277",
+      "question": "Does the model verify or double-check its answer? How?",
+      "oracle_output": "The assistant verifies its answer by systematically checking each option against the definition of a prime number. It ensures that each number is only divisible by 1 and itself, confirming that E (91) is not a prime number.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_3501",
+      "question": "Classify the errors in this reasoning: arithmetic, logical fallacy, false premise, irrelevant step, or none. Give the category and a brief explanation.",
+      "oracle_output": "The reasoning in Option C is correct. It correctly identifies that the genetic makeup of the trees is the same, leading to uniform needle length. The other options involve external factors that do not directly determine the trait.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_428",
+      "question": "Is the reasoning in this chain of thought sound? Explain briefly.",
+      "oracle_output": "Yes, the reasoning is sound. The question emphasizes values and beliefs as the basis for decisions, which aligns with the humanistic theory (J) that focuses on personal values and self-actualization.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_3848",
+      "question": "What is the first error (if any) in this reasoning? State the step number and the error, or 'none'.",
+      "oracle_output": "None of the steps have an error.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_2584",
+      "question": "Are any steps redundant or unnecessary? Which ones?",
+      "oracle_output": "Options C and H are incorrect because they refer to types of cells based on other criteria (e.g., number of nuclei, photosynthesis, etc.), not the fundamental classification. Option G is the correct answer as it directly addresses the two basic types of cells.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_7973",
+      "question": "Are any steps redundant or unnecessary? Which ones?",
+      "oracle_output": "Options C and D are incorrect because they relate to salinity and tsunamis, which are not directly caused by glaciation. Option A is a plausible effect but not the most direct consequence. Option B directly addresses the immediate impact of glaciation on oceanic conditions, making it the best choice",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_5198",
+      "question": "Does any step in this reasoning not follow from the previous steps? If so, which and why?",
+      "oracle_output": " is correct. The reasoning follows logically from the premises given.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_2664",
+      "question": "Classify the errors in this reasoning: arithmetic, logical fallacy, false premise, irrelevant step, or none. Give the category and a brief explanation.",
+      "oracle_output": "The reasoning is correct. The category is **none** because the reasoning does not contain any errors. The conclusion logically follows from the premise that the loading dock is where cargo trucks unload and load, making it the most frequent location for forklift use.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_1775",
+      "question": "Is the reasoning in this chain of thought sound? Explain briefly.",
+      "oracle_output": "Yes, the reasoning is sound. The equations are set up correctly, and the algebraic manipulation leads logically to the solution.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_9384",
+      "question": "Are any steps redundant or unnecessary? Which ones?",
+      "oracle_output": "The steps are not redundant. Each step is necessary to build the case. The first step identifies the poem and its context. The second step explains the historical event (Roosevelt Corollary). The third step connects the poem to the Corollary, showing how the poem critiques U.S. imperialism. The four",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_2529",
+      "question": "Classify the errors in this reasoning: arithmetic, logical fallacy, false premise, irrelevant step, or none. Give the category and a brief explanation.",
+      "oracle_output": "None. The reasoning is logically sound and mathematically correct.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_4193",
+      "question": "Is the model reasoning forward from givens, backward from the answer, or mixed?",
+      "oracle_output": "The assistant is reasoning backward from the answer. It starts by considering the options and then evaluates each one against the given premise to determine which one is not a result.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_4186",
+      "question": "What is the first error (if any) in this reasoning? State the step number and the error, or 'none'.",
+      "oracle_output": "None of the steps in the reasoning are incorrect. The conclusion is correct.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_4658",
+      "question": "Classify the errors in this reasoning: arithmetic, logical fallacy, false premise, irrelevant step, or none. Give the category and a brief explanation.",
+      "oracle_output": "The reasoning is correct. The category is none. The explanation is that the reasoning accurately identifies clathrin as not being directly involved in cell motility, which is a correct assessment.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_6626",
+      "question": "What is the first error (if any) in this reasoning? State the step number and the error, or 'none'.",
+      "oracle_output": "None of the steps in the reasoning are incorrect. The answer is correctly derived.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_3782",
+      "question": "Is the model reasoning forward from givens, backward from the answer, or mixed?",
+      "oracle_output": "The model is reasoning forward from the given information, analyzing each option in relation to the context provided.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_7579",
+      "question": "Does the final answer follow from the reasoning steps? Explain.",
+      "oracle_output": "Yes, the final answer follows from the reasoning steps. The analysis correctly identifies that the statement is an **admissible exception** under the **present sense impression** exception (Option B), which allows for the admission of statements made contemporaneously with the event to show the decl",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_106",
+      "question": "Is the model reasoning forward from givens, backward from the answer, or mixed?",
+      "oracle_output": "The model is reasoning forward from the given information, analyzing each option to determine which one directly affects the formation of a conditioned response.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_2067",
+      "question": "Is the model reasoning forward from givens, backward from the answer, or mixed?",
+      "oracle_output": "The model reasons forward from the given options, evaluating each choice based on the criteria of macronutrients and micronutrients.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_8947",
+      "question": "Are any steps redundant or unnecessary? Which ones?",
+      "oracle_output": "The analysis correctly identifies that the modification was agreed upon by both parties, making the new terms enforceable. The other options either misinterpret the legal principles or focus on irrelevant factors.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_4040",
+      "question": "What is the first error (if any) in this reasoning? State the step number and the error, or 'none'.",
+      "oracle_output": "The error is in step 3. The statement \"The same chromosome in a normal male is inactivated\" is incorrect. In males, only one X chromosome is inactivated, but it is not the same chromosome in all cells. The inactivated X chromosome can vary between cells, a phenomenon known as **X-chromosome inactiva",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_2492",
+      "question": "Does the final answer follow from the reasoning steps? Explain.",
+      "oracle_output": ". The possible genotypes for the daughters are:\n\n- 50% **v** (homozygous recessive, vermilion eyes)\n- 50% **v** (heterozygous, vermilion eyes)\n\nHowever, the problem states that the daughters have **vermilion eyes**, which means they must be **v**. This implies that the father must be **v** (homozygo",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_1501",
+      "question": "Does the model verify or double-check its answer? How?",
+      "oracle_output": " $ ry $**\n\nUsing $ r = -3 $, $ y = -2 $:\n\n- $ ry = (-3)(-2) = 6 $\n- $ ry + y = 6 + (-2) = 4 $\n\nSo, $ 6 > 4 $, which is true.\n\nLet\u2019s try $ r = -100 $, $ y = -1 $:\n\n- $ ry = (-100)(-1) = 100 $\n- $ ry + y = 100 + (-1) = 99 $\n\nAgain, $ 100 > 99 $, which is true.\n\nSo, D is also always true.\n\n---\n\n### Fin",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_9168",
+      "question": "Does the model notice and correct any of its own mistakes? Describe.",
+      "oracle_output": "No, the assistant does not notice or correct any mistakes in its reasoning. The answer is correct, but the assistant does not provide a self-correction.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_2585",
+      "question": "Is the reasoning in this chain of thought sound? Explain briefly.",
+      "oracle_output": "Yes, the reasoning is sound. The key is the contradiction between supporting a policy and disapproving the leader's behavior, which aligns with cognitive dissonance.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_6965",
+      "question": "Does the model verify or double-check its answer? How?",
+      "oracle_output": "The assistant verifies its answer by cross-checking the options against the question. It eliminates options that don't fit the context (like \"flower\" and \"house\") and confirms that \"plant pot\" is the most accurate and specific answer.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_319",
+      "question": "Classify the errors in this reasoning: arithmetic, logical fallacy, false premise, irrelevant step, or none. Give the category and a brief explanation.",
+      "oracle_output": "The reasoning is correct, so there are no errors. The category is **none**.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_117",
+      "question": "Does the model verify or double-check its answer? How?",
+      "oracle_output": "The assistant verifies its answer by rechecking the calculation and ensuring that the units match. It confirms that 25% of 40 pounds is indeed 10 pounds, and since the question asks for the weight of a hundredweight, the correct answer is B.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    }
+  ]
+}

@@ -1,0 +1,220 @@
+{
+  "step": 209,
+  "name": "eval_table_atypical_answer_mcq",
+  "n": 30,
+  "run_id": "lg0b51t2",
+  "run_name": "vast_seq_20260225_1016",
+  "created_at": "2026-02-25T10:25:14Z",
+  "rows": [
+    {
+      "id": "atypical_mcq_0036",
+      "question": "Under the Truth-In-Lending regulations, what must a retailer indicate on the sales contract as the annual interest rate if he charges 1(1 / 2)% interest per month on the unpaid balance of each custome",
+      "oracle_output": "majority",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0091",
+      "question": "Is the ICJ hostile to the idea that an armed attack may arise through a series of lower intensity, yet cumulative, instances of armed force?\n\nA) The ICJ has often supported the accumulation theory\nB) ",
+      "oracle_output": "The reasoning leads to the majority answer, which is **A**.",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0005",
+      "question": "The city installed a sewer line across a residential subdivision. The city acquired a valid easement for construction of the sewer from the development company that owned the subdivision. One year lat",
+      "oracle_output": "majority",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0095",
+      "question": "_______ working practices refer to working patterns which involve temporal, spatial and task related fluidity.\n\nA) Agile\nB) Transformative\nC) Progressive\nD) Adaptable\nE) Innovative\nF) Contemporary\nG) ",
+      "oracle_output": "majority",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0071",
+      "question": "A bedroom set with a cash value of $720 can be purchased on the installment plan for 18 monthly payments of $47.20 each. What is the annual interest rate?\n\nA) 21%\nB) 16.8%\nC) 24%\nD) 15%\nE) 25%\nF) 19.5",
+      "oracle_output": "The interest rate is approximately **12%**. This is the closest to the given options, and it's the most reasonable answer based on the calculations. The other options either don't match the calculated rate or are not close enough.\n\n### Final Answer\n\\boxed{A}\n",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0045",
+      "question": "A train pulled into a busy station. Some passengers got off the train, and others got on. A few moments later, a train conductor shouted, \"All aboard!\" to indicate that the train was about to depart t",
+      "oracle_output": "majority",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0021",
+      "question": "Farmer Fred was the owner of Grapeview Farm, the largest farm in the County of Grapeview. Fred was advised by his gift and estate attorney to begin making annual fractionalized gifts of the property t",
+      "oracle_output": "The reasoning leads to the majority answer, which is **F**.",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0084",
+      "question": "Mr. Gordon suffered damage to the back of his right frontal lobe. As a result, he is unable to\n\nA) Recognize faces\nB) move his left hand\nC) Hear sounds correctly\nD) understand information he reads\nE) ",
+      "oracle_output": "majority",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0003",
+      "question": "Calculate \\DeltaH when 2 moles of Cu are heated from 50\u00b0C to 200\u00b0C, given that a = 5.41 cal mol^-1 K^-1 b = 1.50 cal mol^-1K^-2\n\nA) 9000J\nB) 7200J\nC) 8200J\nD) 8700J\nE) 8000J\nF) 6500J\nG) 7000J\nH) 5000J",
+      "oracle_output": "majority",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0072",
+      "question": "A preacher and his posse make a habit of showing up at funerals of soldiers suspected to be gay, carrying obnoxious signs and yelling out hurtful epithets. Finally, the parents of one dead soldier has",
+      "oracle_output": "majority",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0040",
+      "question": "A preacher and his posse make a habit of showing up at funerals of soldiers suspected to be gay, carrying obnoxious signs and yelling out hurtful epithets. Finally, the parents of one dead soldier has",
+      "oracle_output": "The reasoning leads to the majority answer, which is **I**.",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0061",
+      "question": "Point out the most accurate response : According to Austin, law has the following attributes :\n\nA) Command, sovereign and legal remedy\nB) Command, sovereign and authority\nC) Command, sovereign and leg",
+      "oracle_output": "majority",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0086",
+      "question": "A landowner, her aunt, and her brother are the owners of three contiguous lots. A downward slope exists from the landowner's land to the brother'sland. The aunt, the owner in the middle of the three l",
+      "oracle_output": "majority",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0029",
+      "question": "TheAlforsCompany had a beginning inventory of $30,000, Jan 1, 1974. During the year, purchases amounted to $87,500, net sales to $102,000. Assuming that the gross profit rate is 40% of the net sales, ",
+      "oracle_output": "majority",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0011",
+      "question": "Exposing individuals to arguments against their views, arguments that are then strongly refuted, may serve to\n\nA) make them more argumentative\nB) make them more susceptible to accepting opposing views",
+      "oracle_output": "The reasoning leads to the majority answer, which is **E**.",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0082",
+      "question": "A defendant wished to see his high school basketball team win the state championship. During an important game, the defendant pulled out a gun and shot at the leg of a key player on the opposing team.",
+      "oracle_output": "majority",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0006",
+      "question": "In the process of generating ATP, hydrogen ions (H+, or protons) are transported across the inner mitochondrial membrane and the thylakoid membrane by a proton pump (an ATPase). You would expect to fi",
+      "oracle_output": "The reasoning leads to the majority answer, as option J) plants and animals is the most comprehensive and accurate choice that includes all the mentioned organisms with proton pumps in their plasma membranes.",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0054",
+      "question": "A retailer brought a federal diversity action against a wholesaler, alleging breach of contract and fraudulent misrepresentation. After the parties presented their evidence at trial, the court instruc",
+      "oracle_output": "The reasoning leads to the **majority** answer because it correctly identifies that the trial court's ruling on the motion for judgment as a matter of law is the basis for the appellate court's review.",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0073",
+      "question": "A developer recently acquired a large vacant lot and wished to build a series of 10 tract homes on the lot to offer for sale. On May 1, he telephoned a number of contractors whom he had dealt with in ",
+      "oracle_output": "The reasoning leads to the majority answer, which is **I**.",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0038",
+      "question": "A woman was in a public restroom at a mall. While the woman was at the sink, a man entered the restroom and told her not to make a sound. Frightened, the woman ran to an open window in the bathroom an",
+      "oracle_output": " The man's verbal threat and subsequent actions caused the woman to flee and get injured. This fits the definition of assault, which involves creating a reasonable fear of imminent harm. While there may be elements of battery (touching), the key here is the **intentional infliction of fear**, making",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0013",
+      "question": "From a patch of garden peas, a random sampling of 13 plants is made. Their height in centimetres is as follows: 161183177157181176180 162163174179169187 Calculate: (a)themean;(b) the median;(c) the mo",
+      "oracle_output": ": majority\n\n**Final Answer**\n$$\n\\boxed{F}\n$$",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0088",
+      "question": "An architect is the owner of a large two-story office building. The architect designed and supervised the building's construction. He and his associate occupy the first floor for their architectural b",
+      "oracle_output": "The reasoning leads to the majority answer, which is **H**.",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0024",
+      "question": "Milgram's obedience study was criticized based on what ethical grounds?\n\nA) lack of debriefing after the experiment\nB) lack of compensation for participants\nC) violation of anonymity\nD) nonrandom samp",
+      "oracle_output": "majority",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0026",
+      "question": "Assume that the following charges (flat rates) are made on $500 for a year and that the loan in each case is to be repaid in 12 equal monthly installments: (a) 3% , (b) 5%. What is the monthly payment",
+      "oracle_output": "The correct answer is **C**.",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0043",
+      "question": "Discuss transfer of training in everyday life and in formal education.\n\nA) Direct transfer, indirect transfer, and transfer of principles\nB) Transfer of training, transfer of elements, and transfer of",
+      "oracle_output": ". The question asks which option includes all three types of transfer. Since F lists all three (positive, negative, zero), it is the correct answer.",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0009",
+      "question": "A city imposes a tax on nonresident's city derived income above $1,700 at a 3% rate, except that if the nonresident's state of residence would impose a lesser tax had the income been earned in that st",
+      "oracle_output": "majority",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0060",
+      "question": "Mr. Fields owns a house worth $30,000. He insures it with a $20,000 fire insurance policy that contains an 80% coinsurance clause. As a result of fire, the house is damaged to the extent of $10,800. H",
+      "oracle_output": "majority",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0012",
+      "question": "One afternoon, a pilot was flying a small airplane when it suddenly ran out of gas. As he was coming in for an emergency landing, the plane crossed into a neighboring state at a very low altitude. At ",
+      "oracle_output": "majority",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0053",
+      "question": "According to Irvin Yalom, ________in group therapy is the analogue of the therapist-client relationship in individual therapy.\n\nA) identification\nB) alliance\nC) interpersonal learning\nD) disclosure\nE)",
+      "oracle_output": "majority",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0041",
+      "question": "A man and a woman were driving eastbound along a steep two-lane winding highway. The woman was driving in front of the man. As the man approached the rear of the woman's car, he became impatient and t",
+      "oracle_output": "majority",
+      "ground_truth": "minority",
+      "correct": "no"
+    }
+  ]
+}

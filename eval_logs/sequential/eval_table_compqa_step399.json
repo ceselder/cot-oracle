@@ -1,0 +1,220 @@
+{
+  "step": 399,
+  "name": "eval_table_compqa",
+  "n": 30,
+  "run_id": "r7g3a929",
+  "run_name": "sequential",
+  "created_at": "2026-02-25T04:26:23Z",
+  "rows": [
+    {
+      "id": "compqa_1654",
+      "question": "Are any steps redundant or unnecessary? Which ones?",
+      "oracle_output": "Yes, several steps are redundant or unnecessary:\n\n1.  **Steps 1-2**: These are introductory statements that merely restate the question and do not contribute to the reasoning.\n2.  **Steps 3-4**: These are repetitive and do not add new information to the analysis.\n3.  **Steps 5-6**: These are redunda",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_536",
+      "question": "Does the model notice and correct any of its own mistakes? Describe.",
+      "oracle_output": "No, the model does not notice or correct any mistakes because it does not make any errors in its reasoning. The chain of thought is consistent and leads directly to the correct answer.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_5375",
+      "question": "Does the model verify or double-check its answer? How?",
+      "oracle_output": "No, the model does not verify or double-check its answer. It provides a single, final conclusion based on its reasoning without revisiting or confirming its steps.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_4097",
+      "question": "Is the model reasoning forward from givens, backward from the answer, or mixed?",
+      "oracle_output": "The model is reasoning forward from the givens. It starts by analyzing the context (cabin unavailable) and the options provided, then logically deduces that an upgrade would involve a more luxurious alternative like a villa.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_964",
+      "question": "Classify the errors in this reasoning: arithmetic, logical fallacy, false premise, irrelevant step, or none. Give the category and a brief explanation.",
+      "oracle_output": "The reasoning contains a **false premise**. It incorrectly assumes that \"statue\" is a typo for \"statute,\" but the original question explicitly uses \"statue,\" making the assumption baseless.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_9557",
+      "question": "Does the model verify or double-check its answer? How?",
+      "oracle_output": "Yes, the model verifies its answer by checking all possible cases for the value of $ x $, ensuring that only $ x = 190 $ satisfies the condition of making the range 100.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_5292",
+      "question": "Is the model reasoning forward from givens, backward from the answer, or mixed?",
+      "oracle_output": "The model is reasoning forward from the givens. It starts by analyzing the provided text to identify the guide words, then systematically examines the list of words to determine which ones come between \"cinder\" and \"couple.\"",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_9023",
+      "question": "Does the model verify or double-check its answer? How?",
+      "oracle_output": "No, the model does not verify or double-check its answer; it directly concludes that the correct answer is G based on a single reasoning step.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_2267",
+      "question": "Does the model verify or double-check its answer? How?",
+      "oracle_output": "No, the model does not explicitly verify or double-check its answer; it only provides a single reasoning path leading to the conclusion.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_1476",
+      "question": "Which steps are essential (load-bearing) for reaching the answer, and which are decorative filler?",
+      "oracle_output": "The essential steps are the analysis of each option (A, B, C, D) and the conclusion that option C is the most misleading. The decorative filler includes the initial setup of the question and the final formatting of the answer.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_5663",
+      "question": "Classify the errors in this reasoning: arithmetic, logical fallacy, false premise, irrelevant step, or none. Give the category and a brief explanation.",
+      "oracle_output": "The reasoning contains a **false premise**. It incorrectly states that \"bliss\" is a feeling, while the chain of thought concludes that \"pleasure\" is the correct answer. The reasoning fails to properly distinguish between \"bliss\" (a state of euphoria) and \"pleasure\" (a more general emotional response",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_1604",
+      "question": "Does the model verify or double-check its answer? How?",
+      "oracle_output": "No, the model does not explicitly verify or double-check its answer. It provides a single reasoning path to reach the conclusion without revisiting or confirming the steps.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_3040",
+      "question": "Is the reasoning in this chain of thought sound? Explain briefly.",
+      "oracle_output": "Yes, the reasoning is sound. The chain of thought correctly calculates the total discount by first applying the 20% discount to the original price, then applying the 10% discount to the new price, and finally determining the overall percentage discount by comparing the final price to the original.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_3136",
+      "question": "Does any step in this reasoning not follow from the previous steps? If so, which and why?",
+      "oracle_output": "No, the reasoning is consistent. Each step logically follows from the previous ones, analyzing the question's components and their relevance to the admissibility of the informant's testimony.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_4451",
+      "question": "Which steps are essential (load-bearing) for reaching the answer, and which are decorative filler?",
+      "oracle_output": "The essential steps are:\n\n1.  **Step 1:** Establishes the ratio relationship between Thomas and Mark's salaries.\n2.  **Step 2:** Defines variables and applies the ratio to express Mark's salary in terms of Thomas's.\n3.  **Step 3:** Sets up the equation based on the given ratio after the increment.\n4",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_4094",
+      "question": "Does the model verify or double-check its answer? How?",
+      "oracle_output": "Yes, the model verifies its answer by checking both the sum of three consecutive even numbers and three consecutive odd numbers, confirming that the correct middle number is 31.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_744",
+      "question": "Does the model notice and correct any of its own mistakes? Describe.",
+      "oracle_output": "No, the model does not notice or correct any mistakes in its reasoning. The chain of thought is a continuous, linear analysis without any indication of self-correction or revision.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_9525",
+      "question": "What is the first error (if any) in this reasoning? State the step number and the error, or 'none'.",
+      "oracle_output": "The first error is in Step 1, where the reasoning incorrectly states that the second child has $ \\frac{1}{10}T + 1 $ toys, when it should be $ \\frac{1}{10}T + 1 $, which is the same as written.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_6528",
+      "question": "Does any step in this reasoning not follow from the previous steps? If so, which and why?",
+      "oracle_output": "No, the reasoning is consistent. Each step logically follows from the previous ones, analyzing each option against the criteria of a \"place\" and concluding that \"drive-thru\" is the only valid answer.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_8282",
+      "question": "Does the final answer follow from the reasoning steps? Explain.",
+      "oracle_output": "Yes, the final answer follows from the reasoning steps. The reasoning correctly calculates the number of quarters in $2.25 by dividing $2.25 by $0.25, which equals 9, and confirms this through multiple methods including decimal division, fraction conversion, and verification.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_2073",
+      "question": "Does the model notice and correct any of its own mistakes? Describe.",
+      "oracle_output": "No, the model does not notice or correct any mistakes in its reasoning. The chain of thought is logically consistent and arrives at the correct conclusion without any errors or self-corrections.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_4246",
+      "question": "Does the final answer follow from the reasoning steps? Explain.",
+      "oracle_output": "Yes, the final answer follows from the reasoning steps. The reasoning correctly identifies that a freezer provides the coldest environment, which is necessary for long-term meat storage, and eliminates the other options based on their typical storage durations.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_1902",
+      "question": "Does the model verify or double-check its answer? How?",
+      "oracle_output": "No, the model does not verify or double-check its answer; it directly concludes based on its reasoning without reviewing or testing its logic.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_363",
+      "question": "Are any steps redundant or unnecessary? Which ones?",
+      "oracle_output": "Yes, several steps are redundant or unnecessary. For example, the repeated analysis of the same options (A, B, C, etc.) in the same way is repetitive. Additionally, the conclusion that the pedestrian's statement is admissible under the excited utterance exception is already established in the reason",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_166",
+      "question": "Are any steps redundant or unnecessary? Which ones?",
+      "oracle_output": "Yes, several steps are redundant or unnecessary. For example, the analysis of Option A and Option C repeats the same reasoning about comparing materials and sizes, and the conclusion about Option B being the best is reached before the final answer is given.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_3485",
+      "question": "Classify the errors in this reasoning: arithmetic, logical fallacy, false premise, irrelevant step, or none. Give the category and a brief explanation.",
+      "oracle_output": "The reasoning contains a **false premise**. It incorrectly assumes that owning a car is the most common way for people to move themselves, while the chain of thought fails to consider that walking is the most universally accessible and common method of transportation for most people.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_5117",
+      "question": "What is the first error (if any) in this reasoning? State the step number and the error, or 'none'.",
+      "oracle_output": "The first error is in Step 10, where the reasoning incorrectly states that the Court in **Lawrence v. Texas** held that the law violated the \"substantive due process\" clause of the Fifth Amendment. In fact, the Court struck down the law under the Due Process Clause of the Fourteenth Amendment, not t",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_2719",
+      "question": "Does the model notice and correct any of its own mistakes? Describe.",
+      "oracle_output": "No, the model does not notice or correct any mistakes in its reasoning. The chain of thought is a straightforward analysis of the scenario, and there is no indication of self-correction or error detection.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_27",
+      "question": "Classify the errors in this reasoning: arithmetic, logical fallacy, false premise, irrelevant step, or none. Give the category and a brief explanation.",
+      "oracle_output": "The reasoning contains a **false premise**. It incorrectly assumes that the ex's behavior (stalking, ignoring requests) is the primary issue, while the user's response (calling the ex out) is the main focus of the question. The chain of thought misinterprets the scenario, leading to an unsupported c",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_3728",
+      "question": "Is the model reasoning forward from givens, backward from the answer, or mixed?",
+      "oracle_output": "The model is reasoning forward from the givens. It analyzes the provided text to identify the key points about the Safavid Empire's Shia identity and the Sunni Ottoman and Mughal empires' opposition, leading to the conclusion that the conflict was ideological.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    }
+  ]
+}

@@ -1,0 +1,220 @@
+{
+  "step": 57,
+  "name": "eval_table_compqa",
+  "n": 30,
+  "run_id": "r7g3a929",
+  "run_name": "sequential",
+  "created_at": "2026-02-25T04:26:23Z",
+  "rows": [
+    {
+      "id": "compqa_8929",
+      "question": "Is the model reasoning forward from givens, backward from the answer, or mixed?",
+      "oracle_output": "The model is reasoning backward from the answer, using the given information to support the conclusion.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_9052",
+      "question": "Classify the errors in this reasoning: arithmetic, logical fallacy, false premise, irrelevant step, or none. Give the category and a brief explanation.",
+      "oracle_output": "The reasoning contains a false premise. The assumption that \"heavy\" implies \"heavy wear\" is incorrect, as \"heavy\" can refer to weight or density, not necessarily wear.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_6883",
+      "question": "Which steps are essential (load-bearing) for reaching the answer, and which are decorative filler?",
+      "oracle_output": "The essential steps for reaching the answer are:\n\n1. **Clinical Presentation**: The patient's history of a 30-year smoking history, recent exacerbation of symptoms, and current symptoms of dyspnea and cough.\n2. **Physical Examination**: The findings of decreased breath sounds and hyperresonant percu",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_5012",
+      "question": "What is the first error (if any) in this reasoning? State the step number and the error, or 'none'.",
+      "oracle_output": "Step 1: The reasoning is correct. The conclusion that the answer is \"C\" is supported by the reasoning provided.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_590",
+      "question": "Is the model reasoning forward from givens, backward from the answer, or mixed?",
+      "oracle_output": "The model is reasoning backward from the answer.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_2600",
+      "question": "Does the model verify or double-check its answer? How?",
+      "oracle_output": "The assistant verifies its answer by providing a detailed mathematical explanation, ensuring that the solution is logically sound and consistent with the problem's constraints.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_8922",
+      "question": "Does any step in this reasoning not follow from the previous steps? If so, which and why?",
+      "oracle_output": "No, all steps in the reasoning follow logically from the previous steps. The reasoning systematically evaluates each option against the criteria of being separated by low-speed centrifugation, leading to a consistent conclusion.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_2131",
+      "question": "Does any step in this reasoning not follow from the previous steps? If so, which and why?",
+      "oracle_output": "No, all steps in the reasoning follow logically from the previous steps. The reasoning starts with the premise that the group has not made a decision, then explores the implications of this premise, and concludes with the most plausible answer.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_2700",
+      "question": "Does the model notice and correct any of its own mistakes? Describe.",
+      "oracle_output": "No, the model does not notice or correct its own mistakes. It generates responses based on its training data and does not have the capability to self-correct or recognize errors in its outputs.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_1256",
+      "question": "Are any steps redundant or unnecessary? Which ones?",
+      "oracle_output": "Yes, the step of **\"Cell division\"** is redundant and unnecessary in the context of the question. Here's why:\n\n---\n\n### **Redundant Step: Cell Division**\n\nCell division is a fundamental biological process that occurs during the growth and development of an organism. It is essential for the formation",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_4781",
+      "question": "Does the model notice and correct any of its own mistakes? Describe.",
+      "oracle_output": "No, the assistant does not notice or correct its own mistakes. It provides an incorrect answer without acknowledging any errors.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_2879",
+      "question": "Does the model verify or double-check its answer? How?",
+      "oracle_output": "The assistant verifies its answer by analyzing the logical consistency of the options provided, ensuring that the selected answer aligns with the question's context.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_5352",
+      "question": "What is the first error (if any) in this reasoning? State the step number and the error, or 'none'.",
+      "oracle_output": "Step 1: The reasoning starts by analyzing the question and the options provided. The question asks which of the following is a transformation of water, and the options are evaluated one by one.\n\nStep 2: The reasoning correctly identifies that a humidifier adds moisture to the air, which is a process",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_1766",
+      "question": "Classify the errors in this reasoning: arithmetic, logical fallacy, false premise, irrelevant step, or none. Give the category and a brief explanation.",
+      "oracle_output": "The reasoning contains a false premise. The assumption that the majority of patients with traumatic injuries are from the town is not supported by the information provided, which only mentions a few patients.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_8022",
+      "question": "Is the model reasoning forward from givens, backward from the answer, or mixed?",
+      "oracle_output": "The model is reasoning backward from the answer.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_3510",
+      "question": "Does the final answer follow from the reasoning steps? Explain.",
+      "oracle_output": "Yes, the final answer follows from the reasoning steps. The reasoning concludes that the best explanation for why people enjoy getting wet in the summer is that they want to cool down, which aligns with option D.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_7625",
+      "question": "Which steps are essential (load-bearing) for reaching the answer, and which are decorative filler?",
+      "oracle_output": "The essential steps for reaching the answer are:\n\n1. **Understanding the context**: Recognizing that the soldier's experience during his military service did not match his expectations.\n2. **Identifying the discrepancy**: Noticing that the soldier's actual duties involved physical labor and routine ",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_7573",
+      "question": "Does the final answer follow from the reasoning steps? Explain.",
+      "oracle_output": "No, the final answer does not follow from the reasoning steps. The reasoning steps conclude that Option A is the only one that is not a violation of ethical standards, but the final answer incorrectly states that Option C is the correct answer.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_2584",
+      "question": "Are any steps redundant or unnecessary? Which ones?",
+      "oracle_output": "Step 1 is redundant and unnecessary. The question asks for the two basic types of cells, and the answer is already provided in the first step.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_8270",
+      "question": "Which steps are essential (load-bearing) for reaching the answer, and which are decorative filler?",
+      "oracle_output": "The essential steps for reaching the answer are:\n\n1. **Understanding the definition of a fixed action pattern (FAP):** A FAP is a stereotyped behavior that is triggered by a specific stimulus and is performed in a fixed sequence without variation.\n\n2. **Analyzing the options:** Each option is evalua",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_5061",
+      "question": "Which steps are essential (load-bearing) for reaching the answer, and which are decorative filler?",
+      "oracle_output": "The essential steps for reaching the answer are:\n\n1. **Understanding the question**: Recognizing that the question is about identifying a product type that requires knowledge and is purchased infrequently.\n2. **Analyzing the options**: Evaluating each option to determine which fits the criteria of r",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_3674",
+      "question": "Which steps are essential (load-bearing) for reaching the answer, and which are decorative filler?",
+      "oracle_output": "The essential steps for reaching the answer are:\n\n1. **Understanding the nature of the property**: Recognizing that the property is a **fee simple determinable** (a type of fee simple estate that terminates upon the occurrence of a specified condition).\n2. **Identifying the condition**: Noting that ",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_9275",
+      "question": "What is the first error (if any) in this reasoning? State the step number and the error, or 'none'.",
+      "oracle_output": "Step 1: The reasoning starts by identifying the question as asking where a table can be placed. This is a valid interpretation of the question.\n\nStep 2: The reasoning then evaluates each option to determine if it is a valid location for a table. This is a logical step.\n\nStep 3: The reasoning conclud",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_5502",
+      "question": "What is the first error (if any) in this reasoning? State the step number and the error, or 'none'.",
+      "oracle_output": "None of the steps in the reasoning contain an error.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_3630",
+      "question": "Does the final answer follow from the reasoning steps? Explain.",
+      "oracle_output": "Yes, the final answer follows from the reasoning steps. The reasoning leads to the conclusion that the most likely diagnosis is **acute interstitial nephritis (AIN)**, which is consistent with the patient's history of long-term use of nonsteroidal anti-inflammatory drugs (NSAIDs) and the findings of",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_6485",
+      "question": "Does the model verify or double-check its answer? How?",
+      "oracle_output": "The assistant verifies its answer by cross-referencing the information with the provided context, ensuring that the reasoning aligns with the evidence given.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_7527",
+      "question": "Does any step in this reasoning not follow from the previous steps? If so, which and why?",
+      "oracle_output": "No, all steps in the reasoning follow logically from the previous steps. The reasoning starts with the premise of the sentence, identifies the subject and action, and systematically evaluates each option to determine the most appropriate answer.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_4987",
+      "question": "Is the model reasoning forward from givens, backward from the answer, or mixed?",
+      "oracle_output": "The assistant is reasoning forward from the givens.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_6906",
+      "question": "Is the model reasoning forward from givens, backward from the answer, or mixed?",
+      "oracle_output": "The model is reasoning backward from the answer, using the given information to support the conclusion.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_7791",
+      "question": "Is the model reasoning forward from givens, backward from the answer, or mixed?",
+      "oracle_output": "The model is reasoning backward from the answer.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    }
+  ]
+}

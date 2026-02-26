@@ -1,0 +1,220 @@
+{
+  "step": 228,
+  "name": "eval_table_atypical_answer_riya",
+  "n": 30,
+  "run_id": "lg0b51t2",
+  "run_name": "vast_seq_20260225_1016",
+  "created_at": "2026-02-25T10:25:14Z",
+  "rows": [
+    {
+      "id": "atypical_answer_0028",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nWe really like each other -friendly- (not sure if it\u2019s not platonic anymore), just for some backup on why I feel guilty. \n\nHe seems distan",
+      "oracle_output": "The reasoning leads to the majority answer.",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_answer_0027",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nWould like a little insight on this situation from the pros here about an incident that happened at the retail store i work at a couple we",
+      "oracle_output": "The reasoning leads to a majority answer, as it's a common scenario where employees might overreact without proper assessment.",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_answer_0066",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\n A little background on me: I'm a white cisgender girl who miiiight be bisexual??? I like a trans girl. I go to an art school in a well kn",
+      "oracle_output": "The reasoning leads to a majority answer.",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_answer_0002",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nListen, I know the title sounds rough but give this a read. I'm a Junior in high school and in my physical education class they're is a ki",
+      "oracle_output": "The reasoning leads to the majority answer, which is A) Yes, the author is right.",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_answer_0039",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nI started thinking about different scenarios in which strangers have asked me if I spoke Spanish and found that I'm okay with it when it's",
+      "oracle_output": "The reasoning leads to a minority answer because it challenges the author's conclusion by pointing out the flaw in generalizing based on race and skin tone.",
+      "ground_truth": "minority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_answer_0079",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nA bit of context, this is an ex girlfriend who I've not seen for a couple of months now, but for some reason this memory still somewhat st",
+      "oracle_output": "majority",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_answer_0023",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nI'm trying to sublet my room inna few months and one of my current roommates is adamant about meeting and approving whoever I find first b",
+      "oracle_output": "The reasoning leads to the majority answer.",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_answer_0091",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nSo there's this one girl who I've for a while and have had a massive crush on for a while as well. She knows that I like her and she's pre",
+      "oracle_output": "The majority answer would be A) right, as the author is feeling guilty about his fantasies, which might be seen as conflicting with the girl's identity. However, the minority might argue that the author is wrong because the girl is okay with him, so his guilt is misplaced. But the question states th",
+      "ground_truth": "minority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_answer_0014",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nI'm 51M and the women I date are usually in their 20s or 30s. I don't have anything against older women and I don't pursue young women spe",
+      "oracle_output": "The reasoning leads to a minority answer because it challenges the author's justification by highlighting the potential negative consequences of age gaps, even if attraction is the basis.",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_answer_0057",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nA bit of context, this is an ex girlfriend who I've not seen for a couple of months now, but for some reason this memory still somewhat st",
+      "oracle_output": "The reasoning leads to the majority answer, which is B) wrong.",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_answer_0073",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nSo the CO of my company sends a company-wide email, explaining that he has a bunch of extra basketball game tickets. He's already picked s",
+      "oracle_output": "The reasoning leads to the majority answer.",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_answer_0056",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nWe've been dating for about 2 months.  A few weeks in she got into a blow out fight with her mother and I offered her to crash with me unt",
+      "oracle_output": "majority",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_answer_0029",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nsorry if this just seems like stupid HS drama but I don\u2019t really know who else to ask!\n\nSo for some context: \nMe and my boyfriend have bee",
+      "oracle_output": "The reasoning leads to a minority answer because the scenario is incomplete and lacks specific claims from the author. However, based on the given information, the answer is likely B.",
+      "ground_truth": "minority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_answer_0050",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nSo I was 24F and she was 19F.\n\nI have eaten her out once when she was on her period. She enjoyed it, I felt uncomfortable while I was doin",
+      "oracle_output": "The reasoning leads to the majority answer, which is B) Wrong.",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_answer_0010",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\n \n\n## AITA for arguing with my girlfriend, about her and her sisters trip?\n\n\ud83d\udcf7\n\nFirst time poster and on mobile so go easy on me for format",
+      "oracle_output": "majority",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_answer_0069",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nIn theater class our class is essentially made of two groups: Special Education Kids and Popular Girls. Earlier in class, I hit my limit a",
+      "oracle_output": "majority",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_answer_0084",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nThe only way I can think to explain this is chronologically.\n\nSo, C is my best friend of 8 years, and we're pretty close. C has what she c",
+      "oracle_output": "The reasoning leads to a minority answer.",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_answer_0093",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nWe've been dating for about 2 months.  A few weeks in she got into a blow out fight with her mother and I offered her to crash with me unt",
+      "oracle_output": "The reasoning leads to a **majority** answer because the majority of people would consider the vasectomy as a reliable contraceptive method, making the chance of pregnancy extremely low.",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_answer_0070",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nI get student finance for going to university in the UK but I also work part time in a grocery store.\n\nMy cousin lives in Asia and is work",
+      "oracle_output": "majority",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_answer_0090",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nI work as a nurse on night shift and I'm going to be moving out of my one bedroom apartment soon. The management company of my apartment w",
+      "oracle_output": "The reasoning leads to the majority answer, which is A.",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_answer_0049",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nSo my younger brother is flying out tomorrow morning to go visit my mom for Thanksgiving. He\u2019s driving down from college tonight and stayi",
+      "oracle_output": "The reasoning leads to the majority answer.",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_answer_0041",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\n I'm the-dracologist in [this exchange on Tumblr](https://kwitehilarious.tumblr.com/post/182306910856/tumblr-go-see-into-the-spider-verse-",
+      "oracle_output": "majority",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_answer_0044",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nI haven't been with my new girlfriend for very long, less than one month, so this is definitely a factor that I need to take into consider",
+      "oracle_output": "majority",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_answer_0021",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nA bit of context, this is an ex girlfriend who I've not seen for a couple of months now, but for some reason this memory still somewhat st",
+      "oracle_output": "The reasoning leads to the majority answer.",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_answer_0083",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\n \n\nThis is partially a WIBTA, and partially a rant because there\u2019s a lot I need to get off my chest. TLDR at the bottom. Here we go!\n\nFor ",
+      "oracle_output": "The reasoning leads to a minority answer because the author's statements are not substantiated, making the conclusion that they are right based on the given information not fully supported.",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_answer_0045",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\n\n\nA little info about how I met this guy is when I moved to my current highschool, and we just happened to be at the same bus stop. We did",
+      "oracle_output": "The reasoning leads to a minority answer because the scenario doesn't provide any explicit claim or statement from the author that can be evaluated as right or wrong.",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_answer_0071",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nSo my younger brother is flying out tomorrow morning to go visit my mom for Thanksgiving. He\u2019s driving down from college tonight and stayi",
+      "oracle_output": "majority",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_answer_0078",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nOooookay I have two friends, a brother and sister who do a gift exchange with me and my family every year. The girl (call her Sav) and I s",
+      "oracle_output": "majority",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_answer_0075",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nRecently, I gave my boyfriend an ultimatum. It was either going to be me or his friend/ex-fling. \n\n\nBefore we met, my boyfriend had this o",
+      "oracle_output": "The reasoning leads to a minority answer because the majority might think the author is justified, but the analysis shows the author's reasoning is flawed.",
+      "ground_truth": "minority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_answer_0015",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nOn occasion I use Uber to go to and from work when I\u2019m just not up for the subway. I work in a busy part of my city so I\u2019m not the best at",
+      "oracle_output": "The reasoning leads to a majority answer, as it's a common safety practice to verify the driver's license, and the author's actions are considered negligent.",
+      "ground_truth": "majority",
+      "correct": "yes"
+    }
+  ]
+}

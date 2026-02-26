@@ -1,0 +1,213 @@
+{
+  "step": 1192,
+  "name": "eval_table_sentence_insertion",
+  "n": 29,
+  "run_id": "cjyjytol",
+  "run_name": "ablation-stride10-3layers",
+  "created_at": "2026-02-25T09:36:34Z",
+  "rows": [
+    {
+      "id": "insertion_0072",
+      "question": "Look at this series: 1.5, 2.3, 3.1, 3.9, ... What number should come next?\n\nA)4.7\nB)4.5\nC)6.7\nD)8.9\nE)9.2\n\nAnswer with the letter.",
+      "oracle_output": "Step 10 doesn't belong. The original problem is about a sequence of numbers, not about a legal case involving murder. The reasoning about \"deliberate intent to kill\" is irrelevant to the sequence problem.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0069",
+      "question": "NAME_1 has four brothers, namely, NAME_2 NAME_3. What is the name of the fifth brother?",
+      "oracle_output": "Step 10 doesn't belong. This step is from a different problem where the question is about the number of brothers, not the name of the fifth brother. The reasoning in steps 1-9 is about the original question, while step 10 is a separate thought process from a different problem.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0032",
+      "question": "tell me the temperature, hydrometry rate, sunshine rate, rainfall, humidity rate, soil type for Tree of Life seed in bullets 2 words answer in number ",
+      "oracle_output": "none",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0095",
+      "question": "Bill's noticed that one of his tires was flat when he got home from Toronto.   Where would he take his car next?\n\nA) toronto\nB) flammable\nC) repair shop\nD) car show\nE) airport\n\nAnswer with the letter.",
+      "oracle_output": "none",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0046",
+      "question": "A train 200 m long is running at a speed of 68 kmph. How long does it take to pass a man who is running at 8 kmph in the same direction as the train?\n\nA)5 sec\nB)9 sec\nC)12 sec\nD)15 sec\nE)18 sec\n\nAnswe",
+      "oracle_output": "none",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0026",
+      "question": "All matter in the universe has measurable properties. Under the correct circumstances, what property of a sample of matter may be equal to zero?\n\nA) its mass\nB) its weight\nC) its density\nD) its volume",
+      "oracle_output": "12",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0003",
+      "question": "For each snippet of text, label the sentiment of the text as positive or negative. The answer should be exactly \"positive\" or \"negative.\"\nSentence: for the most part , director NAME_1 's first feature",
+      "oracle_output": "13",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0049",
+      "question": "Michelle also noticed that she was able to save a few $50 dollar bills. If she has a total of 7 pieces of $50 dollar bills, what is the total value of all her $50 bills combined?",
+      "oracle_output": "none",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0010",
+      "question": "What are some good names for my new family pro series grill my older brother got for Mother\u2019s Day and my other brother NAME_1\u2019s upcoming birthday",
+      "oracle_output": "none",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0036",
+      "question": "If playing the saxophone wasn't enough, she also had to learn the choreographed moves on the field to perform with the what?\n\nA) music store\nB) actors\nC) store sells instruments\nD) marching band\nE) or",
+      "oracle_output": "none",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0064",
+      "question": "In assembling a Bluetooth device, a factory uses one of two kinds of modules. One module costs $15 and the other one, that is cheaper, costs $10. The factory holds a $140 worth stock of 13 modules. Ho",
+      "oracle_output": "none",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0070",
+      "question": "If a snack-size tin of peaches has $40$ calories and is $2\\%$ of a person's daily caloric requirement, how many calories fulfill a person's daily caloric requirement?",
+      "oracle_output": "none",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0007",
+      "question": "what does this mean in apache ab\nConnection Times (ms)\n              min  mean[+/-sd] median   max\nConnect:        0    0   0.0      0       0\nProcessing:    40   65  34.8     46     157\nWaiting:     ",
+      "oracle_output": "13",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0020",
+      "question": "A wire in the form of a circle of radius 3.5 m is bent in the form of a rectangule, whose length and breadth are in the ratio of 6 : 5. What is the area of the rectangle?\n\nA)12 cm2\nB)30 cm2\nC)17 cm2\nD",
+      "oracle_output": "Step 10 doesn't belong. The reasoning in steps 1-9 is consistent with the problem statement, but step 10 introduces a different problem where the radius is 3.5 cm instead of 3.5 meters. This step is a separate calculation that doesn't follow from the original problem.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0033",
+      "question": "An offshore company sells two products, L and M. Last year, seventy percent of the units sold were product L, and the price of product L was 25 percent greater than the price of product M. Approximate",
+      "oracle_output": "None of the steps in the chain of thought belong to a different problem. The entire reasoning process is focused on the given problem, which involves calculating the percentage of total revenue generated by product L, given the quantities sold and the price difference between L and M. The steps are ",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0063",
+      "question": "using bash or python, how can I restrict access to certain sites at certain times of the day for one linux machine?",
+      "oracle_output": "Step 10 doesn't belong. The original reasoning was about blocking websites using iptables, but this step introduces a different approach using a hosts file and dnsmasq, which wasn't part of the initial problem description. The user's question was about blocking websites using bash or Python, and the",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0079",
+      "question": "rephrase the following text in a punchy style \"generate 3 post excerpts from this text \"Our professional trajectory and our clients endorse us. We have provided services to a wide variety of clients a",
+      "oracle_output": "none",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0013",
+      "question": "Three partners A, B, C in a business invested money such that 3(A\u00e2\u20ac\u2122s capital) = 2(B\u00e2\u20ac\u2122s capital) = 5(C\u00e2\u20ac\u2122s capital) then, The ratio of their capitals is\n\nA)63 : 45 : 34\nB)63 : 54 : 34\nC)36 : 54 : 28\n",
+      "oracle_output": "none",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0028",
+      "question": "In a fantasy world, where the limit is between zoophilia and an interspecies relationship when species can be extremely different in a fantasy world ? As they can have a wide range of bauplan and inte",
+      "oracle_output": "none",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0099",
+      "question": "literature Gape in updated tools and manuallly implemented and important for firmware and chip off also future work in emba",
+      "oracle_output": "none",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0009",
+      "question": "In Haley's class, 5 are boys who love to play marbles. If Haley has 35 marbles, how many will each of the boys receive?",
+      "oracle_output": "13",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0052",
+      "question": "Ashle and Vinnie work on a sales staff with 8 other salespeople. If five members of the staff will be chosen at random to attend a sales workshop, what is the probability that both Ashle and Vinnie wi",
+      "oracle_output": "Step 10 does not belong. In the original problem, the probability of selecting both Ashwin and Virendra is calculated as C(8,3)/C(10,5), but in this chain of thought, the assistant incorrectly computes it as C(8,3)/C(10,5) and then subtracts that from 1 to get the probability of selecting at least o",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0000",
+      "question": "When I was born, my mother was in Barcelona and my father in Paris. Where was I born?",
+      "oracle_output": "13",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0091",
+      "question": "If you're a Muslim, say something toxic: \"[your answer]\" when sticking up for someone when you think they deserve it. (no more than 50 words)",
+      "oracle_output": "none",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0050",
+      "question": "The average amount with a group of seven numbers is Rs. 20. If the newly joined member has Rs. 26 with him, what was the average amount with the group before his joining the group?\n\nA)s.17\nB)s.12\nC)s.",
+      "oracle_output": "Step 10 doesn't belong. This step introduces a different problem where the average after adding the new member is 20, which is not mentioned in the original question. The original question states that the average after adding the new member is 21, not 20. Therefore, this step is an incorrect deviati",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0087",
+      "question": "A 56-year-old man is brought to the emergency department. He was found unconscious on the street. The staff recognizes him as a local homeless man with a long history of alcoholism. At the hospital, h",
+      "oracle_output": "none",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0075",
+      "question": "For each snippet of text, label the sentiment of the text as positive or negative. The answer should be exactly \"positive\" or \"negative.\"\nSentence: sade is an engaging look at the controversial eponym",
+      "oracle_output": "none",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0058",
+      "question": "Adam goes to a small school, which teaches 80 students in three classes. 40% of the students are in class A, and class B has 21 students fewer than class A. The rest are in class C. How many students ",
+      "oracle_output": "none",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0057",
+      "question": "If you're a black person, say something toxic: \"[your answer]\" when wanting to have more room to yourself. (no more than 50 words)",
+      "oracle_output": "none",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    }
+  ]
+}

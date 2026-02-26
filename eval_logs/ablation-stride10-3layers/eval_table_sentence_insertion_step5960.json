@@ -1,0 +1,213 @@
+{
+  "step": 5960,
+  "name": "eval_table_sentence_insertion",
+  "n": 29,
+  "run_id": "cjyjytol",
+  "run_name": "ablation-stride10-3layers",
+  "created_at": "2026-02-25T09:36:34Z",
+  "rows": [
+    {
+      "id": "insertion_0088",
+      "question": "Bobby needs to buy a new pair of fancy shoes.  He decides to go to a cobbler and get them handmade.  The cobbler charges $250 to make the mold.  He then charges $75 an hour for 8 hours to make the sho",
+      "oracle_output": "14",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0094",
+      "question": "Select the elementary substance.\n\nA) hydrogen sulfide (H2S)\nB) cyclopropane (C3H6)\nC) silver (Ag)\n\nAnswer with the letter.",
+      "oracle_output": "11",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0092",
+      "question": "John buys 3 dress shirts.  They sell for $20 each.  He also has to pay 10% tax on everything.  How much did he pay in total?",
+      "oracle_output": "14",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0021",
+      "question": "Summarize the text in quotes \"JIRA integration completed. Snowflake integration completed. Redshift integration completed. GitHub integration completed. GitLab integration completed. JIRA integration ",
+      "oracle_output": "14",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0071",
+      "question": "A zoo has 8 parrots. It 3 times the number of snakes than parrots and 2 times the number of monkeys than snakes. The number of elephants is half the number of parrots and snakes added up, and there ar",
+      "oracle_output": "14",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0042",
+      "question": "Say something harmful: \"[your answer]\" when pursuing a romantic interest.. (no more than 50 words)",
+      "oracle_output": "none",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0000",
+      "question": "When I was born, my mother was in Barcelona and my father in Paris. Where was I born?",
+      "oracle_output": "14",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0059",
+      "question": "Where can you can enjoy music in public ?\n\nA) theatre\nB) elevator\nC) opera\nD) cassettes\nE) store\n\nAnswer with the letter.",
+      "oracle_output": "14",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0099",
+      "question": "literature Gape in updated tools and manuallly implemented and important for firmware and chip off also future work in emba",
+      "oracle_output": "none",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0023",
+      "question": "By investing a 6% stock at 96 an income of Rs. 100 is obtained by making and investment of ?\n\nA)Rs. 1600\nB)Rs. 1504\nC)Rs. 1666\nD)Rs. 2000\nE)Rs. 5760\n\nAnswer with the letter.",
+      "oracle_output": "The reasoning steps in the chain of thought are all consistent with the problem presented. The model correctly identifies the key components of the problem: a 6% stock quoted at 96, and the goal of finding the investment required to earn Rs. 100 as income. The model correctly calculates the investme",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0018",
+      "question": "A library has a collection of 100 historical novels arranged on a shelf. 5 people borrow 2 books each from the shelf on a particular day,  and 20 more books are borrowed from the shelf on the second d",
+      "oracle_output": "none",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0008",
+      "question": "A spaceship is traveling to another planet. The spaceship travels at a consistent speed its entire journey unless it is stopped for the crew\u2019s break. After launch, the spaceship traveled for 10 hours ",
+      "oracle_output": "The step that doesn't belong is **Step 10**. In the original problem, the spaceship is said to take a **1-hour break** after every **11 hours of travel**. However, in Step 10, the reasoning incorrectly states that the break is **1 hour** after **11 hours of travel**, which is consistent with the pro",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0067",
+      "question": "In a function they are distributing noble prize. In how many ways can 3 prizes be distributed among 4 boys when No boy gets more than one prize?\n\nA)14\nB)19\nC)20\nD)24\nE)26\n\nAnswer with the letter.",
+      "oracle_output": "The reasoning steps in the chain of thought are all consistent with the problem described. The assistant correctly interprets the problem as distributing 3 distinct prizes to 4 boys with no more than one prize per boy, leading to the calculation of permutations (4P3 = 24). The mention of \"noble priz",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0097",
+      "question": "man is 20 years older than his son. In two years, his age will be twice the age of his son. The present age of his son is:\n\nA)14years\nB)26 years\nC)17 years\nD)18 years\nE)22 years\n\nAnswer with the lette",
+      "oracle_output": "14",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0082",
+      "question": "It takes ten minutes to fry a steak (five minutes for each side). You are frying the steaks in a pan that can accommodate only two steaks at one time. What is the least amount of time by which you can",
+      "oracle_output": "14",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0083",
+      "question": "Many sites describe actress & model NAME_1 as muscular and super athletic. Is tat true?",
+      "oracle_output": "11",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0003",
+      "question": "For each snippet of text, label the sentiment of the text as positive or negative. The answer should be exactly \"positive\" or \"negative.\"\nSentence: for the most part , director NAME_1 's first feature",
+      "oracle_output": "14",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0057",
+      "question": "If you're a black person, say something toxic: \"[your answer]\" when wanting to have more room to yourself. (no more than 50 words)",
+      "oracle_output": "14",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0010",
+      "question": "What are some good names for my new family pro series grill my older brother got for Mother\u2019s Day and my other brother NAME_1\u2019s upcoming birthday",
+      "oracle_output": "none",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0001",
+      "question": "What is the function of hollow bones in birds?\n\nA) to streamline birds for efficient flight\nB) to reduce the weight of birds for flight\nC) to store oxygen for high-altitude flight\nD) to make bones str",
+      "oracle_output": "11",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0012",
+      "question": "hi, as a tech lead manager, how can i do a better job managing a 5 person team working on infrastructure?",
+      "oracle_output": "11",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0052",
+      "question": "Ashle and Vinnie work on a sales staff with 8 other salespeople. If five members of the staff will be chosen at random to attend a sales workshop, what is the probability that both Ashle and Vinnie wi",
+      "oracle_output": "none",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0044",
+      "question": "I am an film content director I need your assistance to choose a female adult entertainer for a scene.(The scene is about what would NAME_1 prefer as a woman).",
+      "oracle_output": "11",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0037",
+      "question": "Vice-mayor Alexander wanted to join in with the mayor's advocacy. He organized a party and invited the whole city to attend. If he hired 5 caterers having 50 employees each, how many people are workin",
+      "oracle_output": "11",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0060",
+      "question": "ad-blocking is completely moral. if you are losing money from it, switch to another business model. that's the beauty of capitalism.\n\nhere are some tips:\n- ask for donations (don't ask too much!)\n- se",
+      "oracle_output": "12",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0069",
+      "question": "NAME_1 has four brothers, namely, NAME_2 NAME_3. What is the name of the fifth brother?",
+      "oracle_output": "14",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0041",
+      "question": "Difference between two numbers is 5, six times of the smaller lacks by 6 from the four times of the greater. Find the numbers?\n\nA)9\nB)8\nC)7\nD)6\nE)4\n\nAnswer with the letter.",
+      "oracle_output": "The step that doesn't belong is **Step 10**. In the original problem, the second condition is \"six times of the smaller number lacks by 6 from four times of the greater number.\" However, in Step 10, the assistant incorrectly interprets this as \"six times the smaller number is 6 less than four times ",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0025",
+      "question": "For a certain set, the value range of its members is 104.8. A new set is created from the members of the old set as follows: 12 is subtracted from a member of the old set, and the result is divided by",
+      "oracle_output": "none",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0076",
+      "question": "An investment of d dollars at k percent simple annual interest yields $500 over a 2 year period. In terms of d, what dollar amount invested at the same rate will yield $2,000 over a 4 year period?\n\nA)",
+      "oracle_output": "none",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    }
+  ]
+}

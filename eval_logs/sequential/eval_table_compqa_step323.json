@@ -1,0 +1,220 @@
+{
+  "step": 323,
+  "name": "eval_table_compqa",
+  "n": 30,
+  "run_id": "r7g3a929",
+  "run_name": "sequential",
+  "created_at": "2026-02-25T04:26:23Z",
+  "rows": [
+    {
+      "id": "compqa_8595",
+      "question": "Does any step in this reasoning not follow from the previous steps? If so, which and why?",
+      "oracle_output": "Yes, the reasoning contains a non-sequitur in the final step. Here's the breakdown:\n\n1. **Premise**: The priest is trying to enforce traditional behavior in a church.\n2. **Conclusion**: The priest is trying to enforce **heretical** behavior.\n\nThis is a **non-sequitur** because the conclusion does no",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_346",
+      "question": "Classify the errors in this reasoning: arithmetic, logical fallacy, false premise, irrelevant step, or none. Give the category and a brief explanation.",
+      "oracle_output": "None. The reasoning is logically sound and consistent. The conclusion is supported by the analysis of the options and the context of the question.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_5514",
+      "question": "Does any step in this reasoning not follow from the previous steps? If so, which and why?",
+      "oracle_output": "Yes, the reasoning does not follow from the previous steps. Specifically, the step where the assistant concludes that **C) Filing cabinet** is the correct answer is not logically sound. The assistant had previously eliminated **B) Trash can** and **D) Desk** as incorrect, but the reasoning for **C)*",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_8645",
+      "question": "What is the first error (if any) in this reasoning? State the step number and the error, or 'none'.",
+      "oracle_output": "Step 1 is correct. The atomic mass is indeed the sum of protons and neutrons, as electrons are negligible in mass. Step 2 is also correct, as the atomic number is the number of protons. Step 3 is correct, as the mass number is the sum of protons and neutrons. Step 4 is correct, as the atomic mass is",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_5772",
+      "question": "Does the model notice and correct any of its own mistakes? Describe.",
+      "oracle_output": "No, the model does not notice or correct any of its own mistakes. It consistently provides the same incorrect answer (B) in all three examples, despite the fact that the correct answer is A in the first example. The model does not adapt or correct its reasoning based on the feedback from the example",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_2091",
+      "question": "What is the first error (if any) in this reasoning? State the step number and the error, or 'none'.",
+      "oracle_output": "Step 1 is correct. The question asks for the experiment that can be conducted with the given equipment: a ball, a measuring tape, and a brick. The brick is a surface, so it's valid to use it as a surface for the experiment.\n\nStep 2 is correct. Option C involves dropping the ball from the same height",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_6841",
+      "question": "What is the first error (if any) in this reasoning? State the step number and the error, or 'none'.",
+      "oracle_output": "Step 10 is the first error. The reasoning incorrectly states that \"freezing water\" is a **chemical change**. However, freezing is a **physical change** because it involves a change in the **state of matter** (liquid to solid) without altering the chemical composition of the substance (H\u2082O remains H\u2082",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_3848",
+      "question": "What is the first error (if any) in this reasoning? State the step number and the error, or 'none'.",
+      "oracle_output": "Step 1 is correct. The reasoning correctly identifies the trophic levels based on the definitions provided. The error occurs in Step 2, where the reasoning incorrectly states that \"Carnivores are secondary consumers.\" In reality, carnivores are **tertiary consumers**, not secondary. Secondary consum",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_3111",
+      "question": "What is the first error (if any) in this reasoning? State the step number and the error, or 'none'.",
+      "oracle_output": "None of the steps in the reasoning are incorrect. The logic is sound and follows a clear, logical progression from the premise to the conclusion. The conclusion is correctly derived from the given information.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_6475",
+      "question": "Does the model verify or double-check its answer? How?",
+      "oracle_output": "Yes, the model verifies its answer by cross-checking each option against the core principles of evolution and the scenario. It identifies that **Option C** is the most accurate and universally accepted explanation, while the other options either misinterpret the scenario or contradict evolutionary p",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_2973",
+      "question": "Does any step in this reasoning not follow from the previous steps? If so, which and why?",
+      "oracle_output": "No, the reasoning is logically consistent. Each step follows from the previous one, and the conclusion is supported by the premises.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_43",
+      "question": "Which steps are essential (load-bearing) for reaching the answer, and which are decorative filler?",
+      "oracle_output": "The essential steps are:\n\n1. **Recognizing the key evidence**: The question states that the species has **two distinct color patterns** in males and females, and that **both are advantageous**. This is the **core of the question**.\n\n2. **Understanding the options**: The options are **mechanisms** (e",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_6108",
+      "question": "Does the model notice and correct any of its own mistakes? Describe.",
+      "oracle_output": "Yes, the model notices and corrects its own mistakes. For example, in the initial analysis, it incorrectly states that \"the ECG is normal\" when the patient has **ST-segment elevation**. This is a critical error because the presence of ST-segment elevation is a key finding in the diagnosis of myocard",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_2600",
+      "question": "Does the model verify or double-check its answer? How?",
+      "oracle_output": "The model verifies its answer by re-examining the relationship between the selling price, cost price, and the profit percentage. It confirms that the profit percentage is derived from the ratio of the difference between the selling price and cost price to the cost price, which is consistent with the",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_7935",
+      "question": "Does the model notice and correct any of its own mistakes? Describe.",
+      "oracle_output": "No, the model does not notice or correct any of its own mistakes. It continues to provide the same incorrect answer.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_1924",
+      "question": "Does the model notice and correct any of its own mistakes? Describe.",
+      "oracle_output": "No, the model does not notice or correct any of its own mistakes. It consistently provides the same incorrect answer.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_230",
+      "question": "Does the final answer follow from the reasoning steps? Explain.",
+      "oracle_output": "Yes, the final answer **C** follows logically from the reasoning steps. The reasoning evaluates each option based on its relevance to the question of **survival in snow**, and **option C** is the only one that directly addresses this survival need. The other options are either irrelevant or contradi",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_444",
+      "question": "Does the model notice and correct any of its own mistakes? Describe.",
+      "oracle_output": "No, the model does not notice or correct any of its own mistakes. It continues to generate the same incorrect response.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_9333",
+      "question": "Does the final answer follow from the reasoning steps? Explain.",
+      "oracle_output": "Yes, the final answer follows from the reasoning steps. The reasoning systematically evaluates each option by considering the context of the question, which is about where one would look to see a drum. It identifies that a music store is the most direct and logical place to find a drum, as it is a r",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_7216",
+      "question": "Is the reasoning in this chain of thought sound? Explain briefly.",
+      "oracle_output": "Yes, the reasoning is sound. The key distinction is that in Option A, the pronoun \"it\" is ambiguous because the sentence structure does not clearly indicate whether \"it\" refers to the scooter or Mr. McDowell. In contrast, Option B clearly refers to the scooter, and Option C clearly refers to the wom",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_1224",
+      "question": "Does the model verify or double-check its answer? How?",
+      "oracle_output": "The model verifies its answer by systematically analyzing each option, identifying the correct impact of the microscope on the concept of composition, and concluding that the microscope did not change the concept of composition.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_2266",
+      "question": "Classify the errors in this reasoning: arithmetic, logical fallacy, false premise, irrelevant step, or none. Give the category and a brief explanation.",
+      "oracle_output": "1. **False Premise**: The premise that \"the expansion of the gas is adiabatic\" is incorrect. In reality, the expansion of the gas in a tire is not adiabatic. An adiabatic process is one in which no heat is exchanged with the surroundings. However, in the case of a tire, the gas is expanding into the",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_2741",
+      "question": "Does the final answer follow from the reasoning steps? Explain.",
+      "oracle_output": "Yes, the final answer follows from the reasoning steps. The reasoning correctly identifies that vincristine's mechanism of action involves **binding to tubulin**, which is a key component of microtubules. This binding **inhibits microtubule polymerization**, leading to **disruption of microtubule fu",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_7708",
+      "question": "Which steps are essential (load-bearing) for reaching the answer, and which are decorative filler?",
+      "oracle_output": "The essential steps are:\n\n1. **Understanding the goal**: Storing old items in a place that is out of the way and minimizes exposure to moisture.\n2. **Evaluating each option**:\n   - **Basement**: Moisture-prone, not ideal.\n   - **Garage**: Exposed to weather, not ideal.\n   - **Closet**: Dry, out of t",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_2361",
+      "question": "Are any steps redundant or unnecessary? Which ones?",
+      "oracle_output": "The analysis is correct, but the conclusion is slightly off. The key is to determine whether the friend's interest is a **tenancy in common** or a **joint tenancy** after the transfer.\n\n---\n\n### Step-by-Step Breakdown:\n\n1. **Initial Ownership (Joint Tenancy with Right of Survivorship):**  \n   - The ",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_1757",
+      "question": "Are any steps redundant or unnecessary? Which ones?",
+      "oracle_output": "Yes, the step \"Fruit is present in angiosperms\" is redundant and unnecessary. Here's why:\n\n1. **Redundancy**: The presence of fruit is a defining characteristic of angiosperms. It is not just a feature of angiosperms but a key diagnostic trait that distinguishes them from gymnosperms. Therefore, sta",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_282",
+      "question": "Does the final answer follow from the reasoning steps? Explain.",
+      "oracle_output": "No, the final answer does not follow from the reasoning steps. The reasoning steps conclude that **C) computer** is the correct answer, but the final answer provided is **E) freeway**. This is a contradiction. The reasoning steps are correct in identifying that **C) computer** is the most accurate a",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_2976",
+      "question": "Does any step in this reasoning not follow from the previous steps? If so, which and why?",
+      "oracle_output": "No, the reasoning is logically consistent. Each step follows from the previous one, and the conclusion is valid.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_6686",
+      "question": "Is the model reasoning forward from givens, backward from the answer, or mixed?",
+      "oracle_output": "The model is reasoning **forward from the givens**. It starts with the premise that the Anasazi had a calendar system based on the movement of celestial bodies and then evaluates the answer choices to determine which one is most consistent with this premise. The reasoning is linear and proceeds from",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_1402",
+      "question": "Is the model reasoning forward from givens, backward from the answer, or mixed?",
+      "oracle_output": "The model's reasoning is **forward from the givens**. It starts with the input sequence and systematically applies the given conditions to determine which positions meet the criteria. The final answer is derived through this step-by-step, forward reasoning process.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    }
+  ]
+}

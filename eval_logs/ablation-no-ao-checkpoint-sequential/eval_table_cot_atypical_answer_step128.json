@@ -1,0 +1,510 @@
+{
+  "step": 128,
+  "name": "eval_table_cot_atypical_answer",
+  "n": 50,
+  "run_id": "8c4wimbw",
+  "run_name": "ablation-no-ao-checkpoint-sequential",
+  "created_at": "2026-02-26T18:24:16Z",
+  "rows": [
+    {
+      "id": 0,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "Activations from 489 positions across layers 9, 18, 27. Is this a majority or minority answer for this question? Answer: majority or minority.",
+      "prediction": "The answer is **majority**.",
+      "target": "majority",
+      "token_f1": 0.0,
+      "pred_tokens": 4,
+      "target_tokens": 1
+    },
+    {
+      "id": 1,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "Activations from 576 positions across layers 9, 18, 27. Is this a majority or minority answer for this question? Answer: majority or minority.",
+      "prediction": "The provided text is a series of legal terms and phrases related to property law, specifically dealing with the transfer of property rights, such as \"deed,\" \"will,\" \"trust,\" \"heir,\" \"beneficiary,\" and others. These terms are commonly used in legal documents and are part of the standard vocabulary in property law.\n\nThe question asks whether this is a \"majority\" or \"minority\" answer. In the context of legal terminology, the terms listed are standard and widely recognized",
+      "target": "majority",
+      "token_f1": 0.0,
+      "pred_tokens": 75,
+      "target_tokens": 1
+    },
+    {
+      "id": 2,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "Activations from 366 positions across layers 9, 18, 27. Is this a majority or minority answer for this question? Answer: majority or minority.",
+      "prediction": "The question is asking whether the statement \"Activations from 366 positions across layers 9, 18, 27\" is a majority or minority answer. The statement itself is a factual claim about the number of positions and layers involved in some process, likely related to a model or system with multiple layers.\n\nTo determine if this is a majority or minority answer, we need to consider the context of the question. If the question is asking about the number of positions across layers in",
+      "target": "minority",
+      "token_f1": 0.041,
+      "pred_tokens": 82,
+      "target_tokens": 1
+    },
+    {
+      "id": 3,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "Activations from 153 positions across layers 9, 18, 27. Is this a majority or minority answer for this question? Answer: majority or minority.",
+      "prediction": "minority",
+      "target": "majority",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 4,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "Activations from 390 positions across layers 9, 18, 27. Is this a majority or minority answer for this question? Answer: majority or minority.",
+      "prediction": "The question is asking whether the statement \"The majority of people who are not in the majority are in the minority\" is a majority or minority answer. Let's break this down step by step.\n\n1. **Understanding the statement**: The statement is a bit of a paradoxical or self-referential statement. It says that the majority of people who are not in the majority are in the minority. This is a bit confusing because it's trying to describe a situation where a group (those not in",
+      "target": "majority",
+      "token_f1": 0.042,
+      "pred_tokens": 84,
+      "target_tokens": 1
+    },
+    {
+      "id": 5,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "Activations from 456 positions across layers 9, 18, 27. Is this a majority or minority answer for this question? Answer: majority or minority.",
+      "prediction": "Answer: minority",
+      "target": "minority",
+      "token_f1": 0.667,
+      "pred_tokens": 2,
+      "target_tokens": 1
+    },
+    {
+      "id": 6,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "Activations from 483 positions across layers 9, 18, 27. Is this a majority or minority answer for this question? Answer: majority or minority.",
+      "prediction": "The question is asking whether the statement \"Activations from 483 positions across layers 9, 18, 27\" is a majority or minority answer. However, the statement itself is not a yes/no question or a statement that can be classified as majority or minority. It is a factual statement about the number of activations across specific layers.\n\nTherefore, the statement is **not** a majority or minority answer. It is simply a factual claim.",
+      "target": "minority",
+      "token_f1": 0.047,
+      "pred_tokens": 71,
+      "target_tokens": 1
+    },
+    {
+      "id": 7,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "Activations from 594 positions across layers 9, 18, 27. Is this a majority or minority answer for this question? Answer: majority or minority.",
+      "prediction": "The provided text is a series of legal terms and phrases, but it does not contain a clear question or statement that can be answered as \"majority\" or \"minority.\" The terms are related to legal procedures, such as \"judgment,\" \"remedy,\" \"party,\" \"appeal,\" and \"precedent,\" but without a specific question or context, it is not possible to determine whether the answer is a majority or minority opinion.\n\nTherefore, the answer is: **minority**",
+      "target": "minority",
+      "token_f1": 0.039,
+      "pred_tokens": 71,
+      "target_tokens": 1
+    },
+    {
+      "id": 8,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "Activations from 378 positions across layers 9, 18, 27. Is this a majority or minority answer for this question? Answer: majority or minority.",
+      "prediction": "The question is asking whether the statement \"Activations from 378 positions across layers 9, 18, 27\" is a majority or minority answer for the question \"What is the number of positions that are activated across layers 9, 18, 27?\" \n\nThe statement directly provides the number of positions activated (378) across the specified layers. Therefore, it is a **majority** answer because it directly answers the question with the specific",
+      "target": "minority",
+      "token_f1": 0.049,
+      "pred_tokens": 68,
+      "target_tokens": 1
+    },
+    {
+      "id": 9,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "Activations from 354 positions across layers 9, 18, 27. Is this a majority or minority answer for this question? Answer: majority or minority.",
+      "prediction": "The question is asking whether the answer provided is a majority or minority answer. The answer given is \"majority or minority.\" This is a bit ambiguous, but it seems the user is asking if the answer they provided (which is \"majority or minority\") is a majority or minority answer to the question.\n\nHowever, the question itself is not clear. It seems like the user is asking about the answer to a question that is not fully specified. The answer \"majority or minority\" is not",
+      "target": "majority",
+      "token_f1": 0.051,
+      "pred_tokens": 84,
+      "target_tokens": 1
+    },
+    {
+      "id": 10,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "Activations from 654 positions across layers 9, 18, 27. Is this a majority or minority answer for this question? Answer: majority or minority.",
+      "prediction": "The question is asking whether the statement \"Activations from 654 positions across layers 9, 18, 27\" is a majority or minority answer. This is a bit ambiguous, but it seems to be asking whether the statement represents a majority or minority opinion in the context of a legal or political question.\n\nHowever, the statement itself is not a legal or political opinion. It is a factual statement about the number of activations across specific layers. Therefore, it is not a",
+      "target": "majority",
+      "token_f1": 0.042,
+      "pred_tokens": 80,
+      "target_tokens": 1
+    },
+    {
+      "id": 11,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "Activations from 267 positions across layers 9, 18, 27. Is this a majority or minority answer for this question? Answer: majority or minority.",
+      "prediction": "Okay, let's try to figure out if the answer provided is a majority or minority answer. The question is about whether the statement \"The majority of people in the United States believe that the government should provide more support for renewable energy sources\" is a majority or minority answer.\n\nFirst, I need to understand what the question is asking. It's asking whether the statement itself is a majority or minority answer. Wait, that's a bit confusing. Let me parse it again. The user is asking",
+      "target": "majority",
+      "token_f1": 0.035,
+      "pred_tokens": 86,
+      "target_tokens": 1
+    },
+    {
+      "id": 12,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "Activations from 528 positions across layers 9, 18, 27. Is this a majority or minority answer for this question? Answer: majority or minority.",
+      "prediction": "The question is asking whether the statement \"Activations from 528 positions across layers 9, 18, 27\" is a majority or minority answer. However, the statement itself is not a direct answer to a question. It appears to be a description of some data or result, possibly from a machine learning model or a neural network, indicating that there are 528 activation positions across three specific layers (9, 18, 27).\n\nSince the",
+      "target": "minority",
+      "token_f1": 0.038,
+      "pred_tokens": 71,
+      "target_tokens": 1
+    },
+    {
+      "id": 13,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "Activations from 393 positions across layers 9, 18, 27. Is this a majority or minority answer for this question? Answer: majority or minority.",
+      "prediction": "Okay, let's see. The question is asking whether the answer provided is a majority or minority answer. The answer given is \"majority or minority.\" Wait, that's confusing. The user is asking if the answer is majority or minority, but the answer itself is \"majority or minority.\" That seems like a trick question. Let me think.\n\nFirst, the original question is about whether the answer is majority or minority. The answer given is \"majority or minority.\" So, the answer",
+      "target": "majority",
+      "token_f1": 0.05,
+      "pred_tokens": 78,
+      "target_tokens": 1
+    },
+    {
+      "id": 14,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "Activations from 1746 positions across layers 9, 18, 27. Is this a majority or minority answer for this question? Answer: majority or minority.",
+      "prediction": "Okay, let's try to figure out this question. The user is asking whether the answer provided is a majority or minority answer. The question is about the number of positions across layers 9, 18, 27. The answer given is \"majority or minority.\" Wait, that doesn't make sense. The answer options are supposed to be the possible answers, but here the answer is just stating whether it's majority or minority. Hmm, maybe there's a misunderstanding here.\n\nLet",
+      "target": "minority",
+      "token_f1": 0.035,
+      "pred_tokens": 76,
+      "target_tokens": 1
+    },
+    {
+      "id": 15,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "Activations from 588 positions across layers 9, 18, 27. Is this a majority or minority answer for this question? Answer: majority or minority.",
+      "prediction": "The question is asking whether the statement \"Activations from 588 positions across layers 9, 18, 27\" is a majority or minority answer. However, the statement itself is not a yes/no question or a statement that can be classified as a majority or minority answer. It appears to be a factual statement about the number of activations across specific layers.\n\nTherefore, the statement is not a question, and it cannot be classified as a majority or minority answer. The correct",
+      "target": "minority",
+      "token_f1": 0.044,
+      "pred_tokens": 79,
+      "target_tokens": 1
+    },
+    {
+      "id": 16,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "Activations from 636 positions across layers 9, 18, 27. Is this a majority or minority answer for this question? Answer: majority or minority.",
+      "prediction": "The provided text is a series of random characters and symbols, which does not form any coherent question or statement. Therefore, it is not possible to determine whether it is a majority or minority answer. \n\nAnswer: neither",
+      "target": "minority",
+      "token_f1": 0.062,
+      "pred_tokens": 37,
+      "target_tokens": 1
+    },
+    {
+      "id": 17,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "Activations from 480 positions across layers 9, 18, 27. Is this a majority or minority answer for this question? Answer: majority or minority.",
+      "prediction": "The question is asking whether the statement \"Activations from 480 positions across layers 9, 18, 27\" is a majority or minority answer. However, the statement itself is not a clear answer to any specific question. It appears to be a technical description or observation, possibly related to machine learning or neural networks, where \"activations\" might refer to the outputs of neurons in different layers of a model.\n\nSince the statement is not a direct answer to a question",
+      "target": "majority",
+      "token_f1": 0.037,
+      "pred_tokens": 78,
+      "target_tokens": 1
+    },
+    {
+      "id": 18,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "Activations from 345 positions across layers 9, 18, 27. Is this a majority or minority answer for this question? Answer: majority or minority.",
+      "prediction": "Okay, let's see. The user is asking whether the given answer is a majority or minority answer. The answer provided is \"majority or minority.\" Wait, that's confusing. The question is about determining if the answer is majority or minority, but the answer itself is just stating both options. Hmm.\n\nFirst, I need to understand the context. The original question might have been something like \"Is the answer a majority or minority?\" and the answer given is \"majority or minority.\" But",
+      "target": "minority",
+      "token_f1": 0.041,
+      "pred_tokens": 80,
+      "target_tokens": 1
+    },
+    {
+      "id": 19,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "Activations from 567 positions across layers 9, 18, 27. Is this a majority or minority answer for this question? Answer: majority or minority.",
+      "prediction": "minority",
+      "target": "minority",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 20,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "Activations from 1200 positions across layers 9, 18, 27. Is this a majority or minority answer for this question? Answer: majority or minority.",
+      "prediction": "</think>\n\nOkay, let's see. The question is asking whether the answer \"majority or minority\" is correct for the given context. The context provided is about a company's financial statements, specifically mentioning layers 9, 18, 27, and then a series of numbers and terms like \"ending,\" \"beginning,\" \"purchases,\" \"cost of goods sold,\" \"ending inventory,\" etc. The answer options are \"majority\" or \"minority.\"\n\nFirst,",
+      "target": "majority",
+      "token_f1": 0.0,
+      "pred_tokens": 62,
+      "target_tokens": 1
+    },
+    {
+      "id": 21,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "Activations from 648 positions across layers 9, 18, 27. Is this a majority or minority answer for this question? Answer: majority or minority.",
+      "prediction": "The provided text is a series of symbols, characters, and words that appear to be a random or nonsensical string. It does not contain any meaningful content or coherent message. Therefore, it is not a valid answer to any question, and it cannot be classified as either a majority or minority answer.\n\nAnswer: neither",
+      "target": "minority",
+      "token_f1": 0.048,
+      "pred_tokens": 54,
+      "target_tokens": 1
+    },
+    {
+      "id": 22,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "Activations from 366 positions across layers 9, 18, 27. Is this a majority or minority answer for this question? Answer: majority or minority.",
+      "prediction": "The question is asking whether the statement \"Activations from 366 positions across layers 9, 18, 27\" is a majority or minority answer. However, the statement itself is not a yes/no question or a statement that can be classified as a majority or minority answer. It is a factual statement about the number of activations across specific layers.\n\nTherefore, the statement is not a question, and it cannot be classified as a majority or minority answer. The correct answer is",
+      "target": "majority",
+      "token_f1": 0.045,
+      "pred_tokens": 79,
+      "target_tokens": 1
+    },
+    {
+      "id": 23,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "Activations from 411 positions across layers 9, 18, 27. Is this a majority or minority answer for this question? Answer: majority or minority.",
+      "prediction": "The question is asking whether the statement \"Activations from 411 positions across layers 9, 18, 27\" is a majority or minority answer. This is a bit ambiguous, but it seems to be asking whether the statement represents a majority or minority opinion, or whether it is a common or less common answer to a question.\n\nHowever, the statement itself is not a question or an opinion. It is a factual statement about activations across certain layers. Therefore, it is",
+      "target": "majority",
+      "token_f1": 0.043,
+      "pred_tokens": 79,
+      "target_tokens": 1
+    },
+    {
+      "id": 24,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "Activations from 402 positions across layers 9, 18, 27. Is this a majority or minority answer for this question? Answer: majority or minority.",
+      "prediction": "The question is asking whether the statement \"The majority of people who are born with a female biological sex are female\" is true, false, or uncertain. The statement is a factual claim about the proportion of people born with a female biological sex who are female.\n\nThe statement is **true**. The biological sex assigned at birth is typically determined by physical characteristics such as chromosomes, hormones, and anatomy. In most cases, individuals born with a female biological sex are female.",
+      "target": "majority",
+      "token_f1": 0.038,
+      "pred_tokens": 86,
+      "target_tokens": 1
+    },
+    {
+      "id": 25,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "Activations from 219 positions across layers 9, 18, 27. Is this a majority or minority answer for this question? Answer: majority or minority.",
+      "prediction": "minority",
+      "target": "majority",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 26,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "Activations from 618 positions across layers 9, 18, 27. Is this a majority or minority answer for this question? Answer: majority or minority.",
+      "prediction": "The provided text is a series of random characters and symbols, which does not form a coherent question or statement. Therefore, it is not possible to determine whether it represents a majority or minority answer. \n\nAnswer: neither",
+      "target": "majority",
+      "token_f1": 0.062,
+      "pred_tokens": 37,
+      "target_tokens": 1
+    },
+    {
+      "id": 27,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "Activations from 288 positions across layers 9, 18, 27. Is this a majority or minority answer for this question? Answer: majority or minority.",
+      "prediction": "minority",
+      "target": "minority",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 28,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "Activations from 588 positions across layers 9, 18, 27. Is this a majority or minority answer for this question? Answer: majority or minority.",
+      "prediction": "The question is asking whether the statement \"Activations from 588 positions across layers 9, 18, 27\" is a majority or minority answer. However, the statement itself is not a direct answer to a question; it is a description of data or a technical observation.\n\nTo determine if it is a majority or minority answer, we need to know the context of the question it is answering. For example, if the question was something like \"How many positions are activated",
+      "target": "minority",
+      "token_f1": 0.039,
+      "pred_tokens": 79,
+      "target_tokens": 1
+    },
+    {
+      "id": 29,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "Activations from 591 positions across layers 9, 18, 27. Is this a majority or minority answer for this question? Answer: majority or minority.",
+      "prediction": "The provided text is a series of repeated and seemingly random strings of characters, including letters, numbers, and symbols. It does not contain any coherent or meaningful content that can be interpreted as an answer to the question about whether the answer is a majority or minority. Therefore, it is not a valid answer to the question.\n\nAnswer: minority",
+      "target": "minority",
+      "token_f1": 0.044,
+      "pred_tokens": 59,
+      "target_tokens": 1
+    },
+    {
+      "id": 30,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "Activations from 216 positions across layers 9, 18, 27. Is this a majority or minority answer for this question? Answer: majority or minority.",
+      "prediction": "minority",
+      "target": "majority",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 31,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "Activations from 426 positions across layers 9, 18, 27. Is this a majority or minority answer for this question? Answer: majority or minority.",
+      "prediction": "The provided text is a series of repeated and seemingly random characters, including symbols like \"\u00b6\", \"\u00b6\", \">\", \">\", \">\", \">\", \">\", \">\", \">\", \">\", \">\", \">\", \">\", \">\", \">\", \">\", \">\", \">\", \">\", \">\", \">\", \">\", \">\", \">\", \">\", \">\", \">\", \">\", \">\", \">\", \">\", \">\", \">\", \">\", \">\", \">\", \">\", \">\", \">\", \">\", \">\",",
+      "target": "majority",
+      "token_f1": 0.0,
+      "pred_tokens": 56,
+      "target_tokens": 1
+    },
+    {
+      "id": 32,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "Activations from 315 positions across layers 9, 18, 27. Is this a majority or minority answer for this question? Answer: majority or minority.",
+      "prediction": "Okay, let's see. The user is asking whether the answer provided is a majority or minority answer. The answer given is \"majority or minority.\" Wait, that's confusing. The options are \"majority\" or \"minority,\" but the answer itself is stating both? That doesn't make sense. Maybe there's a mistake here. Let me check the question again.\n\nThe original question was about the answer being majority or minority. The answer given is \"majority or minority.\" But",
+      "target": "majority",
+      "token_f1": 0.042,
+      "pred_tokens": 74,
+      "target_tokens": 1
+    },
+    {
+      "id": 33,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "Activations from 852 positions across layers 9, 18, 27. Is this a majority or minority answer for this question? Answer: majority or minority.",
+      "prediction": "Okay, let's try to figure out whether the answer is majority or minority. The question is about the number of positions across layers 9, 18, 27. The user says there are 852 positions. The options are majority or minority.\n\nFirst, I need to understand what \"majority\" and \"minority\" mean in this context. Typically, majority means more than half, and minority is less than half. But the question is a bit unclear. Are",
+      "target": "minority",
+      "token_f1": 0.036,
+      "pred_tokens": 72,
+      "target_tokens": 1
+    },
+    {
+      "id": 34,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "Activations from 474 positions across layers 9, 18, 27. Is this a majority or minority answer for this question? Answer: majority or minority.",
+      "prediction": "The question is asking whether the statement \"The majority of people who are not in the majority are in the minority\" is a majority or minority answer. Let's break this down logically.\n\n1. **Understanding the statement**: The statement is a bit of a paradoxical or self-referential statement. It says that the majority of people who are not in the majority are in the minority. This is a bit confusing because it's trying to describe a situation where a group (those not in the majority",
+      "target": "majority",
+      "token_f1": 0.043,
+      "pred_tokens": 84,
+      "target_tokens": 1
+    },
+    {
+      "id": 35,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "Activations from 1098 positions across layers 9, 18, 27. Is this a majority or minority answer for this question? Answer: majority or minority.",
+      "prediction": "Okay, let's see. The question is asking whether the answer is a majority or minority answer. The options are majority or minority. The user provided a list of layers: 9, 18, 27. Then there's a line that says \"Answer: majority or minority.\" \n\nWait, maybe this is a trick question. The layers mentioned are 9, 18, 27. If I think about the layers in a context like a cake, each layer",
+      "target": "majority",
+      "token_f1": 0.04,
+      "pred_tokens": 70,
+      "target_tokens": 1
+    },
+    {
+      "id": 36,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "Activations from 471 positions across layers 9, 18, 27. Is this a majority or minority answer for this question? Answer: majority or minority.",
+      "prediction": "The question is asking whether the given text is a majority or minority answer. The text provided is a series of repeated and seemingly random phrases, including legal terms like \"\u00b6\" (which is a paragraph symbol), \"\u00b6\" (also a paragraph symbol), \"\u00b6\" (again the same), and other similar symbols. These symbols are not meaningful in the context of the question, which is about determining whether the text represents a majority or minority answer.\n\nSince the text does not contain any actual content tha",
+      "target": "minority",
+      "token_f1": 0.037,
+      "pred_tokens": 83,
+      "target_tokens": 1
+    },
+    {
+      "id": 37,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "Activations from 615 positions across layers 9, 18, 27. Is this a majority or minority answer for this question? Answer: majority or minority.",
+      "prediction": "The provided text is a series of repeated and seemingly random phrases, including legal terms like \"testimony,\" \"evidence,\" \"prosecution,\" \"defense,\" and \"jury,\" but they are not structured as a coherent argument or answer. The question asks whether the answer is a **majority** or **minority** answer, which typically refers to whether the answer aligns with the majority or minority view in a legal or factual context.\n\nSince the text does not provide a clear, structured",
+      "target": "majority",
+      "token_f1": 0.036,
+      "pred_tokens": 74,
+      "target_tokens": 1
+    },
+    {
+      "id": 38,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "Activations from 450 positions across layers 9, 18, 27. Is this a majority or minority answer for this question? Answer: majority or minority.",
+      "prediction": "The provided text is a series of repeated and nonsensical phrases, likely generated by a language model in a state of confusion or malfunction. It does not contain any coherent information or meaningful content that would allow for a determination of whether it represents a majority or minority answer to a question.\n\nTherefore, the answer is: **minority**.",
+      "target": "minority",
+      "token_f1": 0.043,
+      "pred_tokens": 57,
+      "target_tokens": 1
+    },
+    {
+      "id": 39,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "Activations from 879 positions across layers 9, 18, 27. Is this a majority or minority answer for this question? Answer: majority or minority.",
+      "prediction": "Okay, let's see. The question is asking whether the answer \"majority or minority\" is correct for the given scenario. The scenario involves a person who is a carrier of a recessive disease and has a child with someone who is not a carrier. The options are majority or minority.\n\nFirst, I need to recall some basic genetics here. Recessive diseases are those where the disease is only expressed when an individual has two copies of the recessive allele. So, if someone is a",
+      "target": "minority",
+      "token_f1": 0.0,
+      "pred_tokens": 83,
+      "target_tokens": 1
+    },
+    {
+      "id": 40,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "Activations from 411 positions across layers 9, 18, 27. Is this a majority or minority answer for this question? Answer: majority or minority.",
+      "prediction": "The question is asking whether the statement \"Activations from 411 positions across layers 9, 18, 27\" is a majority or minority answer. However, the statement itself is not a clear answer to any specific question. It appears to be a technical description or data point, possibly related to machine learning or neural networks, mentioning activations across certain layers and positions.\n\nSince the statement is not a direct answer to a question (e.g., \"What is the majority answer",
+      "target": "minority",
+      "token_f1": 0.038,
+      "pred_tokens": 77,
+      "target_tokens": 1
+    },
+    {
+      "id": 41,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "Activations from 549 positions across layers 9, 18, 27. Is this a majority or minority answer for this question? Answer: majority or minority.",
+      "prediction": "The question is asking whether the statement \"The majority of people who are not in the top 10% of income earners are not in the top 10% of wealth holders\" is a **majority** or **minority** answer.\n\nTo determine this, we need to understand the **distribution of wealth** versus **income** in a society. Here's the breakdown:\n\n1. **Income vs. Wealth Distribution**:\n   - In most developed economies, **wealth is more concentrated",
+      "target": "majority",
+      "token_f1": 0.04,
+      "pred_tokens": 69,
+      "target_tokens": 1
+    },
+    {
+      "id": 42,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "Activations from 603 positions across layers 9, 18, 27. Is this a majority or minority answer for this question? Answer: majority or minority.",
+      "prediction": "The provided text is a series of repeated and seemingly random phrases, including legal terms like \"Fourth Amendment,\" \"Fourth Amendment,\" \"Fourth Amendment,\" and others, but they are not structured as a coherent question or answer. The text does not clearly present a question about whether a majority or minority answer is being referred to, nor does it provide a clear context for determining if the answer is majority or minority.\n\nTherefore, the text does not provide a clear or valid question o",
+      "target": "majority",
+      "token_f1": 0.036,
+      "pred_tokens": 88,
+      "target_tokens": 1
+    },
+    {
+      "id": 43,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "Activations from 228 positions across layers 9, 18, 27. Is this a majority or minority answer for this question? Answer: majority or minority.",
+      "prediction": "minority",
+      "target": "majority",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 44,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "Activations from 543 positions across layers 9, 18, 27. Is this a majority or minority answer for this question? Answer: majority or minority.",
+      "prediction": "The given text is a series of repeated and seemingly random strings of characters, including letters, numbers, and symbols. It does not contain any meaningful content or context that would allow for a determination of whether it represents a majority or minority answer. Therefore, it is not possible to classify this as either a majority or minority answer based on the information provided.\n\nAnswer: neither",
+      "target": "minority",
+      "token_f1": 0.039,
+      "pred_tokens": 65,
+      "target_tokens": 1
+    },
+    {
+      "id": 45,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "Activations from 747 positions across layers 9, 18, 27. Is this a majority or minority answer for this question? Answer: majority or minority.",
+      "prediction": "The question is asking whether the statement \"Activations from 747 positions across layers 9, 18, 27\" is a majority or minority answer. However, the statement itself is not a direct answer to a question but rather a description of data or a technical observation. It does not express a position (majority or minority) but rather provides a factual statement about the number of activations across specific layers.\n\nTherefore, the statement is **not** a majority or minority answer",
+      "target": "majority",
+      "token_f1": 0.041,
+      "pred_tokens": 77,
+      "target_tokens": 1
+    },
+    {
+      "id": 46,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "Activations from 333 positions across layers 9, 18, 27. Is this a majority or minority answer for this question? Answer: majority or minority.",
+      "prediction": "The question is asking whether the statement \"Activations from 333 positions across layers 9, 18, 27\" is a majority or minority answer. The statement itself is a factual claim about the number of activations across specific layers. However, the question is phrased in a way that seems to be asking whether this statement is a majority or minority answer in the context of a larger set of possible answers.\n\nSince the statement is a specific factual claim and not a general",
+      "target": "majority",
+      "token_f1": 0.041,
+      "pred_tokens": 81,
+      "target_tokens": 1
+    },
+    {
+      "id": 47,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "Activations from 414 positions across layers 9, 18, 27. Is this a majority or minority answer for this question? Answer: majority or minority.",
+      "prediction": "The statement \"Activations from 414 positions across layers 9, 18, 27\" is a **minority** answer for the question \"What is the answer to this question?\" \n\n**Reasoning:**  \nThe question is asking for a direct answer to itself, which is a self-referential question. The correct answer would be \"What is the answer to this question?\" or a similar self-referential response. The given statement about activations and layers is",
+      "target": "minority",
+      "token_f1": 0.0,
+      "pred_tokens": 66,
+      "target_tokens": 1
+    },
+    {
+      "id": 48,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "Activations from 612 positions across layers 9, 18, 27. Is this a majority or minority answer for this question? Answer: majority or minority.",
+      "prediction": "The question is asking whether the statement \"Activations from 612 positions across layers 9, 18, 27\" is a majority or minority answer. The statement itself is a factual claim about the number of activations across specific layers. However, the question is not asking for a factual answer but rather whether the statement represents a majority or minority opinion.\n\nSince the statement is a factual claim and not an opinion, it does not inherently represent a majority or minority answer. However,",
+      "target": "minority",
+      "token_f1": 0.043,
+      "pred_tokens": 80,
+      "target_tokens": 1
+    },
+    {
+      "id": 49,
+      "type": "cot_atypical_answer",
+      "oracle_prompt": "Activations from 501 positions across layers 9, 18, 27. Is this a majority or minority answer for this question? Answer: majority or minority.",
+      "prediction": "The provided text is a series of random characters and symbols, which does not constitute a coherent answer or question. Therefore, it is not possible to determine whether it represents a majority or minority answer. \n\nAnswer: neither",
+      "target": "minority",
+      "token_f1": 0.062,
+      "pred_tokens": 37,
+      "target_tokens": 1
+    }
+  ]
+}

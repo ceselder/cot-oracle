@@ -1,0 +1,220 @@
+{
+  "step": 76,
+  "name": "eval_table_atypical_answer_mcq",
+  "n": 30,
+  "run_id": "lg0b51t2",
+  "run_name": "vast_seq_20260225_1016",
+  "created_at": "2026-02-25T10:25:14Z",
+  "rows": [
+    {
+      "id": "atypical_mcq_0023",
+      "question": "Costs for producing one widget: Materials:2 parts (a) $25.00 per part Expenses :$10.00 Labor :20 operations (a) $5.00 per operation Based on the above information, which is the only valid conclusion? ",
+      "oracle_output": "majority",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0068",
+      "question": "Two weeks before an election, a local newspaper published an article implying that one of the mayoral candidates was a thief. The candidate subsequently lost the election and sued the newspaper for de",
+      "oracle_output": "majority",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0072",
+      "question": "A preacher and his posse make a habit of showing up at funerals of soldiers suspected to be gay, carrying obnoxious signs and yelling out hurtful epithets. Finally, the parents of one dead soldier has",
+      "oracle_output": "majority",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0096",
+      "question": "A husband is charged with murder in the shooting death of his brother-in-law. In the jurisdiction in which the husband is on trial for murder, the defense of insanity is an affirmative defense. The hu",
+      "oracle_output": "majority",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0078",
+      "question": "One evening, a defendant set fire to a homeowner's occupied house. As a result of the blaze, the homeowner's daughter was killed. The defendant was charged with felony murder on the first count and ar",
+      "oracle_output": "majority",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0085",
+      "question": "The extent to which a service envelops a product varies according to a number of factors. Which of the following is NOT one of the factors?\n\nA) The CEO of the company producing the product\nB) The numb",
+      "oracle_output": "majority",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0080",
+      "question": "Suppose that the normalized wavefunction for an electron in a carbon nanotube of length $L=10.0 \\mathrm{~nm}$ is: $\\psi=(2 / L)^{1 / 2} \\sin (\\pi x / L)$. Calculate the probability that the electron i",
+      "oracle_output": "The reasoning leads to the majority answer.",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0039",
+      "question": "The muscle fibers innervated by a motor unit will contract if a stimulus of sufficient magnitude is propagated or it will not contract at all. This is known as the all-or- none law. If this is true, h",
+      "oracle_output": "majority",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0022",
+      "question": "A large man with red hair robbed a liquor store. Thereafter, a defendant was arrested and charged with the armed robbery. At the defendant's trial, several eyewitnesses testified that they had seen a ",
+      "oracle_output": "majority",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0010",
+      "question": "Which of the following statements about the DNA in one of your liver cells is correct?\n\nA) DNA in your liver cells contains genes unique to storing glycogen, while other cells do not contain those gen",
+      "oracle_output": "majority",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0037",
+      "question": "A builder wanted to have security systems installed in a series of homes he was building. He contacted several companies and asked them to submit bids for the installation work. An alarm company decid",
+      "oracle_output": "majority",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0000",
+      "question": "A defendant and his college roommate went home together for the holiday vacation. The defendant was to go back to college by himself. The day that the defendant was to drive back to college, his roomm",
+      "oracle_output": "majority",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0053",
+      "question": "According to Irvin Yalom, ________in group therapy is the analogue of the therapist-client relationship in individual therapy.\n\nA) identification\nB) alliance\nC) interpersonal learning\nD) disclosure\nE)",
+      "oracle_output": "majority",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0020",
+      "question": "An employee wdrked as a delivery person for a drugstore. As part of the employee's duties and responsibilities, he would regularly deliver prescriptions and other items (such as toiletries, cosmetics,",
+      "oracle_output": "majority",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0034",
+      "question": "Carol and Jim are experiencing marital difficulties. They have two school-aged children, a boy and a gid. According to meta-analysis of research on the relationship between marital discord and child b",
+      "oracle_output": "majority",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0065",
+      "question": "A defendant charged with first-degree murder shall be furnished with a list containing names and addresses of all prospective jurors\n\nA) only if the prosecutor agrees.\nB) immediately after being charg",
+      "oracle_output": "majority",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0073",
+      "question": "A developer recently acquired a large vacant lot and wished to build a series of 10 tract homes on the lot to offer for sale. On May 1, he telephoned a number of contractors whom he had dealt with in ",
+      "oracle_output": "majority",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0051",
+      "question": "Tay-Sachs is a disease caused by a recessive allele. Individuals with the genetic disorder usually do not survive more than a few years, and thus are not able to reproduce and pass on the gene. What w",
+      "oracle_output": "majority",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0091",
+      "question": "Is the ICJ hostile to the idea that an armed attack may arise through a series of lower intensity, yet cumulative, instances of armed force?\n\nA) The ICJ has often supported the accumulation theory\nB) ",
+      "oracle_output": "majority",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0033",
+      "question": "A man outraged by the recent church decision to clear a famous philosopher of charges of heresy, decided to present a lecture, open to the public, disproving the philosopher's theories. A state statut",
+      "oracle_output": "minority",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0001",
+      "question": "A landlord leased a commercial building to a tenant for five years. Rent was payable on the first day of each month, and the landlord retained the right to terminate the lease if the tenant defaulted.",
+      "oracle_output": "majority",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0066",
+      "question": "A landlord, an owner in fee simple, leased a three- story house to a tenant for a term of 10 years. By the terms of the lease, the tenant expressly covenanted to pay a monthly rental of $300 and to pa",
+      "oracle_output": "majority",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0009",
+      "question": "A city imposes a tax on nonresident's city derived income above $1,700 at a 3% rate, except that if the nonresident's state of residence would impose a lesser tax had the income been earned in that st",
+      "oracle_output": "majority",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0015",
+      "question": "Late one evening, a police department received a telephone call from an unidentified woman who reported hearing loud shrieks and screams from a neighboring home. The caller furnished the police with t",
+      "oracle_output": "majority",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0045",
+      "question": "A train pulled into a busy station. Some passengers got off the train, and others got on. A few moments later, a train conductor shouted, \"All aboard!\" to indicate that the train was about to depart t",
+      "oracle_output": "majority",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0014",
+      "question": "A shopper in a store sees that a display case is about to fall on a second shopper's head. The shopper does nothing to warn or assist the second shopper, who is a stranger to her. She could have taken",
+      "oracle_output": "majority",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0024",
+      "question": "Milgram's obedience study was criticized based on what ethical grounds?\n\nA) lack of debriefing after the experiment\nB) lack of compensation for participants\nC) violation of anonymity\nD) nonrandom samp",
+      "oracle_output": "majority",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0007",
+      "question": "How are the members of the arbitral tribunal appointed?\n\nA) All the members of the arbitral tribunal are appointed by the parties\nB) All the members of the arbitral tribunal are appointed by an impart",
+      "oracle_output": "majority",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0029",
+      "question": "TheAlforsCompany had a beginning inventory of $30,000, Jan 1, 1974. During the year, purchases amounted to $87,500, net sales to $102,000. Assuming that the gross profit rate is 40% of the net sales, ",
+      "oracle_output": "majority",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0071",
+      "question": "A bedroom set with a cash value of $720 can be purchased on the installment plan for 18 monthly payments of $47.20 each. What is the annual interest rate?\n\nA) 21%\nB) 16.8%\nC) 24%\nD) 15%\nE) 25%\nF) 19.5",
+      "oracle_output": "We are given the following information:\n\n* The value of the computer is $720\n* The payment is made in 18 installments of $47.60\n* We need to find the annual interest rate\n\nWe can use the formula for simple interest to find the annual interest rate:\n\n$$\nI = P \\times r \\times t\n$$\n\nWhere:\n\n* I is the ",
+      "ground_truth": "minority",
+      "correct": "no"
+    }
+  ]
+}

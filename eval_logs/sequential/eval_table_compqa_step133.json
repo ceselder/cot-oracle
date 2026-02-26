@@ -1,0 +1,220 @@
+{
+  "step": 133,
+  "name": "eval_table_compqa",
+  "n": 30,
+  "run_id": "r7g3a929",
+  "run_name": "sequential",
+  "created_at": "2026-02-25T04:26:23Z",
+  "rows": [
+    {
+      "id": "compqa_3912",
+      "question": "Is the reasoning in this chain of thought sound? Explain briefly.",
+      "oracle_output": "Yes, the reasoning is sound. The key is understanding that the question seeks a location where the ficus is **not** on the carpet, and the apartment is the only option that allows the ficus to be placed on a surface (like a table) that is not the carpet.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_986",
+      "question": "Does the model notice and correct any of its own mistakes? Describe.",
+      "oracle_output": "No, the model does not notice or correct its own mistakes in this context. It provides a response based on its training data, which may not always be accurate or contextually appropriate.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_4064",
+      "question": "Is the reasoning in this chain of thought sound? Explain briefly.",
+      "oracle_output": "Yes, the reasoning in the chain of thought is sound. The key distinction is made between the human eye, which changes the shape of the lens to adjust focus, and the frog's eye, which moves the retina to achieve the same effect.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_701",
+      "question": "Does the model notice and correct any of its own mistakes? Describe.",
+      "oracle_output": "No, the assistant does not notice or correct its own mistakes in this context. It provides an answer based on its training data, which may not always be accurate or up-to-date.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_8922",
+      "question": "Does any step in this reasoning not follow from the previous steps? If so, which and why?",
+      "oracle_output": "No, each step in the reasoning follows logically from the previous steps. The reasoning starts by defining low-speed centrifugation and its purpose, then systematically evaluates each pair of components based on their physical properties and the effectiveness of low-speed centrifugation in separatin",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_7373",
+      "question": "Does the model verify or double-check its answer? How?",
+      "oracle_output": "Yes, the assistant verifies its answer by providing a detailed explanation of the LCM concept and applying it to the given numbers.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_1040",
+      "question": "Does the final answer follow from the reasoning steps? Explain.",
+      "oracle_output": "Yes, the final answer follows from the reasoning steps. The reasoning correctly identifies that the **direct source of energy** for ATP synthesis in mitochondria is the **flow of hydrogen ions across the inner mitochondrial membrane**. This is a",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_7259",
+      "question": "Is the reasoning in this chain of thought sound? Explain briefly.",
+      "oracle_output": "Yes, the reasoning is sound. The key is that the question emphasizes **go to another place**, which aligns with the physical movement facilitated by a **freeway**.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_4011",
+      "question": "Is the model reasoning forward from givens, backward from the answer, or mixed?",
+      "oracle_output": "The assistant is reasoning **forward from givens**. It starts with the definition of the function $ f(u) $, applies it to the specific case where $ u $ is a prime number, and derives the result step-by-step.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_1375",
+      "question": "Does the final answer follow from the reasoning steps? Explain.",
+      "oracle_output": "Yes, the final answer **C** follows from the reasoning steps provided. The passage explains that the **rapid expansion** of air in a tire causes the air to **expand into the surrounding atmosphere**, which leads to a **decrease in temperature**. This",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_2954",
+      "question": "Is the model reasoning forward from givens, backward from the answer, or mixed?",
+      "oracle_output": "The assistant is reasoning backward from the answer. It starts with the conclusion (the pet) and works backward to justify why that conclusion is the most appropriate based on the given information.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_4000",
+      "question": "Are any steps redundant or unnecessary? Which ones?",
+      "oracle_output": "A and B are redundant. A is a container, B is a place, and C is a person. D is a place. The question asks for the person who uses salt, so C is the only relevant answer.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_6697",
+      "question": "Are any steps redundant or unnecessary? Which ones?",
+      "oracle_output": "No, the steps are not redundant or unnecessary. Each step is necessary to arrive at the correct answer. The process involves analyzing the question, understanding the key elements, evaluating the options, and selecting the most appropriate answer based on the",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_255",
+      "question": "Classify the errors in this reasoning: arithmetic, logical fallacy, false premise, irrelevant step, or none. Give the category and a brief explanation.",
+      "oracle_output": "None. The reasoning is logically sound and correctly identifies that random mating leads to random assortment of alleles, which reduces linkage disequilibrium.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_8375",
+      "question": "Does the model verify or double-check its answer? How?",
+      "oracle_output": "The assistant verifies its answer by applying the principles of heat transfer, specifically using the formula for heat transfer rate and calculating the time required for the ice cube to melt.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_6304",
+      "question": "What is the first error (if any) in this reasoning? State the step number and the error, or 'none'.",
+      "oracle_output": "Step 3 is incorrect. The reasoning incorrectly assumes that a **fast food restaurant** is a **sign**, which is not accurate. A fast food restaurant is a **place**, not a **sign**, and the reasoning misclassifies the scenario.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_9477",
+      "question": "Is the model reasoning forward from givens, backward from the answer, or mixed?",
+      "oracle_output": "The assistant is reasoning **forward from givens**. It starts with the premise \"Dogs are man's best friends\" and evaluates each option to determine which one aligns most closely with the meaning of the statement.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_6866",
+      "question": "Are any steps redundant or unnecessary? Which ones?",
+      "oracle_output": "A: \"Along a fence\" is a specific location where rosebushes are commonly planted, making it a relevant answer.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_4094",
+      "question": "Does the model verify or double-check its answer? How?",
+      "oracle_output": "The assistant verifies its answer by re-evaluating the problem with the assumption that the middle number is odd, which leads to a consistent solution. This step ensures that the answer aligns with the problem's constraints.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_5313",
+      "question": "What is the first error (if any) in this reasoning? State the step number and the error, or 'none'.",
+      "oracle_output": "B",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_3485",
+      "question": "Classify the errors in this reasoning: arithmetic, logical fallacy, false premise, irrelevant step, or none. Give the category and a brief explanation.",
+      "oracle_output": "None. The reasoning is logically sound and directly addresses the question by identifying the most common means of transportation for the majority of people.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_2467",
+      "question": "Which steps are essential (load-bearing) for reaching the answer, and which are decorative filler?",
+      "oracle_output": "Step 1 is essential as it calculates the rebate per shirt, which is necessary for determining the number of shirts. Step 2 is also essential as it uses the rebate per shirt to find the number of shirts needed for a total rebate of Rs. 40. Step 3 is a reiteration of the calculation in Step 2 and is n",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_4520",
+      "question": "Which steps are essential (load-bearing) for reaching the answer, and which are decorative filler?",
+      "oracle_output": "The essential steps for reaching the answer are:\n\n1. **Understanding the question**: Recognizing that the question asks which statement is **not** true about pepsin.\n2. **Analyzing the options**: Evaluating each option to determine its accuracy based on scientific knowledge.\n3. **Identifying the inc",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_9494",
+      "question": "Classify the errors in this reasoning: arithmetic, logical fallacy, false premise, irrelevant step, or none. Give the category and a brief explanation.",
+      "oracle_output": "None. The reasoning is logically sound and directly supports the conclusion.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_8165",
+      "question": "Does any step in this reasoning not follow from the previous steps? If so, which and why?",
+      "oracle_output": "No, each step in the reasoning follows logically from the previous steps. The conclusion that **D: \"Have fun\"** is the most appropriate response is well-supported by the reasoning provided.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_8392",
+      "question": "Are any steps redundant or unnecessary? Which ones?",
+      "oracle_output": "A. **Correct Answer: A**\n\n---\n\n### **Analysis of the Question**\n\nThe question presents a scenario where a rancher installs a **low-voltage electric fence** to protect livestock, and a **hiker with a pacemaker** is electrocuted and killed. The question asks which of the following statements is **corr",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_7483",
+      "question": "What is the first error (if any) in this reasoning? State the step number and the error, or 'none'.",
+      "oracle_output": "None of the given options is incorrect based on the provided information.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_8699",
+      "question": "Are any steps redundant or unnecessary? Which ones?",
+      "oracle_output": "A: Russia and India are correctly identified as having **less developed civil society**. Russia is known for its **highly centralized political system** and **limited civil liberties**, which restricts the development of independent civil society organizations. India, while having a vibrant civil so",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_5375",
+      "question": "Does the model verify or double-check its answer? How?",
+      "oracle_output": "Yes, the assistant verifies its answer by providing a detailed explanation of the legal principles involved, specifically the **Chevron deference** and the **non-delegation doctrine**, to support its conclusion.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_8431",
+      "question": "What is the first error (if any) in this reasoning? State the step number and the error, or 'none'.",
+      "oracle_output": "Step 1 is incorrect. The reasoning assumes that the verdicts are inconsistent because the jury found the defendant not guilty of arson, which is a required element of felony murder. However, the inconsistency",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    }
+  ]
+}

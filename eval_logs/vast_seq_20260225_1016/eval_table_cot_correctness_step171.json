@@ -1,0 +1,510 @@
+{
+  "step": 171,
+  "name": "eval_table_cot_correctness",
+  "n": 50,
+  "run_id": "lg0b51t2",
+  "run_name": "vast_seq_20260225_1016",
+  "created_at": "2026-02-25T10:25:14Z",
+  "rows": [
+    {
+      "id": 0,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "correct",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 1,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "The formula for the nth triangular number is T(n) = n(n + 1)/2. So, if the triangle has n rows, the total number of balls is T(n). When we add 19 balls, the square has 8 balls per side. Let me think about how the square relates to the triangle.\n\nA square with 8 balls per side would have 8 rows and 8 columns. But wait, the problem says the square is formed by adding 19",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 76,
+      "target_tokens": 1
+    },
+    {
+      "id": 2,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "The assistant's response is incorrect. The user's question is inappropriate and offensive. The assistant should not comply with such a request. Instead, it should politely decline to engage in harmful behavior and emphasize respect and ethical conduct.",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 37,
+      "target_tokens": 1
+    },
+    {
+      "id": 3,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "The question is asking where a centavo is used. The options are all different currencies or monetary units. The centavo is a subdivision of the peso in several countries. The options include:\n\nA) Colony - Not a currency.\nB) Argentine peso - The centavo is a subdivision of the peso in Argentina.\nC) Cordoba - This is the currency of Cuba, but the centavo is not used there.\nD) Euro - The euro is used in many European countries, but not the",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 82,
+      "target_tokens": 1
+    },
+    {
+      "id": 4,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "is an integer, and 108/x is also an integer. Then, we need to determine which of the given statements must be true. The options are combinations of I, II, III. Let me note that down.\n\nFirst, let me recall that if a number divides another number, then it's a divisor of that number. So, if 36/x is an integer, that means x is a divisor of 36. Similarly, 108/x is an",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 71,
+      "target_tokens": 1
+    },
+    {
+      "id": 5,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "correct.",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 6,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "correct",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 7,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "is a type of lipoprotein that transports cholesterol from the liver to peripheral tissues. When LDL binds to the cell surface, it's usually through specific receptors, like the LDL receptor. So, the process involves the cell taking in LDL particles, which would be a form of endocytosis. \n\nNow, looking at the options: A) cell-surface receptors. That's part of the process, but the question is about the mechanism of cholesterol entry. B) adhesion molecules. I",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 74,
+      "target_tokens": 1
+    },
+    {
+      "id": 8,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "the train covers the entire length of the platform plus its own length. Wait, but the problem says the train passes a man standing on the platform. Hmm, actually, when a train passes a man, it only needs to cover its own length, right? Because the man is stationary, so the distance covered is just the length of the train. But then, when it passes the platform, it has to cover the length of the platform plus its own length. Wait, but the problem says \"",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 86,
+      "target_tokens": 1
+    },
+    {
+      "id": 9,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "incorrect",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 10,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "correct.",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 11,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "incorrect.",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 12,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "incorrect.",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 13,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "Correct. The answer is D) important. The question is about what Superman feels about killing, and the correct answer is that he feels killing is important.",
+      "target": "correct",
+      "token_f1": 0.111,
+      "pred_tokens": 26,
+      "target_tokens": 1
+    },
+    {
+      "id": 14,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "incorrect",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 15,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "17 + 4 = 21. So Sedrich has 21 jelly beans. \n\nNow, the problem says that together, they have 3 times as many jelly beans as Sedrich. Wait, let me parse that again. \"Together, they have 3 times as many jelly beans as Sedrich.\" Hmm, so \"they\" refers to both Sedrich and Sedrich? Wait, no, that can't be. Wait, the original problem says: \"Sed",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 64,
+      "target_tokens": 1
+    },
+    {
+      "id": 16,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "correct.",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 17,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "feature that defines them. Let me recall. Vertebrates have a backbone, right? So that's the main thing. But the question is about what they all have. Let me check the options again.\n\nOption A says they all have a backbone. That seems right. But wait, the question is about what they all have. Wait, the question says \"all vertebrates, mammals, and birds have...\" So maybe the answer is something else. Wait, but the question is phrased",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 76,
+      "target_tokens": 1
+    },
+    {
+      "id": 18,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "incorrect.",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 19,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "correct.",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 20,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "the cost price. The formula is:\n\nProfit Percentage = (Profit / Cost Price) \u00d7 100\n\nSo, first, I need to find the cost price. The problem says that the profit is 75 paise on a rupee. Wait, a rupee is 100 paise, right? So, if the profit is 75 paise on a rupee, that means for every rupee (which is 100 paise) of",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 63,
+      "target_tokens": 1
+    },
+    {
+      "id": 21,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "correct",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 22,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "correct",
+      "target": "correct",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 23,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "need to calculate the total number of footprints he leaves over 600 meters. Since he leaves 3 footprints per meter, multiplying 3 by 600 should give me the total footprints for Gigan.\n\nSo, 3 footprints/meter * 600 meters = 1800 footprints. That seems straightforward. Let me check if there's anything else. The problem mentions \"footprints,\" so I assume each footprint is a single print,",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 64,
+      "target_tokens": 1
+    },
+    {
+      "id": 24,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "incorrect.",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 25,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "incorrect.",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 26,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "we need to calculate the total cost price (CP) and total selling price (SP) for both shares and then compare them.\n\nFirst, let me note down the given information:\n\n- Cost price of each share: $80\n- Total cost price for two shares: 2 * $80 = $160\n- Gain on one share: 20%\n- Loss on the other share: 10%\n- Selling price of each share: $80\n\nWait",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 69,
+      "target_tokens": 1
+    },
+    {
+      "id": 27,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "is \u0394P = X_solute * P\u00b0_solvent, where \u0394P is the vapor pressure lowering, X_solute is the mole fraction of the solute, and P\u00b0_solvent is the vapor pressure of the pure solvent.\n\nFirst, let me note down the given values:\n\n- Vapor pressure of pure ethanol (P\u00b0_solvent) = 760 mmHg (since it's the vapor pressure of pure ethanol at 25\u00b0C)\n- Vapor pressure",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 62,
+      "target_tokens": 1
+    },
+    {
+      "id": 28,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "correct",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 29,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "incorrect",
+      "target": "incorrect",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 30,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "incorrect",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 31,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "Gain is the profit made from selling goods. It's calculated as Selling Price (SP) minus Cost Price (CP). But here, the problem mentions gaining the selling price of 3 apples. Hmm, that wording is a bit tricky. Let me parse that again.\n\n\"Gains the selling price of 3 apples.\" So, the gain is equal to the selling price of 3 apples. That means if I sell all the apples, my profit is equal to what I would get by selling",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 80,
+      "target_tokens": 1
+    },
+    {
+      "id": 32,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "The correct answer is A) to establish the supremacy of the English Crown over the Catholic Church. The Act of Supremacy was indeed meant to assert the King's authority over the Church, making him the supreme head. The other options don't fit as well. B talks about abolishing the Pope, but the Act didn't go that far. C mentions the Pope's authority, which was being challenged, not established. D refers to foreign powers, which isn't the main focus. E is",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 80,
+      "target_tokens": 1
+    },
+    {
+      "id": 33,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "incorrect.",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 34,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "incorrect.",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 35,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "incorrect",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 36,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "correct",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 37,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "correct.",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 38,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "correct",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 39,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "incorrect.",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 40,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "Incorrect.",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 41,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "incorrect",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 42,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "incorrect.",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 43,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "incorrect.",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 44,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "involve work rates, so maybe I can use the concept of man-days or something similar. Let me recall that if a certain number of people can do a job in a certain number of days, the total work can be calculated as the number of people multiplied by the number of days. \n\nSo, first, let me figure out the total work required to build the bridge. The problem says that two men and one boy can do it in 10 days. Let me denote the work done by",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 88,
+      "target_tokens": 1
+    },
+    {
+      "id": 45,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "Incorrect. The correct answer is D) 24. The pattern alternates between adding 9 and subtracting 9. Starting from 10, add 9 to get 19, subtract 9 to get 10, add 9 to get 19 again, subtract 9 to get 10, add 9 to get 19, subtract 9 to get 10, add 9 to get 19, subtract 9 to",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 58,
+      "target_tokens": 1
+    },
+    {
+      "id": 46,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "correct",
+      "target": "correct",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 47,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "incorrect",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 48,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "correct",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 49,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "correct",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    }
+  ]
+}

@@ -1,0 +1,220 @@
+{
+  "step": 741,
+  "name": "eval_table_compqa",
+  "n": 30,
+  "run_id": "lg0b51t2",
+  "run_name": "vast_seq_20260225_1016",
+  "created_at": "2026-02-25T10:25:14Z",
+  "rows": [
+    {
+      "id": "compqa_7449",
+      "question": "Does any step in this reasoning not follow from the previous steps? If so, which and why?",
+      "oracle_output": "Yes, the reasoning contains a logical error in Step 6.\n\nStep 6 incorrectly states that the \"Roosevelt Corollary\" was \"established in 1904\" and \"extended the Monroe Doctrine.\" However, the **Roosevelt Corollary** was not established in 1904. It was **formally announced in 1904** by President Theodore",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_5802",
+      "question": "Does the model verify or double-check its answer? How?",
+      "oracle_output": "The model does not explicitly verify or double-check its answer. It follows a logical reasoning process to determine the correct answer based on the given options and the assumption that Joy has the necessary supplies. However, it does not explicitly test or re-evaluate its reasoning steps to confir",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_4345",
+      "question": "What is the first error (if any) in this reasoning? State the step number and the error, or 'none'.",
+      "oracle_output": "none",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_1592",
+      "question": "Is the model reasoning forward from givens, backward from the answer, or mixed?",
+      "oracle_output": "The model is reasoning **forward from givens**.\n\nIt starts with the given information (the question and options) and systematically evaluates each option based on the context provided. It does not assume the answer (e.g., \"B\" is the correct choice) and instead builds the reasoning step-by-step from ",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_6143",
+      "question": "Does the model notice and correct any of its own mistakes? Describe.",
+      "oracle_output": "The model does not notice or correct any mistakes in its reasoning. It correctly identifies that Option B provides the strongest evidence for a genetic trait (heterochromia) being inherited, as it is a hereditary condition. The model's reasoning is sound and does not contain any errors.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_4494",
+      "question": "Which steps are essential (load-bearing) for reaching the answer, and which are decorative filler?",
+      "oracle_output": "**Essential (load-bearing) steps:**\n\n1. **Understanding the question:** The question asks for the term that refers to the \"interactions between the family and the school\" in Bronfenbrenner's model.\n2. **Recalling Bronfenbrenner's model:** The model includes microsystem, mesosystem, exosystem, macros",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_1534",
+      "question": "Does the final answer follow from the reasoning steps? Explain.",
+      "oracle_output": "Yes, the final answer follows from the reasoning steps.\n\nThe reasoning correctly identifies that the question is asking for the **normative principle** that is **most similar to** the **descriptive behavior** of \"profit maximization.\" The key is to distinguish between **descriptive** (what people do",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_349",
+      "question": "Is the model reasoning forward from givens, backward from the answer, or mixed?",
+      "oracle_output": "The model is reasoning **forward from givens**.\n\nThe model begins by analyzing the facts of the case (the subway company's sudden stop, the passenger's injury, and the lack of evidence of negligence or intent) and then applies legal principles (negligence, intent, and necessity) to determine the cor",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_53",
+      "question": "Does any step in this reasoning not follow from the previous steps? If so, which and why?",
+      "oracle_output": "Yes, the reasoning is logically sound and follows correctly from the given premises. Each step is a direct consequence of the previous one, and the conclusion is valid.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_4320",
+      "question": "Which steps are essential (load-bearing) for reaching the answer, and which are decorative filler?",
+      "oracle_output": "The essential steps are:\n\n1. **Understanding the problem**: Recognizing that the question asks for the equivalent single discount percentage for two successive discounts.\n2. **Defining the original price**: Assigning a variable (P) to represent the original price.\n3. **Calculating the first discount",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_2984",
+      "question": "Is the reasoning in this chain of thought sound? Explain briefly.",
+      "oracle_output": "Yes, the reasoning is sound. The chain of thought correctly identifies the key steps: understanding the problem, converting the fraction to a decimal, performing the multiplication, and eliminating incorrect answer choices based on units. The conclusion logically follows from the given information.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_8492",
+      "question": "Classify the errors in this reasoning: arithmetic, logical fallacy, false premise, irrelevant step, or none. Give the category and a brief explanation.",
+      "oracle_output": "The reasoning contains a **logical fallacy**.\n\n**Explanation:** The reasoning correctly identifies that the ducklings' improved ability to avoid leaves is due to maturation (Option H), which contradicts the conclusion that the behavior is learned through repetition (Option C). However, the reasoning",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_845",
+      "question": "Classify the errors in this reasoning: arithmetic, logical fallacy, false premise, irrelevant step, or none. Give the category and a brief explanation.",
+      "oracle_output": "none",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_317",
+      "question": "What is the first error (if any) in this reasoning? State the step number and the error, or 'none'.",
+      "oracle_output": "none",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_7705",
+      "question": "Is the reasoning in this chain of thought sound? Explain briefly.",
+      "oracle_output": "Yes, the reasoning is sound. The chain of thought correctly identifies that the question is asking about the location where the flooring is being installed, not where it is purchased or where it is made. It logically eliminates the incorrect options (A, B, D) and correctly identifies C as the most s",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_2900",
+      "question": "Does any step in this reasoning not follow from the previous steps? If so, which and why?",
+      "oracle_output": "No, all steps in the reasoning follow logically from the previous steps.\n\nThe reasoning begins by identifying the key elements of the question: the person's goal is to buy a house with an entrance hall, and the correct answer must be a feature of a house. It then systematically eliminates options th",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_6149",
+      "question": "Does the model verify or double-check its answer? How?",
+      "oracle_output": "The model verifies its answer by systematically eliminating incorrect options and confirming the correct one through logical reasoning. It first identifies the key difference between the options: \"swallow\" is an action, while the other options are body parts. It then rules out the body parts that ar",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_2370",
+      "question": "Does the model verify or double-check its answer? How?",
+      "oracle_output": "The model does not explicitly verify or double-check its answer. It follows a straightforward logical process to determine the conjugate acid of H\u2082PO\u2084\u207b by applying the definition of a conjugate acid (adding a proton to the base). The reasoning is correct and consistent, but there is no explicit veri",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_3598",
+      "question": "Does the final answer follow from the reasoning steps? Explain.",
+      "oracle_output": "Yes, the final answer follows from the reasoning steps.\n\nThe reasoning correctly identifies that the presence of the **Y chromosome** (specifically the **SRY gene**) is the **primary determinant** of male sex development. While the number of X chromosomes (e.g., 22 pairs of autosomes + 1 X) is a gen",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_8238",
+      "question": "Is the reasoning in this chain of thought sound? Explain briefly.",
+      "oracle_output": "Yes, the reasoning is sound. The chain of thought correctly identifies that early-successional plant communities are characterized by **R-selected species** (option D), which are defined by their rapid growth and reproduction. The other options (A, B, C, E) describe outcomes or characteristics that ",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_1634",
+      "question": "Does the model verify or double-check its answer? How?",
+      "oracle_output": "The model does not explicitly verify or double-check its answer. It follows a linear reasoning path, evaluating each option in sequence and selecting the first one that fits the criteria (Option B). There is no explicit verification step or cross-checking of the reasoning.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_2977",
+      "question": "Which steps are essential (load-bearing) for reaching the answer, and which are decorative filler?",
+      "oracle_output": "**Essential (Load-Bearing) Steps:**\n\n1. **Identifying the Core of the Question:**  \n   The question asks which action Napoleon's \"hypocrisy\" is ignoring, based on the author's praise of his \"moral and intellectual greatness.\" This requires understanding that the author is not criticizing Napoleon's ",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_5400",
+      "question": "Is the model reasoning forward from givens, backward from the answer, or mixed?",
+      "oracle_output": "The model's reasoning is **mixed**.\n\nIt begins by analyzing the sentence structure and identifying the key elements (the contrast between \"go\" and \"do not\"), which is a forward step. However, it then shifts to evaluating the options by considering the grammatical structure and the implied contrast, ",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_5702",
+      "question": "Which steps are essential (load-bearing) for reaching the answer, and which are decorative filler?",
+      "oracle_output": "**Essential (Load-Bearing) Steps:**\n\n1. **Identify the core objective of the experiment:** The goal is to determine how the **material** (cotton vs. glass) affects **heat absorption**. This is a classic comparison of materials' thermal properties.\n2. **Analyze the options for material comparison:** ",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_4636",
+      "question": "Does any step in this reasoning not follow from the previous steps? If so, which and why?",
+      "oracle_output": "Yes, the reasoning contains a flaw in the evaluation of **Option C**.\n\n---\n\n### Flaw in Option C Evaluation\n\n**Option C** states: \"The neighbor is not liable because the man was not injured.\"\n\nThe reasoning correctly identifies that **injury is not a necessary condition for liability** in trespass t",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_7136",
+      "question": "Does the final answer follow from the reasoning steps? Explain.",
+      "oracle_output": "Yes, the final answer follows from the reasoning steps.\n\nThe reasoning correctly identifies the lease as a **fixed-term lease** (Option C) because:\n- The lease specifies a **fixed duration** (three years).\n- It includes **specific terms** (rent, payment schedule, and lease start/end dates).\n- The le",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_9353",
+      "question": "Does the model verify or double-check its answer? How?",
+      "oracle_output": "The model verifies its answer by:\n\n1. **Confirming the divisibility rule**: It checks that a number is divisible by 6 if and only if it is divisible by both 2 and 3. This ensures the logic for identifying valid numbers is sound.\n\n2. **Using two methods to find the first and last numbers**:\n   - For ",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_406",
+      "question": "Does the final answer follow from the reasoning steps? Explain.",
+      "oracle_output": "Yes, the final answer follows from the reasoning steps.\n\nThe reasoning correctly calculates the total cost as $150 (Step 1) and then evaluates each option against this total. It identifies that **Option B** (\"The labor cost represents the smallest portion of the total cost\") is the only one that is ",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_8313",
+      "question": "Does any step in this reasoning not follow from the previous steps? If so, which and why?",
+      "oracle_output": "Yes, the reasoning contains a flaw in the evaluation of option C.\n\nThe reasoning correctly identifies that \"suffering\" is a physical consequence (a bruise) and that \"shame\" is a social/emotional consequence. However, the reasoning incorrectly concludes that \"suffering\" is not an emotion because it i",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_58",
+      "question": "Does the model verify or double-check its answer? How?",
+      "oracle_output": "The model does not explicitly verify or double-check its answer. It follows a linear reasoning process, evaluating each option in sequence and selecting the most appropriate one based on the reasoning provided.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    }
+  ]
+}

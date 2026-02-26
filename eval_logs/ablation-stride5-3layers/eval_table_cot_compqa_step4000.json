@@ -1,0 +1,507 @@
+{
+  "step": 4000,
+  "name": "eval_table_cot_compqa",
+  "n": 50,
+  "rows": [
+    {
+      "id": 0,
+      "type": "cot_compqa",
+      "oracle_prompt": "",
+      "prediction": "No, the model does not notice or correct any mistakes. It follows a linear reasoning path from the patient's symptoms to the diagnosis of Addison's disease, then to the appropriate diagnostic test (Step 10), and finally to the correct treatment (Step 11). There are no errors in the logic or calculations, and no self-correction is required.",
+      "target": "No, the model does not notice or correct any mistakes. Its reasoning is linear and consistent throughout, moving from clinical suspicion (Steps 1-4) to diagnostic selection (Steps 5-7) and the exclusion of other options (Steps 8-11) without identifying any errors in its logic.",
+      "token_f1": 0.494,
+      "pred_tokens": 56,
+      "target_tokens": 43
+    },
+    {
+      "id": 1,
+      "type": "cot_compqa",
+      "oracle_prompt": "",
+      "prediction": "The reasoning is correct and contains **no errors**.\n\nThe model correctly identifies the conditional probability problem (Step 1), defines the sample space (Step 2), identifies the favorable outcomes (Step 3), and performs the arithmetic (Step 4) to arrive at the correct answer of 1/2.",
+      "target": "The reasoning is correct and contains no errors.\n\n**Category:** None\n\n**Explanation:** The model correctly identifies the sample space, applies the condition (first flip is heads) to reduce the sample space to two outcomes (HH, HT), and correctly calculates the probability as 1/2. It also verifies the result using the formal conditional probability formula.",
+      "token_f1": 0.444,
+      "pred_tokens": 44,
+      "target_tokens": 53
+    },
+    {
+      "id": 2,
+      "type": "cot_compqa",
+      "oracle_prompt": "",
+      "prediction": "The model's reasoning is **forward** from the givens.\n\nIt begins by analyzing the definition of a compound sentence (Step 1), then systematically evaluates each option (Steps 2-10) based on that definition, leading to the conclusion that Option A is the correct answer.",
+      "target": "The model's reasoning is **forward** from the givens.\n\nIt begins by identifying the correct answer (Step 2) and then systematically applies the grammatical definition of a compound sentence to the provided options. It breaks down Option A into its constituent independent clauses and conjunction (Steps 3-7) and analyzes Option B to confirm it only contains one clause (Steps 8-9), leading to a logical conclusion.",
+      "token_f1": 0.548,
+      "pred_tokens": 42,
+      "target_tokens": 64
+    },
+    {
+      "id": 3,
+      "type": "cot_compqa",
+      "oracle_prompt": "",
+      "prediction": "Yes, the reasoning is sound.\n\nThe model correctly identifies the clinical scenario (a first-time pregnant woman with supine hypotension) and systematically evaluates the options:\n1.  **Step 1-2:** Correctly identifies the classic presentation of supine hypotension syndrome (severe hypotension with normal cardiac output).\n2.  **Step 3-4:** Correctly rules out options B, C, and D by noting the patient's normal volume status, absence of pulmonary",
+      "target": "The reasoning is sound.\n\nThe model correctly identifies the temporal relationship between the administration of epidural anesthesia and the onset of hypotension (Step 2). It accurately explains the pathophysiology of epidural-induced hypotension: the anesthetic blocks sympathetic fibers, leading to vasodilation and decreased systemic vascular resistance (Steps 5-6). Furthermore, it correctly differentiates this from aortocaval compression (Step 12) by noting that the sympathetic block is the mor",
+      "token_f1": 0.241,
+      "pred_tokens": 63,
+      "target_tokens": 79
+    },
+    {
+      "id": 4,
+      "type": "cot_compqa",
+      "oracle_prompt": "",
+      "prediction": "No. The reasoning is logically consistent and each step follows from the previous ones. The model correctly identifies the physical components (Steps 1-3), evaluates the options (Steps 4-10), and concludes that the throat is the primary organ involved in the process of swallowing (Steps 11-12).",
+      "target": "No. The reasoning follows a logical progression: it eliminates non-body parts (Step 2), distinguishes between actions and body parts (Step 3), and then compares the physiological roles of the remaining options (Steps 5-10) to identify the primary mechanism involved in the process.",
+      "token_f1": 0.319,
+      "pred_tokens": 45,
+      "target_tokens": 42
+    },
+    {
+      "id": 5,
+      "type": "cot_compqa",
+      "oracle_prompt": "",
+      "prediction": "**Essential (Load-Bearing) Steps:**\n*   **Step 1:** Identifies the core constitutional conflict (First Amendment vs. Sixth Amendment).\n*   **Step 2:** Establishes the legal standard for gag orders (Stephens v. Deen).\n*   **Step 3:** Analyzes the specific facts of the case (Step 4) to determine the scope of the gag order.\n*   **Step 4:** Applies the legal standard to the facts,",
+      "target": "The essential (load-bearing) steps and decorative filler in the reasoning are identified as follows:\n\n**Essential (Load-bearing) Steps:**\n*   **Step 1:** Correct identifies the core conflict between the First Amendment (Press) and Sixth Amendment (Fair Trial).\n*   **Step 13:** Identifies the specific legal flaws of the injunction: it is \"ex parte\" and \"prohibits all publication of any news that might be prejudicial,\" making it \"general and overbroad.\"\n*   **Step 15:** Applies the constitutional ",
+      "token_f1": 0.221,
+      "pred_tokens": 59,
+      "target_tokens": 282
+    },
+    {
+      "id": 6,
+      "type": "cot_compqa",
+      "oracle_prompt": "",
+      "prediction": "No. The reasoning is logically sound and each step follows from the previous ones.\n\n1.  **Step 1** correctly identifies the primary energy source for ATP synthesis as the proton gradient.\n2.  **Step 2** correctly identifies the proton gradient as the result of the electron transport chain.\n3.  **Step 3** correctly identifies the process of chemiosmosis as the mechanism by which the proton gradient is used to synthesize ATP.\n4.  **Steps 4-",
+      "target": "The reasoning is logically sound and each step follows from the previous ones. The model correctly identifies the proton motive force as the direct driver of ATP synthase (Step 1), explains how the gradient is established (Step 2), and distinguishes between indirect energy sources (Steps 5-6) and the immediate/direct energy source (Step 9). All steps are consistent with biological principles.",
+      "token_f1": 0.433,
+      "pred_tokens": 71,
+      "target_tokens": 60
+    },
+    {
+      "id": 7,
+      "type": "cot_compqa",
+      "oracle_prompt": "",
+      "prediction": "Yes, the final answer follows from the reasoning steps.\n\nThe reasoning correctly identifies the ecological principle of carrying capacity (Steps 1-2). It explains that without predators, the deer population will grow until it exceeds the environment's ability to support it (Steps 3-4). It then correctly identifies the specific consequence of this overpopulation as overgrazing, which leads to a population crash (Steps 5-6). The model then evaluates the options, correctly dismissing the other choi",
+      "target": "Yes, the final answer follows logically from the reasoning steps.\n\nSteps 3 through 8 explain the ecological concept of carrying capacity and the consequences of exceeding it. Specifically, step 7 identifies that overgrazing leads to a **food shortage**, and step 8 concludes that this results in a population **decline**. This directly supports Option D. Additionally, step 10 addresses why a crash (decrease) is more likely than stabilization (Option A) in a predator-free environment.",
+      "token_f1": 0.36,
+      "pred_tokens": 74,
+      "target_tokens": 73
+    },
+    {
+      "id": 8,
+      "type": "cot_compqa",
+      "oracle_prompt": "",
+      "prediction": "No. The reasoning is logically consistent and each step follows from the previous ones. The model correctly identifies the key principles of gel electrophoresis (Step 1), systematically evaluates each option against those principles (Steps 2-10), and arrives at the correct conclusion (Step 11).",
+      "target": "No. The reasoning is logically sound and each step follows from the previous ones. The model correctly identifies the charge of DNA (Step 2), the resulting direction of migration in an electric field (Steps 5-6), and evaluates the other options based on standard principles of gel electrophoresis (Steps 7-13).",
+      "token_f1": 0.587,
+      "pred_tokens": 43,
+      "target_tokens": 49
+    },
+    {
+      "id": 9,
+      "type": "cot_compqa",
+      "oracle_prompt": "",
+      "prediction": "The model's reasoning is **forward** from the givens.\n\nIt begins by identifying the two sentences (Steps 1-2), then systematically analyzes each sentence to determine the pronoun reference (Steps 3-10). It evaluates the ambiguity of \"she\" in the second sentence (Steps 5-9) and concludes that it is a vague pronoun reference. Finally, it compares the two sentences to determine which one contains the error (Steps 10-11).",
+      "target": "The model's reasoning is **forward from givens**.\n\nIt begins by defining the linguistic concept of a \"vague pronoun reference\" (Steps 1-2) and then systematically applies this definition to analyze each option provided in the problem (Steps 3-9). It identifies the specific pronoun in each sentence, evaluates whether it has a clear antecedent, and concludes based on that analysis (Steps 10-11).",
+      "token_f1": 0.473,
+      "pred_tokens": 65,
+      "target_tokens": 60
+    },
+    {
+      "id": 10,
+      "type": "cot_compqa",
+      "oracle_prompt": "",
+      "prediction": "**Category:** None\n\n**Explanation:** The reasoning is logically sound and well-structured. It correctly identifies the legal and ethical implications of the described scenario, distinguishing between the legality of the action (which is generally considered fraudulent) and the ethical judgment (which is considered unethical). The conclusion (D) is supported by the analysis of both legal and ethical standards.",
+      "target": "None. The reasoning correctly identifies the legal and ethical implications of billing an insurance company for services not rendered (insurance fraud), leading to the correct conclusion (B).",
+      "token_f1": 0.328,
+      "pred_tokens": 56,
+      "target_tokens": 27
+    },
+    {
+      "id": 11,
+      "type": "cot_compqa",
+      "oracle_prompt": "",
+      "prediction": "No, the model does not notice or correct any mistakes. It follows a linear reasoning path from identifying the historical context (Step 1) to evaluating the options (Steps 2-10) and selecting the most accurate one (Step 11). It does not identify any errors in its logic or calculations.",
+      "target": "The model does not notice or correct any mistakes because it does not make any during its reasoning process. The chain of thought proceeds linearly from identifying the historical context (Steps 1-3) to evaluating Roosevelt's policy response (Steps 4-8) and ruling out incorrect options (Step 9) to reach the final answer. There are no instances of self-correction or revised logic.",
+      "token_f1": 0.472,
+      "pred_tokens": 48,
+      "target_tokens": 60
+    },
+    {
+      "id": 12,
+      "type": "cot_compqa",
+      "oracle_prompt": "",
+      "prediction": "The model's reasoning is **forward from givens**.\n\nIt begins by analyzing the question (Step 1), then systematically evaluates each option against the criteria of being a \"place\" (Step 2-10). It identifies the key distinction between a \"place\" and a \"surface\" (Step 3), and uses that distinction to eliminate options A, C, and E before concluding with the most appropriate answer (Step 11).",
+      "target": "The model's reasoning is **forward** from the givens. It analyzes the question's requirements (Step 1), evaluates each provided option against those requirements (Steps 2-8), and concludes with the most logical choice based on that evaluation (Step 9).",
+      "token_f1": 0.4,
+      "pred_tokens": 62,
+      "target_tokens": 37
+    },
+    {
+      "id": 13,
+      "type": "cot_compqa",
+      "oracle_prompt": "",
+      "prediction": "Yes, several steps are redundant or unnecessary:\n\n1.  **Redundant Descriptions:** Steps 2, 3, 4, 5, 6, 7, 8, and 9 are essentially the same as the first step (Step 1). They all describe the physical process of melting and the resulting changes in shape and state.\n2.  **Unnecessary Detail:** Steps 10 and 11 are unnecessary because the question asks for the \"two",
+      "target": "No, the steps are not redundant. Each step systematically evaluates a specific property within the given options (A-D) to determine if it changes or remains the same, which is necessary to arrive at the correct conclusion.",
+      "token_f1": 0.146,
+      "pred_tokens": 62,
+      "target_tokens": 36
+    },
+    {
+      "id": 14,
+      "type": "cot_compqa",
+      "oracle_prompt": "",
+      "prediction": "Yes, the model verifies its answer through a process of elimination and comparative analysis.\n\n1.  **Elimination (Steps 2-10):** The model systematically evaluates each option against the definition of a dynamic system (Step 1). It identifies why each of the other options (A, B, C, D, E, F, G) fails to meet the criteria of a dynamic system.\n2.  **Comparative Analysis (Steps 11-12):** The",
+      "target": "Yes, the model verifies its answer through a process of elimination. In steps 3 through 11, it systematically evaluates each incorrect option (A-G, I, J) against the definition of \"dynamic state\" established in step 1, explaining why each fails to meet the criteria before concluding that Option H is the correct choice in step 12.",
+      "token_f1": 0.468,
+      "pred_tokens": 63,
+      "target_tokens": 55
+    },
+    {
+      "id": 15,
+      "type": "cot_compqa",
+      "oracle_prompt": "",
+      "prediction": "**Essential (Load-bearing) Steps:**\n*   **Step 1:** Identifies the core meaning of the sentence (the holy relic being in a state of purity).\n*   **Step 2:** Defines the key requirement for the blank (a state of damage).\n*   **Step 3:** Evaluates Option A (\"profane\") as a possible antonym but notes it is a state of being, not a physical condition.\n*   **Step 4:** Evaluates Option",
+      "target": "**Essential Steps:**\n*   **Step 1:** Establishes the context (careful transportation of a valuable/sacred object).\n*   **Step 2:** Identifies that the missing word must describe an undesirable physical condition upon delivery.\n*   **Steps 10\u201313:** Evaluates \"broken\" and \"damaged\" as the only contextually relevant options.\n*   **Steps 14\u201315:** Provides the logical tie-breaker, noting that \"damaged\" is a more comprehensive term for the result of being \"careless\" during transport than the specific ",
+      "token_f1": 0.288,
+      "pred_tokens": 64,
+      "target_tokens": 106
+    },
+    {
+      "id": 16,
+      "type": "cot_compqa",
+      "oracle_prompt": "",
+      "prediction": "Yes, several steps are redundant or unnecessary:\n\n1.  **Redundant Legal Analysis:** Steps 10-12 and 14-16 are largely redundant. The model repeats the same legal reasoning (that the lease is void due to the impossibility of performance) in multiple places.\n2.  **Unnecessary Detail in Step 13:** The model provides a detailed explanation of the \"impossibility of performance\" doctrine in Step 13, which is already",
+      "target": "Yes, several steps are redundant or unnecessary:\n\n1.  **Redundancy in Principles:** Steps 5, 6, and 9 are redundant as they repeat the core legal principle already stated in Step 4 (impossibility/termination due to destruction).\n2.  **Redundancy in Application:** Step 8 repeats the conclusion drawn in Step 4 and Step 7.\n3.  **Unnecessary Context:** Step 2 and Step 10 are largely unnecessary because the problem already states there was no fire provision; repeating this fact does not advance the r",
+      "token_f1": 0.372,
+      "pred_tokens": 63,
+      "target_tokens": 89
+    },
+    {
+      "id": 17,
+      "type": "cot_compqa",
+      "oracle_prompt": "",
+      "prediction": "No. The reasoning is logically consistent and follows a clear diagnostic pathway from the patient's symptoms and lab results to the most appropriate diagnostic test. Each step builds upon the previous ones to arrive at the conclusion that a bone marrow biopsy (Step 10) is the next necessary step.",
+      "target": "The reasoning is logically sound and follows a clear diagnostic path. However, there is a minor technical inaccuracy in **Step 7**.\n\nIn Step 7, the model states that an **MCV of 93 \u03bcm\u00b3** is \"slightly elevated.\" In standard medical practice, the normal range for MCV is typically **80\u2013100 \u03bcm\u00b3**. Therefore, 93 \u03bcm\u00b3 is actually **normocytic**, not elevated.\n\nDespite this minor error in classification, the subsequent logic in Step 8 and Step 9 remains correct: the presence of pancytopenia with a low r",
+      "token_f1": 0.288,
+      "pred_tokens": 49,
+      "target_tokens": 105
+    },
+    {
+      "id": 18,
+      "type": "cot_compqa",
+      "oracle_prompt": "",
+      "prediction": "Yes, several steps are redundant or unnecessary:\n\n1.  **Redundant Prime Factorization:** Steps 2, 3, and 4 (and their counterparts in the other options) are redundant because the prime factorization of 168 is already established in Step 1. The same applies to the prime factorization of 144 in Step 10.\n2.  **Redundant Verification:** Steps 5, 6, 8, 9,",
+      "target": "Steps 5 through 8 are largely redundant. Once the model correctly calculated the minimum value of $k$ as 42 in Step 4, and identified that 42 was an available answer choice (Option B), it was not strictly necessary to perform prime factorization and divisibility checks for the remaining options (C, D, and E). These steps served only as verification.",
+      "token_f1": 0.217,
+      "pred_tokens": 57,
+      "target_tokens": 59
+    },
+    {
+      "id": 19,
+      "type": "cot_compqa",
+      "oracle_prompt": "",
+      "prediction": "The model's reasoning is **forward from givens**.\n\nIt begins by defining the key concept of flexibility (Step 1) and then systematically evaluates each option based on that definition (Steps 2-10). It does not start with the answer (D) and work backward to justify it; instead, it uses the properties of each material to reach the conclusion.",
+      "target": "The model is reasoning **forward from givens**.\n\nIt begins by defining the property of flexibility (Steps 1-2) and then systematically evaluates each provided option (A through D) against that definition (Steps 3-13) to determine which one best fits the criteria. It reaches the conclusion (Step 14) only after analyzing all the given information.",
+      "token_f1": 0.495,
+      "pred_tokens": 56,
+      "target_tokens": 53
+    },
+    {
+      "id": 20,
+      "type": "cot_compqa",
+      "oracle_prompt": "",
+      "prediction": "The model's reasoning is **forward from givens**.\n\nIt begins by analyzing the specific facts of the scenario (Steps 1-3), then systematically applies legal definitions and precedents to determine the appropriate charges (Steps 4-12), and finally concludes with the most accurate answer (Step 13). It does not start with the answer and work backward to justify it.",
+      "target": "The model's reasoning is **forward from givens**.\n\nIt systematically analyzes the facts of the scenario to identify specific legal elements:\n1.  **Steps 3-5:** It identifies \"unlawful entry\" and \"intent to commit a felony\" to conclude **burglary**.\n2.  **Steps 7-9:** It identifies \"theft of property through the use of force\" to conclude **robbery**.\n3.  **Steps 11-14:** It identifies that the man's actions \"directly led to the death\" without intent to kill, concluding **involuntary manslaughter*",
+      "token_f1": 0.292,
+      "pred_tokens": 56,
+      "target_tokens": 121
+    },
+    {
+      "id": 21,
+      "type": "cot_compqa",
+      "oracle_prompt": "",
+      "prediction": "Yes, the reasoning is sound.\n\nThe model correctly applies the principle of inclusion-exclusion (Steps 1-3) to calculate the total percentage of people who liked at least one product (80%). It then correctly identifies that the question asks for the percentage of people who liked **exactly** one product (Step 4). Using the formula for exactly one product (Step 5) and the given data (Steps 6-10), it correctly calculates the result as 15",
+      "target": "The reasoning is sound.\n\nThe model correctly applies the **Inclusion-Exclusion Principle** to find the sum of the pairwise intersections ($|A \\cap B| + |A \\cap C| + |B \\cap C| = 30\\%$, though the model's intermediate arithmetic in Step 7 has a slight typo: $105 - 80 + 5 = 30$, not $25$. However, it correctly identifies that this sum counts the \"exactly two\" group once and the \"all three\" group three times).\n\nIn Step 11, the model correctly uses the formula for \"exactly two\" products:\n$\\text{Exac",
+      "token_f1": 0.208,
+      "pred_tokens": 71,
+      "target_tokens": 260
+    },
+    {
+      "id": 22,
+      "type": "cot_compqa",
+      "oracle_prompt": "",
+      "prediction": "No. The reasoning is logically consistent and follows a clear progression from identifying the question's requirements (Step 1) to evaluating the options based on the definition of inheritance (Steps 2-10). Each step builds upon the previous one to arrive at the conclusion that Option A provides the most direct evidence of inheritance.",
+      "target": "No. The reasoning is logically sound and each step follows from the previous ones. The model correctly identifies that inheritance requires a transfer of biological traits from parents to offspring (Step 2), evaluates both options based on this definition (Steps 3-8), and concludes that Option A is the only one explicitly describing the mechanism of passing down a trait (Steps 9-11).",
+      "token_f1": 0.522,
+      "pred_tokens": 52,
+      "target_tokens": 61
+    },
+    {
+      "id": 23,
+      "type": "cot_compqa",
+      "oracle_prompt": "",
+      "prediction": "**Essential (Load-Bearing) Steps:**\n*   **Step 1:** Identifies the key property of DNA (negatively charged) and the direction of migration in an electric field.\n*   **Step 2:** Correctly identifies the negative electrode as the cathode and the positive electrode as the anode.\n*   **Step 3:** Correctly identifies the direction of migration (toward the anode).\n*   **Step 4:** Correctly identifies the relationship between",
+      "target": "**Essential (Load-Bearing) Steps:**\n*   **Step 2:** Identifies the fundamental property of DNA (negative charge) necessary to determine migration direction.\n*   **Step 5:** Explains the physics of the process (attraction to the positive anode), directly contradicting Option A.\n*   **Step 7:** Corrects the directionality and identifies Option A as the incorrect statement.\n*   **Steps 8, 10, and 12:** Briefly validate why Options B, C, and D are correct, ensuring no other option could be the answe",
+      "token_f1": 0.276,
+      "pred_tokens": 61,
+      "target_tokens": 116
+    },
+    {
+      "id": 24,
+      "type": "cot_compqa",
+      "oracle_prompt": "",
+      "prediction": "No. The reasoning is logically consistent and follows a clear progression from identifying the legal concepts (Steps 1-2) to analyzing the specific facts of the scenario (Steps 3-10) and finally to the conclusion (Steps 11-12). Each step builds upon the previous ones without any logical gaps or contradictions.",
+      "target": "The chain-of-thought reasoning is incomplete and contains formatting errors, but the logical progression remains consistent until it terminates. However, there is a minor numbering/logical error:\n\n**Step 7** is labeled \"2.\" and **Step 8** is labeled \"**Privity of Contract**,\" but **Step 3** was also used as a header/placeholder for \"Key Legal Concepts\" followed by a \"1.\" in **Step 4**. This creates a disjointed structure.\n\nMore importantly, the reasoning is **incomplete**. It stops mid-sentence ",
+      "token_f1": 0.204,
+      "pred_tokens": 48,
+      "target_tokens": 131
+    },
+    {
+      "id": 25,
+      "type": "cot_compqa",
+      "oracle_prompt": "",
+      "prediction": "No. The reasoning is logically consistent and follows a clear progression from the problem statement to the evaluation of each option. Each step builds upon the previous one by systematically analyzing the context of the question and the characteristics of each location.",
+      "target": "No. The reasoning is logically consistent throughout. The model systematically evaluates each option (Steps 3-12) based on the criteria of safety and functionality established in Step 2, and then compares the most likely candidates (Steps 14-15) to reach the final conclusion.",
+      "token_f1": 0.364,
+      "pred_tokens": 42,
+      "target_tokens": 41
+    },
+    {
+      "id": 26,
+      "type": "cot_compqa",
+      "oracle_prompt": "",
+      "prediction": "Yes, the model verifies its answer through a process of elimination and comparison.\n\n1.  **Process of Elimination:** In steps 10-17, the model systematically evaluates each of the other options (B, C, D, E, F, G, H, I, J) against the criteria of being the \"first\" intelligence test.\n2.  **Comparison:** In steps 18-20, the model explicitly compares the Rorschach Test (B)",
+      "target": "Yes, the model double-checks its answer. After identifying the Binet\u2013Simon Scale as the first measure in steps 1-3, it systematically evaluates the other options (A, B, C, D, E, G, H, I, and J) in steps 4-12. It provides approximate development dates for each alternative to confirm that they all post-date the 1905 Binet\u2013Simon Scale.",
+      "token_f1": 0.404,
+      "pred_tokens": 60,
+      "target_tokens": 55
+    },
+    {
+      "id": 27,
+      "type": "cot_compqa",
+      "oracle_prompt": "",
+      "prediction": "**Category:** None\n\n**Explanation:** The reasoning is logically sound and accurate. It correctly identifies the characteristics of internal control (self-efficacy, preference for skill over luck, and taking responsibility) and matches them to the correct answer (C). The analysis of the distractors (A, B, D, E) is also correct.",
+      "target": "The reasoning is **none** (no errors).\n\nThe model correctly defines the Internal-External Control Scale (Locus of Control) in steps 1 and 2. It then systematically evaluates each option against the definition of high internality, correctly identifying that Option C aligns with the psychological characteristics of an internal locus of control (achievement orientation, independence, and preference for skill-based tasks). All other options are correctly identified as characteristics of external con",
+      "token_f1": 0.255,
+      "pred_tokens": 47,
+      "target_tokens": 69
+    },
+    {
+      "id": 28,
+      "type": "cot_compqa",
+      "oracle_prompt": "",
+      "prediction": "No, the model does not notice or correct any mistakes. It follows a linear reasoning path from the facts to the legal analysis, reaching a conclusion without identifying or revising any errors in its logic.",
+      "target": "No, the model does not notice or correct its own mistakes. In fact, the model fails to correctly define or apply the specific legal rule requested in the prompt.\n\nThe problem asks for the correct statement according to the **\"alter ego rule.\"** Under this rule, an intervenor \"stands in the shoes\" of the person being defended; they only have the right to use force if the person being defended actually had the legal right to use force. Because the woman was the initial aggressor/thief, she had no ",
+      "token_f1": 0.226,
+      "pred_tokens": 35,
+      "target_tokens": 164
+    },
+    {
+      "id": 29,
+      "type": "cot_compqa",
+      "oracle_prompt": "",
+      "prediction": "The model's reasoning is **forward from givens**.\n\nIt begins by analyzing the definitions of the ecological terms (producers, primary consumers, secondary consumers) in steps 1-3. It then systematically evaluates each option (A-D) against those definitions in steps 4-10 to determine which one fits the criteria of a primary consumer. Finally, it concludes with the correct answer (D) in step 11.",
+      "target": "The model's reasoning is **forward from givens**.\n\nIt begins by defining the criteria for a first-level consumer (Steps 1-5) and then systematically evaluates each given option against those definitions (Steps 6-9) to arrive at the correct conclusion (Step 10).",
+      "token_f1": 0.524,
+      "pred_tokens": 60,
+      "target_tokens": 39
+    },
+    {
+      "id": 30,
+      "type": "cot_compqa",
+      "oracle_prompt": "",
+      "prediction": "none",
+      "target": "none",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 31,
+      "type": "cot_compqa",
+      "oracle_prompt": "",
+      "prediction": "Yes, the final answer follows from the reasoning steps.\n\nThe reasoning correctly identifies the subject of the question as \"you\" (Step 1) and systematically evaluates each option:\n*   **Steps 2-4** correctly identify that A, C, and D are inanimate objects or locations that cannot \"park.\"\n*   **Steps 5-6** correctly identify that B is a location (playground) that is not a person.\n*   **Step 7** correctly identifies that",
+      "target": "Yes, the final answer follows from the reasoning steps.\n\nThe reasoning correctly identifies that the question asks for a \"who\" (a subject/entity capable of ownership or action) rather than a \"where\" (a location). Steps 3, 5, 10, and 12 systematically eliminate options A, B, D, and E because they are locations or structures. Steps 7 and 8 correctly identify \"People\" as the only subject among the choices capable of the action of keeping a car. Therefore, the conclusion in step 16 logically follows",
+      "token_f1": 0.414,
+      "pred_tokens": 67,
+      "target_tokens": 83
+    },
+    {
+      "id": 32,
+      "type": "cot_compqa",
+      "oracle_prompt": "",
+      "prediction": "Yes, several steps are redundant or unnecessary:\n\n1.  **Redundant Steps (Steps 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 2",
+      "target": "Yes, several steps are redundant or contain biological inaccuracies that complicate the reasoning:\n\n1.  **Step 3 is inaccurate:** It states that drinking hypertonic seawater causes water to flow *into* cells. In reality, drinking hypertonic solutions causes water to flow *out* of cells (osmotic dehydration).\n2.  **Step 10 vs. Step 12/13:** Step 10 correctly identifies that nitrogenous waste is handled by the kidneys to dismiss Option A. However, Step 12 and 13 then select Option C, which mention",
+      "token_f1": 0.104,
+      "pred_tokens": 34,
+      "target_tokens": 140
+    },
+    {
+      "id": 33,
+      "type": "cot_compqa",
+      "oracle_prompt": "",
+      "prediction": "Yes, several steps are redundant or unnecessary:\n\n1.  **Step 1** is redundant as it is a restatement of the problem already provided in the prompt.\n2.  **Step 2** is unnecessary as it repeats the same logic as Step 3.\n3.  **Step 4** is redundant as it repeats the same logic as Step 5.\n4.  **Step 6** is unnecessary as it repeats the same logic as Step 7.\n5.",
+      "target": "Yes, steps 4 and 6 are redundant. Step 4 repeats the evaluation of option A already started in step 3, and step 6 repeats the evaluation of option B already started in step 5. Additionally, step 13 is a redundant summary of the conclusion already reached in step 12.",
+      "token_f1": 0.413,
+      "pred_tokens": 68,
+      "target_tokens": 49
+    },
+    {
+      "id": 34,
+      "type": "cot_compqa",
+      "oracle_prompt": "",
+      "prediction": "**Category:** None\n\n**Explanation:** The reasoning is logically sound and follows the correct legal framework. It correctly identifies the constitutional requirement for a right to counsel in criminal cases (Step 1), applies the \"critical stage\" doctrine (Step 2), and evaluates the specific facts of the scenario (Steps 3-10) to determine that the sentence exceeds the statute's maximum (Step 11) and is therefore unconstitutional.",
+      "target": "The reasoning contains a **logical fallacy** and a **false premise** regarding the application of constitutional law.\n\n1.  **False Premise/Legal Error (Steps 5-6, 13):** The model correctly identifies *Argersinger v. Hamlin*, but fails to apply the specific rule established in *Scott v. Illinois* (1979). Under *Scott*, the Sixth Amendment right to counsel in misdemeanor cases is only violated if the defendant is **actually sentenced to imprisonment**. If no counsel is provided, the conviction re",
+      "token_f1": 0.268,
+      "pred_tokens": 62,
+      "target_tokens": 165
+    },
+    {
+      "id": 35,
+      "type": "cot_compqa",
+      "oracle_prompt": "",
+      "prediction": "**Category:** None\n\n**Explanation:** The reasoning is logically sound and follows a clear process of elimination. It correctly identifies the key elements of the question (dark water, depth, and the absence of a man-made structure) and systematically evaluates each option against those criteria.",
+      "target": "**Classification:** None\n\n**Explanation:** The reasoning is sound and follows a logical process of elimination. It correctly identifies the context of the phrase \"dark water\" (Step 9) and evaluates each option based on its relevance to marine biology and natural environments (Steps 2-13), leading to the most plausible conclusion.",
+      "token_f1": 0.48,
+      "pred_tokens": 42,
+      "target_tokens": 48
+    },
+    {
+      "id": 36,
+      "type": "cot_compqa",
+      "oracle_prompt": "",
+      "prediction": "No, the model does not notice or correct any mistakes. The reasoning is logically sound and consistent throughout. It correctly identifies the problem constraints, calculates the combinations for each valid scenario (3 union members and 1 non-union, 4 union members and 0 non-union), and sums them to reach the final answer. There are no errors in the arithmetic or logic.",
+      "target": "The model does not notice or correct any mistakes because it does not make any. It correctly identifies the two valid cases (4 union/1 non-union and 5 union/0 non-union), calculates the combinations for each accurately (350 and 56), and sums them to reach the correct final answer (406).",
+      "token_f1": 0.523,
+      "pred_tokens": 60,
+      "target_tokens": 48
+    },
+    {
+      "id": 37,
+      "type": "cot_compqa",
+      "oracle_prompt": "",
+      "prediction": "No, the model does not notice or correct any mistakes. The reasoning is logically sound and consistent throughout. It correctly identifies the vowels and consonants, applies the permutation formula for the vowel block, and multiplies by the internal permutations of the vowel block. The final answer is accurate.",
+      "target": "The model does not notice or correct any mistakes because it does not make any. The reasoning is logically sound and follows a standard combinatorial approach: identifying the vowels (Step 1), treating them as a single unit (Step 2), calculating the permutations of the units (Step 3a), calculating the internal permutations of the vowels (Step 3b), and finding the product (Step 4). The final answer is correct.",
+      "token_f1": 0.482,
+      "pred_tokens": 48,
+      "target_tokens": 67
+    },
+    {
+      "id": 38,
+      "type": "cot_compqa",
+      "oracle_prompt": "",
+      "prediction": "**Essential (Load-Bearing) Steps:**\n*   **Step 1:** Identifies the constraints of the problem (30-50, prime, and the two conditions).\n*   **Step 2:** Lists all prime numbers in the range (31, 37, 41, 43, 47).\n*   **Step 3:** Applies the first condition (divisible by 2) to eliminate 31 and 47",
+      "target": "The reasoning is efficient and well-structured. Here is the breakdown of the steps:\n\n### Essential (Load-Bearing) Steps\n*   **Step 2:** Establishes the numerical range ($30 < N < 50$).\n*   **Step 6:** Correctly interprets the constraint \"could not break the students up into multiple groups of equal size\" as $N$ being a **prime number**.\n*   **Step 9:** Correctly interprets the second constraint (adding Betty and Wilma) as $N + 2$ being a **prime number**.\n*   **Step 11:** Performs the actual mat",
+      "token_f1": 0.207,
+      "pred_tokens": 48,
+      "target_tokens": 202
+    },
+    {
+      "id": 39,
+      "type": "cot_compqa",
+      "oracle_prompt": "",
+      "prediction": "**Category:** None\n\n**Explanation:** The reasoning is logically sound and follows a clear structure. It correctly identifies the core meaning of the question (the future state of a mortal), evaluates each option against that definition, and arrives at the correct answer (B) through a process of elimination and semantic analysis.",
+      "target": "Logical fallacy.\n\nThe reasoning incorrectly identifies the answer as **B (mortal)**. While mortality is the opposite of immortality, the question asks what someone lacking immortality \"will one day be\" (a future state). A person lacking immortality *is already* mortal; they do not \"one day become\" mortal. The correct answer is **C (dead)**, as that is the future state they will eventually reach. The model's analysis in Step 8, claiming \"dead\" is not a state one \"is\" in the future, is logically f",
+      "token_f1": 0.263,
+      "pred_tokens": 49,
+      "target_tokens": 82
+    },
+    {
+      "id": 40,
+      "type": "cot_compqa",
+      "oracle_prompt": "",
+      "prediction": "Yes, the final answer follows from the reasoning steps.\n\nThe reasoning correctly identifies the scenario as **fraud** (Step 10) and **unethical** (Step 11). It then evaluates the options provided in the context of the legal and ethical definitions of fraud. The conclusion that the scenario is \"unethical\" (Step 12) logically leads to the selection of **B** as the correct answer.",
+      "target": "Yes, the final answer follows from the reasoning steps.\n\nThe reasoning clearly establishes two main points:\n1. **Legality:** Steps 4-9 explain that billing an insurance company for services not rendered (fraudulent billing) is generally illegal.\n2. **Ethics:** Steps 10-13 explain that misrepresenting services for financial gain is a breach of medical ethics and transparency.\n\nStep 14 synthesizes these points to conclude the practice is \"both illegal and unethical,\" which directly corresponds to ",
+      "token_f1": 0.252,
+      "pred_tokens": 60,
+      "target_tokens": 74
+    },
+    {
+      "id": 41,
+      "type": "cot_compqa",
+      "oracle_prompt": "",
+      "prediction": "The model's reasoning is **forward from givens**.\n\nIt begins by analyzing the provided sentence (Steps 1-2), identifies the key contrast between \"loved\" and \"hated\" (Steps 3-4), and then systematically evaluates each option against that contrast to determine which one logically fits as the \"hated\" part (Steps 5-12). It does not start with the answer and work backward to justify it.",
+      "target": "The model's reasoning is **forward from givens**.\n\nIt begins by identifying the core premise provided in the problem (Step 2: \"James loved going down\") and uses logical deduction to identify the opposite action (Steps 3-4). It then evaluates the provided options against this deduction (Steps 5-9) to arrive at the final answer (Step 10).",
+      "token_f1": 0.396,
+      "pred_tokens": 60,
+      "target_tokens": 54
+    },
+    {
+      "id": 42,
+      "type": "cot_compqa",
+      "oracle_prompt": "",
+      "prediction": "Yes, the model verifies its answer through a process of elimination and logical reasoning.\n\n1.  **Elimination:** In steps 10-12, it systematically rules out options C, D, and E by identifying them as irrelevant or incorrect based on the context of the question.\n2.  **Definition Check:** In steps 13-14, it confirms that \"medium\" is the appropriate term for the physical form of the message, even when the content is in a foreign",
+      "target": "The model does not explicitly verify or double-check its answer. While it evaluates each option through a process of elimination (Steps 4-12), it concludes at Step 15 without performing a final review, sanity check, or alternative interpretation to ensure the logic holds.",
+      "token_f1": 0.213,
+      "pred_tokens": 71,
+      "target_tokens": 42
+    },
+    {
+      "id": 43,
+      "type": "cot_compqa",
+      "oracle_prompt": "",
+      "prediction": "**Category:** None\n\n**Explanation:** The reasoning is logically sound and mathematically accurate. It correctly calculates the head start distance (12 miles), determines the relative speed (26 mph), and computes the time to close the gap (48 minutes). The final answer (4:00 PM) is correctly derived from the initial time (1:00 PM) plus the calculated time.",
+      "target": "The reasoning is correct and contains no errors.\n\n**Classification: None**\n\nThe model correctly identifies the start times (Step 3), calculates Scott's head start distance (Step 7), determines the relative speed and remaining distance (Step 7), and solves for the time elapsed after 1:00 PM. It also provides a consistent cross-check using a linear equation (Step 9). All calculations and logical steps are accurate.",
+      "token_f1": 0.33,
+      "pred_tokens": 54,
+      "target_tokens": 63
+    },
+    {
+      "id": 44,
+      "type": "cot_compqa",
+      "oracle_prompt": "",
+      "prediction": "No. The reasoning is logically consistent and each step follows from the previous ones.\n\n1.  **Step 1-2** correctly identifies the core difference between coping strategies (internal, problem-focused) and psychological defense mechanisms (external, maladaptive).\n2.  **Step 3-4** correctly identifies the key characteristics of problem-focused coping (direct action, internal resources).\n3.  **Step 5-10** systematically evaluates each option against these criteria, correctly identifying that option",
+      "target": "Yes, the reasoning contains a logical inconsistency between **Step 4** and **Step 18**.\n\nIn **Step 4**, the model defines **Problem-focused coping** as involving \"internal resources such as problem-solving skills, planning, or decision-making.\" However, in the context of psychological coping theory (Lazarus & Folkman), problem-focused coping is primarily characterized by **external actions** taken to change the environment or the stressor itself (e.g., seeking information, removing the obstacle)",
+      "token_f1": 0.191,
+      "pred_tokens": 63,
+      "target_tokens": 146
+    },
+    {
+      "id": 45,
+      "type": "cot_compqa",
+      "oracle_prompt": "",
+      "prediction": "The model does not explicitly verify or double-check its answer. It follows a linear reasoning path from the problem description to the conclusion, but it does not perform a separate verification step or consider alternative perspectives to confirm its initial judgment.",
+      "target": "No, the model does not verify or double-check its answer. It immediately provides a judgment in Step 1 and proceeds to justify that stance and offer advice without evaluating alternative perspectives or reviewing the internal consistency of its reasoning.",
+      "token_f1": 0.448,
+      "pred_tokens": 41,
+      "target_tokens": 39
+    },
+    {
+      "id": 46,
+      "type": "cot_compqa",
+      "oracle_prompt": "",
+      "prediction": "No, the model does not notice or correct any mistakes. It follows a linear reasoning path from the premise to the conclusion without identifying or addressing any errors in its logic.",
+      "target": "The model does not notice or correct any mistakes because it does not make any during its reasoning process. The steps follow a linear, logical progression from analyzing the sentence structure to evaluating each option and selecting the most appropriate one. There are no instances of backtracking or self-correction.",
+      "token_f1": 0.406,
+      "pred_tokens": 31,
+      "target_tokens": 49
+    },
+    {
+      "id": 47,
+      "type": "cot_compqa",
+      "oracle_prompt": "",
+      "prediction": "**Essential (Load-Bearing) Steps:**\n*   **Step 1:** Identifies the core question and the need to evaluate the most logical answer.\n*   **Step 2:** Defines marmosets as arboreal primates, establishing their natural habitat.\n*   **Step 3:** Correctly identifies that marmosets are not aquatic, making \"swimming pool\" an illogical answer.\n*   **Step 4:** Correctly identifies that marmos",
+      "target": "**Essential (Load-Bearing) Steps:**\n*   **Step 2:** Identifies the marmoset as **arboreal** (tree-dwelling), which is the biological basis for the answer.\n*   **Step 13-14:** Directly links the arboreal nature of the marmoset to the fact that they do not go **underground**.\n*   **Step 15:** Explains why (they do not dig or live in burrows), providing the logical exclusion for option D.\n*   **Step 20:** Synthesizes the biological facts to select the final answer.\n\n**Decorative Filler:**\n*   **Ste",
+      "token_f1": 0.275,
+      "pred_tokens": 54,
+      "target_tokens": 143
+    },
+    {
+      "id": 48,
+      "type": "cot_compqa",
+      "oracle_prompt": "",
+      "prediction": "Yes, several steps are redundant or unnecessary:\n\n1.  **Redundant Analysis of \"Refrigerator\" (Steps 3 and 4):** The model spends two separate steps analyzing the same option, \"refrigerator,\" which is unnecessary since it is the correct answer.\n2.  **Redundant Comparison of \"Refrigerator\" and \"Fridge\" (Steps 4 and 5):** The model repeats the same logic in steps 4 and",
+      "target": "Yes, several steps are redundant or could be consolidated:\n\n1.  **Redundant Definitions:** Steps 9 and 10 are redundant because they define \"Fridge\" as functionally identical to \"Refrigerator,\" which was already analyzed in steps 6 and 7.\n2.  **Repetitive Logic:** Step 12 repeats the logic of step 11 regarding the formality versus casual usage of the terms.\n3.  **Structural Redundancy:** Step 1 is a simple restatement of the prompt and does not contribute to the reasoning process.\n4.  **Fragment",
+      "token_f1": 0.359,
+      "pred_tokens": 57,
+      "target_tokens": 104
+    },
+    {
+      "id": 49,
+      "type": "cot_compqa",
+      "oracle_prompt": "",
+      "prediction": "No. The reasoning is logically sound and follows a clear progression from identifying the core concept of socialization (Step 1) to systematically evaluating each option against that definition (Steps 2-12). Each step builds upon the previous one by narrowing down the most comprehensive and accurate description of the concept.",
+      "target": "No. The reasoning is logically sound and follows a clear progression. Each step builds upon the previous one: it defines the core concept (Steps 1-3), systematically evaluates the provided options against that definition (Steps 4-9), identifies the most comprehensive answer (Step 10), and justifies why that specific option aligns with the principles of social influence (Step 11).",
+      "token_f1": 0.6,
+      "pred_tokens": 49,
+      "target_tokens": 57
+    }
+  ]
+}

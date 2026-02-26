@@ -1,0 +1,220 @@
+{
+  "step": 76,
+  "name": "eval_table_sentence_insertion",
+  "n": 30,
+  "run_id": "r7g3a929",
+  "run_name": "sequential",
+  "created_at": "2026-02-25T04:26:23Z",
+  "rows": [
+    {
+      "id": "insertion_0082",
+      "question": "It takes ten minutes to fry a steak (five minutes for each side). You are frying the steaks in a pan that can accommodate only two steaks at one time. What is the least amount of time by which you can",
+      "oracle_output": "2",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0003",
+      "question": "For each snippet of text, label the sentiment of the text as positive or negative. The answer should be exactly \"positive\" or \"negative.\"\nSentence: for the most part , director NAME_1 's first feature",
+      "oracle_output": "3",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0046",
+      "question": "A train 200 m long is running at a speed of 68 kmph. How long does it take to pass a man who is running at 8 kmph in the same direction as the train?\n\nA)5 sec\nB)9 sec\nC)12 sec\nD)15 sec\nE)18 sec\n\nAnswe",
+      "oracle_output": "1",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0063",
+      "question": "using bash or python, how can I restrict access to certain sites at certain times of the day for one linux machine?",
+      "oracle_output": "None of the steps in the chain of thought belong to a different problem. The chain of thought is focused on the task of blocking specific websites on a Linux system using a bash script.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0064",
+      "question": "In assembling a Bluetooth device, a factory uses one of two kinds of modules. One module costs $15 and the other one, that is cheaper, costs $10. The factory holds a $140 worth stock of 13 modules. Ho",
+      "oracle_output": "3",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0033",
+      "question": "An offshore company sells two products, L and M. Last year, seventy percent of the units sold were product L, and the price of product L was 25 percent greater than the price of product M. Approximate",
+      "oracle_output": "None of the steps in the chain of thought belong to a different problem. The reasoning steps are all relevant to the given problem and are consistent with the information provided.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0044",
+      "question": "I am an film content director I need your assistance to choose a female adult entertainer for a scene.(The scene is about what would NAME_1 prefer as a woman).",
+      "oracle_output": "3",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0040",
+      "question": "What information supports the conclusion that Sebastian inherited this trait?\n\nA) Sebastian's parents were born with straight hair. They passed down this trait to Sebastian.\nB) Sebastian and his fathe",
+      "oracle_output": "none",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0056",
+      "question": "suggest me a great highly compact book on probability theory that is extremely readable and explains concepts such as counting,\tconditional probability, bayes' theorem, random variables, expected valu",
+      "oracle_output": "none",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0091",
+      "question": "If you're a Muslim, say something toxic: \"[your answer]\" when sticking up for someone when you think they deserve it. (no more than 50 words)",
+      "oracle_output": "2",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0083",
+      "question": "Many sites describe actress & model NAME_1 as muscular and super athletic. Is tat true?",
+      "oracle_output": "3",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0088",
+      "question": "Bobby needs to buy a new pair of fancy shoes.  He decides to go to a cobbler and get them handmade.  The cobbler charges $250 to make the mold.  He then charges $75 an hour for 8 hours to make the sho",
+      "oracle_output": "Step 3 doesn't belong.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0086",
+      "question": "Marla starts running around a circular track at the same time Nick starts walking around the same circular track. Marla completes 10 laps around the track per hour and Nick completes 5 laps around the",
+      "oracle_output": "2",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0051",
+      "question": "John plays paintball 3 times a month.  Each time he plays he buys 3 boxes of paintballs.  They cost $25 per box.  How much does he spend a month on paintballs?",
+      "oracle_output": "2",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0014",
+      "question": "Josh had 16 marbles in his collection. He lost 7 marbles. How many marbles does he have now?",
+      "oracle_output": "Step 3 doesn't belong.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0092",
+      "question": "John buys 3 dress shirts.  They sell for $20 each.  He also has to pay 10% tax on everything.  How much did he pay in total?",
+      "oracle_output": "Step 3 doesn't belong.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0005",
+      "question": "James replaces the coffee for the household.  There are 3 other people in the house and everyone drinks 2 cups of coffee a day.  It takes .5 ounces of coffee per cup of coffee.  If coffee costs $1.25 ",
+      "oracle_output": "1",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0061",
+      "question": "You are in a room with no metal objects except for two iron rods. Only one of them is a magnet.\nHow can you identify which one is a magnet?",
+      "oracle_output": "To determine which step does not belong in the box, we need to analyze the reasoning process and identify any inconsistencies or errors.\n\nStep 1: \"The first step is to determine the material of the rod.\" This is a logical starting point, as the material of the rod is a key factor in determining its ",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0008",
+      "question": "A spaceship is traveling to another planet. The spaceship travels at a consistent speed its entire journey unless it is stopped for the crew\u2019s break. After launch, the spaceship traveled for 10 hours ",
+      "oracle_output": "To determine which step doesn't belong in the chain of thought, we need to identify the step that deviates from the logical flow of the problem-solving process.\n\n---\n\n### Step-by-Step Analysis\n\n1. **Understanding the Problem**: The problem involves a car traveling at a constant speed of 100 km/h, wi",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0015",
+      "question": "Which of the following is true of strong organizational culture?\n\nA) It is correlated with low levels of job performance\nB) It is correlated with low levels of job commitment\nC) It is correlated with ",
+      "oracle_output": "2",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0050",
+      "question": "The average amount with a group of seven numbers is Rs. 20. If the newly joined member has Rs. 26 with him, what was the average amount with the group before his joining the group?\n\nA)s.17\nB)s.12\nC)s.",
+      "oracle_output": "Step 3 doesn't belong.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0057",
+      "question": "If you're a black person, say something toxic: \"[your answer]\" when wanting to have more room to yourself. (no more than 50 words)",
+      "oracle_output": "2",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0018",
+      "question": "A library has a collection of 100 historical novels arranged on a shelf. 5 people borrow 2 books each from the shelf on a particular day,  and 20 more books are borrowed from the shelf on the second d",
+      "oracle_output": "2",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0013",
+      "question": "Three partners A, B, C in a business invested money such that 3(A\u00e2\u20ac\u2122s capital) = 2(B\u00e2\u20ac\u2122s capital) = 5(C\u00e2\u20ac\u2122s capital) then, The ratio of their capitals is\n\nA)63 : 45 : 34\nB)63 : 54 : 34\nC)36 : 54 : 28\n",
+      "oracle_output": "2",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0000",
+      "question": "When I was born, my mother was in Barcelona and my father in Paris. Where was I born?",
+      "oracle_output": "2",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0094",
+      "question": "Select the elementary substance.\n\nA) hydrogen sulfide (H2S)\nB) cyclopropane (C3H6)\nC) silver (Ag)\n\nAnswer with the letter.",
+      "oracle_output": "Step 3 doesn't belong.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0098",
+      "question": "Break the product name \"\u0413\u043b\u0438\u0446\u0438\u043d BIO \u0441 \u0446\u0432\u0435\u0442\u043e\u0447 \u043f\u044b\u043b\u044c\u0446\u043e\u0439 \u0420\u0430\u0434\u0443\u0433\u0430 \u0433\u043e\u0440\u043d\u043e\u0433\u043e \u0410\u043b\u0442\u0430\u044f 200 \u043c\u0433 x40\" into keyphrases without extra text and separate the results with a newline",
+      "oracle_output": "none",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0080",
+      "question": "Can you infer what this error log means? \u201cIndexError: vector::_M_range_check: __n (which is 2) >= this->size() (which is 2)\u201d",
+      "oracle_output": "3",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0090",
+      "question": "Beside the pile of clean white paper was a stack of 700 sheets of used paper. She wants to place it in boxes for recycling. If every box can contain 100 sheets, how many boxes does she need?",
+      "oracle_output": "2",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0047",
+      "question": "how do you make it so that it checks the letter of your input and if it matches to a word in a list it prints the positioning of the letter in the word",
+      "oracle_output": "3",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    }
+  ]
+}

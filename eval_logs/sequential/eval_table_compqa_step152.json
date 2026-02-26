@@ -1,0 +1,220 @@
+{
+  "step": 152,
+  "name": "eval_table_compqa",
+  "n": 30,
+  "run_id": "r7g3a929",
+  "run_name": "sequential",
+  "created_at": "2026-02-25T04:26:23Z",
+  "rows": [
+    {
+      "id": "compqa_8238",
+      "question": "Is the reasoning in this chain of thought sound? Explain briefly.",
+      "oracle_output": "Yes, the reasoning in the chain of thought is sound. The key point is that **R-selected species** are characterized by their **rapid growth and reproduction**, which are central to the concept of **primary succession**.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_958",
+      "question": "Does any step in this reasoning not follow from the previous steps? If so, which and why?",
+      "oracle_output": "No, each step in the reasoning follows logically from the previous steps. The reasoning starts by identifying the key information (mass of a helicopter), evaluates the given options against this information, and eliminates implausible choices based on the",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_9471",
+      "question": "Does the model notice and correct any of its own mistakes? Describe.",
+      "oracle_output": "No, the assistant does not notice or correct any of its own mistakes in this context.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_7784",
+      "question": "Does the model verify or double-check its answer? How?",
+      "oracle_output": "The assistant verifies its answer by analyzing the context and eliminating incorrect options based on the information provided.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_5422",
+      "question": "Are any steps redundant or unnecessary? Which ones?",
+      "oracle_output": "Yes, the step of **excluding other causes of pleural effusion** is redundant and unnecessary in this context. The patient's history of **smoking and occupational exposure to asbestos** strongly suggests a **diagnosis of asbest",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_5111",
+      "question": "What is the first error (if any) in this reasoning? State the step number and the error, or 'none'.",
+      "oracle_output": "Step 1: The question asks for the **distinction** between **mesoglea** and **mesoderm**.\n\nStep 2: The **mesoderm** is a **true embryonic layer** found in **vertebrates** (e.g., humans, mammals, birds, reptiles, amphibians, and fish",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_9298",
+      "question": "Does any step in this reasoning not follow from the previous steps? If so, which and why?",
+      "oracle_output": "No, each step in the reasoning follows logically from the previous steps. The conclusion that **D: mop** is the correct answer is well-supported by the premises provided.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_8935",
+      "question": "Does the final answer follow from the reasoning steps? Explain.",
+      "oracle_output": "Yes",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_4352",
+      "question": "Does the final answer follow from the reasoning steps? Explain.",
+      "oracle_output": "Yes",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_5421",
+      "question": "Which steps are essential (load-bearing) for reaching the answer, and which are decorative filler?",
+      "oracle_output": "The essential steps for reaching the answer involve analyzing the evidence of **domesticated animals** found in the area, such as cattle, sheep, and goats, and interpreting this as a sign of **livestock raising**.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_6420",
+      "question": "Classify the errors in this reasoning: arithmetic, logical fallacy, false premise, irrelevant step, or none. Give the category and a brief explanation.",
+      "oracle_output": "None. The reasoning is logically sound and does not contain any errors.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_8327",
+      "question": "Does the model verify or double-check its answer? How?",
+      "oracle_output": "The assistant verifies its answer by analyzing the grammatical structure and context of each sentence to determine whether the pronoun is used ambiguously. It provides a clear explanation of why one option is",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_5576",
+      "question": "Is the model reasoning forward from givens, backward from the answer, or mixed?",
+      "oracle_output": "The assistant is reasoning **forward from givens**. It starts with the premise that you are in a restaurant and uses logical deduction to determine the correct answer based on the given options.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_774",
+      "question": "Does any step in this reasoning not follow from the previous steps? If so, which and why?",
+      "oracle_output": "No, each step in the reasoning follows logically from the previous steps. The conclusion that the **composition** of the universe is a concept that was changed by the invention of the microscope is well-supported by the premises.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_7140",
+      "question": "Does the model verify or double-check its answer? How?",
+      "oracle_output": "The assistant verifies its answer by analyzing the legal definitions and requirements for battery, ensuring that the response is consistent with the principles of intent and harm.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_6367",
+      "question": "Is the model reasoning forward from givens, backward from the answer, or mixed?",
+      "oracle_output": "The assistant is reasoning **forward from the givens**, analyzing the provided information and drawing conclusions based on the data and context provided.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_2546",
+      "question": "Does the model verify or double-check its answer? How?",
+      "oracle_output": "The assistant verifies its answer by thoroughly analyzing the legal principles and applying them to the specific scenario, ensuring that the reasoning is sound and the conclusion is well-supported.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_8945",
+      "question": "Is the reasoning in this chain of thought sound? Explain briefly.",
+      "oracle_output": "Yes, the reasoning in the chain of thought is sound. The key points are well-supported by the legal principles and the facts of the case.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_5409",
+      "question": "Are any steps redundant or unnecessary? Which ones?",
+      "oracle_output": "A and C are redundant as they describe the same concept of **solidification**. B is irrelevant as it refers to a geographical feature, not a transformation. D is a misinterpretation of the term 'artic",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_2529",
+      "question": "Classify the errors in this reasoning: arithmetic, logical fallacy, false premise, irrelevant step, or none. Give the category and a brief explanation.",
+      "oracle_output": "None. The reasoning is logically sound and free of errors.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_8095",
+      "question": "Does the model notice and correct any of its own mistakes? Describe.",
+      "oracle_output": "No, the assistant does not notice or correct any of its own mistakes in the given example.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_7753",
+      "question": "What is the first error (if any) in this reasoning? State the step number and the error, or 'none'.",
+      "oracle_output": "Step 3 is incorrect. The reasoning incorrectly states that the presence of **proteinuria** and **chronic renal failure** excludes **acute tubular necrosis (ATN)**. In fact, **ATN** can present with **proteinuria** and **chron",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_4742",
+      "question": "Classify the errors in this reasoning: arithmetic, logical fallacy, false premise, irrelevant step, or none. Give the category and a brief explanation.",
+      "oracle_output": "None. The reasoning is logically sound and accurately categorizes the man's actions under the appropriate legal offenses.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_4075",
+      "question": "Is the reasoning in this chain of thought sound? Explain briefly.",
+      "oracle_output": "Yes, the reasoning is sound. The question asks which planet the Atlantic Ocean is part of, and the correct answer is Earth, as the Atlantic Ocean is a body of water on Earth.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_4563",
+      "question": "Does any step in this reasoning not follow from the previous steps? If so, which and why?",
+      "oracle_output": "No, each step in the reasoning follows logically from the previous steps. The conclusion that **A** is the correct answer is well-supported by the reasoning provided.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_4786",
+      "question": "What is the first error (if any) in this reasoning? State the step number and the error, or 'none'.",
+      "oracle_output": "A",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_7730",
+      "question": "Does any step in this reasoning not follow from the previous steps? If so, which and why?",
+      "oracle_output": "No, each step in the reasoning follows logically from the previous steps. The conclusion that the user's response is \"RIGHT\" is supported by the premises provided, which include the nature of the relationship, the user's emotional state, and the",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_7478",
+      "question": "What is the first error (if any) in this reasoning? State the step number and the error, or 'none'.",
+      "oracle_output": "None of the steps in the reasoning contain an error. The conclusion is correctly derived from the premise.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_7484",
+      "question": "Which steps are essential (load-bearing) for reaching the answer, and which are decorative filler?",
+      "oracle_output": "The essential steps for reaching the answer are:\n\n1. **Understanding the riddle's context**: Recognizing that the riddle uses \"paying patients\" humorously to refer to individuals who are part of a group or activity, not actual medical patients.\n\n2. **Analyzing the",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_5608",
+      "question": "Does the model notice and correct any of its own mistakes? Describe.",
+      "oracle_output": "No, the assistant does not notice or correct its own mistakes in this context. It provides a response based on its training data and does not engage in self-assessment or correction.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    }
+  ]
+}

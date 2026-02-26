@@ -1,0 +1,220 @@
+{
+  "step": 361,
+  "name": "eval_table_atypical_answer_mcq",
+  "n": 30,
+  "run_id": "r7g3a929",
+  "run_name": "sequential",
+  "created_at": "2026-02-25T04:26:23Z",
+  "rows": [
+    {
+      "id": "atypical_mcq_0056",
+      "question": "During spring break, a private boarding school was deserted while students and teachers were away on vacation. A guidance counselor remained on campus because he was working on a research project. Aft",
+      "oracle_output": "The reasoning leads to a **minority** answer.\n\nWhile the reasoning correctly identifies that the counselor's actions (searching the student's room and opening the envelope) were unlawful under the Fourth Amendment, it fails to recognize that the **police's subsequent seizure** of the evidence was al",
+      "ground_truth": "minority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0023",
+      "question": "Costs for producing one widget: Materials:2 parts (a) $25.00 per part Expenses :$10.00 Labor :20 operations (a) $5.00 per operation Based on the above information, which is the only valid conclusion? ",
+      "oracle_output": "The reasoning leads to a **minority** answer.\n\nThe reasoning correctly identifies that the total cost is $160 (A), and that labor cost is $100 (C). However, the conclusion that \"Output is excessive\" (F) is a logical fallacy. The term \"excessive\" is subjective and not supported by the data provided. ",
+      "ground_truth": "minority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0048",
+      "question": "A man was arrested and charged with robbery. Upon being taken into custody, he was given his Miranda rights and then taken to the police station for booking. At the stationhouse, the man told a police",
+      "oracle_output": "The reasoning leads to a **minority** answer.\n\nWhile the reasoning correctly identifies that the officer's testimony is admissible under the **Hearsay Exception for Presenting a Party's Own Statement** (Federal Rule of Evidence 801(d)(2)(A)), it fails to recognize that the **correct legal standard**",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0045",
+      "question": "A train pulled into a busy station. Some passengers got off the train, and others got on. A few moments later, a train conductor shouted, \"All aboard!\" to indicate that the train was about to depart t",
+      "oracle_output": "The reasoning leads to a **minority** answer.\n\nThe model concludes that the customer cannot prove **Duty** (Step 4), which is a fundamental element of negligence. However, in most jurisdictions, the customer would have a duty to avoid placing themselves in a position of danger (e.g., by not standing",
+      "ground_truth": "minority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0018",
+      "question": "A change in a neuron membrane potential from +50 millivolts to -70 millivolts is considered\n\nA) a threshold potential\nB) hyperpolarization\nC) an action potential\nD) an equilibrium potential\nE) a resti",
+      "oracle_output": "The reasoning leads to a **minority** answer.\n\nWhile the model correctly identifies that the membrane potential is becoming more negative (polarized), it incorrectly concludes that this is \"hyperpolarization\" (Option B). In standard physiology, a **decrease in membrane potential** (becoming more neg",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0020",
+      "question": "An employee wdrked as a delivery person for a drugstore. As part of the employee's duties and responsibilities, he would regularly deliver prescriptions and other items (such as toiletries, cosmetics,",
+      "oracle_output": "The reasoning leads to a **minority** answer.\n\nWhile the reasoning correctly identifies that the employee's actions were personal (Option I), it fails to recognize that the **majority** of jurisdictions would apply the **\"attractive nuisance\" doctrine** (Option H) in this context. The employee was u",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0091",
+      "question": "Is the ICJ hostile to the idea that an armed attack may arise through a series of lower intensity, yet cumulative, instances of armed force?\n\nA) The ICJ has often supported the accumulation theory\nB) ",
+      "oracle_output": "The reasoning leads to a **minority** answer.\n\nWhile the reasoning correctly identifies the ICJ's stance in the Nicaragua case (Option D) and the ICJ's rejection of the \"cumulative\" theory in the Croatia case (Option F), it concludes that the ICJ \"consistently\" rejected the theory (Option G). Howeve",
+      "ground_truth": "minority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0001",
+      "question": "A landlord leased a commercial building to a tenant for five years. Rent was payable on the first day of each month, and the landlord retained the right to terminate the lease if the tenant defaulted.",
+      "oracle_output": "The reasoning leads to a **minority** answer.\n\nWhile the model correctly identifies that the lease has expired and the tenant is in possession, it concludes that the tenant is \"in possession\" (Option A) rather than recognizing that the tenant has a **legal right to remain** under the doctrine of **t",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0059",
+      "question": "The police arrested a man for the murder of his live-in fianc\u00c3\u00a9e after the woman's dead body was found in the basement of their apartment building. At trial, the prosecution attempted to present the t",
+      "oracle_output": "The reasoning leads to a **minority** answer.\n\nWhile the reasoning correctly identifies the statement as **hearsay** (Step 1) and correctly identifies the **content** as the key issue (Step 2), it fails to recognize that the **content of the conversation** is not the only factor in determining admis",
+      "ground_truth": "minority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0035",
+      "question": "A used car worth $1650 was purchased on the installment plan with a $50 down payment and a total of $1840 in monthly payments over a period of two years. What was the rate of interest computed on the ",
+      "oracle_output": "The reasoning leads to a **minority** answer.\n\nThe reasoning correctly identifies the total interest paid ($120) and the total principal ($1800) over 2 years. It then calculates the annual interest rate as $ \\frac{120}{1800} = 0.0667 $, which is approximately 6.67%. However, the reasoning incorrectl",
+      "ground_truth": "minority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0011",
+      "question": "Exposing individuals to arguments against their views, arguments that are then strongly refuted, may serve to\n\nA) make them more argumentative\nB) make them more susceptible to accepting opposing views",
+      "oracle_output": "The reasoning leads to a **minority** answer.\n\nWhile the model correctly identifies the psychological mechanism (the \"boomerang effect\" or \"inoculation theory\") and identifies **E** as a direct result of the process, the majority of the reasoning is focused on eliminating the other options. In many ",
+      "ground_truth": "minority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0062",
+      "question": "After watching a television program about archery, a 15-year-old boy became very interested in that sport. He saved up some money to buy a bow and other archery equipment. He set up a target in his ba",
+      "oracle_output": "The reasoning leads to a **minority** answer.\n\nWhile the model correctly identifies that the plaintiff did not suffer a physical injury (no battery or assault) and that the defendant was not legally obligated to warn the plaintiff (no negligence), it overlooks the fact that the defendant's actions (",
+      "ground_truth": "minority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0098",
+      "question": "A mother has an 11-year-old daughter. The mother is legally separated from her husband and has filed for divorce. The mother and her husband own their home in joint tenancy. One night, the mother went",
+      "oracle_output": "The reasoning leads to a **minority** answer.\n\nWhile the model correctly identifies that the husband had legal authority to consent (Step 6), it overlooks the **legal principle of \"implied consent\"** in the context of a family member's actions. In many jurisdictions, a family member (like a daughter",
+      "ground_truth": "minority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0006",
+      "question": "In the process of generating ATP, hydrogen ions (H+, or protons) are transported across the inner mitochondrial membrane and the thylakoid membrane by a proton pump (an ATPase). You would expect to fi",
+      "oracle_output": "The reasoning leads to a **minority** answer.\n\nWhile the model correctly identifies that proton pumps are found in the plasma membranes of all listed options (A, C, D, E, F, G, H, I, J), it concludes that **J) Plants and animals** is the best answer. However, this is a **category-based generalizatio",
+      "ground_truth": "minority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0057",
+      "question": "A college student and her boyfriend lived together in a one-bedroom apartment in Los Angeles. They were engaged to be married when they purchased an undeveloped parcel of land on a hillside overlookin",
+      "oracle_output": "The reasoning leads to a **minority** answer.\n\nWhile the model correctly identifies that the brother's interest was not transferred (making B correct), it fails to recognize that the **co-owner's interest is not a \"joint tenancy\"**. In a joint tenancy, the right of survivorship only applies to the o",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0054",
+      "question": "A retailer brought a federal diversity action against a wholesaler, alleging breach of contract and fraudulent misrepresentation. After the parties presented their evidence at trial, the court instruc",
+      "oracle_output": "The reasoning leads to a **minority** answer.\n\nWhile the reasoning correctly identifies that the trial court's denial of a motion for a new trial (which is a \"ruling\" on sufficiency of the evidence) allows appellate review, the **majority** of jurisdictions (including the 11th Circuit) would typical",
+      "ground_truth": "minority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0086",
+      "question": "A landowner, her aunt, and her brother are the owners of three contiguous lots. A downward slope exists from the landowner's land to the brother'sland. The aunt, the owner in the middle of the three l",
+      "oracle_output": "The reasoning leads to a **minority** answer.\n\nWhile the model correctly identifies that the brother owns the airspace (C), the final conclusion (C) is not the most accurate legal standard. In property law, the correct standard for determining whether an injunction is appropriate is whether the inte",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0030",
+      "question": "A widow owned an apartment building. Several years ago, a student, in a signed writing, entered a three-year lease agreement with the widow. The student agreed to pay $800 monthly rent for the third-f",
+      "oracle_output": "The reasoning leads to a **minority** answer.\n\nWhile the model correctly identifies that the lease had expired (Step 2) and that the tenant's continued payment and occupancy created a **periodic tenancy** (Step 4), it fails to recognize that the **correct legal basis** for the tenant's right to rema",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0077",
+      "question": "A defendant was arrested and charged with burglarizing a home. At trial, the main issue of contention centered on the identity of the burglar. The state called the homeowner to testify, but his identi",
+      "oracle_output": "The reasoning leads to a **minority** answer.\n\nWhile the reasoning correctly identifies that the evidence is **not directly probative** (Step 10) and **not admissible under Rule 403** (Step 11), it concludes that the evidence is **excluded due to its prejudicial nature** (Step 12). However, the **ma",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0016",
+      "question": "A widow owned an apartment building. Several years ago, a student, in a signed writing, entered a three-year lease agreement with the widow. The student agreed to pay $800 monthly rent for the third-f",
+      "oracle_output": "The reasoning leads to a **minority** answer.\n\nWhile the reasoning is logically sound and follows the standard legal analysis of lease agreements, the conclusion (Option C) is not the most common or standard legal remedy for a tenant in a month-to-month lease. In most jurisdictions, the correct lega",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0014",
+      "question": "A shopper in a store sees that a display case is about to fall on a second shopper's head. The shopper does nothing to warn or assist the second shopper, who is a stranger to her. She could have taken",
+      "oracle_output": "The reasoning leads to a **minority** answer.\n\nWhile the model correctly identifies that the \"Good Samaritan\" doctrine (Option I) and the \"duty to rescue\" (Option H) are not legally required in most jurisdictions, it concludes that the correct answer is **H**. However, in the majority of U.S. jurisd",
+      "ground_truth": "minority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0094",
+      "question": "Noam Chomsky and B. F. Skinner disagreed about how children acquire language. Which of the following concepts is most relevant to the differences between their theories?\n\nA) linguistic relativity hypo",
+      "oracle_output": "The reasoning leads to a **minority** answer.\n\nWhile the reasoning correctly identifies the core difference between the two theories (the existence of an innate structure), it fails to recognize that the **majority** of the provided options (A, B, C, D, E) are more directly related to the **specific",
+      "ground_truth": "minority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0074",
+      "question": "A defendant was driving his new sports car at a high rate of speed on a busy city street in the middle of the day. A pedestrian was struck by the defendant's car as she was crossing the street and was",
+      "oracle_output": "The reasoning leads to a **minority** answer.\n\nWhile the model correctly identifies that the driver's actions (speeding, swerving, and failing to yield) constitute **reckless driving**, it concludes that the best fit among the provided options is **B) Manslaughter**. However, in most jurisdictions, ",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0012",
+      "question": "One afternoon, a pilot was flying a small airplane when it suddenly ran out of gas. As he was coming in for an emergency landing, the plane crossed into a neighboring state at a very low altitude. At ",
+      "oracle_output": "The reasoning leads to a **minority** answer.\n\nWhile the reasoning correctly identifies that the boy's statement is not protected by the attorney-client privilege (Step 10), it fails to recognize that the **boy's statement is protected by the work product doctrine** under the \"in preparation for lit",
+      "ground_truth": "minority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0069",
+      "question": "A lumber supplier and a fence company signed the following agreement on May 1:\"The supplier promises to sell and the fence company promises to buy 7,000 sections of redwood stockade fence at $30 per s",
+      "oracle_output": "The reasoning leads to a **minority** answer.\n\nWhile the reasoning correctly identifies that the buyer has the right to reject non-conforming goods under the UCC (Option A), the **majority** of legal scholars and courts would typically conclude that the buyer's **failure to notify the seller of the ",
+      "ground_truth": "minority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0089",
+      "question": "According to gate-control theory, which condition tends to close the gate?\n\nA) anxiety\nB) sleep deprivation\nC) focusing on the pain\nD) stress\nE) electrical stimulation\nF) depression\n\nThink step by ste",
+      "oracle_output": "The reasoning leads to a **minority** answer.\n\nWhile the model correctly identifies that **pain** (Option E) is a known gate opener, the majority of the reasoning process is flawed. It incorrectly identifies **anxiety** (Option B) and **stress** (Option D) as gate closers, which is the opposite of w",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0013",
+      "question": "From a patch of garden peas, a random sampling of 13 plants is made. Their height in centimetres is as follows: 161183177157181176180 162163174179169187 Calculate: (a)themean;(b) the median;(c) the mo",
+      "oracle_output": "Minority",
+      "ground_truth": "minority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0066",
+      "question": "A landlord, an owner in fee simple, leased a three- story house to a tenant for a term of 10 years. By the terms of the lease, the tenant expressly covenanted to pay a monthly rental of $300 and to pa",
+      "oracle_output": "The reasoning leads to a **minority** answer.\n\nWhile the reasoning correctly identifies that the covenant to pay $300/month is a personal covenant (not a covenant running with the land), it incorrectly concludes that the **student is liable** to the new owner. In fact, the **new owner is the one who",
+      "ground_truth": "minority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0092",
+      "question": "A husband is charged with murder in the shooting death of his brother-in-law. In the jurisdiction in which the husband is on trial for murder, the defense of insanity is an affirmative defense. The hu",
+      "oracle_output": "The reasoning leads to a **minority** answer.\n\nWhile the reasoning is logically sound and follows the standard legal framework for affirmative defenses, the conclusion (E) is not the standard legal requirement in most jurisdictions. In most U.S. jurisdictions, the **burden of proof** for insanity is",
+      "ground_truth": "minority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0070",
+      "question": "What are some of the theories which support a belief that aggression is necessary?\n\nA) \"Aggressive Energy\" theory and \"Natural Born Killer\" theory\nB) \"Game\" theory and \"Cognitive Neoassociation\" theor",
+      "oracle_output": "The reasoning leads to a **minority** answer.\n\nWhile the model correctly identifies that **Option G (Survival of the Fittest)** is a biological theory that supports the necessity of aggression, it also correctly identifies **Option E (Instinctual Drive)** as a psychological theory that supports the ",
+      "ground_truth": "minority",
+      "correct": "yes"
+    }
+  ]
+}

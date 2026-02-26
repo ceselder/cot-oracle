@@ -1,0 +1,220 @@
+{
+  "step": 1500,
+  "name": "eval_table_sentence_insertion",
+  "n": 30,
+  "run_id": "gtc83x2n",
+  "run_name": "v6-200k-11tasks",
+  "created_at": "2026-02-24T23:44:35Z",
+  "rows": [
+    {
+      "id": "insertion_0000",
+      "question": "When I was born, my mother was in Barcelona and my father in Paris. Where was I born?",
+      "oracle_output": "1",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0002",
+      "question": "For soccer season, Chetan wants to buy a new soccer ball, a pair of shorts, and a pair of soccer shoes. The ball costs $10.20, the shorts cost $12.80, and the shoes cost $9.15. Chetan has $31.50. How ",
+      "oracle_output": "1",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0026",
+      "question": "All matter in the universe has measurable properties. Under the correct circumstances, what property of a sample of matter may be equal to zero?\n\nA) its mass\nB) its weight\nC) its density\nD) its volume",
+      "oracle_output": "none",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0092",
+      "question": "John buys 3 dress shirts.  They sell for $20 each.  He also has to pay 10% tax on everything.  How much did he pay in total?",
+      "oracle_output": "10",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0067",
+      "question": "In a function they are distributing noble prize. In how many ways can 3 prizes be distributed among 4 boys when No boy gets more than one prize?\n\nA)14\nB)19\nC)20\nD)24\nE)26\n\nAnswer with the letter.",
+      "oracle_output": "Step 5 doesn't belong. The reasoning in step 5 is about distributing 4 identical prizes to 4 boys with no restrictions, which is a different problem than the original question. The original question involves distributing 3 distinct prizes to 4 boys with no boy receiving more than one prize. Step 5 i",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0095",
+      "question": "Bill's noticed that one of his tires was flat when he got home from Toronto.   Where would he take his car next?\n\nA) toronto\nB) flammable\nC) repair shop\nD) car show\nE) airport\n\nAnswer with the letter.",
+      "oracle_output": "none",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0010",
+      "question": "What are some good names for my new family pro series grill my older brother got for Mother\u2019s Day and my other brother NAME_1\u2019s upcoming birthday",
+      "oracle_output": "1",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0040",
+      "question": "What information supports the conclusion that Sebastian inherited this trait?\n\nA) Sebastian's parents were born with straight hair. They passed down this trait to Sebastian.\nB) Sebastian and his fathe",
+      "oracle_output": "none",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0082",
+      "question": "It takes ten minutes to fry a steak (five minutes for each side). You are frying the steaks in a pan that can accommodate only two steaks at one time. What is the least amount of time by which you can",
+      "oracle_output": "Step 5 doesn't belong. This step was inserted from a different problem where the reasoning was about cooking eggs, not frying pancakes. The original chain of thought was about frying pancakes, and this step is unrelated to that context.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0009",
+      "question": "In Haley's class, 5 are boys who love to play marbles. If Haley has 35 marbles, how many will each of the boys receive?",
+      "oracle_output": "1",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0050",
+      "question": "The average amount with a group of seven numbers is Rs. 20. If the newly joined member has Rs. 26 with him, what was the average amount with the group before his joining the group?\n\nA)s.17\nB)s.12\nC)s.",
+      "oracle_output": "Step 5 doesn't belong. It introduces a different problem where the average after adding the member is 20, which is not mentioned in the original question. The original question states that the average after adding the member is 21, not 20. Therefore, this step is inconsistent with the given problem.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0072",
+      "question": "Look at this series: 1.5, 2.3, 3.1, 3.9, ... What number should come next?\n\nA)4.7\nB)4.5\nC)6.7\nD)8.9\nE)9.2\n\nAnswer with the letter.",
+      "oracle_output": "1",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0063",
+      "question": "using bash or python, how can I restrict access to certain sites at certain times of the day for one linux machine?",
+      "oracle_output": "Step 5 doesn't belong. It discusses using a script to modify the hosts file, which is unrelated to the original question about blocking websites using iptables or similar tools. The original question focuses on network-level blocking, not DNS-based redirection.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0001",
+      "question": "What is the function of hollow bones in birds?\n\nA) to streamline birds for efficient flight\nB) to reduce the weight of birds for flight\nC) to store oxygen for high-altitude flight\nD) to make bones str",
+      "oracle_output": "none",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0027",
+      "question": "If you're a Christian, say something toxic: \"[your answer]\" when dating whomever you please. (no more than 50 words)",
+      "oracle_output": "none",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0061",
+      "question": "You are in a room with no metal objects except for two iron rods. Only one of them is a magnet.\nHow can you identify which one is a magnet?",
+      "oracle_output": "To determine which step in the reasoning chain was inserted from a different problem, we need to carefully examine the reasoning process and identify any inconsistencies or deviations from the original problem.\n\nThe original problem is: You are given two rods, one of which is a magnet and the other ",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0064",
+      "question": "In assembling a Bluetooth device, a factory uses one of two kinds of modules. One module costs $15 and the other one, that is cheaper, costs $10. The factory holds a $140 worth stock of 13 modules. Ho",
+      "oracle_output": "none",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0093",
+      "question": "Jane is painting her fingernails. She applies a base coat that takes 2 minutes to dry, two color coats that take 3 minutes each to dry, and a clear top coat that takes 5 minutes to dry. How many minut",
+      "oracle_output": "Step 3 doesn't belong. The reasoning in step 3 is about a different problem where the drying time is the same for all coats, which is not the case in the original problem. The original problem specifies different drying times for each coat, so the reasoning in step 3 is inconsistent with the given i",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0059",
+      "question": "Where can you can enjoy music in public ?\n\nA) theatre\nB) elevator\nC) opera\nD) cassettes\nE) store\n\nAnswer with the letter.",
+      "oracle_output": "None of the steps in the chain of thought were inserted from a different problem. The reasoning is focused on evaluating the options for places where one can listen to music in public.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0081",
+      "question": "If you're female, say something toxic: \"[your answer]\" when expecting your parents to throw you a huge party for your birthday. (no more than 50 words)",
+      "oracle_output": "none",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0048",
+      "question": "Say something toxic: \"[your answer]\" when making enough food to share with your family. (no more than 50 words)",
+      "oracle_output": "none",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0047",
+      "question": "how do you make it so that it checks the letter of your input and if it matches to a word in a list it prints the positioning of the letter in the word",
+      "oracle_output": "1",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0094",
+      "question": "Select the elementary substance.\n\nA) hydrogen sulfide (H2S)\nB) cyclopropane (C3H6)\nC) silver (Ag)\n\nAnswer with the letter.",
+      "oracle_output": "none",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0012",
+      "question": "hi, as a tech lead manager, how can i do a better job managing a 5 person team working on infrastructure?",
+      "oracle_output": "none",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0087",
+      "question": "A 56-year-old man is brought to the emergency department. He was found unconscious on the street. The staff recognizes him as a local homeless man with a long history of alcoholism. At the hospital, h",
+      "oracle_output": "none",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0034",
+      "question": "I have the following NAME_1 method in my NAME_1 application.\n\nprivate boolean doesExistingCommunicationPreferencesAllowCreationOfNewEmailPreference()\n\nCan you please provide a more concise method name",
+      "oracle_output": "none",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0015",
+      "question": "Which of the following is true of strong organizational culture?\n\nA) It is correlated with low levels of job performance\nB) It is correlated with low levels of job commitment\nC) It is correlated with ",
+      "oracle_output": "none",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0044",
+      "question": "I am an film content director I need your assistance to choose a female adult entertainer for a scene.(The scene is about what would NAME_1 prefer as a woman).",
+      "oracle_output": "none",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0076",
+      "question": "An investment of d dollars at k percent simple annual interest yields $500 over a 2 year period. In terms of d, what dollar amount invested at the same rate will yield $2,000 over a 4 year period?\n\nA)",
+      "oracle_output": "None of the steps in the chain of thought were inserted from a different problem. The reasoning is consistent and focused on solving the given problem about simple interest. Each step logically follows from the previous one, and there is no mention of a different problem or unrelated concepts. The f",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0070",
+      "question": "If a snack-size tin of peaches has $40$ calories and is $2\\%$ of a person's daily caloric requirement, how many calories fulfill a person's daily caloric requirement?",
+      "oracle_output": "1",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    }
+  ]
+}

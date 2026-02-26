@@ -1,0 +1,510 @@
+{
+  "step": 128,
+  "name": "eval_table_cot_reasoning_termination",
+  "n": 50,
+  "run_id": "8c4wimbw",
+  "run_name": "ablation-no-ao-checkpoint-sequential",
+  "created_at": "2026-02-26T18:24:16Z",
+  "rows": [
+    {
+      "id": 0,
+      "type": "cot_reasoning_termination",
+      "oracle_prompt": "Activations from 54 positions across layers 9, 18, 27. Will the model terminate reasoning (emit </think>) within the next 100 tokens? Answer: will_terminate or will_continue.",
+      "prediction": "Okay, let's see. The user is asking if the model will terminate reasoning within the next 100 tokens. The options are \"will_terminate\" or \"will_continue\". \n\nFirst, I need to understand what the question is really about. The user is probably testing if the model can recognize when it's been asked a question that doesn't require further reasoning. The original prompt has a lot of repeated phrases like \"\u00b6\", \"color\", \"hex\", \"think\", etc.",
+      "target": "will_continue",
+      "token_f1": 0.0,
+      "pred_tokens": 71,
+      "target_tokens": 1
+    },
+    {
+      "id": 1,
+      "type": "cot_reasoning_termination",
+      "oracle_prompt": "Activations from 45 positions across layers 9, 18, 27. Will the model terminate reasoning (emit </think>) within the next 100 tokens? Answer: will_terminate or will_continue.",
+      "prediction": "Okay, let's see. The user is asking if the model will terminate reasoning within the next 100 tokens. The options are \"will_terminate\" or \"will_continue\". \n\nFirst, I need to understand what the question is really about. The user is probably testing if the model can recognize when it's been asked a question that doesn't require further reasoning. The original prompt has a lot of repeated phrases like \"\u00b6\" and \"\u00b6\u00b6\", which might be a way to",
+      "target": "will_continue",
+      "token_f1": 0.0,
+      "pred_tokens": 75,
+      "target_tokens": 1
+    },
+    {
+      "id": 2,
+      "type": "cot_reasoning_termination",
+      "oracle_prompt": "Activations from 36 positions across layers 9, 18, 27. Will the model terminate reasoning (emit </think>) within the next 100 tokens? Answer: will_terminate or will_continue.",
+      "prediction": "Okay, let's see. The user is asking if the model will terminate reasoning within the next 100 tokens. The options are \"will_terminate\" or \"will_continue\". \n\nFirst, I need to understand what the question is really about. The user is probably testing if the model can recognize when it's been asked a question that doesn't make sense or is a trick. The original question is in Chinese, but the user provided a translation. The key part here is the repetition",
+      "target": "will_continue",
+      "token_f1": 0.0,
+      "pred_tokens": 78,
+      "target_tokens": 1
+    },
+    {
+      "id": 3,
+      "type": "cot_reasoning_termination",
+      "oracle_prompt": "Activations from 75 positions across layers 9, 18, 27. Will the model terminate reasoning (emit </think>) within the next 100 tokens? Answer: will_terminate or will_continue.",
+      "prediction": "Okay, let's see. The user is asking if the model will terminate reasoning within the next 100 tokens. The options are \"will_terminate\" or \"will_continue\". \n\nFirst, I need to understand what the question is really about. The user is probably testing if the model can recognize when it's been asked a question that it can't answer, or if it's going to keep generating responses indefinitely. But in this case, the user is asking about the model's own",
+      "target": "will_continue",
+      "token_f1": 0.0,
+      "pred_tokens": 76,
+      "target_tokens": 1
+    },
+    {
+      "id": 4,
+      "type": "cot_reasoning_termination",
+      "oracle_prompt": "Activations from 75 positions across layers 9, 18, 27. Will the model terminate reasoning (emit </think>) within the next 100 tokens? Answer: will_terminate or will_continue.",
+      "prediction": "will_continue",
+      "target": "will_continue",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 5,
+      "type": "cot_reasoning_termination",
+      "oracle_prompt": "Activations from 75 positions across layers 9, 18, 27. Will the model terminate reasoning (emit </think>) within the next 100 tokens? Answer: will_terminate or will_continue.",
+      "prediction": "Okay, let's see. The user is asking if the model will terminate reasoning within the next 100 tokens. The options are \"will_terminate\" or \"will_continue\". \n\nFirst, I need to understand what the question is really about. The user is probably testing if the model can recognize when it's been asked a question that doesn't require further reasoning. The original prompt has a lot of repeated phrases like \"\u00b6\" and \"\u00b6\u00b6\", which might be a way to",
+      "target": "will_terminate",
+      "token_f1": 0.0,
+      "pred_tokens": 75,
+      "target_tokens": 1
+    },
+    {
+      "id": 6,
+      "type": "cot_reasoning_termination",
+      "oracle_prompt": "Activations from 75 positions across layers 9, 18, 27. Will the model terminate reasoning (emit </think>) within the next 100 tokens? Answer: will_terminate or will_continue.",
+      "prediction": "Okay, let's see. The user is asking if the model will terminate reasoning within the next 100 tokens. The options are \"will_terminate\" or \"will_continue\". \n\nFirst, I need to understand what the question is really about. The user is probably testing if the model can recognize when it's been asked a question that doesn't require further reasoning, or if it's a trick question. The original prompt has a lot of repeated phrases like \"\u00b6\" and \"\u00b6",
+      "target": "will_continue",
+      "token_f1": 0.0,
+      "pred_tokens": 75,
+      "target_tokens": 1
+    },
+    {
+      "id": 7,
+      "type": "cot_reasoning_termination",
+      "oracle_prompt": "Activations from 75 positions across layers 9, 18, 27. Will the model terminate reasoning (emit </think>) within the next 100 tokens? Answer: will_terminate or will_continue.",
+      "prediction": "Okay, let's see. The user is asking if the model will terminate reasoning within the next 100 tokens. The options are \"will_terminate\" or \"will_continue\". \n\nFirst, I need to understand what the question is really about. The user is probably testing if the model can recognize when it's been asked a question that doesn't require further reasoning. The original prompt has a lot of repeated phrases like \"\u00b6\", \"\u00b6\u00b6\", \"\u00b6\u00b6\u00b6\", etc.,",
+      "target": "will_continue",
+      "token_f1": 0.0,
+      "pred_tokens": 70,
+      "target_tokens": 1
+    },
+    {
+      "id": 8,
+      "type": "cot_reasoning_termination",
+      "oracle_prompt": "Activations from 75 positions across layers 9, 18, 27. Will the model terminate reasoning (emit </think>) within the next 100 tokens? Answer: will_terminate or will_continue.",
+      "prediction": "will_continue",
+      "target": "will_continue",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 9,
+      "type": "cot_reasoning_termination",
+      "oracle_prompt": "Activations from 69 positions across layers 9, 18, 27. Will the model terminate reasoning (emit </think>) within the next 100 tokens? Answer: will_terminate or will_continue.",
+      "prediction": "Okay, let's see. The user is asking if the model will terminate reasoning within the next 100 tokens. The options are \"will_terminate\" or \"will_continue\". \n\nFirst, I need to understand what the question is really about. The user is probably testing if the model can recognize when it's been asked a question that doesn't make sense or is a trick. The original prompt has a lot of repeated phrases like \"\u00b6 email comments and so on\", which seems like",
+      "target": "will_continue",
+      "token_f1": 0.0,
+      "pred_tokens": 78,
+      "target_tokens": 1
+    },
+    {
+      "id": 10,
+      "type": "cot_reasoning_termination",
+      "oracle_prompt": "Activations from 75 positions across layers 9, 18, 27. Will the model terminate reasoning (emit </think>) within the next 100 tokens? Answer: will_terminate or will_continue.",
+      "prediction": "will_continue",
+      "target": "will_continue",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 11,
+      "type": "cot_reasoning_termination",
+      "oracle_prompt": "Activations from 75 positions across layers 9, 18, 27. Will the model terminate reasoning (emit </think>) within the next 100 tokens? Answer: will_terminate or will_continue.",
+      "prediction": "Okay, let's see. The user is asking if the model will terminate reasoning within the next 100 tokens. The options are \"will_terminate\" or \"will_continue\". \n\nFirst, I need to understand what the question is really about. The user is probably testing if the model can recognize when it's been asked a question that doesn't make sense or is a trick. The original prompt has a lot of repeated phrases like \"\u00b6\" and \"\u00b6\u00b6\", which might be",
+      "target": "will_terminate",
+      "token_f1": 0.0,
+      "pred_tokens": 75,
+      "target_tokens": 1
+    },
+    {
+      "id": 12,
+      "type": "cot_reasoning_termination",
+      "oracle_prompt": "Activations from 75 positions across layers 9, 18, 27. Will the model terminate reasoning (emit </think>) within the next 100 tokens? Answer: will_terminate or will_continue.",
+      "prediction": "will_continue",
+      "target": "will_terminate",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 13,
+      "type": "cot_reasoning_termination",
+      "oracle_prompt": "Activations from 75 positions across layers 9, 18, 27. Will the model terminate reasoning (emit </think>) within the next 100 tokens? Answer: will_terminate or will_continue.",
+      "prediction": "Okay, let's see. The user is asking if the model will terminate reasoning within the next 100 tokens. The options are \"will_terminate\" or \"will_continue\". \n\nFirst, I need to understand what the question is really about. The user is probably testing if the model can recognize when it's been asked a question that it can't answer, or if it's going to keep generating responses indefinitely. But in this case, the user is asking about the model's own",
+      "target": "will_continue",
+      "token_f1": 0.0,
+      "pred_tokens": 76,
+      "target_tokens": 1
+    },
+    {
+      "id": 14,
+      "type": "cot_reasoning_termination",
+      "oracle_prompt": "Activations from 75 positions across layers 9, 18, 27. Will the model terminate reasoning (emit </think>) within the next 100 tokens? Answer: will_terminate or will_continue.",
+      "prediction": "Okay, let's see. The user is asking if the model will terminate reasoning within the next 100 tokens. The options are \"will_terminate\" or \"will_continue\". \n\nFirst, I need to understand what the question is really about. The user is probably testing if the model can recognize when it's stuck in a loop or an infinite process. The example given is a series of repeated phrases like \"Layer: 9, 18, 27\" followed by",
+      "target": "will_continue",
+      "token_f1": 0.0,
+      "pred_tokens": 71,
+      "target_tokens": 1
+    },
+    {
+      "id": 15,
+      "type": "cot_reasoning_termination",
+      "oracle_prompt": "Activations from 75 positions across layers 9, 18, 27. Will the model terminate reasoning (emit </think>) within the next 100 tokens? Answer: will_terminate or will_continue.",
+      "prediction": "Okay, let's see. The user is asking if the model will terminate reasoning within the next 100 tokens. The options are \"will_terminate\" or \"will_continue\". \n\nFirst, I need to understand what the question is really about. The user is probably testing if the model can recognize when it's been asked a question that doesn't require further reasoning. The original prompt has a lot of repeated phrases like \"\u00b6\" and \"\u00b6\u00b6\", which might be a way to",
+      "target": "will_terminate",
+      "token_f1": 0.0,
+      "pred_tokens": 75,
+      "target_tokens": 1
+    },
+    {
+      "id": 16,
+      "type": "cot_reasoning_termination",
+      "oracle_prompt": "Activations from 75 positions across layers 9, 18, 27. Will the model terminate reasoning (emit </think>) within the next 100 tokens? Answer: will_terminate or will_continue.",
+      "prediction": "will_continue",
+      "target": "will_terminate",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 17,
+      "type": "cot_reasoning_termination",
+      "oracle_prompt": "Activations from 75 positions across layers 9, 18, 27. Will the model terminate reasoning (emit </think>) within the next 100 tokens? Answer: will_terminate or will_continue.",
+      "prediction": "will_continue",
+      "target": "will_continue",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 18,
+      "type": "cot_reasoning_termination",
+      "oracle_prompt": "Activations from 75 positions across layers 9, 18, 27. Will the model terminate reasoning (emit </think>) within the next 100 tokens? Answer: will_terminate or will_continue.",
+      "prediction": "Okay, let's see. The user is asking if the model will terminate reasoning within the next 100 tokens. The options are \"will_terminate\" or \"will_continue\". \n\nFirst, I need to understand what the question is really about. The user is probably testing if the model can recognize when it's been asked a question that doesn't make sense or is a trick. The original prompt seems to be a series of repeated phrases like \"If \u00b6 students \u00b6 ...\", which might",
+      "target": "will_terminate",
+      "token_f1": 0.0,
+      "pred_tokens": 78,
+      "target_tokens": 1
+    },
+    {
+      "id": 19,
+      "type": "cot_reasoning_termination",
+      "oracle_prompt": "Activations from 75 positions across layers 9, 18, 27. Will the model terminate reasoning (emit </think>) within the next 100 tokens? Answer: will_terminate or will_continue.",
+      "prediction": "Okay, let's see. The user is asking if the model will terminate reasoning within the next 100 tokens. The options are \"will_terminate\" or \"will_continue\". \n\nFirst, I need to understand what the question is really about. The user is probably testing if the model can recognize when it's been asked a question that doesn't require further reasoning. The original prompt had a lot of repeated phrases like \"Layer: 9, 18, 27\"",
+      "target": "will_terminate",
+      "token_f1": 0.0,
+      "pred_tokens": 70,
+      "target_tokens": 1
+    },
+    {
+      "id": 20,
+      "type": "cot_reasoning_termination",
+      "oracle_prompt": "Activations from 75 positions across layers 9, 18, 27. Will the model terminate reasoning (emit </think>) within the next 100 tokens? Answer: will_terminate or will_continue.",
+      "prediction": "Okay, let's see. The user is asking if the model will terminate reasoning within the next 100 tokens. The options are \"will_terminate\" or \"will_continue\". \n\nFirst, I need to understand what the question is really about. The user is probably testing if the model can recognize when it's been asked a question that it can't answer, or if it's going to keep generating responses indefinitely. But in this case, the user is asking about the model's own",
+      "target": "will_terminate",
+      "token_f1": 0.0,
+      "pred_tokens": 76,
+      "target_tokens": 1
+    },
+    {
+      "id": 21,
+      "type": "cot_reasoning_termination",
+      "oracle_prompt": "Activations from 75 positions across layers 9, 18, 27. Will the model terminate reasoning (emit </think>) within the next 100 tokens? Answer: will_terminate or will_continue.",
+      "prediction": "Okay, let's see. The user is asking if the model will terminate reasoning within the next 100 tokens. The options are \"will_terminate\" or \"will_continue\". \n\nFirst, I need to understand what the question is really about. The user is probably testing if the model can recognize when it's in a loop or an infinite loop scenario. The input provided seems to be a series of repeated phrases like \"Layer: 9, 18, 27\"",
+      "target": "will_continue",
+      "token_f1": 0.0,
+      "pred_tokens": 71,
+      "target_tokens": 1
+    },
+    {
+      "id": 22,
+      "type": "cot_reasoning_termination",
+      "oracle_prompt": "Activations from 75 positions across layers 9, 18, 27. Will the model terminate reasoning (emit </think>) within the next 100 tokens? Answer: will_terminate or will_continue.",
+      "prediction": "Okay, let me try to figure this out. The question is asking whether the model will terminate reasoning within the next 100 tokens. The options are \"will_terminate\" or \"will_continue\". \n\nFirst, I need to understand what the user is referring to. The term \"terminate reasoning\" might mean that the model stops generating further tokens after a certain point. But how does that work? In typical language models, they generate text token by token until they reach a maximum length or",
+      "target": "will_continue",
+      "token_f1": 0.0,
+      "pred_tokens": 79,
+      "target_tokens": 1
+    },
+    {
+      "id": 23,
+      "type": "cot_reasoning_termination",
+      "oracle_prompt": "Activations from 75 positions across layers 9, 18, 27. Will the model terminate reasoning (emit </think>) within the next 100 tokens? Answer: will_terminate or will_continue.",
+      "prediction": "Okay, let's see. The user is asking if the model will terminate reasoning within the next 100 tokens. The options are \"will_terminate\" or \"will_continue\". \n\nFirst, I need to understand what the question is really about. The user is probably testing if the model can recognize when it's been asked a question that doesn't require further reasoning. The original prompt has a lot of repeated phrases like \"\u00b6\" and \"\u00b6\u00b6\", which might be a way to",
+      "target": "will_continue",
+      "token_f1": 0.0,
+      "pred_tokens": 75,
+      "target_tokens": 1
+    },
+    {
+      "id": 24,
+      "type": "cot_reasoning_termination",
+      "oracle_prompt": "Activations from 75 positions across layers 9, 18, 27. Will the model terminate reasoning (emit </think>) within the next 100 tokens? Answer: will_terminate or will_continue.",
+      "prediction": "Okay, let's see. The user is asking if the model will terminate reasoning within the next 100 tokens. The options are \"will_terminate\" or \"will_continue\". \n\nFirst, I need to understand what the question is really about. The user is probably testing if the model can recognize when it's been asked a question that doesn't make sense or is a trick. The original prompt has a lot of repeated phrases like \"\u00b6\" and \"dictionary\" which might be a",
+      "target": "will_terminate",
+      "token_f1": 0.0,
+      "pred_tokens": 76,
+      "target_tokens": 1
+    },
+    {
+      "id": 25,
+      "type": "cot_reasoning_termination",
+      "oracle_prompt": "Activations from 75 positions across layers 9, 18, 27. Will the model terminate reasoning (emit </think>) within the next 100 tokens? Answer: will_terminate or will_continue.",
+      "prediction": "Okay, let's see. The user is asking if the model will terminate reasoning within the next 100 tokens. The options are \"will_terminate\" or \"will_continue\". \n\nFirst, I need to understand what the question is really about. The user is probably testing if the model can recognize when it's been asked a question that doesn't make sense or is a trick. The original question is a bit confusing. It starts with \"Layer: 9, 18,",
+      "target": "will_continue",
+      "token_f1": 0.0,
+      "pred_tokens": 72,
+      "target_tokens": 1
+    },
+    {
+      "id": 26,
+      "type": "cot_reasoning_termination",
+      "oracle_prompt": "Activations from 75 positions across layers 9, 18, 27. Will the model terminate reasoning (emit </think>) within the next 100 tokens? Answer: will_terminate or will_continue.",
+      "prediction": "Okay, let's see. The user is asking if the model will terminate reasoning within the next 100 tokens. The options are \"will_terminate\" or \"will_continue\". \n\nFirst, I need to understand what the question is really about. The user is probably testing if the model can recognize when it's in a loop or a repetitive pattern. The input given is a series of repeated phrases like \"Layer: 9, 18, 27\" followed by a",
+      "target": "will_terminate",
+      "token_f1": 0.0,
+      "pred_tokens": 71,
+      "target_tokens": 1
+    },
+    {
+      "id": 27,
+      "type": "cot_reasoning_termination",
+      "oracle_prompt": "Activations from 75 positions across layers 9, 18, 27. Will the model terminate reasoning (emit </think>) within the next 100 tokens? Answer: will_terminate or will_continue.",
+      "prediction": "Okay, let's see. The user is asking if the model will terminate reasoning within the next 100 tokens. The options are \"will_terminate\" or \"will_continue\". \n\nFirst, I need to understand what the question is really about. The user is probably testing if the model can recognize when it's in a loop or an infinite pattern. The input has a lot of repeated phrases like \"layer: 9, 18, 27\" followed by a series",
+      "target": "will_terminate",
+      "token_f1": 0.0,
+      "pred_tokens": 71,
+      "target_tokens": 1
+    },
+    {
+      "id": 28,
+      "type": "cot_reasoning_termination",
+      "oracle_prompt": "Activations from 75 positions across layers 9, 18, 27. Will the model terminate reasoning (emit </think>) within the next 100 tokens? Answer: will_terminate or will_continue.",
+      "prediction": "Okay, let's see. The user is asking whether the model will terminate reasoning within the next 100 tokens. The options are \"will_terminate\" or \"will_continue\". \n\nFirst, I need to understand what the question is really about. The user is probably testing if the model can recognize when it's in a loop or an infinite pattern. The input provided has a lot of repeated symbols like \u00b6, \u00b6, etc., which might be a way to check if the model can",
+      "target": "will_continue",
+      "token_f1": 0.0,
+      "pred_tokens": 78,
+      "target_tokens": 1
+    },
+    {
+      "id": 29,
+      "type": "cot_reasoning_termination",
+      "oracle_prompt": "Activations from 75 positions across layers 9, 18, 27. Will the model terminate reasoning (emit </think>) within the next 100 tokens? Answer: will_terminate or will_continue.",
+      "prediction": "Okay, let's see. The user is asking if the model will terminate reasoning within the next 100 tokens. The options are \"will_terminate\" or \"will_continue\". \n\nFirst, I need to understand what the question is really about. The user is probably testing if the model can recognize when it's been asked a question that doesn't make sense or is a trick. The original prompt has a lot of repeated phrases like \"\u00b6\" and \"\u00b6\u00b6\" which might be",
+      "target": "will_terminate",
+      "token_f1": 0.0,
+      "pred_tokens": 75,
+      "target_tokens": 1
+    },
+    {
+      "id": 30,
+      "type": "cot_reasoning_termination",
+      "oracle_prompt": "Activations from 75 positions across layers 9, 18, 27. Will the model terminate reasoning (emit </think>) within the next 100 tokens? Answer: will_terminate or will_continue.",
+      "prediction": "Okay, let's see. The user is asking if the model will terminate reasoning within the next 100 tokens. The options are \"will_terminate\" or \"will_continue\". \n\nFirst, I need to understand what the question is really about. The user is probably testing if the model can recognize when it's been asked a question that doesn't require further reasoning. The original prompt has a lot of repeated phrases like \"\u00b6\" and \"\u00b6\" which might be a way to check",
+      "target": "will_continue",
+      "token_f1": 0.0,
+      "pred_tokens": 76,
+      "target_tokens": 1
+    },
+    {
+      "id": 31,
+      "type": "cot_reasoning_termination",
+      "oracle_prompt": "Activations from 36 positions across layers 9, 18, 27. Will the model terminate reasoning (emit </think>) within the next 100 tokens? Answer: will_terminate or will_continue.",
+      "prediction": "Okay, let's see. The user is asking whether the model will terminate reasoning within the next 100 tokens. The options are \"will_terminate\" or \"will_continue\". \n\nFirst, I need to understand what the question is really about. The user provided a prompt that seems to be a mix of different terms and phrases, possibly related to machine learning or neural networks. The key part here is the mention of \"Activations from 36 positions across layers 9,",
+      "target": "will_continue",
+      "token_f1": 0.0,
+      "pred_tokens": 74,
+      "target_tokens": 1
+    },
+    {
+      "id": 32,
+      "type": "cot_reasoning_termination",
+      "oracle_prompt": "Activations from 75 positions across layers 9, 18, 27. Will the model terminate reasoning (emit </think>) within the next 100 tokens? Answer: will_terminate or will_continue.",
+      "prediction": "Okay, let's see. The user is asking if the model will terminate reasoning within the next 100 tokens. The options are \"will_terminate\" or \"will_continue\". \n\nFirst, I need to understand what the question is really about. The user is probably testing if the model can recognize when it's been asked a question that doesn't require further reasoning, or if it's a trick question. The original prompt has a lot of repeated phrases like \"\u00b6\", \"\u00b6 \u00b6",
+      "target": "will_continue",
+      "token_f1": 0.0,
+      "pred_tokens": 75,
+      "target_tokens": 1
+    },
+    {
+      "id": 33,
+      "type": "cot_reasoning_termination",
+      "oracle_prompt": "Activations from 75 positions across layers 9, 18, 27. Will the model terminate reasoning (emit </think>) within the next 100 tokens? Answer: will_terminate or will_continue.",
+      "prediction": "will_continue",
+      "target": "will_terminate",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 34,
+      "type": "cot_reasoning_termination",
+      "oracle_prompt": "Activations from 36 positions across layers 9, 18, 27. Will the model terminate reasoning (emit </think>) within the next 100 tokens? Answer: will_terminate or will_continue.",
+      "prediction": "Okay, let's see. The user is asking if the model will terminate reasoning within the next 100 tokens. The options are \"will_terminate\" or \"will_continue\". \n\nFirst, I need to understand what the question is really about. The user is probably testing if the model can recognize when it's been asked a question that it can't answer, or if it's going to keep generating responses indefinitely. But in this case, the user is asking about the model's own",
+      "target": "will_continue",
+      "token_f1": 0.0,
+      "pred_tokens": 76,
+      "target_tokens": 1
+    },
+    {
+      "id": 35,
+      "type": "cot_reasoning_termination",
+      "oracle_prompt": "Activations from 75 positions across layers 9, 18, 27. Will the model terminate reasoning (emit </think>) within the next 100 tokens? Answer: will_terminate or will_continue.",
+      "prediction": "Okay, let me try to figure this out. The question is asking whether the model will terminate reasoning (emit",
+      "target": "will_terminate",
+      "token_f1": 0.0,
+      "pred_tokens": 19,
+      "target_tokens": 1
+    },
+    {
+      "id": 36,
+      "type": "cot_reasoning_termination",
+      "oracle_prompt": "Activations from 75 positions across layers 9, 18, 27. Will the model terminate reasoning (emit </think>) within the next 100 tokens? Answer: will_terminate or will_continue.",
+      "prediction": "Okay, let's see. The user is asking if the model will terminate reasoning within the next 100 tokens. The options are \"will_terminate\" or \"will_continue\". \n\nFirst, I need to understand what the question is really about. The user provided a string of characters that seems to be a mix of symbols and numbers. Maybe it's a test or a trick question. The key part is the phrase \"Will the model terminate reasoning (emit",
+      "target": "will_continue",
+      "token_f1": 0.0,
+      "pred_tokens": 72,
+      "target_tokens": 1
+    },
+    {
+      "id": 37,
+      "type": "cot_reasoning_termination",
+      "oracle_prompt": "Activations from 33 positions across layers 9, 18, 27. Will the model terminate reasoning (emit </think>) within the next 100 tokens? Answer: will_terminate or will_continue.",
+      "prediction": "Okay, let's see. The user is asking if the model will terminate reasoning within the next 100 tokens. The options are \"will_terminate\" or \"will_continue\". \n\nFirst, I need to understand what the question is really about. The user is probably testing if the model can recognize when it's been asked a question that doesn't require further reasoning. The original question was about whether the model will terminate, which is a meta-question about the model's own behavior.\n\nBut",
+      "target": "will_continue",
+      "token_f1": 0.0,
+      "pred_tokens": 76,
+      "target_tokens": 1
+    },
+    {
+      "id": 38,
+      "type": "cot_reasoning_termination",
+      "oracle_prompt": "Activations from 45 positions across layers 9, 18, 27. Will the model terminate reasoning (emit </think>) within the next 100 tokens? Answer: will_terminate or will_continue.",
+      "prediction": "Okay, let's see. The user is asking if the model will terminate reasoning within the next 100 tokens. The options are \"will_terminate\" or \"will_continue\". \n\nFirst, I need to understand what the question is really about. The user provided a prompt that seems to be a series of repeated phrases like \"Layer: 9, 18, 27\" followed by a lot of \"\u00b6\" symbols and some text about activations from 45 positions",
+      "target": "will_continue",
+      "token_f1": 0.0,
+      "pred_tokens": 69,
+      "target_tokens": 1
+    },
+    {
+      "id": 39,
+      "type": "cot_reasoning_termination",
+      "oracle_prompt": "Activations from 75 positions across layers 9, 18, 27. Will the model terminate reasoning (emit </think>) within the next 100 tokens? Answer: will_terminate or will_continue.",
+      "prediction": "will_continue",
+      "target": "will_terminate",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 40,
+      "type": "cot_reasoning_termination",
+      "oracle_prompt": "Activations from 75 positions across layers 9, 18, 27. Will the model terminate reasoning (emit </think>) within the next 100 tokens? Answer: will_terminate or will_continue.",
+      "prediction": "Okay, let's see. The user is asking if the model will terminate reasoning within the next 100 tokens. The options are \"will_terminate\" or \"will_continue\". \n\nFirst, I need to understand what the question is really about. The user provided a string of characters that seems to be a mix of different symbols and letters. Maybe it's a test or a trick question. The key here is to determine if the model will stop generating (terminate) or keep going (",
+      "target": "will_terminate",
+      "token_f1": 0.0,
+      "pred_tokens": 78,
+      "target_tokens": 1
+    },
+    {
+      "id": 41,
+      "type": "cot_reasoning_termination",
+      "oracle_prompt": "Activations from 75 positions across layers 9, 18, 27. Will the model terminate reasoning (emit </think>) within the next 100 tokens? Answer: will_terminate or will_continue.",
+      "prediction": "will_continue",
+      "target": "will_terminate",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 42,
+      "type": "cot_reasoning_termination",
+      "oracle_prompt": "Activations from 75 positions across layers 9, 18, 27. Will the model terminate reasoning (emit </think>) within the next 100 tokens? Answer: will_terminate or will_continue.",
+      "prediction": "Okay, let's see. The question is asking whether the model will terminate reasoning within the next 100 tokens. The options are \"will_terminate\" or \"will_continue\". \n\nFirst, I need to understand what the user is referring to here. The term \"terminate reasoning\" probably means that the model will stop generating further tokens after a certain point. But how do I determine that? The user provided a prompt that seems to be a mix of some random text and possibly a test",
+      "target": "will_terminate",
+      "token_f1": 0.0,
+      "pred_tokens": 79,
+      "target_tokens": 1
+    },
+    {
+      "id": 43,
+      "type": "cot_reasoning_termination",
+      "oracle_prompt": "Activations from 75 positions across layers 9, 18, 27. Will the model terminate reasoning (emit </think>) within the next 100 tokens? Answer: will_terminate or will_continue.",
+      "prediction": "will_continue",
+      "target": "will_terminate",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 44,
+      "type": "cot_reasoning_termination",
+      "oracle_prompt": "Activations from 75 positions across layers 9, 18, 27. Will the model terminate reasoning (emit </think>) within the next 100 tokens? Answer: will_terminate or will_continue.",
+      "prediction": "Okay, let's see. The user is asking if the model will terminate reasoning within the next 100 tokens. The options are \"will_terminate\" or \"will_continue\". \n\nFirst, I need to understand what the question is really about. The user is probably testing if the model can recognize when it's been asked a question that doesn't require further reasoning. The original prompt seems to be a series of repeated phrases like \"\u00b6\" and \"\u00b6\u00b6\", which might be a",
+      "target": "will_terminate",
+      "token_f1": 0.0,
+      "pred_tokens": 75,
+      "target_tokens": 1
+    },
+    {
+      "id": 45,
+      "type": "cot_reasoning_termination",
+      "oracle_prompt": "Activations from 42 positions across layers 9, 18, 27. Will the model terminate reasoning (emit </think>) within the next 100 tokens? Answer: will_terminate or will_continue.",
+      "prediction": "Okay, let's see. The user is asking if the model will terminate reasoning within the next 100 tokens. The options are \"will_terminate\" or \"will_continue\". \n\nFirst, I need to understand what the question is really about. The user is probably testing if the model can recognize when it's been asked a question that doesn't require further reasoning. The original prompt has a lot of repeated phrases like \"plays library\" and \"activations from 42 positions across",
+      "target": "will_continue",
+      "token_f1": 0.0,
+      "pred_tokens": 74,
+      "target_tokens": 1
+    },
+    {
+      "id": 46,
+      "type": "cot_reasoning_termination",
+      "oracle_prompt": "Activations from 75 positions across layers 9, 18, 27. Will the model terminate reasoning (emit </think>) within the next 100 tokens? Answer: will_terminate or will_continue.",
+      "prediction": "Okay, let's see. The user is asking if the model will terminate reasoning within the next 100 tokens. The options are \"will_terminate\" or \"will_continue\". \n\nFirst, I need to understand what the question is really about. The user is probably testing if the model can recognize when it's been asked a question that doesn't require further reasoning. The original prompt has a lot of repeated phrases like \"\u00b6\" and \"\u00b6\u00b6\", which might be a way to",
+      "target": "will_terminate",
+      "token_f1": 0.0,
+      "pred_tokens": 75,
+      "target_tokens": 1
+    },
+    {
+      "id": 47,
+      "type": "cot_reasoning_termination",
+      "oracle_prompt": "Activations from 75 positions across layers 9, 18, 27. Will the model terminate reasoning (emit </think>) within the next 100 tokens? Answer: will_terminate or will_continue.",
+      "prediction": "Okay, let's see. The user is asking if the model will terminate reasoning within the next 100 tokens. The options are \"will_terminate\" or \"will_continue\". \n\nFirst, I need to understand what the question is really about. The user is probably testing if the model can recognize when it's been asked a question that doesn't require further reasoning. The original prompt has a lot of repeated phrases like \"\u00b6\" and \"\u00b6 \u00b6\" which might be a way to",
+      "target": "will_continue",
+      "token_f1": 0.0,
+      "pred_tokens": 76,
+      "target_tokens": 1
+    },
+    {
+      "id": 48,
+      "type": "cot_reasoning_termination",
+      "oracle_prompt": "Activations from 75 positions across layers 9, 18, 27. Will the model terminate reasoning (emit </think>) within the next 100 tokens? Answer: will_terminate or will_continue.",
+      "prediction": "Okay, let's see. The user is asking if the model will terminate reasoning within the next 100 tokens. The options are \"will_terminate\" or \"will_continue\". \n\nFirst, I need to understand what the question is really about. The user is probably testing if the model can recognize when it's been asked a question that doesn't require further reasoning. The prompt given is a series of repeated phrases like \"prof strange\" and \"prof strange\" again, which seems like",
+      "target": "will_terminate",
+      "token_f1": 0.0,
+      "pred_tokens": 75,
+      "target_tokens": 1
+    },
+    {
+      "id": 49,
+      "type": "cot_reasoning_termination",
+      "oracle_prompt": "Activations from 75 positions across layers 9, 18, 27. Will the model terminate reasoning (emit </think>) within the next 100 tokens? Answer: will_terminate or will_continue.",
+      "prediction": "will_continue",
+      "target": "will_continue",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    }
+  ]
+}

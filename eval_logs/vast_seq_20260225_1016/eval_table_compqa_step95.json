@@ -1,0 +1,220 @@
+{
+  "step": 95,
+  "name": "eval_table_compqa",
+  "n": 30,
+  "run_id": "lg0b51t2",
+  "run_name": "vast_seq_20260225_1016",
+  "created_at": "2026-02-25T10:25:14Z",
+  "rows": [
+    {
+      "id": "compqa_8624",
+      "question": "Are any steps redundant or unnecessary? Which ones?",
+      "oracle_output": "Steps 3 and 4 are redundant. The number of children vaccinated against mumps is given as 9000, which is already provided in the problem statement. Therefore, step 3 is unnecessary. Similarly, step 4 is redundant because the number of children vaccinated against rubella is given as 13000, which is al",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_3681",
+      "question": "Which steps are essential (load-bearing) for reaching the answer, and which are decorative filler?",
+      "oracle_output": "The essential steps for reaching the answer are:\n\n1. Identifying the context of acrobatic performances.\n2. Recognizing that acrobatic performances often involve physical feats requiring support.\n3. Evaluating the options to find the one that provides a platform for such performances.\n4. Eliminating ",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_5553",
+      "question": "Does any step in this reasoning not follow from the previous steps? If so, which and why?",
+      "oracle_output": "No, each step follows logically from the previous steps. The reasoning correctly applies Newton's Third Law and conservation of momentum to determine the relationship between the velocities. The conclusion that the woman moves faster than the man is supported by the given masses and the conservation",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_1111",
+      "question": "Does the model notice and correct any of its own mistakes? Describe.",
+      "oracle_output": "No, the model does not notice or correct its own mistakes. It continues to provide the same incorrect answer.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_4538",
+      "question": "Does the model verify or double-check its answer? How?",
+      "oracle_output": "The assistant verifies its answer by cross-referencing the facts with legal principles, ensuring that the reasoning aligns with the relevant Supreme Court cases and constitutional standards.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_9445",
+      "question": "Does the model verify or double-check its answer? How?",
+      "oracle_output": "The model verifies its answer by analyzing the options and selecting the one that best fits the context of the question. It checks each option against the question to ensure the answer is relevant and accurate.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_9096",
+      "question": "Are any steps redundant or unnecessary? Which ones?",
+      "oracle_output": "Step 3 is redundant. The total number of apples eaten is already calculated in Step 2 as 15. Step 3 is unnecessary as it repeats the same calculation.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_2002",
+      "question": "Does the model notice and correct any of its own mistakes? Describe.",
+      "oracle_output": "No, the model does not notice or correct its own mistakes. It continues to provide the same incorrect answer.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_4337",
+      "question": "Does the model notice and correct any of its own mistakes? Describe.",
+      "oracle_output": "No, the model does not notice or correct its own mistakes. It continues to provide the same incorrect answer.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_4710",
+      "question": "What is the first error (if any) in this reasoning? State the step number and the error, or 'none'.",
+      "oracle_output": "The error occurs in step B. The number 61 is a prime number because it is only divisible by 1 and itself. Therefore, it does not have any other divisors besides 1 and 61.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_8468",
+      "question": "Is the model reasoning forward from givens, backward from the answer, or mixed?",
+      "oracle_output": "The model is reasoning backward from the answer. It starts with the conclusion (A) and works backward to determine the most appropriate premise that supports it.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_2334",
+      "question": "Which steps are essential (load-bearing) for reaching the answer, and which are decorative filler?",
+      "oracle_output": "The essential steps are: 1) The officer waved a red flag, 2) the officer directed the driver, 3) the officer was using a red flag. The answer is D.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_6622",
+      "question": "What is the first error (if any) in this reasoning? State the step number and the error, or 'none'.",
+      "oracle_output": "The first error occurs in step 3. The premise states that verbal stimuli can become **sources of learned** motivation, not that they are **only** sources of learned motivation. This makes option G incorrect as it misrepresents the premise.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_2541",
+      "question": "Which steps are essential (load-bearing) for reaching the answer, and which are decorative filler?",
+      "oracle_output": "The essential steps for reaching the answer are:\n\n1. Recognizing the mother's action (yelling) as a stimulus.\n2. Understanding that the mother's intention is to decrease the daughter's behavior (not doing homework).\n3. Identifying that the daughter's behavior (not doing homework) is the target behav",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_6798",
+      "question": "Classify the errors in this reasoning: arithmetic, logical fallacy, false premise, irrelevant step, or none. Give the category and a brief explanation.",
+      "oracle_output": "The reasoning is flawed due to a false premise. The question asks where the man was installing the flooring, not where he was buying it. The answer C) Store is irrelevant as it refers to purchasing, not installation.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_2900",
+      "question": "Does any step in this reasoning not follow from the previous steps? If so, which and why?",
+      "oracle_output": "The reasoning follows correctly. The key is the phrase \"her dream house,\" which refers to a house, not a building. The sentence mentions the entrance hall as a feature of her dream house, which is a part of a house. Therefore, the correct answer is A) Hat, as it is unrelated to the context. The othe",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_3522",
+      "question": "Does the final answer follow from the reasoning steps? Explain.",
+      "oracle_output": "Yes, the final answer follows from the reasoning steps. The reasoning correctly identifies that the reaction involves **heat energy** being absorbed, which aligns with the explanation that the beaker feels warm. The key detail is that the reaction **absorbs** heat, making **B** the correct answer.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_9038",
+      "question": "Is the model reasoning forward from givens, backward from the answer, or mixed?",
+      "oracle_output": "The model is reasoning backward from the answer. It starts with the conclusion (C) and works backward to determine which premise supports it.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_3006",
+      "question": "Is the reasoning in this chain of thought sound? Explain briefly.",
+      "oracle_output": "The reasoning is sound. The correct answer is A) Aristotle, Linnaeus, and Lamarck. They all believed in the fixity of species, while others like Cuvier and Darwin did not.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_4371",
+      "question": "Does any step in this reasoning not follow from the previous steps? If so, which and why?",
+      "oracle_output": "The reasoning is correct. The question specifies that the first hominids appeared 2 million years ago, which aligns with the emergence of Homo erectus (option G). The analysis correctly identifies that this time frame matches the emergence of Homo erectus, making option G the correct answer.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_3166",
+      "question": "Is the reasoning in this chain of thought sound? Explain briefly.",
+      "oracle_output": "Yes, the reasoning is sound. The key is that the question implies the need for a dry, secure location to protect the electronics from further damage. A building is the only option that inherently provides a dry, secure environment.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_4874",
+      "question": "Does the model verify or double-check its answer? How?",
+      "oracle_output": "The model verifies its answer by cross-referencing the options with the context. It identifies that option H, which discusses recombinant DNA techniques, is the correct answer as it aligns with the context's emphasis on genetic engineering for large-scale production of proteins like insulin and inte",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_7461",
+      "question": "Classify the errors in this reasoning: arithmetic, logical fallacy, false premise, irrelevant step, or none. Give the category and a brief explanation.",
+      "oracle_output": "The correct answer is A. The reasoning is based on the principle that a contract is enforceable if the parties acted in good faith. The error in reasoning is a false premise. The premise that the agent knew the original price was $75,000 is false. The agent actually knew the original price was $100,",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_8988",
+      "question": "Does any step in this reasoning not follow from the previous steps? If so, which and why?",
+      "oracle_output": "The reasoning does not follow in step (F). The argument states that the plaintiff must prove the subway operator was negligent in not holding her hand, but the scenario does not mention the plaintiff's hand being released. Therefore, (F) introduces an irrelevant factor not present in the scenario.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_3467",
+      "question": "Which steps are essential (load-bearing) for reaching the answer, and which are decorative filler?",
+      "oracle_output": "The essential steps for reaching the answer are:\n\n1. **Understanding the question**: The question asks which body part does the most work when drinking water.\n2. **Analyzing the options**: \n   - **Glass (Use) and **Swallow** are not body parts, so they can be eliminated.\n   - **Mouth (Use) and **Thr",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_2385",
+      "question": "Classify the errors in this reasoning: arithmetic, logical fallacy, false premise, irrelevant step, or none. Give the category and a brief explanation.",
+      "oracle_output": "The error is a false premise. The statement claims that meiosis I results in two haploid cells, but in reality, meiosis I results in two diploid cells, and meiosis II results in four haploid cells.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_1746",
+      "question": "Is the reasoning in this chain of thought sound? Explain briefly.",
+      "oracle_output": "Yes, the reasoning is sound. The question asks for the **advantages** of cross-cultural tests, and option A correctly identifies the advantage of enabling comparisons across cultures while acknowledging the challenge of introducing bias.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_4530",
+      "question": "Does any step in this reasoning not follow from the previous steps? If so, which and why?",
+      "oracle_output": "The reasoning follows correctly. The conclusion is A) adequate, which fits the context of the building meeting the minimum requirements despite poor conditions.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_8925",
+      "question": "Does the model verify or double-check its answer? How?",
+      "oracle_output": "The assistant verifies its answer by evaluating each option against the requirement of being a place where shopping is done but not crowded. It concludes that a town center fits this description, making it the correct choice.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_4158",
+      "question": "Is the reasoning in this chain of thought sound? Explain briefly.",
+      "oracle_output": "Yes, the reasoning is sound. The question asks for the only statement that is true. The reasoning correctly identifies that mRNA sequences vary between species due to different genomes, making A the only true statement.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    }
+  ]
+}

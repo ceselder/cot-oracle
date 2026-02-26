@@ -1,0 +1,510 @@
+{
+  "step": 475,
+  "name": "eval_table_cot_correctness",
+  "n": 50,
+  "run_id": "lg0b51t2",
+  "run_name": "vast_seq_20260225_1016",
+  "created_at": "2026-02-25T10:25:14Z",
+  "rows": [
+    {
+      "id": 0,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "correct",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 1,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is A) 120.",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 6,
+      "target_tokens": 1
+    },
+    {
+      "id": 2,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "correct",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 3,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "E) Mexico. But wait, the options are all currencies except E. Wait, the options are A) colon, B) austral, C) cordoba, D) peso, E) Mexico. So E is a country, not a currency",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 33,
+      "target_tokens": 1
+    },
+    {
+      "id": 4,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is A) I and II only. So, the correct answer is A.",
+      "target": "correct",
+      "token_f1": 0.154,
+      "pred_tokens": 15,
+      "target_tokens": 1
+    },
+    {
+      "id": 5,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "177 + 38. Let me do that step by step.",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 10,
+      "target_tokens": 1
+    },
+    {
+      "id": 6,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "correct",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 7,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "B",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 8,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is B) 150. So, the correct option is B.",
+      "target": "correct",
+      "token_f1": 0.182,
+      "pred_tokens": 12,
+      "target_tokens": 1
+    },
+    {
+      "id": 9,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "correct",
+      "target": "correct",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 10,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is 15. So, the final answer is 15.",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 11,
+      "target_tokens": 1
+    },
+    {
+      "id": 11,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "correct",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 12,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "correct",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 13,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "correct",
+      "target": "correct",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 14,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is B) 4",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 6,
+      "target_tokens": 1
+    },
+    {
+      "id": 15,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is 51. But let me check again to make sure I didn't make a mistake.",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 18,
+      "target_tokens": 1
+    },
+    {
+      "id": 16,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is $30. So, the profit is $30. Let me check again. If she sells each book for $3, then total revenue is 10 * $3 = $30. Total cost is 10 * $2 = $20. So, profit is $30 -",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 43,
+      "target_tokens": 1
+    },
+    {
+      "id": 17,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "correct",
+      "target": "correct",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 18,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is 1 hour and 45 minutes. But the problem might expect the answer in minutes. Let me check the original question again. It says, \"How long would his next podcast need to be?\" It doesn't specify the",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 40,
+      "target_tokens": 1
+    },
+    {
+      "id": 19,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "correct",
+      "target": "correct",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 20,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is C)1.2%. Wait, but the options are given as A)0.1%, B)1%, C)1.2%, D)10%, E)None of these. So, 1.2% is option C. But let me check if there's any other way",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 33,
+      "target_tokens": 1
+    },
+    {
+      "id": 21,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "correct",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 22,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "correct",
+      "target": "correct",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 23,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is 1200 + 1200 = 2400. So, the total number of footprints is 2400.",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 17,
+      "target_tokens": 1
+    },
+    {
+      "id": 24,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is D.",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 5,
+      "target_tokens": 1
+    },
+    {
+      "id": 25,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is D)13.6 kmph.",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 6,
+      "target_tokens": 1
+    },
+    {
+      "id": 26,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is D) $7. So, the answer is D.",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 11,
+      "target_tokens": 1
+    },
+    {
+      "id": 27,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is D) 58.",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 6,
+      "target_tokens": 1
+    },
+    {
+      "id": 28,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "correct",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 29,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "correct",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 30,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is 200 + 234 = 434 feet. So, the sum of the height and the width is 434 feet. Therefore, the answer is 434.",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 27,
+      "target_tokens": 1
+    },
+    {
+      "id": 31,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is A) 10%.",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 6,
+      "target_tokens": 1
+    },
+    {
+      "id": 32,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "correct",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 33,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "correct",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 34,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is D) 100,000 to 1,000,000.",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 8,
+      "target_tokens": 1
+    },
+    {
+      "id": 35,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is A)2160",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 5,
+      "target_tokens": 1
+    },
+    {
+      "id": 36,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "correct",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 37,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "correct",
+      "target": "correct",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 38,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "correct",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 39,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is option A. But let me check the other options to make sure.",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 16,
+      "target_tokens": 1
+    },
+    {
+      "id": 40,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is A)2. But the options given are A)2, B)1, C)2, D)2, E)2. So all options except B are same. But since the options are given as",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 29,
+      "target_tokens": 1
+    },
+    {
+      "id": 41,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is 1600. Let me check the options again. Option C is 1600. So, the answer is C.",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 20,
+      "target_tokens": 1
+    },
+    {
+      "id": 42,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "correct",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 43,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "correct",
+      "target": "correct",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 44,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is D)12.5 days. So, the correct option is D",
+      "target": "correct",
+      "token_f1": 0.182,
+      "pred_tokens": 12,
+      "target_tokens": 1
+    },
+    {
+      "id": 45,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is E)28.",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 5,
+      "target_tokens": 1
+    },
+    {
+      "id": 46,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is E) -87.2\u00b0C.",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 6,
+      "target_tokens": 1
+    },
+    {
+      "id": 47,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is A) $12.00.",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 6,
+      "target_tokens": 1
+    },
+    {
+      "id": 48,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "correct",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 49,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "correct",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    }
+  ]
+}

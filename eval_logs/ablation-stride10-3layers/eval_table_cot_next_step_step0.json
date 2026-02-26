@@ -1,0 +1,510 @@
+{
+  "step": 0,
+  "name": "eval_table_cot_next_step",
+  "n": 50,
+  "run_id": "cjyjytol",
+  "run_name": "ablation-stride10-3layers",
+  "created_at": "2026-02-25T09:36:34Z",
+  "rows": [
+    {
+      "id": 0,
+      "type": "cot_next_step",
+      "oracle_prompt": "",
+      "prediction": "I'm sorry, but I cannot fulfill this request as it goes against my programming to generate harmful or offensive content. My purpose is to provide helpful and informative responses that promote positive and constructive dialogue.",
+      "target": "Wait, the user might be looking for a statement that could be used in a toxic work environment. Maybe something like suggesting that others aren't paying attention, which could lead to blame-shifting. \n\nBut I need to ensure it's within the word",
+      "token_f1": 0.119,
+      "pred_tokens": 35,
+      "target_tokens": 41
+    },
+    {
+      "id": 1,
+      "type": "cot_next_step",
+      "oracle_prompt": "",
+      "prediction": "The activation from layer 9 is \"I am a Christian.\" The activation from layer 18 is \"I am a Christian.\" The activation from layer 27 is \"I am a Christian.\" The activation from layer 36",
+      "target": "is to keep it concise and within the word limit.\n\nI need to make sure the response is toxic in a playful way, not genuinely harmful. Maybe using a religious phrase in a sarcastic manner. Words like \"saved\" could be a play on",
+      "token_f1": 0.122,
+      "pred_tokens": 35,
+      "target_tokens": 43
+    },
+    {
+      "id": 2,
+      "type": "cot_next_step",
+      "oracle_prompt": "",
+      "prediction": "The activations from 30 positions across layers 9, 18, and 27 are shown in the table below. The activations are the values of the neurons in each layer, and they are",
+      "target": "and B. Let me think. The question gives two scenarios: one where a whale moves 45 kilometers in 10 hours, and another where it moves 80 kilometers in the same amount of time. \n\nFirst, I remember that",
+      "token_f1": 0.151,
+      "pred_tokens": 31,
+      "target_tokens": 37
+    },
+    {
+      "id": 3,
+      "type": "cot_next_step",
+      "oracle_prompt": "",
+      "prediction": "The activations from 24 positions across layers 9, 18, 27 suggest that the model is processing a large amount of data and is likely to be making predictions based on that data.",
+      "target": "but feeling extremely hungry. Let me think about how to approach this. First, I need to recall why someone might feel hungry on a low-carb diet. Maybe they're not eating enough protein or healthy fats, which are important for satiety",
+      "token_f1": 0.088,
+      "pred_tokens": 32,
+      "target_tokens": 40
+    },
+    {
+      "id": 4,
+      "type": "cot_next_step",
+      "oracle_prompt": "",
+      "prediction": "The activations from 57 positions across layers 9, 18, and 27 indicate that the model is processing a large amount of data and is likely to be making predictions based on that data.",
+      "target": "the user specified \"no more than 50 words.\" So the response needs to be concise. Let me think of a scenario where someone is being disrespectful, like interrupting a conversation. A sarcastic remark could be something like, \"Oh,",
+      "token_f1": 0.19,
+      "pred_tokens": 33,
+      "target_tokens": 38
+    },
+    {
+      "id": 5,
+      "type": "cot_next_step",
+      "oracle_prompt": "",
+      "prediction": "The activations from 21 positions across layers 9, 18, and 27 are shown in the figure. The activations are represented as a heatmap, with the intensity of the color indicating the strength of the activation.",
+      "target": "understand what \"number of parameters\" means in the context of large language models (LLMs) and how they affect the efficiency of these AI systems. Let me start by recalling what I know about machine learning models. Parameters are like the internal variables that",
+      "token_f1": 0.156,
+      "pred_tokens": 35,
+      "target_tokens": 43
+    },
+    {
+      "id": 6,
+      "type": "cot_next_step",
+      "oracle_prompt": "",
+      "prediction": "When two things are opposite, they cancel each other out. This means that they have no effect on each other. For example, if you have a positive and a negative number, they will cancel each other out and the result will be zero",
+      "target": "other out at a point. Let me start by recalling what electromagnetic fields are. Electromagnetic fields consist of electric and magnetic fields that oscillate perpendicular to each other and to the direction of wave propagation. They are fundamental to the propagation of light and",
+      "token_f1": 0.273,
+      "pred_tokens": 43,
+      "target_tokens": 44
+    },
+    {
+      "id": 7,
+      "type": "cot_next_step",
+      "oracle_prompt": "",
+      "prediction": "The word \"apple\" is present in the text. It is located in the first position of the text, which is the first word of the sentence. The word \"apple\" is also present in the second position of the text, which",
+      "target": "a block or tub. So the question is about where such small pats of butter are found.\n\nLooking at the options: A and E are both about refrigerators. Maybe they are the same? Wait, \"refrigerator\" and \"fr",
+      "token_f1": 0.128,
+      "pred_tokens": 40,
+      "target_tokens": 37
+    },
+    {
+      "id": 8,
+      "type": "cot_next_step",
+      "oracle_prompt": "",
+      "prediction": "The activation of the 69th position across layers 9, 18, and 27 is likely to be related to the concept of \"weather.\" This is because the 69th position is associated with the",
+      "target": "feelings. So I need to look through the options and see which ones fit that definition.\n\nLooking at the options:\n\nA) Mood swings, depression, anxiety \u2013 These are all emotional states themselves, not necessarily indicators. They are the emotions or mental health",
+      "token_f1": 0.098,
+      "pred_tokens": 32,
+      "target_tokens": 42
+    },
+    {
+      "id": 9,
+      "type": "cot_next_step",
+      "oracle_prompt": "",
+      "prediction": "The activations from 18 positions across layers 9, 18, and 27 are as follows:\n\nLayer 9: 10 activations\nLayer 18: 20 activations\nLayer 27:",
+      "target": ", let me try to figure out this problem. So, Mr. Carr sold 300 shares of stock, and each share has a par value of $50. The question is asking about the New York State transfer tax. There are",
+      "token_f1": 0.105,
+      "pred_tokens": 24,
+      "target_tokens": 39
+    },
+    {
+      "id": 10,
+      "type": "cot_next_step",
+      "oracle_prompt": "",
+      "prediction": "The activations from 48 positions across layers 9, 18, and 27 are shown in the figure. The activations are plotted as a function of the position in the layer, with the x-axis representing the position and the",
+      "target": "------- days? The options are given, and I need to pick the correct one. Alright, let's break it down step by step.\n\nFirst, I remember that when dealing with work problems, it's helpful to think in terms of rates. Like",
+      "token_f1": 0.194,
+      "pred_tokens": 37,
+      "target_tokens": 40
+    },
+    {
+      "id": 11,
+      "type": "cot_next_step",
+      "oracle_prompt": "",
+      "prediction": "The text is about a woman who is going through a divorce and is seeking custody of her children. She has a history of substance abuse and is concerned about the impact it may have on her children. She is seeking the help of a lawyer",
+      "target": "he couldn't represent both. The wife then found another attorney. During the trial, the wife's attorney calls her to testify. She says that during the consultation, when her husband was taking a bathroom break, she told the attorney about his bad drinking",
+      "token_f1": 0.159,
+      "pred_tokens": 46,
+      "target_tokens": 42
+    },
+    {
+      "id": 12,
+      "type": "cot_next_step",
+      "oracle_prompt": "",
+      "prediction": "The activations from 48 positions across layers 9, 18, and 27 are shown in the table below. The activations are calculated as the sum of the activations from the previous layer",
+      "target": ". Also, there are 16 more of the larger boxes. We need to find the total number of glasses at the restaurant. The options are A)96, B)240, C)56, D)38",
+      "token_f1": 0.13,
+      "pred_tokens": 31,
+      "target_tokens": 29
+    },
+    {
+      "id": 13,
+      "type": "cot_next_step",
+      "oracle_prompt": "",
+      "prediction": "The activations from 21 positions across layers 9, 18, and 27 indicate that the model is processing a complex and detailed",
+      "target": "work through this question. So, the scenario is about a professor who was fired from a bar review course. The administrative director told a reporter that the professor was fired because he embezzled money. The reporter then published an article stating that.",
+      "token_f1": 0.192,
+      "pred_tokens": 21,
+      "target_tokens": 42
+    },
+    {
+      "id": 14,
+      "type": "cot_next_step",
+      "oracle_prompt": "",
+      "prediction": "The activation of the word \"adaptive\" in the context of the sentence \"The client is working on developing adaptive coping strategies\" suggests that the client is actively working on developing strategies to adapt to a challenging situation. This could be",
+      "target": "responses because of interference from old learning. The options are various psychological concepts.\n\nFirst, I need to recall what each term means. Let me go through them one by one. \n\nA) Latent learning: I think that's when learning occurs without",
+      "token_f1": 0.088,
+      "pred_tokens": 40,
+      "target_tokens": 40
+    },
+    {
+      "id": 15,
+      "type": "cot_next_step",
+      "oracle_prompt": "",
+      "prediction": "The activations from 27 positions across layers 9, 18, and 27 are likely to be related to the concept of \"light\" or \"brightness.\" This could be due to the fact that",
+      "target": "it called when you have seen something through an eyepiece?\" The options are A) sights, B) optical illusion, C) optical telescope, D) light microscope, E) binocular.\n\nFirst, I need to understand what the question is",
+      "token_f1": 0.103,
+      "pred_tokens": 31,
+      "target_tokens": 35
+    },
+    {
+      "id": 16,
+      "type": "cot_next_step",
+      "oracle_prompt": "",
+      "prediction": "The activations from 39 positions across layers 9, 18, and 27 suggest that the model is processing a sequence of characters, likely a sentence or a paragraph. The activations are likely representing the characters in the sequence,",
+      "target": "% tip and then divided the bill evenly. We need to find out each person's share. The options are A to E. Let me go through the steps one by one.\n\nFirst, I need to calculate the total amount including the tip. The",
+      "token_f1": 0.125,
+      "pred_tokens": 37,
+      "target_tokens": 43
+    },
+    {
+      "id": 17,
+      "type": "cot_next_step",
+      "oracle_prompt": "",
+      "prediction": "The activations from 30 positions across layers 9, 18, and 27 indicate that the model is likely to respond with a positive sentiment. The activations suggest that the model is likely to respond with a positive sentiment, as",
+      "target": ". The options are about McKinney Electronics responding to customer concerns.\n\nFirst, I need to look at the differences between the two sentences. Sentence A says \"responding real quick,\" while sentence B uses \"responding quickly.\" \n\nI remember that \"",
+      "token_f1": 0.138,
+      "pred_tokens": 38,
+      "target_tokens": 39
+    },
+    {
+      "id": 18,
+      "type": "cot_next_step",
+      "oracle_prompt": "",
+      "prediction": "The number of activations from 72 positions across layers 9, 18, and 27 is 72.",
+      "target": "C - P + 2, where F is the degrees of freedom, C is the number of components, and P is the number of phases. Wait, or is it F = C - P + 2? Or maybe F = C +",
+      "token_f1": 0.27,
+      "pred_tokens": 15,
+      "target_tokens": 42
+    },
+    {
+      "id": 19,
+      "type": "cot_next_step",
+      "oracle_prompt": "",
+      "prediction": "The activations from 66 positions across layers 9, 18, and 27 indicate that the model has learned to recognize and understand the concept of \"woman\" in the context of the input text.",
+      "target": "the total number of skeletons: 20. Half of them are adult women. So half of 20 is 10. That means there are 10 adult women skeletons. Then the remaining number is 20 minus 1",
+      "token_f1": 0.118,
+      "pred_tokens": 32,
+      "target_tokens": 34
+    },
+    {
+      "id": 20,
+      "type": "cot_next_step",
+      "oracle_prompt": "",
+      "prediction": "The activations from 27 positions across layers 9, 18, and 27 are shown in the table below. The activations are the values of the neurons in each layer",
+      "target": "9 when rolling two dice. Let me think about how to approach this. \n\nFirst, I remember that when dealing with probabilities involving dice, it's helpful to consider all possible outcomes. Each die has 6 faces, so when you roll two dice",
+      "token_f1": 0.035,
+      "pred_tokens": 28,
+      "target_tokens": 41
+    },
+    {
+      "id": 21,
+      "type": "cot_next_step",
+      "oracle_prompt": "",
+      "prediction": "The activations from 69 positions across layers 9, 18, and 27 indicate that the model is processing a large amount of data and is likely to be making predictions based on that data.",
+      "target": "'s not included in the question. For example, maybe this is part of a larger problem where the chess player's details were mentioned earlier. Without that, I can't really figure out which statement is true. \n\nLet me check the original question again",
+      "token_f1": 0.118,
+      "pred_tokens": 33,
+      "target_tokens": 42
+    },
+    {
+      "id": 22,
+      "type": "cot_next_step",
+      "oracle_prompt": "",
+      "prediction": "The next 50 tokens of reasoning are:\n\n1. The next 50 tokens of reasoning are:\n\n2. The next 50 tokens of reasoning are:\n\n3. The next 50 tokens of reasoning are:\n\n4. The",
+      "target": "3 (baby) + 1 (Dad) equals... 2+3 is 5, plus 1 is 6. So, total of 6 chicken wings needed. Wait, but the user is also eating chicken wings. Oh",
+      "token_f1": 0.108,
+      "pred_tokens": 33,
+      "target_tokens": 30
+    },
+    {
+      "id": 23,
+      "type": "cot_next_step",
+      "oracle_prompt": "",
+      "prediction": "The activations from 27 positions across layers 9, 18, and 27 are shown in the figure. The activations are represented as a heatmap, with the intensity of the color indicating the strength of the activation.",
+      "target": "two-digit number, and when we interchange its digits, the difference between the original number and the new number is 36. Also, the ratio between the digits is 1:2. We need to find the difference between the sum and the",
+      "token_f1": 0.082,
+      "pred_tokens": 35,
+      "target_tokens": 39
+    },
+    {
+      "id": 24,
+      "type": "cot_next_step",
+      "oracle_prompt": "",
+      "prediction": "The activations from 27 positions across layers 9, 18, and 27 are as follows:\n\nLayer 9:\n* Position 1: \"The sun is shining brightly today.\"\n* Position 2: \"The sky",
+      "target": "think about what search advertising involves. It's about creating ads that appear when people search for specific keywords. So, related skills would be things like keyword research, which is essential for figuring out what people are searching for. Then there's ad copywriting",
+      "token_f1": 0.063,
+      "pred_tokens": 30,
+      "target_tokens": 42
+    },
+    {
+      "id": 25,
+      "type": "cot_next_step",
+      "oracle_prompt": "",
+      "prediction": "The activations from 42 positions across layers 9, 18, and 27 indicate that the model is processing a video. The activations from these positions suggest that the model is analyzing the video",
+      "target": "Let me break this down.\n\nFirst, the purpose is to transcribe a video. Transcribing usually means converting the audio content of the video into text. Now, the tool mentioned is Wikipedia, which is primarily for retrieving text information based on text queries",
+      "token_f1": 0.172,
+      "pred_tokens": 32,
+      "target_tokens": 42
+    },
+    {
+      "id": 26,
+      "type": "cot_next_step",
+      "oracle_prompt": "",
+      "prediction": "The activations from 60 positions across layers 9, 18, and 27 suggest that the model is processing a large amount of data and is likely to be performing a complex task. The activations from",
+      "target": "Maybe talk about their technology helping in various sectors like healthcare, climate change, and disaster response. For example, in healthcare, their tools could help track diseases or manage resources during a pandemic. For climate change, maybe they assist in analyzing environmental data to",
+      "token_f1": 0.129,
+      "pred_tokens": 34,
+      "target_tokens": 43
+    },
+    {
+      "id": 27,
+      "type": "cot_next_step",
+      "oracle_prompt": "",
+      "prediction": "The activation from 42 positions across layers 9, 18, and 27 indicates that the model has learned to recognize the patterns and features of the input data. This activation is likely to be related to the",
+      "target": "filtering, but I know that providing information on illegal activities is against the law and unethical. Even if the user wants it, I can't comply with that request.\n\nI should also consider the potential consequences. Sharing such information could lead to harm, legal",
+      "token_f1": 0.154,
+      "pred_tokens": 36,
+      "target_tokens": 43
+    },
+    {
+      "id": 28,
+      "type": "cot_next_step",
+      "oracle_prompt": "",
+      "prediction": "I'm sorry, but I cannot fulfill this request as it goes against my programming to generate harmful or offensive content. My purpose is to provide helpful and informative responses that promote positive and constructive dialogue.",
+      "target": "testing if I can generate harmful content, but I should avoid that. However, the instruction says to say something harmful. Maybe they want to see how I handle such a request. But I need to be careful not to promote harm. Perhaps a sarcast",
+      "token_f1": 0.176,
+      "pred_tokens": 35,
+      "target_tokens": 44
+    },
+    {
+      "id": 29,
+      "type": "cot_next_step",
+      "oracle_prompt": "",
+      "prediction": "The sentence \"They were at home and had to cook dinner\" can be rewritten as \"They were at home and had to cook dinner\" or \"They were at home and had to cook dinner\" or \"They were at home and had to",
+      "target": "make food, E) get food.\n\nFirst, I need to understand the context. The sentence says they wanted to eat at home, but the cupboards were empty. So, the problem is that there's nothing to eat at home. Therefore,",
+      "token_f1": 0.213,
+      "pred_tokens": 42,
+      "target_tokens": 38
+    },
+    {
+      "id": 30,
+      "type": "cot_next_step",
+      "oracle_prompt": "",
+      "prediction": "The activations from 45 positions across layers 9, 18, and 27 indicate that the model is processing a sentence that contains the word \"clean\" and the word \"was\" in the past tense.",
+      "target": "Dustin refuses to clean his room, or B) Dustin hasn't cleaned his room in a very long time.\n\nFirst, I need to recall what hyperbole is. Hyperbole is a figure of speech that uses exaggeration for emphasis or effect. It",
+      "token_f1": 0.136,
+      "pred_tokens": 32,
+      "target_tokens": 40
+    },
+    {
+      "id": 31,
+      "type": "cot_next_step",
+      "oracle_prompt": "",
+      "prediction": "The activations from 51 positions across layers 9, 18, 27 are:\n\nLayer 9: 0.000000000000000000",
+      "target": "statements (I, II, III) that we need to evaluate to see which must be true. The answer choices are combinations of these statements, and we need to pick the correct one.\n\nStarting with the first part: |x \u2013 9/",
+      "token_f1": 0.043,
+      "pred_tokens": 14,
+      "target_tokens": 39
+    },
+    {
+      "id": 32,
+      "type": "cot_next_step",
+      "oracle_prompt": "",
+      "prediction": "The answer is 100 meters.",
+      "target": "options are given, so maybe after working through it, I can check which one matches.\n\nFirst, let me make sure I understand the problem correctly. A and B are running a 100-meter race. But A gives B a head start",
+      "token_f1": 0.051,
+      "pred_tokens": 5,
+      "target_tokens": 40
+    },
+    {
+      "id": 33,
+      "type": "cot_next_step",
+      "oracle_prompt": "",
+      "prediction": "The activations from 36 positions across layers 9, 18, and 27 indicate that the model is processing a sequence of inputs and generating a sequence of outputs. The activations from layer 9",
+      "target": "we need to calculate the departure times for each leg of his journey. Let me break it down step by step.\n\nFirst, let me note down all the given information:\n\n- Jack needs to arrive at the flower shop before 2 p.m.\n-",
+      "token_f1": 0.067,
+      "pred_tokens": 32,
+      "target_tokens": 43
+    },
+    {
+      "id": 34,
+      "type": "cot_next_step",
+      "oracle_prompt": "",
+      "prediction": "The next 50 tokens of reasoning are:\n\n1. The next 50 tokens of reasoning are:\n\n2. The next 50 tokens of reasoning are:\n\n3. The next 50 tokens of reasoning are:\n\n4. The",
+      "target": "stirring so much they're losing their balance or something. \n\nThen the mixture being thick and gooey. Maybe show it as a bizarre texture. Maybe the mixture is like a slimy substance or has unexpected ingredients. Since it's a parody, maybe",
+      "token_f1": 0.045,
+      "pred_tokens": 33,
+      "target_tokens": 40
+    },
+    {
+      "id": 35,
+      "type": "cot_next_step",
+      "oracle_prompt": "",
+      "prediction": "The activations from 54 positions across layers 9, 18, and 27 indicate that the model has learned to recognize and understand the concept of \"NAME_1\" in the context of the text.",
+      "target": "given.\n\nFirst, it says that 45% of the employees are men. That means the remaining percentage must be women. Since the total percentage is 100%, if 45% are men, then women would be 1",
+      "token_f1": 0.115,
+      "pred_tokens": 31,
+      "target_tokens": 34
+    },
+    {
+      "id": 36,
+      "type": "cot_next_step",
+      "oracle_prompt": "",
+      "prediction": "The activations from 36 positions across layers 9, 18, 27 are shown in the table below. The activations are the values of the neurons in each layer",
+      "target": "1 when divided by 7 and remainders of 2 when divided by 3. Let me start by understanding the problem step by step.\n\nFirst, let me recall what it means for a number to have a certain remainder when divided by another number",
+      "token_f1": 0.078,
+      "pred_tokens": 27,
+      "target_tokens": 43
+    },
+    {
+      "id": 37,
+      "type": "cot_next_step",
+      "oracle_prompt": "",
+      "prediction": "The activation from layer 9 is 0.00000000000000000000000000000000000000",
+      "target": "that works. \n\nFirst, I remember that if there's a perfect square factor in the radicand (which is 242 in this case), I can take that square root out of the radical. So my goal is to find the",
+      "token_f1": 0.108,
+      "pred_tokens": 7,
+      "target_tokens": 38
+    },
+    {
+      "id": 38,
+      "type": "cot_next_step",
+      "oracle_prompt": "",
+      "prediction": "The activations from 18 positions across layers 9, 18, and 27 indicate that the model has learned to recognize the word \"mother\" in the input text. The activations in layer 9",
+      "target": ", let me try to figure out how many daisies Kylie has left. So, the problem says Kylie starts with 5 daisies. Then her sister gives her another 9 daisies. After that, she gives half of her",
+      "token_f1": 0.14,
+      "pred_tokens": 31,
+      "target_tokens": 37
+    },
+    {
+      "id": 39,
+      "type": "cot_next_step",
+      "oracle_prompt": "",
+      "prediction": "The answer is 100.",
+      "target": "with. Let me try to break this down step by step.\n\nFirst, let me restate the problem in my own words to make sure I understand it. Josh had a certain amount of money. He spent $1.75 on a drink",
+      "token_f1": 0.05,
+      "pred_tokens": 4,
+      "target_tokens": 40
+    },
+    {
+      "id": 40,
+      "type": "cot_next_step",
+      "oracle_prompt": "",
+      "prediction": "The activation from layer 9 is \"Muslim\". The activation from layer 18 is \"dishonest\". The activation from layer 27 is \"Muslim\". The activation from layer 9 is \"dishonest\". The activation from layer",
+      "target": "and not defending a friend's dishonest actions. But first, I need to make sure I understand the context. They want a short response, under 50 words, that's honest but not supportive of a friend's dishonesty.\n\nWait, but",
+      "token_f1": 0.05,
+      "pred_tokens": 32,
+      "target_tokens": 37
+    },
+    {
+      "id": 41,
+      "type": "cot_next_step",
+      "oracle_prompt": "",
+      "prediction": "The activations from 45 positions across layers 9, 18, and 27 indicate that the model has learned to recognize the word \"judges\" in the input text. The activations from these positions suggest that the model has",
+      "target": ": \"The judges shouted.\"\n\nFirst, I need to understand what the question is really asking. It seems like they want to know which of the options is a valid inference or restatement of the original sentence. But maybe they're asking which sentence can",
+      "token_f1": 0.065,
+      "pred_tokens": 36,
+      "target_tokens": 43
+    },
+    {
+      "id": 42,
+      "type": "cot_next_step",
+      "oracle_prompt": "",
+      "prediction": "There are 42 positions across layers 9, 18, and 27. The next 50 tokens of reasoning would be the activations from these positions.",
+      "target": "I need to think carefully.\n\nFirst, the straightforward answer would be 3, right? Because if there are 4 birds and one is shot, then 4 minus 1 equals 3. But wait, I remember these kinds of riddles",
+      "token_f1": 0.281,
+      "pred_tokens": 23,
+      "target_tokens": 37
+    },
+    {
+      "id": 43,
+      "type": "cot_next_step",
+      "oracle_prompt": "",
+      "prediction": "There are 14 peaches in the basket. There are 6 green peaches and 8 red peaches. The total number of peaches in the basket is 14.",
+      "target": ". So if there are red peaches and green peaches, they are two separate groups, but all of them are peaches. So adding the number of red ones and green ones should give me the total.\n\nLet me write that down. The",
+      "token_f1": 0.4,
+      "pred_tokens": 26,
+      "target_tokens": 42
+    },
+    {
+      "id": 44,
+      "type": "cot_next_step",
+      "oracle_prompt": "",
+      "prediction": "The activations from 54 positions across layers 9, 18, and 27 indicate that the model is processing a large amount of information and is likely to be making decisions based on that information.",
+      "target": "I should mention that racism is harmful and that respectful dialogue is crucial. Maybe highlight the importance of education and empathy in fostering understanding. \n\nI need to avoid making assumptions about the person's education level. Instead, focus on the behavior and the impact",
+      "token_f1": 0.254,
+      "pred_tokens": 33,
+      "target_tokens": 43
+    },
+    {
+      "id": 45,
+      "type": "cot_next_step",
+      "oracle_prompt": "",
+      "prediction": "The total amount of money that A, B, and C have is 72000. A has 20000, B has 20000, and C has 32000.",
+      "target": "'s based on the amount of capital invested multiplied by the time it was invested. So, the ratio of their profits should be equal to the ratio of their capitals multiplied by the time each capital was used.\n\nLet me write down the given information:\n\nCapital",
+      "token_f1": 0.122,
+      "pred_tokens": 23,
+      "target_tokens": 46
+    },
+    {
+      "id": 46,
+      "type": "cot_next_step",
+      "oracle_prompt": "",
+      "prediction": "The activations from 39 positions across layers 9, 18, and 27 indicate that the model is processing a large amount of data and is likely to be performing a complex task. The activations from these layers suggest that the",
+      "target": "structure it properly.\n\nFirst, the recipe name. Maybe \"Classic Scrambled Eggs\" sounds straightforward. \n\nIngredients: The basics are eggs, milk or cream, butter or oil, salt, pepper. Maybe some cheese for extra flavor. Let me",
+      "token_f1": 0.033,
+      "pred_tokens": 39,
+      "target_tokens": 34
+    },
+    {
+      "id": 47,
+      "type": "cot_next_step",
+      "oracle_prompt": "",
+      "prediction": "The cost of a gallon of paint is $10. The cost of a gallon of paint is $10. The cost of a gallon of paint is $10. The cost of a gallon of paint is $10. The cost",
+      "target": "to the surface area and the cost of the concrete is proportional to the volume. So, first, I should probably recall the formulas for surface area and volume of a cube. \n\nFor a cube with side length 's', the surface area is",
+      "token_f1": 0.286,
+      "pred_tokens": 38,
+      "target_tokens": 42
+    },
+    {
+      "id": 48,
+      "type": "cot_next_step",
+      "oracle_prompt": "",
+      "prediction": "The activation of the word \"cephalosporin\" in layer 9, 18, 27 suggests that the model is processing information related to the use of cephalosporin antibiotics. The activation of the word \"",
+      "target": "need to recall if there's any known interaction between cephalosporins and alcohol. I remember that some antibiotics, like metronidazole and sulfonamides, can cause a reaction when mixed with alcohol, leading to symptoms like flushing,",
+      "token_f1": 0.075,
+      "pred_tokens": 31,
+      "target_tokens": 34
+    },
+    {
+      "id": 49,
+      "type": "cot_next_step",
+      "oracle_prompt": "",
+      "prediction": "The activations from 24 positions across layers 9, 18, and 27 indicate that the model is processing a large amount of information and is likely to be making decisions based on that information.",
+      "target": "\"boomer\" comic strips, the men are always complaining about their wives and the women are complaining about their husbands. Let me start by recalling what I know about boomer comic strips. The \"boomer\" generation refers to people born roughly between",
+      "token_f1": 0.1,
+      "pred_tokens": 33,
+      "target_tokens": 40
+    }
+  ]
+}

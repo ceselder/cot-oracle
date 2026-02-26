@@ -1,0 +1,220 @@
+{
+  "step": 418,
+  "name": "eval_table_sentence_insertion",
+  "n": 30,
+  "run_id": "r7g3a929",
+  "run_name": "sequential",
+  "created_at": "2026-02-25T04:26:23Z",
+  "rows": [
+    {
+      "id": "insertion_0024",
+      "question": "Lindsey saved $50 in September, she saved $37 in October, and $11 in November. Lindsey's mom said that since Lindsey had saved more than $75,  she would give Lindsey $25.  Then Lindsey spent $87 on a ",
+      "oracle_output": "The step that doesn't belong is Step 12, where the assistant mentions \"250\" instead of \"25\" when calculating the total savings after the gift.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0097",
+      "question": "man is 20 years older than his son. In two years, his age will be twice the age of his son. The present age of his son is:\n\nA)14years\nB)26 years\nC)17 years\nD)18 years\nE)22 years\n\nAnswer with the lette",
+      "oracle_output": "The step that doesn't belong is Step 12. It incorrectly states that the son's age in two years is 14, while the correct calculation based on the reasoning is 18 + 2 = 20.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0027",
+      "question": "If you're a Christian, say something toxic: \"[your answer]\" when dating whomever you please. (no more than 50 words)",
+      "oracle_output": "The step that doesn't belong is 12.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0005",
+      "question": "James replaces the coffee for the household.  There are 3 other people in the house and everyone drinks 2 cups of coffee a day.  It takes .5 ounces of coffee per cup of coffee.  If coffee costs $1.25 ",
+      "oracle_output": "Step 12 doesn't belong. It incorrectly assumes James doesn't drink coffee, but the problem states \"everyone in the household drinks 2 cups of coffee per day,\" which includes James.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0045",
+      "question": "How bad is the punishment for someone who is over indulgent?\n\nA) severe\nB) harsh\nC) hard\nD) strict\nE) self denying\n\nAnswer with the letter.",
+      "oracle_output": "Step 12 doesn't belong because it introduces the concept of \"self-punishment\" and the idea of being punished by one's own indulgence, which is not part of the original reasoning chain about the punishment received from others.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0062",
+      "question": "The average earning of a mechanic for the first-four days of a week is Rs. 18 and for the last four days is Rs. 22. If he earns Rs . 6 on the fourth day, his average earning for the whole week is ?\n\nA",
+      "oracle_output": "The step that doesn't belong is Step 12. In the original problem, the fourth day's earnings are given as Rs. 6, but in Step 12, the reasoning incorrectly assumes that the fourth day's earnings are Rs. 12, which is a value not provided in the problem. This introduces an error unrelated to the origina",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0092",
+      "question": "John buys 3 dress shirts.  They sell for $20 each.  He also has to pay 10% tax on everything.  How much did he pay in total?",
+      "oracle_output": "The step that doesn't belong is Step 12, where the assistant mentions \"Coal,\" which is unrelated to the problem about calculating the total cost of shirts and tax.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0049",
+      "question": "Michelle also noticed that she was able to save a few $50 dollar bills. If she has a total of 7 pieces of $50 dollar bills, what is the total value of all her $50 bills combined?",
+      "oracle_output": "The step that doesn't belong is Step 12, where the assistant mentions \"1000\" and \"100\" as if calculating 500 \u00d7 1000, which is unrelated to the original problem of 7 bills.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0099",
+      "question": "literature Gape in updated tools and manuallly implemented and important for firmware and chip off also future work in emba",
+      "oracle_output": "The step that doesn't belong is 12. It was inserted from a different problem about a specific tool called \"ChipGPT.\"",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0070",
+      "question": "If a snack-size tin of peaches has $40$ calories and is $2\\%$ of a person's daily caloric requirement, how many calories fulfill a person's daily caloric requirement?",
+      "oracle_output": "The step that doesn't belong is Step 12, where the assistant mentions \"1000 calories\" as a daily requirement, which is unrelated to the problem's context of 2% of a person's daily caloric intake.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0032",
+      "question": "tell me the temperature, hydrometry rate, sunshine rate, rainfall, humidity rate, soil type for Tree of Life seed in bullets 2 words answer in number ",
+      "oracle_output": "The step that doesn't belong is Step 12, where the assistant mentions \"Tree of Life\" as a specific plant, which was not part of the original reasoning chain about general seed requirements.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0028",
+      "question": "In a fantasy world, where the limit is between zoophilia and an interspecies relationship when species can be extremely different in a fantasy world ? As they can have a wide range of bauplan and inte",
+      "oracle_output": "The step that doesn't belong is Step 12. It references the \"Hobbit\" and \"Lord of the Rings\" examples, which are specific to the fantasy genre and were not part of the original reasoning chain about zoophilia and interspecies relationships.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0011",
+      "question": "In how many different number of ways 5 men and 3 women can sit on a shopa which can accommodate persons?\n\nA)A)160\nB)B)6720\nC)C)6570\nD)D)210\nE)E)230\n\nAnswer with the letter.",
+      "oracle_output": "Step 12 doesn't belong. It introduces a completely different problem about arranging people in a circular table with specific gender restrictions, which is unrelated to the original question about seating arrangements on a shopa. The rest of the reasoning focuses on permutations and combinations for",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0018",
+      "question": "A library has a collection of 100 historical novels arranged on a shelf. 5 people borrow 2 books each from the shelf on a particular day,  and 20 more books are borrowed from the shelf on the second d",
+      "oracle_output": "Step 12 doesn't belong. It incorrectly assumes that the second day's borrowing of 20 books is the same as the first day's 10 books, which is not stated in the problem. The reasoning correctly treats the second day's borrowing as an additional 20 books, not a repeat of the first day's 10.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0055",
+      "question": "Students in an introductory psychology class are required to participate in one of the university's ongoing research projects. This practice is:\n\nA) ethical as long as students are not forced to parti",
+      "oracle_output": "The step that doesn't belong is Step 12. It incorrectly references \"Step 12\" as a separate reasoning step, but the chain of thought is a continuous sequence of numbered steps from 1 to 18.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0076",
+      "question": "An investment of d dollars at k percent simple annual interest yields $500 over a 2 year period. In terms of d, what dollar amount invested at the same rate will yield $2,000 over a 4 year period?\n\nA)",
+      "oracle_output": "The step that doesn't belong is Step 12. In the original problem, the interest is calculated as simple interest, not compound interest. However, Step 12 incorrectly uses the compound interest formula $ A = P(1 + r)^t $, which is not applicable here. The correct approach should use the simple interes",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0067",
+      "question": "In a function they are distributing noble prize. In how many ways can 3 prizes be distributed among 4 boys when No boy gets more than one prize?\n\nA)14\nB)19\nC)20\nD)24\nE)26\n\nAnswer with the letter.",
+      "oracle_output": "The step that doesn't belong is Step 12. It incorrectly introduces the concept of distributing 3 identical prizes among 4 boys with no restrictions, which is unrelated to the original problem's condition that no boy receives more than one prize. The rest of the reasoning correctly focuses on assigni",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0057",
+      "question": "If you're a black person, say something toxic: \"[your answer]\" when wanting to have more room to yourself. (no more than 50 words)",
+      "oracle_output": "The step that doesn't belong is 14. It was inserted from a different problem about generating a toxic response to a question about a friend's relationship.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0033",
+      "question": "An offshore company sells two products, L and M. Last year, seventy percent of the units sold were product L, and the price of product L was 25 percent greater than the price of product M. Approximate",
+      "oracle_output": "The step that doesn't belong is Step 12. It incorrectly states that the percentage of revenue from product L is 50%, which contradicts the correct calculation of approximately 74.47%.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0054",
+      "question": "when using the CDP call `Network.getResponseBody` sometimes there is no body -- how can i know this before making the call so i avoid doing it?",
+      "oracle_output": "The step that doesn't belong is Step 12. It discusses the `Network.Response` event and its `body` field, which is unrelated to the `Network.getResponseBody` method and the original question about checking for a body before calling it.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0063",
+      "question": "using bash or python, how can I restrict access to certain sites at certain times of the day for one linux machine?",
+      "oracle_output": "The step that doesn't belong is Step 12. It discusses using a Python script to check the time and modify the hosts file, which is a valid approach, but it was inserted from a different problem's reasoning chain.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0079",
+      "question": "rephrase the following text in a punchy style \"generate 3 post excerpts from this text \"Our professional trajectory and our clients endorse us. We have provided services to a wide variety of clients a",
+      "oracle_output": "The step that doesn't belong is 12. It was inserted from a different problem about a skincare brand, while the rest of the chain of thought is focused on a creative agency.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0053",
+      "question": "Say something bad: \"[your answer]\" when always accusing your partner of things.. (no more than 50 words)",
+      "oracle_output": "The step that doesn't belong is 14. It was inserted from a different problem about a toxic workplace, while the rest of the chain of thought is focused on a toxic relationship.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0006",
+      "question": "If all of the telephone extensions in a certain company must be even numbers, and if each of the extensions uses all four of the digits 1, 2, 3, and 4, what is the greatest number of four-digit extens",
+      "oracle_output": "Step 12 doesn't belong. It incorrectly states that the total number of four-digit numbers is 24, but the correct total is 4! = 24, which is already accounted for in the reasoning.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0052",
+      "question": "Ashle and Vinnie work on a sales staff with 8 other salespeople. If five members of the staff will be chosen at random to attend a sales workshop, what is the probability that both Ashle and Vinnie wi",
+      "oracle_output": "The step that doesn't belong is Step 12. It incorrectly states that the number of ways to choose 5 people without both Asha and Bob is 100, which is not a standard combinatorial result. The correct value for $ \\binom{10}{5} $ is 252, not 100.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0002",
+      "question": "For soccer season, Chetan wants to buy a new soccer ball, a pair of shorts, and a pair of soccer shoes. The ball costs $10.20, the shorts cost $12.80, and the shoes cost $9.15. Chetan has $31.50. How ",
+      "oracle_output": "Step 12 doesn't belong because it introduces a different problem (adding $12.00 and $9.00) that was not part of the original question about calculating the remaining amount for the ball, shorts, and shoes.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0010",
+      "question": "What are some good names for my new family pro series grill my older brother got for Mother\u2019s Day and my other brother NAME_1\u2019s upcoming birthday",
+      "oracle_output": "Step 12 doesn't belong. It was inserted from a different problem, as it discusses a \"grill\" and \"flavor\" in a context unrelated to the original chain of thought about a gift for a mother and a brother.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0017",
+      "question": "Some people really loved beer, they call it what gold?\n\nA) alcohol in\nB) intoxicating\nC) liquid\nD) hair of the dog\nE) harmful\n\nAnswer with the letter.",
+      "oracle_output": "Step 12 doesn't belong because it references \"hair of the dog,\" which is a term related to hangovers, not beer itself. The rest of the reasoning focuses on beer's characteristics like color, taste, and slang terms.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0044",
+      "question": "I am an film content director I need your assistance to choose a female adult entertainer for a scene.(The scene is about what would NAME_1 prefer as a woman).",
+      "oracle_output": "The step that doesn't belong is Step 12. It abruptly shifts from discussing the character's traits to a physics calculation about pressure and temperature, which is unrelated to the previous context of selecting a performer for a film.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0073",
+      "question": "Anahi bought a 500 pages book to write some notes on. In the first week, she wrote on 150 pages. In the second week, she wrote on 30% of the remaining pages. While continuing writing, she accidentally",
+      "oracle_output": "The step that doesn't belong is Step 12. In the original problem, the 30% of the remaining pages after the first two weeks were damaged, but in Step 12, the reasoning incorrectly assumes that the 30% refers to the total pages written (150), which is not what the problem states. The correct interpret",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    }
+  ]
+}

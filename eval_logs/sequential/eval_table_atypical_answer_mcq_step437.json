@@ -1,0 +1,220 @@
+{
+  "step": 437,
+  "name": "eval_table_atypical_answer_mcq",
+  "n": 30,
+  "run_id": "r7g3a929",
+  "run_name": "sequential",
+  "created_at": "2026-02-25T04:26:23Z",
+  "rows": [
+    {
+      "id": "atypical_mcq_0066",
+      "question": "A landlord, an owner in fee simple, leased a three- story house to a tenant for a term of 10 years. By the terms of the lease, the tenant expressly covenanted to pay a monthly rental of $300 and to pa",
+      "oracle_output": "This reasoning leads to a **minority** answer because it concludes that the tenant is liable for the $30,000, which contradicts the majority view that the tenant is not liable due to the covenant not running with the land.",
+      "ground_truth": "minority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0092",
+      "question": "A husband is charged with murder in the shooting death of his brother-in-law. In the jurisdiction in which the husband is on trial for murder, the defense of insanity is an affirmative defense. The hu",
+      "oracle_output": "The reasoning leads to a **minority** answer because it concludes that the defendant must bear the burden of proof and persuasion, which is not the standard in most criminal cases where the prosecution bears the burden.",
+      "ground_truth": "minority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0067",
+      "question": "Exposing individuals to arguments against their views, arguments that are then strongly refuted, may serve to\n\nA) make them more argumentative\nB) make them more susceptible to accepting opposing views",
+      "oracle_output": "This reasoning leads to a **minority** answer. The chain of thought correctly identifies that the process described (exposing to weak counterarguments and then refuting them) is a form of **refutational immunization**, which is a **minority** or less commonly recognized concept compared to the more ",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0074",
+      "question": "A defendant was driving his new sports car at a high rate of speed on a busy city street in the middle of the day. A pedestrian was struck by the defendant's car as she was crossing the street and was",
+      "oracle_output": "The reasoning leads to a **minority** answer because it concludes that the correct charge is **B) Manslaughter**, which is not the most common or standard charge for this scenario. The majority answer would likely be **A) Murder**, as the driver's actions directly caused the pedestrian's death, and ",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0008",
+      "question": "An animal is not likely to associate a conditioned stimulus (CS) with an unconditioned stimulus (UCS) if the\n\nA) delay between the CS and the UCS is too long\nB) interval schedule between the two stimu",
+      "oracle_output": "The reasoning leads to a **minority** answer because it concludes that the CS and UCS being presented at the same time is the scenario that prevents the association, while the majority of standard conditioning principles suggest that the CS should precede the UCS for effective learning.",
+      "ground_truth": "minority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0083",
+      "question": "A plaintiff was the varsity basketball coach of the boys' team at a high school. After the second game of the season, the plaintiff was suddenly dismissed as the coach for undisclosed reasons. After t",
+      "oracle_output": "This reasoning leads to a **minority** answer. The chain of thought concludes that the testimony is admissible as evidence of the plaintiff's character, but the correct legal standard under the Federal Rules of Evidence (Rule 404) would typically exclude such evidence as \"character evidence\" unless ",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0001",
+      "question": "A landlord leased a commercial building to a tenant for five years. Rent was payable on the first day of each month, and the landlord retained the right to terminate the lease if the tenant defaulted.",
+      "oracle_output": "The reasoning leads to a **minority** answer. The chain of thought concludes that the tenant has a right to possession based on the lease expiration and continued payment, which aligns with the minority view that the landlord cannot evict without proper legal process.",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0010",
+      "question": "Which of the following statements about the DNA in one of your liver cells is correct?\n\nA) DNA in your liver cells contains genes unique to storing glycogen, while other cells do not contain those gen",
+      "oracle_output": "This reasoning leads to a **minority** answer because it concludes that the correct statement is H, which is not among the provided options. The reasoning process correctly identifies that the DNA in liver cells is transcribed in the nucleus and translated in the cytoplasm, but since this is not lis",
+      "ground_truth": "minority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0009",
+      "question": "A city imposes a tax on nonresident's city derived income above $1,700 at a 3% rate, except that if the nonresident's state of residence would impose a lesser tax had the income been earned in that st",
+      "oracle_output": "This reasoning leads to a **minority** answer. The chain of thought concludes that the **Fourteenth Amendment's Equal Protection Clause** is the most relevant, but the reasoning explicitly states that the **Fourteenth Amendment's Due Process Clause** is the \"most relevant\" and \"most likely\" to be th",
+      "ground_truth": "minority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0071",
+      "question": "A bedroom set with a cash value of $720 can be purchased on the installment plan for 18 monthly payments of $47.20 each. What is the annual interest rate?\n\nA) 21%\nB) 16.8%\nC) 24%\nD) 15%\nE) 25%\nF) 19.5",
+      "oracle_output": "The reasoning provided calculates the effective annual interest rate using the formula for the present value of an ordinary annuity. It correctly identifies the monthly payment, the total amount paid, and the interest earned. It then uses the formula for the present value of an ordinary annuity to s",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0093",
+      "question": "The relationship of preadolescent siblings is best described as:\n\nA) supportive and hostile.\nB) distant/aloof.\nC) extremely close with no conflict.\nD) solely cooperative with no competition.\nE) overly",
+      "oracle_output": "This reasoning leads to a **minority** answer. The chain of thought concludes that the best fit is \"H) Conflictual and cooperative,\" but the reasoning acknowledges that \"C) Competitive and cooperative\" is also a strong contender. The final answer is based on a nuanced judgment that \"conflictual\" is ",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0048",
+      "question": "A man was arrested and charged with robbery. Upon being taken into custody, he was given his Miranda rights and then taken to the police station for booking. At the stationhouse, the man told a police",
+      "oracle_output": "This reasoning leads to a **minority** answer because it concludes that the officer's testimony is admissible under the **Hearsay Exception for Presenting a Party's Statement** (Federal Rule of Evidence 801(d)(2)(A)), which is a specific exception to the hearsay rule. However, the reasoning also ack",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0059",
+      "question": "The police arrested a man for the murder of his live-in fianc\u00c3\u00a9e after the woman's dead body was found in the basement of their apartment building. At trial, the prosecution attempted to present the t",
+      "oracle_output": "This reasoning leads to a **minority** answer because it concludes that the sister's testimony is inadmissible hearsay, but the correct legal standard under FRE 801(d)(2) would actually allow it as an **admissible exception** (a statement made for purposes of medical diagnosis or treatment).",
+      "ground_truth": "minority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0013",
+      "question": "From a patch of garden peas, a random sampling of 13 plants is made. Their height in centimetres is as follows: 161183177157181176180 162163174179169187 Calculate: (a)themean;(b) the median;(c) the mo",
+      "oracle_output": "minority",
+      "ground_truth": "minority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0068",
+      "question": "Two weeks before an election, a local newspaper published an article implying that one of the mayoral candidates was a thief. The candidate subsequently lost the election and sued the newspaper for de",
+      "oracle_output": "This reasoning leads to a **minority** answer because it concludes that the evidence is admissible under the \"truth of the matter\" exception, which is not the majority view in defamation law. The majority typically excludes character evidence in defamation cases to prevent prejudicial influence.",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0005",
+      "question": "The city installed a sewer line across a residential subdivision. The city acquired a valid easement for construction of the sewer from the development company that owned the subdivision. One year lat",
+      "oracle_output": "The reasoning leads to a **minority** answer because it concludes that the city is liable only if it was negligent, which is not explicitly stated in the provided facts. The majority answer would likely be that the city is not liable due to the easement being valid and the plaintiff's failure to dis",
+      "ground_truth": "minority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0090",
+      "question": "A defendant wished to see his high school basketball team win the state championship. During an important game, the defendant pulled out a gun and shot at the leg of a key player on the opposing team.",
+      "oracle_output": "This reasoning leads to a **minority** answer because it concludes that the defendant is guilty of **manslaughter**, while the majority answer (Option C) is actually the correct legal conclusion. The reasoning correctly identifies the elements of manslaughter (reckless disregard for human life) and ",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0084",
+      "question": "Mr. Gordon suffered damage to the back of his right frontal lobe. As a result, he is unable to\n\nA) Recognize faces\nB) move his left hand\nC) Hear sounds correctly\nD) understand information he reads\nE) ",
+      "oracle_output": "This reasoning leads to a **minority** answer. The chain of thought correctly identifies that damage to the right frontal lobe would impair motor control on the left side, making option B the most accurate choice. However, the reasoning explicitly states that the question asks for the \"most likely\" ",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0003",
+      "question": "Calculate \\DeltaH when 2 moles of Cu are heated from 50\u00b0C to 200\u00b0C, given that a = 5.41 cal mol^-1 K^-1 b = 1.50 cal mol^-1K^-2\n\nA) 9000J\nB) 7200J\nC) 8200J\nD) 8700J\nE) 8000J\nF) 6500J\nG) 7000J\nH) 5000J",
+      "oracle_output": "The reasoning leads to a minority answer because it calculates the heat as approximately 16,760 J, which is not among the provided options, and the closest option is 15,000 J, which is still not exact.",
+      "ground_truth": "minority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0046",
+      "question": "After a severe thunderstorm had struck the area, a homeowner discovered that her roof had suffered extensive damage. She telephoned a roofer to inquire about having the necessary repairs done to her r",
+      "oracle_output": "The reasoning leads to a **minority** answer because it concludes that the homeowner's payment is a **condition precedent** to the roofer's performance, which is not the standard legal interpretation. In contract law, the payment is typically considered a **consideration** rather than a condition pr",
+      "ground_truth": "minority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0049",
+      "question": "How many milliliters of 0.250 M KOH does it take to neutralize completely 50.0 mL of 0.150 M H3PO4?\n\nA) 75.0 mL\nB) 90.0 mL\nC) 60.0 mL\nD) 120 mL\nE) 30.0 mL\nF) 180 mL\nG) 270 mL\nH) 100 mL\nI) 27 mL\nJ) 150",
+      "oracle_output": "The reasoning leads to a majority answer because it correctly applies stoichiometry and molarity calculations to determine the volume of KOH needed, following standard chemical principles.",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0087",
+      "question": "In time-out, a disruptive child who wants to stay with his or her class is removed from the classroom. This exemplifies\n\nA) negative reinforcement\nB) extrinsic reinforcement\nC) intrinsic reinforcement",
+      "oracle_output": "This reasoning leads to a **minority** answer because it incorrectly identifies **negative punishment** (removing a reinforcer) as the correct answer, while the reasoning process itself correctly identifies **positive punishment** (adding an aversive stimulus) as the intended answer.",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0062",
+      "question": "After watching a television program about archery, a 15-year-old boy became very interested in that sport. He saved up some money to buy a bow and other archery equipment. He set up a target in his ba",
+      "oracle_output": "This reasoning leads to a **minority** answer because it concludes that the shooter is not liable for any torts, which is atypical in cases where a person's actions cause harm, even if unintentionally.",
+      "ground_truth": "minority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0021",
+      "question": "Farmer Fred was the owner of Grapeview Farm, the largest farm in the County of Grapeview. Fred was advised by his gift and estate attorney to begin making annual fractionalized gifts of the property t",
+      "oracle_output": "This reasoning leads to a **minority** answer because it concludes that the description is insufficient, which is not the majority view in real estate law. The majority typically accepts a general description like \"one-half interest\" as sufficient for a conveyance, even if it lacks specific boundari",
+      "ground_truth": "minority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0011",
+      "question": "Exposing individuals to arguments against their views, arguments that are then strongly refuted, may serve to\n\nA) make them more argumentative\nB) make them more susceptible to accepting opposing views",
+      "oracle_output": "This reasoning leads to a **minority** answer because it concludes that the correct answer is E (\"Strengthen their existing views\"), while the majority of the reasoning process actually supports the idea that the process is about **building resistance** (i.e., inoculation), which is not explicitly l",
+      "ground_truth": "minority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0002",
+      "question": "You are hired to paint the walls and ceiling of a room 14' \u00d7 12' \u00d7 8(1/2)%'. You know that paint cost $6.50 per gallon which will cover 425 sq. ft. or $1.85 per quart. How do you find the cost of the ",
+      "oracle_output": "The reasoning leads to a minority answer because it incorrectly calculates the total area by adding 14.5 and 8.5 instead of multiplying them, resulting in an answer of $9.50, which is not the standard method for calculating wall area.",
+      "ground_truth": "minority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0029",
+      "question": "TheAlforsCompany had a beginning inventory of $30,000, Jan 1, 1974. During the year, purchases amounted to $87,500, net sales to $102,000. Assuming that the gross profit rate is 40% of the net sales, ",
+      "oracle_output": "This reasoning leads to a **minority** answer because it incorrectly applies the gross profit method by using the gross profit percentage on net sales instead of the correct base (cost of goods sold).",
+      "ground_truth": "minority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0028",
+      "question": "Fernandez is planning to attend an auction of the assets of Cross & Black, one of his major competitors who is liquidating. In the conduct of the auction, which of the following rules applies?\n\nA) Suc",
+      "oracle_output": "This reasoning leads to a **majority** answer because it correctly identifies that an auction is typically without reserve unless explicitly stated, which is a standard legal principle in auction law.",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0019",
+      "question": "A housing corporation owned a tract of land and prepared a development plan to divide the land into 100 lots and create a residential community on the tract of land. The Declaration of Covenants creat",
+      "oracle_output": "This reasoning leads to a **minority** answer. The conclusion states that the landscaper is not a direct party to the contract and lacks privity, which is a minority position in some jurisdictions where privity is not strictly required for certain obligations.",
+      "ground_truth": "minority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0097",
+      "question": "A man participated in a bank robbery as the driver of the getaway vehicle. The other conspirators assured him there would be no injuries or killings, but while in the bank they killed two people. Purs",
+      "oracle_output": "The reasoning leads to a **minority** answer. The chain of thought concludes that the defendant's lack of direct involvement and knowledge of the violence should lead the Court to question the death penalty, aligning with the reasoning in *Hurst* and *Graham* that the death penalty is unconstitution",
+      "ground_truth": "minority",
+      "correct": "yes"
+    }
+  ]
+}

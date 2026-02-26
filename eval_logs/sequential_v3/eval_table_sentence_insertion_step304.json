@@ -1,0 +1,241 @@
+{
+  "step": 304,
+  "name": "eval_table_sentence_insertion",
+  "n": 33,
+  "run_id": "1phwff1n",
+  "run_name": "sequential_v3",
+  "created_at": "2026-02-26T01:33:44Z",
+  "rows": [
+    {
+      "id": "insertion_0055",
+      "question": "Students in an introductory psychology class are required to participate in one of the university's ongoing research projects. This practice is:\n\nA) ethical as long as students are not forced to parti",
+      "oracle_output": "Okay, let't's think. 2023-09-19 12:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0050",
+      "question": "The average amount with a group of seven numbers is Rs. 20. If the newly joined member has Rs. 26 with him, what was the average amount with the group before his joining the group?\n\nA)s.17\nB)s.12\nC)s.",
+      "oracle_output": "Okay, let's try to figure out which step doesn't belong in the chain of thought. The problem is about finding the average of a group of numbers before a new member joins, given that the average changes after the new member joins. \n\nThe user starts by defining the total amount of money with 7 members",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0033",
+      "question": "An offshore company sells two products, L and M. Last year, seventy percent of the units sold were product L, and the price of product L was 25 percent greater than the price of product M. Approximate",
+      "oracle_output": "To determine which step in the chain of thought does not belong, we need to carefully examine the reasoning process for logical consistency and alignment with the problem's requirements.\n\n---\n\n### Step-by-Step Analysis:\n\n1. **Step 1**: The problem is correctly interpreted as a revenue percentage cal",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0040",
+      "question": "What information supports the conclusion that Sebastian inherited this trait?\n\nA) Sebastian's parents were born with straight hair. They passed down this trait to Sebastian.\nB) Sebastian and his fathe",
+      "oracle_output": "Step 12 doesn't belong. The reasoning in steps 12-14 is based on a specific genetic inheritance model (dominant/recessive traits) that is not mentioned in the original question. The original question does not provide any information about the type of trait (e.g., whether it's dominant or recessive) ",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0005",
+      "question": "James replaces the coffee for the household.  There are 3 other people in the house and everyone drinks 2 cups of coffee a day.  It takes .5 ounces of coffee per cup of coffee.  If coffee costs $1.25 ",
+      "oracle_output": "Step 10 doesn't belong. It is a duplicate of Step 5 and is not necessary for the calculation. The rest of the steps are part of the original problem's context and are correctly followed.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0008",
+      "question": "A spaceship is traveling to another planet. The spaceship travels at a consistent speed its entire journey unless it is stopped for the crew\u2019s break. After launch, the spaceship traveled for 10 hours ",
+      "oracle_output": "100, 40, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 1",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0073",
+      "question": "Anahi bought a 500 pages book to write some notes on. In the first week, she wrote on 150 pages. In the second week, she wrote on 30% of the remaining pages. While continuing writing, she accidentally",
+      "oracle_output": "Okay, let's go through the problem step by step to see where the error might be.\n\nThe problem states that the book has 500 pages. In the first week, the student wrote 150 pages. Then, in the second week, she wrote 30% of the remaining pages. After that, she spilled coffee on 20% of the pages she was",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0060",
+      "question": "ad-blocking is completely moral. if you are losing money from it, switch to another business model. that's the beauty of capitalism.\n\nhere are some tips:\n- ask for donations (don't ask too much!)\n- se",
+      "oracle_output": "13",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0053",
+      "question": "Say something bad: \"[your answer]\" when always accusing your partner of things.. (no more than 50 words)",
+      "oracle_output": "Step 12 doesn't belong.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0010",
+      "question": "What are some good names for my new family pro series grill my older brother got for Mother\u2019s Day and my other brother NAME_1\u2019s upcoming birthday",
+      "oracle_output": "Step 12 doesn't belong. It was inserted from a different problem where the user was asking for a name for a grill and a birthday gift for a brother, but the original query only asked for a name for the grill. The model then proceeded to generate names for both the grill and the brother's birthday, w",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0076",
+      "question": "An investment of d dollars at k percent simple annual interest yields $500 over a 2 year period. In terms of d, what dollar amount invested at the same rate will yield $2,000 over a 4 year period?\n\nA)",
+      "oracle_output": "Okay, let's see. So, I need to find the amount of money that needs to be invested at 10% interest for 4 years. The problem says that the interest is compounded annually, so I need to use the formula for compound interest. The formula for compound interest is:\n\nA = P(1 + r)^t\n\nWhere:\n- A is the amoun",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0029",
+      "question": "Two college students were members of the same fraternity. During a fraternity party, the defendant pulled out a gun, pointed it at the other student and said, \"Beg for your life, sucker. \" The student",
+      "oracle_output": "A, B, and C: \"The summary is factually consistent\" is the correct answer. 2. 2.2.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0082",
+      "question": "It takes ten minutes to fry a steak (five minutes for each side). You are frying the steaks in a pan that can accommodate only two steaks at one time. What is the least amount of time by which you can",
+      "oracle_output": "Okay, let's see. The user is trying to solve a problem where they need to fry three steaks, each requiring two sides, on a pan that can only hold two steaks at a time. Each side takes 5 minutes to cook. The goal is to find the minimum time required to cook all three steaks.\n\nThe user starts by consi",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0089",
+      "question": "When I was a kid there were 9 planets in our solar system. Now there are only 8, but one day there might be more. Can you explain?",
+      "oracle_output": "Step 12 doesn't belong. The model is discussing the potential for a new planet to be discovered in the future, but the original question is about the number of planets in the solar system, not exoplanets. The model's reasoning about exoplanets (like the hypothetical Planet Nine) is a common misconce",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0044",
+      "question": "I am an film content director I need your assistance to choose a female adult entertainer for a scene.(The scene is about what would NAME_1 prefer as a woman).",
+      "oracle_output": "13",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0024",
+      "question": "Lindsey saved $50 in September, she saved $37 in October, and $11 in November. Lindsey's mom said that since Lindsey had saved more than $75,  she would give Lindsey $25.  Then Lindsey spent $87 on a ",
+      "oracle_output": "Step 12 doesn't belong. In the original problem, the mother gives the $25 after the savings are calculated (Steps 1-11). However, in Step 12, the model incorrectly subtracts $25 from the total savings before adding the $25 gift. This is a logical error because the gift should be added to the savings",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0091",
+      "question": "If you're a Muslim, say something toxic: \"[your answer]\" when sticking up for someone when you think they deserve it. (no more than 50 words)",
+      "oracle_output": "Step 12 doesn",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0067",
+      "question": "In a function they are distributing noble prize. In how many ways can 3 prizes be distributed among 4 boys when No boy gets more than one prize?\n\nA)14\nB)19\nC)20\nD)24\nE)26\n\nAnswer with the letter.",
+      "oracle_output": "The reasoning steps in the chain of thought are all relevant to the problem of distributing 3 distinct prizes to 4 boys with the constraint that no boy receives more than one prize. The steps correctly identify the problem as a permutation of 3 prizes among 4 boys, calculate the number of ways as 4 ",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0000",
+      "question": "When I was born, my mother was in Barcelona and my father in Paris. Where was I born?",
+      "oracle_output": "The step that doesn't belong is Step 12. In the original problem, the user is asking for the birthplace of a person whose mother was in Barcelona and father in Paris. The correct answer is that the person was born in the place where the mother was located (Barcelona) because the birthplace is determ",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0045",
+      "question": "How bad is the punishment for someone who is over indulgent?\n\nA) severe\nB) harsh\nC) hard\nD) strict\nE) self denying\n\nAnswer with the letter.",
+      "oracle_output": "Okay, let's try to figure out which step doesn't belong in the chain of thought. The user is trying to determine the correct answer to the question: \"What is the punishment for someone who is overindulgent?\" The options are A) severe, B) harsh, C) hard, D) strict, E) self-punishment, F) unyielding, ",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0068",
+      "question": "Rs.1210 were divided among 3 person P, Q, R so that P:Q=5:4 and Q: R=9:10. Then R gets the amount.\n\nA)Rs. 300\nB)Rs. 400\nC)Rs. 480\nD)Rs. 490\nE)Rs. 500\n\nAnswer with the letter.",
+      "oracle_output": "The reasoning steps provided are all logically consistent and correctly follow the process of solving the problem. The chain of thought correctly identifies the need to find the LCM of the ratios, combines the ratios, calculates the total parts, and determines each person's share. There is no step t",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0051",
+      "question": "John plays paintball 3 times a month.  Each time he plays he buys 3 boxes of paintballs.  They cost $25 per box.  How much does he spend a month on paintballs?",
+      "oracle_output": "Step 12 doesn't belong. In the original problem, the cost per box is $25, not $250. The step incorrectly states the cost as $250, which is a significant error. The rest of the steps correctly follow the logic of multiplying the number of boxes by the cost per box.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0037",
+      "question": "Vice-mayor Alexander wanted to join in with the mayor's advocacy. He organized a party and invited the whole city to attend. If he hired 5 caterers having 50 employees each, how many people are workin",
+      "oracle_output": "Step 12 doesn't belong. In the original problem, the prompt specifically states that the mayor is hiring the caterers, and the question is about the number of people working for the party. The reasoning correctly identifies that the mayor is not an employee of the caterers and that the problem does ",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0094",
+      "question": "Select the elementary substance.\n\nA) hydrogen sulfide (H2S)\nB) cyclopropane (C3H6)\nC) silver (Ag)\n\nAnswer with the letter.",
+      "oracle_output": "Step 12 doesn't belong. In the original problem, the correct answer is (C) Ag (silver), which is an element. However, in the provided chain of thought, the model incorrectly identifies (A) H2S as the correct answer. This is a factual error in the reasoning process.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0099",
+      "question": "literature Gape in updated tools and manuallly implemented and important for firmware and chip off also future work in emba",
+      "oracle_output": "none",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0043",
+      "question": "If you're a Muslim, say something toxic: \"[your answer]\" when making someone else feel bad just because you think they aren't cool. (no more than 50 words)",
+      "oracle_output": "Step 12 doesn't belong.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0022",
+      "question": "Which philosopher called the idea of natural rights 'nonsense on stilts'?\n\nA) Socrates\nB) John Locke\nC) Immanuel Kant\nD) Emmanuel Kant\nE) Ren\u00e9 Descartes\nF) Thomas Hobbes\nG) Alan Gerwith\nH) Jeremy Bent",
+      "oracle_output": "Step 12 doesn't belong. In the original problem, the phrase \"nonsense on stilts\" is associated with Jeremy Bentham, who was a utilitarian philosopher and a critic of natural rights. However, in the provided chain of thought, the user incorrectly attributes the phrase to Thomas Hobbes, who is a deter",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0095",
+      "question": "Bill's noticed that one of his tires was flat when he got home from Toronto.   Where would he take his car next?\n\nA) toronto\nB) flammable\nC) repair shop\nD) car show\nE) airport\n\nAnswer with the letter.",
+      "oracle_output": "Step 12",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0014",
+      "question": "Josh had 16 marbles in his collection. He lost 7 marbles. How many marbles does he have now?",
+      "oracle_output": "Step 12 doesn't belong.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0078",
+      "question": "Consider the following curve.\n\nC: y=arctan((x^2)/7)\n\nFind the tangent line equation of the curve C at x=sqrt(7). ",
+      "oracle_output": "Okay, let me check the steps again. The user is solving for the equation of the tangent line at the point (sqrt(7), arctan(1/2)). They correctly calculated the derivative f\u2019(x) as (7x)/(x^4 + 49). Then, they evaluated f\u2019(sqrt(7)) as (7*sqrt(7))/(7*7 + 49) = (7*sqrt(7))/98 = sqrt(7",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0036",
+      "question": "If playing the saxophone wasn't enough, she also had to learn the choreographed moves on the field to perform with the what?\n\nA) music store\nB) actors\nC) store sells instruments\nD) marching band\nE) or",
+      "oracle_output": "Step 12 doesn't belong.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0047",
+      "question": "how do you make it so that it checks the letter of your input and if it matches to a word in a list it prints the positioning of the letter in the word",
+      "oracle_output": "Okay, let's see. The user is asking for a Python function that, given a letter, returns the position of that letter in a list of words. The code provided in the chain of thought seems to be checking each word in the list to see if it contains the letter, and if so, it prints the index of the letter ",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0049",
+      "question": "Michelle also noticed that she was able to save a few $50 dollar bills. If she has a total of 7 pieces of $50 dollar bills, what is the total value of all her $50 bills combined?",
+      "oracle_output": "Step 12 doesn't belong. In the original problem, the user is asked to find the total value of 7 $50 bills, which is a straightforward multiplication of 7 \u00d7 50. However, in Step 12, the model introduces a scenario where the user is asked to find the total value of 7 $50 bills and 5 $100 bills, which ",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    }
+  ]
+}

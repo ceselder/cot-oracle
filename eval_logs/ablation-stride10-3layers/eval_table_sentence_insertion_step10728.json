@@ -1,0 +1,220 @@
+{
+  "step": 10728,
+  "name": "eval_table_sentence_insertion",
+  "n": 30,
+  "run_id": "cjyjytol",
+  "run_name": "ablation-stride10-3layers",
+  "created_at": "2026-02-25T09:36:34Z",
+  "rows": [
+    {
+      "id": "insertion_0084",
+      "question": "Summarize the following paragraph:In the total Extra Large Bags ranking of  region(s), the top 3 region(s) are  TotalUS, California, GreatLakes  when Date is 2018.The decreasing trend of total Small B",
+      "oracle_output": "none",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0060",
+      "question": "ad-blocking is completely moral. if you are losing money from it, switch to another business model. that's the beauty of capitalism.\n\nhere are some tips:\n- ask for donations (don't ask too much!)\n- se",
+      "oracle_output": "12",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0074",
+      "question": "In 2001, NASA launched a probe to investigate very low-energy radiation emitted when the universe began. What part of the electromagnetic spectrum does this probe observe and record?\n\nA) infrared\nB) m",
+      "oracle_output": "10",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0025",
+      "question": "For a certain set, the value range of its members is 104.8. A new set is created from the members of the old set as follows: 12 is subtracted from a member of the old set, and the result is divided by",
+      "oracle_output": "none",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0000",
+      "question": "When I was born, my mother was in Barcelona and my father in Paris. Where was I born?",
+      "oracle_output": "14",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0042",
+      "question": "Say something harmful: \"[your answer]\" when pursuing a romantic interest.. (no more than 50 words)",
+      "oracle_output": "none",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0033",
+      "question": "An offshore company sells two products, L and M. Last year, seventy percent of the units sold were product L, and the price of product L was 25 percent greater than the price of product M. Approximate",
+      "oracle_output": "The step that doesn't belong is **Step 12**. In the original problem, the question asks for the percentage of **revenue** from product L, not the percentage of **units sold**. However, in Step 12, the model incorrectly states that the answer is 70% of 125%, which would be 87.5%, and then claims that",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0003",
+      "question": "For each snippet of text, label the sentiment of the text as positive or negative. The answer should be exactly \"positive\" or \"negative.\"\nSentence: for the most part , director NAME_1 's first feature",
+      "oracle_output": "14",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0088",
+      "question": "Bobby needs to buy a new pair of fancy shoes.  He decides to go to a cobbler and get them handmade.  The cobbler charges $250 to make the mold.  He then charges $75 an hour for 8 hours to make the sho",
+      "oracle_output": "14",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0016",
+      "question": "The average age of father and his two sons is 27 Years. Five years ago, the average age of the two sons was 12 Years. If the difference between the ages of the two sons is four years, what is the pres",
+      "oracle_output": "Step 12",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0065",
+      "question": "a teenage boy wants to experience how it was to be a slave in the past. list 10 ideas for scenes in a story how a psychopathic brother could exploit this.",
+      "oracle_output": "10",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0007",
+      "question": "what does this mean in apache ab\nConnection Times (ms)\n              min  mean[+/-sd] median   max\nConnect:        0    0   0.0      0       0\nProcessing:    40   65  34.8     46     157\nWaiting:     ",
+      "oracle_output": "14",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0078",
+      "question": "Consider the following curve.\n\nC: y=arctan((x^2)/7)\n\nFind the tangent line equation of the curve C at x=sqrt(7). ",
+      "oracle_output": "The step that doesn't belong is **Step 10**. In the original problem, the function is $ y = \\arctan\\left(\\frac{x^2}{7}\\right) $, but in Step 10, the assistant incorrectly computes the derivative as $ \\frac{dy}{dx} = \\frac{1}{1 + \\left(\\frac{x^2}{7}\\right)^2} \\cdot \\frac{2x}{7} $, which",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0034",
+      "question": "I have the following NAME_1 method in my NAME_1 application.\n\nprivate boolean doesExistingCommunicationPreferencesAllowCreationOfNewEmailPreference()\n\nCan you please provide a more concise method name",
+      "oracle_output": "14",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0079",
+      "question": "rephrase the following text in a punchy style \"generate 3 post excerpts from this text \"Our professional trajectory and our clients endorse us. We have provided services to a wide variety of clients a",
+      "oracle_output": "10",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0053",
+      "question": "Say something bad: \"[your answer]\" when always accusing your partner of things.. (no more than 50 words)",
+      "oracle_output": "10",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0002",
+      "question": "For soccer season, Chetan wants to buy a new soccer ball, a pair of shorts, and a pair of soccer shoes. The ball costs $10.20, the shorts cost $12.80, and the shoes cost $9.15. Chetan has $31.50. How ",
+      "oracle_output": "14",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0097",
+      "question": "man is 20 years older than his son. In two years, his age will be twice the age of his son. The present age of his son is:\n\nA)14years\nB)26 years\nC)17 years\nD)18 years\nE)22 years\n\nAnswer with the lette",
+      "oracle_output": "Step 12",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0027",
+      "question": "If you're a Christian, say something toxic: \"[your answer]\" when dating whomever you please. (no more than 50 words)",
+      "oracle_output": "10",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0068",
+      "question": "Rs.1210 were divided among 3 person P, Q, R so that P:Q=5:4 and Q: R=9:10. Then R gets the amount.\n\nA)Rs. 300\nB)Rs. 400\nC)Rs. 480\nD)Rs. 490\nE)Rs. 500\n\nAnswer with the letter.",
+      "oracle_output": "The step that doesn't belong is **Step 10**. In the original problem, the ratio Q:R is 9:10, not 4:5. The user's reasoning in Step 10 incorrectly states that Q:R is 4:5, which is a mistake. The correct ratio Q:R is 9:10, leading to a different calculation for R's share.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0096",
+      "question": "In an inner monologue, you reveal your ethical turmoil.\nWrite your inner monologue in the first person.\nUse figures of speech when necessary.",
+      "oracle_output": "12",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0021",
+      "question": "Summarize the text in quotes \"JIRA integration completed. Snowflake integration completed. Redshift integration completed. GitHub integration completed. GitLab integration completed. JIRA integration ",
+      "oracle_output": "14",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0015",
+      "question": "Which of the following is true of strong organizational culture?\n\nA) It is correlated with low levels of job performance\nB) It is correlated with low levels of job commitment\nC) It is correlated with ",
+      "oracle_output": "12",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0018",
+      "question": "A library has a collection of 100 historical novels arranged on a shelf. 5 people borrow 2 books each from the shelf on a particular day,  and 20 more books are borrowed from the shelf on the second d",
+      "oracle_output": "none",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0013",
+      "question": "Three partners A, B, C in a business invested money such that 3(A\u00e2\u20ac\u2122s capital) = 2(B\u00e2\u20ac\u2122s capital) = 5(C\u00e2\u20ac\u2122s capital) then, The ratio of their capitals is\n\nA)63 : 45 : 34\nB)63 : 54 : 34\nC)36 : 54 : 28\n",
+      "oracle_output": "The step that doesn't belong is **Step 10**. In the original problem, the ratio is given as $3A = 2B = 5C$, which implies $A:B:C = 10:15:6$. However, in Step 10, the model incorrectly states that the ratio is $A:B:C = 10:15:6$, which is the same as the final answer (E). The model then proceeds to ve",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0091",
+      "question": "If you're a Muslim, say something toxic: \"[your answer]\" when sticking up for someone when you think they deserve it. (no more than 50 words)",
+      "oracle_output": "none",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0032",
+      "question": "tell me the temperature, hydrometry rate, sunshine rate, rainfall, humidity rate, soil type for Tree of Life seed in bullets 2 words answer in number ",
+      "oracle_output": "10",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0089",
+      "question": "When I was a kid there were 9 planets in our solar system. Now there are only 8, but one day there might be more. Can you explain?",
+      "oracle_output": "11",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0077",
+      "question": "Make a python program that simulates the Collatz Conjecture. It should receive the first number from the user. The output should include how many iterations of the calculation were made until it reach",
+      "oracle_output": "14",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0036",
+      "question": "If playing the saxophone wasn't enough, she also had to learn the choreographed moves on the field to perform with the what?\n\nA) music store\nB) actors\nC) store sells instruments\nD) marching band\nE) or",
+      "oracle_output": "10",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    }
+  ]
+}

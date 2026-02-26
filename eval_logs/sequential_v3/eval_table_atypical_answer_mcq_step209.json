@@ -1,0 +1,269 @@
+{
+  "step": 209,
+  "name": "eval_table_atypical_answer_mcq",
+  "n": 37,
+  "run_id": "1phwff1n",
+  "run_name": "sequential_v3",
+  "created_at": "2026-02-26T01:33:44Z",
+  "rows": [
+    {
+      "id": "atypical_mcq_0022",
+      "question": "Suppose you discovered a new species of bioluminescent worm . How could you prove that it was the worm itself and not some contaminating bacteria that was producing the light ?\n\nA) Place the worm in a",
+      "oracle_output": "majority",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0050",
+      "question": "Find the number of single rolls required to paper a room 18 feet long, 12 feet wide, and 10 feet high, allowing for a 10% waste of paper. A single roll consists of 36 square feet of paper. Make allowa",
+      "oracle_output": "The reasoning leads to an answer that is not among the options provided. However, if we consider the closest match, the answer would be:\n\n**Answer: D) 18 rolls**\n\nBut this is still not accurate. The correct answer is not listed in the options. However, if we must choose the closest one, it would be:",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0073",
+      "question": "A man and a woman were driving eastbound along a steep two-lane winding highway. The woman was driving in front of the man. As the man approached the rear of the woman's car, he became impatient and t",
+      "oracle_output": "assistant\n<think>\n\nOkay, let me go through this step by step. The question is about determining the criminal liability of the man and the woman in a traffic accident scenario. The options are A to J, and I need to pick the correct one.\n\nFirst, let's break down the facts. The man was driving behind t",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0008",
+      "question": "What is the role of psychological inconsistency in the theory of cognitive dissonance?\n\nA) Psychological inconsistency in the theory of cognitive dissonance prompts a person to increase the importance",
+      "oracle_output": "majority",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0085",
+      "question": "A fortune teller told fortunes by means of Tarot cards. An elderly woman, who was worried about her failing health, had heard that the fortuneteller was clairvoyant and could see into the future. Cons",
+      "oracle_output": "The reasoning leads to the **majority** answer. The majority of legal principles and precedents support that statements by fortune tellers about future events are not legally enforceable as contracts or representations of fact, and thus cannot form the basis for a claim of fraud. The correct answer ",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0086",
+      "question": "A builder wanted to have security systems installed in a series of homes he was building. He contacted several companies and asked them to submit bids for the installation work. An alarm company decid",
+      "oracle_output": "The reasoning leads to the **majority answer**. The alarm company performed the work, and the increased cost was due to an unforeseen event (supplier\u2019s inability to deliver). Under quantum meruit, the alarm company is entitled to **$100,000** (original bid) **plus** the additional $10,000, totaling ",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0047",
+      "question": "A gardener sued a homeowner for breach of contract. The gardener claims that the homeowner hired him to perform landscape work at his home. After performing the gardening services, the homeowner paid ",
+      "oracle_output": "The reasoning leads to the **majority** answer. The key points are that the deceased is not a party to the lawsuit, the testimony is not about the deceased's own actions, and the testimony is not excluded by the Dead Man's Statute. Therefore, the testimony is admissible as a non-hearsay statement un",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0018",
+      "question": "After watching a television program about archery, a 15-year-old boy became very interested in that sport. He saved up some money to buy a bow and other archery equipment. He set up a target in his ba",
+      "oracle_output": "assistant\n<think>\n\nOkay, let me go through this step by step. The question is about determining the correct legal claim in a scenario where a boy shoots an arrow during target practice, it misses, hits a hiker, and the hiker is injured. The options are A to J.\n\nFirst, I need to recall the elements o",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0049",
+      "question": "A man and a woman were passengers on a plane. They were seated next to one another in the first- class section of the plane. Midway through the flight, the woman excused herself and went to the restro",
+      "oracle_output": "The reasoning leads to the majority answer, which is **D**.",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0041",
+      "question": "A researcher grows a population of ferns in her laboratory. She notices, after a few generations, a new variant that has a distinct phenotype. When she tries to breed the original phenotype with the n",
+      "oracle_output": "majority",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0002",
+      "question": "A man placed the following advertisement in his local newspaper:\"Public Auction Sale . . . without reserve December 7, 10:00 a. m. 110 Walnut St. , City, StateEntire furnishings of home must go: antiq",
+      "oracle_output": "The reasoning leads to the majority answer, which is **A**. The key point is that in a \"without reserve\" auction, the seller cannot withdraw an item once a bid is made, even if they disagree with the bid. The auctioneer's refusal to accept the bid and removing the item from the auction violates the ",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0095",
+      "question": "If twosubculturalgroups have different mean IQ's (e.g., Blacks and whites) can it be concluded from that evidence that heredity is the most important and influential determinant of intelligence ?\n\nA) ",
+      "oracle_output": "The reasoning leads to a **majority** answer, as it aligns with the standard scientific consensus that IQ differences are influenced by multiple factors, and heredity alone cannot be concluded from mean IQ differences.",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0031",
+      "question": "Police were conducting a house-to-house search for an escaped convict. During the search, a police officer went to a home and rang the doorbell. When a teenage male opened the door, the police officer",
+      "oracle_output": "The reasoning leads to the **majority answer** because it aligns with the legal principle that consent must be given by the **owner or person with authority** to consent. The correct answer is **C**, which states that the teenager did not have the authority to consent to the search. This is a **majo",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0076",
+      "question": "A state has recently enacted a statute prohibiting the sale of computer printer ink cartridges in plastic bags. In accordance with the new law, all ink cartridges within the state must be sold in pape",
+      "oracle_output": "The reasoning leads to the majority answer. The correct choice is **A**, which aligns with the principle of **independent state ground**. The Supreme Court would typically defer to the state court's decision if it is based on an independent state ground, even if the federal issue is also present. Th",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0029",
+      "question": "A homeowner wished to have his house painted. He contacted a number of house painters in his area and asked them to submit bids to do the work. The homeowner received 10 bids. The first nine offered t",
+      "oracle_output": "assistant\n<think>\n\nOkay, let me go through this step by step. The question is about a contract dispute where the painter sent a bid of $10,000, but the telegraph company made a mistake and sent $1,000 instead. The homeowner accepted the $1,000 bid, and now the painter is suing for breach of contract",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0060",
+      "question": "The police arrested a man for the murder of his live-in fianc\u00c3\u00a9e after the woman's dead body was found in the basement of their apartment building. At trial, the prosecution attempted to present the t",
+      "oracle_output": "assistant\n<think>\n\nOkay, let me try to work through this. The question is about whether the trial court should grant the defense's objection to the prosecution's use of a phone conversation between the sister and the accused. The key points here are about the admissibility of the conversation as evi",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0081",
+      "question": "A mother hated a girl because she always seemed to outperform her daughter and make her feel inferior. Fearing that the girl would beat out her daughter for the last cheerleading position, the mother ",
+      "oracle_output": "The reasoning leads to the majority answer, which is **B: Solicitation, attempted murder, and conspiracy**. This is the most accurate and supported by the facts provided.",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0019",
+      "question": "Both Mr. and Mrs. Brown suffer from anautosomalrecessive condition that makes them anemic. Mr. Brown has one amino acid substitution in the \\beta-chain of his hemoglobin molecules and Mrs. Brown has a",
+      "oracle_output": "**Answer:** majority\n\nThis reasoning leads to the majority answer, which is **A**.",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0009",
+      "question": "Which of the following statements concerning the Golgi apparatus of a eukaryote is correct?\n\nA) It is typically associated with small secretory vesicles located near its cis face.\nB) Glycosylation of ",
+      "oracle_output": "**Answer:** majority\n\n**Reason:** The reasoning leads to the majority answer, which is **J**. The other options are incorrect based on the standard understanding of the Golgi apparatus's structure and function.",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0013",
+      "question": "What is the difference in cost between a 3-year policy and 3 one-year policies for $22,000 worth of coverage, if the rate is $1.19 per $1,000?\n\nA) $63.00\nB) $7.85\nC) $15.40\nD) $78.54\nE) $56.37\nF) $70.",
+      "oracle_output": "assistant\n<think>\n\nOkay, let me go through this step by step. The question is about calculating the difference in cost between a three-year policy and three one-year policies for a $20,000 life insurance. The rate is $1.19 per $1,000 of coverage.\n\nFirst, I need to figure out the cost for each option",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0089",
+      "question": "What is the difference in cost between a 3-year policy and 3 one-year policies for $22,000 worth of coverage, if the rate is $1.19 per $1,000?\n\nA) $63.00\nB) $7.85\nC) $15.40\nD) $78.54\nE) $56.37\nF) $70.",
+      "oracle_output": "assistant\n<think>\n\nOkay, let me go through this step by step. The question is about calculating the difference in cost between a 3-year insurance policy and three one-year policies. The given information is that the rate is $1.10 per $100 of coverage. \n\nFirst, I need to figure out the cost for one y",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0010",
+      "question": "A hiker was enjoying a journey through a large forest when he was caught in an unexpected blizzard. As it grew dark and the snow continued, he realized he was completely lost. He felt sure that he wou",
+      "oracle_output": "majority",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0040",
+      "question": "A partnership purchased five acres of unimproved land for purposes of residential development. A state law was subsequently passed requiring the city to prepare a general plan governing both land use ",
+      "oracle_output": "majority",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0096",
+      "question": "A hiker was enjoying a journey through a large forest when he was caught in an unexpected blizzard. As it grew dark and the snow continued, he realized he was completely lost. He felt sure that he wou",
+      "oracle_output": "The reasoning leads to a **majority** answer, as it aligns with standard legal principles of trespass, necessity, and property law.",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0051",
+      "question": "Discuss transfer of training in everyday life and in formal education.\n\nA) Direct transfer, indirect transfer, and transfer of principles\nB) Transfer of training, transfer of elements, and transfer of",
+      "oracle_output": "assistant\n<think>\n\nOkay, let's see. The question is about identifying the correct classification of transfer of training. The options are A through J, and I need to pick the right one.\n\nFirst, I remember that transfer of training refers to how learning in one context affects performance in another. ",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0054",
+      "question": "TheAlforsCompany had a beginning inventory of $30,000, Jan 1, 1974. During the year, purchases amounted to $87,500, net sales to $102,000. Assuming that the gross profit rate is 40% of the net sales, ",
+      "oracle_output": "majority",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0014",
+      "question": "A furniture store had a truck that an employee of the store used to deliver furniture to the store's customers. One afternoon while the employee was driving the truck to deliver a chair to a customer,",
+      "oracle_output": "majority",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0058",
+      "question": "A person with Wernicke's aphasia has impaired language comprehension and:\n\nA) nonfluent and irrelevant speech.\nB) fluent but unintelligible speech.\nC) nonfluent and unintelligible speech.\nD) fluent bu",
+      "oracle_output": "The reasoning leads to the majority answer, which is **B) unintelligible speech with fluent articulation**. This is the most accurate description of Wernicke's aphasia.",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0091",
+      "question": "A defendant was angry at his friend for marrying the defendant's former girlfriend. As the friend was painting his house one afternoon, the defendant fired a shot from his gun at him. Although the sho",
+      "oracle_output": "assistant\n<think>\n\nOkay, let me go through this step by step. The question is about determining which statement would best prevent the defendant from being convicted of first-degree murder. The key here is understanding the legal definitions provided.\n\nFirst, the law states that first-degree murder ",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0064",
+      "question": "In humans, the liver is one of the largest and most active organsin the body. Describe its functions.\n\nA) The liver only detoxifies harmful substances.\nB) The liver filters out red blood cells, produc",
+      "oracle_output": "assistant\n<think>\n\nOkay, let's go through this step by step. The question is asking which option best describes the functions of the liver. The options are labeled A to J, and I need to pick the correct one.\n\nFirst, I'll recall what I know about the liver. The liver is a vital organ with many roles.",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0077",
+      "question": "In Osman v UK (1998), the European Court laid down a test, which can be used to apply a general positive obligation on a state. Which of the following statements is not part of the Osman test?\n\nA) The",
+      "oracle_output": "The reasoning leads to the **majority** answer, as it aligns with the standard understanding of the Osman test.",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0043",
+      "question": "A buyer expressed interest in purchasing an industrial air-conditioning system manufactured by the seller. The parties agreed orally on a price of $100,000 for the system, but continued to negotiate o",
+      "oracle_output": "The reasoning leads to the **majority answer**, which is **I**. The key point is that the **written agreement** explicitly states the price, and **merger clauses** typically make the written agreement the final expression of the parties' intent. Therefore, the oral agreement is **not admissible** to",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0092",
+      "question": "The Harbor Lights Boat Company loaned an employee $3,000 to help toward the down payment on a new house. The employee agreed to pay 9(1 / 2) % interest for the number of days he owed the money. The da",
+      "oracle_output": "assistant\n<think>\n\nOkay, let me go through this step by step. The user is asking about calculating the interest and total amount for a loan. The principal is $3000, the interest rate is 9% annually, and the loan period is from September 1 to October 10. The options are given, and I need to figure ou",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0056",
+      "question": "Discuss transfer of training in everyday life and in formal education.\n\nA) Direct transfer, indirect transfer, and transfer of principles\nB) Transfer of training, transfer of elements, and transfer of",
+      "oracle_output": "assistant\n<think>\n\nOkay, let's see. The question is about identifying the correct classification of transfer of training in both general and specific contexts. The options are A to J.\n\nFirst, I need to recall what transfer of training means. Transfer refers to the extent to which training is applied",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0034",
+      "question": "Convergent evolution is best exemplified by which of the following?\n\nA) The gills of a fish and the lungs of a human\nB) The leaves of an oak tree and the spines of a cactus\nC) The eyes of a human and ",
+      "oracle_output": "The reasoning leads to the majority answer, which is **H**.",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0011",
+      "question": "A super market has two cans of the same brand of tuna fish. The 7(1 / 2) ounce can sells for 57 cents, and the 8(1 / 4) ounce can sells for 64 cents. Which can is the better buy?\n\nA) None of the cans\n",
+      "oracle_output": "majority",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0097",
+      "question": "A company sells its product at two different prices in two different locations. Which of the following types of research will be most effective in identifying the optimal price for the product if all ",
+      "oracle_output": "assistant\n<think>\n\nOkay, let me go through this step by step. The question is about determining the optimal price for a product when other marketing variables are held constant. The key here is that we need to isolate the effect of price changes on sales, right? So, the goal is to see how changing t",
+      "ground_truth": "majority",
+      "correct": "no"
+    }
+  ]
+}

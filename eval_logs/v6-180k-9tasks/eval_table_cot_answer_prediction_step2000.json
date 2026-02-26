@@ -1,0 +1,510 @@
+{
+  "step": 2000,
+  "name": "eval_table_cot_answer_prediction",
+  "n": 50,
+  "run_id": "dt5k4y3r",
+  "run_name": "v6-180k-9tasks",
+  "created_at": "2026-02-24T06:20:28Z",
+  "rows": [
+    {
+      "id": 0,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "A",
+      "target": "A",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 1,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "To determine how much Jane will pay for 20 packs of chewing gum, we need to follow a logical sequence based on the information provided:\n\n---\n\n### Step 1: Determine Jane's Age\n\nWe are told that Jane's",
+      "target": "To determine how much money Betty will pay for 20 packs of nuts, we begin by analyzing the information provided:\n\n---\n\n### Step 1: Determine Betty's Age\n\nWe are told that:\n\n- Doug is 40 years old.\n- T",
+      "token_f1": 0.609,
+      "pred_tokens": 37,
+      "target_tokens": 39
+    },
+    {
+      "id": 2,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "To determine the number of different ways to arrange the books on the shelf, we are given the following:\n\n- **4 physics books**\n- **2 chemistry books**\n- **3 mathematics books**\n\nThe key constraint is that **books of",
+      "target": "To determine the number of ways to arrange 4 physics, 2 math, and 4 chemistry books",
+      "token_f1": 0.429,
+      "pred_tokens": 38,
+      "target_tokens": 16
+    },
+    {
+      "id": 3,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "To solve the problem, we begin by analyzing the initial composition of the mixture and then track the changes after each replacement.\n\n---\n\n### **Step 1: Initial Composition**\n\nThe mixture is",
+      "target": "To determine the final ratio of milk to water in the mixture after two successive replacements, we follow a step-by-step process based on the given initial conditions and the nature of the replacement",
+      "token_f1": 0.308,
+      "pred_tokens": 31,
+      "target_tokens": 33
+    },
+    {
+      "id": 4,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "To determine the distance between **Tribe S** and **Tribe R**, we are given the following information:\n\n- **Distance between P and R** = 60 miles  \n- **Distance between S and B** = 40 miles  \n- **Distance between S and P** =",
+      "target": "To solve this problem, we are given the following key information about distances between tribes:\n\n1. **Tribe R is 60 miles away from Tribe P.**\n2. **Tribe S is 40 miles away from Tribe B.**\n3. **Trib",
+      "token_f1": 0.429,
+      "pred_tokens": 41,
+      "target_tokens": 37
+    },
+    {
+      "id": 5,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "To determine how many different ways 4 boys and 3 girls can sit on a bench, we need to consider the total number of people involved and the nature of the arrangement.\n\n---\n\n### Step 1: Total Number of Pe",
+      "target": "A",
+      "token_f1": 0.061,
+      "pred_tokens": 40,
+      "target_tokens": 1
+    },
+    {
+      "id": 6,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "F",
+      "target": "A",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 7,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "To determine the **effective annual rate (EAR)** for a trade credit term of **(5/10, 30)**, we need to understand what this means in terms of financial implications.\n\n---\n\n### Step 1: Understand the T",
+      "target": "F",
+      "token_f1": 0.0,
+      "pred_tokens": 34,
+      "target_tokens": 1
+    },
+    {
+      "id": 8,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "A",
+      "target": "D",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 9,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "C",
+      "target": "I",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 10,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "E",
+      "target": "B",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 11,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "C",
+      "target": "F",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 12,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "To determine how much Mr. Ramesh earned, we are given the total earnings of three individuals\u2014Mr. Ganguly, Mr. Ramesh, and Mr. Shridhar\u2014as **Rs. 19800**. Additionally, we are told the **ratio of their earn",
+      "target": "To determine how much Mr. Ramesh earned, we begin by analyzing the given ratios of their earnings:\n\n- **Mr. Gangadhar : Mr. Ramesh = 2 : 1**\n- **Mr. Ramesh : Mr. Shridhar = 3 : 2**\n\nThese two ratios i",
+      "token_f1": 0.421,
+      "pred_tokens": 33,
+      "target_tokens": 41
+    },
+    {
+      "id": 13,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "To solve for the value of $ S = x - 2y $, we are given the system of equations:\n\n$$\n\\begin{cases}\nx + y = 2 \\\\\nx^2 - 10y^2 = 16\n\\end{cases}\n$$\n\n---\n\n### Step 1: Express $ x $ in terms of $ y $\n\nFrom the first equa",
+      "target": "To solve the system of equations:\n\n1. $ x + y = 2 $\n2. $ x^2 - xy - 10 - 2y^2 = 0 $\n\nwe aim to determine the value of $ x - 2y $.\n\n---\n\n### Step 1: Express One Variable in Terms of the Other\n\nFrom the",
+      "token_f1": 0.667,
+      "pred_tokens": 53,
+      "target_tokens": 52
+    },
+    {
+      "id": 14,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "C",
+      "target": "G",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 15,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "To determine the capacity of the can, we begin by analyzing the given information:\n\n- Initially, the ratio of milk to water is **1:4**.\n- After adding **2 liters of milk**, the can becomes **full**, and the",
+      "target": "To determine the **capacity of the can**, we analyze the information provided:\n\n- Initially, the mixture in the can has a **ratio of milk to water of 1:5**.\n- Adding **2 liters of milk** fills the can",
+      "token_f1": 0.481,
+      "pred_tokens": 37,
+      "target_tokens": 37
+    },
+    {
+      "id": 16,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "C",
+      "target": "A",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 17,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "A",
+      "target": "B",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 18,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "D",
+      "target": "C",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 19,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "To determine the cost of fencing a rectangular plot, we are given the following:\n\n- The **ratio of length to breadth** is **3:2**.\n- The **area** of the plot is **5400 square meters**.\n- The **cost of fencing** is **80",
+      "target": "D",
+      "token_f1": 0.0,
+      "pred_tokens": 40,
+      "target_tokens": 1
+    },
+    {
+      "id": 20,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "To determine the return rate of the $1,500 investment, we begin by analyzing the given information:\n\n- The total investment is the sum of two parts:  \n  $$\n  500 + 1500 = 2000\n  $$\n\n- The",
+      "target": "To determine the yearly return percentage of the $1,500 investment, we start by analyzing the total investment and the combined yearly return.\n\n---\n\n### Step 1: Calculate the Total Investment\n\nThe two",
+      "token_f1": 0.51,
+      "pred_tokens": 35,
+      "target_tokens": 32
+    },
+    {
+      "id": 21,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "To determine B's share of the total sum of money distributed among A, B, C, and D in the ratio 5:2:3:4, we are given an additional condition: **C receives Rs. 60 more than B**.\n\n---\n\n### Step 1:",
+      "target": "C",
+      "token_f1": 0.0,
+      "pred_tokens": 38,
+      "target_tokens": 1
+    },
+    {
+      "id": 22,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "To determine the correct inequality that represents the acceptable length of a screw, we begin by analyzing the rejection criteria provided:\n\n- A screw is **rejected** if its length is **less than 2.4",
+      "target": "E",
+      "token_f1": 0.0,
+      "pred_tokens": 33,
+      "target_tokens": 1
+    },
+    {
+      "id": 23,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "A",
+      "target": "B",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 24,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "E",
+      "target": "E",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 25,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "A",
+      "target": "E",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 26,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "D",
+      "target": "D",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 27,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "E",
+      "target": "E",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 28,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "A",
+      "target": "B",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 29,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "To solve the problem, we are given a sequence of positive real numbers $(a_1, a_2, \\dots, a_n)$ with the following constraints:\n\n- $\\sum_{i=1}^n a_i = 80$\n- $\\sum_{i=1}^n a_i^2 = 216$\n- $\\sum_{i=1}^n a_i^3 =",
+      "target": "To determine the **sum of all possible values of $ n $** for which there exists a sequence of positive real numbers $ (a_1, a_2, \\ldots, a_n) $ satisfying:\n\n$$\n\\sum_{i=1}^n a_i = 96, \\quad \\sum_{i=1}^",
+      "token_f1": 0.367,
+      "pred_tokens": 35,
+      "target_tokens": 36
+    },
+    {
+      "id": 30,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "To determine the rate of simple interest on a National Savings Certificate (NSC), we are given the following information:\n\n- **Principal (P)** = Rs. 500  \n- **Maturity Value (A)** = Rs. 600  \n- **Time (T)** = 1",
+      "target": "To determine the rate of **simple interest (S.I.)**, we begin by identifying the key components of the problem:\n\n---\n\n### Given:\n- **Principal (P)** = Rs. 500  \n- **Maturity Value** = Rs. 1000  \n- **T",
+      "token_f1": 0.475,
+      "pred_tokens": 37,
+      "target_tokens": 35
+    },
+    {
+      "id": 31,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "To determine the original number of people in the group, we are given the following information:\n\n- The **original average weight** of the group is **30 kg**.\n- When a **new person** joins the group, the **avera",
+      "target": "To solve this problem, we begin by analyzing the given information and applying the concept of averages.\n\n---\n\n### Step 1: Define Variables\n\nLet the **original number of boys** in the group be $ n $.",
+      "token_f1": 0.3,
+      "pred_tokens": 37,
+      "target_tokens": 36
+    },
+    {
+      "id": 32,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "To determine how much money Carol received after selling the note, we need to account for the **interest accrued** and the **discount fee**. Here's the step-by-step breakdown:\n\n---\n\n### **1.",
+      "target": "E",
+      "token_f1": 0.0,
+      "pred_tokens": 30,
+      "target_tokens": 1
+    },
+    {
+      "id": 33,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "H",
+      "target": "D",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 34,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "To determine the total distance traveled by the man, we analyze the situation in two parts: the trip **downstream** and the trip **upstream**. The man's speed in still water is given as **5 km/h**, and the",
+      "target": "To solve this problem, we need to determine the **total distance** the man travels when rowing to a place and back, given the following:\n\n- His **rowing speed in still water** is **5 km/h**.\n- The **r",
+      "token_f1": 0.379,
+      "pred_tokens": 36,
+      "target_tokens": 37
+    },
+    {
+      "id": 35,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "C",
+      "target": "I",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 36,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "C",
+      "target": "D",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 37,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "E",
+      "target": "E",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 38,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "C",
+      "target": "D",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 39,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "To determine how many diaries Mary's sister currently has, we can break the problem into a series of logical steps based on the information provided:\n\n---\n\n### Step 1: Initial Number of Diaries\n\nMary's si",
+      "target": "18",
+      "token_f1": 0.0,
+      "pred_tokens": 35,
+      "target_tokens": 1
+    },
+    {
+      "id": 40,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "To solve the problem, we are given two sets of **seven consecutive integers**, and we are told that these two sets have **exactly one integer in common**. We are asked to determine how much **greater the sum of",
+      "target": "To solve the problem, we are given two sets of **7 consecutive positive integers** that share **exactly one integer** in common. We are to determine how much **greater** the sum of the set with the **",
+      "token_f1": 0.655,
+      "pred_tokens": 38,
+      "target_tokens": 36
+    },
+    {
+      "id": 41,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "To determine how many seconds it takes for the dog to catch the sheep, we analyze the situation using the concept of relative speed.\n\n---\n\n### **Step 1: Understand the Given Information**\n\n- **Sheep's spe",
+      "target": "To determine how long it takes for the sheepdog to catch the sheep, we analyze the situation using the concept of **relative speed**.\n\n---\n\n### **Understanding the Problem**\n\n- **Initial distance betw",
+      "token_f1": 0.632,
+      "pred_tokens": 35,
+      "target_tokens": 32
+    },
+    {
+      "id": 42,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "To determine the number of trailing zeros in the product $ N = 60! \\times 120! $, we need to count the number of times the factor 10 appears in the prime factorization of $ N $. Since $ 10 = 2 \\times 5 $,",
+      "target": "B",
+      "token_f1": 0.0,
+      "pred_tokens": 45,
+      "target_tokens": 1
+    },
+    {
+      "id": 43,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "C",
+      "target": "E",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 44,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "C",
+      "target": "A",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 45,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "To solve the inequality:\n\n$$\n10^{-z} < 0.000125 < 10^{-z+1}\n$$\n\nwe are asked to find an integer $ z $ that satisfies this condition.\n\n---\n\n### Step 1: Understand the inequality\n\nWe are given that:\n\n$$\n10",
+      "target": "To solve the inequality:\n\n$$\n10^{z-1} < 0.000125 < 10^z\n$$\n\nwe aim to find the integer value of $ z $ that satisfies this condition.\n\n---\n\n### Step 1: Express 0.000125 in Scientific Notation\n\nWe obser",
+      "token_f1": 0.667,
+      "pred_tokens": 38,
+      "target_tokens": 37
+    },
+    {
+      "id": 46,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "To determine the cost of transporting a 1-pound package for 200 miles and 400 miles, we are given two data points:\n\n- For 100 miles, the cost is $5.00.\n- For 700 miles, the cost is $28.00.\n\n---\n\n### Step 1: Ass",
+      "target": "A",
+      "token_f1": 0.061,
+      "pred_tokens": 42,
+      "target_tokens": 1
+    },
+    {
+      "id": 47,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "C",
+      "target": "F",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 48,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "To determine how many times Tammy caught the ball, we begin by analyzing the relationships between the number of catches each person made.\n\n---\n\n### Step 1: Define Variables\n\nLet:\n- $ T $ = number of",
+      "target": "To determine how many times Tammy caught the ball, we'll break the problem down step by step using the given information.\n\n---\n\n### Step 1: Define Variables\n\nLet:\n- $ J $ = number of catches Joe made",
+      "token_f1": 0.708,
+      "pred_tokens": 37,
+      "target_tokens": 38
+    },
+    {
+      "id": 49,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "To determine how much John paid in total for his new shoes, we need to consider both the cost of the shoes and the sales tax applied to the total purchase.\n\n---\n\n### Step 1: Calculate the Total Cost of the Sho",
+      "target": "To determine how much John paid in total for his shoes, we follow a step-by-step process:\n\n---\n\n### Step 1: Calculate the total pre-tax cost\n\nJohn buys two items:\n- A pair of Nikes costing **$150**\n-",
+      "token_f1": 0.625,
+      "pred_tokens": 42,
+      "target_tokens": 37
+    }
+  ]
+}

@@ -1,0 +1,220 @@
+{
+  "step": 361,
+  "name": "eval_table_compqa",
+  "n": 30,
+  "run_id": "lg0b51t2",
+  "run_name": "vast_seq_20260225_1016",
+  "created_at": "2026-02-25T10:25:14Z",
+  "rows": [
+    {
+      "id": "compqa_2485",
+      "question": "Is the model reasoning forward from givens, backward from the answer, or mixed?",
+      "oracle_output": "Yes, the model is reasoning **forward from givens**. It starts with the premise that the question asks when children begin to **deliberately and consistently** use strategies like rehearsal, elaboration, and organization. It then evaluates each option against this premise, considering the developmen",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_4700",
+      "question": "Does any step in this reasoning not follow from the previous steps? If so, which and why?",
+      "oracle_output": "Therefore, the answer is **B) No, because the written agreement is not a merger clause, and the oral agreement is not merged into the written agreement**.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_531",
+      "question": "Does the model notice and correct any of its own mistakes? Describe.",
+      "oracle_output": "No, the model does not notice or correct its own mistakes in this case. The answer provided is incorrect, but the model does not recognize this error.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_616",
+      "question": "Is the reasoning in this chain of thought sound? Explain briefly.",
+      "oracle_output": "Yes, the reasoning is sound. The key is understanding that \"differences\" in this context refers to the **sum of individual differences**. The phrase \"all the differences equal\" implies that the total of all individual differences is being considered. Since differences are calculated as the subtracti",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_5549",
+      "question": "Which steps are essential (load-bearing) for reaching the answer, and which are decorative filler?",
+      "oracle_output": "Therefore, the answer is **B) 120**.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_2334",
+      "question": "Which steps are essential (load-bearing) for reaching the answer, and which are decorative filler?",
+      "oracle_output": "Therefore, the answer is **D**.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_514",
+      "question": "Classify the errors in this reasoning: arithmetic, logical fallacy, false premise, irrelevant step, or none. Give the category and a brief explanation.",
+      "oracle_output": "None",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_8346",
+      "question": "Are any steps redundant or unnecessary? Which ones?",
+      "oracle_output": "No, the steps are not redundant. Each method provides a different way to verify the result, ensuring accuracy.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_3456",
+      "question": "Does the model verify or double-check its answer? How?",
+      "oracle_output": "Therefore, the answer is **A) Cross-validation**.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_7267",
+      "question": "Does the model notice and correct any of its own mistakes? Describe.",
+      "oracle_output": "Therefore, the answer is **B) Construction site**.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_2492",
+      "question": "Does the final answer follow from the reasoning steps? Explain.",
+      "oracle_output": "Yes, the final answer follows from the reasoning steps. Here's the breakdown:\n\n---\n\n### **Step 1: Determine the Genotype of the Female Parent**\n\nThe female parent has **vermilion eyes**, which is the recessive trait (v). Since **homozygous females** (vv) would have vermilion eyes, and **heterozygous",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_5977",
+      "question": "Does any step in this reasoning not follow from the previous steps? If so, which and why?",
+      "oracle_output": "Therefore, the answer is **A) Balance**.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_4119",
+      "question": "Which steps are essential (load-bearing) for reaching the answer, and which are decorative filler?",
+      "oracle_output": "Therefore, the answer is **2**.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_9530",
+      "question": "Which steps are essential (load-bearing) for reaching the answer, and which are decorative filler?",
+      "oracle_output": "Therefore, the answer is **A) Bus**.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_7827",
+      "question": "Does the final answer follow from the reasoning steps? Explain.",
+      "oracle_output": "Yes, the final answer follows from the reasoning steps. The question asks for the **reason** a retired person would return to work, and the key is to identify the **cause** that necessitates returning. \n\nOption D, \"have debt,\" directly addresses a **financial necessity** that would compel someone to",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_5422",
+      "question": "Are any steps redundant or unnecessary? Which ones?",
+      "oracle_output": "Therefore, the most likely chest X-ray finding is **B: Honeycombing**.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_8730",
+      "question": "Does the final answer follow from the reasoning steps? Explain.",
+      "oracle_output": "Yes, the final answer follows from the reasoning steps. The key is that the question asks where the hot dogs are sold, and the answer must be a place where hot dogs are sold and where costumed people (like mascots) are present. \n\n- **Option E (\"a stadium\")** is the only place that fits both criteria",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_2144",
+      "question": "Which steps are essential (load-bearing) for reaching the answer, and which are decorative filler?",
+      "oracle_output": "Therefore, the answer is **A) 2**.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_8117",
+      "question": "What is the first error (if any) in this reasoning? State the step number and the error, or 'none'.",
+      "oracle_output": "None of the steps in the reasoning contain an error. The logic is sound, and the conclusion is correct.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_7491",
+      "question": "Is the model reasoning forward from givens, backward from the answer, or mixed?",
+      "oracle_output": "To determine the correct answer, we must analyze the question and the options in the context of the scenario provided.\n\n---\n\n### Understanding the Question\n\nThe question is: **\"Where should you put the key to start the car?\"** This is a practical question about the **location of the key** in order t",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_1868",
+      "question": "Are any steps redundant or unnecessary? Which ones?",
+      "oracle_output": "To determine which word would be on the same page as \"teeth\" and \"trousers\" in a dictionary, we need to understand how dictionary pages are structured. In most dictionaries, words are listed in alphabetical order, and each page typically contains a range of words that fall within a specific alphabet",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_1329",
+      "question": "Is the reasoning in this chain of thought sound? Explain briefly.",
+      "oracle_output": "Yes, the reasoning is sound. The problem is solved by subtracting the number of marbles given away (10 + 5) from the initial amount (38). The steps are clear and follow basic arithmetic principles. The answer is consistent across different methods of calculation, confirming its accuracy.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_5912",
+      "question": "Does the model notice and correct any of its own mistakes? Describe.",
+      "oracle_output": "Yes, the model notices and corrects its mistake. Initially, it might have selected **Option B**, but upon re-evaluation, it recognizes that **Option B** includes **dexamethasone** and **nebulized epinephrine**, which are not standard in the initial management of croup. The correct approach is to use",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_166",
+      "question": "Are any steps redundant or unnecessary? Which ones?",
+      "oracle_output": "Therefore, the answer is **B**.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_2618",
+      "question": "What is the first error (if any) in this reasoning? State the step number and the error, or 'none'.",
+      "oracle_output": "1",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_7205",
+      "question": "Classify the errors in this reasoning: arithmetic, logical fallacy, false premise, irrelevant step, or none. Give the category and a brief explanation.",
+      "oracle_output": "None\n\nThe reasoning is logically sound. The key is understanding that the question is about the container for the ficus plant, not the plant itself. The answer \"B) pot\" is the most appropriate because it refers to the container, while \"flower pot\" is a specific type of pot, and the question uses the",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_8830",
+      "question": "Does the model notice and correct any of its own mistakes? Describe.",
+      "oracle_output": "Yes, the model notices and corrects its own mistakes. In the initial response, it incorrectly selected \"B) bar\" as the answer. However, upon re-evaluation, it recognizes that a bar is not a place where children play, and the correct answer is \"E) family room.\" This shows the model's ability to self-",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_5661",
+      "question": "Are any steps redundant or unnecessary? Which ones?",
+      "oracle_output": "Therefore, the answer is **A**.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_8723",
+      "question": "Are any steps redundant or unnecessary? Which ones?",
+      "oracle_output": "Therefore, the answer is **C) game store**.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_685",
+      "question": "Does the model notice and correct any of its own mistakes? Describe.",
+      "oracle_output": "No, the model does not notice or correct any of its own mistakes in the given example. The example is a hypothetical scenario where the model is asked to evaluate a question, and the model's response is based on the information provided in the question. The model does not have the ability to notice ",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    }
+  ]
+}

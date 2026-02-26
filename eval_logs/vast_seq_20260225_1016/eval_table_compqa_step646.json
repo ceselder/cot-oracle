@@ -1,0 +1,220 @@
+{
+  "step": 646,
+  "name": "eval_table_compqa",
+  "n": 30,
+  "run_id": "lg0b51t2",
+  "run_name": "vast_seq_20260225_1016",
+  "created_at": "2026-02-25T10:25:14Z",
+  "rows": [
+    {
+      "id": "compqa_3084",
+      "question": "Does the model notice and correct any of its own mistakes? Describe.",
+      "oracle_output": "The model does not notice or correct any mistakes in its reasoning. It correctly identifies that the tail is the only body part that can be regrown by lizards, and it correctly eliminates the other options based on biological facts.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_9355",
+      "question": "Is the reasoning in this chain of thought sound? Explain briefly.",
+      "oracle_output": "No, the reasoning is not sound. The chain of thought incorrectly concludes that CBT is the best treatment for specific phobia, while the reasoning process actually favors CBT over SSRIs. However, the chain of thought explicitly states that CBT is the gold standard and the best treatment for specific",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_6751",
+      "question": "Is the reasoning in this chain of thought sound? Explain briefly.",
+      "oracle_output": "No, the reasoning is not sound. The chain of thought assumes the standard dominance pattern (dominant trait is expressed in heterozygotes) without justification, and it incorrectly concludes that the absence of specific information about the trait's expression (e.g., whether it's a dominant or reces",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_3232",
+      "question": "Classify the errors in this reasoning: arithmetic, logical fallacy, false premise, irrelevant step, or none. Give the category and a brief explanation.",
+      "oracle_output": "The reasoning contains a **false premise**.\n\n**Explanation:** The reasoning assumes that \"mitochondrial inheritance\" is the only way for a trait to be passed from the mother to the child. However, this is incorrect. The trait could also be passed through **maternal uniparental disomy** (where the ch",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_5568",
+      "question": "Does the model notice and correct any of its own mistakes? Describe.",
+      "oracle_output": "The model does not notice or correct any mistakes in its reasoning. It correctly identifies that the question asks for the \"feeling\" of dancing, and it correctly eliminates options A and B, which refer to physical aspects or emotional states. It also correctly identifies that \"euphoria\" (Option C) i",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_8346",
+      "question": "Are any steps redundant or unnecessary? Which ones?",
+      "oracle_output": "Yes, the steps are redundant. The assistant performs the same calculation in two different ways (first by subtracting 10 and then 5, and second by adding 10 and 5 to 38) to arrive at the same result. This is unnecessary because the problem only requires finding the final number of marbles after the ",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_5562",
+      "question": "Does any step in this reasoning not follow from the previous steps? If so, which and why?",
+      "oracle_output": "Yes, the reasoning contains a logical flaw in the step where it concludes that the answer is \"C) Closet\" based on the reasoning that \"the closet is the typical place where pajamas are kept.\"\n\nThe flaw lies in the assumption that the closet is the **only** or **most typical** place where pajamas are ",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_7618",
+      "question": "Which steps are essential (load-bearing) for reaching the answer, and which are decorative filler?",
+      "oracle_output": "The essential steps are:\n\n1. **Step 1**: Identifies the core issue (the user's behavior is inappropriate and offensive).\n2. **Step 2**: Highlights the ethical and legal implications of the behavior.\n3. **Step 3**: Emphasizes the harm caused to the teenager.\n4. **Step 4**: Concludes that the behavior",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_6523",
+      "question": "Which steps are essential (load-bearing) for reaching the answer, and which are decorative filler?",
+      "oracle_output": "**Essential (Load-Bearing) Steps:**\n\n1. **Identifying the Nature of Each Statement:**\n   - The model correctly identifies that the Earth's orbit is a scientific fact that has been well-established for centuries.\n   - It correctly identifies that the Moon's existence is a basic astronomical fact.\n   ",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_9081",
+      "question": "Which steps are essential (load-bearing) for reaching the answer, and which are decorative filler?",
+      "oracle_output": "**Essential (Load-Bearing) Steps:**\n\n1. **Understanding the Term \"White Mouse\":**  \n   The term \"white mouse\" is interpreted as a mouse with white fur, not a specific species. This is critical because it rules out options like \"field mouse\" (B) or \"white mouse\" (E), which are either species-specific",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_7596",
+      "question": "Is the model reasoning forward from givens, backward from the answer, or mixed?",
+      "oracle_output": "The model is reasoning **forward from the givens**.\n\nIt starts by analyzing the provided information (the Northern Lights Marathon in Norway, the Northern Lights region, and the options) and systematically eliminates incorrect choices based on the given details. It does not assume an answer and then",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_1166",
+      "question": "Which steps are essential (load-bearing) for reaching the answer, and which are decorative filler?",
+      "oracle_output": "**Essential (Load-Bearing) Steps:**\n\n1. **Understanding the Context:** Recognizing that the question is about the origin of patients with traumatic injuries, not the type of injury or treatment location.\n2. **Analyzing the Options:**\n   - **Option A (Town):** Incorrect because the question is not ab",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_5827",
+      "question": "Is the model reasoning forward from givens, backward from the answer, or mixed?",
+      "oracle_output": "The model's reasoning is **forward** from the givens.\n\nThe model begins by analyzing the sentence structure and the context provided in the question. It identifies the key phrase \"because of the things he liked\" and the contrast between the boy's popularity and the perception of him as \"a bit of a..",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_687",
+      "question": "Is the reasoning in this chain of thought sound? Explain briefly.",
+      "oracle_output": "No, the reasoning is flawed. The chain of thought correctly identifies that the patient's symptoms are caused by histamine release, and that antihistamines (option B) are the first-line treatment. However, the reasoning incorrectly concludes that the patient is \"not allergic\" and that the symptoms a",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_3846",
+      "question": "Does the model notice and correct any of its own mistakes? Describe.",
+      "oracle_output": "The model does not notice or correct any mistakes in its reasoning. It correctly identifies that a book is a physical object that is read but not written, and it correctly eliminates the other options. However, the model's reasoning is flawed in its interpretation of the question. The question asks ",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_8546",
+      "question": "Does the model verify or double-check its answer? How?",
+      "oracle_output": "The model verifies its answer by:\n\n1. **Rechecking the problem statement**: It confirms the question is about conditional probability, specifically the probability of both flips being heads given the first is heads.\n\n2. **Recomputing the conditional probability**: It re-applies the formula $ P(B|A) ",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_6866",
+      "question": "Are any steps redundant or unnecessary? Which ones?",
+      "oracle_output": "Yes, the steps are redundant. The chain of reasoning is unnecessarily detailed and repetitive. The key steps are:\n\n1. Identify the core meaning of \"along what\" (a specific feature).\n2. Eliminate options that refer to general areas (A, D, E).\n3. Choose the most specific and commonly used feature (B).",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_3169",
+      "question": "Does the final answer follow from the reasoning steps? Explain.",
+      "oracle_output": "Yes, the final answer follows from the reasoning steps.\n\nThe reasoning correctly identifies that the key factor is the **depth** of the body of water, not its chlorination. It systematically evaluates each option:\n\n- **A) Clean and chlorinated lake** \u2192 Too deep for shallow fun.\n- **B) Children's poo",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_4073",
+      "question": "Which steps are essential (load-bearing) for reaching the answer, and which are decorative filler?",
+      "oracle_output": "**Essential (Load-Bearing) Steps:**\n\n1. **Understanding the Core of the Question:**  \n   The question asks for the \"most general\" outcome of answering a question. This requires identifying the most fundamental and universal result of the interaction, not a specific or situational one.\n\n2. **Analyzin",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_1313",
+      "question": "Does the model notice and correct any of its own mistakes? Describe.",
+      "oracle_output": "The model does not notice or correct any mistakes in its reasoning. It correctly identifies that the question asks for the **most effective** way to prevent PKU, not just a possible treatment. However, the model's reasoning is flawed in two key ways:\n\n1. **Misunderstanding the question**: The model ",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_3443",
+      "question": "Does the model verify or double-check its answer? How?",
+      "oracle_output": "The model does not explicitly verify or double-check its answer. It provides a straightforward reasoning process that leads to the conclusion, but it does not re-evaluate or test the reasoning for errors.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_9105",
+      "question": "Does the final answer follow from the reasoning steps? Explain.",
+      "oracle_output": "Yes, the final answer follows from the reasoning steps.\n\nThe reasoning correctly identifies the key characteristics of a rock: it must be **naturally occurring**, **solid**, and **inorganic**. It then evaluates each option against these criteria:\n\n- **Option A** correctly identifies trachyte as a na",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_649",
+      "question": "Are any steps redundant or unnecessary? Which ones?",
+      "oracle_output": "Yes, the steps are redundant or unnecessary. The chain of thought includes unnecessary details and overcomplicates the reasoning. The key steps are:\n\n1. **Identify the goal**: Determine which part is \"farthest from the ground floor.\"\n2. **Analyze each option**:\n   - **A (Basement)**: Below ground, n",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_9099",
+      "question": "Which steps are essential (load-bearing) for reaching the answer, and which are decorative filler?",
+      "oracle_output": "**Essential (Load-Bearing) Steps:**\n\n1. **Identifying the Core Question:** The question asks which subgroup of women is most likely to use mental health services. This defines the scope and focus of the analysis.\n\n2. **Analyzing Key Factors:** The model correctly identifies the three main factors in",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_9236",
+      "question": "Is the reasoning in this chain of thought sound? Explain briefly.",
+      "oracle_output": "Yes, the reasoning is sound. The chain of thought correctly identifies that Option C introduces a new variable (ball size) not present in the original materials, making it untestable with the given setup. It also correctly concludes that Options A and B are testable with the provided materials.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_7692",
+      "question": "Does the model notice and correct any of its own mistakes? Describe.",
+      "oracle_output": "The model does not notice or correct any mistakes in its reasoning. It systematically evaluates each option against the criteria of \"immoderate expansion\" and \"being overwhelmed by external barbarian invasions.\" It correctly identifies that the Persian and Byzantine Empires share these two key facto",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_3040",
+      "question": "Is the reasoning in this chain of thought sound? Explain briefly.",
+      "oracle_output": "Yes, the reasoning is sound. The chain of thought correctly applies the concept of successive discounts by first calculating the remaining percentage after each discount and then determining the total discount percentage. The final answer is accurate.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_1327",
+      "question": "Does the final answer follow from the reasoning steps? Explain.",
+      "oracle_output": "Yes, the final answer follows from the reasoning steps.\n\nThe reasoning begins by identifying the key phrase \"along what\" as a directional prepositional phrase, which implies a specific location or path. The model then systematically evaluates each option:\n\n- **Option A** (\"In a flower bed\") is elimi",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_5565",
+      "question": "Is the reasoning in this chain of thought sound? Explain briefly.",
+      "oracle_output": "No, the reasoning is flawed. The chain of thought incorrectly assumes that the patient's severe anemia and the father's mild anemia are consistent with an autosomal dominant pattern, but this is not the case. In autosomal dominant conditions, the father would typically express the disease more sever",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_3538",
+      "question": "What is the first error (if any) in this reasoning? State the step number and the error, or 'none'.",
+      "oracle_output": "none",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    }
+  ]
+}

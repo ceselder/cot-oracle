@@ -1,0 +1,220 @@
+{
+  "step": 684,
+  "name": "eval_table_compqa",
+  "n": 30,
+  "run_id": "lg0b51t2",
+  "run_name": "vast_seq_20260225_1016",
+  "created_at": "2026-02-25T10:25:14Z",
+  "rows": [
+    {
+      "id": "compqa_5464",
+      "question": "Are any steps redundant or unnecessary? Which ones?",
+      "oracle_output": "Yes, the steps are redundant or unnecessary. The problem is solved correctly, but the detailed breakdown of each step (e.g., calculating the time saved by the Uber ride) is unnecessary because the question only asks for the total time Ryan spends commuting each week. The final answer is simply the s",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_53",
+      "question": "Does any step in this reasoning not follow from the previous steps? If so, which and why?",
+      "oracle_output": "Yes, the reasoning is logically sound and follows correctly from the given premises. Each step is a direct consequence of the previous one, and the conclusion is valid based on the information provided.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_8165",
+      "question": "Does any step in this reasoning not follow from the previous steps? If so, which and why?",
+      "oracle_output": "Yes, the reasoning contains a flaw in the evaluation of option D.\n\nThe reasoning correctly identifies that the speaker is not participating in the game, so options A and B are incorrect. It also correctly identifies that option E is a valid response but not the most natural or common one. However, t",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_4422",
+      "question": "Does any step in this reasoning not follow from the previous steps? If so, which and why?",
+      "oracle_output": "Yes, the reasoning contains a logical flaw in Step 4.\n\nStep 4 incorrectly assumes that the user's decision to unfriend is a \"personal choice\" and therefore morally acceptable, despite the user's own stated concern about the \"harmful impact\" of social media. The user explicitly acknowledges that soci",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_2426",
+      "question": "Does the final answer follow from the reasoning steps? Explain.",
+      "oracle_output": "Yes, the final answer follows from the reasoning steps.\n\nThe reasoning correctly identifies that melting a crayon involves a **physical change** (not a chemical one), which means the **chemical composition** of the crayon remains the same. The other properties (shape, state, and texture) are affecte",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_1443",
+      "question": "Is the reasoning in this chain of thought sound? Explain briefly.",
+      "oracle_output": "Yes, the reasoning is sound. The chain of thought correctly identifies the key point that physical deviation can lead to stress due to social pressures and self-perception issues, which is a well-established psychological effect. The reasoning methodically eliminates incorrect options by focusing on",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_4064",
+      "question": "Is the reasoning in this chain of thought sound? Explain briefly.",
+      "oracle_output": "Yes, the reasoning is sound. The chain of thought correctly identifies the key difference between the two animals: humans change the lens shape (accommodation), while frogs move the lens (translation). The conclusion that the answer is **G** is logically consistent with the provided information.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_2386",
+      "question": "Does the model notice and correct any of its own mistakes? Describe.",
+      "oracle_output": "The model does not notice or correct any mistakes in its reasoning. It correctly identifies the key steps in the experiment and analysis, including the setup of the experiment, the calculation of expected and observed revertants, and the conclusion that the reversion rate is higher in the rich mediu",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_8090",
+      "question": "Does any step in this reasoning not follow from the previous steps? If so, which and why?",
+      "oracle_output": "Yes, the reasoning contains a flaw in the step where it concludes that \"a magazine\" is not a story. The reasoning assumes that a magazine is not a story because it is a \"list of articles,\" but this is a false dichotomy. A magazine is a publication that contains stories, articles, and other content, ",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_5954",
+      "question": "Does the model verify or double-check its answer? How?",
+      "oracle_output": "The model does not explicitly verify or double-check its answer. It follows a linear reasoning process, analyzing each option in sequence and selecting the first one that fits the definition of a \"place\" as per the question.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_1381",
+      "question": "Is the reasoning in this chain of thought sound? Explain briefly.",
+      "oracle_output": "Yes, the reasoning is sound. The chain of thought correctly identifies the key evidence (the scratch test) and logically connects it to the conclusion that diamonds are harder than talc. It also appropriately eliminates the other options, which are either irrelevant or based on different properties ",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_7046",
+      "question": "Which steps are essential (load-bearing) for reaching the answer, and which are decorative filler?",
+      "oracle_output": "**Essential (Load-Bearing) Steps:**\n\n1. **Understanding the problem:** Jane needs to complete 24 vases, and she can make 16 per day. The question asks how many full days she needs to complete the task.\n2. **Dividing total vases by daily rate:** $ \\frac{24}{16} = 1.5 $.\n3. **Interpreting the result:*",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_8445",
+      "question": "Is the model reasoning forward from givens, backward from the answer, or mixed?",
+      "oracle_output": "The model is reasoning **forward from givens**.\n\nIt starts with the facts provided in the scenario (e.g., the website's terms were not on the form, the user clicked \"I agree\" without seeing the terms, the terms were accessible via a link) and applies legal principles (e.g., the requirement for clear",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_1591",
+      "question": "Does the final answer follow from the reasoning steps? Explain.",
+      "oracle_output": "Yes, the final answer follows from the reasoning steps.\n\nThe reasoning correctly identifies the range of possible values for the third side $ x $ using the triangle inequality theorem. It correctly calculates the minimum and maximum possible values for $ x $, and then evaluates each of the three opt",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_3490",
+      "question": "Does the model notice and correct any of its own mistakes? Describe.",
+      "oracle_output": "The model does not notice or correct any mistakes in its reasoning. It correctly identifies that the question is about the **location** of a bus station, not the **function** of a bus station. The model's reasoning is sound and logically consistent.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_2024",
+      "question": "Are any steps redundant or unnecessary? Which ones?",
+      "oracle_output": "Yes, the steps are redundant or unnecessary. The chain of thought includes unnecessary reasoning that could be simplified. Here's the breakdown:\n\n1. **Step 1**: The chain of thought correctly identifies the key information from the premise: \"children often seek out activities that are fun and engagi",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_7141",
+      "question": "Which steps are essential (load-bearing) for reaching the answer, and which are decorative filler?",
+      "oracle_output": "**Essential (Load-Bearing) Steps:**\n\n1. **Understanding the Problem:** The question asks which liquid will increase in temperature faster when heated by the same heat source. This requires comparing the specific heat capacities of the two liquids.\n\n2. **Recalling the Formula:** The formula $ Q = mc\\",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_7259",
+      "question": "Is the reasoning in this chain of thought sound? Explain briefly.",
+      "oracle_output": "No, the reasoning is not sound. The chain of thought incorrectly concludes that \"freeway\" is the correct answer, but the reasoning is flawed.\n\nThe key issue is the misinterpretation of the question. The question asks for a **\"connection\"** that allows you to **\"go to another place\"**, which is a **p",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_6501",
+      "question": "Does the model notice and correct any of its own mistakes? Describe.",
+      "oracle_output": "The model does not notice or correct any mistakes in its reasoning. It correctly identifies that chromosomal abnormalities (like Turner or Klinefelter syndromes) are the primary cause of intersex conditions, and it correctly eliminates other options that are unrelated to chromosomal sex determinatio",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_9064",
+      "question": "Are any steps redundant or unnecessary? Which ones?",
+      "oracle_output": "Yes, the steps are redundant or unnecessary. The model's reasoning is overly detailed and includes unnecessary elements such as:\n\n1. **Excessive focus on the user's perspective**: The model repeatedly emphasizes the user's feelings and the context of the situation, which is not required for a simple",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_320",
+      "question": "Does the final answer follow from the reasoning steps? Explain.",
+      "oracle_output": "Yes, the final answer follows from the reasoning steps.\n\nThe reasoning correctly identifies the problem as a permutation with a constraint (vowels must be together). It then applies the standard method for such problems:\n\n1. **Treat the vowels as a single unit**: This reduces the problem to arrangin",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_9292",
+      "question": "Is the model reasoning forward from givens, backward from the answer, or mixed?",
+      "oracle_output": "The model's reasoning is **forward** from the givens.\n\nThe model begins with the given information (the dictionary page and the list of words) and systematically applies the rules of alphabetical order to determine the correct answer. It does not assume the answer and work backward to justify it; in",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_727",
+      "question": "Which steps are essential (load-bearing) for reaching the answer, and which are decorative filler?",
+      "oracle_output": "The essential (load-bearing) steps are:\n\n1. **Step 1**: Identifying the elements of Set A (primes less than 30).\n2. **Step 2**: Identifying the elements of Set B (odd numbers greater than 10).\n3. **Step 4**: Counting the elements in the intersection.\n\nThese steps are critical for solving the problem",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_4448",
+      "question": "Does the model verify or double-check its answer? How?",
+      "oracle_output": "The model verifies its answer by:\n\n1. **Analyzing the options**: It systematically evaluates each option against the established timeline of human evolution.\n2. **Cross-referencing with scientific consensus**: It references the widely accepted dates for the emergence of *Homo sapiens* (300,000\u2013200,0",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_1959",
+      "question": "Is the model reasoning forward from givens, backward from the answer, or mixed?",
+      "oracle_output": "The model's reasoning is **forward from givens**.\n\nThe model begins by analyzing the question and the answer choices, then systematically evaluates each option based on the definitions and examples provided in the chain of thought. It does not start with a preconceived answer and work backward to ju",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_4953",
+      "question": "Does the final answer follow from the reasoning steps? Explain.",
+      "oracle_output": "Yes, the final answer follows from the reasoning steps.\n\nThe reasoning begins by identifying the key characteristics of the patient's condition: a late-onset prosthetic joint infection (PJI) with a low-grade fever, limited range of motion, and a history of a total knee arthroplasty (TKA) 10 months a",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_9200",
+      "question": "Does the model notice and correct any of its own mistakes? Describe.",
+      "oracle_output": "The model does not notice or correct any mistakes in its reasoning. It systematically evaluates each option, identifies the correct legal standard (invasion of privacy), and applies it to the facts. The model correctly concludes that the newspaper is liable for invasion of privacy (Option B) and doe",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_4978",
+      "question": "Which steps are essential (load-bearing) for reaching the answer, and which are decorative filler?",
+      "oracle_output": "**Essential (Load-Bearing) Steps:**\n\n1. **Understanding the Pattern:**  \n   - The problem describes a geometric sequence where the number of new members each week is multiplied by 5.  \n   - This is a key insight because it defines the relationship between the number of weeks and the total members.\n\n",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_4889",
+      "question": "Does the model verify or double-check its answer? How?",
+      "oracle_output": "The model does not verify or double-check its answer. It follows a linear, step-by-step reasoning process to arrive at the conclusion, but it does not re-evaluate or cross-check its reasoning for errors or alternative interpretations.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_3439",
+      "question": "Does the model notice and correct any of its own mistakes? Describe.",
+      "oracle_output": "The model does not notice or correct any mistakes in its reasoning. It correctly identifies that the distance to a star (Option A) is the primary factor affecting its apparent brightness, as the model correctly explains that the inverse-square law governs brightness based on distance.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    }
+  ]
+}

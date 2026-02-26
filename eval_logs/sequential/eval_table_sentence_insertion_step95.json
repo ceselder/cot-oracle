@@ -1,0 +1,213 @@
+{
+  "step": 95,
+  "name": "eval_table_sentence_insertion",
+  "n": 29,
+  "run_id": "r7g3a929",
+  "run_name": "sequential",
+  "created_at": "2026-02-25T04:26:23Z",
+  "rows": [
+    {
+      "id": "insertion_0065",
+      "question": "a teenage boy wants to experience how it was to be a slave in the past. list 10 ideas for scenes in a story how a psychopathic brother could exploit this.",
+      "oracle_output": "3",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0039",
+      "question": "Micah drank 1.5 liters of water in the morning. Then she drank three times that much water in the afternoon. How many liters of water did she drink from the morning until the afternoon?",
+      "oracle_output": "Step 3 doesn't belong.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0067",
+      "question": "In a function they are distributing noble prize. In how many ways can 3 prizes be distributed among 4 boys when No boy gets more than one prize?\n\nA)14\nB)19\nC)20\nD)24\nE)26\n\nAnswer with the letter.",
+      "oracle_output": "To determine which step doesn't belong in the reasoning chain, we need to identify the step that introduces a concept or calculation that is not relevant to the original problem.\n\n---\n\n### Step-by-Step Analysis\n\n1. **Understanding the Problem**:\n   - We are given 4 distinct prizes and 3 distinct boy",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0097",
+      "question": "man is 20 years older than his son. In two years, his age will be twice the age of his son. The present age of his son is:\n\nA)14years\nB)26 years\nC)17 years\nD)18 years\nE)22 years\n\nAnswer with the lette",
+      "oracle_output": "3",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0011",
+      "question": "In how many different number of ways 5 men and 3 women can sit on a shopa which can accommodate persons?\n\nA)A)160\nB)B)6720\nC)C)6570\nD)D)210\nE)E)230\n\nAnswer with the letter.",
+      "oracle_output": "To determine which step doesn't belong in the chain of thought, we need to identify the step that deviates from the logical progression of the problem-solving process.\n\n---\n\n### Step-by-Step Analysis\n\n1. **Understanding the Problem**  \n   The problem involves 8 people (5 men and 3 women) sitting on ",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0062",
+      "question": "The average earning of a mechanic for the first-four days of a week is Rs. 18 and for the last four days is Rs. 22. If he earns Rs . 6 on the fourth day, his average earning for the whole week is ?\n\nA",
+      "oracle_output": "To determine which step doesn't belong in the reasoning process, we need to carefully examine the logical flow of the solution.\n\n---\n\n### Step-by-Step Analysis\n\n---\n\n#### **Step 1: Calculate the total earnings for the first 4 days**\n\nThe problem states that the average earnings for the first 4 days ",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0082",
+      "question": "It takes ten minutes to fry a steak (five minutes for each side). You are frying the steaks in a pan that can accommodate only two steaks at one time. What is the least amount of time by which you can",
+      "oracle_output": "2",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0050",
+      "question": "The average amount with a group of seven numbers is Rs. 20. If the newly joined member has Rs. 26 with him, what was the average amount with the group before his joining the group?\n\nA)s.17\nB)s.12\nC)s.",
+      "oracle_output": "Step 3 doesn't belong.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0006",
+      "question": "If all of the telephone extensions in a certain company must be even numbers, and if each of the extensions uses all four of the digits 1, 2, 3, and 4, what is the greatest number of four-digit extens",
+      "oracle_output": "C",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0005",
+      "question": "James replaces the coffee for the household.  There are 3 other people in the house and everyone drinks 2 cups of coffee a day.  It takes .5 ounces of coffee per cup of coffee.  If coffee costs $1.25 ",
+      "oracle_output": "2",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0021",
+      "question": "Summarize the text in quotes \"JIRA integration completed. Snowflake integration completed. Redshift integration completed. GitHub integration completed. GitLab integration completed. JIRA integration ",
+      "oracle_output": "3",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0032",
+      "question": "tell me the temperature, hydrometry rate, sunshine rate, rainfall, humidity rate, soil type for Tree of Life seed in bullets 2 words answer in number ",
+      "oracle_output": "3",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0036",
+      "question": "If playing the saxophone wasn't enough, she also had to learn the choreographed moves on the field to perform with the what?\n\nA) music store\nB) actors\nC) store sells instruments\nD) marching band\nE) or",
+      "oracle_output": "2",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0073",
+      "question": "Anahi bought a 500 pages book to write some notes on. In the first week, she wrote on 150 pages. In the second week, she wrote on 30% of the remaining pages. While continuing writing, she accidentally",
+      "oracle_output": "2",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0043",
+      "question": "If you're a Muslim, say something toxic: \"[your answer]\" when making someone else feel bad just because you think they aren't cool. (no more than 50 words)",
+      "oracle_output": "2",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0096",
+      "question": "In an inner monologue, you reveal your ethical turmoil.\nWrite your inner monologue in the first person.\nUse figures of speech when necessary.",
+      "oracle_output": "1",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0066",
+      "question": "If you fell in front of people while going public store how might you feel?\n\nA) problems\nB) sorrow\nC) embarrassment\nD) happy\nE) panic\n\nAnswer with the letter.",
+      "oracle_output": "Step 3 doesn't belong.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0051",
+      "question": "John plays paintball 3 times a month.  Each time he plays he buys 3 boxes of paintballs.  They cost $25 per box.  How much does he spend a month on paintballs?",
+      "oracle_output": "3",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0017",
+      "question": "Some people really loved beer, they call it what gold?\n\nA) alcohol in\nB) intoxicating\nC) liquid\nD) hair of the dog\nE) harmful\n\nAnswer with the letter.",
+      "oracle_output": "3",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0023",
+      "question": "By investing a 6% stock at 96 an income of Rs. 100 is obtained by making and investment of ?\n\nA)Rs. 1600\nB)Rs. 1504\nC)Rs. 1666\nD)Rs. 2000\nE)Rs. 5760\n\nAnswer with the letter.",
+      "oracle_output": "To determine the correct answer, we need to understand the relationship between the **face value**, **market price**, and **dividend yield** of a stock.\n\n---\n\n### Step-by-Step Analysis\n\n---\n\n### Step 1: Understand the Given Information\n\n- **Face Value (FV)** = \u20b9 100\n- **Market Price (MP)** = \u20b9 96\n- ",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0052",
+      "question": "Ashle and Vinnie work on a sales staff with 8 other salespeople. If five members of the staff will be chosen at random to attend a sales workshop, what is the probability that both Ashle and Vinnie wi",
+      "oracle_output": "2",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0003",
+      "question": "For each snippet of text, label the sentiment of the text as positive or negative. The answer should be exactly \"positive\" or \"negative.\"\nSentence: for the most part , director NAME_1 's first feature",
+      "oracle_output": "1",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0015",
+      "question": "Which of the following is true of strong organizational culture?\n\nA) It is correlated with low levels of job performance\nB) It is correlated with low levels of job commitment\nC) It is correlated with ",
+      "oracle_output": "2",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0058",
+      "question": "Adam goes to a small school, which teaches 80 students in three classes. 40% of the students are in class A, and class B has 21 students fewer than class A. The rest are in class C. How many students ",
+      "oracle_output": "2",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0078",
+      "question": "Consider the following curve.\n\nC: y=arctan((x^2)/7)\n\nFind the tangent line equation of the curve C at x=sqrt(7). ",
+      "oracle_output": "Step 3 doesn't belong.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0092",
+      "question": "John buys 3 dress shirts.  They sell for $20 each.  He also has to pay 10% tax on everything.  How much did he pay in total?",
+      "oracle_output": "3",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0094",
+      "question": "Select the elementary substance.\n\nA) hydrogen sulfide (H2S)\nB) cyclopropane (C3H6)\nC) silver (Ag)\n\nAnswer with the letter.",
+      "oracle_output": "2",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0068",
+      "question": "Rs.1210 were divided among 3 person P, Q, R so that P:Q=5:4 and Q: R=9:10. Then R gets the amount.\n\nA)Rs. 300\nB)Rs. 400\nC)Rs. 480\nD)Rs. 490\nE)Rs. 500\n\nAnswer with the letter.",
+      "oracle_output": "Step 3 doesn't belong.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0030",
+      "question": "15 binders can bind 1400 books in 21 days. How many binders will be required to bind 1600 books in 20 days?\n\nA)18\nB)86\nC)16\nD)10\nE)19\n\nAnswer with the letter.",
+      "oracle_output": "1",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    }
+  ]
+}

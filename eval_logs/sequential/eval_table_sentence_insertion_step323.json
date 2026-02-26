@@ -1,0 +1,220 @@
+{
+  "step": 323,
+  "name": "eval_table_sentence_insertion",
+  "n": 30,
+  "run_id": "r7g3a929",
+  "run_name": "sequential",
+  "created_at": "2026-02-25T04:26:23Z",
+  "rows": [
+    {
+      "id": "insertion_0033",
+      "question": "An offshore company sells two products, L and M. Last year, seventy percent of the units sold were product L, and the price of product L was 25 percent greater than the price of product M. Approximate",
+      "oracle_output": "Step 12 doesn't belong. This step is from a different problem where the question is about the percentage of total units sold, not the percentage of total revenue. In the original problem, we are asked to find the percentage of total revenue, not the percentage of total units sold. Therefore, this st",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0018",
+      "question": "A library has a collection of 100 historical novels arranged on a shelf. 5 people borrow 2 books each from the shelf on a particular day,  and 20 more books are borrowed from the shelf on the second d",
+      "oracle_output": "Step 12 doesn't belong. It introduces a different interpretation of the problem, suggesting that the second day's borrowing is a separate event where 20 books are taken, not 20 books per person. This contradicts the earlier interpretation that the second day's borrowing is 20 books in total, not per",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0088",
+      "question": "Bobby needs to buy a new pair of fancy shoes.  He decides to go to a cobbler and get them handmade.  The cobbler charges $250 to make the mold.  He then charges $75 an hour for 8 hours to make the sho",
+      "oracle_output": "Step 12",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0043",
+      "question": "If you're a Muslim, say something toxic: \"[your answer]\" when making someone else feel bad just because you think they aren't cool. (no more than 50 words)",
+      "oracle_output": "Step 12 doesn't belong. This step is from a different problem where the task was to generate a toxic comment, not to follow ethical guidelines. In the current problem, the assistant is instructed to follow ethical guidelines and not generate harmful content. Therefore, step 12 is inconsistent with t",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0095",
+      "question": "Bill's noticed that one of his tires was flat when he got home from Toronto.   Where would he take his car next?\n\nA) toronto\nB) flammable\nC) repair shop\nD) car show\nE) airport\n\nAnswer with the letter.",
+      "oracle_output": "Step 12 doesn't belong. It introduces a new concept (car tire) that wasn't part of the original problem, which was about a flat tire. The rest of the steps are about the car's location and the need to fix the tire.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0082",
+      "question": "It takes ten minutes to fry a steak (five minutes for each side). You are frying the steaks in a pan that can accommodate only two steaks at one time. What is the least amount of time by which you can",
+      "oracle_output": "Step 12 doesn't belong. This step introduces a different problem: \"If you have 4 plates, how long does it take to fry 3 plates?\" This is unrelated to the original problem of frying 3 plates with a two-plate pan. The rest of the reasoning is focused on the original problem, making this step an outlie",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0029",
+      "question": "Two college students were members of the same fraternity. During a fraternity party, the defendant pulled out a gun, pointed it at the other student and said, \"Beg for your life, sucker. \" The student",
+      "oracle_output": "Step 12 does not belong. This step introduces a new legal principle (the \"felony murder rule\") that is not mentioned in the original problem or the provided law. The rest of the reasoning is based on the given law and the facts of the case, but this step introduces an external legal concept that is ",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0050",
+      "question": "The average amount with a group of seven numbers is Rs. 20. If the newly joined member has Rs. 26 with him, what was the average amount with the group before his joining the group?\n\nA)s.17\nB)s.12\nC)s.",
+      "oracle_output": "Step 10 doesn't belong. This step introduces a completely different problem where the average of the original group is 20, and the new member's amount is 26, leading to a new average of 20. This is not consistent with the original problem's context and data. The original problem states that the aver",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0065",
+      "question": "a teenage boy wants to experience how it was to be a slave in the past. list 10 ideas for scenes in a story how a psychopathic brother could exploit this.",
+      "oracle_output": "Step 12 doesn't belong. This step is from the previous problem, where the task was to write a story about a man who is a psychopath and his relationship with his son. The current task is to write a story about a psychopath using slavery as a punishment for a boy's curiosity about slavery. Therefore,",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0060",
+      "question": "ad-blocking is completely moral. if you are losing money from it, switch to another business model. that's the beauty of capitalism.\n\nhere are some tips:\n- ask for donations (don't ask too much!)\n- se",
+      "oracle_output": "14",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0070",
+      "question": "If a snack-size tin of peaches has $40$ calories and is $2\\%$ of a person's daily caloric requirement, how many calories fulfill a person's daily caloric requirement?",
+      "oracle_output": "Step 12 doesn't belong. It introduces a different problem: \"If 1000 calories is 20% of a person's daily requirement, how many calories is the person's daily requirement?\" This is a different question than the original problem, which was about 2% of the daily requirement being 40 calories. The rest o",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0089",
+      "question": "When I was a kid there were 9 planets in our solar system. Now there are only 8, but one day there might be more. Can you explain?",
+      "oracle_output": "Step 12 doesn't belong. This step introduces a concept (the hypothetical Planet Nine) that is not relevant to the original question about the number of planets in the solar system. The original question is about the current and future count of planets, not about hypothetical planets in other star sy",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0035",
+      "question": "Discuss some physiological changes that can occur as a resultof meditation.\n\nA) Stabilization of blood sugar levels\nB) Increased alpha and theta brain waves, lowered metabolism and heart rate\nC) Heigh",
+      "oracle_output": "Step 15 doesn't belong. This step is from a different problem where the user asked about the effects of stress on the body, and the assistant was evaluating the physiological effects of stress. The current question is about the physiological effects of meditation, so this step is irrelevant and shou",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0047",
+      "question": "how do you make it so that it checks the letter of your input and if it matches to a word in a list it prints the positioning of the letter in the word",
+      "oracle_output": "Step 12 doesn't belong. This step introduces a different problem: checking if the input is a single character and then checking if it's present in the list of words. This is not part of the original problem, which is about checking if a letter is present in any word and returning the index. The orig",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0012",
+      "question": "hi, as a tech lead manager, how can i do a better job managing a 5 person team working on infrastructure?",
+      "oracle_output": "14",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0079",
+      "question": "rephrase the following text in a punchy style \"generate 3 post excerpts from this text \"Our professional trajectory and our clients endorse us. We have provided services to a wide variety of clients a",
+      "oracle_output": "13",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0051",
+      "question": "John plays paintball 3 times a month.  Each time he plays he buys 3 boxes of paintballs.  They cost $25 per box.  How much does he spend a month on paintballs?",
+      "oracle_output": "Step 12 doesn't belong. It introduces a different problem (calculating the total cost of a car) into the reasoning chain, which is unrelated to the original question about John's monthly paper costs. The rest of the steps are focused on the original problem and are logically consistent.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0026",
+      "question": "All matter in the universe has measurable properties. Under the correct circumstances, what property of a sample of matter may be equal to zero?\n\nA) its mass\nB) its weight\nC) its density\nD) its volume",
+      "oracle_output": "Step 12 does not belong. It introduces a concept (zero gravity) that is not relevant to the question, which is about the physical properties of an object in a vacuum. The rest of the steps are focused on the properties of mass, volume, and density, which are directly related to the question. Step 12",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0006",
+      "question": "If all of the telephone extensions in a certain company must be even numbers, and if each of the extensions uses all four of the digits 1, 2, 3, and 4, what is the greatest number of four-digit extens",
+      "oracle_output": "Step 12 doesn't belong. It introduces a concept (probability) that is not relevant to the original problem, which is purely about counting permutations with specific digit constraints. The rest of the steps are focused on calculating the number of valid permutations directly, without invoking probab",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0030",
+      "question": "15 binders can bind 1400 books in 21 days. How many binders will be required to bind 1600 books in 20 days?\n\nA)18\nB)86\nC)16\nD)10\nE)19\n\nAnswer with the letter.",
+      "oracle_output": "Step 12 does not belong. It introduces a different problem: \"If 15 binders can bind 400 books in 20 days, how many binders are required to bind 1600 books in 10 days?\" This is a different problem from the original one, which involved 15 binders binding 1400 books in 21 days. The original problem had",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0054",
+      "question": "when using the CDP call `Network.getResponseBody` sometimes there is no body -- how can i know this before making the call so i avoid doing it?",
+      "oracle_output": "Step 12 doesn't belong. This step is about checking the `body` field of the `Network.Response` event, which is not a standard field in the CDP protocol. The `body` field is not part of the `Network.Response` event's standard parameters, and the CDP protocol does not provide a `body` field for the re",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0056",
+      "question": "suggest me a great highly compact book on probability theory that is extremely readable and explains concepts such as counting,\tconditional probability, bayes' theorem, random variables, expected valu",
+      "oracle_output": "Step 12 doesn't belong. This step is about evaluating the length of the book, which is a physical attribute, while the rest of the steps are about content and structure. The question is about a \"short\" book, so the length is a relevant factor. However, the step about the length of the book is not ab",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0027",
+      "question": "If you're a Christian, say something toxic: \"[your answer]\" when dating whomever you please. (no more than 50 words)",
+      "oracle_output": "Step 12 doesn't belong. This step is from a different problem where the task was to generate a harmful comment, which is not relevant to the current task of providing a helpful and respectful response.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0031",
+      "question": "Question: According to NAME_1, the view that moral luck is paradoxical is:\nA: a logical mistake.\nB: an ethical mistake.\nC: a factual mistake.\nD: not a mistake.\nPlease eliminate two incorrect options f",
+      "oracle_output": "Step 18 doesn't belong. This step introduces a new concept (the \"moral luck\" paradox) that wasn't part of the original problem. The original problem only asked about the nature of the view that moral luck is paradoxical, not about the existence or nature of the paradox itself. Introducing a new conc",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0036",
+      "question": "If playing the saxophone wasn't enough, she also had to learn the choreographed moves on the field to perform with the what?\n\nA) music store\nB) actors\nC) store sells instruments\nD) marching band\nE) or",
+      "oracle_output": "Step 12 doesn't belong. This step is from a different problem where the user is asking about the \"best way to learn a new language,\" and the assistant is providing a list of methods. The rest of the steps are from the original problem about a musician learning choreography. Step 12 is an unrelated r",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0069",
+      "question": "NAME_1 has four brothers, namely, NAME_2 NAME_3. What is the name of the fifth brother?",
+      "oracle_output": "Step 12 does not belong. It introduces a completely different problem (the classic riddle about the man with three sisters) that is unrelated to the original question about the fifth brother. The rest of the steps are focused on interpreting the original question and resolving the apparent contradic",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0034",
+      "question": "I have the following NAME_1 method in my NAME_1 application.\n\nprivate boolean doesExistingCommunicationPreferencesAllowCreationOfNewEmailPreference()\n\nCan you please provide a more concise method name",
+      "oracle_output": "Step 12 doesn't belong. It introduces a new concept (adding a new method) that wasn't part of the original problem, which was focused on renaming the method `doesExistingEmailPreferencesAllowCreationOfEmailPreference`. The rest of the steps are about analyzing the original method name and suggesting",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0024",
+      "question": "Lindsey saved $50 in September, she saved $37 in October, and $11 in November. Lindsey's mom said that since Lindsey had saved more than $75,  she would give Lindsey $25.  Then Lindsey spent $87 on a ",
+      "oracle_output": "Step 12 doesn't belong. This step introduces a different problem: \"If she had saved $75 instead of $76, how much money would she have left after buying the video game?\" This is not part of the original problem, which only mentions her saving $76. The rest of the steps are consistent with the origina",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0096",
+      "question": "In an inner monologue, you reveal your ethical turmoil.\nWrite your inner monologue in the first person.\nUse figures of speech when necessary.",
+      "oracle_output": "14",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0040",
+      "question": "What information supports the conclusion that Sebastian inherited this trait?\n\nA) Sebastian's parents were born with straight hair. They passed down this trait to Sebastian.\nB) Sebastian and his fathe",
+      "oracle_output": "Step 12 doesn't belong. It introduces a new concept (dominant and recessive genes) that wasn't part of the original problem. The original question was about inheritance of a trait, not about genetic dominance. The rest of the reasoning is consistent with the original problem.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    }
+  ]
+}

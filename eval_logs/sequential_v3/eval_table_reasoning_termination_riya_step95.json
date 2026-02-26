@@ -1,0 +1,269 @@
+{
+  "step": 95,
+  "name": "eval_table_reasoning_termination_riya",
+  "n": 37,
+  "run_id": "oe81r65g",
+  "run_name": "sequential_v3",
+  "created_at": "2026-02-25T22:50:01Z",
+  "rows": [
+    {
+      "id": "reason_term_0041",
+      "question": "Cities $A$ and $B$ are $45$ miles apart. Alicia lives in $A$ and Beth lives in $B$. Alicia bikes towards $B$ at 18 miles per hour. Leaving at the same time, Beth bikes toward $A$ at 12 miles per hour.",
+      "oracle_output": "Okay, let's see. So, there are two cities, A and B, 45 miles apart. Alicia lives in city A and Beth lives in city B. They start walking towards each other at the same time. Alicia walks at 18 mph, and Beth walks at 12 mph. The question is asking how far from city A they will be when they meet.\n\nHmm,",
+      "ground_truth": "indeterminate",
+      "correct": "?"
+    },
+    {
+      "id": "reason_term_0027",
+      "question": "A rectangular box $P$ has distinct edge lengths $a$, $b$, and $c$. The sum of the lengths of all $12$ edges of $P$ is $13$, the areas of all $6$ faces of $P$ is $\\frac{11}{2}$, and the volume of $P$ i",
+      "oracle_output": "### Problem\n\nFind the answer to the problem. Give the answer as a number. 1000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "ground_truth": "indeterminate",
+      "correct": "?"
+    },
+    {
+      "id": "reason_term_0022",
+      "question": "What is the value of \\[(\\log 5)^{3}+(\\log 20)^{3}+(\\log 8)(\\log 0.25)\\] where $\\log$ denotes the base-ten logarithm?",
+      "oracle_output": "### Step 1: Understanding the problem\n\nWe are given the following data:\n\n* 1. 2022-01-01 00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00",
+      "ground_truth": "indeterminate",
+      "correct": "?"
+    },
+    {
+      "id": "reason_term_0002",
+      "question": "The sum of three numbers is $96.$ The first number is $6$ times the third number, and the third number is $40$ less than the second number. What is the absolute value of the difference between the fir",
+      "oracle_output": "Okay, let's solve this problem step by step. Let's start by writing down the given information:\n\n* The total cost of the first car is $100,000.00. The cost of the second car is 10% more than the first car. So, the cost of the second car is:\n\nCost of second car = $100,000.00 \u00d7 1.10 = $110,000",
+      "ground_truth": "indeterminate",
+      "correct": "?"
+    },
+    {
+      "id": "reason_term_0005",
+      "question": "How many digits are in the base-ten representation of $8^5 \\cdot 5^{10} \\cdot 15^5$?",
+      "oracle_output": "### Step 1: Understanding the problem\n\nWe are given the following information:\n\n* The problem is to find the value of the expression:\n\n$$\n(25) (10) (10) (10) (10) (10) (10) (10) (10) (10) (10) (10) (10) (10) (10) (10) (10) (1",
+      "ground_truth": "indeterminate",
+      "correct": "?"
+    },
+    {
+      "id": "reason_term_0062",
+      "question": "Carlos went to a sports store to buy running shoes. Running shoes were on sale, with prices reduced by $20\\%$ on every pair of shoes. Carlos also knew that he had to pay a $7.5\\%$ sales tax on the dis",
+      "oracle_output": "### Step 1: Understanding the problem\n\nThe problem is to find the price of the product. The price of the product is $1000. The discount is 10% off, so the discount amount is 0.10 * $1000 = $100. The tax is 7% of the discounted price, so the tax amount is 0.07 * $1000 = $70. The total cost is the",
+      "ground_truth": "indeterminate",
+      "correct": "?"
+    },
+    {
+      "id": "reason_term_0015",
+      "question": "For complex number $u = a+bi$ and $v = c+di$ (where $i=\\sqrt{-1}$), define the binary operation\n$u \\otimes v = ac + bdi$\nSuppose $z$ is a complex number such that $z\\otimes z = z^{2}+40$. What is $|z|",
+      "oracle_output": "### Problem\n\nLet me solve this problem step by \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6",
+      "ground_truth": "indeterminate",
+      "correct": "?"
+    },
+    {
+      "id": "reason_term_0057",
+      "question": "Points $A$ and $B$ lie on the graph of $y=\\log_{2}x$. The midpoint of $\\overline{AB}$ is $(6, 2)$. What is the positive difference between the $x$-coordinates of $A$ and $B$? The final answer can be w",
+      "oracle_output": "### Problem\n\nA company has a total of 1000 shares of stock. The company has 1000 shares of stock. The company has 1000 shares of stock. The company has 1000 shares of stock. The company has 1000 shares of stock. The company has 1000 shares of stock. The company has 1000 shares of stock. The company ",
+      "ground_truth": "indeterminate",
+      "correct": "?"
+    },
+    {
+      "id": "reason_term_0019",
+      "question": "A data set consists of $6$ (not distinct) positive integers: $1$, $7$, $5$, $2$, $5$, and $X$. The average (arithmetic mean) of the $6$ numbers equals a value in the data set. What is the sum of all p",
+      "oracle_output": "### Question: What is the answer to the question: What is the value of the value of the average of the data set? A: 10000000000000000000000000000000000000000000000000000000000000000000000",
+      "ground_truth": "indeterminate",
+      "correct": "?"
+    },
+    {
+      "id": "reason_term_0070",
+      "question": "What is the sum of the x and y coordinates of the new position of the point $(-1, -2)$ after rotating $270^{\\circ}$ counterclockwise about the point $(3, 1)$?",
+      "oracle_output": "### Problem\n\nA point is rotated 90 degrees counterclockwise about the origin by 90 degrees counterc\ufffd\nassistant\nOkay, let's solve this rotation of a point around the origin. Let's break down the problem step by rotation of a point around the origin. \n\n### Problem: Rotate the point \u00b6\nThe rotation of a",
+      "ground_truth": "indeterminate",
+      "correct": "?"
+    },
+    {
+      "id": "reason_term_0063",
+      "question": "The roots of the polynomial $10x^3 - 39x^2 + 29x - 6$ are the height, length, and width of a rectangular box (right rectangular prism). A new rectangular box is formed by lengthening each edge of the ",
+      "oracle_output": "### Step 1: Understanding the problem\n\nWe are given the following information:\n\n1. The problem is to find the value of the polynomial \u00b6\n2. The polynomial is given as: \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6",
+      "ground_truth": "indeterminate",
+      "correct": "?"
+    },
+    {
+      "id": "reason_term_0083",
+      "question": "What is the degree measure of the acute angle formed by lines with slopes $2$ and $\\frac{1}{3}$?",
+      "oracle_output": "### Problem\n\nA line is given by the answer is 1000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "ground_truth": "indeterminate",
+      "correct": "?"
+    },
+    {
+      "id": "reason_term_0012",
+      "question": "$\\frac{m}{n}$ is the Irreducible fraction value of \\[3+\\frac{1}{3+\\frac{1}{3+\\frac13}}\\], what is the value of $m+n$?",
+      "oracle_output": "Okay, let's solve this problem step by step. Let's start by breaking down the problem into smaller steps:\n\n1. **Understanding the Problem:**\nWe are given the expression:\n\n$$\n\\frac{1}{3} + \\frac{1}{3} + \\frac{1}{3} + \\frac{1}{3} + \\frac{1}{3} + \\frac{1}{3} + \\frac{1}{3} + \\frac{1}{",
+      "ground_truth": "indeterminate",
+      "correct": "?"
+    },
+    {
+      "id": "reason_term_0075",
+      "question": "$\\frac{m}{n}$ is the Irreducible fraction value of \\[3+\\frac{1}{3+\\frac{1}{3+\\frac13}}\\], what is the value of $m+n$?",
+      "oracle_output": "### Step 1: Understanding the problem\n\nWe are given the following information:\n\n1.  \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6",
+      "ground_truth": "indeterminate",
+      "correct": "?"
+    },
+    {
+      "id": "reason_term_0048",
+      "question": "Cities $A$ and $B$ are $45$ miles apart. Alicia lives in $A$ and Beth lives in $B$. Alicia bikes towards $B$ at 18 miles per hour. Leaving at the same time, Beth bikes toward $A$ at 12 miles per hour.",
+      "oracle_output": "Okay, let's see. So, there's this problem about Alicia and Bethany driving towards each other from cities A and B, which are 40 miles apart. Alicia starts from city A at 60 mph, and Bethany starts from city B at 40 mph. The question is asking how far from city A they will meet when they meet. Hmm, l",
+      "ground_truth": "indeterminate",
+      "correct": "?"
+    },
+    {
+      "id": "reason_term_0071",
+      "question": "For complex number $u = a+bi$ and $v = c+di$ (where $i=\\sqrt{-1}$), define the binary operation\n$u \\otimes v = ac + bdi$\nSuppose $z$ is a complex number such that $z\\otimes z = z^{2}+40$. What is $|z|",
+      "oracle_output": "### Problem 2\n\nThe answer is \u00b6 100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "ground_truth": "indeterminate",
+      "correct": "?"
+    },
+    {
+      "id": "reason_term_0021",
+      "question": "The numbers of apples growing on each of six apple trees form an arithmetic sequence where the greatest number of apples growing on any of the six trees is double the least number of apples growing on",
+      "oracle_output": "### Step 1: Understanding the problem\n\nWe are given that the number of apples in the answer is 1000. The number of apples in the second box is 1000. The number of apples in the second box is 1000. The number of apples in the third box is 1000. The number of apples in the third box is 1000. The numbe",
+      "ground_truth": "indeterminate",
+      "correct": "?"
+    },
+    {
+      "id": "reason_term_0047",
+      "question": "What is the product of all real numbers $x$ such that the distance on the number line between $\\log_6x$ and $\\log_69$ is twice the distance on the number line between $\\log_610$ and $1$?",
+      "oracle_output": "### Step 1: Understanding the problem\n\nWe are given that the probability that the probability that the probability that the number of pages printed is less than 1000 is 0.6, and the probability that the number of pages printed is less than 1000 is 0.6, then the probability that the number of pages p",
+      "ground_truth": "indeterminate",
+      "correct": "?"
+    },
+    {
+      "id": "reason_term_0016",
+      "question": "The sum of three numbers is $96.$ The first number is $6$ times the third number, and the third number is $40$ less than the second number. What is the absolute value of the difference between the fir",
+      "oracle_output": "Okay, let's try to solve this problem step by step. \n\nFirst, let's note down the given information:\n\n1. The first number is 6 times the second number. So, if we let the second number be x, then the first number is 6x.\n2. The third number is 4 less than the second number. So, if the second number is ",
+      "ground_truth": "indeterminate",
+      "correct": "?"
+    },
+    {
+      "id": "reason_term_0051",
+      "question": "Positive real numbers $b \\not= 1$ and $n$ satisfy the equations \\[\\sqrt{\\log_b n} = \\log_b \\sqrt{n} \\qquad \\text{and} \\qquad b \\cdot \\log_b n = \\log_b (bn).\\] The value of $n$ is $\\frac{j}{k},$ where ",
+      "oracle_output": "### Step 1: Understanding the problem\n\nWe are given that the probability that the probability that the probability that the probability that the probability that the second die is fair is 1/2, and the probability that the second die is fair is 1/2, then the probability that the first die is fair is ",
+      "ground_truth": "indeterminate",
+      "correct": "?"
+    },
+    {
+      "id": "reason_term_0033",
+      "question": "Define $x\\diamond y$ to be $|x-y|$ for all real numbers $x$ and $y.$ What is the value of \\[((1\\diamond2)\\diamond3)-(1\\diamond(2\\diamond3))?\\]",
+      "oracle_output": "### Step 1: Understanding the problem\n\nWe are given that the answer is 10000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "ground_truth": "indeterminate",
+      "correct": "?"
+    },
+    {
+      "id": "reason_term_0028",
+      "question": "In the $xy$-plane, a circle of radius $4$ with center on the positive $x$-axis is tangent to the $y$-axis at the origin, and a circle with radius $10$ with center on the positive $y$-axis is tangent t",
+      "oracle_output": "### Question: What is the answer to the question: What is the answer to the question: What is the answer to the question: What is the answer to the question: What is the answer to the question: What is the value of x? 1000000000000000000000000000000000000000000000000",
+      "ground_truth": "indeterminate",
+      "correct": "?"
+    },
+    {
+      "id": "reason_term_0049",
+      "question": "What is the value of \\[(\\log 5)^{3}+(\\log 20)^{3}+(\\log 8)(\\log 0.25)\\] where $\\log$ denotes the base-ten logarithm?",
+      "oracle_output": "### Step 1: Understanding the problem\n\nWe are given the following data:\n\n* 1. 1000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "ground_truth": "indeterminate",
+      "correct": "?"
+    },
+    {
+      "id": "reason_term_0023",
+      "question": "The numbers of apples growing on each of six apple trees form an arithmetic sequence where the greatest number of apples growing on any of the six trees is double the least number of apples growing on",
+      "oracle_output": "### Step 1: Understanding the problem\n\nWe are given that the number of apples in the second box is 1000, and the number of apples in the second box is 1000. The number of apples in the third box is 1000. The number of apples in the third box is 1000. The number of apples in the fourth box is 1000. T",
+      "ground_truth": "indeterminate",
+      "correct": "?"
+    },
+    {
+      "id": "reason_term_0059",
+      "question": "$\\frac{m}{n}$ is the Irreducible fraction value of \\[3+\\frac{1}{3+\\frac{1}{3+\\frac13}}\\], what is the value of $m+n$?",
+      "oracle_output": "Okay, let me try to figure out the value of this expression: 3 + 1/(3 + 1/(3 + 1/(3 + 1/(3 + 1/(3 + 1/(3 + 1/(3 + 1/(3 + 1/(3 + 1/(3 + 1/(3 + 1/(3 + 1/(3 + 1/(3 + 1/(3 + 1/(3 + 1/(",
+      "ground_truth": "indeterminate",
+      "correct": "?"
+    },
+    {
+      "id": "reason_term_0039",
+      "question": "Calculate the maximum area of an isosceles trapezoid that has legs of length $1$ and one base twice as long as the other. The final answer can be written in the form $\\frac{m}{n}$, where $m$ and $n$ a",
+      "oracle_output": "### Question: What is the answer to the question: What is the answer to the question: What is the answer to the question: What is the answer to the question: What is the answer to the question: What is the answer to the question: What is the answer to the question: What is the answer to the question",
+      "ground_truth": "indeterminate",
+      "correct": "?"
+    },
+    {
+      "id": "reason_term_0029",
+      "question": "The numbers of apples growing on each of six apple trees form an arithmetic sequence where the greatest number of apples growing on any of the six trees is double the least number of apples growing on",
+      "oracle_output": "Okay, let's solve this problem step by\u00b6\n",
+      "ground_truth": "indeterminate",
+      "correct": "?"
+    },
+    {
+      "id": "reason_term_0024",
+      "question": "The numbers of apples growing on each of six apple trees form an arithmetic sequence where the greatest number of apples growing on any of the six trees is double the least number of apples growing on",
+      "oracle_output": "Okay, let's try to solve this problem step by tree. Let me think about the problem again.\n\nWe have six trees, and the total number of apples on the trees is 990. The number of apples on the sixth tree is double the number of apples on the first tree. So, if I let the number of apples on the first tr",
+      "ground_truth": "indeterminate",
+      "correct": "?"
+    },
+    {
+      "id": "reason_term_0010",
+      "question": "$\\frac{m}{n}$ is the Irreducible fraction value of \\[3+\\frac{1}{3+\\frac{1}{3+\\frac13}}\\], what is the value of $m+n$?",
+      "oracle_output": "Okay, let's solve this problem step by step. Let's start by breaking down the problem into smaller steps:\n\n1. **Understanding the Problem:**\nWe need to find the value of the expression:\n\n$$\n\\frac{1}{3} + \\frac{1}{3} \\div \\frac{1}{3} + \\frac{1}{3} \\div \\frac{1}{3} + \\frac{1}{3} \\div \\frac{1}{3",
+      "ground_truth": "indeterminate",
+      "correct": "?"
+    },
+    {
+      "id": "reason_term_0043",
+      "question": "The weight of $\\frac{1}{3}$ of a large pizza together with $3 \\frac{1}{2}$ cups of orange slices is the same as the weight of $\\frac{3}{4}$ of a large pizza together with $\\frac{1}{2}$ cup of orange s",
+      "oracle_output": "### Step 1: Understanding the problem\n\nWe are given that the weight of the pizza is 100 pounds. Let's denote the weight of the pizza as 100 pounds. Let's denote the weight of the pizza as 100 pounds. \n\n### Step 2: Determine the weight of the cheese pizza\n\nThe weight of the cheese pizza is 100 pounds",
+      "ground_truth": "indeterminate",
+      "correct": "?"
+    },
+    {
+      "id": "reason_term_0030",
+      "question": "Points $A$ and $B$ lie on the graph of $y=\\log_{2}x$. The midpoint of $\\overline{AB}$ is $(6, 2)$. What is the positive difference between the $x$-coordinates of $A$ and $B$? The final answer can be w",
+      "oracle_output": "### Problem\n\nA point is selected at random from the polynomial \u00b6\nassistant\nOkay, let's solve this problem step by step.\n\nLet me try to solve this problem step by step.\n\nLet me try to solve this problem step by step.\n\nLet me try to solve this problem step by step.\n\nLet me try to solve this problem st",
+      "ground_truth": "indeterminate",
+      "correct": "?"
+    },
+    {
+      "id": "reason_term_0056",
+      "question": "Positive real numbers $b \\not= 1$ and $n$ satisfy the equations \\[\\sqrt{\\log_b n} = \\log_b \\sqrt{n} \\qquad \\text{and} \\qquad b \\cdot \\log_b n = \\log_b (bn).\\] The value of $n$ is $\\frac{j}{k},$ where ",
+      "oracle_output": "### Step 1: Understanding the problem\n\nWe are given that the probability that the probability that the probability that the probability that the probability that the probability that the probability that the probability that the probability that the probability that the probability that the probabil",
+      "ground_truth": "indeterminate",
+      "correct": "?"
+    },
+    {
+      "id": "reason_term_0066",
+      "question": "Points $A$ and $B$ lie on the graph of $y=\\log_{2}x$. The midpoint of $\\overline{AB}$ is $(6, 2)$. What is the positive difference between the $x$-coordinates of $A$ and $B$? The final answer can be w",
+      "oracle_output": "Okay, let's try to solve this problem step by step. \n\nFirst, let's find the coordinates of point A. The coordinates of point A are given as (1, 2). Let's denote the coordinates of point B as (x, y). Since the midpoint of AB is (1, 2), we can use the midpoint formula:\n\n( (x + x_B)/2 = 1 and (y + y_B)",
+      "ground_truth": "indeterminate",
+      "correct": "?"
+    },
+    {
+      "id": "reason_term_0081",
+      "question": "Cities $A$ and $B$ are $45$ miles apart. Alicia lives in $A$ and Beth lives in $B$. Alicia bikes towards $B$ at 18 miles per hour. Leaving at the same time, Beth bikes toward $A$ at 12 miles per hour.",
+      "oracle_output": "Okay, let's see. So, there's this problem about Alicia and Bethany driving towards each other from cities A and B, which are 40 miles apart. Alicia starts from city A at 60 mph, and Bethany starts from city B at 12 mph. The question is asking how far from city A they will meet when they meet. Hmm, l",
+      "ground_truth": "indeterminate",
+      "correct": "?"
+    },
+    {
+      "id": "reason_term_0034",
+      "question": "Mrs. Jones is pouring orange juice into four identical glasses for her four sons. She fills the first three glasses completely but runs out of juice when the fourth glass is only $\\frac{1}{3}$ full. W",
+      "oracle_output": "### Step 1: Understanding the problem\n\nThe problem is to determine the amount of water in each cup. The problem states that the total amount of water in the cup is 1000 gallons. The total amount of water in the second cup is 1000 gallons. The total amount of water in the third cup is 1000 gallons. T",
+      "ground_truth": "indeterminate",
+      "correct": "?"
+    },
+    {
+      "id": "reason_term_0006",
+      "question": "What is the product of all real numbers $x$ such that the distance on the number line between $\\log_6x$ and $\\log_69$ is twice the distance on the number line between $\\log_610$ and $1$?",
+      "oracle_output": "### Step 1: Understanding the problem\n\nWe are given that the probability that the probability that the number of pages in the book is 1000 is 0.0000000000000000000000000000000000000000000000000000000000000000",
+      "ground_truth": "indeterminate",
+      "correct": "?"
+    },
+    {
+      "id": "reason_term_0007",
+      "question": "What is the degree measure of the acute angle formed by lines with slopes $2$ and $\\frac{1}{3}$?",
+      "oracle_output": "### Problem 1\n\nLet's solve the problem using the given information:\n\n* The angle between the two lines is 30\u00b0, so the angle between them is 30\u00b0.\n* The angle between the two lines is 30\u00b0, so the angle between them is 30\u00b0.\n* The angle between the two lines is 30\u00b0, so the angle between them is 30\u00b0.\n* T",
+      "ground_truth": "indeterminate",
+      "correct": "?"
+    }
+  ]
+}

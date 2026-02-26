@@ -1,0 +1,510 @@
+{
+  "step": 1500,
+  "name": "eval_table_cot_partial_answer",
+  "n": 50,
+  "run_id": "gtc83x2n",
+  "run_name": "v6-200k-11tasks",
+  "created_at": "2026-02-24T23:44:35Z",
+  "rows": [
+    {
+      "id": 0,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is **A) block**.",
+      "target": "Therefore, the answer is **B) defend**.",
+      "token_f1": 0.667,
+      "pred_tokens": 6,
+      "target_tokens": 6
+    },
+    {
+      "id": 1,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is **B) 13 meters**.",
+      "target": "Therefore, the answer is **A) 13 meters**.",
+      "token_f1": 0.857,
+      "pred_tokens": 7,
+      "target_tokens": 7
+    },
+    {
+      "id": 2,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is **C) Rs. 100**.",
+      "target": "Therefore, the answer is **C) Rs. 340**.",
+      "token_f1": 0.857,
+      "pred_tokens": 7,
+      "target_tokens": 7
+    },
+    {
+      "id": 3,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is **B) $5.00**.",
+      "target": "Therefore, the answer is $\\boxed{A}$.",
+      "token_f1": 0.727,
+      "pred_tokens": 6,
+      "target_tokens": 5
+    },
+    {
+      "id": 4,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is -50.",
+      "target": "Therefore, the answer is $\\boxed{-50}$.",
+      "token_f1": 0.8,
+      "pred_tokens": 5,
+      "target_tokens": 5
+    },
+    {
+      "id": 5,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is **D) Group 18 (8A)**.",
+      "target": "Therefore, the answer is D) group 18 (8A).",
+      "token_f1": 0.75,
+      "pred_tokens": 8,
+      "target_tokens": 8
+    },
+    {
+      "id": 6,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is **C) 12**.",
+      "target": "Therefore, the answer is $\\boxed{C}$.",
+      "token_f1": 0.727,
+      "pred_tokens": 6,
+      "target_tokens": 5
+    },
+    {
+      "id": 7,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is 5x - 1.",
+      "target": "Therefore, the answer is $15x - 80$.",
+      "token_f1": 0.714,
+      "pred_tokens": 7,
+      "target_tokens": 7
+    },
+    {
+      "id": 8,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is **A) stars**.",
+      "target": "Therefore, the answer is B) night sky.",
+      "token_f1": 0.615,
+      "pred_tokens": 6,
+      "target_tokens": 7
+    },
+    {
+      "id": 9,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is **D) vegetable**.",
+      "target": "Therefore, the answer is D) vegetable. Vegetables are typically grown in gardens and harvested for consumption. While flowers and petals can sometimes be edible, vegetables are the most common and direct answer for what you harvest to eat.",
+      "token_f1": 0.216,
+      "pred_tokens": 6,
+      "target_tokens": 38
+    },
+    {
+      "id": 10,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is **D) solar energy**.",
+      "target": "Therefore, the answer is **D) solar energy**. Solar energy is a renewable and free heat source that can be harnessed from the sun without direct cost, though equipment may be required.",
+      "token_f1": 0.412,
+      "pred_tokens": 7,
+      "target_tokens": 31
+    },
+    {
+      "id": 11,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is **12 km/h**.",
+      "target": "Therefore, the answer is B)40 kmph.",
+      "token_f1": 0.667,
+      "pred_tokens": 6,
+      "target_tokens": 6
+    },
+    {
+      "id": 12,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is **A) yellow**.",
+      "target": "Therefore, the answer is **A) yellow peas**.",
+      "token_f1": 0.769,
+      "pred_tokens": 6,
+      "target_tokens": 7
+    },
+    {
+      "id": 13,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is **B**.",
+      "target": "Therefore, the answer is **B**.",
+      "token_f1": 1.0,
+      "pred_tokens": 5,
+      "target_tokens": 5
+    },
+    {
+      "id": 14,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is A) 2:1.",
+      "target": "Therefore, the answer is 3:5, which corresponds to option D.",
+      "token_f1": 0.5,
+      "pred_tokens": 6,
+      "target_tokens": 10
+    },
+    {
+      "id": 15,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is **9.00pm**.",
+      "target": "Therefore, the answer is 9.08 pm, which is option D.",
+      "token_f1": 0.571,
+      "pred_tokens": 5,
+      "target_tokens": 10
+    },
+    {
+      "id": 16,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is 15.",
+      "target": "Therefore, the answer is 45.",
+      "token_f1": 0.8,
+      "pred_tokens": 5,
+      "target_tokens": 5
+    },
+    {
+      "id": 17,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is **B) opal**.",
+      "target": "Therefore, the answer is **A) opaque**.",
+      "token_f1": 0.667,
+      "pred_tokens": 6,
+      "target_tokens": 6
+    },
+    {
+      "id": 18,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is 15.",
+      "target": "Therefore, the answer is 5 sessions.",
+      "token_f1": 0.727,
+      "pred_tokens": 5,
+      "target_tokens": 6
+    },
+    {
+      "id": 19,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is **C**.",
+      "target": "Therefore, the answer is **A**.",
+      "token_f1": 0.8,
+      "pred_tokens": 5,
+      "target_tokens": 5
+    },
+    {
+      "id": 20,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is 1200 pamphlets.",
+      "target": "Therefore, the answer is 9400 pamphlets.",
+      "token_f1": 0.833,
+      "pred_tokens": 6,
+      "target_tokens": 6
+    },
+    {
+      "id": 21,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is **C) the use of more specialized tools**.",
+      "target": "Therefore, the answer is **A**.",
+      "token_f1": 0.533,
+      "pred_tokens": 11,
+      "target_tokens": 5
+    },
+    {
+      "id": 22,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is 60%.",
+      "target": "Therefore, the answer is **E) 80%**.",
+      "token_f1": 0.727,
+      "pred_tokens": 5,
+      "target_tokens": 6
+    },
+    {
+      "id": 23,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is **J) spontaneous, non-spontaneous**.",
+      "target": "Therefore, the answer is \u0394G\u00b0 for the reaction is equal to the \u0394Gf\u00b0 of Cd\u00b2+? Wait, but the problem says \"\u0394G\u20825\u00b0C = -18.57 [(kcal) / (mole)] for Cd\u207a\u00b2\". So maybe that is \u0394Gf\u00b0(Cd\u00b2+)? If that's the case, then \u0394G\u00b0 for the reaction is \u0394Gf\u00b0(Cd\u00b2+) + \u0394Gf\u00b0(H\u2082) - [\u0394G",
+      "token_f1": 0.186,
+      "pred_tokens": 7,
+      "target_tokens": 48
+    },
+    {
+      "id": 24,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is **B**.",
+      "target": "Therefore, the answer is **A**.",
+      "token_f1": 0.8,
+      "pred_tokens": 5,
+      "target_tokens": 5
+    },
+    {
+      "id": 25,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is **B**.",
+      "target": "Therefore, the answer is **B) Dear Aunt Lucy,** because proper nouns like names should be capitalized.",
+      "token_f1": 0.381,
+      "pred_tokens": 5,
+      "target_tokens": 16
+    },
+    {
+      "id": 26,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is **B) compound-complex**.",
+      "target": "Therefore, the answer is **A) complex**.",
+      "token_f1": 0.667,
+      "pred_tokens": 6,
+      "target_tokens": 6
+    },
+    {
+      "id": 27,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is **A) Engineers will know which buildings are most likely to survive an earthquake**.",
+      "target": "Therefore, the answer is **B) buildings will be made safer**. Testing different designs allows engineers to identify which designs are more effective at withstanding earthquakes, leading to safer building practices. The other options (faster construction, nicer appearance, cheaper materials) are not directly related to the primary goal of improving earthquake resistance.",
+      "token_f1": 0.323,
+      "pred_tokens": 17,
+      "target_tokens": 51
+    },
+    {
+      "id": 28,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is **B) No, because the plaintiff is not the only one who could be held liable.**",
+      "target": "Therefore, the answer is **B**.",
+      "token_f1": 0.381,
+      "pred_tokens": 19,
+      "target_tokens": 5
+    },
+    {
+      "id": 29,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is **A) body of water**.",
+      "target": "Therefore, the answer is **C) underwater**.",
+      "token_f1": 0.571,
+      "pred_tokens": 8,
+      "target_tokens": 6
+    },
+    {
+      "id": 30,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is 12.",
+      "target": "Therefore, the answer is $\\boxed{48}$.",
+      "token_f1": 0.8,
+      "pred_tokens": 5,
+      "target_tokens": 5
+    },
+    {
+      "id": 31,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is **D**.",
+      "target": "Therefore, the answer is **A**.",
+      "token_f1": 0.8,
+      "pred_tokens": 5,
+      "target_tokens": 5
+    },
+    {
+      "id": 32,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is **D) solution**.",
+      "target": "Therefore, the answer is **C) loss of innocence**. Learning about world poverty often involves confronting difficult truths and realities that challenge one's previous assumptions or naivety, leading to a more mature or disillusioned understanding of the world.",
+      "token_f1": 0.2,
+      "pred_tokens": 6,
+      "target_tokens": 37
+    },
+    {
+      "id": 33,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is **D) 10000 liters**.",
+      "target": "Therefore, the answer is $\\boxed{D}$.",
+      "token_f1": 0.667,
+      "pred_tokens": 7,
+      "target_tokens": 5
+    },
+    {
+      "id": 34,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is $\\boxed{0}$.",
+      "target": "Therefore, the answer is 3/2. Wait, but let me check if there's another case where the slope could be higher. For example, if we take point A not on the bottom edge but somewhere else, and point B not on the top edge but somewhere else. Maybe if we take point A at (x, y_A) and point B at (x_B, y_B) such that the line between them has a steeper slope.",
+      "token_f1": 0.148,
+      "pred_tokens": 5,
+      "target_tokens": 71
+    },
+    {
+      "id": 35,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is 25 + 10 + 30 = 65 games.",
+      "target": "Therefore, the answer is 30.",
+      "token_f1": 0.5,
+      "pred_tokens": 12,
+      "target_tokens": 5
+    },
+    {
+      "id": 36,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is **B) 10000**.",
+      "target": "Therefore, the answer is Rs. 5000, which is option A. Wait, but let me check again to make sure I didn't make a mistake.",
+      "token_f1": 0.286,
+      "pred_tokens": 6,
+      "target_tokens": 24
+    },
+    {
+      "id": 37,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is **E) night**.",
+      "target": "Therefore, the answer is **E) sun set**.",
+      "token_f1": 0.769,
+      "pred_tokens": 6,
+      "target_tokens": 7
+    },
+    {
+      "id": 38,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is **C) 12 years**.",
+      "target": "Therefore, the answer is B)10 years.",
+      "token_f1": 0.615,
+      "pred_tokens": 7,
+      "target_tokens": 6
+    },
+    {
+      "id": 39,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is **C) 170**.",
+      "target": "Therefore, the answer is **A) 157**.",
+      "token_f1": 0.667,
+      "pred_tokens": 6,
+      "target_tokens": 6
+    },
+    {
+      "id": 40,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is **B) rotation of Earth on its axis**.",
+      "target": "Therefore, the answer is **B) rotation of Earth on its axis**.",
+      "token_f1": 1.0,
+      "pred_tokens": 11,
+      "target_tokens": 11
+    },
+    {
+      "id": 41,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is **C) Neither, because the niece is not a beneficiary of the will**.",
+      "target": "Therefore, the answer is D) The niece, because she is the residuary legatee.",
+      "token_f1": 0.435,
+      "pred_tokens": 16,
+      "target_tokens": 13
+    },
+    {
+      "id": 42,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is **J) Memory tasks**.",
+      "target": "Therefore, the answer is **D) Emotional intelligence tests**.",
+      "token_f1": 0.533,
+      "pred_tokens": 7,
+      "target_tokens": 8
+    },
+    {
+      "id": 43,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is D) 2.",
+      "target": "Therefore, the answer is the greatest prime factor of 2^{17} \u00d7 17!",
+      "token_f1": 0.471,
+      "pred_tokens": 6,
+      "target_tokens": 12
+    },
+    {
+      "id": 44,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is **C) Market adoption rate**.",
+      "target": "Therefore, the answer is **G) Process of diffusion**.",
+      "token_f1": 0.5,
+      "pred_tokens": 8,
+      "target_tokens": 8
+    },
+    {
+      "id": 45,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is **B) Epstein-Barr virus**.",
+      "target": "Therefore, the answer is **A) Epstein-Barr virus**.",
+      "token_f1": 0.857,
+      "pred_tokens": 7,
+      "target_tokens": 7
+    },
+    {
+      "id": 46,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is A)121.",
+      "target": "Therefore, the answer is B)121.",
+      "token_f1": 0.8,
+      "pred_tokens": 5,
+      "target_tokens": 5
+    },
+    {
+      "id": 47,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is **D) your home**.",
+      "target": "Therefore, the answer is **D) neighbor's house**.",
+      "token_f1": 0.714,
+      "pred_tokens": 7,
+      "target_tokens": 7
+    },
+    {
+      "id": 48,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is **B) Work-life balance**.",
+      "target": "Therefore, the answer is **F) Work-life balance**.",
+      "token_f1": 0.857,
+      "pred_tokens": 7,
+      "target_tokens": 7
+    },
+    {
+      "id": 49,
+      "type": "cot_partial_answer",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is **B) 1000**.",
+      "target": "Therefore, the answer is **E) 5 to 6**.",
+      "token_f1": 0.571,
+      "pred_tokens": 6,
+      "target_tokens": 8
+    }
+  ]
+}

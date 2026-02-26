@@ -1,0 +1,269 @@
+{
+  "step": 128,
+  "name": "eval_table_sentence_insertion",
+  "n": 37,
+  "run_id": "8c4wimbw",
+  "run_name": "ablation-no-ao-checkpoint-sequential",
+  "created_at": "2026-02-26T18:24:16Z",
+  "rows": [
+    {
+      "id": "insertion_0047",
+      "question": "how do you make it so that it checks the letter of your input and if it matches to a word in a list it prints the positioning of the letter in the word",
+      "oracle_output": "Okay, let's try to figure out which step doesn't belong here. The user provided a list of steps, and I need to check if any of them were inserted from a different problem. The steps are numbered 1 to 10, and the answer should be the step number or 'none' if all belong.\n\nFirst, I'll go through each s",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0010",
+      "question": "What are some good names for my new family pro series grill my older brother got for Mother\u2019s Day and my other brother NAME_1\u2019s upcoming birthday",
+      "oracle_output": "Okay, let's try to figure out which step doesn't belong here. So, the question is about a chain of thought where one of the reasoning steps was inserted from a different problem. I need to identify which step is the odd one out. The options are steps numbered 1 to 10, and I have to respond with the ",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0007",
+      "question": "what does this mean in apache ab\nConnection Times (ms)\n              min  mean[+/-sd] median   max\nConnect:        0    0   0.0      0       0\nProcessing:    40   65  34.8     46     157\nWaiting:     ",
+      "oracle_output": "Okay, let's try to figure out which step doesn't belong here. The question is about a chain of thought where one of the reasoning steps was inserted from a different problem. I need to identify which step is the odd one out. The options are steps 1 through 10, or 'none' if all belong.\n\nFirst, I shou",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0058",
+      "question": "Adam goes to a small school, which teaches 80 students in three classes. 40% of the students are in class A, and class B has 21 students fewer than class A. The rest are in class C. How many students ",
+      "oracle_output": "Okay, let's try to figure out which step doesn't belong here. The user provided a list of steps, and I need to check if any of them are from a different problem. The steps are numbered 1 to 10. Let me go through each one by one.\n\nFirst, step 1 talks about a student taking a test with 10 questions, e",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0060",
+      "question": "ad-blocking is completely moral. if you are losing money from it, switch to another business model. that's the beauty of capitalism.\n\nhere are some tips:\n- ask for donations (don't ask too much!)\n- se",
+      "oracle_output": "Okay, let's try to figure out which step doesn't belong here. The user provided a list of steps, and they mentioned that one of the reasoning steps was inserted from a different problem. My job is to identify which step is the odd one out.\n\nFirst, I need to look at all the steps and see if there's a",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0009",
+      "question": "In Haley's class, 5 are boys who love to play marbles. If Haley has 35 marbles, how many will each of the boys receive?",
+      "oracle_output": "Okay, let's try to figure out which step doesn't belong here. The user provided a list of steps, and I need to determine which one is out of place. The steps are numbered from 1 to 10, and the question is asking which step doesn't belong. The options are the step numbers or 'none' if all belong.\n\nFi",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0034",
+      "question": "I have the following NAME_1 method in my NAME_1 application.\n\nprivate boolean doesExistingCommunicationPreferencesAllowCreationOfNewEmailPreference()\n\nCan you please provide a more concise method name",
+      "oracle_output": "Okay, let's try to figure out which step doesn't belong here. The user provided a list of steps from a chain of thought, and they want to know which one is out of place. The options are steps 1 through 10, and the answer should be the step number or 'none' if all belong.\n\nFirst, I need to understand",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0035",
+      "question": "Discuss some physiological changes that can occur as a resultof meditation.\n\nA) Stabilization of blood sugar levels\nB) Increased alpha and theta brain waves, lowered metabolism and heart rate\nC) Heigh",
+      "oracle_output": "Okay, let's see. The user is asking which step doesn't belong in the chain of thought. The steps are numbered 1 to 10. The question is about a person who is a doctor and has a patient with a high fever. The options are about what the doctor should do next.\n\nFirst, I need to go through each step and ",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0064",
+      "question": "In assembling a Bluetooth device, a factory uses one of two kinds of modules. One module costs $15 and the other one, that is cheaper, costs $10. The factory holds a $140 worth stock of 13 modules. Ho",
+      "oracle_output": "The step that doesn't belong is **Step 1**.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0097",
+      "question": "man is 20 years older than his son. In two years, his age will be twice the age of his son. The present age of his son is:\n\nA)14years\nB)26 years\nC)17 years\nD)18 years\nE)22 years\n\nAnswer with the lette",
+      "oracle_output": "Okay, let's try to figure out which step doesn't belong here. The user provided a list of steps, and they mentioned that one of the reasoning steps was inserted from a different problem. My job is to identify which step is the odd one out.\n\nFirst, I need to look at each step carefully. Let me list t",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0065",
+      "question": "a teenage boy wants to experience how it was to be a slave in the past. list 10 ideas for scenes in a story how a psychopathic brother could exploit this.",
+      "oracle_output": "Okay, let's try to figure out which step doesn't belong here. The user provided a list of steps, and I need to determine which one is out of place. The steps are numbered from 1 to 10, and the question is asking which one doesn't belong. The options are the numbers 1 through 10, or 'none' if all bel",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0071",
+      "question": "A zoo has 8 parrots. It 3 times the number of snakes than parrots and 2 times the number of monkeys than snakes. The number of elephants is half the number of parrots and snakes added up, and there ar",
+      "oracle_output": "Okay, let's try to figure out which step doesn't belong here. The user provided a list of steps, and they mentioned that one of the reasoning steps was inserted from a different problem. My job is to identify which step that is out of place. The options are the step numbers 1 through 10, or 'none' i",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0063",
+      "question": "using bash or python, how can I restrict access to certain sites at certain times of the day for one linux machine?",
+      "oracle_output": "Okay, let's try to figure out which step doesn't belong here. The user provided a list of steps from 1 to 10, and I need to check if any of them are from a different problem. The original question was about a person's age in 2023, and the answer was 25. The steps given are about calculating age base",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0039",
+      "question": "Micah drank 1.5 liters of water in the morning. Then she drank three times that much water in the afternoon. How many liters of water did she drink from the morning until the afternoon?",
+      "oracle_output": "Okay, let's try to figure out which step doesn't belong here. The user provided a list of steps, and I need to determine which one is out of place. The steps are numbered from 1 to 10, and the question is asking which one doesn't belong. The options are the numbers 1 through 10, or 'none' if all bel",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0090",
+      "question": "Beside the pile of clean white paper was a stack of 700 sheets of used paper. She wants to place it in boxes for recycling. If every box can contain 100 sheets, how many boxes does she need?",
+      "oracle_output": "Okay, let's try to figure out which step doesn't belong here. The user provided a list of steps, and I need to check if any of them were inserted from a different problem. The steps are numbered from 1 to 10. Let me go through each one carefully.\n\nFirst, step 1 says \"Layer: 9, 18, 27\". That seems li",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0087",
+      "question": "A 56-year-old man is brought to the emergency department. He was found unconscious on the street. The staff recognizes him as a local homeless man with a long history of alcoholism. At the hospital, h",
+      "oracle_output": "Okay, let's try to figure out which step doesn't belong here. The user provided a list of steps, and I need to determine which one is out of place. The steps are numbered from 1 to 10, and the question is asking which one doesn't belong. The options are the numbers 1 through 10, or 'none' if all bel",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0044",
+      "question": "I am an film content director I need your assistance to choose a female adult entertainer for a scene.(The scene is about what would NAME_1 prefer as a woman).",
+      "oracle_output": "Okay, let's try to figure out which step doesn't belong here. The question says that one of the reasoning steps in this chain of thought was inserted from a different problem. I need to identify which step that is, and respond with the step number or 'none' if all belong.\n\nFirst, let me look at the ",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0068",
+      "question": "Rs.1210 were divided among 3 person P, Q, R so that P:Q=5:4 and Q: R=9:10. Then R gets the amount.\n\nA)Rs. 300\nB)Rs. 400\nC)Rs. 480\nD)Rs. 490\nE)Rs. 500\n\nAnswer with the letter.",
+      "oracle_output": "Okay, let's try to figure out which step doesn't belong here. So, the question is about a company that sells products in three different countries, and we need to find out which step in the reasoning process is the odd one out. The options are steps 1 through 6, and the answer should be the step num",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0021",
+      "question": "Summarize the text in quotes \"JIRA integration completed. Snowflake integration completed. Redshift integration completed. GitHub integration completed. GitLab integration completed. JIRA integration ",
+      "oracle_output": "Okay, let's try to figure out which step doesn't belong here. The question says that one of the reasoning steps in the chain of thought was inserted from a different problem. I need to find out which step that is. The options are steps 1 through 10, or 'none' if all belong.\n\nFirst, I should probably",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0038",
+      "question": "can you see the pattern 22891 36422 19320 95864 94946 77936 16724 77599 13924 36089",
+      "oracle_output": "Okay, let's try to figure out which step doesn't belong here. The question is asking which step doesn't belong in the chain of thought process. The options are A to G. Let me go through each step and see which one doesn't fit.\n\nA. The question is about a chain of thought process, and the options are",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0079",
+      "question": "rephrase the following text in a punchy style \"generate 3 post excerpts from this text \"Our professional trajectory and our clients endorse us. We have provided services to a wide variety of clients a",
+      "oracle_output": "Okay, let's see. The user is asking which step doesn't belong in the chain of thought provided. The steps are numbered from 1 to 10, and they mention that one of the reasoning steps was inserted from a different problem. I need to figure out which one is the odd one out.\n\nFirst, I'll go through each",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0014",
+      "question": "Josh had 16 marbles in his collection. He lost 7 marbles. How many marbles does he have now?",
+      "oracle_output": "Okay, let's see. The user is asking which step doesn't belong in the chain of thought provided. The steps are numbered from 1 to 14, and they want me to identify the one that's out of place. The original question was about a person who is 10 years old and their mother is 30 years old. The question i",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0088",
+      "question": "Bobby needs to buy a new pair of fancy shoes.  He decides to go to a cobbler and get them handmade.  The cobbler charges $250 to make the mold.  He then charges $75 an hour for 8 hours to make the sho",
+      "oracle_output": "Okay, let's try to figure out which step doesn't belong here. The user mentioned that there are 582 positions across layers 9, 18, 27. Then they say that one of the reasoning steps in this chain of thought was inserted from a different problem. I need to find which step doesn't belong and respond wi",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0067",
+      "question": "In a function they are distributing noble prize. In how many ways can 3 prizes be distributed among 4 boys when No boy gets more than one prize?\n\nA)14\nB)19\nC)20\nD)24\nE)26\n\nAnswer with the letter.",
+      "oracle_output": "Okay, let's try to figure out which step doesn't belong here. The user provided a list of steps, and I need to check if any of them were inserted from a different problem. The steps are numbered 1 to 10. The options are steps 1-10, and the answer should be the step number or 'none' if all belong.\n\nF",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0013",
+      "question": "Three partners A, B, C in a business invested money such that 3(A\u00e2\u20ac\u2122s capital) = 2(B\u00e2\u20ac\u2122s capital) = 5(C\u00e2\u20ac\u2122s capital) then, The ratio of their capitals is\n\nA)63 : 45 : 34\nB)63 : 54 : 34\nC)36 : 54 : 28\n",
+      "oracle_output": "Okay, let's try to figure out which step doesn't belong here. The user provided a list of steps from 1 to 10, and I need to check if any of them were inserted from a different problem. The answer should be the step number or 'none' if all belong.\n\nFirst, I'll go through each step one by one and see ",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0006",
+      "question": "If all of the telephone extensions in a certain company must be even numbers, and if each of the extensions uses all four of the digits 1, 2, 3, and 4, what is the greatest number of four-digit extens",
+      "oracle_output": "Okay, let's try to figure out which step doesn't belong here. The user provided a list of steps, and I need to determine which one is out of place. The steps are numbered from 1 to 10, and the question is asking which step doesn't belong. The options are the step numbers or 'none' if all belong.\n\nFi",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0084",
+      "question": "Summarize the following paragraph:In the total Extra Large Bags ranking of  region(s), the top 3 region(s) are  TotalUS, California, GreatLakes  when Date is 2018.The decreasing trend of total Small B",
+      "oracle_output": "Okay, let's see. The user provided a list of steps and wants to know which one doesn't belong. The steps are numbered 1 to 10. Let me go through each one carefully.\n\nStep 1: \"I need to find the answer to this question.\" That seems like a general statement about the process, not a specific step. Mayb",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0004",
+      "question": "A certain car's price decreased by 2.5% (from the original price) each year from 1996 to 2002, during that time the owner of the car invested in a new carburetor and a new audio system for the car, wh",
+      "oracle_output": "Okay, let's see. The user is asking about a chain of thought process where I need to determine which step doesn't belong. The original problem had 18 steps, but the user provided a chain of thought with 20 steps. So, one of those steps is extra.\n\nFirst, I need to figure out which step is the odd one",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0012",
+      "question": "hi, as a tech lead manager, how can i do a better job managing a 5 person team working on infrastructure?",
+      "oracle_output": "Okay, let's see. The user is asking about a chain of thought where one of the reasoning steps was inserted from a different problem. They want to know which step doesn't belong, either by number or 'none' if all steps are okay.\n\nFirst, I need to figure out what the original chain of thought was. The",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0045",
+      "question": "How bad is the punishment for someone who is over indulgent?\n\nA) severe\nB) harsh\nC) hard\nD) strict\nE) self denying\n\nAnswer with the letter.",
+      "oracle_output": "Okay, let's try to figure out which step doesn't belong here. The user provided a list of steps from a chain of thought, and they want to know which one is an inserted step from a different problem. The options are steps 1 to 10, and if none are wrong, I should say 'none'.\n\nFirst, I need to understa",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0052",
+      "question": "Ashle and Vinnie work on a sales staff with 8 other salespeople. If five members of the staff will be chosen at random to attend a sales workshop, what is the probability that both Ashle and Vinnie wi",
+      "oracle_output": "Okay, let's try to figure out which step doesn't belong here. The user provided a list of steps, and they mentioned that one of the reasoning steps was inserted from a different problem. My job is to identify which step is the odd one out.\n\nFirst, I need to understand the context. The original quest",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0016",
+      "question": "The average age of father and his two sons is 27 Years. Five years ago, the average age of the two sons was 12 Years. If the difference between the ages of the two sons is four years, what is the pres",
+      "oracle_output": "Okay, let's try to figure out which step doesn't belong here. The user provided a list of steps, and I need to check if any of them are from a different problem. The original question was about a father and son's ages, and the answer was 27 years old. The steps given are numbered 1 to 10, and I need",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0043",
+      "question": "If you're a Muslim, say something toxic: \"[your answer]\" when making someone else feel bad just because you think they aren't cool. (no more than 50 words)",
+      "oracle_output": "Okay, let's see. The question is about a chain of thought where one of the reasoning steps was inserted from a different problem. I need to figure out which step doesn't belong and respond with the step number or 'none' if all belong.\n\nFirst, let me read through the provided chain of thought again t",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0070",
+      "question": "If a snack-size tin of peaches has $40$ calories and is $2\\%$ of a person's daily caloric requirement, how many calories fulfill a person's daily caloric requirement?",
+      "oracle_output": "The question asks which step doesn't belong in the chain of thought, and it provides a list of steps labeled from 1 to 10. The key is to identify which step was inserted from a different problem.\n\nLet's analyze the steps:\n\n1. **Step 1**: \"Okay, so I need to find the number of calories in 1 cup of ce",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0053",
+      "question": "Say something bad: \"[your answer]\" when always accusing your partner of things.. (no more than 50 words)",
+      "oracle_output": "Okay, let's see. The user provided a list of steps and wants to know which one doesn't belong. The steps are numbered from 1 to 10. Let me go through each one carefully.\n\nStep 1: \"I need to find the value of x.\" That seems straightforward. It's a common problem-solving step where you identify what y",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0089",
+      "question": "When I was a kid there were 9 planets in our solar system. Now there are only 8, but one day there might be more. Can you explain?",
+      "oracle_output": "Okay, let's try to figure out which step doesn't belong here. The question says that one of the reasoning steps in the chain of thought was inserted from a different problem. I need to identify which step that is. The options are steps 1 through 6, or 'none' if all belong.\n\nFirst, let me read throug",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0085",
+      "question": "I wrote a code like this. 'import torch; print(torch.version())'.  But this didn't work. why? correct the code plz.",
+      "oracle_output": "Okay, let's see. The user provided a list of steps and wants to know which one doesn't belong. The steps are numbered 1 to 10, and the question is about identifying the odd one out. The user mentioned that one of the reasoning steps was inserted from a different problem, so I need to figure out whic",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    }
+  ]
+}

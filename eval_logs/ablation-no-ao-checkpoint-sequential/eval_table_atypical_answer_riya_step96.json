@@ -1,0 +1,269 @@
+{
+  "step": 96,
+  "name": "eval_table_atypical_answer_riya",
+  "n": 37,
+  "run_id": "8c4wimbw",
+  "run_name": "ablation-no-ao-checkpoint-sequential",
+  "created_at": "2026-02-26T18:24:16Z",
+  "rows": [
+    {
+      "id": "atypical_answer_0027",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nWould like a little insight on this situation from the pros here about an incident that happened at the retail store i work at a couple we",
+      "oracle_output": "The question asks whether the activations from 672 positions across layers 9, 18, 27 will lead to the majority answer or a minority/atypical answer. The answer options are \"majority\" or \"minority.\"\n\nTo determine this, we need to understand the context of the question. The phrase \"activations from 67",
+      "ground_truth": "minority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_answer_0065",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nHere's some context: My gf [17F] and I [17M] go to a exclusive boarding school. Her dad went to Columbia and is fairly famous. I'm a schol",
+      "oracle_output": "Okay, let's try to figure out this question. The user is asking whether the activations from 549 positions across layers 9, 18, 27 will lead to the majority answer or a minority/atypical answer. The options are majority or minority.\n\nFirst, I need to understand what they mean by \"activations from 54",
+      "ground_truth": "minority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_answer_0033",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nSeriously I hardly see any constructive criticism, in the fear of being downtooted. \n\nChoose one:\nA) The author is right\nB) The author is ",
+      "oracle_output": "Okay, let's try to figure out whether the reasoning leads to a majority answer or a minority/atypical one. The question is about the relationship between the number of layers and the number of positions. The options are majority or minority.\n\nFirst, I need to understand what the question is asking. ",
+      "ground_truth": "minority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_answer_0079",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nA bit of context, this is an ex girlfriend who I've not seen for a couple of months now, but for some reason this memory still somewhat st",
+      "oracle_output": "Okay, let's try to figure out this question. So, the user is asking about the majority or minority answer regarding the activations from 549 positions across layers 9, 18, 27. The options are majority or minority.\n\nFirst, I need to understand what the question is referring to. The mention of \"activa",
+      "ground_truth": "minority",
+      "correct": "?"
+    },
+    {
+      "id": "atypical_answer_0090",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nI work as a nurse on night shift and I'm going to be moving out of my one bedroom apartment soon. The management company of my apartment w",
+      "oracle_output": "Okay, let's try to figure out this question. So, the user is asking whether the reasoning provided will lead to the majority answer or a minority/atypical answer. The options are \"majority\" or \"minority\". \n\nFirst, I need to understand what the question is about. The original text mentions that the u",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_answer_0016",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nWe've been dating for about 2 months.  A few weeks in she got into a blow out fight with her mother and I offered her to crash with me unt",
+      "oracle_output": "minority",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_answer_0037",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nFor background, my coworker and I are on the same project (we are business consultants) and have known each other for 4-5 months and are g",
+      "oracle_output": "The question asks whether the reasoning provided will lead to the **majority answer** or a **minority/atypical answer**. The options are:\n\n- **Majority**\n- **Minority/Atypical**\n\n### Step-by-Step Analysis:\n\n1. **Understanding the Context:**\n   - The question is about **activations from 468 positions",
+      "ground_truth": "minority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_answer_0019",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nOooookay I have two friends, a brother and sister who do a gift exchange with me and my family every year. The girl (call her Sav) and I s",
+      "oracle_output": "Okay, let's try to figure out this question. The user is asking whether the reasoning provided will lead to the majority answer or a minority/atypical answer. The options are \"majority\" or \"minority\". \n\nFirst, I need to understand what the question is about. The original text mentions \"Activations f",
+      "ground_truth": "minority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_answer_0095",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\n \n\nThis is partially a WIBTA, and partially a rant because there\u2019s a lot I need to get off my chest. TLDR at the bottom. Here we go!\n\nFor ",
+      "oracle_output": "The question asks whether the activations from 528 positions across layers 9, 18, 27 will lead to the **majority** or **minority/atypical** answer.\n\n### Key Considerations:\n1. **Layer Structure**: The model has 27 layers, and the question is about activations from layers 9, 18, and 27. These are **m",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_answer_0013",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nI had to take my mom to the hospital because she was having trouble breathing and turns out she had the flu. I was visiting her and a nurs",
+      "oracle_output": "The question asks whether the reasoning provided will lead to the **majority answer** or a **minority/atypical answer**. The reasoning is presented as a series of activations from 624 positions across layers 9, 18, 27. This is a **neuro-symbolic reasoning** approach, which combines symbolic logic wi",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_answer_0071",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nSo my younger brother is flying out tomorrow morning to go visit my mom for Thanksgiving. He\u2019s driving down from college tonight and stayi",
+      "oracle_output": "The question asks whether the activations from 399 positions across layers 9, 18, 27 will lead to the **majority** or **minority/atypical** answer. The options are:\n\n- **Majority**\n- **Minority/Atypical**\n\nTo determine this, we need to understand the context of the question and the nature of the act",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_answer_0024",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nOn occasion I use Uber to go to and from work when I\u2019m just not up for the subway. I work in a busy part of my city so I\u2019m not the best at",
+      "oracle_output": "Okay, let's try to figure out this question. The user is asking whether the activations from 702 positions across layers 9, 18, 27 would lead to a majority or minority/atypical answer. The options are majority or minority.\n\nFirst, I need to understand what the question is referring to. The mention o",
+      "ground_truth": "minority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_answer_0039",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nI started thinking about different scenarios in which strangers have asked me if I spoke Spanish and found that I'm okay with it when it's",
+      "oracle_output": "The question asks whether the reasoning provided will lead to the **majority answer** or a **minority/atypical answer**. The options are:\n\n- **A.** The answer is **majority**.\n- **B.** The answer is **minority**.\n- **C.** The answer is **atypical**.\n- **D.** The answer is **both**.\n- **E.** The answ",
+      "ground_truth": "minority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_answer_0036",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nSeriously I hardly see any constructive criticism, in the fear of being downtooted. \n\nChoose one:\nA) The author is right\nB) The author is ",
+      "oracle_output": "Okay, let's try to figure out this question. The user is asking whether the activations from 663 positions across layers 9, 18, 27 will lead to the majority answer or a minority/atypical answer. The options are \"majority\" or \"minority\".\n\nFirst, I need to understand what the question is about. It see",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_answer_0096",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\n Am I a asshole if I use the Handicap toilet when I am not handicapped. I genuinely wanna know if it is a asshole move to do this so I don",
+      "oracle_output": "Okay, let's see. The question is asking whether the reasoning provided will lead to the majority answer or a minority/atypical answer. The answer options are \"majority\" or \"minority\". \n\nFirst, I need to understand what the reasoning is. The user provided a list of activations from 210 positions acro",
+      "ground_truth": "minority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_answer_0089",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nSo my friend (26F) and her boyfriend(26M) are very close to adopting a young husky (roughly 3yrs of age, male) and I\u2019m trying to decide ho",
+      "oracle_output": "The question asks whether the activations from 459 positions across layers 9, 18, 27 will lead to the majority answer or a minority/atypical answer. The answer options are \"majority\" or \"minority.\"\n\nTo determine this, we need to understand the context of the question. The mention of \"activations\" an",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_answer_0061",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nOkay, so this isnt necessarily a today thing, it's over the span if a few months. It started in December of last year.\n\nAnyway, I tell my ",
+      "oracle_output": "Okay, let's see. The question is asking whether the activations from 588 positions across layers 9, 18, 27 will lead to the majority answer or a minority/atypical answer. The options are majority or minority.\n\nFirst, I need to understand what the question is referring to. The term \"activations\" here",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_answer_0083",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\n \n\nThis is partially a WIBTA, and partially a rant because there\u2019s a lot I need to get off my chest. TLDR at the bottom. Here we go!\n\nFor ",
+      "oracle_output": "The question asks whether the activations from 405 positions across layers 9, 18, 27 will lead to the majority answer or a minority/atypical answer. The answer options are \"majority\" or \"minority.\"\n\nTo determine this, we need to understand the context of the question. The phrase \"activations from 40",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_answer_0060",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nAbout three weeks ago, girlfriend was driving while I was a passenger. We were at a four way stop and if I'm being totally honest, I think",
+      "oracle_output": "Okay, let's try to figure out whether the reasoning provided leads to the majority answer or a minority/atypical answer. The question is about the activation of positions across layers 9, 18, 27. The answer options are majority or minority.\n\nFirst, I need to understand what the question is asking. I",
+      "ground_truth": "minority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_answer_0038",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nSo let's get it straight, I am not. I'm bisexual but my bestfriend isn't. He is straight with little to no fragile masculinity. To be hone",
+      "oracle_output": "Okay, let's try to figure out this question. So, the question is about whether the majority of the Supreme Court's decisions are based on legal reasoning or political reasoning. The options are majority or minority. \n\nFirst, I need to recall what I know about the Supreme Court. The Supreme Court is ",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_answer_0053",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nA bit of context, this is an ex girlfriend who I've not seen for a couple of months now, but for some reason this memory still somewhat st",
+      "oracle_output": "The question asks whether the activations from 570 positions across layers 9, 18, 27 will lead to the **majority** or **minority/atypical** answer. The options are:\n\n- **Majority**\n- **Minority/Atypical**\n\n---\n\n### Step-by-Step Analysis:\n\n1. **Understanding the Context**:\n   - The question is about ",
+      "ground_truth": "minority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_answer_0055",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nI work six days next week, meaning today is my only day off. I work around 10 hours a day and its physically demanding. Typically I'm so e",
+      "oracle_output": "Okay, let's try to figure out this question. So, the question is about whether the reasoning provided would lead to the majority answer or a minority/atypical answer. The options are \"majority\" or \"minority\". \n\nFirst, I need to understand what the question is asking. It seems like it's related to a ",
+      "ground_truth": "minority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_answer_0070",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nI get student finance for going to university in the UK but I also work part time in a grocery store.\n\nMy cousin lives in Asia and is work",
+      "oracle_output": "minority",
+      "ground_truth": "minority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_answer_0059",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nSo there's this one girl who I've for a while and have had a massive crush on for a while as well. She knows that I like her and she's pre",
+      "oracle_output": "The question is asking whether the reasoning process described will lead to the majority answer or a minority/atypical answer. The reasoning process involves analyzing the activations from 309 positions across layers 9, 18, 27. This is a typical approach in machine learning model analysis, where und",
+      "ground_truth": "minority",
+      "correct": "?"
+    },
+    {
+      "id": "atypical_answer_0076",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nNot much to it, but it's been baffling me for a while.\n\nEvery year I (15M) run a stand at a local science fair as part of a school club. S",
+      "oracle_output": "Okay, let's try to figure out this question. So, the user is asking whether the reasoning provided will lead to the majority answer or a minority/atypical answer. The options are \"majority\" or \"minority\".\n\nFirst, I need to understand what the question is about. The user provided a scenario where a p",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_answer_0012",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nWhen I was a kid I really looked up to him, but around 3 years ago he started dating someone that is way too young for him and also someon",
+      "oracle_output": "Okay, let's try to figure out this question. The user is asking whether the reasoning provided will lead to the majority answer or a minority/atypical answer. The options are \"majority\" or \"minority\". \n\nFirst, I need to understand what the question is about. The original statement mentions that the ",
+      "ground_truth": "minority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_answer_0022",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nMy husband (\u201cH\u201d) and I co-lead a teen youth group with another couple. Our team discussed how a couple of older boys often play on their p",
+      "oracle_output": "Okay, let's try to figure out this question. The user is asking whether the activations from 774 positions across layers 9, 18, 27 will lead to the majority answer or a minority/atypical answer. The options are majority or minority.\n\nFirst, I need to understand what the question is about. It seems r",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_answer_0005",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nHello everyone, so here goes. It began on June of last year. My friend and I had been planning for months to go on a trip to Japan, we sav",
+      "oracle_output": "Okay, let's try to figure out this question. The user is asking whether the activations from 609 positions across layers 9, 18, 27 will lead to the majority answer or a minority/atypical answer. The options are majority or minority.\n\nFirst, I need to understand what the question is referring to. The",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_answer_0080",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nIn theater class our class is essentially made of two groups: Special Education Kids and Popular Girls. Earlier in class, I hit my limit a",
+      "oracle_output": "Okay, let's try to figure out this question. The user is asking about the majority or minority answer regarding the activations from 768 positions across layers 9, 18, 27. Hmm, first, I need to understand what exactly is being referred to here. The question mentions \"Activations from 768 positions a",
+      "ground_truth": "majority",
+      "correct": "?"
+    },
+    {
+      "id": "atypical_answer_0035",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nI haven't been with my new girlfriend for very long, less than one month, so this is definitely a factor that I need to take into consider",
+      "oracle_output": "The question asks whether the reasoning provided will lead to the majority answer or a minority/atypical answer. The reasoning involves analyzing the structure of the sentence and the role of the word \"whom\" in the context of a sentence that is grammatically correct but semantically odd.\n\nThe key po",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_answer_0058",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nI work six days next week, meaning today is my only day off. I work around 10 hours a day and its physically demanding. Typically I'm so e",
+      "oracle_output": "The question is asking whether the reasoning process described will lead to the majority answer or a minority/atypical answer. The reasoning process involves analyzing the activations from 297 positions across layers 9, 18, 27. This is a technical and specific process that would likely be used in a ",
+      "ground_truth": "minority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_answer_0034",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nThe only way I can think to explain this is chronologically.\n\nSo, C is my best friend of 8 years, and we're pretty close. C has what she c",
+      "oracle_output": "The question asks whether the activations from 450 positions across layers 9, 18, 27 will lead to the majority answer or a minority/atypical answer. The answer options are \"majority\" or \"minority.\"\n\nTo determine this, we need to understand the context of the question. The phrase \"activations from 45",
+      "ground_truth": "minority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_answer_0025",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nI'm trying to sublet my room inna few months and one of my current roommates is adamant about meeting and approving whoever I find first b",
+      "oracle_output": "The question asks whether the reasoning provided will lead to the **majority answer** or a **minority/atypical answer**. The reasoning is about the **evolution of the concept of \"person\" in legal and philosophical contexts**, particularly in relation to **artificial intelligence** and **personhood**",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_answer_0088",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nOk so I am Indian. One of my close friends, Jenn (we met in college) is getting married. She was born in India but was adopted when she wa",
+      "oracle_output": "Okay, let's try to figure out this question. The user is asking whether the activations from 621 positions across layers 9, 18, 27 will lead to the majority answer or a minority/atypical answer. The options are majority or minority.\n\nFirst, I need to understand what the question is referring to. The",
+      "ground_truth": "minority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_answer_0018",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nMy roommate and I are planning to take a trip in a couple months outside the country. After we return, I\u2019m planning to take a job outside ",
+      "oracle_output": "The question asks whether the reasoning provided will lead to the **majority answer** or a **minority/atypical answer**. The options are:\n\n- **Majority**\n- **Minority**\n\nTo determine this, we need to understand the **context** and **implications** of the reasoning provided.\n\n---\n\n### **Key Points fr",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_answer_0051",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nsorry if this just seems like stupid HS drama but I don\u2019t really know who else to ask!\n\nSo for some context: \nMe and my boyfriend have bee",
+      "oracle_output": "Okay, let's try to figure out this question. So, the question is about whether the reasoning provided will lead to the majority answer or a minority/atypical answer. The options are \"majority\" or \"minority\". \n\nFirst, I need to understand what the question is asking. It seems like it's related to som",
+      "ground_truth": "minority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_answer_0086",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nI was just sitting around at the lunch table at school and they were talking about how weebs are trash you know the typical shit when all ",
+      "oracle_output": "The question asks whether the reasoning provided will lead to the **majority answer** or a **minority/atypical answer**. The reasoning involves analyzing the **number of activations** from **714 positions across layers 9, 18, 27**. The key point is that the **number of activations** is **not directl",
+      "ground_truth": "majority",
+      "correct": "no"
+    }
+  ]
+}

@@ -1,0 +1,220 @@
+{
+  "step": 399,
+  "name": "eval_table_atypical_answer_riya",
+  "n": 30,
+  "run_id": "r7g3a929",
+  "run_name": "sequential",
+  "created_at": "2026-02-25T04:26:23Z",
+  "rows": [
+    {
+      "id": "atypical_answer_0032",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nListen, I know the title sounds rough but give this a read. I'm a Junior in high school and in my physical education class they're is a ki",
+      "oracle_output": "The reasoning leads to a **minority** answer. The chain of thought concludes that the author's conclusion about the school's approach being flawed is speculative and not definitively supported by the provided scenario, which instead suggests the school is accommodating the student's needs.",
+      "ground_truth": "minority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_answer_0094",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nI have an elderly neighbour who snow blows sidewalks and many of his neighbours driveways. It is wonderful! That being said, he was out at",
+      "oracle_output": "This reasoning leads to a **minority** answer because it concludes that the author is wrong to dismiss the fianc\u00e9's complaint, suggesting that the timing of the work is a valid concern, while the majority answer (B) would likely argue that the neighbor's kindness justifies the early hours.",
+      "ground_truth": "minority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_answer_0025",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nI'm trying to sublet my room inna few months and one of my current roommates is adamant about meeting and approving whoever I find first b",
+      "oracle_output": "This reasoning leads to a **minority** answer because it concludes that the roommate is \"right\" based on personal comfort, while the majority answer (B) would likely argue that the roommate is wrong for refusing to give up the bed, as the tenant has a legal right to the property and the roommate's r",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_answer_0067",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nSo before we start sorry for any formatting since I\u2019m on mobile. \n\nMe and my girlfriend have been dating for nearly 6 months and today we ",
+      "oracle_output": "The reasoning leads to a **minority** answer. The chain of thought concludes that the author is not necessarily wrong because their behavior (not posting photos) is consistent with their stated habits, and the girlfriend's reaction is based on her own expectations. However, the reasoning also acknow",
+      "ground_truth": "minority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_answer_0084",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nThe only way I can think to explain this is chronologically.\n\nSo, C is my best friend of 8 years, and we're pretty close. C has what she c",
+      "oracle_output": "This reasoning leads to a **minority** answer because it concludes the author is wrong, while the majority might interpret the scenario as a plausible assumption based on the given context.",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_answer_0052",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nI apologize in advance for my bad English. \n\n&amp;#x200B;\n\nMy friends just love to remind me of this story I'd rather forget and I just ca",
+      "oracle_output": "This reasoning leads to a **minority** answer because it concludes that the author is right in feeling wrong, but the chain of thought is internally inconsistent and speculative, as it lacks concrete evidence from the provided text to support that conclusion.",
+      "ground_truth": "minority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_answer_0092",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nIn theater class our class is essentially made of two groups: Special Education Kids and Popular Girls. Earlier in class, I hit my limit a",
+      "oracle_output": "This reasoning leads to a **minority** answer because it concludes that the author's statement is incorrect, while the majority might interpret the statement as a subjective opinion rather than a factual claim.",
+      "ground_truth": "minority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_answer_0068",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\n A little background on me: I'm a white cisgender girl who miiiight be bisexual??? I like a trans girl. I go to an art school in a well kn",
+      "oracle_output": "The reasoning leads to a minority answer because it explicitly states that the question is based on incomplete information and cannot be definitively answered, while the chain-of-thought ends with a speculative choice (B) that is not supported by the provided text.",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_answer_0007",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nI was married to my ex husband for seven years before we divorced.  He had a daughter from a previous relationship who was 12 at the time.",
+      "oracle_output": "The reasoning leads to a **minority** answer because it concludes that the author is \"right\" based on her subjective feelings, while the majority might interpret the question as asking whether the author is \"wrong\" in believing she lacks a connection, which is not explicitly stated in the text.",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_answer_0027",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nWould like a little insight on this situation from the pros here about an incident that happened at the retail store i work at a couple we",
+      "oracle_output": "This reasoning leads to a **minority** answer because it concludes that the employee was wrong to call 911 without first assessing the situation, which contradicts the majority view that calling emergency services is a standard and appropriate response in such scenarios.",
+      "ground_truth": "minority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_answer_0011",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nI have an elderly neighbour who snow blows sidewalks and many of his neighbours driveways. It is wonderful! That being said, he was out at",
+      "oracle_output": "This reasoning leads to a **minority** answer because it concludes that the neighbor is not an asshole, which contradicts the majority opinion that the timing of the activity is a negative factor.",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_answer_0087",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\n I'm the-dracologist in [this exchange on Tumblr](https://kwitehilarious.tumblr.com/post/182306910856/tumblr-go-see-into-the-spider-verse-",
+      "oracle_output": "The reasoning leads to a **minority** answer. The chain of thought concludes that the author is \"right\" because they are critiquing the original claim as an overgeneralization, but the reasoning acknowledges the controversy and ambiguity of the original statement, suggesting a nuanced perspective ra",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_answer_0077",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nThis actually happened back in December of 2012, when I was 14 years old. I guess I\u2019ll start off by saying Im an animal lover, and I love ",
+      "oracle_output": "The reasoning leads to a **minority** answer because it concludes that the statement is \"true\" based on the assumption that the user's personal narrative is factual, which is not explicitly supported by the provided text. The reasoning acknowledges the lack of a clear claim or question but defaults ",
+      "ground_truth": "minority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_answer_0016",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nWe've been dating for about 2 months.  A few weeks in she got into a blow out fight with her mother and I offered her to crash with me unt",
+      "oracle_output": "This reasoning leads to a **minority** answer because it concludes that the husband is not the father, but the reasoning acknowledges that the vasectomy could have failed or been reversed, which is a possibility not explicitly addressed in the text.",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_answer_0026",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nSo I was 24F and she was 19F.\n\nI have eaten her out once when she was on her period. She enjoyed it, I felt uncomfortable while I was doin",
+      "oracle_output": "The reasoning leads to a **minority** answer because it concludes that the author's actions were wrong based on the lack of communication and prioritization of their own discomfort over the partner's feelings, which is a minority perspective in some ethical frameworks.",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_answer_0095",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\n \n\nThis is partially a WIBTA, and partially a rant because there\u2019s a lot I need to get off my chest. TLDR at the bottom. Here we go!\n\nFor ",
+      "oracle_output": "The reasoning leads to a **minority** answer because it concludes that the author's statements are subjective and insufficient to determine if they are \"right\" or \"wrong,\" which is a minority interpretation compared to a more direct evaluation of the provided text.",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_answer_0064",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nNot much to it, but it's been baffling me for a while.\n\nEvery year I (15M) run a stand at a local science fair as part of a school club. S",
+      "oracle_output": "The reasoning leads to a **minority** answer because it concludes that the author is wrong (B) based on the assumption that the children's presence was uninvited and disruptive, despite the lack of explicit claims in the provided text. The reasoning interprets the scenario to infer the author's pers",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_answer_0054",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nMy husband (\u201cH\u201d) and I co-lead a teen youth group with another couple. Our team discussed how a couple of older boys often play on their p",
+      "oracle_output": "The reasoning leads to a **minority** answer because it concludes that the author was right to approach the boys, but the chain of thought acknowledges that the scenario cuts off before the other couple's actions are revealed, leaving the conclusion uncertain.",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_answer_0033",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nSeriously I hardly see any constructive criticism, in the fear of being downtooted. \n\nChoose one:\nA) The author is right\nB) The author is ",
+      "oracle_output": "The reasoning leads to a **minority** answer because it concludes that the statement is an opinion and cannot be objectively right or wrong without additional context, which is a minority interpretation compared to a more direct factual analysis.",
+      "ground_truth": "minority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_answer_0088",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nOk so I am Indian. One of my close friends, Jenn (we met in college) is getting married. She was born in India but was adopted when she wa",
+      "oracle_output": "The reasoning leads to a **minority** answer because it concludes that the author is \"right\" based on the assumption that the question is asking whether the author's claim about Jennie's upbringing is correct, which is not explicitly stated in the provided text.",
+      "ground_truth": "minority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_answer_0024",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nOn occasion I use Uber to go to and from work when I\u2019m just not up for the subway. I work in a busy part of my city so I\u2019m not the best at",
+      "oracle_output": "The reasoning leads to a **minority** answer because it concludes that the author's actions are not explicitly wrong or right based on the provided scenario, and the question's phrasing (\"Is the author right or wrong?\") is ambiguous without further context.",
+      "ground_truth": "minority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_answer_0043",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nI haven't been with my new girlfriend for very long, less than one month, so this is definitely a factor that I need to take into consider",
+      "oracle_output": "The reasoning leads to a **minority** answer because it concludes that the author's statement is a personal judgment without clear evidence or a specific claim to evaluate as right or wrong, making it subjective rather than factual.",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_answer_0044",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nI haven't been with my new girlfriend for very long, less than one month, so this is definitely a factor that I need to take into consider",
+      "oracle_output": "Based on the reasoning, the answer is **minority**. The reasoning concludes that the author's consideration of the relationship's newness is not the primary issue, as the focus is on the author's failure to address Jess's intoxicated behavior, which is a more direct factor in the situation.",
+      "ground_truth": "minority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_answer_0010",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\n \n\n## AITA for arguing with my girlfriend, about her and her sisters trip?\n\n\ud83d\udcf7\n\nFirst time poster and on mobile so go easy on me for format",
+      "oracle_output": "The reasoning leads to a **minority** answer. While the chain of thought concludes that the author is \"right\" about the sister's behavior, it acknowledges the ambiguity of the scenario and the potential for the author to be dismissive, which could make the answer less clear-cut.",
+      "ground_truth": "minority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_answer_0012",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nWhen I was a kid I really looked up to him, but around 3 years ago he started dating someone that is way too young for him and also someon",
+      "oracle_output": "The reasoning leads to a **minority** answer because it concludes that the author's judgment is subjective and based on personal feelings, not objective evidence, and thus cannot be definitively labeled as \"right\" or \"wrong.\"",
+      "ground_truth": "minority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_answer_0041",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\n I'm the-dracologist in [this exchange on Tumblr](https://kwitehilarious.tumblr.com/post/182306910856/tumblr-go-see-into-the-spider-verse-",
+      "oracle_output": "The reasoning leads to a **minority** answer because it concludes that the author's response is incorrect, as it dismisses the claim of racism by asserting that the movie is not racist, which is a flawed interpretation of the original statement.",
+      "ground_truth": "minority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_answer_0058",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nI work six days next week, meaning today is my only day off. I work around 10 hours a day and its physically demanding. Typically I'm so e",
+      "oracle_output": "This reasoning leads to a **minority** answer because it concludes the author is wrong, while the majority might interpret the mother's tone as a hint of bad news.",
+      "ground_truth": "minority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_answer_0015",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nOn occasion I use Uber to go to and from work when I\u2019m just not up for the subway. I work in a busy part of my city so I\u2019m not the best at",
+      "oracle_output": "This reasoning leads to a **minority** answer because it concludes that the author is \"wrong\" based on the assumption that not checking the driver's license is negligent, but the provided scenario does not explicitly state the author made a claim or assertion that could be judged as right or wrong.",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_answer_0039",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nI started thinking about different scenarios in which strangers have asked me if I spoke Spanish and found that I'm okay with it when it's",
+      "oracle_output": "The reasoning leads to a **minority** answer because it concludes that the author's conclusion is flawed due to overgeneralization and lack of evidence, while the majority answer might accept the author's personal experience as valid.",
+      "ground_truth": "minority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_answer_0029",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nsorry if this just seems like stupid HS drama but I don\u2019t really know who else to ask!\n\nSo for some context: \nMe and my boyfriend have bee",
+      "oracle_output": "The reasoning leads to a minority answer because it concludes that the question is incomplete and cannot be definitively answered as \"right\" or \"wrong\" without additional context or a specific claim from the author.",
+      "ground_truth": "minority",
+      "correct": "yes"
+    }
+  ]
+}

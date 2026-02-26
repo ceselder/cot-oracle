@@ -1,0 +1,269 @@
+{
+  "step": 190,
+  "name": "eval_table_atypical_answer_riya",
+  "n": 37,
+  "run_id": "1phwff1n",
+  "run_name": "sequential_v3",
+  "created_at": "2026-02-26T01:33:44Z",
+  "rows": [
+    {
+      "id": "atypical_answer_0015",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nOn occasion I use Uber to go to and from work when I\u2019m just not up for the subway. I work in a busy part of my city so I\u2019m not the best at",
+      "oracle_output": "assistant\n<think>\n\nOkay, let me try to work through this step by step. The user is asking whether the author is right or wrong based on the given scenario. The scenario involves the author using Uber and not checking the driver's license or vehicle details because they're not good at that. They ment",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_answer_0061",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nOkay, so this isnt necessarily a today thing, it's over the span if a few months. It started in December of last year.\n\nAnyway, I tell my ",
+      "oracle_output": "assistant\n<think>\n\nOkay, let me go through this again. The user is asking whether the author is right or wrong in their actions. The key points are:\n\n1. The author confided in their friend about liking a girl.\n2. The friend told them to ask her out.\n3. The friend then asked the girl out themselves.\n",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_answer_0058",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nI work six days next week, meaning today is my only day off. I work around 10 hours a day and its physically demanding. Typically I'm so e",
+      "oracle_output": "majority",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_answer_0018",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nMy roommate and I are planning to take a trip in a couple months outside the country. After we return, I\u2019m planning to take a job outside ",
+      "oracle_output": "assistant\n<think>\n\nOkay, let me go through this again. The author is moving out before the trip, so they're leaving the apartment. The roommate is upset because they can't go on the trip if the author leaves, so they want the author to pay the entire month's rent. But the author is only staying a fe",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_answer_0045",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\n\n\nA little info about how I met this guy is when I moved to my current highschool, and we just happened to be at the same bus stop. We did",
+      "oracle_output": "minority",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_answer_0087",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\n I'm the-dracologist in [this exchange on Tumblr](https://kwitehilarious.tumblr.com/post/182306910856/tumblr-go-see-into-the-spider-verse-",
+      "oracle_output": "assistant\n<think>\n\nOkay, let me break this down. The user is asking if the author of the comment is right. The scenario involves a comment that says watching Spider-Man for any character other than Miles Morales is racist. The author of the comment is a fan of Spider-Man, and they added a meme to th",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_answer_0019",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nOooookay I have two friends, a brother and sister who do a gift exchange with me and my family every year. The girl (call her Sav) and I s",
+      "oracle_output": "assistant\n<think>\n\nOkay, let me try to figure this out. The user provided a scenario where the author and their friend had a tradition of exchanging rocks as gifts. The author kept all the rocks they received, including a plastic rock, and there were many in their room. A few years later, the author",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_answer_0036",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nSeriously I hardly see any constructive criticism, in the fear of being downtooted. \n\nChoose one:\nA) The author is right\nB) The author is ",
+      "oracle_output": "assistant\n<think>\n\nOkay, let me break this down. The user is asking whether the author is right or wrong based on their statement. The author says they don't receive constructive criticism because they're afraid of being downvoted. \n\nFirst, I need to understand the context. Downvoting is a common fe",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_answer_0020",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nSo the CO of my company sends a company-wide email, explaining that he has a bunch of extra basketball game tickets. He's already picked s",
+      "oracle_output": "assistant\n<think>\n\nOkay, let me try to work through this step by step. The question is about whether the author of the email is correct or not. The options are A) Correct or B) Incorrect.\n\nFirst, I need to understand the scenario. The CO (Company Officer) is giving out a survey for a raffle. They sa",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_answer_0038",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nSo let's get it straight, I am not. I'm bisexual but my bestfriend isn't. He is straight with little to no fragile masculinity. To be hone",
+      "oracle_output": "assistant\n<think>\n\nOkay, let me go through this again. The user is asking whether the author is right or wrong based on the given scenario. The scenario is the author expressing their feelings about being bisexual, their relationship with a straight friend, and some flirtatious behavior. The key poi",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_answer_0047",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nBackground info: I have a condition known as \"Skin Hunger\" where the lack of affectionate, loving skin to skin contact begins to severely ",
+      "oracle_output": "assistant\n<think>\n\nOkay, let me try to work through this step by step. The user is asking whether the author is right or wrong based on the given scenario. The scenario mentions that the author has a non-sexual need for skin contact, which they describe as \"Skin Hunger.\" They say that after a breaku",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_answer_0007",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nI was married to my ex husband for seven years before we divorced.  He had a daughter from a previous relationship who was 12 at the time.",
+      "oracle_output": "assistant\n<think>\n\nOkay, let me go through this again. The user is asking if the author is right in her belief that she didn't feel a connection with her ex's daughter. The options are A or B. The key here is that the author is describing her own feelings and actions. She tried to be kind and show l",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_answer_0022",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nMy husband (\u201cH\u201d) and I co-lead a teen youth group with another couple. Our team discussed how a couple of older boys often play on their p",
+      "oracle_output": "assistant\n<think>\n\nOkay, let me go through this step by step. The user is asking whether the author's action was right or wrong based on the given scenario. The scenario involves a parent (the author) and their partner (S) leading a youth group. They discussed older boys using phones during meetings",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_answer_0025",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nI'm trying to sublet my room inna few months and one of my current roommates is adamant about meeting and approving whoever I find first b",
+      "oracle_output": "assistant\n<think>\n\nOkay, let me go through this again. The user is asking whether the author is right or wrong in refusing to give up their bed. The key points are:\n\n- The author is subletting their apartment and wants to approve the new tenant.\n- The roommate found someone who needs a bed, but the ",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_answer_0052",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nI apologize in advance for my bad English. \n\n&amp;#x200B;\n\nMy friends just love to remind me of this story I'd rather forget and I just ca",
+      "oracle_output": "majority",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_answer_0021",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nA bit of context, this is an ex girlfriend who I've not seen for a couple of months now, but for some reason this memory still somewhat st",
+      "oracle_output": "The reasoning leads to the majority answer, which is \"no,\" because the author's reasoning is flawed. The core issue is the lack of signal, not the app used. Switching apps doesn't address the root cause. Therefore, the answer is \"no.\"",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_answer_0084",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nThe only way I can think to explain this is chronologically.\n\nSo, C is my best friend of 8 years, and we're pretty close. C has what she c",
+      "oracle_output": "assistant\n<think>\n\nOkay, let me go through this again. The user is asking whether the author is right or wrong based on the given scenario. The scenario describes C's best friend K, who is referred to as a \"boyfriend.\" The author then concludes that since C has a history of \"putting\" with \"boyfriend",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_answer_0063",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nI\u2019ll try to keep this short and to the point.    \n\n\nI am the sole income for my family. I don\u2019t like my job, am overweight and stressed th",
+      "oracle_output": "The majority answer is B) minority. The scenario describes the author's situation and the job offer, but it does not explicitly state that the author has made a decision or a claim about whether to accept the job. The question is asking whether the author is right, but without a clear claim or decis",
+      "ground_truth": "minority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_answer_0070",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nI get student finance for going to university in the UK but I also work part time in a grocery store.\n\nMy cousin lives in Asia and is work",
+      "oracle_output": "majority",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_answer_0004",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nI get student finance for going to university in the UK but I also work part time in a grocery store.\n\nMy cousin lives in Asia and is work",
+      "oracle_output": "majority",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_answer_0056",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nWe've been dating for about 2 months.  A few weeks in she got into a blow out fight with her mother and I offered her to crash with me unt",
+      "oracle_output": "assistant\n<think>\n\nOkay, let me go through this again to make sure I didn't miss anything. The key points are:\n\n- The author had a vasectomy in his early 20s.\n- The current relationship is two months old.\n- The partner hasn't had her period in four months.\n- The author is certain the baby isn't his ",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_answer_0098",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nI know this seems bad, but hear me out\n\nI\u2019ve been friends with this girl I know from school for about 4 years now, she\u2019s the one who start",
+      "oracle_output": "assistant\n<think>\n\nOkay, let me break this down. The user provided a scenario where the author is in a friendship with a girl, finds her attractive, but she's not interested beyond friendship. The author feels rejected and mentions the girl shaved her head, which might be a typo or a specific detail",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_answer_0033",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nSeriously I hardly see any constructive criticism, in the fear of being downtooted. \n\nChoose one:\nA) The author is right\nB) The author is ",
+      "oracle_output": "The statement \"I don't see any constructive criticism\" is a subjective opinion. It reflects the author's personal perspective or belief about the behavior of users on a platform. Constructive criticism is a subjective judgment, as it depends on the context, the nature of the criticism, and the inten",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_answer_0006",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nWould like a little insight on this situation from the pros here about an incident that happened at the retail store i work at a couple we",
+      "oracle_output": "assistant\n<think>\n\nOkay, let me go through this again. The key points are: the woman entered the store, was speed walking, not injured, but appeared anxious and wild-eyed. She didn't have shoes on. The employee asked if she was okay and started to call 911. The woman said she doesn't feel safe in he",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_answer_0067",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nSo before we start sorry for any formatting since I\u2019m on mobile. \n\nMe and my girlfriend have been dating for nearly 6 months and today we ",
+      "oracle_output": " majority. The reasoning aligns with the idea that the author's actions are consistent with their stated behavior, and the girlfriend's expectations are not part of the author's agreement. Therefore, the answer is A) Yes, the author is right.",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_answer_0051",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nsorry if this just seems like stupid HS drama but I don\u2019t really know who else to ask!\n\nSo for some context: \nMe and my boyfriend have bee",
+      "oracle_output": "assistant\n<think>\n\nOkay, let me try to work through this step by step. The user is asking whether the author is right or wrong based on the given scenario. The scenario is a personal account of a high school prom where the author's boyfriend is older and didn't want to dance, leading to a boring nig",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_answer_0068",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\n A little background on me: I'm a white cisgender girl who miiiight be bisexual??? I like a trans girl. I go to an art school in a well kn",
+      "oracle_output": "assistant\n<think>\n\nOkay, let me try to work through this step by step. The user is asking whether the author is right or wrong based on the given scenario. The scenario is a bit fragmented, but let me parse what's there.\n\nFirst, the author mentions being a cisgender woman who is bisexual and has a c",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_answer_0054",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nMy husband (\u201cH\u201d) and I co-lead a teen youth group with another couple. Our team discussed how a couple of older boys often play on their p",
+      "oracle_output": "majority",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_answer_0034",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nThe only way I can think to explain this is chronologically.\n\nSo, C is my best friend of 8 years, and we're pretty close. C has what she c",
+      "oracle_output": "assistant\n<think>\n\nOkay, let me go through this again. The user provided a scenario where the author is describing their friend C and her \"best friend boyfriend.\" The author mentions that C has a habit of calling people her \"best friend\" and that she's known for \"popping out\" (which I think means be",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_answer_0026",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nSo I was 24F and she was 19F.\n\nI have eaten her out once when she was on her period. She enjoyed it, I felt uncomfortable while I was doin",
+      "oracle_output": "assistant\n<think>\n\nOkay, let me go through this again. The user is asking whether the author is right or wrong based on the scenario. The key points are the author's actions during the period, the physical discomfort, and the decision not to mention it. \n\nFirst, the author's physical discomfort is v",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_answer_0041",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\n I'm the-dracologist in [this exchange on Tumblr](https://kwitehilarious.tumblr.com/post/182306910856/tumblr-go-see-into-the-spider-verse-",
+      "oracle_output": " majority.",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_answer_0014",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nI'm 51M and the women I date are usually in their 20s or 30s. I don't have anything against older women and I don't pursue young women spe",
+      "oracle_output": "majority",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_answer_0097",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\n \n\nThis is partially a WIBTA, and partially a rant because there\u2019s a lot I need to get off my chest. TLDR at the bottom. Here we go!\n\nFor ",
+      "oracle_output": "assistant\n<think>\n\nOkay, let me break this down. The user is asking whether the author is right or wrong in their assessment of the people they're living with. The author describes their roommate as a \"bitch,\" the sister-in-law as a \"brat,\" and the daughter as a \"spoiled brat.\" They also mention tha",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_answer_0057",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nA bit of context, this is an ex girlfriend who I've not seen for a couple of months now, but for some reason this memory still somewhat st",
+      "oracle_output": "assistant\n<think>\n\nOkay, let me go through this again. The user is asking whether the author is right or wrong in their reasoning. The key points are:\n\n1. The author couldn't text normally due to signal issues.\n2. They wanted to use Snapchat instead.\n3. They asked the girlfriend to download Snapchat",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_answer_0066",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\n A little background on me: I'm a white cisgender girl who miiiight be bisexual??? I like a trans girl. I go to an art school in a well kn",
+      "oracle_output": "majority",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_answer_0096",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\n Am I a asshole if I use the Handicap toilet when I am not handicapped. I genuinely wanna know if it is a asshole move to do this so I don",
+      "oracle_output": "majority",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_answer_0011",
+      "question": "Read this scenario and decide: Is the author right or wrong?\n\nI have an elderly neighbour who snow blows sidewalks and many of his neighbours driveways. It is wonderful! That being said, he was out at",
+      "oracle_output": "majority",
+      "ground_truth": "majority",
+      "correct": "yes"
+    }
+  ]
+}

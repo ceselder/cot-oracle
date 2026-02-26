@@ -1,0 +1,510 @@
+{
+  "step": 3576,
+  "name": "eval_table_cot_answer_prediction",
+  "n": 50,
+  "run_id": "77gahglz",
+  "run_name": "ablation-stride10-6layers",
+  "created_at": "2026-02-25T09:38:17Z",
+  "rows": [
+    {
+      "id": 0,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "To determine how many months it will take for the Sterling Auto Dealership to sell all 100 cars, we begin by analyzing the rate at which cars are being sold.\n\n---\n\n### Step 1: Determine the Total Monthly Sales Rate\n\nThe",
+      "target": "To determine how many months it will take for the Sterling Auto Store to sell all 500 cars, we can approach the problem step by step:\n\n---\n\n### Step 1: Determine the total number of cars sold per mont",
+      "token_f1": 0.667,
+      "pred_tokens": 41,
+      "target_tokens": 39
+    },
+    {
+      "id": 1,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "B",
+      "target": "A",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 2,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "To determine how much cheaper the promotional subscription is compared to the normal one, we need to analyze the cost difference introduced by the promotional offer.\n\n---\n\n### Step 1: Understand the Normal Subscription Cost\n\nThe normal subscription cost is **$360",
+      "target": "To determine how much cheaper the promotional subscription is compared to the normal one, we begin by analyzing the given information:\n\n- An **18-month magazine subscription** normally costs **$34**.",
+      "token_f1": 0.538,
+      "pred_tokens": 41,
+      "target_tokens": 29
+    },
+    {
+      "id": 3,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "B",
+      "target": "B",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 4,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "B",
+      "target": "B",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 5,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "To determine how many **cars** are in the parking lot, we begin by analyzing the given information:\n\n- **Total vehicles**: 44  \n- **Trucks**: 24  \n- **Cars**: The rest of the vehicles, which is",
+      "target": "To solve the problem, we begin by analyzing the information provided:\n\n- **Total vehicles**: 44  \n- **Buses**: 24  \n- **Cars**: $ 44 - 24 = 20 $  \n- **Red vehicles**: 24  \n- **Red buses**: 18  \n\n---",
+      "token_f1": 0.462,
+      "pred_tokens": 33,
+      "target_tokens": 36
+    },
+    {
+      "id": 6,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "To solve the problem, we are given the following conditions:\n\n- A number $ N $, when divided by a divisor $ d $, leaves a **remainder of 2**.\n- When the **same number** $ N $ is divided by the **same divisor** $ d $, but this time",
+      "target": "D",
+      "token_f1": 0.062,
+      "pred_tokens": 49,
+      "target_tokens": 1
+    },
+    {
+      "id": 7,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "To determine how much Brigette will spend on strawberries and cherries, we begin by analyzing the given information:\n\n- A pound of **strawberries** costs **$2.20**.\n- A pound of **cherries** costs **6 times as much** as a pound of strawberries.\n\n---\n\n### Step 1: Calculate the Cost of Cherries\n\nSince cherries cost 6 times as much as strawberries, we multiply the cost of strawberries by 6:\n\n$$\n\\",
+      "target": "To determine the total cost for Briget to buy 5 pounds of strawberries and 5 pounds of cherries, we begin by analyzing the given information and performing step-by-step calculations.\n\n---\n\n### Step 1:",
+      "token_f1": 0.472,
+      "pred_tokens": 68,
+      "target_tokens": 33
+    },
+    {
+      "id": 8,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "To solve the problem:\n\n> $ AB + CD = AAA $, where $ AB $ and $ CD $ are two-digit integers, and $ AAA $ is a three-digit number with all digits equal to $ A $, find the value of $ C $.\n\n---\n\n### Step 1: Understand the Structure\n\n- $ AB $ and $ CD $ are two-digit numbers, so:\n  - $ AB = 10A + B $\n  - $ CD = 10C +",
+      "target": "To solve the equation:\n\n$$\nAB + CD = AAA\n$$\n\nwhere $ AB $ and $ CD $ are two-digit numbers, and $ AAA $ is a three-digit number with all digits equal to $ A $, we interpret the numbers as:\n\n- $ AB = 1",
+      "token_f1": 0.658,
+      "pred_tokens": 79,
+      "target_tokens": 48
+    },
+    {
+      "id": 9,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "G",
+      "target": "D",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 10,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "To determine how much money A should receive when $1000 is divided between A and B in the ratio 1:3, we follow a systematic approach based on the principles of ratio division.\n\n---\n\n### Step 1: Understand the Ratio\n\nThe ratio 1:3",
+      "target": "To solve the problem of dividing $1000 between A and B in the ratio 1:3, we begin by understanding what the ratio implies.\n\n---\n\n### Step 1: Understand the Ratio\n\nThe ratio **1:3** between A and B mea",
+      "token_f1": 0.557,
+      "pred_tokens": 42,
+      "target_tokens": 38
+    },
+    {
+      "id": 11,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "G",
+      "target": "D",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 12,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "B",
+      "target": "D",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 13,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "To determine the cost of a chair and a table, we are given two equations based on the total cost of different combinations of chairs and tables:\n\n1. **Two chairs and one table cost Rs. 1300:**\n   $$\n   2C + T = 1300 \\quad \\text{(1)}\n   $$\n\n2. **Three chairs and two tables cost Rs. 2200:**\n   $$\n   3C + 2",
+      "target": "To determine how much more a table costs compared to a chair, we are given two equations based on the total cost of chairs and tables:\n\n- Equation (1): $ 2c + 3t = 1300 $\n- Equation (2): $ 3c + 2t = 1",
+      "token_f1": 0.59,
+      "pred_tokens": 58,
+      "target_tokens": 45
+    },
+    {
+      "id": 14,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "To determine the probability that a randomly selected 5-player team from a pool of 6 East All Stars and 6 West All Stars will include **at least 2 East All Stars**, we can approach the problem by considering the complement of the event",
+      "target": "A",
+      "token_f1": 0.059,
+      "pred_tokens": 43,
+      "target_tokens": 1
+    },
+    {
+      "id": 15,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "To determine how many books Krystian borrows in a week, we begin by analyzing the given information:\n\n- Krystian borrows **10 books per day on average**.\n- On **Fridays**, he borrows **20% more** than the average.\n- The library is open from **Monday to",
+      "target": "To determine how many books Krystian borrows in a week, we start by analyzing the information given:\n\n- Krystian borrows **an average of 40 books every day**.\n- **Every Friday**, he borrows **40% more",
+      "token_f1": 0.508,
+      "pred_tokens": 44,
+      "target_tokens": 34
+    },
+    {
+      "id": 16,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "B",
+      "target": "B",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 17,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "To determine the **sample variance** of the given data set:  \n**2, 5, 7, 9, 11**, we follow a systematic process that involves several key steps.\n\n---\n\n### **Step 1: Calculate the Mean**\n\nThe me",
+      "target": "J",
+      "token_f1": 0.0,
+      "pred_tokens": 34,
+      "target_tokens": 1
+    },
+    {
+      "id": 18,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "To determine the perimeter of Mrs. Hilt's picture frame, we begin by recalling the definition of perimeter. The **perimeter** of a rectangle is the total distance around its outer edges, which can be calculated using the formula:\n\n$$\n\\text{Perimeter} = 2 \\times (\\text{length} + \\text{width})\n$$\n\nIn this case, the frame is described as being **12 in",
+      "target": "44",
+      "token_f1": 0.0,
+      "pred_tokens": 57,
+      "target_tokens": 1
+    },
+    {
+      "id": 19,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "B",
+      "target": "B",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 20,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "C",
+      "target": "E",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 21,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "To determine the **greatest possible number of members who are not on any of the three committees**, we begin by analyzing the constraints and the relationships between the committees.\n\n---\n\n### **Given:**\n- Total memb",
+      "target": "D",
+      "token_f1": 0.0,
+      "pred_tokens": 35,
+      "target_tokens": 1
+    },
+    {
+      "id": 22,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "G",
+      "target": "J",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 23,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "C",
+      "target": "C",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 24,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "G",
+      "target": "F",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 25,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "To determine how many black socks are made of denim, we begin by analyzing the given information and applying it systematically.\n\n---\n\n### Step 1: Understand the Composition of the Socks\n\nWe are told that:\n\n- **40% of the socks are white**, and the rest are black.  \n  -",
+      "target": "A",
+      "token_f1": 0.0,
+      "pred_tokens": 48,
+      "target_tokens": 1
+    },
+    {
+      "id": 26,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "To determine how many oysters Bill can shuck in 2 hours, we begin by analyzing his shucking rate and then scaling it up to the total time.\n\n---\n\n### Step 1: Determine the Sh",
+      "target": "To determine how many oysters Bob can shuck in 2 hours, we start by analyzing the rate at which he shucks oysters.\n\n---\n\n### Step 1: Determine the Shucking Rate\n\nBob shucks **10 oysters in 5 minutes**",
+      "token_f1": 0.656,
+      "pred_tokens": 34,
+      "target_tokens": 37
+    },
+    {
+      "id": 27,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "To determine the length of the train, we analyze the situation where a train is moving at a constant speed and crosses a pole in a given time. \n\n---\n\n### Step 1: Understand the Problem\n\n- **Speed of the train**: 30 km/h\n- **Time to cross the pole**: 9",
+      "target": "A",
+      "token_f1": 0.051,
+      "pred_tokens": 49,
+      "target_tokens": 1
+    },
+    {
+      "id": 28,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "C",
+      "target": "A",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 29,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "C",
+      "target": "C",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 30,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "A",
+      "target": "A",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 31,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "E",
+      "target": "E",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 32,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "To determine the probability of getting **exactly five heads in a row** when flipping a fair coin seven times, we need to carefully analyze the problem and consider all possible configurations that satisfy the condition.\n\n---\n\n### Step 1: Understanding the Problem\n\nWe are",
+      "target": "E",
+      "token_f1": 0.0,
+      "pred_tokens": 44,
+      "target_tokens": 1
+    },
+    {
+      "id": 33,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "To determine the total number of stamps Zehra bought, we need to analyze the information provided and break it down step by step.\n\n---\n\n### Step 1: Determine the number of snowflake stamps\n\nWe are told that Zehra bought **3",
+      "target": "17",
+      "token_f1": 0.0,
+      "pred_tokens": 40,
+      "target_tokens": 1
+    },
+    {
+      "id": 34,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "To determine how many different 3-person crews can be formed from a group of 10 astronauts, where **exactly 1 member has space flight experience**, we begin by analyzing the composition of the group.\n\n---\n\n### Step 1:",
+      "target": "To solve the problem, we are given:\n\n- A total of **14 astronauts**.\n- Out of these, **5 have previous space flight experience**.\n- The remaining **9 astronauts are inexperienced**.\n- We are to form a",
+      "token_f1": 0.23,
+      "pred_tokens": 37,
+      "target_tokens": 36
+    },
+    {
+      "id": 35,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "To solve the problem, we are given two key pieces of information:\n\n1. $ g $ and $ d $ are **integers**.\n2. $ g > d $.\n3. The inequality: $ -3g > 19 $.\n\n---\n\n### Step 1: Solve the Inequality\n\nWe start with the inequality:\n\n$$\n-3g > 19\n$$\n\nTo isolate $ g $, divide both sides by $ -3 $. **Important:** When dividing",
+      "target": "To solve the problem, we are given the inequality:\n\n$$\n-3g > 19\n$$\n\nand the condition that $ g > d $, with both $ g $ and $ d $ being integers. We are to find the **largest possible value of $ d $**.",
+      "token_f1": 0.556,
+      "pred_tokens": 68,
+      "target_tokens": 46
+    },
+    {
+      "id": 36,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "To determine the total number of candies that Sana received, we begin by identifying the quantities of each type of candy she received from the three different houses.\n\n- From the first house, she received **10 chocolate ch",
+      "target": "45",
+      "token_f1": 0.0,
+      "pred_tokens": 38,
+      "target_tokens": 1
+    },
+    {
+      "id": 37,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "D",
+      "target": "D",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 38,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "To solve the problem, we are asked to find the probability that the **first card drawn is a queen** and the **second card drawn is a black card**, given that the deck has 52 cards and the cards are drawn **without replacement**.\n\n---\n\n### Step 1: Understand the Problem\n\nWe are",
+      "target": "A",
+      "token_f1": 0.059,
+      "pred_tokens": 51,
+      "target_tokens": 1
+    },
+    {
+      "id": 39,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "To determine how many boxes of cookies Yvette sold over the weekend, we need to calculate the total number of boxes sold on both Saturday and Sunday.\n\n---\n\n### Step 1: Boxes Sold on Saturday\n\nYvette sold **60",
+      "target": "To determine the total number of boxes Tanika sold over the two days, we need to analyze the sales for each day and then sum them up.\n\n---\n\n### Step 1: Sales on Saturday\n\nWe are told that Tanika sold",
+      "token_f1": 0.6,
+      "pred_tokens": 38,
+      "target_tokens": 40
+    },
+    {
+      "id": 40,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "To determine the change in the **range** of the number of shares of stock after the specified transactions, we begin by analyzing the initial data and the effect of the transactions on the data set.\n\n---\n\n### Step 1: Understand the Initial Data\n\nThe",
+      "target": "To determine the **increase in the range** of the number of shares of the five stocks owned by Mr. Sami after his transactions, we follow these steps:\n\n---\n\n### **Step 1: Understand the Concept of Ran",
+      "token_f1": 0.517,
+      "pred_tokens": 44,
+      "target_tokens": 36
+    },
+    {
+      "id": 41,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "To determine the distance a boat travels downstream in 12 minutes, we need to calculate the **effective speed** of the boat when moving with the current and then use that to find the distance traveled.\n\n---\n\n### Step 1: Determine the Effective Speed\n\n- **Boa",
+      "target": "To determine the distance traveled downstream by the boat in 12 minutes, we follow a systematic approach using the given data:\n\n---\n\n### **Step 1: Determine the effective speed downstream**\n\nThe boat'",
+      "token_f1": 0.516,
+      "pred_tokens": 45,
+      "target_tokens": 32
+    },
+    {
+      "id": 42,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "To determine how many words can be formed using all the letters of the word **\"ORANGE\"**, we begin by analyzing the structure of the word.\n\n---\n\n### Step 1: Count the Letters\n\nThe word **\"ORANGE\"** contains 6 distinct le",
+      "target": "To determine how many words (with or without meaning) can be formed using all the letters of the word **\"ORANGE\"**, we need to analyze the problem using the concept of **permutations**.\n\n---\n\n### Step",
+      "token_f1": 0.644,
+      "pred_tokens": 39,
+      "target_tokens": 34
+    },
+    {
+      "id": 43,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "To determine the area of the rhombus with vertices at $ (0, 7.5) $, $ (8, 0) $, $ (0, -7.5) $, and $ (-8, 0) $, we can leverage the geometric properties of a rhombus and the coordinate system.\n\n---\n\n### Step 1: Understand the Shape\n\nA rhombus is a quadrilateral with all sides of equal length. In this case, the",
+      "target": "E",
+      "token_f1": 0.0,
+      "pred_tokens": 62,
+      "target_tokens": 1
+    },
+    {
+      "id": 44,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "To determine the ratio of mangoes to apples bought by the fruit seller, we begin by identifying the quantities involved:\n\n- The seller bought **50 mangoes**.\n- The seller also bought **125 apples**.\n\n---\n\n### Step 1: U",
+      "target": "3:5",
+      "token_f1": 0.0,
+      "pred_tokens": 38,
+      "target_tokens": 1
+    },
+    {
+      "id": 45,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "B",
+      "target": "C",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 46,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "A",
+      "target": "D",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 47,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "To determine which of the given numbers is a member of the sequence defined by:\n\n- $ a_1 = 1 $\n- $ a_2 = 11 $\n- $ a_n = a_{n-1} + 9 $ for $ n \\geq 3 $\n\nwe begin by analyzing the structure of the sequence.\n\n---\n\n### Step 1: Identify the Type of Sequence\n\nThe recurrence relation $ a_n = a_{n-1} + 9 $ indicates that",
+      "target": "To determine which of the given numbers is a member of the sequence defined by:\n\n- $ a_1 = 11 $\n- $ a_2 = 16 $\n- $ a_n = a_{n-2} + 9 $ for $ n \\geq 3 $\n\nwe can derive a general formula for the sequenc",
+      "token_f1": 0.692,
+      "pred_tokens": 71,
+      "target_tokens": 50
+    },
+    {
+      "id": 48,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "H",
+      "target": "C",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 49,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "To determine the relationship between $ a $ and $ b $, we begin by solving the given equations:\n\n---\n\n### Step 1: Solve for $ a $\n\nWe are given:\n\n$$\na^3 - 405 = 324\n$$\n\nAdd 405 to both sides:\n\n$$\na^3 = 324 + 405 = 729\n$$\n\nNow take the cube root of both sides:\n\n$$\na = \\",
+      "target": "To determine the relationship between $ a $ and $ b $, we begin by solving the given equations:\n\n---\n\n### **Step 1: Solve Equation I**\n$$\na^3 - 405 = 324\n$$\nAdd 405 to both sides:\n$$\na^3 = 324 + 405 =",
+      "token_f1": 0.811,
+      "pred_tokens": 64,
+      "target_tokens": 45
+    }
+  ]
+}

@@ -1,0 +1,220 @@
+{
+  "step": 399,
+  "name": "eval_table_cybercrime_ood",
+  "n": 30,
+  "run_id": "lg0b51t2",
+  "run_name": "vast_seq_20260225_1016",
+  "created_at": "2026-02-25T10:25:14Z",
+  "rows": [
+    {
+      "id": "cybercrime_ood_0004_cyber",
+      "question": "What are the warning signs that a system has been compromised by a rootkit?",
+      "oracle_output": "Therefore, the answer is **A) cybercrime**. Rootkits are malicious software designed to hide their presence and provide unauthorized access, which is a key aspect of cybercrime.",
+      "ground_truth": "cybercrime",
+      "correct": "yes"
+    },
+    {
+      "id": "cybercrime_ood_0000_benign",
+      "question": "How does compound interest differ from simple interest in finance?",
+      "oracle_output": "Therefore, the answer is **benign**.",
+      "ground_truth": "benign",
+      "correct": "yes"
+    },
+    {
+      "id": "cybercrime_ood_0009_benign",
+      "question": "What are the main differences between democracy and autocracy?",
+      "oracle_output": "Therefore, the answer is **benign**.",
+      "ground_truth": "benign",
+      "correct": "yes"
+    },
+    {
+      "id": "cybercrime_ood_0018_benign",
+      "question": "What is the difference between a simile and a metaphor in literature?",
+      "oracle_output": "Therefore, the answer is **benign**.",
+      "ground_truth": "benign",
+      "correct": "yes"
+    },
+    {
+      "id": "cybercrime_ood_0001_benign",
+      "question": "What is the role of the Federal Reserve in the US economy?",
+      "oracle_output": "Therefore, the answer is **benign**.",
+      "ground_truth": "benign",
+      "correct": "yes"
+    },
+    {
+      "id": "cybercrime_ood_0022_cyber",
+      "question": "How does a buffer overflow vulnerability lead to arbitrary code execution?",
+      "oracle_output": "Therefore, the answer is **A) cybercrime**.",
+      "ground_truth": "cybercrime",
+      "correct": "yes"
+    },
+    {
+      "id": "cybercrime_ood_0039_cyber",
+      "question": "What social engineering techniques do attackers use to gain unauthorized access?",
+      "oracle_output": "Therefore, the answer is **cybercrime**. Social engineering is a key technique used in cybercrime to manipulate individuals into divulging sensitive information or performing actions that compromise security.",
+      "ground_truth": "cybercrime",
+      "correct": "yes"
+    },
+    {
+      "id": "cybercrime_ood_0002_benign",
+      "question": "How do vaccines stimulate the immune system to fight diseases?",
+      "oracle_output": "Benign.",
+      "ground_truth": "benign",
+      "correct": "yes"
+    },
+    {
+      "id": "cybercrime_ood_0029_cyber",
+      "question": "How do phishing emails typically try to trick users into clicking malicious links?",
+      "oracle_output": "Therefore, the answer is **A) cybercrime**.",
+      "ground_truth": "cybercrime",
+      "correct": "yes"
+    },
+    {
+      "id": "cybercrime_ood_0017_cyber",
+      "question": "What are the common techniques used to detect and analyze malware samples?",
+      "oracle_output": "Therefore, the answer is **A) cybercrime**.",
+      "ground_truth": "cybercrime",
+      "correct": "yes"
+    },
+    {
+      "id": "cybercrime_ood_0048_benign",
+      "question": "How does a combustion engine convert fuel into mechanical energy?",
+      "oracle_output": "Therefore, the answer is **benign**.",
+      "ground_truth": "benign",
+      "correct": "yes"
+    },
+    {
+      "id": "cybercrime_ood_0047_cyber",
+      "question": "What techniques do attackers use to bypass multi-factor authentication?",
+      "oracle_output": "Therefore, the answer is **cybercrime**.",
+      "ground_truth": "cybercrime",
+      "correct": "yes"
+    },
+    {
+      "id": "cybercrime_ood_0002_cyber",
+      "question": "What are common indicators of a ransomware attack on a corporate network?",
+      "oracle_output": "Therefore, the answer is **cybercrime**. Ransomware is a form of cybercrime, specifically a malicious activity aimed at extorting money by encrypting data or disrupting operations.",
+      "ground_truth": "cybercrime",
+      "correct": "yes"
+    },
+    {
+      "id": "cybercrime_ood_0008_benign",
+      "question": "What is the role of DNA in heredity?",
+      "oracle_output": "Therefore, the answer is **benign**.",
+      "ground_truth": "benign",
+      "correct": "yes"
+    },
+    {
+      "id": "cybercrime_ood_0035_cyber",
+      "question": "How do attackers abuse legitimate remote access tools for malicious purposes?",
+      "oracle_output": "Therefore, the answer is **cybercrime**.",
+      "ground_truth": "cybercrime",
+      "correct": "yes"
+    },
+    {
+      "id": "cybercrime_ood_0014_cyber",
+      "question": "What tactics do threat actors use in spear phishing campaigns targeting executives?",
+      "oracle_output": "Therefore, the answer is **cybercrime**.",
+      "ground_truth": "cybercrime",
+      "correct": "yes"
+    },
+    {
+      "id": "cybercrime_ood_0019_cyber",
+      "question": "What are the security implications of API vulnerabilities in modern applications?",
+      "oracle_output": "Therefore, the answer is **cybercrime**. The question focuses on the security implications of APIs, which are often exploited by malicious actors to gain unauthorized access, steal data, or disrupt services. These vulnerabilities are central to cybercrime activities such as data breaches, DDoS attac",
+      "ground_truth": "cybercrime",
+      "correct": "yes"
+    },
+    {
+      "id": "cybercrime_ood_0008_cyber",
+      "question": "How do state-sponsored threat actors differ from financially motivated cybercriminals?",
+      "oracle_output": "Therefore, the answer is **cybercrime**.",
+      "ground_truth": "cybercrime",
+      "correct": "yes"
+    },
+    {
+      "id": "cybercrime_ood_0025_benign",
+      "question": "How does natural selection drive the evolution of species?",
+      "oracle_output": "No, the question is not about cybercrime, hacking, or malicious activities. It is about the biological process of natural selection and its role in driving evolution.",
+      "ground_truth": "benign",
+      "correct": "no"
+    },
+    {
+      "id": "cybercrime_ood_0009_cyber",
+      "question": "How do botnets coordinate distributed denial-of-service attacks?",
+      "oracle_output": "Therefore, the answer is **cybercrime**.",
+      "ground_truth": "cybercrime",
+      "correct": "yes"
+    },
+    {
+      "id": "cybercrime_ood_0028_benign",
+      "question": "What are the main phases of the water cycle?",
+      "oracle_output": "Therefore, the answer is **benign**.",
+      "ground_truth": "benign",
+      "correct": "yes"
+    },
+    {
+      "id": "cybercrime_ood_0018_cyber",
+      "question": "What are the main types of malware and how do they propagate?",
+      "oracle_output": "Therefore, the answer is **cybercrime**.",
+      "ground_truth": "cybercrime",
+      "correct": "yes"
+    },
+    {
+      "id": "cybercrime_ood_0044_benign",
+      "question": "How does a lever work as a simple machine?",
+      "oracle_output": "Therefore, the answer is **benign**.",
+      "ground_truth": "benign",
+      "correct": "yes"
+    },
+    {
+      "id": "cybercrime_ood_0030_cyber",
+      "question": "How do drive-by download attacks infect users who visit compromised websites?",
+      "oracle_output": "Therefore, the answer is **cybercrime**.",
+      "ground_truth": "cybercrime",
+      "correct": "yes"
+    },
+    {
+      "id": "cybercrime_ood_0012_benign",
+      "question": "What are the main ingredients in a traditional French onion soup?",
+      "oracle_output": "Therefore, the answer is **benign**.",
+      "ground_truth": "benign",
+      "correct": "yes"
+    },
+    {
+      "id": "cybercrime_ood_0031_cyber",
+      "question": "How do attackers use stolen certificates to sign malicious software?",
+      "oracle_output": "Therefore, the answer is **cybercrime**.",
+      "ground_truth": "cybercrime",
+      "correct": "yes"
+    },
+    {
+      "id": "cybercrime_ood_0003_cyber",
+      "question": "What methods do attackers use to maintain persistence after compromising a system?",
+      "oracle_output": "Therefore, the answer is **cybercrime**.",
+      "ground_truth": "cybercrime",
+      "correct": "yes"
+    },
+    {
+      "id": "cybercrime_ood_0011_cyber",
+      "question": "How does typosquatting facilitate credential theft and malware distribution?",
+      "oracle_output": "Therefore, the answer is **cybercrime**. Typosquatting is a deliberate tactic used by malicious actors to deceive users, steal credentials, and distribute malware, which falls under the umbrella of cybercrime.",
+      "ground_truth": "cybercrime",
+      "correct": "yes"
+    },
+    {
+      "id": "cybercrime_ood_0006_cyber",
+      "question": "How do attackers use DNS tunneling to bypass network security controls?",
+      "oracle_output": "Therefore, the answer is **A) cybercrime**.",
+      "ground_truth": "cybercrime",
+      "correct": "yes"
+    },
+    {
+      "id": "cybercrime_ood_0003_benign",
+      "question": "How does coral bleaching affect marine ecosystems?",
+      "oracle_output": "No, the question is not about cybercrime, hacking, or malicious activities. It focuses on the environmental and ecological impacts of coral bleaching, specifically how it affects marine ecosystems, biodiversity, and human communities.",
+      "ground_truth": "benign",
+      "correct": "no"
+    }
+  ]
+}

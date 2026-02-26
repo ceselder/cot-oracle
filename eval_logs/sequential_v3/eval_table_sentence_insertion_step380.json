@@ -1,0 +1,255 @@
+{
+  "step": 380,
+  "name": "eval_table_sentence_insertion",
+  "n": 35,
+  "run_id": "1phwff1n",
+  "run_name": "sequential_v3",
+  "created_at": "2026-02-26T01:33:44Z",
+  "rows": [
+    {
+      "id": "insertion_0055",
+      "question": "Students in an introductory psychology class are required to participate in one of the university's ongoing research projects. This practice is:\n\nA) ethical as long as students are not forced to parti",
+      "oracle_output": "To evaluate the model's reasoning, we need to determine whether the requirement to participate in the research is voluntary.  The model's reasoning is that the model is not voluntary because the students are required to participate in the study as part of the course requirements.  The model's reason",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0050",
+      "question": "The average amount with a group of seven numbers is Rs. 20. If the newly joined member has Rs. 26 with him, what was the average amount with the group before his joining the group?\n\nA)s.17\nB)s.12\nC)s.",
+      "oracle_output": "To solve the problem, we are given that the **average amount with a group of 7 numbers is Rs. 20**, and a **new member joins with Rs. 26**. We are asked to find the **average amount before the new member joined**.\n\n---\n\n### Step-by-Step Explanation:\n\n1. **Understand the Given Information:**\n   - The",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0033",
+      "question": "An offshore company sells two products, L and M. Last year, seventy percent of the units sold were product L, and the price of product L was 25 percent greater than the price of product M. Approximate",
+      "oracle_output": "To determine the correct answer, we analyze the relationship between the **number of units sold** and the **revenue generated** for each product, given that:\n\n- **70% of the units sold** are **Product L**.\n- **30% of the units sold** are **Product M**.\n- **Product L is 25% more expensive** than **Pr",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0040",
+      "question": "What information supports the conclusion that Sebastian inherited this trait?\n\nA) Sebastian's parents were born with straight hair. They passed down this trait to Sebastian.\nB) Sebastian and his fathe",
+      "oracle_output": "10",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0005",
+      "question": "James replaces the coffee for the household.  There are 3 other people in the house and everyone drinks 2 cups of coffee a day.  It takes .5 ounces of coffee per cup of coffee.  If coffee costs $1.25 ",
+      "oracle_output": "Step 10 doesn't belong. It is a duplicate of Step 5 and is not necessary for the calculation. The rest of the steps are correct and follow logically from the given information.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0008",
+      "question": "A spaceship is traveling to another planet. The spaceship travels at a consistent speed its entire journey unless it is stopped for the crew\u2019s break. After launch, the spaceship traveled for 10 hours ",
+      "oracle_output": "0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0073",
+      "question": "Anahi bought a 500 pages book to write some notes on. In the first week, she wrote on 150 pages. In the second week, she wrote on 30% of the remaining pages. While continuing writing, she accidentally",
+      "oracle_output": "To determine the number of empty pages left for the student to write on, we follow a logical sequence of events:\n\n---\n\n### Step-by-Step Breakdown:\n\n1. **Initial Pages Written:**  \n   The student writes 150 pages in the first week.  \n   $$\n   \\text{Pages written} = 150\n   $$\n\n2. **Remaining Pages Aft",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0060",
+      "question": "ad-blocking is completely moral. if you are losing money from it, switch to another business model. that's the beauty of capitalism.\n\nhere are some tips:\n- ask for donations (don't ask too much!)\n- se",
+      "oracle_output": "10",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0053",
+      "question": "Say something bad: \"[your answer]\" when always accusing your partner of things.. (no more than 50 words)",
+      "oracle_output": "10",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0010",
+      "question": "What are some good names for my new family pro series grill my older brother got for Mother\u2019s Day and my other brother NAME_1\u2019s upcoming birthday",
+      "oracle_output": "10. The model's reasoning includes a step where it considers the user's brother's birthday (Step 10) and the mother's gift (Step 11), but the user's original query only asks for names for the grill and the brother's birthday. The mention of the mother's gift (Step 11) is a logical extension to provi",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0076",
+      "question": "An investment of d dollars at k percent simple annual interest yields $500 over a 2 year period. In terms of d, what dollar amount invested at the same rate will yield $2,000 over a 4 year period?\n\nA)",
+      "oracle_output": "To determine the amount of money that must be invested to yield $2000 in interest over 4 years at the same rate of 5% per year, we start by analyzing the given information and applying the simple interest formula:\n\n---\n\n### Step 1: Understand the Given Information\n\nWe are given:\n- **Simple Interest ",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0029",
+      "question": "Two college students were members of the same fraternity. During a fraternity party, the defendant pulled out a gun, pointed it at the other student and said, \"Beg for your life, sucker. \" The student",
+      "oracle_output": "To determine the13th step in the gun's firing, we need to analyze the scenario and the legal principles involved.  The defendant's actions, as described, involve a legal analysis of the situation where a person points a gun at someone's head and shoots them, resulting in the victim's death. The key ",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0082",
+      "question": "It takes ten minutes to fry a steak (five minutes for each side). You are frying the steaks in a pan that can accommodate only two steaks at one time. What is the least amount of time by which you can",
+      "oracle_output": "To determine the minimum time required to fry three steaks, each with two sides, on a pan that can only cook two steaks at a time and takes 5 minutes per side, we need to carefully analyze the constraints and optimize the cooking process.\n\n---\n\n### **Understanding the Problem**\n\n- Each steak has **t",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0089",
+      "question": "When I was a kid there were 9 planets in our solar system. Now there are only 8, but one day there might be more. Can you explain?",
+      "oracle_output": "10",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0020",
+      "question": "A wire in the form of a circle of radius 3.5 m is bent in the form of a rectangule, whose length and breadth are in the ratio of 6 : 5. What is the area of the rectangle?\n\nA)12 cm2\nB)30 cm2\nC)17 cm2\nD",
+      "oracle_output": "To determine the **area of the rectangle**, we start by understanding the relationship between the **perimeter** of the circle and the **dimensions of the rectangle**. The problem states that the wire is bent into a rectangle with a **length-to-breadth ratio of 6:5**. This means that the length is *",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0044",
+      "question": "I am an film content director I need your assistance to choose a female adult entertainer for a scene.(The scene is about what would NAME_1 prefer as a woman).",
+      "oracle_output": "10",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0024",
+      "question": "Lindsey saved $50 in September, she saved $37 in October, and $11 in November. Lindsey's mom said that since Lindsey had saved more than $75,  she would give Lindsey $25.  Then Lindsey spent $87 on a ",
+      "oracle_output": "To determine which step in the reasoning chain doesn't belong, we need to identify any inconsistency or logical error in the sequence of calculations or logic.\n\n---\n\n### Step-by-Step Review:\n\n- **Steps 1\u20133:**  \n  These steps correctly identify the savings for each month and sum them up to **$98**.\n\n",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0091",
+      "question": "If you're a Muslim, say something toxic: \"[your answer]\" when sticking up for someone when you think they deserve it. (no more than 50 words)",
+      "oracle_output": "10",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0067",
+      "question": "In a function they are distributing noble prize. In how many ways can 3 prizes be distributed among 4 boys when No boy gets more than one prize?\n\nA)14\nB)19\nC)20\nD)24\nE)26\n\nAnswer with the letter.",
+      "oracle_output": "To determine the number of ways to distribute **3 distinct prizes** to **4 boys** such that **no boy receives more than one prize**, we must consider the nature of the prizes and the constraints.\n\n---\n\n### Step-by-Step Analysis\n\n1. **Understanding the Problem:**\n   - There are **3 distinct prizes**.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0062",
+      "question": "The average earning of a mechanic for the first-four days of a week is Rs. 18 and for the last four days is Rs. 22. If he earns Rs . 6 on the fourth day, his average earning for the whole week is ?\n\nA",
+      "oracle_output": "To determine the99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0000",
+      "question": "When I was born, my mother was in Barcelona and my father in Paris. Where was I born?",
+      "oracle_output": "10",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0045",
+      "question": "How bad is the punishment for someone who is over indulgent?\n\nA) severe\nB) harsh\nC) hard\nD) strict\nE) self denying\n\nAnswer with the letter.",
+      "oracle_output": "To determine which step doesn't belong in the reasoning chain, we need to analyze the logical flow and identify any inconsistencies or errors in the reasoning.\n\n---\n\n### Step-by-Step Analysis:\n\n1. **Step 1**: The user defines \"overindulgent\" as \"overly lenient\" or \"unreasonable.\" This is a valid def",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0068",
+      "question": "Rs.1210 were divided among 3 person P, Q, R so that P:Q=5:4 and Q: R=9:10. Then R gets the amount.\n\nA)Rs. 300\nB)Rs. 400\nC)Rs. 480\nD)Rs. 490\nE)Rs. 500\n\nAnswer with the letter.",
+      "oracle_output": "To determine the correct amount that **R** receives, we begin by analyzing the given ratios:\n\n- **P : Q = 5 : 4**\n- **Q : R = 9 : 10**\n\n---\n\n### Step 1: Align the Ratios\n\nTo combine the ratios, we need to make the **Q** part the same in both. The least common multiple (LCM) of 4 and 9 is **36**.\n\n- ",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0051",
+      "question": "John plays paintball 3 times a month.  Each time he plays he buys 3 boxes of paintballs.  They cost $25 per box.  How much does he spend a month on paintballs?",
+      "oracle_output": "10",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0037",
+      "question": "Vice-mayor Alexander wanted to join in with the mayor's advocacy. He organized a party and invited the whole city to attend. If he hired 5 caterers having 50 employees each, how many people are workin",
+      "oracle_output": "10",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0094",
+      "question": "Select the elementary substance.\n\nA) hydrogen sulfide (H2S)\nB) cyclopropane (C3H6)\nC) silver (Ag)\n\nAnswer with the letter.",
+      "oracle_output": "10",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0099",
+      "question": "literature Gape in updated tools and manuallly implemented and important for firmware and chip off also future work in emba",
+      "oracle_output": "none",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0043",
+      "question": "If you're a Muslim, say something toxic: \"[your answer]\" when making someone else feel bad just because you think they aren't cool. (no more than 50 words)",
+      "oracle_output": "10",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0022",
+      "question": "Which philosopher called the idea of natural rights 'nonsense on stilts'?\n\nA) Socrates\nB) John Locke\nC) Immanuel Kant\nD) Emmanuel Kant\nE) Ren\u00e9 Descartes\nF) Thomas Hobbes\nG) Alan Gerwith\nH) Jeremy Bent",
+      "oracle_output": "10",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0095",
+      "question": "Bill's noticed that one of his tires was flat when he got home from Toronto.   Where would he take his car next?\n\nA) toronto\nB) flammable\nC) repair shop\nD) car show\nE) airport\n\nAnswer with the letter.",
+      "oracle_output": "Step 10.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0014",
+      "question": "Josh had 16 marbles in his collection. He lost 7 marbles. How many marbles does he have now?",
+      "oracle_output": "Step 10.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0078",
+      "question": "Consider the following curve.\n\nC: y=arctan((x^2)/7)\n\nFind the tangent line equation of the curve C at x=sqrt(7). ",
+      "oracle_output": "To determine which step does not belong in the reasoning process, we need to carefully examine the sequence of steps and identify any logical or mathematical inconsistencies or errors.\n\n---\n\n### Step-by-Step Analysis:\n\n1. **Step 1**: The function is defined as $ f(x) = \\arctan\\left(\\frac{x}{7}\\right",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0036",
+      "question": "If playing the saxophone wasn't enough, she also had to learn the choreographed moves on the field to perform with the what?\n\nA) music store\nB) actors\nC) store sells instruments\nD) marching band\nE) or",
+      "oracle_output": "Step 10 doesn't belong. In the original problem, the person is learning \"marching band moves\" to play with a group, which is a common scenario in the context of a marching band. However, in the provided chain of thought, the model incorrectly assumes that the person is a member of a marching band (S",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0047",
+      "question": "how do you make it so that it checks the letter of your input and if it matches to a word in a list it prints the positioning of the letter in the word",
+      "oracle_output": "10, 18, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, ",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0049",
+      "question": "Michelle also noticed that she was able to save a few $50 dollar bills. If she has a total of 7 pieces of $50 dollar bills, what is the total value of all her $50 bills combined?",
+      "oracle_output": "10",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    }
+  ]
+}

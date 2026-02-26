@@ -1,0 +1,510 @@
+{
+  "step": 494,
+  "name": "eval_table_cot_answer_prediction",
+  "n": 50,
+  "run_id": "r7g3a929",
+  "run_name": "sequential",
+  "created_at": "2026-02-25T04:26:23Z",
+  "rows": [
+    {
+      "id": 0,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "12",
+      "target": "To determine how many months it will take for the Sterling Auto Store to sell all 500 cars, we can approach the problem step by step:\n\n---\n\n### Step 1: Determine the total number of cars sold per mont",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 39
+    },
+    {
+      "id": 1,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "E",
+      "target": "A",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 2,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "18",
+      "target": "To determine how much cheaper the promotional subscription is compared to the normal one, we begin by analyzing the given information:\n\n- An **18-month magazine subscription** normally costs **$34**.",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 29
+    },
+    {
+      "id": 3,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "B",
+      "target": "B",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 4,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "B",
+      "target": "B",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 5,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "12",
+      "target": "To solve the problem, we begin by analyzing the information provided:\n\n- **Total vehicles**: 44  \n- **Buses**: 24  \n- **Cars**: $ 44 - 24 = 20 $  \n- **Red vehicles**: 24  \n- **Red buses**: 18  \n\n---",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 36
+    },
+    {
+      "id": 6,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "To solve the problem, we start by translating the given conditions into mathematical equations. Let the original number be $ N $, and the divisor be $ d $. The problem states:\n\n1. When $ N $ is divided by $ d $, the remainder is 1. This gives us the congruence:\n   $$\n   N \\equiv 1 \\pmod{d}\n   $$\n2. When $ 2N $ is divided by $ d $, the remainder is",
+      "target": "D",
+      "token_f1": 0.048,
+      "pred_tokens": 72,
+      "target_tokens": 1
+    },
+    {
+      "id": 7,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "120",
+      "target": "To determine the total cost for Briget to buy 5 pounds of strawberries and 5 pounds of cherries, we begin by analyzing the given information and performing step-by-step calculations.\n\n---\n\n### Step 1:",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 33
+    },
+    {
+      "id": 8,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "C",
+      "target": "To solve the equation:\n\n$$\nAB + CD = AAA\n$$\n\nwhere $ AB $ and $ CD $ are two-digit numbers, and $ AAA $ is a three-digit number with all digits equal to $ A $, we interpret the numbers as:\n\n- $ AB = 1",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 48
+    },
+    {
+      "id": 9,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "E",
+      "target": "D",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 10,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "150",
+      "target": "To solve the problem of dividing $1000 between A and B in the ratio 1:3, we begin by understanding what the ratio implies.\n\n---\n\n### Step 1: Understand the Ratio\n\nThe ratio **1:3** between A and B mea",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 38
+    },
+    {
+      "id": 11,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "B",
+      "target": "D",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 12,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "E",
+      "target": "D",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 13,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "To solve the problem, we start by defining variables for the cost of one chair (C) and one table (T). The problem provides two equations based on the total costs:\n\n1. $ 3C + 2T = 1300 $\n2. $ 2C + 3T = 1200 $\n\nWe can solve this system of equations using the elimination method. First, we multiply the first equation by 3 and the second by 2 to align",
+      "target": "To determine how much more a table costs compared to a chair, we are given two equations based on the total cost of chairs and tables:\n\n- Equation (1): $ 2c + 3t = 1300 $\n- Equation (2): $ 3c + 2t = 1",
+      "token_f1": 0.477,
+      "pred_tokens": 72,
+      "target_tokens": 45
+    },
+    {
+      "id": 14,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "11/15",
+      "target": "A",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 15,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "120",
+      "target": "To determine how many books Krystian borrows in a week, we start by analyzing the information given:\n\n- Krystian borrows **an average of 40 books every day**.\n- **Every Friday**, he borrows **40% more",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 34
+    },
+    {
+      "id": 16,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "B",
+      "target": "B",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 17,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "12",
+      "target": "J",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 18,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "110",
+      "target": "44",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 19,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "A",
+      "target": "B",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 20,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "B",
+      "target": "E",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 21,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "To determine the maximum number of members who are not on any of the three committees, we need to minimize the number of members who are on at least one committee.\n\nWe are given:\n- Total members: 200\n- Committee M: 80 members\n- Committee R: 120 members\n- Committee S: 150 members\n- No member is on both R and S.\n\nSince no one is on both R and S, the overlap between R and",
+      "target": "D",
+      "token_f1": 0.0,
+      "pred_tokens": 76,
+      "target_tokens": 1
+    },
+    {
+      "id": 22,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "I.",
+      "target": "J",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 23,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "C",
+      "target": "C",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 24,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "F",
+      "target": "F",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 25,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "B",
+      "target": "A",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 26,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "120",
+      "target": "To determine how many oysters Bob can shuck in 2 hours, we start by analyzing the rate at which he shucks oysters.\n\n---\n\n### Step 1: Determine the Shucking Rate\n\nBob shucks **10 oysters in 5 minutes**",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 37
+    },
+    {
+      "id": 27,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "150",
+      "target": "A",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 28,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "26.00",
+      "target": "A",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 29,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "B",
+      "target": "C",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 30,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "E",
+      "target": "A",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 31,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "E",
+      "target": "E",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 32,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "E",
+      "target": "E",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 33,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "12",
+      "target": "17",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 34,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "C",
+      "target": "To solve the problem, we are given:\n\n- A total of **14 astronauts**.\n- Out of these, **5 have previous space flight experience**.\n- The remaining **9 astronauts are inexperienced**.\n- We are to form a",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 36
+    },
+    {
+      "id": 35,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "E",
+      "target": "To solve the problem, we are given the inequality:\n\n$$\n-3g > 19\n$$\n\nand the condition that $ g > d $, with both $ g $ and $ d $ being integers. We are to find the **largest possible value of $ d $**.",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 46
+    },
+    {
+      "id": 36,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "25",
+      "target": "45",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 37,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "D",
+      "target": "D",
+      "token_f1": 1.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 38,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "B",
+      "target": "A",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 39,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "120",
+      "target": "To determine the total number of boxes Tanika sold over the two days, we need to analyze the sales for each day and then sum them up.\n\n---\n\n### Step 1: Sales on Saturday\n\nWe are told that Tanika sold",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 40
+    },
+    {
+      "id": 40,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "B",
+      "target": "To determine the **increase in the range** of the number of shares of the five stocks owned by Mr. Sami after his transactions, we follow these steps:\n\n---\n\n### **Step 1: Understand the Concept of Ran",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 36
+    },
+    {
+      "id": 41,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "12",
+      "target": "To determine the distance traveled downstream by the boat in 12 minutes, we follow a systematic approach using the given data:\n\n---\n\n### **Step 1: Determine the effective speed downstream**\n\nThe boat'",
+      "token_f1": 0.071,
+      "pred_tokens": 1,
+      "target_tokens": 32
+    },
+    {
+      "id": 42,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "120",
+      "target": "To determine how many words (with or without meaning) can be formed using all the letters of the word **\"ORANGE\"**, we need to analyze the problem using the concept of **permutations**.\n\n---\n\n### Step",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 34
+    },
+    {
+      "id": 43,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "To find the area of the quadrilateral with vertices at (0,0), (5,0), (0,-7.5), and (-5,0), we can use the **shoelace formula**. This formula is particularly useful for polygons when you know the coordinates of the vertices.\n\n### Step 1: List the coordinates in order\nWe list the coordinates of the vertices in order, repeating the first vertex at the end to complete the loop:\n$$\n(0,",
+      "target": "E",
+      "token_f1": 0.0,
+      "pred_tokens": 66,
+      "target_tokens": 1
+    },
+    {
+      "id": 44,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "2:3",
+      "target": "3:5",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 45,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "B",
+      "target": "C",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 46,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "A",
+      "target": "D",
+      "token_f1": 0.0,
+      "pred_tokens": 1,
+      "target_tokens": 1
+    },
+    {
+      "id": 47,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "To determine which number is a member of the sequence, we analyze the recurrence relation:\n\n$$\na_n = a_{n-1} + a_{n-2}\n$$\n\nThis is the Fibonacci sequence, starting with $ a_1 = 1 $ and $ a_2 = 2 $. The sequence is:\n\n$$\n1, 2, 3, 5, 8, 13, 21, 34, 55, 8",
+      "target": "To determine which of the given numbers is a member of the sequence defined by:\n\n- $ a_1 = 11 $\n- $ a_2 = 16 $\n- $ a_n = a_{n-2} + 9 $ for $ n \\geq 3 $\n\nwe can derive a general formula for the sequenc",
+      "token_f1": 0.442,
+      "pred_tokens": 54,
+      "target_tokens": 50
+    },
+    {
+      "id": 48,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "To determine the risk-free rate $ r $, we use the fact that in a risk-neutral market, the expected return on any asset equals the risk-free rate. For a stock with a continuous dividend yield $ q $, the risk-neutral pricing formula is:\n\n$$\nS_t = S_0 e^{(r - q)t}\n$$\n\nTaking the natural logarithm of both sides:\n\n$$\n\\ln(S_t) = \\ln(S_0) + (r - q)t",
+      "target": "C",
+      "token_f1": 0.0,
+      "pred_tokens": 66,
+      "target_tokens": 1
+    },
+    {
+      "id": 49,
+      "type": "cot_answer_prediction",
+      "oracle_prompt": "",
+      "prediction": "B",
+      "target": "To determine the relationship between $ a $ and $ b $, we begin by solving the given equations:\n\n---\n\n### **Step 1: Solve Equation I**\n$$\na^3 - 405 = 324\n$$\nAdd 405 to both sides:\n$$\na^3 = 324 + 405 =",
+      "token_f1": 0.059,
+      "pred_tokens": 1,
+      "target_tokens": 45
+    }
+  ]
+}

@@ -1,0 +1,220 @@
+{
+  "step": 285,
+  "name": "eval_table_compqa",
+  "n": 30,
+  "run_id": "lg0b51t2",
+  "run_name": "vast_seq_20260225_1016",
+  "created_at": "2026-02-25T10:25:14Z",
+  "rows": [
+    {
+      "id": "compqa_6126",
+      "question": "What is the first error (if any) in this reasoning? State the step number and the error, or 'none'.",
+      "oracle_output": "none",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_4477",
+      "question": "Does any step in this reasoning not follow from the previous steps? If so, which and why?",
+      "oracle_output": "No step in the reasoning does not follow from the previous steps. Each option is evaluated based on its potential to reduce bias, and the reasoning logically connects each option to its effect on bias.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_7344",
+      "question": "Is the reasoning in this chain of thought sound? Explain briefly.",
+      "oracle_output": "No, the reasoning is not sound. The chain incorrectly concludes that increased evaporation leads to higher productivity, while the correct reasoning points to increased sunlight as the key factor.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_5626",
+      "question": "Does any step in this reasoning not follow from the previous steps? If so, which and why?",
+      "oracle_output": "Yes, the step that does not follow logically is **Step 3**.\n\n### Explanation:\n\n**Step 3** states: \"The male parent must be **vv** (homozygous recessive) because the female is **vv** and the male is **Vv**.\"\n\nThis is **incorrect**. The reasoning here is flawed because it assumes the male must be **Vv",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_7690",
+      "question": "Does any step in this reasoning not follow from the previous steps? If so, which and why?",
+      "oracle_output": "No step in the reasoning does not follow from the previous steps. The reasoning correctly identifies that the speed of sound is primarily determined by the **medium** (option B), and the other options (A, C, D) are not the primary factors affecting the speed of sound.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_1442",
+      "question": "Are any steps redundant or unnecessary? Which ones?",
+      "oracle_output": "The steps are not redundant. Each step is necessary to build the case for self-defense. The husband's initial warning is part of the self-defense process, and the subsequent killing is the critical action that determines the legal outcome.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_4646",
+      "question": "Which steps are essential (load-bearing) for reaching the answer, and which are decorative filler?",
+      "oracle_output": "The essential steps for reaching the answer involve:\n\n1. **Understanding the question**: Identifying that the task is to find the **least relevant** factor for segmenting organizations.\n2. **Analyzing each option**: Evaluating each factor's relevance to organizational segmentation.\n3. **Comparing fa",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_2900",
+      "question": "Does any step in this reasoning not follow from the previous steps? If so, which and why?",
+      "oracle_output": "No step in the reasoning does not follow from the previous steps. The reasoning is logically consistent: the woman's dream is about a house, and the entrance hall is a significant feature of a house. The other options are either unrelated (hat, bridge) or less relevant (garden, road).",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_258",
+      "question": "What is the first error (if any) in this reasoning? State the step number and the error, or 'none'.",
+      "oracle_output": "None",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_8727",
+      "question": "Does any step in this reasoning not follow from the previous steps? If so, which and why?",
+      "oracle_output": "No step in the reasoning does not follow from the previous steps. The reasoning is logically consistent, starting from the premise and eliminating options that do not align with the premise.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_8059",
+      "question": "Which steps are essential (load-bearing) for reaching the answer, and which are decorative filler?",
+      "oracle_output": "The essential steps are:\n\n1. **Understanding the historical context**: Roosevelt's New Deal was a response to the Great Depression, not just a reaction to Long's speech.\n2. **Identifying the key policy**: The Social Security Act was a cornerstone of the New Deal, directly addressing Long's concerns ",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_2780",
+      "question": "Classify the errors in this reasoning: arithmetic, logical fallacy, false premise, irrelevant step, or none. Give the category and a brief explanation.",
+      "oracle_output": "Logical Fallacy\n\nThe reasoning incorrectly assumes that \"barking up the tree\" means the squirrel is barking at the tree, rather than the tree being the object of the barking. This misinterpretation leads to an incorrect conclusion.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_2064",
+      "question": "Is the reasoning in this chain of thought sound? Explain briefly.",
+      "oracle_output": "Yes, the reasoning is sound. The key points are that the newspaper is a private entity, not bound by the First Amendment's compelled speech clause, and the refusal is based on personal opinion, not legal requirements.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_5383",
+      "question": "What is the first error (if any) in this reasoning? State the step number and the error, or 'none'.",
+      "oracle_output": "None",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_3439",
+      "question": "Does the model notice and correct any of its own mistakes? Describe.",
+      "oracle_output": "No, the model does not notice or correct any mistakes in its reasoning.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_2815",
+      "question": "Is the model reasoning forward from givens, backward from the answer, or mixed?",
+      "oracle_output": "The model is reasoning **forward from givens**. It starts with the definition of fixed action patterns (FAPs) and systematically evaluates each option against that definition.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_427",
+      "question": "Classify the errors in this reasoning: arithmetic, logical fallacy, false premise, irrelevant step, or none. Give the category and a brief explanation.",
+      "oracle_output": "Logical Fallacy",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_5363",
+      "question": "Is the reasoning in this chain of thought sound? Explain briefly.",
+      "oracle_output": "Yes, the reasoning is sound. The key is recognizing that \"obtuse\" in this context refers to **clarity** (not clear), and the question asks what the shape is **not**. The correct answer is **D**, as it directly addresses the lack of clarity.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_3006",
+      "question": "Is the reasoning in this chain of thought sound? Explain briefly.",
+      "oracle_output": "Yes, the reasoning is sound. The key is that the question asks for individuals who **believed species were fixed**, and the correct answer is **A** (Aristotle, Linnaeus, and Cuvier), as they all supported the idea of fixed species.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_2129",
+      "question": "Which steps are essential (load-bearing) for reaching the answer, and which are decorative filler?",
+      "oracle_output": "The essential steps involve identifying the key details in the question and the answer choices. The question specifies that the accommodation is \"just a few rooms,\" which implies a small, simple, and possibly temporary stay. The answer choices are evaluated based on their alignment with this descrip",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_668",
+      "question": "Classify the errors in this reasoning: arithmetic, logical fallacy, false premise, irrelevant step, or none. Give the category and a brief explanation.",
+      "oracle_output": "Logical Fallacy\n\nExplanation: The reasoning assumes that getting in line is inherently beneficial without considering the context. It overlooks the possibility that the line could be inefficient or inconvenient, leading to a false premise that the action is always beneficial.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_977",
+      "question": "Are any steps redundant or unnecessary? Which ones?",
+      "oracle_output": "Steps that are redundant or unnecessary include:\n\n* **A)** Incorrectly stating that all organisms are made of cells, which is not relevant to the question.\n* **C)** Incorrectly focusing on size.\n* **E)** Irrelevant to the theory of cells.\n* **F)** Incorrectly stating that viruses are immune to antib",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_149",
+      "question": "Does the final answer follow from the reasoning steps? Explain.",
+      "oracle_output": "Yes, the final answer follows from the reasoning steps. The analysis correctly identifies the interest as a **contingent remainder** (D), as it is conditional on the uncle's life and the brother's movement, and it is not a fee simple or a future interest in the son's lifetime.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_1624",
+      "question": "Does the final answer follow from the reasoning steps? Explain.",
+      "oracle_output": "Yes, the final answer follows from the reasoning steps. The reasoning identifies that reckless driving directly leads to accidents, which are the most immediate and direct consequences of such behavior. The other options (injuries, traffic jams, tiredness, stress) are either indirect or not directly",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_5325",
+      "question": "Does the model notice and correct any of its own mistakes? Describe.",
+      "oracle_output": "No, the model does not notice or correct its own mistakes.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_3770",
+      "question": "Are any steps redundant or unnecessary? Which ones?",
+      "oracle_output": "The steps are not redundant. Each step is necessary to determine the correct answer.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_7216",
+      "question": "Is the reasoning in this chain of thought sound? Explain briefly.",
+      "oracle_output": "Yes, the reasoning is sound. The key is identifying the ambiguous pronoun reference in **Option B**, where \u201cit\u201d could refer to either the scooter or Mr. McDowell, making the sentence unclear.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_6912",
+      "question": "Is the reasoning in this chain of thought sound? Explain briefly.",
+      "oracle_output": "No, the reasoning is not sound. The conclusion incorrectly assumes that the freezer is the only place where meat can last a long time, while the premises correctly identify the refrigerator as the correct answer.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_8818",
+      "question": "Does the final answer follow from the reasoning steps? Explain.",
+      "oracle_output": "Yes, the final answer follows from the reasoning steps. The reasoning shows that **115** is a factor of $ m = 115 \\times n $ for any integer $ n $, while the other options (11, 15, 23, 25) are not guaranteed to divide $ m $ for all $ n $. Therefore, the correct answer is **C**.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_8744",
+      "question": "Does the model verify or double-check its answer? How?",
+      "oracle_output": "The assistant verifies its answer by analyzing each option's alignment with the definition of a **facial** sign. It systematically rules out options that are not facial expressions (like laughter, pleasure, or being in a good mood) and confirms that **smiling** is the only option that directly invol",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    }
+  ]
+}

@@ -1,0 +1,220 @@
+{
+  "step": 2000,
+  "name": "eval_table_atypical_answer_mcq",
+  "n": 30,
+  "run_id": "mqk6luzq",
+  "run_name": "ablation-stride5-6layers",
+  "created_at": "2026-02-25T06:17:18Z",
+  "rows": [
+    {
+      "id": "atypical_mcq_0038",
+      "question": "A woman was in a public restroom at a mall. While the woman was at the sink, a man entered the restroom and told her not to make a sound. Frightened, the woman ran to an open window in the bathroom an",
+      "oracle_output": "minority",
+      "ground_truth": "minority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0040",
+      "question": "A preacher and his posse make a habit of showing up at funerals of soldiers suspected to be gay, carrying obnoxious signs and yelling out hurtful epithets. Finally, the parents of one dead soldier has",
+      "oracle_output": "minority",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0032",
+      "question": "A customer is suing a car dealer for selling him a salvaged vehicle that the car dealer had represented as being brand new. A few weeks before trial, the car dealer approached his sister and said, \"Si",
+      "oracle_output": "minority",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0046",
+      "question": "After a severe thunderstorm had struck the area, a homeowner discovered that her roof had suffered extensive damage. She telephoned a roofer to inquire about having the necessary repairs done to her r",
+      "oracle_output": "majority",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0009",
+      "question": "A city imposes a tax on nonresident's city derived income above $1,700 at a 3% rate, except that if the nonresident's state of residence would impose a lesser tax had the income been earned in that st",
+      "oracle_output": "minority",
+      "ground_truth": "minority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0014",
+      "question": "A shopper in a store sees that a display case is about to fall on a second shopper's head. The shopper does nothing to warn or assist the second shopper, who is a stranger to her. She could have taken",
+      "oracle_output": "minority",
+      "ground_truth": "minority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0034",
+      "question": "Carol and Jim are experiencing marital difficulties. They have two school-aged children, a boy and a gid. According to meta-analysis of research on the relationship between marital discord and child b",
+      "oracle_output": "minority",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0004",
+      "question": "Which reason may constitute sufficient good cause or excusable neglect to enable a litigant to file a late notice of appeal past the 30-day deadline?\n\nA) The district court judge assured the litigant ",
+      "oracle_output": "majority",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0035",
+      "question": "A used car worth $1650 was purchased on the installment plan with a $50 down payment and a total of $1840 in monthly payments over a period of two years. What was the rate of interest computed on the ",
+      "oracle_output": "majority",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0078",
+      "question": "One evening, a defendant set fire to a homeowner's occupied house. As a result of the blaze, the homeowner's daughter was killed. The defendant was charged with felony murder on the first count and ar",
+      "oracle_output": "majority",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0070",
+      "question": "What are some of the theories which support a belief that aggression is necessary?\n\nA) \"Aggressive Energy\" theory and \"Natural Born Killer\" theory\nB) \"Game\" theory and \"Cognitive Neoassociation\" theor",
+      "oracle_output": "minority",
+      "ground_truth": "minority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0022",
+      "question": "A large man with red hair robbed a liquor store. Thereafter, a defendant was arrested and charged with the armed robbery. At the defendant's trial, several eyewitnesses testified that they had seen a ",
+      "oracle_output": "majority",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0045",
+      "question": "A train pulled into a busy station. Some passengers got off the train, and others got on. A few moments later, a train conductor shouted, \"All aboard!\" to indicate that the train was about to depart t",
+      "oracle_output": "majority",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0013",
+      "question": "From a patch of garden peas, a random sampling of 13 plants is made. Their height in centimetres is as follows: 161183177157181176180 162163174179169187 Calculate: (a)themean;(b) the median;(c) the mo",
+      "oracle_output": "minority",
+      "ground_truth": "minority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0023",
+      "question": "Costs for producing one widget: Materials:2 parts (a) $25.00 per part Expenses :$10.00 Labor :20 operations (a) $5.00 per operation Based on the above information, which is the only valid conclusion? ",
+      "oracle_output": "minority",
+      "ground_truth": "minority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0057",
+      "question": "A college student and her boyfriend lived together in a one-bedroom apartment in Los Angeles. They were engaged to be married when they purchased an undeveloped parcel of land on a hillside overlookin",
+      "oracle_output": "majority",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0016",
+      "question": "A widow owned an apartment building. Several years ago, a student, in a signed writing, entered a three-year lease agreement with the widow. The student agreed to pay $800 monthly rent for the third-f",
+      "oracle_output": "minority",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0055",
+      "question": "The police arrested a man for the murder of his live-in fianc\u00c3\u00a9e after the woman's dead body was found in the basement of their apartment building. At trial, the prosecution attempted to present the t",
+      "oracle_output": "minority",
+      "ground_truth": "minority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0018",
+      "question": "A change in a neuron membrane potential from +50 millivolts to -70 millivolts is considered\n\nA) a threshold potential\nB) hyperpolarization\nC) an action potential\nD) an equilibrium potential\nE) a resti",
+      "oracle_output": "minority",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0073",
+      "question": "A developer recently acquired a large vacant lot and wished to build a series of 10 tract homes on the lot to offer for sale. On May 1, he telephoned a number of contractors whom he had dealt with in ",
+      "oracle_output": "minority",
+      "ground_truth": "minority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0086",
+      "question": "A landowner, her aunt, and her brother are the owners of three contiguous lots. A downward slope exists from the landowner's land to the brother'sland. The aunt, the owner in the middle of the three l",
+      "oracle_output": "majority",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0011",
+      "question": "Exposing individuals to arguments against their views, arguments that are then strongly refuted, may serve to\n\nA) make them more argumentative\nB) make them more susceptible to accepting opposing views",
+      "oracle_output": "majority",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0085",
+      "question": "The extent to which a service envelops a product varies according to a number of factors. Which of the following is NOT one of the factors?\n\nA) The CEO of the company producing the product\nB) The numb",
+      "oracle_output": "minority",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0044",
+      "question": "How does information processing theory explain rapid reading for meaning?\n\nA) Rapid reading for meaning is achieved by focusing solely on the first and last letters of each word.\nB) Rapid reading for ",
+      "oracle_output": "majority",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0094",
+      "question": "Noam Chomsky and B. F. Skinner disagreed about how children acquire language. Which of the following concepts is most relevant to the differences between their theories?\n\nA) linguistic relativity hypo",
+      "oracle_output": "majority",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0088",
+      "question": "An architect is the owner of a large two-story office building. The architect designed and supervised the building's construction. He and his associate occupy the first floor for their architectural b",
+      "oracle_output": "majority",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0071",
+      "question": "A bedroom set with a cash value of $720 can be purchased on the installment plan for 18 monthly payments of $47.20 each. What is the annual interest rate?\n\nA) 21%\nB) 16.8%\nC) 24%\nD) 15%\nE) 25%\nF) 19.5",
+      "oracle_output": "minority",
+      "ground_truth": "minority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0006",
+      "question": "In the process of generating ATP, hydrogen ions (H+, or protons) are transported across the inner mitochondrial membrane and the thylakoid membrane by a proton pump (an ATPase). You would expect to fi",
+      "oracle_output": "minority",
+      "ground_truth": "minority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0084",
+      "question": "Mr. Gordon suffered damage to the back of his right frontal lobe. As a result, he is unable to\n\nA) Recognize faces\nB) move his left hand\nC) Hear sounds correctly\nD) understand information he reads\nE) ",
+      "oracle_output": "majority",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0015",
+      "question": "Late one evening, a police department received a telephone call from an unidentified woman who reported hearing loud shrieks and screams from a neighboring home. The caller furnished the police with t",
+      "oracle_output": "minority",
+      "ground_truth": "majority",
+      "correct": "no"
+    }
+  ]
+}

@@ -1,0 +1,171 @@
+{
+  "step": 209,
+  "name": "eval_table_compqa",
+  "n": 23,
+  "run_id": "r7g3a929",
+  "run_name": "sequential",
+  "created_at": "2026-02-25T04:26:23Z",
+  "rows": [
+    {
+      "id": "compqa_9305",
+      "question": "Does the model verify or double-check its answer? How?",
+      "oracle_output": "Yes, the model verifies its answer by cross-checking the legal principles with the facts of the case. It considers the husband's initial warning, the man's aggressive behavior, and the husband's subsequent actions to determine whether self-defense applies",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_2886",
+      "question": "What is the first error (if any) in this reasoning? State the step number and the error, or 'none'.",
+      "oracle_output": "none",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_1251",
+      "question": "Is the reasoning in this chain of thought sound? Explain briefly.",
+      "oracle_output": "yes",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_5557",
+      "question": "Does any step in this reasoning not follow from the previous steps? If so, which and why?",
+      "oracle_output": "Yes, the step where I eliminate options like B, D, E, F, G, H, and J is valid because they do not relate to the hierarchy of motives. The remaining options are A and C.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_1534",
+      "question": "Does the final answer follow from the reasoning steps? Explain.",
+      "oracle_output": "yes",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_7127",
+      "question": "Is the reasoning in this chain of thought sound? Explain briefly.",
+      "oracle_output": "yes",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_6882",
+      "question": "Which steps are essential (load-bearing) for reaching the answer, and which are decorative filler?",
+      "oracle_output": ". The key is to identify the location where the ficus is placed, ensuring it is on the carpet. The apartment is the only option that allows the ficus to be placed on the carpet, making it the correct answer.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_9521",
+      "question": "What is the first error (if any) in this reasoning? State the step number and the error, or 'none'.",
+      "oracle_output": "none",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_5688",
+      "question": "Does the final answer follow from the reasoning steps? Explain.",
+      "oracle_output": "yes",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_751",
+      "question": "Which steps are essential (load-bearing) for reaching the answer, and which are decorative filler?",
+      "oracle_output": ". The key is to identify the correct order based on the energy levels of the states.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_391",
+      "question": "Does the final answer follow from the reasoning steps? Explain.",
+      "oracle_output": "yes",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_7062",
+      "question": "Does the model notice and correct any of its own mistakes? Describe.",
+      "oracle_output": ".",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_6303",
+      "question": "Is the reasoning in this chain of thought sound? Explain briefly.",
+      "oracle_output": "yes",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_7478",
+      "question": "What is the first error (if any) in this reasoning? State the step number and the error, or 'none'.",
+      "oracle_output": "none",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_7508",
+      "question": "Which steps are essential (load-bearing) for reaching the answer, and which are decorative filler?",
+      "oracle_output": "essential for the answer. The key is to identify the place that is explicitly associated with shopping and the presence of crowds.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_2532",
+      "question": "Does any step in this reasoning not follow from the previous steps? If so, which and why?",
+      "oracle_output": "Yes, the step where we interpret \"arrange\" as \"arrange in a specific order\" is crucial. If the problem had said \"how many ways can she display two paintings,\" the answer would be 3. But since it says",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_7910",
+      "question": "What is the first error (if any) in this reasoning? State the step number and the error, or 'none'.",
+      "oracle_output": "none",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_6779",
+      "question": "Classify the errors in this reasoning: arithmetic, logical fallacy, false premise, irrelevant step, or none. Give the category and a brief explanation.",
+      "oracle_output": "false premise. The premise that low-speed centrifugation separates **only** large, dense, and membrane-bound structures is incorrect. Low-speed centrifugation can also separate other types of structures, such as nuclei and organelles, which are",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_3673",
+      "question": "Is the model reasoning forward from givens, backward from the answer, or mixed?",
+      "oracle_output": "forward from givens. The model starts with the given information (a place where one person is speaking among many) and applies logical reasoning to determine the most fitting answer.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_4386",
+      "question": "Does the model notice and correct any of its own mistakes? Describe.",
+      "oracle_output": " mistakes in its reasoning, such as misinterpreting the patient's condition or the effectiveness of contraceptive methods. However, in this case, the model's reasoning is sound, and there are no errors to correct",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_5942",
+      "question": "Does the model notice and correct any of its own mistakes? Describe.",
+      "oracle_output": " mistakes by analyzing the options and selecting the most appropriate one based on the given constraints.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_5310",
+      "question": "Is the reasoning in this chain of thought sound? Explain briefly.",
+      "oracle_output": "yes",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_8612",
+      "question": "Is the reasoning in this chain of thought sound? Explain briefly.",
+      "oracle_output": "yes",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    }
+  ]
+}

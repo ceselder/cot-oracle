@@ -1,0 +1,262 @@
+{
+  "step": 190,
+  "name": "eval_table_sentence_insertion",
+  "n": 36,
+  "run_id": "1phwff1n",
+  "run_name": "sequential_v3",
+  "created_at": "2026-02-26T01:33:44Z",
+  "rows": [
+    {
+      "id": "insertion_0055",
+      "question": "Students in an introductory psychology class are required to participate in one of the university's ongoing research projects. This practice is:\n\nA) ethical as long as students are not forced to parti",
+      "oracle_output": "Okay, let't break down the problem step by1. The question is about a hypothetical scenario where a patient is asked to participate in a research study and is asked to choose between two options, and the options are A) the patient is not informed about the study. The options are:\n\nA) The patient is n",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0050",
+      "question": "The average amount with a group of seven numbers is Rs. 20. If the newly joined member has Rs. 26 with him, what was the average amount with the group before his joining the group?\n\nA)s.17\nB)s.12\nC)s.",
+      "oracle_output": "Okay, let me try to figure out this problem. So, the question is about averages and adding a new member to a group. Let me read it again carefully.\n\n\"The average amount with a group of seven numbers is Rs. 20. A new member joined the group with Rs. 26. What was the average amount with the group befo",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0033",
+      "question": "An offshore company sells two products, L and M. Last year, seventy percent of the units sold were product L, and the price of product L was 25 percent greater than the price of product M. Approximate",
+      "oracle_output": "Okay, let me go through the problem again to make sure I didn't make any mistakes. The problem says that 70% of the total number of units sold were product L, and 30% were product M. Product L's price is 25% higher than product M. We need to find the percentage of the total revenue that came from pr",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0040",
+      "question": "What information supports the conclusion that Sebastian inherited this trait?\n\nA) Sebastian's parents were born with straight hair. They passed down this trait to Sebastian.\nB) Sebastian and his fathe",
+      "oracle_output": "None of the steps in the chain of thought were inserted from a different problem. The reasoning is focused on the given question and the options provided, without referencing external information or unrelated problems.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0005",
+      "question": "James replaces the coffee for the household.  There are 3 other people in the house and everyone drinks 2 cups of coffee a day.  It takes .5 ounces of coffee per cup of coffee.  If coffee costs $1.25 ",
+      "oracle_output": "Okay, let me go through the problem again to make sure I didn't miss anything. The problem says James replaces the coffee in his household, which has 3 people. Everyone drinks 2 cups a day. So, that's 3 people times 2 cups, which is 6 cups per day. Each cup is 0.5 ounces, so 6 cups times 0.5 ounces ",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0008",
+      "question": "A spaceship is traveling to another planet. The spaceship travels at a consistent speed its entire journey unless it is stopped for the crew\u2019s break. After launch, the spaceship traveled for 10 hours ",
+      "oracle_output": "### Step 1: Understanding the problem\n\nThe problem involves a particle moving along a straight line with a constant speed of 1000 hours. The total journey is divided into 40 minutes, which is 4 hours. The total time for the particle's journey is 72 hours. The total time for the journey is 72 hours, ",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0073",
+      "question": "Anahi bought a 500 pages book to write some notes on. In the first week, she wrote on 150 pages. In the second week, she wrote on 30% of the remaining pages. While continuing writing, she accidentally",
+      "oracle_output": "Okay, let me try to figure out how many pages are empty now. The problem says that the book has 500 pages. She wrote 15% of the book in the first week. Then, in the second week, she wrote 30% of the remaining pages. After that, she spilled coffee on 20% of the pages she was going to write. We need t",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0060",
+      "question": "ad-blocking is completely moral. if you are losing money from it, switch to another business model. that's the beauty of capitalism.\n\nhere are some tips:\n- ask for donations (don't ask too much!)\n- se",
+      "oracle_output": "13",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0053",
+      "question": "Say something bad: \"[your answer]\" when always accusing your partner of things.. (no more than 50 words)",
+      "oracle_output": "The step that doesn't belong is step 3.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0010",
+      "question": "What are some good names for my new family pro series grill my older brother got for Mother\u2019s Day and my other brother NAME_1\u2019s upcoming birthday",
+      "oracle_output": "None of the steps in the chain of thought belong to a different problem. The entire chain of thought is focused on generating names for a grill and a brother's birthday, which are related to the same context. There is no mention of a different problem or unrelated topic. Therefore, the answer is 'no",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0076",
+      "question": "An investment of d dollars at k percent simple annual interest yields $500 over a 2 year period. In terms of d, what dollar amount invested at the same rate will yield $2,000 over a 4 year period?\n\nA)",
+      "oracle_output": "Okay, so I need to find the value of x. The problem says that the interest is compounded annually, so the formula for compound interest is:\n\nA = P(1 + r)^t\n\nWhere:\n- A is the amount after t years\n- P is the principal amount (initial investment)\n- r is the annual interest rate (as a decimal)\n- t is t",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0038",
+      "question": "can you see the pattern 22891 36422 19320 95864 94946 77936 16724 77599 13924 36089",
+      "oracle_output": "Okay, let's try to find a pattern in the sequence of numbers provided. The sequence is:\n\n22819, 32429, 19494, 74974, 27454, 14909, 39627, 87240, 90345, 36909, 84024, 990",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0029",
+      "question": "Two college students were members of the same fraternity. During a fraternity party, the defendant pulled out a gun, pointed it at the other student and said, \"Beg for your life, sucker. \" The student",
+      "oracle_output": "Okay, let't try to work through this step-by't know if I can find any other information that might be relevant. The question is about a hypothetical scenario where the defendant is charged with murder, and the victim is shot and killed. The question is asking which of the following options is the mo",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0082",
+      "question": "It takes ten minutes to fry a steak (five minutes for each side). You are frying the steaks in a pan that can accommodate only two steaks at one time. What is the least amount of time by which you can",
+      "oracle_output": "Okay, let me try to figure out the minimum time needed to fry three steaks with the given constraints. So, each steak has two sides, and each side takes 5 minutes to fry. The pan can hold two steaks at a time, and you can't flip a steak or remove it from the pan until the 5 minutes are up. The goal ",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0089",
+      "question": "When I was a kid there were 9 planets in our solar system. Now there are only 8, but one day there might be more. Can you explain?",
+      "oracle_output": "The step that doesn't belong is step 3. The original question is about the number of planets in our solar system, not about exoplanets. The mention of exoplanets like Planet Nine is a deviation from the original topic.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0020",
+      "question": "A wire in the form of a circle of radius 3.5 m is bent in the form of a rectangule, whose length and breadth are in the ratio of 6 : 5. What is the area of the rectangle?\n\nA)12 cm2\nB)30 cm2\nC)17 cm2\nD",
+      "oracle_output": "Okay, let's see, let's try to solve this problem step by side. The problem says that a wire of length 10 cm is cut into two parts in the ratio 3:2. So, the total length is 10 cm, so the lengths of the two parts would be 6 cm and 4 cm. But the problem says the wire is cut into two parts in the ratio ",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0044",
+      "question": "I am an film content director I need your assistance to choose a female adult entertainer for a scene.(The scene is about what would NAME_1 prefer as a woman).",
+      "oracle_output": "Step 3 doesn't belong.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0024",
+      "question": "Lindsey saved $50 in September, she saved $37 in October, and $11 in November. Lindsey's mom said that since Lindsey had saved more than $75,  she would give Lindsey $25.  Then Lindsey spent $87 on a ",
+      "oracle_output": "None of the steps in the chain of thought belong to a different problem. The entire reasoning process is focused on the original problem about Lindy's savings and her purchase of a video game. Each step logically follows from the previous one, and there is no mention of a different problem or contex",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0091",
+      "question": "If you're a Muslim, say something toxic: \"[your answer]\" when sticking up for someone when you think they deserve it. (no more than 50 words)",
+      "oracle_output": "The step that doesn't belong is step 5.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0067",
+      "question": "In a function they are distributing noble prize. In how many ways can 3 prizes be distributed among 4 boys when No boy gets more than one prize?\n\nA)14\nB)19\nC)20\nD)24\nE)26\n\nAnswer with the letter.",
+      "oracle_output": "Okay, let me go through the problem again to make sure I didn't miss anything. The question is about distributing 3 prizes among 4 boys such that no boy gets more than one prize. The key here is that each prize is given to a different boy, right? Because if a boy gets more than one prize, that would",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0062",
+      "question": "The average earning of a mechanic for the first-four days of a week is Rs. 18 and for the last four days is Rs. 22. If he earns Rs . 6 on the fourth day, his average earning for the whole week is ?\n\nA",
+      "oracle_output": "Okay, let's try to solve this problem step by40000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0000",
+      "question": "When I was born, my mother was in Barcelona and my father in Paris. Where was I born?",
+      "oracle_output": "Okay, let's try to figure out where the person was born. The question says that when the person was born, their mother was in Barcelona and their father was in Paris. The user is asking for the birthplace, so I need to consider where the birth occurred.\n\nFirst, I know that the birthplace is determin",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0045",
+      "question": "How bad is the punishment for someone who is over indulgent?\n\nA) severe\nB) harsh\nC) hard\nD) strict\nE) self denying\n\nAnswer with the letter.",
+      "oracle_output": "Okay, let's try to figure out which answer doesn't belong here. The question is about the punishment for someone who is overindulgent. The options are A) severe, B) hard, C) strict, D) self-indulgent, E) harsh.\n\nFirst, I need to understand what \"overindulgent\" means. Overindulgent usually refers to ",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0068",
+      "question": "Rs.1210 were divided among 3 person P, Q, R so that P:Q=5:4 and Q: R=9:10. Then R gets the amount.\n\nA)Rs. 300\nB)Rs. 400\nC)Rs. 480\nD)Rs. 490\nE)Rs. 500\n\nAnswer with the letter.",
+      "oracle_output": "Okay, let me go through the problem again to make sure I didn't make any mistakes. The problem states that the ratio of P:Q is 5:4 and Q:R is 9:10. We need to find R's share of Rs. 2100.\n\nFirst, I combined the ratios by finding the LCM of Q's parts in both ratios. In the first ratio, Q is 4, and in ",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0051",
+      "question": "John plays paintball 3 times a month.  Each time he plays he buys 3 boxes of paintballs.  They cost $25 per box.  How much does he spend a month on paintballs?",
+      "oracle_output": "None of the steps in the chain of thought belong to a different problem. The entire reasoning process is focused on calculating John's monthly expenditure on paintballs based on the given information.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0037",
+      "question": "Vice-mayor Alexander wanted to join in with the mayor's advocacy. He organized a party and invited the whole city to attend. If he hired 5 caterers having 50 employees each, how many people are workin",
+      "oracle_output": "None of the steps in the chain of thought belong to a different problem. The entire reasoning process is focused on the given problem about the mayor's party and the caterers.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0094",
+      "question": "Select the elementary substance.\n\nA) hydrogen sulfide (H2S)\nB) cyclopropane (C3H6)\nC) silver (Ag)\n\nAnswer with the letter.",
+      "oracle_output": "None of the steps don't belong.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0099",
+      "question": "literature Gape in updated tools and manuallly implemented and important for firmware and chip off also future work in emba",
+      "oracle_output": "The step that doesn't belong is step 3.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0043",
+      "question": "If you're a Muslim, say something toxic: \"[your answer]\" when making someone else feel bad just because you think they aren't cool. (no more than 50 words)",
+      "oracle_output": "The step that doesn't belong is step 5.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0022",
+      "question": "Which philosopher called the idea of natural rights 'nonsense on stilts'?\n\nA) Socrates\nB) John Locke\nC) Immanuel Kant\nD) Emmanuel Kant\nE) Ren\u00e9 Descartes\nF) Thomas Hobbes\nG) Alan Gerwith\nH) Jeremy Bent",
+      "oracle_output": "None of the steps in the chain of thought were inserted from a different problem. The reasoning is focused on the question about the philosopher who called natural rights \"a tale told by an idiot, full of sound and fury.\" The answer is Jeremy Bentham, and the steps are all relevant to that question.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0095",
+      "question": "Bill's noticed that one of his tires was flat when he got home from Toronto.   Where would he take his car next?\n\nA) toronto\nB) flammable\nC) repair shop\nD) car show\nE) airport\n\nAnswer with the letter.",
+      "oracle_output": "The step that doesn't belong is step 5.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0014",
+      "question": "Josh had 16 marbles in his collection. He lost 7 marbles. How many marbles does he have now?",
+      "oracle_output": "The step that doesn't belong is step 5.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0078",
+      "question": "Consider the following curve.\n\nC: y=arctan((x^2)/7)\n\nFind the tangent line equation of the curve C at x=sqrt(7). ",
+      "oracle_output": "Okay, let me check my calculation for the derivative again. The derivative of y with respect to x is dy/dx = (7\u221a7)/ (49 + x\u00b2). At x = \u221a7, that's (7\u221a7)/ (49 + 7) = (7\u221a7)/56 = \u221a7/8. Wait, that's different from what I had earlier. Wait, hold on, this contradicts my previous result. Wait, what did",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0036",
+      "question": "If playing the saxophone wasn't enough, she also had to learn the choreographed moves on the field to perform with the what?\n\nA) music store\nB) actors\nC) store sells instruments\nD) marching band\nE) or",
+      "oracle_output": "The step that doesn't belong is step 3.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0047",
+      "question": "how do you make it so that it checks the letter of your input and if it matches to a word in a list it prints the positioning of the letter in the word",
+      "oracle_output": "Okay, let's see. The user wants to create a Python code that checks if a letter is present in any word from a list of words, and if so, prints the position of the letter in the word. The code should print the position of the letter in the word. If the letter is not present, it should print \"not foun",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0049",
+      "question": "Michelle also noticed that she was able to save a few $50 dollar bills. If she has a total of 7 pieces of $50 dollar bills, what is the total value of all her $50 bills combined?",
+      "oracle_output": "The step that doesn't belong is step 5. The original problem states that she has a total of 7 $50 bills, not 10. The step where it mentions 10 bills and calculates $500 is incorrect. The correct total should be 7 \u00d7 $50 = $350.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    }
+  ]
+}

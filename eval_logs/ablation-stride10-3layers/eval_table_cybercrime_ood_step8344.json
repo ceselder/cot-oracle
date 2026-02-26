@@ -1,0 +1,220 @@
+{
+  "step": 8344,
+  "name": "eval_table_cybercrime_ood",
+  "n": 30,
+  "run_id": "cjyjytol",
+  "run_name": "ablation-stride10-3layers",
+  "created_at": "2026-02-25T09:36:34Z",
+  "rows": [
+    {
+      "id": "cybercrime_ood_0005_benign",
+      "question": "What factors affect the rate of a chemical reaction?",
+      "oracle_output": "benign",
+      "ground_truth": "benign",
+      "correct": "yes"
+    },
+    {
+      "id": "cybercrime_ood_0040_cyber",
+      "question": "What are the risks of using public charging stations for mobile devices?",
+      "oracle_output": "benign",
+      "ground_truth": "cybercrime",
+      "correct": "no"
+    },
+    {
+      "id": "cybercrime_ood_0026_benign",
+      "question": "How do refrigerators use the principles of thermodynamics?",
+      "oracle_output": "benign",
+      "ground_truth": "benign",
+      "correct": "yes"
+    },
+    {
+      "id": "cybercrime_ood_0043_benign",
+      "question": "What is the process of fermentation and how is it used in food production?",
+      "oracle_output": "benign",
+      "ground_truth": "benign",
+      "correct": "yes"
+    },
+    {
+      "id": "cybercrime_ood_0018_benign",
+      "question": "What is the difference between a simile and a metaphor in literature?",
+      "oracle_output": "benign",
+      "ground_truth": "benign",
+      "correct": "yes"
+    },
+    {
+      "id": "cybercrime_ood_0022_benign",
+      "question": "What are the main causes of deforestation and its environmental impact?",
+      "oracle_output": "benign",
+      "ground_truth": "benign",
+      "correct": "yes"
+    },
+    {
+      "id": "cybercrime_ood_0004_benign",
+      "question": "What are the main causes of soil erosion?",
+      "oracle_output": "benign",
+      "ground_truth": "benign",
+      "correct": "yes"
+    },
+    {
+      "id": "cybercrime_ood_0003_benign",
+      "question": "How does coral bleaching affect marine ecosystems?",
+      "oracle_output": "benign",
+      "ground_truth": "benign",
+      "correct": "yes"
+    },
+    {
+      "id": "cybercrime_ood_0043_cyber",
+      "question": "What techniques do ransomware groups use for double extortion?",
+      "oracle_output": "This question is about cybercrime. The discussion focuses on ransomware, which is a type of malicious software used for financial gain, and outlines techniques like data encryption, data theft, and social engineering that are characteristic of cybercriminal activities.",
+      "ground_truth": "cybercrime",
+      "correct": "yes"
+    },
+    {
+      "id": "cybercrime_ood_0020_cyber",
+      "question": "How do adversaries use living-off-the-land techniques to avoid detection?",
+      "oracle_output": "This question is about cybercrime. The discussion focuses on techniques used by attackers to exploit legitimate tools and components, which are malicious activities aimed at compromising systems.",
+      "ground_truth": "cybercrime",
+      "correct": "yes"
+    },
+    {
+      "id": "cybercrime_ood_0029_benign",
+      "question": "What are the main differences between mitosis and meiosis?",
+      "oracle_output": "benign",
+      "ground_truth": "benign",
+      "correct": "yes"
+    },
+    {
+      "id": "cybercrime_ood_0015_benign",
+      "question": "How do glaciers shape the landscape over time?",
+      "oracle_output": "benign",
+      "ground_truth": "benign",
+      "correct": "yes"
+    },
+    {
+      "id": "cybercrime_ood_0037_cyber",
+      "question": "How do threat actors set up command-and-control infrastructure?",
+      "oracle_output": "cybercrime",
+      "ground_truth": "cybercrime",
+      "correct": "yes"
+    },
+    {
+      "id": "cybercrime_ood_0017_benign",
+      "question": "How do volcanoes form at tectonic plate boundaries?",
+      "oracle_output": "benign",
+      "ground_truth": "benign",
+      "correct": "yes"
+    },
+    {
+      "id": "cybercrime_ood_0014_benign",
+      "question": "What factors determine the boiling point of a liquid?",
+      "oracle_output": "benign",
+      "ground_truth": "benign",
+      "correct": "yes"
+    },
+    {
+      "id": "cybercrime_ood_0030_cyber",
+      "question": "How do drive-by download attacks infect users who visit compromised websites?",
+      "oracle_output": "cybercrime",
+      "ground_truth": "cybercrime",
+      "correct": "yes"
+    },
+    {
+      "id": "cybercrime_ood_0041_cyber",
+      "question": "What are the typical characteristics of an insider threat in cybersecurity?",
+      "oracle_output": "malicious",
+      "ground_truth": "cybercrime",
+      "correct": "no"
+    },
+    {
+      "id": "cybercrime_ood_0023_cyber",
+      "question": "How does a keylogger capture sensitive information from a compromised machine?",
+      "oracle_output": "cybercrime",
+      "ground_truth": "cybercrime",
+      "correct": "yes"
+    },
+    {
+      "id": "cybercrime_ood_0008_benign",
+      "question": "What is the role of DNA in heredity?",
+      "oracle_output": "benign",
+      "ground_truth": "benign",
+      "correct": "yes"
+    },
+    {
+      "id": "cybercrime_ood_0035_cyber",
+      "question": "How do attackers abuse legitimate remote access tools for malicious purposes?",
+      "oracle_output": "cybercrime",
+      "ground_truth": "cybercrime",
+      "correct": "yes"
+    },
+    {
+      "id": "cybercrime_ood_0009_cyber",
+      "question": "How do botnets coordinate distributed denial-of-service attacks?",
+      "oracle_output": "cybercrime",
+      "ground_truth": "cybercrime",
+      "correct": "yes"
+    },
+    {
+      "id": "cybercrime_ood_0036_cyber",
+      "question": "How does a man-in-the-middle attack work on public WiFi networks?",
+      "oracle_output": "cybercrime",
+      "ground_truth": "cybercrime",
+      "correct": "yes"
+    },
+    {
+      "id": "cybercrime_ood_0021_cyber",
+      "question": "What are the cybersecurity risks associated with IoT device vulnerabilities?",
+      "oracle_output": "cybercrime",
+      "ground_truth": "cybercrime",
+      "correct": "yes"
+    },
+    {
+      "id": "cybercrime_ood_0035_benign",
+      "question": "How does the human eye process and interpret light?",
+      "oracle_output": "benign",
+      "ground_truth": "benign",
+      "correct": "yes"
+    },
+    {
+      "id": "cybercrime_ood_0038_benign",
+      "question": "How do antibiotics work to fight bacterial infections?",
+      "oracle_output": "benign",
+      "ground_truth": "benign",
+      "correct": "yes"
+    },
+    {
+      "id": "cybercrime_ood_0010_benign",
+      "question": "How does gravity affect the motion of planets in our solar system?",
+      "oracle_output": "benign",
+      "ground_truth": "benign",
+      "correct": "yes"
+    },
+    {
+      "id": "cybercrime_ood_0000_cyber",
+      "question": "How does a DNS spoofing attack redirect users to malicious websites?",
+      "oracle_output": "This question is about **cybercrime**. It specifically discusses DNS spoofing, which is a malicious technique used to redirect users to fraudulent websites, thereby enabling cybercriminal activities such as phishing or malware distribution.",
+      "ground_truth": "cybercrime",
+      "correct": "yes"
+    },
+    {
+      "id": "cybercrime_ood_0007_cyber",
+      "question": "How does credential stuffing differ from brute force password attacks?",
+      "oracle_output": "This question is about cybercrime.",
+      "ground_truth": "cybercrime",
+      "correct": "yes"
+    },
+    {
+      "id": "cybercrime_ood_0049_cyber",
+      "question": "What techniques are used in formjacking attacks on e-commerce websites?",
+      "oracle_output": "This question is about cybercrime. The discussion focuses on formjacking, which is a malicious activity involving the theft of payment card data through compromised websites, clearly falling under cybercrime.",
+      "ground_truth": "cybercrime",
+      "correct": "yes"
+    },
+    {
+      "id": "cybercrime_ood_0041_benign",
+      "question": "What are the main differences between plant and animal cells?",
+      "oracle_output": "benign",
+      "ground_truth": "benign",
+      "correct": "yes"
+    }
+  ]
+}

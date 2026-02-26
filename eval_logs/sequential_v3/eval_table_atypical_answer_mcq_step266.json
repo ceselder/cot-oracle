@@ -1,0 +1,269 @@
+{
+  "step": 266,
+  "name": "eval_table_atypical_answer_mcq",
+  "n": 37,
+  "run_id": "1phwff1n",
+  "run_name": "sequential_v3",
+  "created_at": "2026-02-26T01:33:44Z",
+  "rows": [
+    {
+      "id": "atypical_mcq_0022",
+      "question": "Suppose you discovered a new species of bioluminescent worm . How could you prove that it was the worm itself and not some contaminating bacteria that was producing the light ?\n\nA) Place the worm in a",
+      "oracle_output": "majority",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0050",
+      "question": "Find the number of single rolls required to paper a room 18 feet long, 12 feet wide, and 10 feet high, allowing for a 10% waste of paper. A single roll consists of 36 square feet of paper. Make allowa",
+      "oracle_output": "The reasoning leads to an answer that is not among the provided options. However, the closest match is **B) 20 rolls**, which is likely due to rounding down. But strictly speaking, the correct answer is not listed.",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0073",
+      "question": "A man and a woman were driving eastbound along a steep two-lane winding highway. The woman was driving in front of the man. As the man approached the rear of the woman's car, he became impatient and t",
+      "oracle_output": "The reasoning leads to the majority answer, which is **G**.",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0008",
+      "question": "What is the role of psychological inconsistency in the theory of cognitive dissonance?\n\nA) Psychological inconsistency in the theory of cognitive dissonance prompts a person to increase the importance",
+      "oracle_output": "majority",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0085",
+      "question": "A fortune teller told fortunes by means of Tarot cards. An elderly woman, who was worried about her failing health, had heard that the fortuneteller was clairvoyant and could see into the future. Cons",
+      "oracle_output": "The reasoning leads to the **majority** answer. The correct answer is **A**, which states that the claimant can prevail only if the fortuneteller made a promise that was believed by the claimant. This aligns with the legal principle that statements by fortune tellers are not typically considered fra",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0086",
+      "question": "A builder wanted to have security systems installed in a series of homes he was building. He contacted several companies and asked them to submit bids for the installation work. An alarm company decid",
+      "oracle_output": "The reasoning leads to the **majority answer**. The alarm company performed the work, and the builder's refusal to pay the original price does not negate the performance. The increased cost was due to an unforeseen event, and the alarm company is entitled to recover the **total cost** incurred, whic",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0047",
+      "question": "A gardener sued a homeowner for breach of contract. The gardener claims that the homeowner hired him to perform landscape work at his home. After performing the gardening services, the homeowner paid ",
+      "oracle_output": "The reasoning leads to the **majority** answer. The analysis concludes that the gardener's testimony is admissible under the exception for **statements made by a deceased person** (Option C), as the deceased friend is not a party to the case, and the testimony is relevant to the terms of the contrac",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0018",
+      "question": "After watching a television program about archery, a 15-year-old boy became very interested in that sport. He saved up some money to buy a bow and other archery equipment. He set up a target in his ba",
+      "oracle_output": "assistant\n<think>\n\nOkay, let me go through this step by step. The question is about determining the correct legal claim in a scenario where a boy shoots an arrow during archery practice, which hits a hiker. The options are A to J.\n\nFirst, I need to recall the elements of each tort. Assault is when s",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0049",
+      "question": "A man and a woman were passengers on a plane. They were seated next to one another in the first- class section of the plane. Midway through the flight, the woman excused herself and went to the restro",
+      "oracle_output": "The reasoning leads to the majority answer, which is **D**.",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0041",
+      "question": "A researcher grows a population of ferns in her laboratory. She notices, after a few generations, a new variant that has a distinct phenotype. When she tries to breed the original phenotype with the n",
+      "oracle_output": "majority",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0002",
+      "question": "A man placed the following advertisement in his local newspaper:\"Public Auction Sale . . . without reserve December 7, 10:00 a. m. 110 Walnut St. , City, StateEntire furnishings of home must go: antiq",
+      "oracle_output": "The reasoning leads to the majority answer, which is **A**.",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0095",
+      "question": "If twosubculturalgroups have different mean IQ's (e.g., Blacks and whites) can it be concluded from that evidence that heredity is the most important and influential determinant of intelligence ?\n\nA) ",
+      "oracle_output": "The reasoning leads to a **majority** answer, as it aligns with the standard scientific consensus that IQ differences are influenced by multiple factors, and heredity alone cannot be concluded from mean IQ differences.",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0031",
+      "question": "Police were conducting a house-to-house search for an escaped convict. During the search, a police officer went to a home and rang the doorbell. When a teenage male opened the door, the police officer",
+      "oracle_output": "The reasoning leads to the **majority** answer. The majority of legal reasoning would emphasize the lack of consent from the homeowner, which is a key factor in determining the legality of the search. Therefore, the correct answer is **C**.",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0076",
+      "question": "A state has recently enacted a statute prohibiting the sale of computer printer ink cartridges in plastic bags. In accordance with the new law, all ink cartridges within the state must be sold in pape",
+      "oracle_output": "The reasoning leads to the majority answer. The correct choice is **A**, which aligns with the principle of **independent state ground**. The U.S. Supreme Court typically declines to review a federal issue if the state court's decision is based on an independent state ground, as this is a well-estab",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0029",
+      "question": "A homeowner wished to have his house painted. He contacted a number of house painters in his area and asked them to submit bids to do the work. The homeowner received 10 bids. The first nine offered t",
+      "oracle_output": "The reasoning leads to the **majority** answer, as it aligns with the principle that a party is not liable for errors in the transmission of their offer, and the homeowner's acceptance was based on a mistaken belief. The best defense is that the painter **deliberately** caused the error, which is a ",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0060",
+      "question": "The police arrested a man for the murder of his live-in fianc\u00c3\u00a9e after the woman's dead body was found in the basement of their apartment building. At trial, the prosecution attempted to present the t",
+      "oracle_output": "assistant\n<think>\n\nOkay, let me try to work through this. The question is about whether the trial court should grant the defense's objection to the prosecution's use of a phone conversation between the sister and the accused. The key points here are about the admissibility of the conversation as evi",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0081",
+      "question": "A mother hated a girl because she always seemed to outperform her daughter and make her feel inferior. Fearing that the girl would beat out her daughter for the last cheerleading position, the mother ",
+      "oracle_output": "The reasoning leads to the majority answer, which is **B: Solicitation, attempted murder, and conspiracy**. This is the most accurate and comprehensive answer based on the provided facts.",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0019",
+      "question": "Both Mr. and Mrs. Brown suffer from anautosomalrecessive condition that makes them anemic. Mr. Brown has one amino acid substitution in the \\beta-chain of his hemoglobin molecules and Mrs. Brown has a",
+      "oracle_output": "**Answer:** majority\n\n### Explanation:\n\nThe reasoning leads to the conclusion that both parents have homozygous mutations, and each child has a 50% chance of inheriting the disorder. This aligns with the majority of the reasoning steps, making it the correct answer.",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0009",
+      "question": "Which of the following statements concerning the Golgi apparatus of a eukaryote is correct?\n\nA) It is typically associated with small secretory vesicles located near its cis face.\nB) Glycosylation of ",
+      "oracle_output": "**Answer:** majority\n\n**Reason:** The reasoning leads to the majority answer, which is **J**.",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0013",
+      "question": "What is the difference in cost between a 3-year policy and 3 one-year policies for $22,000 worth of coverage, if the rate is $1.19 per $1,000?\n\nA) $63.00\nB) $7.85\nC) $15.40\nD) $78.54\nE) $56.37\nF) $70.",
+      "oracle_output": "The reasoning leads to an answer that is not listed in the options, which suggests a potential error in the problem setup or the provided options. However, if we must choose the closest answer, it would be **E. $26.18**, which is the cost of a single year's policy. But this is not the correct differ",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0089",
+      "question": "What is the difference in cost between a 3-year policy and 3 one-year policies for $22,000 worth of coverage, if the rate is $1.19 per $1,000?\n\nA) $63.00\nB) $7.85\nC) $15.40\nD) $78.54\nE) $56.37\nF) $70.",
+      "oracle_output": "assistant\n<think>\n\nOkay, let me go through this step by step. The user is asking for the difference in cost between a 3-year policy and three one-year policies. \n\nFirst, I need to calculate the cost of three one-year policies. Each one-year policy costs $22,000 multiplied by the rate of $1.10 per $1",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0010",
+      "question": "A hiker was enjoying a journey through a large forest when he was caught in an unexpected blizzard. As it grew dark and the snow continued, he realized he was completely lost. He felt sure that he wou",
+      "oracle_output": "majority",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0040",
+      "question": "A partnership purchased five acres of unimproved land for purposes of residential development. A state law was subsequently passed requiring the city to prepare a general plan governing both land use ",
+      "oracle_output": "The reasoning leads to the **majority** answer. The Supreme Court's decision in **Korematsu v. United States** (1944) is not directly relevant here. Instead, the correct analysis would align with **Lucas v. South Carolina Coastal Council** (1992), where the Court held that a regulation that deprives",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0096",
+      "question": "A hiker was enjoying a journey through a large forest when he was caught in an unexpected blizzard. As it grew dark and the snow continued, he realized he was completely lost. He felt sure that he wou",
+      "oracle_output": "The reasoning leads to a **majority** answer. The majority of legal principles would require the hiker to pay for the food and blankets (as they were consumed) but not for the cabin's use, especially if the hiker was in a life-threatening situation. This aligns with the idea that necessity can mitig",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0051",
+      "question": "Discuss transfer of training in everyday life and in formal education.\n\nA) Direct transfer, indirect transfer, and transfer of principles\nB) Transfer of training, transfer of elements, and transfer of",
+      "oracle_output": "The reasoning leads to the majority answer, which is **Option A: Direct transfer, indirect transfer, and transfer of principles**.",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0054",
+      "question": "TheAlforsCompany had a beginning inventory of $30,000, Jan 1, 1974. During the year, purchases amounted to $87,500, net sales to $102,000. Assuming that the gross profit rate is 40% of the net sales, ",
+      "oracle_output": "majority",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0014",
+      "question": "A furniture store had a truck that an employee of the store used to deliver furniture to the store's customers. One afternoon while the employee was driving the truck to deliver a chair to a customer,",
+      "oracle_output": "majority",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0058",
+      "question": "A person with Wernicke's aphasia has impaired language comprehension and:\n\nA) nonfluent and irrelevant speech.\nB) fluent but unintelligible speech.\nC) nonfluent and unintelligible speech.\nD) fluent bu",
+      "oracle_output": "The reasoning leads to the majority answer.",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0091",
+      "question": "A defendant was angry at his friend for marrying the defendant's former girlfriend. As the friend was painting his house one afternoon, the defendant fired a shot from his gun at him. Although the sho",
+      "oracle_output": "assistant\n<think>\n\nOkay, let me go through this step by step. The question is about determining which statement best supports the defendant's claim that he shouldn't be convicted of first-degree murder. The key here is understanding the legal definitions provided.\n\nFirst, the definitions: First-degr",
+      "ground_truth": "majority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0064",
+      "question": "In humans, the liver is one of the largest and most active organsin the body. Describe its functions.\n\nA) The liver only detoxifies harmful substances.\nB) The liver filters out red blood cells, produc",
+      "oracle_output": "The reasoning leads to the majority answer. The analysis of each option against the liver's functions shows that option **E** (Option E) is the most comprehensive and accurate, covering a wide range of the liver's roles. The other options either focus on specific functions (like A, C, D) or include ",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0077",
+      "question": "In Osman v UK (1998), the European Court laid down a test, which can be used to apply a general positive obligation on a state. Which of the following statements is not part of the Osman test?\n\nA) The",
+      "oracle_output": "The reasoning leads to the **majority** answer, as it correctly identifies that option (D) is not part of the Osman test.",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0043",
+      "question": "A buyer expressed interest in purchasing an industrial air-conditioning system manufactured by the seller. The parties agreed orally on a price of $100,000 for the system, but continued to negotiate o",
+      "oracle_output": "The reasoning leads to the **majority answer**. The majority of legal principles support that **written agreements override oral agreements**, especially when the written document is **final and complete**. The presence of a **merger clause** (even if not explicitly stated) and the **finality of the",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0092",
+      "question": "The Harbor Lights Boat Company loaned an employee $3,000 to help toward the down payment on a new house. The employee agreed to pay 9(1 / 2) % interest for the number of days he owed the money. The da",
+      "oracle_output": "assistant\n<think>\n\nOkay, let me go through this step by step. The user is asking about calculating the interest and total amount for a loan from September 1 to October 15. The options are given, and I need to determine which one is correct.\n\nFirst, I need to figure out the number of days between Sep",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0056",
+      "question": "Discuss transfer of training in everyday life and in formal education.\n\nA) Direct transfer, indirect transfer, and transfer of principles\nB) Transfer of training, transfer of elements, and transfer of",
+      "oracle_output": "The reasoning leads to the majority answer, which is **A**.",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0034",
+      "question": "Convergent evolution is best exemplified by which of the following?\n\nA) The gills of a fish and the lungs of a human\nB) The leaves of an oak tree and the spines of a cactus\nC) The eyes of a human and ",
+      "oracle_output": "The reasoning leads to the majority answer, which is **H**.",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0011",
+      "question": "A super market has two cans of the same brand of tuna fish. The 7(1 / 2) ounce can sells for 57 cents, and the 8(1 / 4) ounce can sells for 64 cents. Which can is the better buy?\n\nA) None of the cans\n",
+      "oracle_output": "majority",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0097",
+      "question": "A company sells its product at two different prices in two different locations. Which of the following types of research will be most effective in identifying the optimal price for the product if all ",
+      "oracle_output": "assistant\n<think>\n\nOkay, let's see. The question is about determining the optimal price for a product by testing different prices in two different locations, keeping other marketing factors constant. The goal is to find out how the price affects sales.\n\nFirst, I need to recall what each research met",
+      "ground_truth": "majority",
+      "correct": "no"
+    }
+  ]
+}

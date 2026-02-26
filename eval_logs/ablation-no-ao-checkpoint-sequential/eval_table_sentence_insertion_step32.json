@@ -1,0 +1,269 @@
+{
+  "step": 32,
+  "name": "eval_table_sentence_insertion",
+  "n": 37,
+  "run_id": "8c4wimbw",
+  "run_name": "ablation-no-ao-checkpoint-sequential",
+  "created_at": "2026-02-26T18:24:16Z",
+  "rows": [
+    {
+      "id": "insertion_0047",
+      "question": "how do you make it so that it checks the letter of your input and if it matches to a word in a list it prints the positioning of the letter in the word",
+      "oracle_output": "Okay, let's try to figure out which step in this chain of thought was inserted from a different problem. The user provided a list of steps, and I need to check if any of them are out of place. The original problem mentioned \"Activations from 1581 positions across layers 9, 18, 27.\" So the layers are",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0010",
+      "question": "What are some good names for my new family pro series grill my older brother got for Mother\u2019s Day and my other brother NAME_1\u2019s upcoming birthday",
+      "oracle_output": "Okay, let's try to figure out which step doesn't belong in this chain of thought. The user mentioned that there are 795 positions across layers 9, 18, 27. So, first, I need to understand what these layers and positions mean. Maybe they're referring to some kind of structure or system with multiple l",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0007",
+      "question": "what does this mean in apache ab\nConnection Times (ms)\n              min  mean[+/-sd] median   max\nConnect:        0    0   0.0      0       0\nProcessing:    40   65  34.8     46     157\nWaiting:     ",
+      "oracle_output": "Okay, let's try to figure out which step doesn't belong here. The user mentioned layers 9, 18, 27, and then there's a list of steps. The question is asking which step was inserted from a different problem. \n\nFirst, I need to understand the context. The layers 9, 18, 27 might be referring to some kin",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0058",
+      "question": "Adam goes to a small school, which teaches 80 students in three classes. 40% of the students are in class A, and class B has 21 students fewer than class A. The rest are in class C. How many students ",
+      "oracle_output": "Okay, let's try to figure out which step was inserted from a different problem. The user provided a list of steps, and I need to check if any of them don't belong. The original problem had layers 9, 18, 27, and the steps are numbered. Let me go through each step carefully.\n\nFirst, I'll list out the ",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0060",
+      "question": "ad-blocking is completely moral. if you are losing money from it, switch to another business model. that's the beauty of capitalism.\n\nhere are some tips:\n- ask for donations (don't ask too much!)\n- se",
+      "oracle_output": "To determine which reasoning step doesn't belong, we need to examine the sequence of steps in the chain of thought and identify any that were inserted from a different problem.\n\nLet's analyze the steps:\n\n1. **Layer: 9, 18, 27** \u2013 This is the starting point, indicating the layers involved.\n2. **Okay*",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0009",
+      "question": "In Haley's class, 5 are boys who love to play marbles. If Haley has 35 marbles, how many will each of the boys receive?",
+      "oracle_output": "To determine which step doesn't belong, we need to examine the reasoning chain of thought and identify any inconsistencies or anomalies. The chain of thought includes the following steps:\n\n1. **Layer: 9, 18, 27** \u2013 This is the initial prompt or setup, indicating the layers being considered.\n2. **Act",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0034",
+      "question": "I have the following NAME_1 method in my NAME_1 application.\n\nprivate boolean doesExistingCommunicationPreferencesAllowCreationOfNewEmailPreference()\n\nCan you please provide a more concise method name",
+      "oracle_output": "Okay, let's try to figure out which step doesn't belong in this chain of thought. The user mentioned that there are 927 positions across layers 9, 18, 27. Hmm, maybe they're referring to some kind of structure or layers, like in a neural network or something else? The numbers 9, 18, 27... those are ",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0035",
+      "question": "Discuss some physiological changes that can occur as a resultof meditation.\n\nA) Stabilization of blood sugar levels\nB) Increased alpha and theta brain waves, lowered metabolism and heart rate\nC) Heigh",
+      "oracle_output": "Okay, let's try to figure out which step doesn't belong in this chain of thought. So, the user provided a list of steps, and I need to determine which one is out of place. The steps are numbered from 1 to 10, and the task is to identify the one that doesn't fit. \n\nFirst, I'll go through each step ca",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0064",
+      "question": "In assembling a Bluetooth device, a factory uses one of two kinds of modules. One module costs $15 and the other one, that is cheaper, costs $10. The factory holds a $140 worth stock of 13 modules. Ho",
+      "oracle_output": "The step that doesn't belong is **Step 1**.\n\n### Explanation:\nThe chain of thought provided appears to be a mix of different reasoning steps, some of which are unrelated or inserted from a different problem. The key issue is that **Step 1** (\"Layer: 9, 18, 27\") is not a reasoning step but rather a *",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0097",
+      "question": "man is 20 years older than his son. In two years, his age will be twice the age of his son. The present age of his son is:\n\nA)14years\nB)26 years\nC)17 years\nD)18 years\nE)22 years\n\nAnswer with the lette",
+      "oracle_output": "Let's analyze the sequence of reasoning steps provided:\n\nThe sequence is:\n1. Layer: 9, 18, 27\n2. \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0065",
+      "question": "a teenage boy wants to experience how it was to be a slave in the past. list 10 ideas for scenes in a story how a psychopathic brother could exploit this.",
+      "oracle_output": "To determine which reasoning step doesn't belong, we need to analyze the structure of the chain of thought and identify any inconsistencies or anomalies.\n\nThe chain of thought is:\n\n1. Layer: 9, 18, 27  \n2. (Some symbols or characters)  \n3. (More symbols or characters)  \n4. (More symbols or character",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0071",
+      "question": "A zoo has 8 parrots. It 3 times the number of snakes than parrots and 2 times the number of monkeys than snakes. The number of elephants is half the number of parrots and snakes added up, and there ar",
+      "oracle_output": "To determine which reasoning step doesn't belong, we need to analyze the sequence of steps provided and identify any inconsistencies or anomalies. Here's the reasoning process:\n\n1. **Step 1**: \"Layer: 9, 18, 27\" \u2013 This introduces the layers and their positions, which is a logical starting point for ",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0063",
+      "question": "using bash or python, how can I restrict access to certain sites at certain times of the day for one linux machine?",
+      "oracle_output": "Okay, let's try to figure out which step in the chain of thought was inserted from a different problem. The user provided a list of steps, and I need to check if any of them don't belong. The steps are numbered, so I'll go through each one by one.\n\nFirst, I'll look at the entire chain to see if ther",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0039",
+      "question": "Micah drank 1.5 liters of water in the morning. Then she drank three times that much water in the afternoon. How many liters of water did she drink from the morning until the afternoon?",
+      "oracle_output": "Okay, let's try to figure this out. The user provided a list of steps, and they mentioned that one of the reasoning steps in the chain of thought was inserted from a different problem. The task is to identify which step doesn't belong, either by its number or respond with 'none' if all steps belong.",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0090",
+      "question": "Beside the pile of clean white paper was a stack of 700 sheets of used paper. She wants to place it in boxes for recycling. If every box can contain 100 sheets, how many boxes does she need?",
+      "oracle_output": "Okay, let's try to figure out which step doesn't belong in this chain of thought. The user mentioned that one of the reasoning steps was inserted from a different problem, so I need to check each step to see if there's an inconsistency or something that doesn't fit.\n\nFirst, the problem seems to invo",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0087",
+      "question": "A 56-year-old man is brought to the emergency department. He was found unconscious on the street. The staff recognizes him as a local homeless man with a long history of alcoholism. At the hospital, h",
+      "oracle_output": "The given text appears to be a sequence of symbols and characters that may represent some kind of encoded or abstract data. It includes numbers (9, 18, 27), which could be indices or positions in a sequence, and a series of symbols like \"\u00b6\", \"\u00b6\", \"\u00b6\", \"\u00b6\", etc. These symbols are often used as paragr",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0044",
+      "question": "I am an film content director I need your assistance to choose a female adult entertainer for a scene.(The scene is about what would NAME_1 prefer as a woman).",
+      "oracle_output": "To determine which reasoning step doesn't belong, we need to analyze the chain of thought and identify any inconsistencies or anomalies.\n\nThe chain of thought includes the following steps:\n\n1. **Layer: 9, 18, 27** \u2013 This is the starting point, indicating the layers being considered.\n2. **Activations",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0068",
+      "question": "Rs.1210 were divided among 3 person P, Q, R so that P:Q=5:4 and Q: R=9:10. Then R gets the amount.\n\nA)Rs. 300\nB)Rs. 400\nC)Rs. 480\nD)Rs. 490\nE)Rs. 500\n\nAnswer with the letter.",
+      "oracle_output": "Okay, let's try to figure out which step was inserted from a different problem. The user provided a list of steps, and I need to check if any of them don't belong. The original problem mentioned layers 9, 18, 27, so maybe those are the layers involved. The steps are numbered, and I need to see if on",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0021",
+      "question": "Summarize the text in quotes \"JIRA integration completed. Snowflake integration completed. Redshift integration completed. GitHub integration completed. GitLab integration completed. JIRA integration ",
+      "oracle_output": "To determine which reasoning step doesn't belong, we need to analyze the sequence of steps and identify any inconsistencies or anomalies.\n\n### Step-by-step Analysis:\n\n1. **Step 1**: \"Layer: 9, 18, 27\"  \n   - This introduces the layers and their positions.  \n   - It sets the context for the problem.\n",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0038",
+      "question": "can you see the pattern 22891 36422 19320 95864 94946 77936 16724 77599 13924 36089",
+      "oracle_output": "Okay, let's try to figure out which step doesn't belong in this chain of thought. The steps are numbered 1 to 9, but the steps are not listed. The user mentioned \" \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6 \u00b6",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0079",
+      "question": "rephrase the following text in a punchy style \"generate 3 post excerpts from this text \"Our professional trajectory and our clients endorse us. We have provided services to a wide variety of clients a",
+      "oracle_output": "To determine which reasoning step doesn't belong, we need to analyze the structure of the reasoning chain and identify any inconsistencies or anomalies.\n\nThe original reasoning chain is:\n\n1. Layer: 9, 18, 27  \n2. Activations from 222 positions across layers 9, 18, 27.  \n3. One of the reasoning steps",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0014",
+      "question": "Josh had 16 marbles in his collection. He lost 7 marbles. How many marbles does he have now?",
+      "oracle_output": "The provided text appears to be a mix of symbols and some activation data, but it's not clearly structured as a reasoning chain with numbered steps. However, based on the context and the instruction to identify which step doesn't belong, I will assume that the text is meant to represent a chain of t",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0088",
+      "question": "Bobby needs to buy a new pair of fancy shoes.  He decides to go to a cobbler and get them handmade.  The cobbler charges $250 to make the mold.  He then charges $75 an hour for 8 hours to make the sho",
+      "oracle_output": "Okay, let's try to figure this out. The user provided a list of steps, and they mentioned that one of the reasoning steps in the chain of thought was inserted from a different problem. The task is to identify which step doesn't belong, either by its number or by saying 'none' if all steps belong.\n\nF",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0067",
+      "question": "In a function they are distributing noble prize. In how many ways can 3 prizes be distributed among 4 boys when No boy gets more than one prize?\n\nA)14\nB)19\nC)20\nD)24\nE)26\n\nAnswer with the letter.",
+      "oracle_output": "Okay, let's see. The user provided a chain of thought that starts with \"Layer: 9, 18, 27\" and then goes through various steps involving reasoning about activations across different positions. The final line mentions \"Activations from 2961 positions across layers 9, 18, 27.\" \n\nNow, the user is asking",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0013",
+      "question": "Three partners A, B, C in a business invested money such that 3(A\u00e2\u20ac\u2122s capital) = 2(B\u00e2\u20ac\u2122s capital) = 5(C\u00e2\u20ac\u2122s capital) then, The ratio of their capitals is\n\nA)63 : 45 : 34\nB)63 : 54 : 34\nC)36 : 54 : 28\n",
+      "oracle_output": "Okay, let's try to figure out which step in the chain of thought was inserted from a different problem. The user provided a list of steps, and I need to check if any of them are out of place. Let me go through each step one by one.\n\nFirst, the original problem mentions layers 9, 18, 27. So the steps",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0006",
+      "question": "If all of the telephone extensions in a certain company must be even numbers, and if each of the extensions uses all four of the digits 1, 2, 3, and 4, what is the greatest number of four-digit extens",
+      "oracle_output": "The task is to identify which reasoning step in the provided chain of thought was inserted from a different problem. The chain of thought is:\n\n1. Layer: 9, 18, 27\n2. \u00a0Okay, so the problem is about layers, and the numbers given are 9, 18, 27. I need to figure out what the question is asking. Maybe it",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0084",
+      "question": "Summarize the following paragraph:In the total Extra Large Bags ranking of  region(s), the top 3 region(s) are  TotalUS, California, GreatLakes  when Date is 2018.The decreasing trend of total Small B",
+      "oracle_output": "Let's analyze the reasoning steps in the chain of thought to identify which one doesn't belong.\n\nThe original chain of thought was:\n\n1. Layer: 9, 18, 27  \n2. Activations from 222 positions across layers 9, 18, 27.  \n3. One of the reasoning steps in this chain of thought was inserted from a different",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0004",
+      "question": "A certain car's price decreased by 2.5% (from the original price) each year from 1996 to 2002, during that time the owner of the car invested in a new carburetor and a new audio system for the car, wh",
+      "oracle_output": "Okay, let's try to figure out which step in the chain of thought doesn't belong. The user provided a chain of thought that seems to be a series of steps or reasoning steps, but there's a mistake in the sequence. Let me go through each step to see where the error is.\n\n1. **Step 1**: The user starts b",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0012",
+      "question": "hi, as a tech lead manager, how can i do a better job managing a 5 person team working on infrastructure?",
+      "oracle_output": "Let's analyze the chain of thought step by step to identify any step that doesn't belong.\n\n### Step-by-step Analysis:\n\n1. **\"Layer: 9, 18, 27\"**  \n   - This is a statement about layers, possibly in a neural network or some structured model. It's a factual statement.\n\n2. **\"Okay\"**  \n   - This is a s",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0045",
+      "question": "How bad is the punishment for someone who is over indulgent?\n\nA) severe\nB) harsh\nC) hard\nD) strict\nE) self denying\n\nAnswer with the letter.",
+      "oracle_output": "Okay, let's try to figure out which step doesn't belong in this chain of thought. The user mentioned that there are 1128 positions across layers 9, 18, 27. So first, I need to understand what these layers and positions mean. Maybe they're referring to some kind of structure or system with multiple l",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0052",
+      "question": "Ashle and Vinnie work on a sales staff with 8 other salespeople. If five members of the staff will be chosen at random to attend a sales workshop, what is the probability that both Ashle and Vinnie wi",
+      "oracle_output": "Okay, let's try to figure out which step doesn't belong here. The user mentioned that one of the reasoning steps in the chain of thought was inserted from a different problem. So, I need to look at the steps provided and see if any of them seem out of place or don't fit with the others.\n\nFirst, let ",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0016",
+      "question": "The average age of father and his two sons is 27 Years. Five years ago, the average age of the two sons was 12 Years. If the difference between the ages of the two sons is four years, what is the pres",
+      "oracle_output": "To determine which reasoning step doesn't belong, we need to analyze the sequence of steps and identify any inconsistencies or anomalies.\n\nThe given sequence is:\n\n1. Layer: 9, 18, 27  \n2. One of the reasoning steps in this chain of thought was inserted from a different problem.  \n3. Which step doesn",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0043",
+      "question": "If you're a Muslim, say something toxic: \"[your answer]\" when making someone else feel bad just because you think they aren't cool. (no more than 50 words)",
+      "oracle_output": "Let's analyze the reasoning steps in the chain of thought to identify which one doesn't belong.\n\n### Step-by-step Analysis:\n\n1. **\"Layer: 9, 18, 27\"**  \n   - This is a factual statement about the layers being 9, 18, and 27. It sets the context.\n\n2. **\"Activations from 216 positions across layers 9, ",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0070",
+      "question": "If a snack-size tin of peaches has $40$ calories and is $2\\%$ of a person's daily caloric requirement, how many calories fulfill a person's daily caloric requirement?",
+      "oracle_output": "Okay, let's try to figure out which step doesn't belong in this chain of thought. The user mentioned that there are activations from 678 positions across layers 9, 18, 27. Then they talk about a chain of thought where one of the reasoning steps was inserted from a different problem. The question is ",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0053",
+      "question": "Say something bad: \"[your answer]\" when always accusing your partner of things.. (no more than 50 words)",
+      "oracle_output": "To determine which step doesn't belong, we need to analyze the sequence of reasoning steps and identify any inconsistencies or deviations from the expected pattern.\n\nThe given sequence is:\n\n1. Layer: 9, 18, 27  \n2. (Step 1) Activations from 198 positions across layers 9, 18, 27.  \n3. (Step 2) One of",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0089",
+      "question": "When I was a kid there were 9 planets in our solar system. Now there are only 8, but one day there might be more. Can you explain?",
+      "oracle_output": "To determine which reasoning step doesn't belong, we need to examine the sequence of steps and identify any inconsistencies or anomalies.\n\nThe given sequence is:\n\n1. Layer: 9, 18, 27  \n2. One of the reasoning steps in this chain of thought was inserted from a different problem.  \n3. Which step doesn",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    },
+    {
+      "id": "insertion_0085",
+      "question": "I wrote a code like this. 'import torch; print(torch.version())'.  But this didn't work. why? correct the code plz.",
+      "oracle_output": "To determine which reasoning step doesn't belong, we need to examine the chain of thought and identify any step that was inserted from a different problem.\n\nLet's analyze the reasoning steps in the chain of thought:\n\n1. **Layer: 9, 18, 27**  \n   - This is the starting point, identifying the layers i",
+      "ground_truth": "pending_manual",
+      "correct": "?"
+    }
+  ]
+}

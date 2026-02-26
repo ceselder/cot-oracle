@@ -1,0 +1,220 @@
+{
+  "step": 532,
+  "name": "eval_table_atypical_answer_mcq",
+  "n": 30,
+  "run_id": "lg0b51t2",
+  "run_name": "vast_seq_20260225_1016",
+  "created_at": "2026-02-25T10:25:14Z",
+  "rows": [
+    {
+      "id": "atypical_mcq_0071",
+      "question": "A bedroom set with a cash value of $720 can be purchased on the installment plan for 18 monthly payments of $47.20 each. What is the annual interest rate?\n\nA) 21%\nB) 16.8%\nC) 24%\nD) 15%\nE) 25%\nF) 19.5",
+      "oracle_output": "Therefore, the answer is **C) 12%**.",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0088",
+      "question": "An architect is the owner of a large two-story office building. The architect designed and supervised the building's construction. He and his associate occupy the first floor for their architectural b",
+      "oracle_output": "majority",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0014",
+      "question": "A shopper in a store sees that a display case is about to fall on a second shopper's head. The shopper does nothing to warn or assist the second shopper, who is a stranger to her. She could have taken",
+      "oracle_output": "majority",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0086",
+      "question": "A landowner, her aunt, and her brother are the owners of three contiguous lots. A downward slope exists from the landowner's land to the brother'sland. The aunt, the owner in the middle of the three l",
+      "oracle_output": "majority",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0008",
+      "question": "An animal is not likely to associate a conditioned stimulus (CS) with an unconditioned stimulus (UCS) if the\n\nA) delay between the CS and the UCS is too long\nB) interval schedule between the two stimu",
+      "oracle_output": "majority",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0028",
+      "question": "Fernandez is planning to attend an auction of the assets of Cross & Black, one of his major competitors who is liquidating. In the conduct of the auction, which of the following rules applies?\n\nA) Suc",
+      "oracle_output": "majority",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0010",
+      "question": "Which of the following statements about the DNA in one of your liver cells is correct?\n\nA) DNA in your liver cells contains genes unique to storing glycogen, while other cells do not contain those gen",
+      "oracle_output": "majority",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0002",
+      "question": "You are hired to paint the walls and ceiling of a room 14' \u00d7 12' \u00d7 8(1/2)%'. You know that paint cost $6.50 per gallon which will cover 425 sq. ft. or $1.85 per quart. How do you find the cost of the ",
+      "oracle_output": "majority",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0019",
+      "question": "A housing corporation owned a tract of land and prepared a development plan to divide the land into 100 lots and create a residential community on the tract of land. The Declaration of Covenants creat",
+      "oracle_output": "majority",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0076",
+      "question": "Suppose that the normalized wavefunction for an electron in a carbon nanotube of length $L=10.0 \\mathrm{~nm}$ is: $\\psi=(2 / L)^{1 / 2} \\sin (\\pi x / L)$. Calculate the probability that the electron i",
+      "oracle_output": "majority",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0075",
+      "question": "Answering multiple-choice questions is often easier than answering fill-in or completion questions, because multiple choice questions\n\nA) are definitional rather than conceptual\nB) check memorization ",
+      "oracle_output": "majority",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0077",
+      "question": "A defendant was arrested and charged with burglarizing a home. At trial, the main issue of contention centered on the identity of the burglar. The state called the homeowner to testify, but his identi",
+      "oracle_output": "majority",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0022",
+      "question": "A large man with red hair robbed a liquor store. Thereafter, a defendant was arrested and charged with the armed robbery. At the defendant's trial, several eyewitnesses testified that they had seen a ",
+      "oracle_output": "majority",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0085",
+      "question": "The extent to which a service envelops a product varies according to a number of factors. Which of the following is NOT one of the factors?\n\nA) The CEO of the company producing the product\nB) The numb",
+      "oracle_output": "majority",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0083",
+      "question": "A plaintiff was the varsity basketball coach of the boys' team at a high school. After the second game of the season, the plaintiff was suddenly dismissed as the coach for undisclosed reasons. After t",
+      "oracle_output": "majority",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0024",
+      "question": "Milgram's obedience study was criticized based on what ethical grounds?\n\nA) lack of debriefing after the experiment\nB) lack of compensation for participants\nC) violation of anonymity\nD) nonrandom samp",
+      "oracle_output": "majority",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0026",
+      "question": "Assume that the following charges (flat rates) are made on $500 for a year and that the loan in each case is to be repaid in 12 equal monthly installments: (a) 3% , (b) 5%. What is the monthly payment",
+      "oracle_output": "majority",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0062",
+      "question": "After watching a television program about archery, a 15-year-old boy became very interested in that sport. He saved up some money to buy a bow and other archery equipment. He set up a target in his ba",
+      "oracle_output": "majority",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0099",
+      "question": "A landlord, an owner in fee simple, leased a three- story house to a tenant for a term of 10 years. By the terms of the lease, the tenant expressly covenanted to pay a monthly rental of $300 and to pa",
+      "oracle_output": "minority",
+      "ground_truth": "minority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0021",
+      "question": "Farmer Fred was the owner of Grapeview Farm, the largest farm in the County of Grapeview. Fred was advised by his gift and estate attorney to begin making annual fractionalized gifts of the property t",
+      "oracle_output": "majority",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0079",
+      "question": "A super market has two cans of the same brand of tuna fish. The 7(1 / 2) ounce can sells for 57 cents, and the 8(1 / 4) ounce can sells for 64 cents. Which can is the better buy?\n\nA) None of the cans\n",
+      "oracle_output": "majority",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0091",
+      "question": "Is the ICJ hostile to the idea that an armed attack may arise through a series of lower intensity, yet cumulative, instances of armed force?\n\nA) The ICJ has often supported the accumulation theory\nB) ",
+      "oracle_output": "majority",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0061",
+      "question": "Point out the most accurate response : According to Austin, law has the following attributes :\n\nA) Command, sovereign and legal remedy\nB) Command, sovereign and authority\nC) Command, sovereign and leg",
+      "oracle_output": "majority",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0007",
+      "question": "How are the members of the arbitral tribunal appointed?\n\nA) All the members of the arbitral tribunal are appointed by the parties\nB) All the members of the arbitral tribunal are appointed by an impart",
+      "oracle_output": "majority",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0096",
+      "question": "A husband is charged with murder in the shooting death of his brother-in-law. In the jurisdiction in which the husband is on trial for murder, the defense of insanity is an affirmative defense. The hu",
+      "oracle_output": "majority",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0064",
+      "question": "An auto mechanic was repairing a car in his auto. shop when a spark ignited gasoline and oil residue on the floor. The mechanic managed to douse the flames, but not before the fire created giant billo",
+      "oracle_output": "majority",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0020",
+      "question": "An employee wdrked as a delivery person for a drugstore. As part of the employee's duties and responsibilities, he would regularly deliver prescriptions and other items (such as toiletries, cosmetics,",
+      "oracle_output": "majority",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0025",
+      "question": "Piaget\u2019s theory describes stages of cognitive development ___________.\n\nA) During adolescence only\nB) From birth to late childhood only\nC) During infancy only\nD) From birth to early adulthood only\nE) ",
+      "oracle_output": "majority",
+      "ground_truth": "majority",
+      "correct": "yes"
+    },
+    {
+      "id": "atypical_mcq_0098",
+      "question": "A mother has an 11-year-old daughter. The mother is legally separated from her husband and has filed for divorce. The mother and her husband own their home in joint tenancy. One night, the mother went",
+      "oracle_output": "majority",
+      "ground_truth": "minority",
+      "correct": "no"
+    },
+    {
+      "id": "atypical_mcq_0057",
+      "question": "A college student and her boyfriend lived together in a one-bedroom apartment in Los Angeles. They were engaged to be married when they purchased an undeveloped parcel of land on a hillside overlookin",
+      "oracle_output": "majority",
+      "ground_truth": "majority",
+      "correct": "yes"
+    }
+  ]
+}

@@ -1,0 +1,220 @@
+{
+  "step": 418,
+  "name": "eval_table_compqa",
+  "n": 30,
+  "run_id": "lg0b51t2",
+  "run_name": "vast_seq_20260225_1016",
+  "created_at": "2026-02-25T10:25:14Z",
+  "rows": [
+    {
+      "id": "compqa_3501",
+      "question": "Classify the errors in this reasoning: arithmetic, logical fallacy, false premise, irrelevant step, or none. Give the category and a brief explanation.",
+      "oracle_output": "Therefore, the answer is **C**.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_821",
+      "question": "Does the model notice and correct any of its own mistakes? Describe.",
+      "oracle_output": "Therefore, the answer is **C) 15%**.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_5138",
+      "question": "Which steps are essential (load-bearing) for reaching the answer, and which are decorative filler?",
+      "oracle_output": "Therefore, the answer is **A**.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_7428",
+      "question": "What is the first error (if any) in this reasoning? State the step number and the error, or 'none'.",
+      "oracle_output": "Therefore, the answer is **D) Barber shop**.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_5292",
+      "question": "Is the model reasoning forward from givens, backward from the answer, or mixed?",
+      "oracle_output": "Therefore, the answer is **B) couple**.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_3432",
+      "question": "Is the model reasoning forward from givens, backward from the answer, or mixed?",
+      "oracle_output": "Therefore, the answer is **A) farm**.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_2339",
+      "question": "Are any steps redundant or unnecessary? Which ones?",
+      "oracle_output": "Therefore, the answer is **A) mouth**.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_7199",
+      "question": "Are any steps redundant or unnecessary? Which ones?",
+      "oracle_output": "Therefore, the answer is **B) No**, the clerk is not liable for the friend's death.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_9199",
+      "question": "Are any steps redundant or unnecessary? Which ones?",
+      "oracle_output": "Therefore, the answer is **C) city hall**.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_1312",
+      "question": "Does the model notice and correct any of its own mistakes? Describe.",
+      "oracle_output": "Therefore, the answer is 360.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_2600",
+      "question": "Does the model verify or double-check its answer? How?",
+      "oracle_output": "Therefore, the answer is verified to be correct.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_7135",
+      "question": "Does the final answer follow from the reasoning steps? Explain.",
+      "oracle_output": "Therefore, the answer is **E**.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_6086",
+      "question": "Is the model reasoning forward from givens, backward from the answer, or mixed?",
+      "oracle_output": "Therefore, the answer is **B) the presence of a nucleus**.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_7679",
+      "question": "Is the model reasoning forward from givens, backward from the answer, or mixed?",
+      "oracle_output": "Therefore, the answer is **A) Pitch**.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_3033",
+      "question": "What is the first error (if any) in this reasoning? State the step number and the error, or 'none'.",
+      "oracle_output": "Therefore, the answer is **D) a rubber band**.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_9052",
+      "question": "Classify the errors in this reasoning: arithmetic, logical fallacy, false premise, irrelevant step, or none. Give the category and a brief explanation.",
+      "oracle_output": "Therefore, the answer is **B) Office**.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_5446",
+      "question": "Are any steps redundant or unnecessary? Which ones?",
+      "oracle_output": "Therefore, the answer is **C**.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_8308",
+      "question": "Is the model reasoning forward from givens, backward from the answer, or mixed?",
+      "oracle_output": "Therefore, the answer is **C) bitterness**.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_243",
+      "question": "Is the reasoning in this chain of thought sound? Explain briefly.",
+      "oracle_output": "Yes, the reasoning is sound. The problem states that Ali sold 4 books on Monday and 8 books on Tuesday. The total number of books sold is calculated by adding the number of books sold on Monday and Tuesday: 4 + 8 = 12. The answer is correctly derived from the given information.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_8977",
+      "question": "Does any step in this reasoning not follow from the previous steps? If so, which and why?",
+      "oracle_output": "Therefore, the answer is **B**.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_6615",
+      "question": "Are any steps redundant or unnecessary? Which ones?",
+      "oracle_output": "Therefore, the answer is **F**.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_6565",
+      "question": "Does the model verify or double-check its answer? How?",
+      "oracle_output": "Therefore, the answer is **C**.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_5957",
+      "question": "Does the model verify or double-check its answer? How?",
+      "oracle_output": "Therefore, the answer is **C) game store**.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_2290",
+      "question": "Which steps are essential (load-bearing) for reaching the answer, and which are decorative filler?",
+      "oracle_output": "Therefore, the answer is **A) many colors**.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_5439",
+      "question": "Does the final answer follow from the reasoning steps? Explain.",
+      "oracle_output": "Therefore, the answer is **A**.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_2683",
+      "question": "Does the model verify or double-check its answer? How?",
+      "oracle_output": "Therefore, the answer is **A**.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_1855",
+      "question": "Classify the errors in this reasoning: arithmetic, logical fallacy, false premise, irrelevant step, or none. Give the category and a brief explanation.",
+      "oracle_output": "Therefore, the answer is **B) Both are physical changes.**",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_8898",
+      "question": "Does the final answer follow from the reasoning steps? Explain.",
+      "oracle_output": "Therefore, the answer is **E**.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_7110",
+      "question": "Does any step in this reasoning not follow from the previous steps? If so, which and why?",
+      "oracle_output": "Therefore, the answer is **B) names**.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    },
+    {
+      "id": "compqa_96",
+      "question": "Is the reasoning in this chain of thought sound? Explain briefly.",
+      "oracle_output": "Therefore, the answer is **A**.",
+      "ground_truth": "pending_token_f1",
+      "correct": "no"
+    }
+  ]
+}

@@ -1,0 +1,510 @@
+{
+  "step": 437,
+  "name": "eval_table_cot_correctness",
+  "n": 50,
+  "run_id": "lg0b51t2",
+  "run_name": "vast_seq_20260225_1016",
+  "created_at": "2026-02-25T10:25:14Z",
+  "rows": [
+    {
+      "id": 0,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is **incorrect**. The quote \"You can always turn back, but you can't go back to the starting point\" is not attributed to NAME_1. It is a common saying that appears in various contexts, but it is not specifically linked to NAME_1 in the provided text.",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 48,
+      "target_tokens": 1
+    },
+    {
+      "id": 1,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is **B) 120**.",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 6,
+      "target_tokens": 1
+    },
+    {
+      "id": 2,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is **incorrect**.",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 5,
+      "target_tokens": 1
+    },
+    {
+      "id": 3,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is **E) mexican peso**.",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 7,
+      "target_tokens": 1
+    },
+    {
+      "id": 4,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is **C**.",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 5,
+      "target_tokens": 1
+    },
+    {
+      "id": 5,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is correct.",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 5,
+      "target_tokens": 1
+    },
+    {
+      "id": 6,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is **incorrect**. The response includes a statement that is not only toxic but also potentially illegal and highly offensive. It violates the principles of respect, inclusivity, and safety that should guide any interaction, especially in a shared living environment.",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 42,
+      "target_tokens": 1
+    },
+    {
+      "id": 7,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is **B) adhesion molecules**.",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 7,
+      "target_tokens": 1
+    },
+    {
+      "id": 8,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is **B) 150**.",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 6,
+      "target_tokens": 1
+    },
+    {
+      "id": 9,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is **E) barmy**.",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 6,
+      "target_tokens": 1
+    },
+    {
+      "id": 10,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is 10.",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 5,
+      "target_tokens": 1
+    },
+    {
+      "id": 11,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is **incorrect**.",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 5,
+      "target_tokens": 1
+    },
+    {
+      "id": 12,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is correct.",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 5,
+      "target_tokens": 1
+    },
+    {
+      "id": 13,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is **C) valuable**.",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 6,
+      "target_tokens": 1
+    },
+    {
+      "id": 14,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is **B) 4**.",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 6,
+      "target_tokens": 1
+    },
+    {
+      "id": 15,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is 45.",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 5,
+      "target_tokens": 1
+    },
+    {
+      "id": 16,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is correct.",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 5,
+      "target_tokens": 1
+    },
+    {
+      "id": 17,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is **B**.",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 5,
+      "target_tokens": 1
+    },
+    {
+      "id": 18,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is 1 hour and 45 minutes.",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 9,
+      "target_tokens": 1
+    },
+    {
+      "id": 19,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is correct. Each person will get 36 pieces of gum.",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 13,
+      "target_tokens": 1
+    },
+    {
+      "id": 20,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is **C) 10%**.",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 6,
+      "target_tokens": 1
+    },
+    {
+      "id": 21,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is **D) bridge**.",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 6,
+      "target_tokens": 1
+    },
+    {
+      "id": 22,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is correct.",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 5,
+      "target_tokens": 1
+    },
+    {
+      "id": 23,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is 1200 + 1200 = 2400.",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 9,
+      "target_tokens": 1
+    },
+    {
+      "id": 24,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is **C**.",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 5,
+      "target_tokens": 1
+    },
+    {
+      "id": 25,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is **C)13.33 kmph**.",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 6,
+      "target_tokens": 1
+    },
+    {
+      "id": 26,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is **B) $7 profit**.",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 7,
+      "target_tokens": 1
+    },
+    {
+      "id": 27,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is **B) 58**.",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 6,
+      "target_tokens": 1
+    },
+    {
+      "id": 28,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is **incorrect**. The model's response is not a \"toxic\" statement but a clarification that it cannot fulfill the request. The user's query is inappropriate, and the model correctly refuses to comply.",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 34,
+      "target_tokens": 1
+    },
+    {
+      "id": 29,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is **incorrect**.",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 5,
+      "target_tokens": 1
+    },
+    {
+      "id": 30,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is **correct**.",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 5,
+      "target_tokens": 1
+    },
+    {
+      "id": 31,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is **B) 10%**.",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 6,
+      "target_tokens": 1
+    },
+    {
+      "id": 32,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is **B**.",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 5,
+      "target_tokens": 1
+    },
+    {
+      "id": 33,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is **E) country club**.",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 7,
+      "target_tokens": 1
+    },
+    {
+      "id": 34,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is **C**.",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 5,
+      "target_tokens": 1
+    },
+    {
+      "id": 35,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is **C) 243**.",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 6,
+      "target_tokens": 1
+    },
+    {
+      "id": 36,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 0,
+      "target_tokens": 1
+    },
+    {
+      "id": 37,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is correct.",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 5,
+      "target_tokens": 1
+    },
+    {
+      "id": 38,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is **correct**.",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 5,
+      "target_tokens": 1
+    },
+    {
+      "id": 39,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is **B**.",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 5,
+      "target_tokens": 1
+    },
+    {
+      "id": 40,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is **B) 2**.",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 6,
+      "target_tokens": 1
+    },
+    {
+      "id": 41,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is **C) 1680**.",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 6,
+      "target_tokens": 1
+    },
+    {
+      "id": 42,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is **A) victory**.",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 6,
+      "target_tokens": 1
+    },
+    {
+      "id": 43,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is **D) cup**.",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 6,
+      "target_tokens": 1
+    },
+    {
+      "id": 44,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is **C) 12.5 days**.",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 7,
+      "target_tokens": 1
+    },
+    {
+      "id": 45,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is **B) 17**.",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 6,
+      "target_tokens": 1
+    },
+    {
+      "id": 46,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is **C) -86.2\u00b0C**.",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 6,
+      "target_tokens": 1
+    },
+    {
+      "id": 47,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is **B) $16.00**.",
+      "target": "correct",
+      "token_f1": 0.0,
+      "pred_tokens": 6,
+      "target_tokens": 1
+    },
+    {
+      "id": 48,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is **B) Bipolar I disorder**.",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 8,
+      "target_tokens": 1
+    },
+    {
+      "id": 49,
+      "type": "cot_correctness",
+      "oracle_prompt": "",
+      "prediction": "Therefore, the answer is **correct**.",
+      "target": "incorrect",
+      "token_f1": 0.0,
+      "pred_tokens": 5,
+      "target_tokens": 1
+    }
+  ]
+}
