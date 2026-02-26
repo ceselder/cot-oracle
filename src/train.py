@@ -710,13 +710,13 @@ def _load_baseline_hlines(path: str = "logs/llm_monitor/results.json") -> dict[s
     for eval_name, data in results.items():
         m = data.get("metrics", {})
         if "accuracy" in m:
-            hlines[f"baseline/gemini_{eval_name}_acc"] = m["accuracy"]
+            hlines[f"eval/gemini_{eval_name}_acc"] = m["accuracy"]
         if "mean_token_f1" in m:
-            hlines[f"baseline/gemini_{eval_name}_token_f1"] = m["mean_token_f1"]
+            hlines[f"eval/gemini_{eval_name}_token_f1"] = m["mean_token_f1"]
     # Also compute a mean_acc across binary evals (matching eval/mean_acc)
     acc_vals = [v for k, v in hlines.items() if k.endswith("_acc")]
     if acc_vals:
-        hlines["baseline/gemini_mean_acc"] = sum(acc_vals) / len(acc_vals)
+        hlines["eval/gemini_mean_acc"] = sum(acc_vals) / len(acc_vals)
     return hlines
 
 _BASELINE_HLINES: dict[str, float] | None = None
