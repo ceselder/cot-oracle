@@ -361,6 +361,61 @@ def construct_flamingo_batch(
     }
 
 
+def construct_chimera_batch(
+    batch_list: list[TrainingDataPoint],
+    tokenizer,
+    device: torch.device,
+    max_ctx_tokens: int | None = None,
+) -> dict:
+    """Construct a chimera batch: [CoT | Oracle] concatenated per item.
+
+    Layout: [cot_left_pad | cot_tokens | oracle_tokens | oracle_right_pad]
+    Split point is always at max_cot_len (fixed for the batch).
+    Labels are -100 for all CoT + padding positions.
+    """
+    pad_id = tokenizer.pad_token_id
+
+    cots = []
+    for dp in batch_list:
+        assert dp.context_input_ids is not None
+        ctx = list(dp.context_input_ids)
+        if max_ctx_tokens and len(ctx) > max_ctx_tokens:
+            ctx = ctx[-max_ctx_tokens:]
+        cots.append(ctx)
+
+    max_cot_len = max(len(c) for c in cots)
+    max_oracle_len = max(len(dp.input_ids) for dp in batch_list)
+
+    all_input_ids = []
+    all_labels = []
+    all_attn_mask = []
+    all_cot_mask = []
+
+    for dp, cot in zip(batch_list, cots):
+        cot_pad = max_cot_len - len(cot)
+        oracle_pad = max_oracle_len - len(dp.input_ids)
+
+        ids = [pad_id] * cot_pad + cot + dp.input_ids + [pad_id] * oracle_pad
+        labs = [-100] * (max_cot_len + len(dp.input_ids)) + [-100] * oracle_pad
+        # Override with actual oracle labels (context_input_ids has no labels)
+        labs[max_cot_len:max_cot_len + len(dp.labels)] = dp.labels
+        mask = [False] * cot_pad + [True] * (len(cot) + len(dp.input_ids)) + [False] * oracle_pad
+        cmask = [False] * cot_pad + [True] * len(cot)
+
+        all_input_ids.append(torch.tensor(ids, dtype=torch.long))
+        all_labels.append(torch.tensor(labs, dtype=torch.long))
+        all_attn_mask.append(torch.tensor(mask, dtype=torch.bool))
+        all_cot_mask.append(torch.tensor(cmask, dtype=torch.bool))
+
+    return {
+        "input_ids": torch.stack(all_input_ids).to(device),
+        "attention_mask": torch.stack(all_attn_mask).to(device),
+        "labels": torch.stack(all_labels).to(device),
+        "cot_len": max_cot_len,
+        "cot_mask": torch.stack(all_cot_mask).to(device),
+    }
+
+
 # ── Data conversion ──
 def dicts_to_training_data(
     raw_data: list[dict], tokenizer,
@@ -1092,13 +1147,10 @@ def train(
             batch_types = [dp.datapoint_type for dp in batch_list]
 
             if args.flamingo:
-                # Flamingo path: extract all-layer activations, cross-attend
-                supervisee_kvs, supervisee_kv_masks = materialize_flamingo_activations(
-                    batch_list, tokenizer, model,
+                # Chimera: single forward pass with [CoT | Oracle] concatenated
+                batch = construct_chimera_batch(
+                    batch_list, tokenizer, device,
                     max_ctx_tokens=args.flamingo_max_ctx_tokens,
-                )
-                batch = construct_flamingo_batch(
-                    batch_list, supervisee_kvs, supervisee_kv_masks, tokenizer, device,
                 )
                 with torch.autocast(device_type="cuda", dtype=dtype):
                     outputs = ddp_model(**batch)

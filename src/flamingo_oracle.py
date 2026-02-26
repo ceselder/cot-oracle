@@ -1,22 +1,24 @@
 """
 Flamingo-Style Gated Cross-Attention Oracle
 
-Replaces additive steering injection with learned cross-attention layers.
-The oracle attends to the supervisee's residual stream at matching layers
-via interleaved gated cross-attention.
+Two modes of operation:
 
-Each cross-attention layer at block i attends ONLY to supervisee layer i's
-residual stream — no cross-layer mixing, no layer embeddings needed.
+1. **Chimera (single-pass)**: [CoT | Oracle] concatenated in one sequence.
+   At xattn layers, oracle positions cross-attend to CoT hidden states
+   from the same layer. No separate activation extraction needed.
+   CoT hidden states are detached — oracle monitors, doesn't shape CoT.
 
-Cross-attention projections are initialized from the base model's pretrained
-self-attention weights with frozen base + LoRA adapters on top.
-Gates start at 0 (identity at init).
+2. **Pre-extracted KV (legacy)**: Supervisee activations pre-extracted per layer,
+   passed as supervisee_kvs dict.
 
 Architecture per cross-attention layer:
     hidden = SelfAttn(hidden)       ← existing LoRA (via PEFT)
     hidden = MLP(hidden)            ← existing LoRA (via PEFT)
-    hidden = hidden + tanh(gate) * CrossAttn(Q=hidden, KV=supervisee_layer_i)
+    [oracle only] hidden += tanh(gate) * CrossAttn(Q=oracle_hidden, KV=cot_hidden)
                                     ↑ frozen base weights + manual LoRA adapters
+
+Gates start at 0 (identity at init). Per-layer cross-attention: block i
+attends only to layer i's residual stream.
 """
 
 import math
@@ -140,7 +142,9 @@ class GatedCrossAttentionLayer(nn.Module):
 class DecoderLayerWithCrossAttention(nn.Module):
     """Wraps an original decoder layer + appends gated cross-attention.
 
-    Each wrapped layer reads its own KV from wrapper._current_kvs[layer_idx].
+    Supports two modes (set by the wrapper's runtime state):
+    - Chimera: splits hidden states at _cot_len boundary, oracle cross-attends to CoT
+    - Pre-extracted KV: reads per-layer KVs from _current_kvs dict
     """
 
     def __init__(self, original_layer: nn.Module, xattn_layer: GatedCrossAttentionLayer, wrapper: "FlamingoOracleWrapper", layer_idx: int):
@@ -164,12 +168,22 @@ class DecoderLayerWithCrossAttention(nn.Module):
         else:
             hs = outputs
 
-        # Read this layer's KV from the per-layer dict
-        kvs = self._wrapper._current_kvs
-        if kvs is not None and self._layer_idx in kvs:
-            kv = kvs[self._layer_idx]
-            kv_mask = self._wrapper._current_kv_masks.get(self._layer_idx)
-            hs = self._xattn_layer(hs, kv, kv_attention_mask=kv_mask)
+        cot_len = self._wrapper._cot_len
+        if cot_len is not None and cot_len > 0:
+            # Chimera mode: split at CoT/oracle boundary
+            cot_hs = hs[:, :cot_len, :]
+            oracle_hs = hs[:, cot_len:, :]
+            cot_mask = self._wrapper._cot_mask
+            # Detach CoT — oracle monitors, doesn't shape CoT representations
+            oracle_hs = self._xattn_layer(oracle_hs, cot_hs.detach(), kv_attention_mask=cot_mask)
+            hs = torch.cat([cot_hs, oracle_hs], dim=1)
+        else:
+            # Pre-extracted KV mode (legacy)
+            kvs = self._wrapper._current_kvs
+            if kvs is not None and self._layer_idx in kvs:
+                kv = kvs[self._layer_idx]
+                kv_mask = self._wrapper._current_kv_masks.get(self._layer_idx)
+                hs = self._xattn_layer(hs, kv, kv_attention_mask=kv_mask)
 
         if isinstance(outputs, tuple):
             return (hs,) + outputs[1:]
@@ -212,7 +226,9 @@ class FlamingoOracleWrapper(nn.Module):
             wrapped = DecoderLayerWithCrossAttention(original_layer, self.xattn_layers[str(idx)], self, idx)
             layers[idx] = wrapped
 
-        # Runtime state: per-layer KV dicts (set/cleared within forward pass)
+        # Runtime state (set/cleared within forward pass)
+        self._cot_len: int | None = None
+        self._cot_mask: torch.Tensor | None = None
         self._current_kvs: dict[int, torch.Tensor] | None = None
         self._current_kv_masks: dict[int, torch.Tensor] = {}
 
@@ -226,36 +242,59 @@ class FlamingoOracleWrapper(nn.Module):
         input_ids: torch.Tensor,
         attention_mask: torch.Tensor,
         labels: torch.Tensor | None = None,
+        cot_len: int | None = None,
+        cot_mask: torch.Tensor | None = None,
         supervisee_kvs: dict[int, torch.Tensor] | None = None,
         supervisee_kv_masks: dict[int, torch.Tensor] | None = None,
     ):
         """
-        Args:
+        Two modes:
+
+        Chimera mode (cot_len provided):
+            input_ids: [B, max_cot + max_oracle] — [left_pad_cot | cot | oracle | right_pad_oracle]
+            cot_len: int — split point (= max_cot_len), same for all items
+            cot_mask: [B, cot_len] — True for real CoT tokens (not padding)
+            labels: [B, L] — -100 for CoT and padding positions
+
+        Pre-extracted KV mode (supervisee_kvs provided):
             input_ids: [B, L] oracle input tokens
-            attention_mask: [B, L] oracle attention mask
-            labels: [B, L] training labels (-100 for ignored)
             supervisee_kvs: {layer_idx: [B, T_cot, D]} per-layer supervisee activations
             supervisee_kv_masks: {layer_idx: [B, T_cot]} per-layer attention masks
         """
-        self._current_kvs = supervisee_kvs
-        self._current_kv_masks = supervisee_kv_masks or {}
+        if cot_len is not None:
+            self._cot_len = cot_len
+            self._cot_mask = cot_mask
+        else:
+            self._cot_len = None
+            self._current_kvs = supervisee_kvs
+            self._current_kv_masks = supervisee_kv_masks or {}
 
         outputs = self.base_model(input_ids=input_ids, attention_mask=attention_mask, labels=labels)
 
+        self._cot_len = None
+        self._cot_mask = None
         self._current_kvs = None
         self._current_kv_masks = {}
 
         return outputs
 
     def generate(self, **kwargs):
+        cot_len = kwargs.pop("cot_len", None)
+        cot_mask = kwargs.pop("cot_mask", None)
         supervisee_kvs = kwargs.pop("supervisee_kvs", None)
         supervisee_kv_masks = kwargs.pop("supervisee_kv_masks", None)
 
-        self._current_kvs = supervisee_kvs
-        self._current_kv_masks = supervisee_kv_masks or {}
+        if cot_len is not None:
+            self._cot_len = cot_len
+            self._cot_mask = cot_mask
+        else:
+            self._current_kvs = supervisee_kvs
+            self._current_kv_masks = supervisee_kv_masks or {}
 
         outputs = self.base_model.generate(**kwargs)
 
+        self._cot_len = None
+        self._cot_mask = None
         self._current_kvs = None
         self._current_kv_masks = {}
         return outputs

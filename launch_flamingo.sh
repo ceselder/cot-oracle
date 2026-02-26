@@ -34,7 +34,7 @@ nohup "$VENV_LOCAL/cot-oracle/bin/torchrun" --nproc_per_node=8 src/train.py \
     --lr 1e-5 \
     --no-step0-eval \
     --wandb-entity MATS10-CS-JB \
-    --wandb-run flamingo-xattn-0.6b \
-    > logs/flamingo_test.log 2>&1 &
+    --wandb-run flamingo-chimera-0.6b \
+    > logs/flamingo_chimera.log 2>&1 &
 
 echo "Launched! PID=$!"
