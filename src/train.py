@@ -1051,8 +1051,9 @@ def train(
     model.train()
 
     # Step-0 eval (baseline before any training)
+    # Skip all evals in Flamingo mode — evals use steering injection, not cross-attention
     skip_step0 = getattr(args, "no_step0_eval", False)
-    if global_step == 0 and rank == 0 and not skip_step0:
+    if global_step == 0 and rank == 0 and not skip_step0 and not args.flamingo:
         _run_unified_eval(eval_model, tokenizer, args.model, 0, args, eval_datasets, log_dir=log_dir)
         model.train()
     if world_size > 1:
@@ -1226,7 +1227,7 @@ def train(
             prev_dominant_task = dominant_task
 
             # Unified eval (task + detection, rank 0 only)
-            if global_step > 0 and global_step % args.eval_steps == 0:
+            if global_step > 0 and global_step % args.eval_steps == 0 and not args.flamingo:
                 if rank == 0:
                     _, elapsed = _run_unified_eval(eval_model, tokenizer, args.model, global_step, args, eval_datasets, log_dir=log_dir)
                     eval_time_total += elapsed
@@ -1254,7 +1255,7 @@ def train(
             global_step += 1
 
     # Final eval (rank 0 only)
-    if rank == 0:
+    if rank == 0 and not args.flamingo:
         _run_unified_eval(eval_model, tokenizer, args.model, global_step, args, eval_datasets, log_dir=log_dir)
 
         # Save final
