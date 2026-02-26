@@ -699,8 +699,31 @@ def run_eval(
     torch.cuda.empty_cache()
 
 
+def _load_baseline_hlines(path: str = "logs/llm_monitor/results.json") -> dict[str, float]:
+    """Load Gemini LLM-monitor baselines as flat wandb metric dict for hlines."""
+    import json
+    p = Path(path)
+    if not p.exists():
+        return {}
+    results = json.load(open(p))
+    hlines = {}
+    for eval_name, data in results.items():
+        m = data.get("metrics", {})
+        if "accuracy" in m:
+            hlines[f"baseline/gemini_{eval_name}_acc"] = m["accuracy"]
+        if "mean_token_f1" in m:
+            hlines[f"baseline/gemini_{eval_name}_token_f1"] = m["mean_token_f1"]
+    # Also compute a mean_acc across binary evals (matching eval/mean_acc)
+    acc_vals = [v for k, v in hlines.items() if k.endswith("_acc")]
+    if acc_vals:
+        hlines["baseline/gemini_mean_acc"] = sum(acc_vals) / len(acc_vals)
+    return hlines
+
+_BASELINE_HLINES: dict[str, float] | None = None
+
 def run_evals(model, tokenizer, model_name, global_step, args, log_dir=None):
     """Run evals if available."""
+    global _BASELINE_HLINES
     from evals.training_eval_hook import run_training_evals
     import wandb
 
@@ -718,6 +741,10 @@ def run_evals(model, tokenizer, model_name, global_step, args, log_dir=None):
         stride=args.stride,
     )
     if metrics:
+        # Append baseline hlines (logged at every eval step → flat reference lines)
+        if _BASELINE_HLINES is None:
+            _BASELINE_HLINES = _load_baseline_hlines()
+        metrics.update(_BASELINE_HLINES)
         wandb.log(metrics, step=global_step)
         for k, v in sorted(metrics.items()):
             if isinstance(v, (int, float)) and "sample" not in k:
