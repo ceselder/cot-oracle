@@ -858,7 +858,7 @@ def train(
 
     # Dynamic eval/save cadence: ~10 evals over the relevant span
     if task_order == "sequential":
-        reference_steps = min(len(items) // args.batch_size for items in train_per_type.values() if len(items) >= args.batch_size)
+        reference_steps = min(len(items) // (args.batch_size * grad_accum) for items in train_per_type.values() if len(items) >= args.batch_size)
     else:
         reference_steps = total_steps
     args.eval_steps = max(-(-reference_steps // 10), 1)
@@ -960,6 +960,12 @@ def train(
             disable=rank != 0,
         )
 
+        # Accumulators across micro-batches within a grad_accum window
+        accum_task_losses = defaultdict(list)
+        accum_loss_sum = 0.0
+        accum_batch_types = []
+        accum_batch_tokens = 0
+
         for start in pbar:
             batch_list = final_training[start : start + args.batch_size]
             if len(batch_list) < args.batch_size:
@@ -998,9 +1004,11 @@ def train(
                 batch_tokens = int(mask.sum().item())
                 total_tokens += batch_tokens
 
-            task_losses = defaultdict(list)
             for i, task_type in enumerate(batch_types):
-                task_losses[task_type].append(per_item_loss[i].item())
+                accum_task_losses[task_type].append(per_item_loss[i].item())
+            accum_loss_sum += outputs.loss.item()
+            accum_batch_types.extend(batch_types)
+            accum_batch_tokens += batch_tokens
 
             micro_step += 1
             if micro_step % grad_accum != 0:
@@ -1013,7 +1021,7 @@ def train(
             optimizer.zero_grad()
 
             # Update EMA for per-task losses
-            for task, losses in task_losses.items():
+            for task, losses in accum_task_losses.items():
                 avg = sum(losses) / len(losses)
                 if task not in task_loss_ema:
                     task_loss_ema[task] = avg
@@ -1024,10 +1032,10 @@ def train(
             if rank == 0:
                 now = time.time()
                 log_dict = {
-                    "train/loss": loss.item() * grad_accum,  # log unscaled loss
+                    "train/loss": accum_loss_sum / grad_accum,
                     "train/learning_rate": scheduler.get_last_lr()[0],
                     "train/total_tokens": total_tokens,
-                    "train/batch_tokens": batch_tokens,
+                    "train/batch_tokens": accum_batch_tokens,
                     "train/step_time": now - last_step_time,
                     "train/wallclock_hours": (now - train_start_time - eval_time_total) / 3600,
                     "eval/wallclock_hours": eval_time_total / 3600,
@@ -1039,7 +1047,7 @@ def train(
 
                 # Track dominant task for sequential mode phase transitions
                 batch_task_counts = defaultdict(int)
-                for t in batch_types:
+                for t in accum_batch_types:
                     batch_task_counts[t] += 1
                 dominant_task = max(batch_task_counts, key=batch_task_counts.get)
                 log_dict["train/stage_idx"] = task_stage_idx.get(dominant_task, -1)
@@ -1053,12 +1061,12 @@ def train(
 
                 wandb.log(log_dict, step=global_step)
 
-            pbar.set_postfix(loss=f"{loss.item() * grad_accum:.4f}")
+            pbar.set_postfix(loss=f"{accum_loss_sum / grad_accum:.4f}")
 
             # Track dominant task for sequential mode phase transitions (all ranks)
             if rank != 0:
                 batch_task_counts = defaultdict(int)
-                for t in batch_types:
+                for t in accum_batch_types:
                     batch_task_counts[t] += 1
                 dominant_task = max(batch_task_counts, key=batch_task_counts.get)
 
@@ -1073,9 +1081,8 @@ def train(
                 dist.barrier()
             prev_dominant_task = dominant_task
 
-            # Task-level eval (rank 0 only)
-            skip_step0 = global_step == 0 and getattr(args, "no_step0_eval", False)
-            if global_step % args.eval_steps == 0 and not skip_step0:
+            # Task-level eval (rank 0 only, step 0 handled by pre-loop baseline eval)
+            if global_step > 0 and global_step % args.eval_steps == 0:
                 if rank == 0:
                     print(f"\n--- Task eval at step {global_step} ---")
                     eval_start = time.time()
@@ -1090,7 +1097,7 @@ def train(
                     dist.barrier()
 
             # Detection eval (rank 0 only)
-            if global_step % args.eval_steps == 0 and not skip_step0:
+            if global_step > 0 and global_step % args.eval_steps == 0:
                 if rank == 0:
                     gc.collect()
                     torch.cuda.empty_cache()
@@ -1112,6 +1119,12 @@ def train(
                     _save_training_state(ckpt_path, global_step, optimizer, scheduler)
                 if world_size > 1:
                     dist.barrier()
+
+            # Reset accumulators for next grad_accum window
+            accum_task_losses = defaultdict(list)
+            accum_loss_sum = 0.0
+            accum_batch_types = []
+            accum_batch_tokens = 0
 
             global_step += 1
 

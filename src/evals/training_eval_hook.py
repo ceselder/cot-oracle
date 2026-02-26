@@ -1192,6 +1192,7 @@ def _score_binary_eval(
 
     correct = 0
     total = 0
+    unparsed = 0
     for item in scoreable:
         pred = parse_oracle_binary(
             item.oracle_response,
@@ -1199,6 +1200,7 @@ def _score_binary_eval(
             parsing_config["negative_keywords"],
         )
         if pred is None:
+            unparsed += 1
             continue
 
         pred_label = (
@@ -1211,11 +1213,12 @@ def _score_binary_eval(
             correct += 1
 
     if total == 0:
-        return {}
+        return {f"eval_n/{eval_name}_parse_fail": unparsed / len(scoreable) if scoreable else 0}
 
     return {
         f"eval/{eval_name}_acc": correct / total,
         f"eval_n/{eval_name}": total,
+        f"eval_n/{eval_name}_parse_fail": unparsed / len(scoreable),
     }
 
 
