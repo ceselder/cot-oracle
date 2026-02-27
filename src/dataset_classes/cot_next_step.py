@@ -1,15 +1,12 @@
 """
-CoT Next-Step Prediction — Progressive activation feeding.
+CoT Next-Step Prediction — Sparse activation feeding.
 
-Feed stride activations from positions [0..k] and predict the next 50 tokens
-after position k. This teaches the oracle to anticipate upcoming reasoning
-from the trajectory so far.
+Pick a cutoff position k in the CoT, then sample a random number of stride
+positions from [0..k] (uniform between 1 and k+1, with 1 double-weighted)
+and predict the next 50 tokens after position k.
 
-For stride=5 and 3 layers, position k corresponds to token 5*k in the CoT.
-We triple positions for 3 layers: context_positions = positions[:k+1] * 3.
-
-This bridges future lens (single activation) and full reconstruction (all
-activations) — the oracle must integrate a growing window of evidence.
+This forces the oracle to extrapolate from sparse, incomplete activation
+evidence — sometimes a single activation, sometimes many.
 """
 
 import json
@@ -36,7 +33,8 @@ def load_cot_next_step_data(
       1. Tokenize question + CoT
       2. Get stride positions over the CoT
       3. Pick a random cutoff k (where we stop feeding activations)
-      4. Feed positions [0..k] from all 3 layers + prompt positions
+      4. Sample n_feed ~ Uniform(1, k+1) with 1 double-weighted,
+         then randomly pick n_feed positions from [0..k]
       5. Target = next `predict_tokens` tokens after the k-th stride position
 
     Returns list of dicts compatible with dicts_to_training_data().
@@ -98,13 +96,25 @@ def load_cot_next_step_data(
         if len(all_positions) < 3:
             continue
 
-        # Pick a random cutoff: feed positions [0..k], predict after position k
-        # Need at least 1 position and enough tokens after for prediction
+        # Pick a random cutoff, then sparsely sample positions up to it
         max_k = len(all_positions) - 1
         for _ in range(3):  # Try a few cutoffs per entry
             k = random.randint(0, max_k)
-            feed_positions = all_positions[:k + 1]
-            last_pos = feed_positions[-1]
+            available = all_positions[:k + 1]
+            last_pos = available[-1]
+
+            # Sample how many positions to feed: uniform over [1, len(available)]
+            # but with 1 double-weighted (appears twice in the pool)
+            pool = [1] + list(range(1, len(available) + 1))  # [1, 1, 2, ..., len]
+            n_feed = random.choice(pool)
+            # Always include the last position (defines the cutoff boundary),
+            # sample the rest randomly from the remaining available positions
+            if n_feed >= len(available):
+                feed_positions = available
+            else:
+                rest = available[:-1]  # everything except last
+                sampled = sorted(random.sample(rest, n_feed - 1))
+                feed_positions = sampled + [last_pos]
 
             # Target: next predict_tokens tokens after last_pos
             target_start = last_pos + 1
