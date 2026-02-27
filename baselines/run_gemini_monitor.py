@@ -26,7 +26,10 @@ from tqdm.auto import tqdm
 
 OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY", "")
 MODEL = "google/gemini-3-flash-preview"
-DATASET = "mats-10-sprint-cs-jb/cot-oracle-eval-hinted-mcq-truthfulqa-unverbalized"
+DATASETS = {
+    "unverbalized": "mats-10-sprint-cs-jb/cot-oracle-eval-hinted-mcq-truthfulqa-unverbalized",
+    "verbalized": "mats-10-sprint-cs-jb/cot-oracle-eval-hinted-mcq-truthfulqa-verbalized",
+}
 LOG_DIR = Path("logs/gemini_monitor")
 
 # ── Prompt template ─────────────────────────────────────────────────────────
@@ -240,10 +243,26 @@ def main():
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument("--max-concurrent", type=int, default=10)
+    parser.add_argument("--variant", choices=list(DATASETS.keys()), default=None,
+                        help="Run a single variant. If omitted, runs both.")
     args = parser.parse_args()
 
-    print(f"Loading dataset: {DATASET}")
-    ds = load_dataset(DATASET, split="test")
+    variants = [args.variant] if args.variant else list(DATASETS.keys())
+
+    for variant in variants:
+        _run_variant(variant, args.max_concurrent)
+
+
+def _run_variant(variant: str, max_concurrent: int):
+    dataset_name = DATASETS[variant]
+    log_subdir = LOG_DIR / variant
+    log_subdir.mkdir(parents=True, exist_ok=True)
+
+    print(f"\n{'#'*70}")
+    print(f"# {variant.upper()}")
+    print(f"{'#'*70}")
+    print(f"Loading dataset: {dataset_name}")
+    ds = load_dataset(dataset_name, split="test")
     print(f"  {len(ds)} items")
     print(f"  Labels: {dict(Counter(ds['label']))}")
 
@@ -254,15 +273,15 @@ def main():
     strategies = [item["strategy"] for item in ds]
 
     # Async API calls
-    print(f"\nCalling {MODEL} via OpenRouter ({args.max_concurrent} concurrent)...")
+    print(f"\nCalling {MODEL} via OpenRouter ({max_concurrent} concurrent)...")
 
     async def _run():
         client = openai.AsyncOpenAI(
             base_url="https://openrouter.ai/api/v1",
             api_key=OPENROUTER_API_KEY,
         )
-        sem = asyncio.Semaphore(args.max_concurrent)
-        pbar = tqdm(total=len(prompts), desc="Gemini 3 Flash")
+        sem = asyncio.Semaphore(max_concurrent)
+        pbar = tqdm(total=len(prompts), desc=f"Gemini 3 Flash ({variant})")
         try:
             results = await fetch_batch(client, sem, prompts, pbar)
         finally:
@@ -320,23 +339,22 @@ def main():
     metrics["per_raw_label"] = raw_label_acc
 
     # Save traces
-    LOG_DIR.mkdir(parents=True, exist_ok=True)
-    traces_path = LOG_DIR / "traces.jsonl"
+    traces_path = log_subdir / "traces.jsonl"
     with open(traces_path, "w") as f:
         for trace in traces:
             f.write(json.dumps(trace, default=str) + "\n")
     print(f"\n  Traces -> {traces_path}")
 
     # Save summary
-    summary = {"metrics": metrics, "model": MODEL, "elapsed_seconds": round(elapsed, 1)}
-    summary_path = LOG_DIR / "summary.json"
+    summary = {"metrics": metrics, "model": MODEL, "variant": variant, "elapsed_seconds": round(elapsed, 1)}
+    summary_path = log_subdir / "summary.json"
     with open(summary_path, "w") as f:
         json.dump(summary, f, indent=2)
     print(f"  Summary -> {summary_path}")
 
     # Print results table
     print(f"\n{'='*70}")
-    print(f"GEMINI 3 FLASH MONITOR — HINTED MCQ TRUTHFULQA (UNVERBALIZED)")
+    print(f"GEMINI 3 FLASH MONITOR — HINTED MCQ TRUTHFULQA ({variant.upper()})")
     print(f"{'='*70}")
     print(f"  Overall accuracy: {metrics['accuracy']:.1%} ({metrics['accuracy'] * metrics['n_items']:.0f}/{metrics['n_items']})")
     print()
