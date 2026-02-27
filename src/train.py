@@ -679,6 +679,24 @@ def load_all_tasks(args, tokenizer) -> list[dict]:
 
 
 # ── Training infrastructure ──
+def _wrap_hook_for_grad_ckpt(hook_fn):
+    """Wrap a steering hook so it clones the residual before modifying it.
+
+    Gradient checkpointing with use_reentrant=False tracks saved tensor counts.
+    The original hook creates per-batch autograd tensors via in-place modification,
+    causing a count mismatch during recomputation.  Cloning first makes both
+    passes identical.
+    """
+    def safe_hook(module, _input, output):
+        if isinstance(output, tuple):
+            resid, *rest = output
+            output = (resid.clone(), *rest)
+        else:
+            output = output.clone()
+        return hook_fn(module, _input, output)
+    return safe_hook
+
+
 def train_features_batch(training_batch, model, submodule, steering_coefficient, device, dtype):
     hook_fn = get_hf_activation_steering_hook(
         vectors=training_batch.steering_vectors,
@@ -687,6 +705,7 @@ def train_features_batch(training_batch, model, submodule, steering_coefficient,
         device=device,
         dtype=dtype,
     )
+    hook_fn = _wrap_hook_for_grad_ckpt(hook_fn)
     tokenized_input = {
         "input_ids": training_batch.input_ids,
         "attention_mask": training_batch.attention_mask,
