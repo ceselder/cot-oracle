@@ -85,7 +85,7 @@ def _worker_stop_handler(signum, frame):
 
 def parse_args():
     p = argparse.ArgumentParser(description="All-in-one CoT + resampling pipeline")
-    p.add_argument("--preset", choices=["mini", "medium", "full"], default="mini")
+    p.add_argument("--preset", choices=["mini", "medium", "full", "resample"], default="mini")
     p.add_argument("--num-gpus", type=int, default=None, help="Auto-detect if not set")
     p.add_argument("--model", default=MODEL)
     p.add_argument("--n-rollouts", type=int, default=1, help="CoT rollouts per problem")
@@ -907,8 +907,8 @@ def main():
         print("Phase 1: Generate on-policy CoTs")
         print(f"{'='*60}")
 
-        from generate_cots import load_all_problems, MINI_SPLIT, MEDIUM_SPLIT, FULL_SPLIT
-        splits = {"mini": MINI_SPLIT, "medium": MEDIUM_SPLIT, "full": FULL_SPLIT}
+        from generate_cots import load_all_problems, MINI_SPLIT, MEDIUM_SPLIT, FULL_SPLIT, RESAMPLE_SPLIT
+        splits = {"mini": MINI_SPLIT, "medium": MEDIUM_SPLIT, "full": FULL_SPLIT, "resample": RESAMPLE_SPLIT}
         split = splits[args.preset]
 
         print("Loading problems...")

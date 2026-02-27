@@ -28,6 +28,7 @@ import logging
 import math
 import os
 import random
+import re
 import sys
 
 from dotenv import load_dotenv
@@ -441,8 +442,26 @@ def dicts_to_training_data(
     training_data = []
 
     if NO_ACTIVATIONS:
+        _act_prefix_re = re.compile(r'^Activations from \d+ positions[^.]*\.\s*')
+        _printed_sample = False
         for item in raw_data:
-            prompt = item["prompt"]
+            # Decode context_input_ids to recover CoT text
+            raw_text = tokenizer.decode(item["context_input_ids"], skip_special_tokens=False)
+            # Extract user question
+            user_match = re.search(r'<\|im_start\|>user\n(.*?)<\|im_end\|>', raw_text, re.DOTALL)
+            user_question = user_match.group(1).strip() if user_match else ""
+            # Extract CoT (assistant turn — may lack closing tag since context is truncated)
+            assistant_match = re.search(r'<\|im_start\|>assistant\n(.*?)(?:<\|im_end\|>|$)', raw_text, re.DOTALL)
+            cot_text = assistant_match.group(1).strip() if assistant_match else ""
+            # Strip activation metadata to get task question
+            task_question = _act_prefix_re.sub("", item["prompt"])
+            # Build text-only prompt: question + CoT + task
+            prompt = f"Question: {user_question}\nChain of thought: {cot_text}\n\n{task_question}"
+
+            if not _printed_sample:
+                print(f"  [no-activations] Sample prompt ({item['datapoint_type']}):\n    {prompt[:300]}...")
+                _printed_sample = True
+
             msgs = [{"role": "user", "content": prompt}]
             prompt_ids = tokenizer.apply_chat_template(msgs, tokenize=True, add_generation_prompt=True, enable_thinking=False)
             full_msgs = msgs + [{"role": "assistant", "content": item["target_response"]}]
@@ -458,7 +477,7 @@ def dicts_to_training_data(
                 datapoint_type=item["datapoint_type"],
                 context_input_ids=None, context_positions=None,
                 ds_label=None,
-                meta_info={"prompt": item["prompt"]},
+                meta_info={"prompt": prompt},
             )
             training_data.append(dp)
         return training_data
@@ -1133,7 +1152,7 @@ def train(
     save_dir.mkdir(parents=True, exist_ok=True)
     _run_name = wandb.run.name if wandb.run else (args.wandb_run or "cot-oracle")
     from datetime import datetime, timezone
-    _date_prefix = datetime.now(timezone.utc).strftime("%Y%m%d")
+    _date_prefix = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M")
     log_dir = Path("eval_logs") / f"{_date_prefix}_{_run_name}"
     log_dir.mkdir(parents=True, exist_ok=True)
 
@@ -1321,7 +1340,8 @@ def train(
                             log_dict[f"flamingo/gate_{idx}"] = gate_val
                             log_dict[f"flamingo/tanh_gate_{idx}"] = math.tanh(gate_val)
 
-                wandb.log(log_dict, step=global_step)
+                if global_step % 10 == 0 or global_step == total_steps:
+                    wandb.log(log_dict, step=global_step)
 
             pbar.set_postfix(loss=f"{accum_loss_sum / grad_accum:.4f}")
 

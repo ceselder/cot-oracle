@@ -271,6 +271,78 @@ def _batched_oracle_generate(
     return all_responses
 
 
+def _batched_textonly_generate(
+    model,
+    tokenizer,
+    prompts: list[str],
+    device: str = "cuda",
+    max_new_tokens: int = 100,
+    eval_batch_size: int = 8,
+) -> list[str]:
+    """Batched text-only generation (no activation steering).
+
+    Args:
+        prompts: List of oracle prompt strings (no prefix/placeholders).
+        device: Target device.
+        max_new_tokens: Max tokens to generate per item.
+        eval_batch_size: Mini-batch size for generation.
+
+    Returns:
+        List of response strings, one per input prompt.
+    """
+    if not prompts:
+        return []
+
+    pad_id = tokenizer.pad_token_id if tokenizer.pad_token_id is not None else tokenizer.eos_token_id
+    was_training = model.training
+    model.eval()
+
+    # Tokenize all prompts
+    all_input_ids = []
+    for prompt in prompts:
+        messages = [{"role": "user", "content": prompt}]
+        formatted = tokenizer.apply_chat_template(
+            messages, tokenize=False, add_generation_prompt=True, enable_thinking=False,
+        )
+        input_ids = tokenizer.encode(formatted, add_special_tokens=False)
+        all_input_ids.append(input_ids)
+
+    all_responses: list[str] = [""] * len(prompts)
+
+    for batch_start in range(0, len(prompts), eval_batch_size):
+        batch_end = min(batch_start + eval_batch_size, len(prompts))
+        batch_ids = all_input_ids[batch_start:batch_end]
+        max_len = max(len(ids) for ids in batch_ids)
+
+        padded_ids = []
+        attention_masks = []
+        for ids in batch_ids:
+            pad_len = max_len - len(ids)
+            padded_ids.append([pad_id] * pad_len + ids)
+            attention_masks.append([0] * pad_len + [1] * len(ids))
+
+        input_tensor = torch.tensor(padded_ids, device=device)
+        attn_mask = torch.tensor(attention_masks, device=device)
+
+        with torch.no_grad():
+            outputs = model.generate(
+                input_ids=input_tensor,
+                attention_mask=attn_mask,
+                max_new_tokens=max_new_tokens,
+                do_sample=False,
+                pad_token_id=pad_id,
+            )
+
+        for j in range(len(batch_ids)):
+            generated = outputs[j][max_len:]
+            all_responses[batch_start + j] = tokenizer.decode(generated, skip_special_tokens=True)
+
+    if was_training:
+        model.train()
+
+    return all_responses
+
+
 def _subsample(items: list[EvalItem], max_items: int, seed: int) -> list[EvalItem]:
     """Deterministically subsample items for fast training evals.
 
@@ -1380,6 +1452,7 @@ def run_training_evals(
     eval_batch_size: int = 8,
     stride: int | str = None,
     task_eval_datasets: dict[str, list] | None = None,
+    no_activations: bool = False,
 ) -> dict[str, Any]:
     """Run evals and return results dict for wandb logging.
 
@@ -1401,6 +1474,7 @@ def run_training_evals(
         task_eval_datasets: dict of task_name -> list[TrainingDataPoint] with pre-materialized
             steering_vectors. If provided, runs task-level generation evals (token F1) before
             detection evals.
+        no_activations: If True, use text-only generation (no steering vectors).
 
     Returns:
         Flat dict of metrics suitable for wandb.log().
@@ -1430,30 +1504,49 @@ def run_training_evals(
     # ── Task-level evals (generation + token F1) ──
     if task_eval_datasets:
         import wandb
-        print(f"  [training_eval] Running {len(task_eval_datasets)} task evals...")
+        print(f"  [training_eval] Running {len(task_eval_datasets)} task evals{' (text-only)' if no_activations else ''}...")
         task_scores = {}
         for ds_name, dp_list in task_eval_datasets.items():
-            # Build extracted dicts for _collect_and_batch_oracle
+            # Build extracted dicts
             extracted = []
             for dp in dp_list:
-                if dp.steering_vectors is None:
-                    continue
                 oracle_prompt = dp.meta_info.get("prompt", "")
-                extracted.append({
-                    "activations": dp.steering_vectors,
-                    "oracle_prompt": oracle_prompt,
-                    "oracle_response": "",
-                    "target": dp.target_output,
-                    "datapoint_type": dp.datapoint_type,
-                })
+                if no_activations:
+                    extracted.append({
+                        "activations": None,
+                        "oracle_prompt": oracle_prompt,
+                        "oracle_response": "",
+                        "target": dp.target_output,
+                        "datapoint_type": dp.datapoint_type,
+                    })
+                else:
+                    if dp.steering_vectors is None:
+                        continue
+                    extracted.append({
+                        "activations": dp.steering_vectors,
+                        "oracle_prompt": oracle_prompt,
+                        "oracle_response": "",
+                        "target": dp.target_output,
+                        "datapoint_type": dp.datapoint_type,
+                    })
 
             if not extracted:
                 continue
 
-            _collect_and_batch_oracle(
-                extracted, model, tokenizer, model_name, device,
-                eval_name=ds_name, eval_batch_size=eval_batch_size,
-            )
+            if no_activations:
+                # Text-only generation: no steering hook
+                prompts = [ex["oracle_prompt"] for ex in extracted]
+                responses = _batched_textonly_generate(
+                    model, tokenizer, prompts, device=device,
+                    eval_batch_size=eval_batch_size,
+                )
+                for j, resp in enumerate(responses):
+                    extracted[j]["oracle_response"] = resp
+            else:
+                _collect_and_batch_oracle(
+                    extracted, model, tokenizer, model_name, device,
+                    eval_name=ds_name, eval_batch_size=eval_batch_size,
+                )
 
             # Score with word-level token F1
             scores = []
@@ -1465,9 +1558,9 @@ def run_training_evals(
                 target = ex["target"].strip()
                 score = _word_token_f1(pred, target)
                 scores.append(score)
-                row = [i, ex["datapoint_type"], ex["oracle_prompt"][:300], pred[:500], target[:500], round(score, 3), len(pred.split()), len(target.split())]
-                table.add_data(*row)
-                rows.append(row)
+                wandb_row = [i, ex["datapoint_type"], ex["oracle_prompt"][:300], pred[:500], target[:500], round(score, 3), len(pred.split()), len(target.split())]
+                table.add_data(*wandb_row)
+                rows.append([i, ex["datapoint_type"], ex["oracle_prompt"], pred, target, round(score, 3), len(pred.split()), len(target.split())])
 
             avg_score = sum(scores) / len(scores)
             all_metrics[f"eval/{ds_name}"] = avg_score
@@ -1562,15 +1655,21 @@ def run_training_evals(
                     rot13_table = wandb.Table(columns=rot13_cols)
                     rot13_rows = []
                     for c in completed:
-                        row = [
+                        wandb_row = [
                             c.example_id, c.clean_prompt[:200],
                             (c.test_response or "")[:500], (c.oracle_response or "")[:500],
                             (c.clean_response or "")[:500],
                             round(c.metadata.get("token_match_rate", 0.0), 3),
                             round(c.metadata.get("kl_divergence", 0.0) or 0.0, 3),
                         ]
-                        rot13_table.add_data(*row)
-                        rot13_rows.append(row)
+                        rot13_table.add_data(*wandb_row)
+                        rot13_rows.append([
+                            c.example_id, c.clean_prompt,
+                            c.test_response or "", c.oracle_response or "",
+                            c.clean_response or "",
+                            round(c.metadata.get("token_match_rate", 0.0), 3),
+                            round(c.metadata.get("kl_divergence", 0.0) or 0.0, 3),
+                        ])
                     all_metrics[f"eval_table/{eval_name}"] = rot13_table
                     if _log_dir:
                         _save_table_to_disk(_log_dir, f"eval_table_{eval_name}", step, rot13_cols, rot13_rows)
@@ -1654,9 +1753,9 @@ def run_training_evals(
                                     is_correct = "?"
                             else:
                                 is_correct = "yes" if gt.lower() in oracle.lower() else "no"
-                        row = [c.example_id, (c.test_prompt or c.clean_prompt or "")[:200], oracle, gt or "", is_correct]
-                        table.add_data(*row)
-                        table_rows.append(row)
+                        wandb_row = [c.example_id, (c.test_prompt or c.clean_prompt or "")[:200], oracle, gt or "", is_correct]
+                        table.add_data(*wandb_row)
+                        table_rows.append([c.example_id, c.test_prompt or c.clean_prompt or "", c.oracle_response or "", gt or "", is_correct])
                     if len(table.data) > 0:
                         all_metrics[f"eval_table/{eval_name}"] = table
                     if _log_dir and table_rows:

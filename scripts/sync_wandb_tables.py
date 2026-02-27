@@ -31,7 +31,7 @@ import wandb
 from tqdm.auto import tqdm
 
 PROJECT = "MATS10-CS-JB/cot_oracle"
-OUTPUT_DIR = Path(__file__).resolve().parent.parent / "eval_logs"
+OUTPUT_DIR = Path(__file__).resolve().parent.parent / "eval_logs_wandb"
 
 FILE_RE = re.compile(r"media/table/eval_table/(.+)_(\d+)_[0-9a-f]+\.table\.json")
 
@@ -40,7 +40,7 @@ def run_dir_name(run) -> str:
     """Build date-prefixed directory name: YYYYMMDD_run-name."""
     created = run.created_at  # ISO 8601 string like "2026-02-25T10:25:14Z"
     dt = datetime.fromisoformat(created.replace("Z", "+00:00"))
-    return f"{dt.strftime('%Y%m%d')}_{run.name}"
+    return f"{dt.strftime('%Y%m%d_%H%M')}_{run.name}"
 
 
 def retry(fn, retries=3, delay=5):
@@ -161,6 +161,7 @@ def main():
 
     action = "would download" if args.dry_run else "downloaded"
     print(f"\nDone. {action} {total_new} new table files to {OUTPUT_DIR}/")
+    print("Note: these tables have truncated text (wandb limits). Full-text tables are in eval_logs/.")
 
 
 if __name__ == "__main__":
