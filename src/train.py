@@ -80,6 +80,7 @@ du_module.SPECIAL_TOKEN = PLACEHOLDER_TOKEN
 
 # ── Multi-layer config ──
 MULTI_LAYERS: list[int] = []
+NO_ACTIVATIONS: bool = False
 
 
 def _patched_get_prefix(sae_layer: int, num_positions: int) -> str:
@@ -438,6 +439,30 @@ def dicts_to_training_data(
     raw_data: list[dict], tokenizer,
 ) -> list[TrainingDataPoint]:
     training_data = []
+
+    if NO_ACTIVATIONS:
+        for item in raw_data:
+            prompt = item["prompt"]
+            msgs = [{"role": "user", "content": prompt}]
+            prompt_ids = tokenizer.apply_chat_template(msgs, tokenize=True, add_generation_prompt=True, enable_thinking=False)
+            full_msgs = msgs + [{"role": "assistant", "content": item["target_response"]}]
+            full_ids = tokenizer.apply_chat_template(full_msgs, tokenize=True, add_generation_prompt=False, enable_thinking=False)
+            labels = full_ids.copy()
+            for i in range(len(prompt_ids)):
+                labels[i] = -100
+            # Use a dummy steering vector so pydantic validator doesn't require context_*
+            dp = TrainingDataPoint(
+                input_ids=full_ids, labels=labels, layer=0,
+                steering_vectors=torch.zeros(0, 1), positions=[],
+                feature_idx=-1, target_output=item["target_response"],
+                datapoint_type=item["datapoint_type"],
+                context_input_ids=None, context_positions=None,
+                ds_label=None,
+                meta_info={"prompt": item["prompt"]},
+            )
+            training_data.append(dp)
+        return training_data
+
     n_layers_runtime = len(MULTI_LAYERS) if MULTI_LAYERS else 3
     _reexpand_warned = False
 
@@ -837,7 +862,7 @@ def _load_gemini_baselines(path: str = "logs/llm_monitor/results.json") -> dict[
 _GEMINI_BASELINES: dict[str, tuple[str, float]] | None = None
 
 
-def _run_unified_eval(model, tokenizer, model_name, global_step, args, eval_datasets, log_dir=None):
+def _run_unified_eval(model, tokenizer, model_name, global_step, args, eval_datasets, log_dir=None, no_activations=False):
     """Run all evals (task + detection) in a single call."""
     global _GEMINI_BASELINES
     from evals.training_eval_hook import run_training_evals
@@ -854,10 +879,11 @@ def _run_unified_eval(model, tokenizer, model_name, global_step, args, eval_data
         oracle_adapter_name="default",
         activation_cache_dir=args.activation_cache_dir,
         log_dir=log_dir,
-        eval_names=getattr(args, "evals", None),
+        eval_names=[] if no_activations else getattr(args, "evals", None),
         stride=args.stride,
         eval_batch_size=args.eval_batch_size,
         task_eval_datasets=eval_datasets,
+        no_activations=no_activations,
     )
     elapsed = time.time() - eval_start
     if metrics:
@@ -1017,8 +1043,8 @@ def train(
         print(f"  Eval tasks: {', '.join(sorted(eval_datasets.keys()))}")
 
     # Pre-materialize eval steering vectors once (avoids re-extraction every eval call)
-    # Skip for Flamingo mode — eval uses cross-attention, not steering
-    if rank == 0 and not args.flamingo:
+    # Skip for Flamingo and no-activations modes
+    if rank == 0 and not args.flamingo and not args.no_activations:
         print(f"\n  Pre-materializing eval steering vectors...")
         mat_start = time.time()
         mat_batch_size = 8
@@ -1106,7 +1132,9 @@ def train(
 
     save_dir.mkdir(parents=True, exist_ok=True)
     _run_name = wandb.run.name if wandb.run else (args.wandb_run or "cot-oracle")
-    log_dir = Path("eval_logs") / _run_name
+    from datetime import datetime, timezone
+    _date_prefix = datetime.now(timezone.utc).strftime("%Y%m%d")
+    log_dir = Path("eval_logs") / f"{_date_prefix}_{_run_name}"
     log_dir.mkdir(parents=True, exist_ok=True)
 
     if rank == 0:
@@ -1124,7 +1152,7 @@ def train(
     # Skip all evals in Flamingo mode — evals use steering injection, not cross-attention
     skip_step0 = getattr(args, "no_step0_eval", False)
     if global_step == 0 and rank == 0 and not skip_step0 and not args.flamingo:
-        _run_unified_eval(eval_model, tokenizer, args.model, 0, args, eval_datasets, log_dir=log_dir)
+        _run_unified_eval(eval_model, tokenizer, args.model, 0, args, eval_datasets, log_dir=log_dir, no_activations=args.no_activations)
         model.train()
     if world_size > 1:
         dist.barrier()
@@ -1165,7 +1193,15 @@ def train(
 
             batch_types = [dp.datapoint_type for dp in batch_list]
 
-            if args.flamingo:
+            if args.no_activations:
+                # Text-only: no activation extraction, no steering hook
+                batch = construct_batch(batch_list, tokenizer, device)
+                tokenized_input = {"input_ids": batch.input_ids, "attention_mask": batch.attention_mask}
+                with torch.autocast(device_type="cuda", dtype=dtype):
+                    outputs = ddp_model(**tokenized_input, labels=batch.labels)
+                    loss = outputs.loss / grad_accum
+                loss.backward()
+            elif args.flamingo:
                 # Two-pass: collect CoT hidden states, then oracle forward with xattn
                 flamingo_wrapper = ddp_model.module if isinstance(ddp_model, torch.nn.parallel.DistributedDataParallel) else ddp_model
                 cot_batch, oracle_batch = construct_flamingo_batch(
@@ -1310,7 +1346,7 @@ def train(
             # Unified eval (task + detection, rank 0 only)
             if global_step > 0 and global_step % args.eval_steps == 0 and not args.flamingo:
                 if rank == 0:
-                    _, elapsed = _run_unified_eval(eval_model, tokenizer, args.model, global_step, args, eval_datasets, log_dir=log_dir)
+                    _, elapsed = _run_unified_eval(eval_model, tokenizer, args.model, global_step, args, eval_datasets, log_dir=log_dir, no_activations=args.no_activations)
                     eval_time_total += elapsed
                     model.train()
                 if world_size > 1:
@@ -1337,7 +1373,7 @@ def train(
 
     # Final eval (rank 0 only)
     if rank == 0 and not args.flamingo:
-        _run_unified_eval(eval_model, tokenizer, args.model, global_step, args, eval_datasets, log_dir=log_dir)
+        _run_unified_eval(eval_model, tokenizer, args.model, global_step, args, eval_datasets, log_dir=log_dir, no_activations=args.no_activations)
 
         # Save final
         final_path = save_dir / "final"
@@ -1444,6 +1480,11 @@ def apply_config(args, config: dict):
         if "xattn_lora_r" in f and not getattr(args, "_cli_flamingo_xattn_lora_r", False):
             args.flamingo_xattn_lora_r = int(f["xattn_lora_r"])
 
+    # No-activations baseline
+    if "no_activations" in config:
+        if config["no_activations"].get("enabled") and not getattr(args, "_cli_no_activations", False):
+            args.no_activations = True
+
     # Model
     if "model" in config:
         m = config["model"]
@@ -1535,6 +1576,10 @@ def main():
                         help="Total effective batch size (invariant to GPU count). "
                              "gradient_accumulation_steps = effective_batch_size / (batch_size * world_size)")
 
+    # Text-only baseline
+    parser.add_argument("--no-activations", action="store_true", default=False,
+                        help="Text-only baseline: train without activation steering (same data, no prefix/injection)")
+
     # Flamingo cross-attention
     parser.add_argument("--flamingo", action="store_true", default=False,
                         help="Use Flamingo-style gated cross-attention instead of additive steering")
@@ -1600,6 +1645,12 @@ def main():
             print(yaml.dump(config, default_flow_style=False, sort_keys=False).rstrip())
             print(f"{'=' * 60}\n")
 
+    # Mutual exclusion and no-activations setup
+    assert not (getattr(args, "flamingo", False) and getattr(args, "no_activations", False)), \
+        "--flamingo and --no-activations are mutually exclusive"
+    if getattr(args, "no_activations", False):
+        args.fresh_lora = True
+
     # Resolve HF dataset IDs to local paths
     if rank == 0:
         args.corpus = _resolve_hf_dataset(args.corpus)
@@ -1617,7 +1668,8 @@ def main():
     set_seed(args.seed)
 
     # Multi-layer config
-    global MULTI_LAYERS
+    global MULTI_LAYERS, NO_ACTIVATIONS
+    NO_ACTIVATIONS = getattr(args, "no_activations", False)
     if hasattr(args, "layers") and args.layers:
         MULTI_LAYERS = [int(l) for l in args.layers]
     else:
@@ -1628,7 +1680,10 @@ def main():
     import cot_utils as _cu
     _cu.CONFIGURED_LAYERS = MULTI_LAYERS
     if rank == 0:
-        print(f"Multi-layer injection: {MULTI_LAYERS}")
+        if NO_ACTIVATIONS:
+            print(f"No-activations mode (text-only baseline, layers computed for data loaders only): {MULTI_LAYERS}")
+        else:
+            print(f"Multi-layer injection: {MULTI_LAYERS}")
         print(f"Distributed: world_size={world_size}, rank={rank}, local_rank={local_rank}")
 
     # Position encoding config
@@ -1815,9 +1870,9 @@ def main():
     save_dir = Path(args.save_dir)
 
     # ── Precompute eval activation caches (rank 0 only) ──
-    # Skip in Flamingo mode — evals use steering injection, not cross-attention
+    # Skip in Flamingo and no-activations modes
     eval_names = getattr(args, "evals", None)
-    if rank == 0 and eval_names and not args.flamingo:
+    if rank == 0 and eval_names and not args.flamingo and not args.no_activations:
         from evals.training_eval_hook import precache_eval_activations
         print(f"\n{'=' * 60}")
         print("PRECOMPUTING EVAL ACTIVATIONS")

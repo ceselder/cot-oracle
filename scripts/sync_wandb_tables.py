@@ -24,6 +24,7 @@ import json
 import re
 import tempfile
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 
 import wandb
@@ -33,6 +34,13 @@ PROJECT = "MATS10-CS-JB/cot_oracle"
 OUTPUT_DIR = Path(__file__).resolve().parent.parent / "eval_logs"
 
 FILE_RE = re.compile(r"media/table/eval_table/(.+)_(\d+)_[0-9a-f]+\.table\.json")
+
+
+def run_dir_name(run) -> str:
+    """Build date-prefixed directory name: YYYYMMDD_run-name."""
+    created = run.created_at  # ISO 8601 string like "2026-02-25T10:25:14Z"
+    dt = datetime.fromisoformat(created.replace("Z", "+00:00"))
+    return f"{dt.strftime('%Y%m%d')}_{run.name}"
 
 
 def retry(fn, retries=3, delay=5):
@@ -88,7 +96,7 @@ def download_and_convert(run, file_obj, eval_name: str, step: int, out_dir: Path
 
 def sync_run(run, dry_run: bool = False) -> int:
     """Sync all eval tables for a single run. Returns count of new files."""
-    run_dir = OUTPUT_DIR / run.name
+    run_dir = OUTPUT_DIR / run_dir_name(run)
     try:
         all_files = retry(lambda: list(run.files()))
     except Exception as e:
