@@ -200,7 +200,7 @@ def load_cot_hint_admission_data(
             target = _build_target_response(entry)
 
             datapoints.append({
-                "datapoint_type": "cot_hint_admission_f1",
+                "datapoint_type": "cot_hint_admission",
                 "prompt": prompt,
                 "target_response": target,
                 "layer": LAYERS[0],

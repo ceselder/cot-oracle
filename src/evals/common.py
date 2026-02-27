@@ -443,8 +443,6 @@ def determine_ground_truth(
         return "pending_manual"  # Ground truth is the inserted step index, set in metadata
 
     elif item.eval_name == "reasoning_termination_riya":
-        if test_answer is None:
-            return "indeterminate"
         return item.correct_answer  # "will_terminate" or "will_continue"
 
     elif item.eval_name == "rot13_reconstruction":
