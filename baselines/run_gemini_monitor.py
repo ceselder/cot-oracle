@@ -12,6 +12,7 @@ Usage:
 
 import asyncio
 import json
+import os
 import re
 import time
 from collections import Counter
@@ -23,7 +24,7 @@ from tqdm.auto import tqdm
 
 # ── Config ──────────────────────────────────────────────────────────────────
 
-OPENROUTER_API_KEY = "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"
+OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY", "")
 MODEL = "google/gemini-3-flash-preview"
 DATASET = "mats-10-sprint-cs-jb/cot-oracle-eval-hinted-mcq-truthfulqa-unverbalized"
 LOG_DIR = Path("logs/gemini_monitor")
