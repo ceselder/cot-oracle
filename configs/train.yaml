@@ -77,7 +77,8 @@ training:
   max_grad_norm: 1.0
   steering_coefficient: 1.0
   gradient_checkpointing: true
-  task_order: shuffled    # "shuffled" (default) or "sequential" (train tasks one at a time)
+  task_order: shuffled    # "shuffled" (default), "sequential" (one at a time), or "interleaved" (round-robin blocks)
+  interleave_blocks: 50   # number of blocks for interleaved mode
   seed: 42
 
 # Flamingo cross-attention (alternative to steering injection)

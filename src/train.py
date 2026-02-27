@@ -1026,6 +1026,57 @@ def train(
                 print(f"    stage {task_stage_idx[task_name]}: {task_name} ({len(items)} examples)")
             if wandb.run:
                 wandb.config.update({"stage_map": {v: k for k, v in task_stage_idx.items()}})
+    elif task_order == "interleaved":
+        # Round-robin blocks: cycle through tasks, eval at every block boundary
+        yaml_task_names = getattr(args, "_yaml_task_order", [])
+        yaml_to_dtype = {k: v["module"].split(".")[-1] if v["module"] else f"cot_{k}" for k, v in TASK_REGISTRY.items()}
+        ordered_types = []
+        for yt in yaml_task_names:
+            dt = yaml_to_dtype.get(yt)
+            if dt and dt in train_per_type:
+                ordered_types.append(dt)
+        for dt in sorted(train_per_type.keys()):
+            if dt not in ordered_types:
+                ordered_types.append(dt)
+
+        n_blocks = getattr(args, "interleave_blocks", 50)
+        total_examples = sum(len(v) for v in train_per_type.values())
+        block_size = total_examples // n_blocks
+
+        # Shuffle within each task, create queues
+        task_queues = {}
+        for dt in ordered_types:
+            items = list(train_per_type[dt])
+            random.shuffle(items)
+            task_queues[dt] = items
+
+        # Round-robin fill blocks
+        task_blocks = []
+        task_idx = 0
+        while any(len(q) > 0 for q in task_queues.values()):
+            active_types = [dt for dt in ordered_types if task_queues[dt]]
+            if not active_types:
+                break
+            task = active_types[task_idx % len(active_types)]
+            task_idx += 1
+            queue = task_queues[task]
+            block = queue[:block_size]
+            task_queues[task] = queue[block_size:]
+            task_blocks.append((task, block))
+
+        final_training = []
+        for _, items in task_blocks:
+            final_training.extend(items)
+
+        for i, (task_name, _) in enumerate(task_blocks):
+            task_stage_idx.setdefault(task_name, i)
+
+        if rank == 0:
+            print(f"  Task order: INTERLEAVED ({n_blocks} blocks, block_size={block_size})")
+            for i, (task_name, items) in enumerate(task_blocks):
+                print(f"    block {i}: {task_name} ({len(items)} examples)")
+            if wandb.run:
+                wandb.config.update({"stage_map": {v: k for k, v in task_stage_idx.items()}})
     else:
         random.shuffle(final_training)
         if rank == 0:
@@ -1065,24 +1116,48 @@ def train(
 
     # Precompute per-stage step boundaries for progress tracking
     stage_step_ranges = {}  # task_name -> (start_step, end_step)
-    if task_order == "sequential" and task_blocks:
+    if task_order in ("sequential", "interleaved") and task_blocks:
         cursor = 0
         for task_name, items in task_blocks:
             stage_steps = len(items) // (args.batch_size * grad_accum)
             stage_step_ranges[task_name] = (cursor, cursor + stage_steps)
             cursor += stage_steps
 
+    # Precompute block-boundary eval/save steps for interleaved mode
+    block_eval_steps = set()
+    block_save_steps = set()
+    if task_order == "interleaved" and task_blocks:
+        cursor = 0
+        for _, items in task_blocks:
+            block_steps = len(items) // (args.batch_size * grad_accum)
+            cursor += block_steps
+            block_eval_steps.add(cursor)
+        sorted_evals = sorted(block_eval_steps)
+        block_save_steps = set(sorted_evals[i] for i in range(4, len(sorted_evals), 5))
+
     # Dynamic eval/save cadence: ~10 evals over the relevant span
-    if task_order == "sequential":
+    if task_order == "interleaved":
+        # Interleaved uses block-boundary eval/save; disable modulo-based triggers
+        args.eval_steps = max(total_steps + 1, 999999)
+        args.save_steps = max(total_steps + 1, 999999)
+        if rank == 0:
+            print(f"\n  Interleaved cadence: eval at {len(block_eval_steps)} block boundaries, save at {len(block_save_steps)}")
+    elif task_order == "sequential":
         reference_steps = max(len(items) // (args.batch_size * grad_accum) for items in train_per_type.values() if len(items) >= args.batch_size)
+        args.eval_steps = max(-(-reference_steps // 10), 1)
+        args.save_steps = args.eval_steps * 5
+        if rank == 0:
+            print(f"\n  Dynamic cadence (reference = {reference_steps} steps):")
+            print(f"    eval_steps: {args.eval_steps} (~{reference_steps // max(args.eval_steps, 1)}x)")
+            print(f"    save_steps: {args.save_steps}")
     else:
         reference_steps = total_steps
-    args.eval_steps = max(-(-reference_steps // 10), 1)
-    args.save_steps = args.eval_steps * 5
-    if rank == 0:
-        print(f"\n  Dynamic cadence (reference = {reference_steps} steps):")
-        print(f"    eval_steps: {args.eval_steps} (~{reference_steps // max(args.eval_steps, 1)}x)")
-        print(f"    save_steps: {args.save_steps}")
+        args.eval_steps = max(-(-reference_steps // 10), 1)
+        args.save_steps = args.eval_steps * 5
+        if rank == 0:
+            print(f"\n  Dynamic cadence (reference = {reference_steps} steps):")
+            print(f"    eval_steps: {args.eval_steps} (~{reference_steps // max(args.eval_steps, 1)}x)")
+            print(f"    save_steps: {args.save_steps}")
 
     optimizer = torch.optim.AdamW(ddp_model.parameters(), lr=args.lr)
     scheduler = get_linear_schedule_with_warmup(
@@ -1169,7 +1244,7 @@ def train(
     micro_step = 0  # counts micro-batches within a gradient accumulation window
 
     for epoch in range(args.epochs):
-        if task_order != "sequential":
+        if task_order not in ("sequential", "interleaved"):
             random.shuffle(final_training)
         optimizer.zero_grad()
 
@@ -1311,6 +1386,17 @@ def train(
                     s_len = max(s_end - s_start, 1)
                     log_dict["train/stage_progress"] = min((global_step - s_start) / s_len, 1.0)
 
+                # Log block index for interleaved mode
+                if task_order == "interleaved" and task_blocks:
+                    cursor = 0
+                    for bi, (_, items) in enumerate(task_blocks):
+                        cursor += len(items) // (args.batch_size * grad_accum)
+                        if global_step < cursor:
+                            log_dict["train/block_idx"] = bi
+                            break
+                    else:
+                        log_dict["train/block_idx"] = len(task_blocks) - 1
+
                 # Log Flamingo gate values
                 if args.flamingo:
                     from flamingo_oracle import FlamingoOracleWrapper
@@ -1332,19 +1418,20 @@ def train(
                     batch_task_counts[t] += 1
                 dominant_task = max(batch_task_counts, key=batch_task_counts.get)
 
-            # Phase checkpoint: save when dominant task changes in sequential mode
-            if rank == 0 and task_order == "sequential" and prev_dominant_task is not None and dominant_task != prev_dominant_task:
+            # Phase checkpoint: save when dominant task changes in sequential/interleaved mode
+            if rank == 0 and task_order in ("sequential", "interleaved") and prev_dominant_task is not None and dominant_task != prev_dominant_task:
                 ckpt_path = save_dir / f"step_{global_step}_phase_{prev_dominant_task}"
                 print(f"\n  Phase transition: {prev_dominant_task} -> {dominant_task}")
                 print(f"  Saving phase checkpoint to {ckpt_path}")
                 model.save_pretrained(str(ckpt_path))
                 _save_training_state(ckpt_path, global_step, optimizer, scheduler)
-            if world_size > 1 and task_order == "sequential" and prev_dominant_task is not None and dominant_task != prev_dominant_task:
+            if world_size > 1 and task_order in ("sequential", "interleaved") and prev_dominant_task is not None and dominant_task != prev_dominant_task:
                 dist.barrier()
             prev_dominant_task = dominant_task
 
             # Unified eval (task + detection, rank 0 only)
-            if global_step > 0 and global_step % args.eval_steps == 0 and not args.flamingo:
+            should_eval = (global_step > 0 and global_step % args.eval_steps == 0) or global_step in block_eval_steps
+            if should_eval and not args.flamingo:
                 if rank == 0:
                     _, elapsed = _run_unified_eval(eval_model, tokenizer, args.model, global_step, args, eval_datasets, log_dir=log_dir, no_activations=args.no_activations)
                     eval_time_total += elapsed
@@ -1353,7 +1440,8 @@ def train(
                     dist.barrier()
 
             # Save checkpoint (rank 0 only)
-            if global_step > 0 and global_step % args.save_steps == 0:
+            should_save = (global_step > 0 and global_step % args.save_steps == 0) or global_step in block_save_steps
+            if should_save:
                 if rank == 0:
                     ckpt_path = save_dir / f"step_{global_step}"
                     print(f"  Saving checkpoint to {ckpt_path}")
@@ -1410,11 +1498,11 @@ def apply_config(args, config: dict):
     if "training" in config:
         t = config["training"]
         _float_keys = {"lr", "warmup_fraction", "max_grad_norm", "steering_coefficient"}
-        _int_keys = {"batch_size", "eval_batch_size", "epochs", "seed", "effective_batch_size"}
+        _int_keys = {"batch_size", "eval_batch_size", "epochs", "seed", "effective_batch_size", "interleave_blocks"}
         for key in ["lr", "batch_size", "eval_batch_size", "epochs",
                      "warmup_fraction", "max_grad_norm", "steering_coefficient",
                      "gradient_checkpointing", "task_order", "seed",
-                     "effective_batch_size"]:
+                     "effective_batch_size", "interleave_blocks"]:
             if key in t and not getattr(args, f"_cli_{key}", False):
                 val = t[key]
                 if key in _float_keys:
@@ -1570,8 +1658,10 @@ def main():
                         help="Apply sinusoidal PE to activation vectors")
     parser.add_argument("--pe-alpha", type=float, default=0.1,
                         help="PE mixing coefficient (only used if --position-encoding)")
-    parser.add_argument("--task-order", choices=["shuffled", "sequential"], default="shuffled",
-                        help="'shuffled' mixes all tasks; 'sequential' trains tasks one at a time")
+    parser.add_argument("--task-order", choices=["shuffled", "sequential", "interleaved"], default="shuffled",
+                        help="'shuffled' mixes all tasks; 'sequential' trains one at a time; 'interleaved' round-robin blocks")
+    parser.add_argument("--interleave-blocks", type=int, default=50,
+                        help="Number of blocks for interleaved mode (default 50)")
     parser.add_argument("--effective-batch-size", type=int, default=32,
                         help="Total effective batch size (invariant to GPU count). "
                              "gradient_accumulation_steps = effective_batch_size / (batch_size * world_size)")
@@ -1606,8 +1696,7 @@ def main():
                         help="Dir with precomputed activation bundles (.pt)")
 
     # Output
-    _default_save = os.path.join(os.environ["CACHE_DIR"], "cot_oracle", "checkpoints") if os.environ.get("CACHE_DIR") else "checkpoints"
-    parser.add_argument("--save-dir", default=_default_save)
+    parser.add_argument("--save-dir", default="checkpoints")
     parser.add_argument("--wandb-project", default="cot_oracle")
     parser.add_argument("--wandb-entity", default="MATS10-CS-JB",
                         help="Wandb entity (team/org)")
