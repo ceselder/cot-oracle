@@ -23,6 +23,8 @@ training:
   batch_size: 2
   effective_batch_size: 16
   eval_batch_size: 2
+
+model:
   fresh_lora: true
 
 output:
