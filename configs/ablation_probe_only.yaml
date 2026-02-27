@@ -1,6 +1,6 @@
 # Ablation: Probe-Only (No Text Inversion)
 # Hypothesis: removing text-inversion inductive bias improves eval performance.
-# Disables reconstruction + trajectory tasks. Stride=100 with window pooling.
+# Disables reconstruction + trajectory tasks. Fresh LoRA, stride=100 with window pooling.
 # Override on top of train.yaml: --config configs/train.yaml configs/ablation_probe_only.yaml
 
 tasks:
@@ -22,6 +22,9 @@ activations:
 training:
   effective_batch_size: 16
   eval_batch_size: 2
+
+model:
+  fresh_lora: true
 
 output:
   wandb_run: ablation-probe-only

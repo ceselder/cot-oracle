@@ -1690,12 +1690,18 @@ def main():
                 print(f"  Loaded training_state.pt: step={_resume_state['global_step']}, wandb_id={_resume_state.get('wandb_run_id')}")
     elif args.fresh_lora:
         if rank == 0:
-            print("Starting with FRESH LoRA")
-        lora_config = LoraConfig(
-            r=64, lora_alpha=128, lora_dropout=0.05,
-            target_modules="all-linear", bias="none", task_type="CAUSAL_LM",
+            print("Starting with FRESH LoRA (load AO structure, reinit weights)")
+        # Load Adam's checkpoint for the model structure (compatible with grad checkpointing),
+        # then reinitialize all LoRA weights to random (kaiming for A, zero for B).
+        model = PeftModel.from_pretrained(
+            base_model, args.ao_checkpoint,
+            is_trainable=True, autocast_adapter_dtype=False,
         )
-        model = get_peft_model(base_model, lora_config, autocast_adapter_dtype=False)
+        for name, param in model.named_parameters():
+            if "lora_A" in name:
+                torch.nn.init.kaiming_uniform_(param, a=5**0.5)
+            elif "lora_B" in name:
+                torch.nn.init.zeros_(param)
     else:
         if rank == 0:
             print(f"Loading Adam's AO checkpoint: {args.ao_checkpoint}")
