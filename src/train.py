@@ -1354,7 +1354,8 @@ def apply_config(args, config: dict):
         args._yaml_task_order = list(config["tasks"].keys())
         for task_name, task_cfg in config["tasks"].items():
             arg_name = f"{task_name}_n"
-            if hasattr(args, arg_name) and getattr(args, f"_cli_{arg_name}", False) is False:
+            # YAML is source of truth — always set unless CLI explicitly overrode
+            if not getattr(args, f"_cli_{arg_name}", False):
                 setattr(args, arg_name, task_cfg.get("n", 0))
 
     # Training params
