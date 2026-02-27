@@ -1490,6 +1490,8 @@ def main():
     parser.add_argument("--prompt-inversion-n", type=int, default=0)
     parser.add_argument("--compqa-n", type=int, default=0)
     parser.add_argument("--hint-admission-n", type=int, default=0)
+    parser.add_argument("--cotqa-n", type=int, default=0)
+    parser.add_argument("--hinted-answer-pred-n", type=int, default=0)
     parser.add_argument("--atypical-data-path",
                         default="data/atypical_answer_training.jsonl",
                         help="Path to atypical answer JSONL (from precompute_atypical_training.py)")
