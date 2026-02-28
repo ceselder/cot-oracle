@@ -72,7 +72,7 @@ from nl_probes.utils.activation_utils import (
 )
 from nl_probes.utils.common import load_tokenizer, set_seed
 
-from cot_utils import layer_percent_to_layer
+from cot_utils import layer_percent_to_layer, sparse_sample_positions
 
 # ── Override placeholder token ──
 PLACEHOLDER_TOKEN = " \u00b6"
@@ -102,6 +102,10 @@ _PE_CONFIG = {"enabled": False, "alpha": 0.1}
 _POOLING_MODE = "none"
 # Layer pooling: average activations across all MULTI_LAYERS at each position
 _LAYER_POOL = False
+# Sparse position sampling: randomly subsample CoT positions per example
+_SPARSE_POSITIONS = False
+# Strip prompt positions: remove question activations, keep CoT only
+_N_PROMPT_POSITIONS = 5  # how many prompt positions each task generates (for stripping)
 
 
 def _pool_vectors(vectors: torch.Tensor, mode: str) -> torch.Tensor:
@@ -337,6 +341,29 @@ def dicts_to_training_data(
                         print(f"  [data] Re-expanding positions: {old_n} layers -> {n_layers_runtime} layers (K={k})")
                         _reexpand_warned = True
                     break
+
+        # Strip prompt positions: task loaders prepend N prompt positions to
+        # each layer's positions. Remove them so the oracle only sees CoT.
+        if _N_PROMPT_POSITIONS == 0 and n_layers_runtime >= 1:
+            total = len(ctx_pos)
+            if total % n_layers_runtime == 0:
+                k = total // n_layers_runtime
+                # Each layer block is [prompt_0..prompt_N-1, cot_0..cot_K]
+                # Strip first _ORIG_N_PROMPT positions from each block
+                # (tasks generate with n_prompt_positions=5 by default)
+                orig_n_prompt = 5
+                if k > orig_n_prompt:
+                    new_base = ctx_pos[orig_n_prompt:k]  # first layer block, sans prompt
+                    ctx_pos = new_base * n_layers_runtime
+                    num_pos = len(ctx_pos)
+
+        # Sparse position sampling: randomly subsample CoT positions per example
+        if _SPARSE_POSITIONS:
+            ctx_pos = sparse_sample_positions(
+                ctx_pos, n_layers=n_layers_runtime,
+                n_prompt=0 if _N_PROMPT_POSITIONS == 0 else 5,
+            )
+            num_pos = len(ctx_pos)
 
         # Override num_positions for pooling modes (fewer placeholders in prompt)
         # Store full positions in meta_info so materializer can extract all, then pool.
@@ -1405,7 +1432,8 @@ def apply_config(args, config: dict):
     # Activations
     if "activations" in config:
         a = config["activations"]
-        for key in ["stride", "position_encoding", "pe_alpha", "n_layers", "pooling"]:
+        for key in ["stride", "position_encoding", "pe_alpha", "n_layers", "pooling",
+                    "sparse_positions", "n_prompt_positions"]:
             if key in a and not getattr(args, f"_cli_{key}", False):
                 if key == "pooling":
                     setattr(args, "pooling_mode", a[key])
@@ -1566,6 +1594,10 @@ def main():
                         help="Activation pooling: none, windows (mean-pool token windows), single (1/layer), chunks5 (5/layer)")
     parser.add_argument("--layer-pool", action="store_true", default=False,
                         help="Average activations across all MULTI_LAYERS at each position (output=1 effective layer)")
+    parser.add_argument("--sparse-positions", action="store_true", default=False,
+                        help="Randomly subsample CoT positions per example (trains on sparse evidence)")
+    parser.add_argument("--n-prompt-positions", type=int, default=5,
+                        help="Number of prompt positions (0 = strip all, CoT-only)")
     parser.add_argument("--rot13-start-step", type=int, default=2000)
     parser.add_argument("--start-step", type=int, default=None,
                         help="Starting global step (for resuming; 0 = restart data from beginning)")
@@ -1663,10 +1695,20 @@ def main():
     # Layer pooling
     global _LAYER_POOL
     _LAYER_POOL = getattr(args, "layer_pool", False)
+    # Sparse position sampling
+    global _SPARSE_POSITIONS
+    _SPARSE_POSITIONS = getattr(args, "sparse_positions", False)
+    # Prompt positions (0 = strip, 5 = default)
+    global _N_PROMPT_POSITIONS
+    _N_PROMPT_POSITIONS = getattr(args, "n_prompt_positions", 5)
     if rank == 0:
         print(f"Activation pooling: {_POOLING_MODE}")
         if _LAYER_POOL:
             print(f"Layer pooling: ON (averaging {len(MULTI_LAYERS)} layers → 1 effective layer)")
+        if _SPARSE_POSITIONS:
+            print("Sparse position sampling: ON")
+        if _N_PROMPT_POSITIONS == 0:
+            print("Prompt positions: STRIPPED (CoT-only)")
 
     tokenizer = load_tokenizer(args.model)
 

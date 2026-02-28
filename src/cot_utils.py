@@ -5,6 +5,7 @@ Extracted from ao_lib.py for use in CPU-only scripts like corpus generation.
 """
 
 import bisect
+import random
 import re
 
 
@@ -194,6 +195,91 @@ def get_cot_positions(
         prompt_token_count, total_token_count,
         stride=int(stride), include_last=include_last,
     )
+
+
+def get_prompt_positions(prompt_token_count: int, n: int = 5) -> list[int]:
+    """Return n evenly-spaced positions within the prompt region."""
+    if prompt_token_count < n:
+        return list(range(prompt_token_count))
+    step = prompt_token_count / (n + 1)
+    return [int(step * (i + 1)) for i in range(n)]
+
+
+def sparse_sample_positions(
+    positions: list[int],
+    n_layers: int = 3,
+    n_prompt: int = 5,
+) -> list[int]:
+    """Randomly subsample CoT positions (keeping prompt positions intact).
+
+    Positions are stored as [base_positions] * n_layers. base_positions is
+    [prompt_pos_0 .. prompt_pos_{n-1}, cot_pos_0 .. cot_pos_K].
+
+    For each example we:
+      1. Extract base positions (first 1/n_layers of the list)
+      2. Split into prompt positions and CoT positions
+      3. Sample a random count n_feed ~ Uniform(1, K) with 1 double-weighted
+      4. Always include the last CoT position
+      5. Re-expand to n_layers
+
+    This forces the oracle to work with sparse, incomplete activation evidence
+    across all tasks — not just next_step.
+    """
+    if not positions:
+        return positions
+
+    total = len(positions)
+
+    # Extract base positions (un-expand the layer repetition)
+    if n_layers > 1 and total % n_layers == 0:
+        k = total // n_layers
+        base = positions[:k]
+    else:
+        base = positions
+        n_layers = 1
+
+    # Split prompt vs CoT positions
+    # Prompt positions are the first n_prompt entries (if the task uses them)
+    # CoT positions are everything after
+    if len(base) <= n_prompt:
+        # Too few positions to subsample
+        return positions
+
+    # Detect whether prompt positions are present by checking if the first
+    # n_prompt positions are all less than the remaining positions
+    # (prompt positions come from the question, CoT positions from the response)
+    has_prompt = len(base) > n_prompt and all(
+        base[i] < base[n_prompt] for i in range(n_prompt)
+    )
+
+    if has_prompt:
+        prompt_pos = base[:n_prompt]
+        cot_pos = base[n_prompt:]
+    else:
+        prompt_pos = []
+        cot_pos = base
+
+    n_cot = len(cot_pos)
+    if n_cot <= 2:
+        # Too few to subsample
+        return positions
+
+    # Sample how many CoT positions to keep: uniform over [1, n_cot]
+    # with 1 double-weighted (oracle sometimes sees minimal evidence)
+    pool = [1] + list(range(1, n_cot + 1))
+    n_feed = random.choice(pool)
+
+    if n_feed >= n_cot:
+        sampled_cot = cot_pos
+    else:
+        # Always include the last position, sample rest randomly
+        last = cot_pos[-1]
+        rest = cot_pos[:-1]
+        sampled = sorted(random.sample(rest, min(n_feed - 1, len(rest))))
+        sampled_cot = sampled + [last]
+
+    new_base = prompt_pos + sampled_cot
+    return new_base * n_layers
 
 
 # Layer count lookup (no torch dependency)

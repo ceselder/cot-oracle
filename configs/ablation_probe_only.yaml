@@ -18,6 +18,8 @@ activations:
   stride: 100
   n_layers: 3
   pooling: windows
+  sparse_positions: true
+  n_prompt_positions: 0
 
 training:
   batch_size: 2
