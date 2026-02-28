@@ -75,6 +75,9 @@ from nl_probes.utils.activation_utils import (
 from nl_probes.utils.common import load_tokenizer, set_seed
 
 from cot_utils import layer_percent_to_layer, sparse_sample_positions
+from tasks import TASKS, get_trainable_tasks
+from data_loading import load_all_training_data
+from eval_loop import run_eval
 
 # ── Override placeholder token ──
 PLACEHOLDER_TOKEN = " \u00b6"
@@ -666,7 +669,11 @@ def dicts_to_training_data(
                 num_pos = len(ctx_pos)
 
             # Single position mode: keep only the last CoT position per layer
-            if _SINGLE_POSITION and n_layers_runtime >= 1:
+            # With 50/50 sampling: half the time use all positions, half use last-only
+            use_single = _SINGLE_POSITION
+            if not use_single and random.random() < 0.5:
+                use_single = True
+            if use_single and n_layers_runtime >= 1:
                 total = len(ctx_pos)
                 if total % n_layers_runtime == 0:
                     K = total // n_layers_runtime
@@ -708,406 +715,7 @@ def dicts_to_training_data(
     return training_data
 
 
-# ── Task registry ──
-# Each task: (arg_name, loader_import_path, loader_function_name, extra_kwargs_fn)
-# extra_kwargs_fn returns additional kwargs beyond (corpus, tokenizer, model_name, num_examples)
-
-TASK_REGISTRY = {
-    "full_recon": {
-        "arg": "full_recon_n",
-        "module": "dataset_classes.cot_rollout_multilayer",
-        "loader": "load_cot_rollout_multilayer",
-        "corpus": "main",
-    },
-    "next_step": {
-        "arg": "next_step_n",
-        "module": "dataset_classes.cot_next_step",
-        "loader": "load_cot_next_step_data",
-        "corpus": "main",
-    },
-    "answer_pred": {
-        "arg": "answer_pred_n",
-        "module": "dataset_classes.cot_answer_prediction",
-        "loader": "load_cot_answer_prediction_data",
-        "corpus": "main",
-    },
-    "correctness": {
-        "arg": "correctness_n",
-        "module": "dataset_classes.cot_correctness",
-        "loader": "load_cot_correctness_data",
-        "corpus": "main",
-    },
-    "decorative": {
-        "arg": "decorative_n",
-        "module": "dataset_classes.cot_decorative",
-        "loader": "load_cot_decorative_data",
-        "corpus": "main",
-    },
-    "domain": {
-        "arg": "domain_n",
-        "module": "dataset_classes.cot_domain",
-        "loader": "load_cot_domain_data",
-        "corpus": "main",
-    },
-    "reasoning_term": {
-        "arg": "reasoning_term_n",
-        "module": "dataset_classes.cot_reasoning_termination",
-        "loader": "load_cot_reasoning_termination_data",
-        "corpus": "main",
-        "hf_repo": "ceselder/cot-oracle-reasoning-termination-balanced",
-        "hf_filename": "train.jsonl",
-    },
-    "answer_trajectory": {
-        "arg": "answer_trajectory_n",
-        "module": "dataset_classes.cot_answer_trajectory",
-        "loader": "load_cot_answer_trajectory_data",
-        "corpus": "answer_trajectory",
-        "hf_repo": "ceselder/cot-oracle-answer-trajectory",
-        "hf_filename": "answer_trajectory_cleaned.jsonl",
-    },
-    "atypical_answer": {
-        "arg": "atypical_answer_n",
-        "module": "dataset_classes.cot_atypical_answer",
-        "loader": "load_cot_atypical_answer_data",
-        "corpus": "atypical",  # loads from its own JSONL, not main corpus
-    },
-    "prompt_inversion": {
-        "arg": "prompt_inversion_n",
-        "module": "dataset_classes.cot_prompt_inversion",
-        "loader": "load_cot_prompt_inversion_data",
-        "corpus": "main",
-    },
-    "compqa": {
-        "arg": "compqa_n",
-        "module": None,
-        "loader": None,
-        "corpus": "compqa",  # precompute-only (needs compqa_raw.json)
-    },
-    "hint_admission": {
-        "arg": "hint_admission_n",
-        "module": "dataset_classes.cot_hint_admission",
-        "loader": "load_cot_hint_admission_data",
-        "corpus": "hint_admission",
-    },
-    "hinted_answer_pred": {
-        "arg": "hinted_answer_pred_n",
-        "module": "dataset_classes.cot_hinted_answer_pred",
-        "loader": "load_cot_hinted_answer_pred_data",
-        "corpus": "hint_admission",  # uses same HF dataset
-    },
-    "cotqa": {
-        "arg": "cotqa_n",
-        "module": "dataset_classes.cot_cotqa",
-        "loader": "load_cot_cotqa_data",
-        "corpus": "cotqa",  # loads from HF directly
-    },
-    "position_qa": {
-        "arg": "position_qa_n",
-        "module": "dataset_classes.cot_position_qa",
-        "loader": "load_cot_position_qa_data",
-        "corpus": "position_qa",  # loads from HF directly (QA + corpus)
-    },
-    # ── Information gap tasks (partial-CoT, activation-advantaged) ──
-    "early_answer_pred": {
-        "arg": "early_answer_pred_n",
-        "module": "dataset_classes.cot_infogap",
-        "loader": "load_cot_early_answer_pred_data",
-        "corpus": "main",
-    },
-    "backtrack_pred": {
-        "arg": "backtrack_pred_n",
-        "module": "dataset_classes.cot_infogap",
-        "loader": "load_cot_backtrack_pred_data",
-        "corpus": "main",
-    },
-    "error_pred": {
-        "arg": "error_pred_n",
-        "module": "dataset_classes.cot_infogap",
-        "loader": "load_cot_error_pred_data",
-        "corpus": "main",
-    },
-    "self_correction": {
-        "arg": "self_correction_n",
-        "module": "dataset_classes.cot_infogap",
-        "loader": "load_cot_self_correction_data",
-        "corpus": "main",
-    },
-    "verification": {
-        "arg": "verification_n",
-        "module": "dataset_classes.cot_infogap",
-        "loader": "load_cot_verification_data",
-        "corpus": "main",
-    },
-    "remaining_strategy": {
-        "arg": "remaining_strategy_n",
-        "module": "dataset_classes.cot_infogap",
-        "loader": "load_cot_remaining_strategy_data",
-        "corpus": "main",
-    },
-    "chunked_convqa": {
-        "arg": "chunked_convqa_n",
-        "module": "dataset_classes.cot_chunked_convqa",
-        "loader": "load_cot_chunked_convqa_data",
-        "corpus": "chunked_convqa",
-    },
-    "branch_pred": {
-        "arg": "branch_pred_n",
-        "module": "dataset_classes.cot_infogap",
-        "loader": "load_cot_branch_pred_data",
-        "corpus": "main",
-    },
-    "completion_pred": {
-        "arg": "completion_pred_n",
-        "module": "dataset_classes.cot_infogap",
-        "loader": "load_cot_completion_pred_data",
-        "corpus": "main",
-    },
-}
-
-
-HF_TRAINING_REPO = "mats-10-sprint-cs-jb/cot-oracle-training-v6"
-HF_INFOGAP_REPO = "mats-10-sprint-cs-jb/cot-oracle-compqa-chunked"
-
-INFOGAP_TASKS = {"early_answer_pred", "backtrack_pred", "error_pred", "self_correction", "verification", "remaining_strategy", "branch_pred", "completion_pred"}
-
-_HF_CACHE_DIR = Path(os.path.join(os.environ["CACHE_DIR"], "cot_oracle", ".hf_cache")) if os.environ.get("CACHE_DIR") else Path("data/.hf_cache")
-
-
-def _resolve_hf_dataset(path_or_id: str) -> str:
-    """Resolve an HF dataset ID to a local JSONL path; local paths returned as-is.
-
-    HF IDs look like 'org/dataset-name' (has '/', no file extension).
-    Downloads the dataset and exports to cached JSONL.
-    """
-    # Local path — return as-is
-    if os.path.sep in path_or_id and os.path.exists(path_or_id):
-        return path_or_id
-    if "." in path_or_id.split("/")[-1]:  # has extension → local file
-        return path_or_id
-
-    # Looks like HF ID (has '/', no extension)
-    if "/" not in path_or_id:
-        return path_or_id  # bare name, treat as local
-
-    cache_name = path_or_id.replace("/", "__") + ".jsonl"
-    cache_path = _HF_CACHE_DIR / cache_name
-    if cache_path.exists():
-        print(f"  [HF] Using cached: {cache_path}")
-        return str(cache_path)
-
-    print(f"  [HF] Downloading dataset: {path_or_id}")
-    from datasets import load_dataset
-    ds = load_dataset(path_or_id, split="train")
-    _HF_CACHE_DIR.mkdir(parents=True, exist_ok=True)
-    ds.to_json(str(cache_path))
-    print(f"  [HF] Cached {len(ds)} rows → {cache_path}")
-    return str(cache_path)
-
-
-def _download_infogap_from_hf(pdir: Path) -> None:
-    """Download the infogap parquet from HF and split into per-task JSONLs."""
-    from datasets import load_dataset
-    print(f"  [train] Downloading infogap dataset from {HF_INFOGAP_REPO}...")
-    ds = load_dataset(HF_INFOGAP_REPO, split="train")
-    pdir.mkdir(parents=True, exist_ok=True)
-    for task_name in INFOGAP_TASKS:
-        subset = ds.filter(lambda x: x["datapoint_type"] == task_name)
-        out_path = pdir / f"{task_name}.jsonl"
-        subset.to_json(str(out_path))
-        print(f"    {task_name}: {len(subset)} examples -> {out_path}")
-
-
-def _download_precomputed_from_hf(task_name: str, pdir: Path, info: dict | None = None) -> Path:
-    """Download a precomputed JSONL file from HuggingFace.
-
-    If the task registry entry has 'hf_repo'/'hf_filename', uses those
-    instead of the default training repo.
-    """
-    if task_name in INFOGAP_TASKS:
-        _download_infogap_from_hf(pdir)
-        return pdir / f"{task_name}.jsonl"
-
-    from huggingface_hub import hf_hub_download
-
-    repo = (info or {}).get("hf_repo", HF_TRAINING_REPO)
-    filename = (info or {}).get("hf_filename", f"{task_name}.jsonl")
-    print(f"  [train] Downloading {filename} from HuggingFace: {repo}")
-    pdir.mkdir(parents=True, exist_ok=True)
-    local_path = hf_hub_download(
-        repo_id=repo,
-        filename=filename,
-        repo_type="dataset",
-        local_dir=str(pdir),
-    )
-    return Path(local_path)
-
-
-def _live_load_task(task_name: str, info: dict, n: int, args, tokenizer) -> list[dict]:
-    """Load a single task via its dataset loader (live, not precomputed)."""
-    import importlib
-
-    mod = importlib.import_module(info["module"])
-    loader_fn = getattr(mod, info["loader"])
-
-    if info["corpus"] == "atypical":
-        atypical_path = getattr(args, "atypical_data_path",
-                                "data/atypical_answer_training.jsonl")
-        return loader_fn(
-            atypical_path, tokenizer, args.model,
-            num_examples=n, stride=args.stride,
-            atypical_data_path=atypical_path,
-        )
-    elif info["corpus"] == "compqa":
-        compqa_cache = str(Path(getattr(args, "precomputed_dir", "data/precomputed")) / "compqa_raw.json")
-        return loader_fn(
-            compqa_cache, tokenizer, args.model,
-            num_examples=n, stride=args.stride,
-        )
-    elif info["corpus"] == "hint_admission":
-        hint_path = getattr(args, "hint_admission_data_path",
-                            "data/hint_admission_training.jsonl")
-        return loader_fn(
-            hint_path, tokenizer, args.model,
-            num_examples=n, stride=args.stride,
-            hint_admission_data_path=hint_path,
-        )
-    elif info["corpus"] in ("cotqa", "chunked_convqa", "answer_trajectory"):
-        return loader_fn(
-            "", tokenizer, args.model,
-            num_examples=n, stride=args.stride,
-        )
-    else:
-        return loader_fn(
-            args.corpus, tokenizer, args.model,
-            num_examples=n, stride=args.stride,
-        )
-
-
-def load_precomputed_tasks(precomputed_dir: str, args, tokenizer=None) -> list[dict]:
-    """Load training data from precomputed JSONL files, downloading from HF if needed.
-
-    Falls back to live loading for tasks whose JSONL isn't on HF.
-    """
-    pdir = Path(precomputed_dir)
-    pdir.mkdir(parents=True, exist_ok=True)
-    all_data = []
-    enabled = []
-
-    for task_name, info in TASK_REGISTRY.items():
-        n = getattr(args, info["arg"], 0)
-        if n <= 0:
-            continue
-
-        local_filename = info.get("hf_filename", f"{task_name}.jsonl")
-        jsonl_path = pdir / local_filename
-        if not jsonl_path.exists():
-            try:
-                jsonl_path = _download_precomputed_from_hf(task_name, pdir, info=info)
-            except Exception as e:
-                if tokenizer is not None:
-                    print(f"  [fallback] No precomputed {task_name} on HF ({e}), live-loading from corpus...")
-                    data = _live_load_task(task_name, info, n, args, tokenizer)
-                    all_data.extend(data)
-                    enabled.append(f"{task_name}({len(data)},live)")
-                    print(f"    -> {len(data)} examples (live)")
-                    continue
-                else:
-                    raise RuntimeError(
-                        f"Task {task_name} (n={n}) has no precomputed data on HF and no tokenizer "
-                        f"for live fallback. Either set n=0 to disable or provide a tokenizer."
-                    ) from e
-
-        print(f"  Loading {task_name} from {jsonl_path}...")
-        data = []
-        with open(jsonl_path) as f:
-            for line in f:
-                if line.strip():
-                    row = json.loads(line)
-                    # answer_trajectory: swap target_response with cleaned response_filtered
-                    if task_name == "answer_trajectory":
-                        cleaned = row.get("response_filtered", "").strip()
-                        if not cleaned:
-                            continue  # skip rows with empty cleaned response
-                        row["target_response"] = cleaned
-                    data.append(row)
-                    if len(data) >= n:
-                        break
-
-        all_data.extend(data)
-        enabled.append(f"{task_name}({len(data)})")
-        print(f"    -> {len(data)} examples")
-
-    print(f"\n  Enabled tasks: {', '.join(enabled)}")
-    print(f"  Total: {len(all_data)} examples")
-    return all_data
-
-
-def load_all_tasks(args, tokenizer) -> list[dict]:
-    """Load all enabled tasks via dataset loaders (fallback if no precomputed dir)."""
-    import importlib
-
-    all_data = []
-    enabled = []
-
-    for task_name, info in TASK_REGISTRY.items():
-        n = getattr(args, info["arg"], 0)
-        if n <= 0:
-            continue
-
-        enabled.append(f"{task_name}({n})")
-        print(f"\n  Loading {task_name} ({n} examples)...")
-
-        if info["module"] is None:
-            print(f"    Skipping {task_name} (precompute-only, no live loader)")
-            continue
-
-        mod = importlib.import_module(info["module"])
-        loader_fn = getattr(mod, info["loader"])
-
-        if info["corpus"] == "atypical":
-            atypical_path = args.atypical_data_path
-            data = loader_fn(
-                atypical_path, tokenizer, args.model,
-                num_examples=n,
-                stride=args.stride,
-                atypical_data_path=atypical_path,
-            )
-        elif info["corpus"] == "compqa":
-            compqa_cache = str(Path(getattr(args, "precomputed_dir", "data/precomputed")) / "compqa_raw.json")
-            data = loader_fn(
-                compqa_cache, tokenizer, args.model,
-                num_examples=n,
-                stride=args.stride,
-            )
-        elif info["corpus"] == "hint_admission":
-            hint_path = getattr(args, "hint_admission_data_path",
-                                "data/hint_admission_training.jsonl")
-            data = loader_fn(
-                hint_path, tokenizer, args.model,
-                num_examples=n,
-                stride=args.stride,
-                hint_admission_data_path=hint_path,
-            )
-        elif info["corpus"] in ("cotqa", "chunked_convqa", "position_qa", "answer_trajectory"):
-            data = loader_fn(
-                "", tokenizer, args.model,
-                num_examples=n,
-                stride=args.stride,
-            )
-        else:
-            data = loader_fn(
-                args.corpus, tokenizer, args.model,
-                num_examples=n,
-                stride=args.stride,
-            )
-
-        all_data.extend(data)
-        print(f"    -> {len(data)} examples loaded")
-
-    print(f"\n  Enabled tasks: {', '.join(enabled)}")
-    print(f"  Total: {len(all_data)} examples")
-    return all_data
-
+# ── Task registry (moved to tasks.py) ──
 
 # ── Train-on-eval conversion ──
 
@@ -1298,68 +906,35 @@ def _load_gemini_baselines(path: str = "logs/llm_monitor/results.json") -> dict[
 _GEMINI_BASELINES: dict[str, tuple[str, float]] | None = None
 
 
-def _run_unified_eval(model, tokenizer, model_name, global_step, args, eval_datasets, log_dir=None, no_activations=False):
-    """Run all evals (task + detection) in a single call."""
-    global _GEMINI_BASELINES
-    from evals.training_eval_hook import run_training_evals
+def _run_unified_eval(model, tokenizer, model_name, global_step, args, log_dir=None, no_activations=False):
+    """Run all evals via unified eval loop."""
     import wandb
 
     print(f"\n--- Evals at step {global_step} ---")
     eval_start = time.time()
-    metrics = run_training_evals(
-        model, tokenizer, model_name=model_name,
-        step=global_step, device="cuda",
-        eval_dir=args.eval_dir,
-        max_items_per_eval=args.max_items_per_eval,
+    metrics = run_eval(
+        model=model,
+        tokenizer=tokenizer,
+        max_items=args.max_items_per_eval,
+        eval_batch_size=args.eval_batch_size,
+        device="cuda",
+        layers=MULTI_LAYERS,
         skip_rot13=(global_step < args.rot13_start_step),
-        oracle_adapter_name="default",
-        activation_cache_dir=args.activation_cache_dir,
-        log_dir=log_dir,
-        eval_names=getattr(args, "evals", None),
-        eval_batch_size=args.eval_batch_size,
-        stride=args.stride,
-        single_position=_SINGLE_POSITION,
-        eval_batch_size=args.eval_batch_size,
-        eval_batch_sizes=getattr(args, "eval_batch_size_overrides", None),
-        eval_max_new_tokens=args.eval_max_new_tokens,
-        eval_max_new_tokens_overrides=getattr(args, "eval_max_new_tokens_overrides", None),
-        task_eval_max_new_tokens=args.task_eval_max_new_tokens,
-        task_eval_max_new_tokens_overrides=getattr(args, "task_eval_max_new_tokens_overrides", None),
-        eval_oversample_factor=args.eval_oversample_factor,
-        task_eval_datasets=eval_datasets,
-        no_activations=no_activations,
     )
     elapsed = time.time() - eval_start
     if metrics:
         wandb.log(metrics, step=global_step)
-        # Print oracle vs Gemini baseline comparison table
-        if _GEMINI_BASELINES is None:
-            _GEMINI_BASELINES = _load_gemini_baselines()
-        oracle_scores = {}
-        for k, v in metrics.items():
-            if k.endswith("_acc") and isinstance(v, float):
-                name = k.removeprefix("eval/").removeprefix("eval_cls/").removesuffix("_acc")
-                oracle_scores[name] = ("acc", v)
-            elif k.endswith("_token_f1") and isinstance(v, float):
-                name = k.removeprefix("eval/").removeprefix("eval_cls/").removesuffix("_token_f1")
-                oracle_scores[name] = ("token_f1", v)
-        if oracle_scores:
-            print(f"\n  {'Eval':<30s} {'Metric':<10s} {'Oracle':>8s} {'Gemini':>8s} {'Δ':>8s}")
-            print(f"  {'-'*66}")
-            for name, (metric, val) in sorted(oracle_scores.items()):
-                gem = _GEMINI_BASELINES.get(name)
-                if gem and gem[0] == metric:
-                    delta = val - gem[1]
-                    print(f"  {name:<30s} {metric:<10s} {val:>8.3f} {gem[1]:>8.3f} {delta:>+8.3f}")
-                else:
-                    print(f"  {name:<30s} {metric:<10s} {val:>8.3f} {'—':>8s} {'':>8s}")
-            # Mean acc comparison
-            mean_acc = metrics.get("eval/mean_acc")
-            if mean_acc is not None and _GEMINI_BASELINES:
-                gem_accs = [v for _, (m, v) in _GEMINI_BASELINES.items() if m == "acc"]
-                if gem_accs:
-                    gem_mean = sum(gem_accs) / len(gem_accs)
-                    print(f"  {'MEAN':<30s} {'acc':<10s} {mean_acc:>8.3f} {gem_mean:>8.3f} {mean_acc - gem_mean:>+8.3f}")
+        # Print summary table
+        eval_scores = {
+            k.removeprefix("eval/"): v
+            for k, v in metrics.items()
+            if k.startswith("eval/") and not k.endswith("_error") and isinstance(v, float)
+        }
+        if eval_scores:
+            print(f"\n  {'Eval':<35s} {'Score':>8s}")
+            print(f"  {'-'*45}")
+            for name, val in sorted(eval_scores.items()):
+                print(f"  {name:<35s} {val:>8.3f}")
             print()
     print(f"  Eval took {elapsed:.1f}s")
     return metrics, elapsed
@@ -1416,34 +991,13 @@ def train(
         for t, c in sorted(type_counts.items()):
             print(f"    {t}: {c}")
 
-    # Split eval (per-task eval_n from config)
-    # Build dtype -> yaml_task_name mapping for eval_n lookup.
-    # Use both module-derived name AND cot_{yaml_name} to handle tasks that
-    # share a module (e.g. all infogap tasks share cot_infogap).
-    dtype_to_yaml = {}
-    for k, v in TASK_REGISTRY.items():
-        if v["module"]:
-            dtype_to_yaml[v["module"].split(".")[-1]] = k
-        dtype_to_yaml[f"cot_{k}"] = k
+    # In unified system, eval data comes from HF test splits (not carved from training)
     random.shuffle(training_data)
-    eval_per_type = {}
+    final_training = training_data
     train_per_type = defaultdict(list)
-
-    for dp in training_data:
-        t = dp.datapoint_type
-        yaml_name = dtype_to_yaml.get(t)
-        eval_limit = getattr(args, f"{yaml_name}_eval_n", 50) if yaml_name else 50
-        if t not in eval_per_type:
-            eval_per_type[t] = []
-        if len(eval_per_type[t]) < eval_limit:
-            eval_per_type[t].append(dp)
-        else:
-            train_per_type[t].append(dp)
-
-    # Flatten train
-    final_training = []
-    for items in train_per_type.values():
-        final_training.extend(items)
+    for dp in final_training:
+        train_per_type[dp.datapoint_type].append(dp)
+    eval_per_type = {}  # kept for compatibility with sequential/interleaved modes
 
     task_order = getattr(args, "task_order", "shuffled")
 
@@ -1452,14 +1006,17 @@ def train(
     if task_order == "sequential":
         # Group by task, respect YAML ordering for curriculum
         yaml_task_names = getattr(args, "_yaml_task_order", [])
-        # Map YAML task name -> datapoint_type (module name, or "cot_{name}" for precompute-only)
-        yaml_to_dtype = {k: v["module"].split(".")[-1] if v["module"] else f"cot_{k}" for k, v in TASK_REGISTRY.items()}
         # Order: YAML order first, then any remaining types alphabetically
         ordered_types = []
         for yt in yaml_task_names:
-            dt = yaml_to_dtype.get(yt)
-            if dt and dt in train_per_type:
-                ordered_types.append(dt)
+            # Check both the task name and its legacy_datapoint_type
+            task_def = TASKS.get(yt)
+            candidates = [yt]
+            if task_def and task_def.legacy_datapoint_type:
+                candidates.append(task_def.legacy_datapoint_type)
+            for dt in candidates:
+                if dt in train_per_type and dt not in ordered_types:
+                    ordered_types.append(dt)
         for dt in sorted(train_per_type.keys()):
             if dt not in ordered_types:
                 ordered_types.append(dt)
@@ -1484,12 +1041,15 @@ def train(
         # Round-robin blocks: cycle through tasks, eval at every block boundary
         # Tasks with fewer samples are delayed to appear towards the end of training
         yaml_task_names = getattr(args, "_yaml_task_order", [])
-        yaml_to_dtype = {k: v["module"].split(".")[-1] if v["module"] else f"cot_{k}" for k, v in TASK_REGISTRY.items()}
         ordered_types = []
         for yt in yaml_task_names:
-            dt = yaml_to_dtype.get(yt)
-            if dt and dt in train_per_type:
-                ordered_types.append(dt)
+            task_def = TASKS.get(yt)
+            candidates = [yt]
+            if task_def and task_def.legacy_datapoint_type:
+                candidates.append(task_def.legacy_datapoint_type)
+            for dt in candidates:
+                if dt in train_per_type and dt not in ordered_types:
+                    ordered_types.append(dt)
         for dt in sorted(train_per_type.keys()):
             if dt not in ordered_types:
                 ordered_types.append(dt)
@@ -1551,27 +1111,9 @@ def train(
         final_training = final_training[:aligned]
         final_training = final_training[rank::world_size]
 
-    eval_datasets = eval_per_type
+    # In unified system, eval uses HF test splits (no pre-materialization needed)
     if rank == 0:
-        print(f"  Training: {len(final_training)}, Eval: {sum(len(v) for v in eval_datasets.values())}")
-        print(f"  Eval tasks: {', '.join(sorted(eval_datasets.keys()))}")
-
-    # Pre-materialize eval steering vectors once (avoids re-extraction every eval call)
-    # Vectors stored on CPU to avoid hogging GPU memory; moved to GPU during eval.
-    # Skip for Flamingo and no-activations modes
-    if rank == 0 and not args.flamingo and not args.no_activations:
-        print(f"\n  Pre-materializing eval steering vectors (CPU)...")
-        mat_start = time.time()
-        mat_batch_size = 2
-        all_eval_items = [dp for dps in eval_datasets.values() for dp in dps]
-        for i in range(0, len(all_eval_items), mat_batch_size):
-            batch = all_eval_items[i : i + mat_batch_size]
-            materialized = materialize_multilayer_steering_vectors(batch, tokenizer, model)
-            for orig, mat in zip(batch, materialized):
-                orig.steering_vectors = mat.steering_vectors.cpu()
-        print(f"  Pre-materialized {len(all_eval_items)} eval items in {time.time() - mat_start:.1f}s")
-    if world_size > 1:
-        dist.barrier()
+        print(f"  Training: {len(final_training)} examples")
 
     # Optimizer + scheduler
     num_batches = len(final_training) // args.batch_size
@@ -1666,8 +1208,7 @@ def train(
         wandb.log({
             "total_steps": total_steps,
             "n_examples": len(final_training),
-            "n_eval": sum(len(v) for v in eval_datasets.values()),
-            "n_tasks": len(eval_datasets),
+            "n_tasks": len(train_per_type),
             "train/samples_seen": global_step * args.effective_batch_size,
         }, step=global_step)
 
@@ -1700,7 +1241,7 @@ def train(
     # Skip all evals in Flamingo mode — evals use steering injection, not cross-attention
     skip_step0 = getattr(args, "no_step0_eval", False)
     if global_step == 0 and rank == 0 and not skip_step0 and not args.flamingo:
-        _run_unified_eval(eval_model, tokenizer, args.model, 0, args, eval_datasets, log_dir=log_dir, no_activations=args.no_activations)
+        _run_unified_eval(eval_model, tokenizer, args.model, 0, args, log_dir=log_dir, no_activations=args.no_activations)
         model.train()
     if world_size > 1:
         dist.barrier()
@@ -1938,7 +1479,7 @@ def train(
             should_eval = (global_step > 0 and global_step % args.eval_steps == 0) or global_step in block_eval_steps
             if should_eval and not args.flamingo:
                 if rank == 0:
-                    _, elapsed = _run_unified_eval(eval_model, tokenizer, args.model, global_step, args, eval_datasets, log_dir=log_dir, no_activations=args.no_activations)
+                    _, elapsed = _run_unified_eval(eval_model, tokenizer, args.model, global_step, args, log_dir=log_dir, no_activations=args.no_activations)
                     eval_time_total += elapsed
                     model.train()
                 if world_size > 1:
@@ -1967,7 +1508,7 @@ def train(
 
     # Final eval (rank 0 only)
     if rank == 0 and not args.flamingo:
-        _run_unified_eval(eval_model, tokenizer, args.model, global_step, args, eval_datasets, log_dir=log_dir, no_activations=args.no_activations)
+        _run_unified_eval(eval_model, tokenizer, args.model, global_step, args, log_dir=log_dir, no_activations=args.no_activations)
 
         # Save final
         final_path = save_dir / "final"
@@ -2011,9 +1552,7 @@ def apply_config(args, config: dict):
             # YAML is source of truth — always set unless CLI explicitly overrode
             if not getattr(args, f"_cli_{arg_name}", False):
                 setattr(args, arg_name, task_cfg.get("n", 0))
-            eval_arg = f"{task_name}_eval_n"
-            if "eval_n" in task_cfg and not getattr(args, f"_cli_{eval_arg}", False):
-                setattr(args, eval_arg, task_cfg["eval_n"])
+            # eval_n is unused in unified system (eval uses HF test splits)
 
     # Training params
     if "training" in config:
@@ -2112,19 +1651,7 @@ def apply_config(args, config: dict):
                 for k, v in raw_overrides.items()
             }
 
-    # Data paths
-    if "data" in config:
-        d = config["data"]
-        if "corpus" in d and not getattr(args, "_cli_corpus", False):
-            args.corpus = d["corpus"]
-        if "precomputed_dir" in d and not getattr(args, "_cli_precomputed_dir", False):
-            args.precomputed_dir = d["precomputed_dir"]
-        if "activation_cache_dir" in d and not getattr(args, "_cli_activation_cache_dir", False):
-            args.activation_cache_dir = d["activation_cache_dir"]
-        if "atypical_data_path" in d and not getattr(args, "_cli_atypical_data_path", False):
-            args.atypical_data_path = d["atypical_data_path"]
-        if "hint_admission_data_path" in d and not getattr(args, "_cli_hint_admission_data_path", False):
-            args.hint_admission_data_path = d["hint_admission_data_path"]
+    # Data paths (unified: all data from HuggingFace, no local corpus/precomputed paths needed)
 
     # Flamingo
     if "flamingo" in config:
@@ -2198,37 +1725,13 @@ def main():
                         help="Start with fresh LoRA instead of Adam's checkpoint")
 
     # Per-task example counts — defaults are 0; set via --config (train.yaml is source of truth)
-    parser.add_argument("--full-recon-n", type=int, default=0)
-    parser.add_argument("--next-step-n", type=int, default=0)
-    parser.add_argument("--answer-pred-n", type=int, default=0)
-    parser.add_argument("--correctness-n", type=int, default=0)
-    parser.add_argument("--decorative-n", type=int, default=0)
-    parser.add_argument("--domain-n", type=int, default=0)
-    parser.add_argument("--reasoning-term-n", type=int, default=0)
-    parser.add_argument("--partial-answer-n", type=int, default=0)
-    parser.add_argument("--answer-trajectory-n", type=int, default=0)
-    parser.add_argument("--atypical-answer-n", type=int, default=0)
-    parser.add_argument("--prompt-inversion-n", type=int, default=0)
-    parser.add_argument("--compqa-n", type=int, default=0)
+    # 6 trainable tasks in the unified system:
     parser.add_argument("--hint-admission-n", type=int, default=0)
-    parser.add_argument("--cotqa-n", type=int, default=0)
-    parser.add_argument("--hinted-answer-pred-n", type=int, default=0)
-    # Information gap tasks
-    parser.add_argument("--early-answer-pred-n", type=int, default=0)
-    parser.add_argument("--backtrack-pred-n", type=int, default=0)
-    parser.add_argument("--error-pred-n", type=int, default=0)
-    parser.add_argument("--self-correction-n", type=int, default=0)
-    parser.add_argument("--verification-n", type=int, default=0)
-    parser.add_argument("--remaining-strategy-n", type=int, default=0)
-    parser.add_argument("--branch-pred-n", type=int, default=0)
-    parser.add_argument("--completion-pred-n", type=int, default=0)
-    parser.add_argument("--chunked-convqa-n", type=int, default=0)
-    parser.add_argument("--atypical-data-path",
-                        default="data/atypical_answer_training.jsonl",
-                        help="Path to atypical answer JSONL (from precompute_atypical_training.py)")
-    parser.add_argument("--hint-admission-data-path",
-                        default="data/hint_admission_training.jsonl",
-                        help="Path to hint admission JSONL (from precompute_hint_admission.py)")
+    parser.add_argument("--atypical-answer-n", type=int, default=0)
+    parser.add_argument("--reasoning-termination-n", type=int, default=0)
+    parser.add_argument("--answer-trajectory-n", type=int, default=0)
+    parser.add_argument("--futurelens-n", type=int, default=0)
+    parser.add_argument("--backtrack-prediction-n", type=int, default=0)
 
     # Training hyperparams
     parser.add_argument("--lr", type=float, default=1e-5)
@@ -2328,11 +1831,7 @@ def main():
     parser.add_argument("--wandb-run", default=None)
     parser.add_argument("--wandb-group", default=None, help="Wandb group name")
 
-    # Data loading
-    parser.add_argument("--precomputed-dir", default=None,
-                        help="Dir with precomputed JSONL files (skips dataset loaders)")
-    parser.add_argument("--data-cache-dir", default=None,
-                        help="Directory to cache preprocessed training data")
+    # Data loading (unified: all data from HuggingFace, cached locally)
 
     args = parser.parse_args()
 
@@ -2360,13 +1859,6 @@ def main():
         "--flamingo and --no-activations are mutually exclusive"
     if getattr(args, "no_activations", False):
         args.fresh_lora = True
-
-    # Resolve HF dataset IDs to local paths
-    if rank == 0:
-        args.corpus = _resolve_hf_dataset(args.corpus)
-        args.atypical_data_path = _resolve_hf_dataset(args.atypical_data_path)
-        if hasattr(args, "hint_admission_data_path") and getattr(args, "hint_admission_n", 0) > 0:
-            args.hint_admission_data_path = _resolve_hf_dataset(args.hint_admission_data_path)
 
     # Validate stride is set
     if args.stride is None:
@@ -2565,12 +2057,14 @@ def main():
         print("LOADING TRAINING DATA")
         print(f"{'=' * 60}")
 
-    if args.precomputed_dir:
-        if rank == 0:
-            print(f"  Using precomputed data from {args.precomputed_dir} (auto-downloads from HF if needed)")
-        raw_data = load_precomputed_tasks(args.precomputed_dir, args, tokenizer=tokenizer)
-    else:
-        raw_data = load_all_tasks(args, tokenizer)
+    # Build task config from args (unified: task_name -> {n: int})
+    task_config = {}
+    for task_name in get_trainable_tasks():
+        n = getattr(args, f"{task_name}_n", 0)
+        if n > 0:
+            task_config[task_name] = {"n": n}
+
+    raw_data = load_all_training_data(task_config)
 
     if not raw_data:
         if rank == 0:
@@ -2586,11 +2080,7 @@ def main():
         wandb.login(key=os.environ.get("WANDB_API_KEY"))
 
         # Build a descriptive run name from enabled tasks
-        enabled_tasks = []
-        for task_name, info in TASK_REGISTRY.items():
-            n = getattr(args, info["arg"], 0)
-            if n > 0:
-                enabled_tasks.append(task_name)
+        enabled_tasks = sorted(task_config.keys())
 
         run_name = args.wandb_run or "cot-oracle"
         wandb_config = {k: v for k, v in vars(args).items() if not k.startswith("_cli_")}
@@ -2623,34 +2113,9 @@ def main():
                 if Path(cfg_path).exists():
                     wandb.save(cfg_path)
     else:
-        enabled_tasks = [tn for tn, info in TASK_REGISTRY.items() if getattr(args, info["arg"], 0) > 0]
+        enabled_tasks = sorted(task_config.keys())
 
     save_dir = Path(args.save_dir)
-
-    # ── Precompute eval activation caches (rank 0 only) ──
-    # Skip in Flamingo and no-activations modes
-    eval_names = getattr(args, "evals", None)
-    if rank == 0 and eval_names and not args.flamingo and not args.no_activations:
-        from evals.training_eval_hook import precache_eval_activations
-        print(f"\n{'=' * 60}")
-        print("PRECOMPUTING EVAL ACTIVATIONS")
-        print(f"{'=' * 60}")
-        # For Flamingo mode, use the underlying base model for eval caching
-        eval_model = model.base_model if args.flamingo else model
-        precache_eval_activations(
-            eval_model, tokenizer, model_name=args.model,
-            device=f"cuda:{local_rank}", eval_dir=args.eval_dir,
-            activation_cache_dir=args.activation_cache_dir,
-            eval_names=eval_names,
-            eval_batch_size=args.eval_batch_size,
-            stride=args.stride,
-            single_position=_SINGLE_POSITION,
-        )
-        eval_model.train()
-        gc.collect()
-        torch.cuda.empty_cache()
-    if world_size > 1:
-        dist.barrier()
 
     # ── Train ──
     if rank == 0:
