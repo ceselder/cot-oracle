@@ -921,6 +921,17 @@ def load_all_tasks(args, tokenizer) -> list[dict]:
 # ── Train-on-eval conversion ──
 
 # ── Training infrastructure ──
+def _example_context_len(dp: TrainingDataPoint) -> int:
+    return len(dp.context_input_ids) if dp.context_input_ids is not None else len(dp.input_ids)
+
+
+def _window_bucket_training_data(training_data: list[TrainingDataPoint], batch_size: int, window_batches: int) -> None:
+    """Sort by context length inside shuffled windows to reduce padding waste."""
+    window = batch_size * window_batches
+    for i in range(0, len(training_data), window):
+        training_data[i:i + window] = sorted(training_data[i:i + window], key=_example_context_len)
+
+
 def train_features_batch(training_batch, model, submodule, steering_coefficient, device, dtype):
     hook_fn = get_hf_activation_steering_hook(
         vectors=training_batch.steering_vectors,
@@ -985,7 +996,7 @@ def _run_unified_eval(model, tokenizer, model_name, global_step, args, eval_data
         model, tokenizer, model_name=model_name,
         step=global_step, device="cuda",
         eval_dir=args.eval_dir,
-        max_items_per_eval=25,
+        max_items_per_eval=args.max_items_per_eval,
         skip_rot13=(global_step < args.rot13_start_step),
         oracle_adapter_name="default",
         activation_cache_dir=args.activation_cache_dir,
@@ -994,6 +1005,11 @@ def _run_unified_eval(model, tokenizer, model_name, global_step, args, eval_data
         stride=args.stride,
         eval_batch_size=args.eval_batch_size,
         eval_batch_sizes=getattr(args, "eval_batch_size_overrides", None),
+        eval_max_new_tokens=args.eval_max_new_tokens,
+        eval_max_new_tokens_overrides=getattr(args, "eval_max_new_tokens_overrides", None),
+        task_eval_max_new_tokens=args.task_eval_max_new_tokens,
+        task_eval_max_new_tokens_overrides=getattr(args, "task_eval_max_new_tokens_overrides", None),
+        eval_oversample_factor=args.eval_oversample_factor,
         task_eval_datasets=eval_datasets,
         no_activations=no_activations,
     )
@@ -1219,17 +1235,18 @@ def train(
         print(f"  Eval tasks: {', '.join(sorted(eval_datasets.keys()))}")
 
     # Pre-materialize eval steering vectors once (avoids re-extraction every eval call)
+    # Vectors stored on CPU to avoid hogging GPU memory; moved to GPU during eval.
     # Skip for Flamingo and no-activations modes
     if rank == 0 and not args.flamingo and not args.no_activations:
-        print(f"\n  Pre-materializing eval steering vectors...")
+        print(f"\n  Pre-materializing eval steering vectors (CPU)...")
         mat_start = time.time()
-        mat_batch_size = 8
+        mat_batch_size = 2
         all_eval_items = [dp for dps in eval_datasets.values() for dp in dps]
         for i in range(0, len(all_eval_items), mat_batch_size):
             batch = all_eval_items[i : i + mat_batch_size]
             materialized = materialize_multilayer_steering_vectors(batch, tokenizer, model)
             for orig, mat in zip(batch, materialized):
-                orig.steering_vectors = mat.steering_vectors
+                orig.steering_vectors = mat.steering_vectors.cpu()
         print(f"  Pre-materialized {len(all_eval_items)} eval items in {time.time() - mat_start:.1f}s")
     if world_size > 1:
         dist.barrier()
@@ -1345,9 +1362,12 @@ def train(
         print(f"  Batch: {args.batch_size}")
         print(f"  Gradient accumulation: {grad_accum}")
         print(f"  Effective batch size: {args.batch_size * grad_accum * world_size}")
+        print(f"  Length bucketing: {args.length_bucketing} (window_batches={args.length_bucket_window_batches})")
         print(f"  Epochs: {args.epochs}")
         print(f"  Steps: {total_steps}")
         print(f"  Warmup: {warmup_steps}")
+        print(f"  Eval limits: max_items={args.max_items_per_eval}, oversample={args.eval_oversample_factor}")
+        print(f"  Eval decode caps: detection={args.eval_max_new_tokens}, task={args.task_eval_max_new_tokens}")
 
     model.train()
 
@@ -1374,6 +1394,8 @@ def train(
     for epoch in range(args.epochs):
         if task_order not in ("sequential", "interleaved"):
             random.shuffle(final_training)
+            if args.length_bucketing:
+                _window_bucket_training_data(final_training, args.batch_size, args.length_bucket_window_batches)
         optimizer.zero_grad()
 
         pbar = tqdm(
@@ -1629,11 +1651,12 @@ def apply_config(args, config: dict):
     if "training" in config:
         t = config["training"]
         _float_keys = {"lr", "warmup_fraction", "max_grad_norm", "steering_coefficient"}
-        _int_keys = {"batch_size", "eval_batch_size", "epochs", "seed", "effective_batch_size", "interleave_blocks"}
+        _int_keys = {"batch_size", "eval_batch_size", "epochs", "seed", "effective_batch_size", "interleave_blocks", "length_bucket_window_batches"}
         for key in ["lr", "batch_size", "eval_batch_size", "epochs",
                      "warmup_fraction", "max_grad_norm", "steering_coefficient",
                      "gradient_checkpointing", "task_order", "seed",
-                     "effective_batch_size", "interleave_blocks"]:
+                     "effective_batch_size", "interleave_blocks",
+                     "length_bucketing", "length_bucket_window_batches"]:
             if key in t and not getattr(args, f"_cli_{key}", False):
                 val = t[key]
                 if key in _float_keys:
@@ -1654,11 +1677,17 @@ def apply_config(args, config: dict):
     # Eval
     if "eval" in config:
         e = config["eval"]
-        for key in ["eval_dir", "rot13_start_step", "eval_steps", "save_steps"]:
+        for key in [
+            "eval_dir", "rot13_start_step", "eval_steps", "save_steps",
+            "max_items_per_eval", "eval_max_new_tokens", "task_eval_max_new_tokens",
+            "eval_oversample_factor",
+        ]:
             if key in e and not getattr(args, f"_cli_{key}", False):
                 val = e[key]
-                if key in {"rot13_start_step", "eval_steps", "save_steps"}:
+                if key in {"rot13_start_step", "eval_steps", "save_steps", "max_items_per_eval", "eval_max_new_tokens", "task_eval_max_new_tokens"}:
                     val = int(val)
+                elif key == "eval_oversample_factor":
+                    val = float(val)
                 setattr(args, key, val)
         if "evals" in e and not getattr(args, "_cli_evals", False):
             raw_evals = e["evals"]
@@ -1687,6 +1716,18 @@ def apply_config(args, config: dict):
         if "eval_batch_size_overrides" in e and not getattr(args, "_cli_eval_batch_size_overrides", False):
             raw_overrides = e["eval_batch_size_overrides"] or {}
             args.eval_batch_size_overrides = {
+                str(k): int(v)
+                for k, v in raw_overrides.items()
+            }
+        if "eval_max_new_tokens_overrides" in e and not getattr(args, "_cli_eval_max_new_tokens_overrides", False):
+            raw_overrides = e["eval_max_new_tokens_overrides"] or {}
+            args.eval_max_new_tokens_overrides = {
+                str(k): int(v)
+                for k, v in raw_overrides.items()
+            }
+        if "task_eval_max_new_tokens_overrides" in e and not getattr(args, "_cli_task_eval_max_new_tokens_overrides", False):
+            raw_overrides = e["task_eval_max_new_tokens_overrides"] or {}
+            args.task_eval_max_new_tokens_overrides = {
                 str(k): int(v)
                 for k, v in raw_overrides.items()
             }
@@ -1733,6 +1774,8 @@ def apply_config(args, config: dict):
         m = config["model"]
         if "name" in m and not getattr(args, "_cli_model", False):
             args.model = m["name"]
+        if "attn_implementation" in m and not getattr(args, "_cli_attn_implementation", False):
+            args.attn_implementation = m["attn_implementation"]
         if "ao_checkpoint" in m and not getattr(args, "_cli_ao_checkpoint", False):
             args.ao_checkpoint = m["ao_checkpoint"]
         if "fresh_lora" in m and not getattr(args, "_cli_fresh_lora", False):
@@ -1761,6 +1804,9 @@ def main():
     parser.add_argument("--corpus", default="data/cot_corpus_v5/corpus_medium.jsonl",
                         help="Path to corpus.jsonl")
     parser.add_argument("--model", default="Qwen/Qwen3-8B")
+    parser.add_argument("--attn-implementation", default="sdpa",
+                        choices=["sdpa", "eager", "flash_attention_2", "flash_attention_3"],
+                        help="Transformer attention backend")
 
     # Checkpoint control
     parser.add_argument("--resume-from", default=None,
@@ -1805,6 +1851,14 @@ def main():
     parser.add_argument("--lr", type=float, default=1e-5)
     parser.add_argument("--batch-size", type=int, default=8)
     parser.add_argument("--eval-batch-size", type=int, default=2)
+    parser.add_argument("--max-items-per-eval", type=int, default=10,
+                        help="Maximum items per detection eval")
+    parser.add_argument("--eval-oversample-factor", type=float, default=1.0,
+                        help="Non-classification eval sample multiplier (1.0 = no oversampling)")
+    parser.add_argument("--eval-max-new-tokens", type=int, default=32,
+                        help="Default max_new_tokens for detection eval generation")
+    parser.add_argument("--task-eval-max-new-tokens", type=int, default=64,
+                        help="Default max_new_tokens for task-level eval generation")
     parser.add_argument("--epochs", type=int, default=1)
     parser.add_argument("--stride", type=str, default=None, help="Stride for position extraction (int or 'punctuation'). Must be set via config or CLI.")
     parser.add_argument("--n-layers", type=int, default=3,
@@ -1826,6 +1880,11 @@ def main():
                         help="'shuffled' mixes all tasks; 'sequential' trains one at a time; 'interleaved' round-robin blocks")
     parser.add_argument("--interleave-blocks", type=int, default=50,
                         help="Number of blocks for interleaved mode (default 50)")
+    parser.add_argument("--length-bucketing", action="store_true", default=True,
+                        help="Enable windowed context-length bucketing in shuffled mode")
+    parser.add_argument("--no-length-bucketing", dest="length_bucketing", action="store_false")
+    parser.add_argument("--length-bucket-window-batches", type=int, default=32,
+                        help="Window size for length bucketing, in units of train batches")
     parser.add_argument("--effective-batch-size", type=int, default=32,
                         help="Total effective batch size (invariant to GPU count). "
                              "gradient_accumulation_steps = effective_batch_size / (batch_size * world_size)")
@@ -1978,11 +2037,12 @@ def main():
 
     if rank == 0:
         print(f"\nLoading model: {args.model}")
+        print(f"Attention backend: {args.attn_implementation}")
     base_model = AutoModelForCausalLM.from_pretrained(
         args.model,
         torch_dtype=dtype,
         device_map={"": f"cuda:{local_rank}"},
-        attn_implementation="sdpa",  # O(n) memory; "eager" was O(n²) and OOMed at batch>8
+        attn_implementation=args.attn_implementation,
     )
     base_model.enable_input_require_grads()
 

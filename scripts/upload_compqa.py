@@ -23,7 +23,7 @@ from huggingface_hub import HfApi, create_repo
 load_dotenv(os.path.expanduser("~/.env"))
 
 PROJECT_ROOT = Path(__file__).parent.parent
-COLLECTION_PREFIX = "mats-10-sprint-cs-jb/cot-oracle-eval"
+COLLECTION_PREFIX = "mats-10-sprint-cs-jb/cot-oracle"
 REPO_SUFFIX = "compqa"
 
 

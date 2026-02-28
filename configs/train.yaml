@@ -159,6 +159,22 @@ eval:
   eval_steps: 2000
   save_steps: 10000
   rot13_start_step: 2000
+  max_items_per_eval: 10
+  eval_oversample_factor: 1.0
+  eval_max_new_tokens: 32
+  task_eval_max_new_tokens: 64
+  # Optional per-eval decoding caps.
+  # Supported keys: exact eval name, "cls_*", or "*".
+  eval_max_new_tokens_overrides:
+    compqa: 128
+    chunked_convqa: 128
+    rot13_reconstruction: 512
+  # Optional per-task decoding caps for task-level evals.
+  task_eval_max_new_tokens_overrides:
+    cot_next_step: 80
+    cot_rollout_multilayer: 80
+    cot_compqa: 80
+    cot_hint_admission: 80
   # Optional per-eval batch-size overrides.
   # Useful for long-sequence evals that OOM at the global eval_batch_size.
   # Supported keys: exact eval name, "cls_*", or "*".

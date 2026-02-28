@@ -3,7 +3,7 @@
 # Usage: bash scripts/vast_launch.sh [--dry-run]
 #
 # Steps:
-#   1. Find cheapest 4xH100 offer
+#   1. Find cheapest 4xH100 offer (with direct ports for firewall compat)
 #   2. Create instance
 #   3. Wait for SSH to be ready
 #   4. rsync code + data
@@ -25,11 +25,14 @@ WANDB_API_KEY=$(awk '/machine api.wandb.ai/{found=1} found && /password/{print $
 DRY_RUN=false
 [[ "${1:-}" == "--dry-run" ]] && DRY_RUN=true
 
-# ── 1. Find cheapest 4xH100 (spot/interruptible) ──────────────────
+# SSH options: bypass IPA proxy (sss_ssh_knownhostsproxy blocks non-standard ports)
+SSH_OPTS="-A -o StrictHostKeyChecking=no -o ProxyCommand=none"
+
+# ── 1. Find cheapest 4xH100 (direct ports for firewall compat) ──────
 NUM_GPUS_WANT=${NUM_GPUS:-4}
-echo "=== Searching for ${NUM_GPUS_WANT}xH100 spot offers ==="
+echo "=== Searching for ${NUM_GPUS_WANT}xH100 spot offers (direct ports) ==="
 OFFER_ID=$(vastai search offers \
-    "num_gpus=${NUM_GPUS_WANT} gpu_name=H100_SXM reliability>0.9 disk_space>=150" \
+    "num_gpus=${NUM_GPUS_WANT} gpu_name=H100_SXM reliability>0.9 disk_space>=150 direct_port_count>=1" \
     --type=bid -o 'dph_total' --raw 2>/dev/null \
     | python3 -c "import sys,json; offers=json.load(sys.stdin); print(offers[0]['id'])" \
 )
@@ -45,6 +48,7 @@ echo "=== Creating instance ==="
 CREATE_OUT=$(vastai create instance "$OFFER_ID" \
     --image pytorch/pytorch:2.6.0-cuda12.6-cudnn9-devel \
     --disk 150 \
+    --direct \
     --raw 2>&1)
 INSTANCE_ID=$(echo "$CREATE_OUT" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['new_contract'])")
 echo "Instance ID: $INSTANCE_ID"
@@ -54,10 +58,13 @@ echo "=== Waiting for instance to be ready ==="
 for i in $(seq 1 60); do
     INFO=$(vastai show instance "$INSTANCE_ID" --raw 2>/dev/null || echo "{}")
     STATUS=$(echo "$INFO" | python3 -c "import sys,json; print(json.load(sys.stdin).get('actual_status',''))" 2>/dev/null || echo "")
-    SSH_HOST=$(echo "$INFO" | python3 -c "import sys,json; print(json.load(sys.stdin).get('ssh_host',''))" 2>/dev/null || echo "")
-    SSH_PORT=$(echo "$INFO" | python3 -c "import sys,json; print(json.load(sys.stdin).get('ssh_port',''))" 2>/dev/null || echo "")
+    SSH_HOST=$(echo "$INFO" | python3 -c "import sys,json; print(json.load(sys.stdin).get('public_ipaddr','') or json.load(sys.stdin).get('ssh_host',''))" 2>/dev/null || echo "")
+    SSH_PORT=$(echo "$INFO" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('direct_port_end','') or d.get('ssh_port',''))" 2>/dev/null || echo "")
 
-    if [[ "$STATUS" == "running" && -n "$SSH_HOST" && -n "$SSH_PORT" ]]; then
+    # Direct mode: SSH is on the machine's public IP, port 22
+    if [[ "$STATUS" == "running" && -n "$SSH_HOST" ]]; then
+        # For direct instances, SSH is typically on port 22
+        SSH_PORT=${SSH_PORT:-22}
         echo "Instance ready: $SSH_HOST:$SSH_PORT"
         break
     fi
@@ -65,28 +72,48 @@ for i in $(seq 1 60); do
     sleep 10
 done
 
-if [[ -z "$SSH_HOST" || -z "$SSH_PORT" ]]; then
+if [[ -z "$SSH_HOST" ]]; then
     echo "ERROR: Instance did not become ready in 10 minutes"
     echo "Check: vastai show instance $INSTANCE_ID"
     exit 1
 fi
 
-SSH_CMD="ssh -A -o StrictHostKeyChecking=no -p $SSH_PORT root@$SSH_HOST"
+# For direct instances, try port 22 first, then the reported port
+SSH_CMD="ssh $SSH_OPTS -p $SSH_PORT root@$SSH_HOST"
 
 # Wait for SSH to actually accept connections
 echo "=== Waiting for SSH connectivity ==="
+CONNECTED=false
 for i in $(seq 1 30); do
-    if $SSH_CMD "echo ok" &>/dev/null; then
-        echo "SSH connected"
+    # Try direct port 22 first
+    if ssh $SSH_OPTS -o ConnectTimeout=5 -p 22 root@$SSH_HOST "echo ok" &>/dev/null; then
+        SSH_PORT=22
+        SSH_CMD="ssh $SSH_OPTS -p 22 root@$SSH_HOST"
+        echo "SSH connected (port 22)"
+        CONNECTED=true
+        break
+    fi
+    # Try reported port
+    if [[ "$SSH_PORT" != "22" ]] && ssh $SSH_OPTS -o ConnectTimeout=5 -p $SSH_PORT root@$SSH_HOST "echo ok" &>/dev/null; then
+        SSH_CMD="ssh $SSH_OPTS -p $SSH_PORT root@$SSH_HOST"
+        echo "SSH connected (port $SSH_PORT)"
+        CONNECTED=true
         break
     fi
     echo "  [$i/30] SSH not ready, waiting..."
     sleep 5
 done
 
+if ! $CONNECTED; then
+    echo "ERROR: SSH never connected. Instance info:"
+    vastai show instance "$INSTANCE_ID" --raw 2>/dev/null | python3 -m json.tool
+    echo "Try manually: ssh $SSH_OPTS -p 22 root@$SSH_HOST"
+    exit 1
+fi
+
 # ── 4. Rsync code + data ─────────────────────────────────────────────
 echo "=== Syncing code and data ==="
-RSYNC_SSH="ssh -o StrictHostKeyChecking=no -p $SSH_PORT"
+RSYNC_SSH="ssh $SSH_OPTS -p $SSH_PORT"
 
 # Sync project (only code + essential training data)
 rsync -avz --delete \
@@ -112,6 +139,9 @@ rsync -avz --delete \
     --exclude 'data/deepseek_rollouts_for_hf/' \
     --exclude 'data/hf_uploads/' \
     --exclude 'data/*.json' \
+    --exclude 'eval_logs/' \
+    --exclude 'eval_logs_wandb/' \
+    --exclude 'slurm_logs/' \
     -e "$RSYNC_SSH" \
     "$PROJECT_DIR/" "root@$SSH_HOST:/workspace/cot-oracle/"
 
@@ -168,9 +198,9 @@ tmux new-session -d -s train bash -c "
         src/train.py \
         --config configs/train.yaml \
         --precomputed-dir data/precomputed \
-        --task-order sequential \
-        --save-dir /workspace/checkpoints/cot_oracle_seq \
-        --wandb-run vast_seq_\$(date +%Y%m%d_%H%M) \
+        --save-dir /workspace/checkpoints/cot_oracle \
+        --wandb-run vast_\$(date +%Y%m%d_%H%M) \
+        --wandb-group jan \
     2>&1 | tee /workspace/train.log
     echo 'TRAINING DONE'
     sleep infinity

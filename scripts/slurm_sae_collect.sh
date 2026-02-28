@@ -1,12 +1,12 @@
 #!/bin/bash
-#SBATCH --job-name=oracle-vs-sae
-#SBATCH --partition=a100
-#SBATCH --nodelist=gpu-sr670-20,gpu-sr670-21,gpu-sr670-22,gpu-sr670-23
+#SBATCH --job-name=sae-collect
+#SBATCH --partition=gpu_lowp
+#SBATCH --nodelist=gpu-sr675-34
 #SBATCH --gres=gpu:1
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=64G
-#SBATCH --time=2:00:00
-#SBATCH --output=slurm_logs/oracle_vs_sae_%j.out
+#SBATCH --time=4:00:00
+#SBATCH --output=slurm_logs/sae_collect_%j.out
 
 # Clean up stale processes on exit
 cleanup() { pkill -P $$ 2>/dev/null || true; }
@@ -28,13 +28,12 @@ mkdir -p slurm_logs
 
 echo "Node: $(hostname)"
 echo "GPU: $(nvidia-smi --query-gpu=name --format=csv,noheader)"
+echo "FAST_CACHE_DIR=$FAST_CACHE_DIR"
 echo "Starting at $(date)"
 
-python scripts/compare_oracle_sae.py \
-    --checkpoint checkpoints/cot-oracle-ablation-stride5-3layers \
-    --sae-labels-dir /ceph/scratch/jbauer/sae_features/trainer_2/trainer_2/labels \
-    --n-corpus 15 \
-    --oracle-tasks recon domain correctness answer decorative \
-    --top-k-features 10 --top-k-aggregate 20
+python scripts/sae_collect_max_acts.py \
+    --trainer 2 --k 30 --context-window 41 --batch-size 8 \
+    --output-dir "${FAST_CACHE_DIR}/sae_features/" \
+    ${RESUME:+--resume}
 
 echo "Finished at $(date)"

@@ -191,6 +191,18 @@ ORACLE_PROMPTS_TEMPLATES = {
     "compqa": (
         "Analyze the chain-of-thought reasoning and answer the question about its quality."
     ),
+    # Classification evals — fallback templates for standalone scoring.
+    # During training, the per-item question from test_prompt is used instead.
+    "cls_sst2": "Does this text express positive sentiment? Answer: yes or no.",
+    "cls_snli": "Does the second sentence follow from the first? Answer: yes or no.",
+    "cls_md_gender": "Is this text about a female person? Answer: yes or no.",
+    "cls_ag_news": "Is this article about the stated topic? Answer: yes or no.",
+    "cls_ner": "Does this text mention the stated entity? Answer: yes or no.",
+    "cls_tense": "Is this sentence in the stated tense? Answer: yes or no.",
+    "cls_language_id": "Is this text written in the stated language? Answer: yes or no.",
+    "cls_singular_plural": "Does this sentence have a single subject? Answer: yes or no.",
+    "cls_geometry_of_truth": "Is this statement true? Answer: yes or no.",
+    "cls_relations": "Is this statement true? Answer: yes or no.",
 }
 
 # Backward-compatible alias used by older scripts.
