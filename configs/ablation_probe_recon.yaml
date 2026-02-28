@@ -1,0 +1,26 @@
+# Ablation: Probe + Reconstruction (full_recon + next_step)
+# Same as probe-only but re-enables full_recon and next_step tasks.
+# Override on top of train.yaml: --config configs/train.yaml configs/ablation_probe_recon.yaml
+
+tasks:
+  # Only disable answer_trajectory and conv_qa
+  answer_trajectory:
+    n: 0
+  conv_qa:
+    n: 0
+
+activations:
+  stride: 100
+  n_layers: 3
+  pooling: windows
+
+training:
+  batch_size: 2
+  effective_batch_size: 16
+  eval_batch_size: 2
+
+model:
+  fresh_lora: true
+
+output:
+  wandb_run: ablation-probe-recon
