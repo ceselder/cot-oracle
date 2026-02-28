@@ -14,30 +14,63 @@ Run training on vast.ai when slurm is busy. Everything is orchestrated from the 
 
 2. **Vast CLI**: already installed (`vastai`), authenticated via `~/.vast_api_key`.
 
-3. **Credentials**: `~/.env` (HF_TOKEN) and `~/.netrc` (WANDB_API_KEY) are read automatically by the launch script. Nothing is hardcoded.
+3. **Credentials**: `~/.env` (HF_TOKEN, DOCKERHUB_TOKEN) and `~/.netrc` (WANDB_API_KEY) are read automatically by the launch scripts. Nothing is hardcoded.
 
-## Usage
+## Docker image (recommended)
+
+Pre-baked image `japhba/cot-oracle` includes uv, all Python deps in a venv, and `ao_reference`. Eliminates ~5 min of `uv sync` + rsync on every launch. Code is git-cloned instead of rsynced (~seconds vs minutes).
+
+### Build the image (one-time, or when deps change)
 
 ```bash
-# Dry run (show pricing, don't create anything)
+# On any machine with Docker:
+bash scripts/vast_build_image.sh
+
+# Or manually on a rented instance (no local Docker needed):
+# 1. Rent a cheap instance with the pytorch base image
+# 2. rsync pyproject.toml uv.lock Dockerfile .dockerignore
+# 3. SSH in, install Docker: curl -fsSL https://get.docker.com | sh
+# 4. docker build -t japhba/cot-oracle . && docker login -u japhba && docker push japhba/cot-oracle
+```
+
+Rebuild when `pyproject.toml` or `uv.lock` change. Code changes don't require a rebuild (code is git-cloned at launch).
+
+### Launch with Docker image
+
+```bash
+# Dry run
+bash scripts/vast_launch_docker.sh --dry-run
+
+# Launch 1xH100 on branch jan
+bash scripts/vast_launch_docker.sh
+
+# Launch 4xH100 on main branch
+bash scripts/vast_launch_docker.sh --gpus 4 --branch main
+```
+
+### What the Docker script does
+
+1. Reads credentials from `~/.env` and `~/.netrc`
+2. Finds cheapest matching H100 SXM offer (interruptible)
+3. Creates instance with `japhba/cot-oracle` (deps pre-installed)
+4. Waits for SSH
+5. `git clone --depth 1` from GitHub (fast, ~seconds)
+6. Quick `uv sync` (no-op if deps unchanged)
+7. Writes credentials, starts training in tmux
+
+## Legacy rsync workflow
+
+If you need to run code not yet pushed to GitHub, or don't want to use the Docker image:
+
+```bash
+# Dry run
 bash scripts/vast_launch.sh --dry-run
 
 # Launch (find offer -> create instance -> rsync -> install -> train)
 bash scripts/vast_launch.sh
 ```
 
-The script prints SSH/attach/destroy commands on completion and saves instance info to `/tmp/vast_instance.env`.
-
-## What the script does
-
-1. Reads credentials from `~/.env` and `~/.netrc`
-2. Finds cheapest matching offer (default: 1x H100 SXM, edit the `num_gpus` filter in the script for more)
-3. Creates instance with `pytorch/pytorch:2.6.0-cuda12.6-cudnn9-devel`
-4. Waits for SSH
-5. Rsyncs `cot-oracle/` and `ao_reference/`
-6. Installs uv, creates venv via `uv sync`, symlinks AO datasets
-7. Writes credentials to `/workspace/.env` on the remote
-8. Starts training in a tmux session, tees to `/workspace/train.log`
+This rsyncs the full project and installs deps from scratch each time.
 
 ## Monitoring
 
@@ -72,5 +105,6 @@ vastai destroy instance $INSTANCE_ID
 ## Known issues
 
 - `transformers>=5` breaks `apply_chat_template` tokenization (returns wrong type). Pinned to `<5` in `pyproject.toml`.
-- AO repo's `classification_dataset_manager.py` uses a relative `datasets/` path. The script symlinks `ao_reference/datasets` into `cot-oracle/`.
+- AO repo's `classification_dataset_manager.py` uses a relative `datasets/` path. The scripts symlink `ao_reference/datasets` into `cot-oracle/`.
 - Vast instances are ephemeral. Checkpoints not synced back are lost on destroy.
+- The Docker image is ~15GB (pytorch base + deps). First pull on a new machine takes a few minutes, but vast.ai caches images per host so subsequent launches on the same machine are fast.
