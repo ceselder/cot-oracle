@@ -23,6 +23,8 @@ import gc
 import json
 import math
 import random
+import re as _re_mod
+import sys
 import traceback
 from pathlib import Path
 from typing import Any
@@ -73,6 +75,31 @@ from core.ao import (
     SPECIAL_TOKEN,
 )
 from cot_utils import get_injection_layers
+
+
+def _build_placeholder_prompt(n_positions: int, oracle_prompt: str) -> str:
+    """Reconstruct the full oracle input with placeholder prefix (¶ markers).
+
+    This is the actual tokenizer input the oracle sees: ``L9:¶¶¶ L18:¶¶¶\\n<prompt>``.
+    """
+    if n_positions <= 0:
+        return oracle_prompt
+    layers = _ORACLE_MODE.get("layers")
+    ph_token = _ORACLE_MODE.get("placeholder_token") or SPECIAL_TOKEN
+    if layers and len(layers) > 1:
+        N = len(layers)
+        K = n_positions // N
+        parts = [f"L{l}:" + ph_token * K for l in layers]
+        prefix = " ".join(parts) + "\n"
+    else:
+        prefix = f"L0:" + ph_token * n_positions + "\n"
+    return prefix + oracle_prompt
+
+
+def _parse_n_positions_from_prompt(oracle_prompt: str) -> int:
+    """Extract n_positions from oracle prompt text like 'Activations from 24 positions ...'."""
+    m = _re_mod.search(r"Activations from (\d+) positions", oracle_prompt)
+    return int(m.group(1)) if m else 0
 
 
 # Evals to run during training, in order of cost (cheapest first).
@@ -598,6 +625,7 @@ def _run_standard_eval(
             clean_answer=ex["clean_answer"],
             test_answer=ex["test_answer"],
             ground_truth_label=ex["ground_truth"],
+            oracle_prompt=ex["oracle_prompt"],
             oracle_response=ex["oracle_response"],
             activations_path=None,
             metadata={**item.metadata},
@@ -717,6 +745,7 @@ def _run_decorative_cot_eval(
             clean_answer=None,
             test_answer=None,
             ground_truth_label=ex["label"],
+            oracle_prompt=ex["oracle_prompt"],
             oracle_response=ex["oracle_response"],
             activations_path=None,
             metadata={
@@ -823,6 +852,7 @@ def _run_sentence_insertion_eval(
             clean_answer=None,
             test_answer=None,
             ground_truth_label=ex["ground_truth"],
+            oracle_prompt=ex["oracle_prompt"],
             oracle_response=ex["oracle_response"],
             activations_path=None,
             metadata={**item.metadata},
@@ -939,6 +969,7 @@ def _run_reasoning_termination_eval(
             clean_answer=None,
             test_answer=None,
             ground_truth_label=ex["ground_truth"],
+            oracle_prompt=ex["oracle_prompt"],
             oracle_response=ex["oracle_response"],
             activations_path=None,
             metadata={**item.metadata},
@@ -1081,6 +1112,7 @@ def _run_rot13_eval(
             clean_answer=None,
             test_answer=None,
             ground_truth_label="pending_reconstruction",
+            oracle_prompt=ex["oracle_prompt"],
             oracle_response=oracle_response,
             activations_path=None,
             metadata={
@@ -1232,6 +1264,7 @@ def _run_compqa_eval(
             clean_answer=None,
             test_answer=None,
             ground_truth_label="pending_token_f1",
+            oracle_prompt=ex["oracle_prompt"],
             oracle_response=oracle_response,
             activations_path=None,
             metadata={
@@ -1550,7 +1583,7 @@ def run_training_evals(
 
             # Score with word-level token F1
             scores = []
-            columns = ["id", "type", "oracle_prompt", "prediction", "target", "token_f1", "pred_tokens", "target_tokens"]
+            columns = ["id", "type", "oracle_prompt", "placeholder_prompt", "prediction", "target", "token_f1", "pred_tokens", "target_tokens"]
             table = wandb.Table(columns=columns)
             rows = []
             for i, ex in enumerate(extracted):
@@ -1558,9 +1591,11 @@ def run_training_evals(
                 target = ex["target"].strip()
                 score = _word_token_f1(pred, target)
                 scores.append(score)
-                wandb_row = [i, ex["datapoint_type"], ex["oracle_prompt"][:300], pred[:500], target[:500], round(score, 3), len(pred.split()), len(target.split())]
+                n_pos = ex["activations"].shape[0] if ex.get("activations") is not None else 0
+                ph_prompt = _build_placeholder_prompt(n_pos, ex["oracle_prompt"])
+                wandb_row = [i, ex["datapoint_type"], ex["oracle_prompt"][:300], ph_prompt[:500], pred[:500], target[:500], round(score, 3), len(pred.split()), len(target.split())]
                 table.add_data(*wandb_row)
-                rows.append([i, ex["datapoint_type"], ex["oracle_prompt"], pred, target, round(score, 3), len(pred.split()), len(target.split())])
+                rows.append([i, ex["datapoint_type"], ex["oracle_prompt"], ph_prompt, pred, target, round(score, 3), len(pred.split()), len(target.split())])
 
             avg_score = sum(scores) / len(scores)
             all_metrics[f"eval/{ds_name}"] = avg_score
@@ -1651,12 +1686,15 @@ def run_training_evals(
                 # Wandb table for rot13 — show how it's messing up
                 try:
                     import wandb
-                    rot13_cols = ["id", "question", "rot13_cot", "oracle_output", "clean_cot", "match_rate", "kl"]
+                    rot13_cols = ["id", "question", "oracle_prompt", "placeholder_prompt", "rot13_cot", "oracle_output", "clean_cot", "match_rate", "kl"]
                     rot13_table = wandb.Table(columns=rot13_cols)
                     rot13_rows = []
                     for c in completed:
+                        n_pos = c.metadata.get("positions_used", 0)
+                        ph_prompt = _build_placeholder_prompt(n_pos, c.oracle_prompt)
                         wandb_row = [
                             c.example_id, c.clean_prompt[:200],
+                            c.oracle_prompt[:300], ph_prompt[:500],
                             (c.test_response or "")[:500], (c.oracle_response or "")[:500],
                             (c.clean_response or "")[:500],
                             round(c.metadata.get("token_match_rate", 0.0), 3),
@@ -1665,6 +1703,7 @@ def run_training_evals(
                         rot13_table.add_data(*wandb_row)
                         rot13_rows.append([
                             c.example_id, c.clean_prompt,
+                            c.oracle_prompt, ph_prompt,
                             c.test_response or "", c.oracle_response or "",
                             c.clean_response or "",
                             round(c.metadata.get("token_match_rate", 0.0), 3),
@@ -1733,7 +1772,7 @@ def run_training_evals(
             try:
                 import wandb
                 if eval_name != "rot13_reconstruction":  # rot13 has its own table above
-                    cols = ["id", "question", "oracle_output", "ground_truth", "correct"]
+                    cols = ["id", "question", "oracle_prompt", "placeholder_prompt", "oracle_output", "ground_truth", "correct"]
                     table = wandb.Table(columns=cols)
                     table_rows = []
                     parsing_cfg = EVAL_PARSING.get(eval_name)
@@ -1753,9 +1792,11 @@ def run_training_evals(
                                     is_correct = "?"
                             else:
                                 is_correct = "yes" if gt.lower() in oracle.lower() else "no"
-                        wandb_row = [c.example_id, (c.test_prompt or c.clean_prompt or "")[:200], oracle, gt or "", is_correct]
+                        n_pos = _parse_n_positions_from_prompt(c.oracle_prompt)
+                        ph_prompt = _build_placeholder_prompt(n_pos, c.oracle_prompt)
+                        wandb_row = [c.example_id, (c.test_prompt or c.clean_prompt or "")[:200], c.oracle_prompt[:300], ph_prompt[:500], oracle, gt or "", is_correct]
                         table.add_data(*wandb_row)
-                        table_rows.append([c.example_id, c.test_prompt or c.clean_prompt or "", c.oracle_response or "", gt or "", is_correct])
+                        table_rows.append([c.example_id, c.test_prompt or c.clean_prompt or "", c.oracle_prompt, ph_prompt, c.oracle_response or "", gt or "", is_correct])
                     if len(table.data) > 0:
                         all_metrics[f"eval_table/{eval_name}"] = table
                     if _log_dir and table_rows:
@@ -1776,6 +1817,16 @@ def run_training_evals(
     if acc_keys:
         acc_values = [all_metrics[k] for k in acc_keys]
         all_metrics["eval/mean_acc"] = sum(acc_values) / len(acc_values)
+
+    # Upload eval log directory as wandb artifact
+    if _log_dir and _log_dir.exists() and any(_log_dir.iterdir()):
+        try:
+            artifact = wandb.Artifact(f"eval_traces_step{step}", type="eval_traces", metadata={"step": step, **_run_metadata})
+            artifact.add_dir(str(_log_dir))
+            wandb.log_artifact(artifact)
+            print(f"  [training_eval] Uploaded eval traces artifact: {artifact.name}")
+        except Exception as e:
+            print(f"  [training_eval] WARNING: Failed to upload eval traces artifact: {e}")
 
     # Restore training state
     if was_training:

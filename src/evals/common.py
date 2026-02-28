@@ -52,6 +52,7 @@ class CompletedEvalItem:
     ground_truth_label: str  # "influenced"|"independent"|"correct"|"incorrect"|etc.
 
     # Oracle output
+    oracle_prompt: str = ""
     oracle_response: str = ""
 
     # Activation data
