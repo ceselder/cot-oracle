@@ -1274,6 +1274,8 @@ def train(
         for _, items in task_blocks:
             block_eval_steps.add(cursor)  # start of block
             block_steps = len(items) // (args.batch_size * grad_accum * world_size)
+            if block_steps >= 2:
+                block_eval_steps.add(cursor + block_steps // 2)  # midpoint
             cursor += block_steps
             block_eval_steps.add(cursor)  # end of block
         block_eval_steps.discard(0)  # step-0 eval handled separately
