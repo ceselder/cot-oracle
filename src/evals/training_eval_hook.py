@@ -1660,8 +1660,9 @@ def _score_binary_eval(
     if total == 0:
         return {f"eval_n/{eval_name}_parse_fail": unparsed / len(scoreable) if scoreable else 0}
 
+    section = "eval_cls" if eval_name.startswith("cls_") else "eval"
     return {
-        f"eval/{eval_name}_acc": correct / total,
+        f"{section}/{eval_name}_acc": correct / total,
         f"eval_n/{eval_name}": total,
         f"eval_n/{eval_name}_parse_fail": unparsed / len(scoreable),
     }
@@ -2156,15 +2157,17 @@ def run_training_evals(
                 binary_metrics = _score_binary_eval(eval_name, completed, max_score=max_items_per_eval)
                 all_metrics.update(binary_metrics)
                 if binary_metrics:
-                    acc_key = f"eval/{eval_name}_acc"
+                    section = "eval_cls" if eval_name.startswith("cls_") else "eval"
+                    acc_key = f"{section}/{eval_name}_acc"
                     if acc_key in binary_metrics:
                         print(f"    {eval_name}: acc={binary_metrics[acc_key]:.3f} (n={binary_metrics.get(f'eval_n/{eval_name}', 0)})")
 
             # Log a sample oracle response for qualitative inspection
+            sample_section = "eval_cls" if eval_name.startswith("cls_") else "eval"
             for c in completed:
                 if c.oracle_response:
-                    all_metrics[f"eval/{eval_name}_sample_oracle"] = c.oracle_response[:200]
-                    all_metrics[f"eval/{eval_name}_sample_gt"] = c.ground_truth_label
+                    all_metrics[f"{sample_section}/{eval_name}_sample_oracle"] = c.oracle_response[:200]
+                    all_metrics[f"{sample_section}/{eval_name}_sample_gt"] = c.ground_truth_label
                     break
 
             # Wandb table for all evals
@@ -2217,17 +2220,17 @@ def run_training_evals(
         # Free memory between evals
         torch.cuda.empty_cache()
 
-    # Compute overall accuracy across binary evals
-    acc_keys = [k for k in all_metrics if k.endswith("_acc")]
+    # Compute mean accuracy across non-classification evals
+    acc_keys = [k for k in all_metrics if k.startswith("eval/") and k.endswith("_acc")]
     if acc_keys:
         acc_values = [all_metrics[k] for k in acc_keys]
         all_metrics["eval/mean_acc"] = sum(acc_values) / len(acc_values)
 
-    # Compute mean accuracy across classification evals specifically
-    cls_acc_keys = [k for k in all_metrics if k.startswith("eval/cls_") and k.endswith("_acc")]
+    # Compute mean accuracy across classification evals (own section)
+    cls_acc_keys = [k for k in all_metrics if k.startswith("eval_cls/") and k.endswith("_acc")]
     if cls_acc_keys:
         cls_acc_values = [all_metrics[k] for k in cls_acc_keys]
-        all_metrics["eval/classification_mean_acc"] = sum(cls_acc_values) / len(cls_acc_values)
+        all_metrics["eval_cls/mean_acc"] = sum(cls_acc_values) / len(cls_acc_values)
 
     # Upload eval log directory as wandb artifact
     if _log_dir and _log_dir.exists() and any(_log_dir.iterdir()):

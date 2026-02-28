@@ -31,6 +31,7 @@ import random
 import re
 import sys
 
+from contextlib import nullcontext
 from dotenv import load_dotenv
 load_dotenv()
 import time
@@ -711,13 +712,25 @@ TASK_REGISTRY = {
         "loader": "load_cot_chunked_convqa_data",
         "corpus": "chunked_convqa",
     },
+    "branch_pred": {
+        "arg": "branch_pred_n",
+        "module": "dataset_classes.cot_infogap",
+        "loader": "load_cot_branch_pred_data",
+        "corpus": "main",
+    },
+    "completion_pred": {
+        "arg": "completion_pred_n",
+        "module": "dataset_classes.cot_infogap",
+        "loader": "load_cot_completion_pred_data",
+        "corpus": "main",
+    },
 }
 
 
 HF_TRAINING_REPO = "mats-10-sprint-cs-jb/cot-oracle-training-v6"
 HF_INFOGAP_REPO = "mats-10-sprint-cs-jb/cot-oracle-compqa-chunked"
 
-INFOGAP_TASKS = {"early_answer_pred", "backtrack_pred", "error_pred", "self_correction", "verification", "remaining_strategy"}
+INFOGAP_TASKS = {"early_answer_pred", "backtrack_pred", "error_pred", "self_correction", "verification", "remaining_strategy", "branch_pred", "completion_pred"}
 
 _HF_CACHE_DIR = Path(os.path.join(os.environ["CACHE_DIR"], "cot_oracle", ".hf_cache")) if os.environ.get("CACHE_DIR") else Path("data/.hf_cache")
 
@@ -952,6 +965,54 @@ def _example_context_len(dp: TrainingDataPoint) -> int:
     return len(dp.context_input_ids) if dp.context_input_ids is not None else len(dp.input_ids)
 
 
+def _label_token_count(dp: TrainingDataPoint) -> int:
+    return sum(label != -100 for label in dp.labels[1:])
+
+
+def _estimate_train_batch_peak_tokens(
+    batch_points: list[TrainingDataPoint],
+    no_activations: bool,
+    flamingo: bool,
+    flamingo_max_ctx_tokens: int,
+) -> int:
+    batch_size = len(batch_points)
+    oracle_peak_tokens = 2 * batch_size * max(len(dp.input_ids) for dp in batch_points)
+    if no_activations:
+        return oracle_peak_tokens
+    if flamingo:
+        context_peak_tokens = batch_size * max(min(_example_context_len(dp), flamingo_max_ctx_tokens) for dp in batch_points)
+    else:
+        context_peak_tokens = batch_size * max(_example_context_len(dp) for dp in batch_points)
+    return max(context_peak_tokens, oracle_peak_tokens)
+
+
+def _split_batch_for_token_budget(
+    batch_points: list[TrainingDataPoint],
+    max_batch_size: int,
+    max_train_tokens_per_gpu: int,
+    no_activations: bool,
+    flamingo: bool,
+    flamingo_max_ctx_tokens: int,
+) -> list[list[TrainingDataPoint]]:
+    if max_train_tokens_per_gpu <= 0:
+        return [batch_points]
+
+    chunks = []
+    current_chunk = []
+    for dp in batch_points:
+        candidate = current_chunk + [dp]
+        if current_chunk and (
+            len(candidate) > max_batch_size
+            or _estimate_train_batch_peak_tokens(candidate, no_activations, flamingo, flamingo_max_ctx_tokens) > max_train_tokens_per_gpu
+        ):
+            chunks.append(current_chunk)
+            current_chunk = [dp]
+            continue
+        current_chunk = candidate
+    chunks.append(current_chunk)
+    return chunks
+
+
 def _window_bucket_training_data(training_data: list[TrainingDataPoint], batch_size: int, window_batches: int) -> None:
     """Sort by context length inside shuffled windows to reduce padding waste."""
     window = batch_size * window_batches
@@ -1049,10 +1110,10 @@ def _run_unified_eval(model, tokenizer, model_name, global_step, args, eval_data
         oracle_scores = {}
         for k, v in metrics.items():
             if k.endswith("_acc") and isinstance(v, float):
-                name = k.removeprefix("eval/").removesuffix("_acc")
+                name = k.removeprefix("eval/").removeprefix("eval_cls/").removesuffix("_acc")
                 oracle_scores[name] = ("acc", v)
             elif k.endswith("_token_f1") and isinstance(v, float):
-                name = k.removeprefix("eval/").removesuffix("_token_f1")
+                name = k.removeprefix("eval/").removeprefix("eval_cls/").removesuffix("_token_f1")
                 oracle_scores[name] = ("token_f1", v)
         if oracle_scores:
             print(f"\n  {'Eval':<30s} {'Metric':<10s} {'Oracle':>8s} {'Gemini':>8s} {'Δ':>8s}")
@@ -1128,8 +1189,14 @@ def train(
             print(f"    {t}: {c}")
 
     # Split eval (per-task eval_n from config)
-    # Build dtype -> yaml_task_name mapping for eval_n lookup
-    dtype_to_yaml = {(v["module"].split(".")[-1] if v["module"] else f"cot_{k}"): k for k, v in TASK_REGISTRY.items()}
+    # Build dtype -> yaml_task_name mapping for eval_n lookup.
+    # Use both module-derived name AND cot_{yaml_name} to handle tasks that
+    # share a module (e.g. all infogap tasks share cot_infogap).
+    dtype_to_yaml = {}
+    for k, v in TASK_REGISTRY.items():
+        if v["module"]:
+            dtype_to_yaml[v["module"].split(".")[-1]] = k
+        dtype_to_yaml[f"cot_{k}"] = k
     random.shuffle(training_data)
     eval_per_type = {}
     train_per_type = defaultdict(list)
@@ -1391,6 +1458,7 @@ def train(
         print(f"  Batch: {args.batch_size}")
         print(f"  Gradient accumulation: {grad_accum}")
         print(f"  Effective batch size: {args.batch_size * grad_accum * world_size}")
+        print(f"  Train token budget: {args.max_train_tokens_per_gpu or 'disabled'}")
         print(f"  Length bucketing: {args.length_bucketing} (window_batches={args.length_bucket_window_batches})")
         print(f"  Epochs: {args.epochs}")
         print(f"  Steps: {total_steps}")
@@ -1438,6 +1506,7 @@ def train(
         accum_loss_sum = 0.0
         accum_batch_types = []
         accum_batch_tokens = 0
+        accum_batch_splits = 0
         accum_context_lengths = []
 
         for start in pbar:
@@ -1445,74 +1514,101 @@ def train(
             if len(batch_list) < args.batch_size:
                 break
 
-            batch_types = [dp.datapoint_type for dp in batch_list]
+            base_label_tokens = sum(_label_token_count(dp) for dp in batch_list)
+            pending_chunks = _split_batch_for_token_budget(
+                batch_list,
+                args.batch_size,
+                args.max_train_tokens_per_gpu,
+                args.no_activations,
+                args.flamingo,
+                args.flamingo_max_ctx_tokens,
+            )
+            batch_split_count = len(pending_chunks) - 1
 
-            if args.no_activations:
-                # Text-only: no activation extraction, no steering hook
-                batch = construct_batch(batch_list, tokenizer, device)
-                tokenized_input = {"input_ids": batch.input_ids, "attention_mask": batch.attention_mask}
-                with torch.autocast(device_type="cuda", dtype=dtype):
-                    outputs = ddp_model(**tokenized_input, labels=batch.labels)
-                    loss = outputs.loss / grad_accum
-                loss.backward()
-            elif args.flamingo:
-                # Two-pass: collect CoT hidden states, then oracle forward with xattn
-                flamingo_wrapper = ddp_model.module if isinstance(ddp_model, torch.nn.parallel.DistributedDataParallel) else ddp_model
-                cot_batch, oracle_batch = construct_flamingo_batch(
-                    batch_list, tokenizer, device,
-                    max_ctx_tokens=args.flamingo_max_ctx_tokens,
-                )
-                # Pass 1: CoT through frozen base model (no grad)
-                with torch.autocast(device_type="cuda", dtype=dtype):
-                    cot_hs = flamingo_wrapper.collect_cot_hidden_states(
-                        cot_batch["input_ids"], cot_batch["attention_mask"],
-                    )
-                # Pass 2: Oracle forward with cross-attention to CoT
-                batch = oracle_batch  # for per-task loss logging below
-                with torch.autocast(device_type="cuda", dtype=dtype):
-                    outputs = ddp_model(
-                        **oracle_batch,
-                        supervisee_kvs=cot_hs,
-                        cot_attention_mask=cot_batch["attention_mask"],
-                    )
-                    loss = outputs.loss / grad_accum
-                loss.backward()
-            else:
-                # Standard steering path
-                batch_list = materialize_multilayer_steering_vectors(
-                    batch_list, tokenizer, model
-                )
-                batch = construct_batch(batch_list, tokenizer, device)
-                with torch.autocast(device_type="cuda", dtype=dtype):
-                    outputs = train_features_batch(
-                        batch, ddp_model, submodule,
-                        args.steering_coefficient, device, dtype,
-                    )
-                    loss = outputs.loss / grad_accum
-                loss.backward()
+            while pending_chunks:
+                chunk_list = pending_chunks.pop(0)
+                chunk_types = [dp.datapoint_type for dp in chunk_list]
+                loss_weight = sum(_label_token_count(dp) for dp in chunk_list) / base_label_tokens
+                sync_context = ddp_model.no_sync() if world_size > 1 and pending_chunks else nullcontext()
 
-            # Per-task loss (use unscaled loss for logging)
-            with torch.no_grad():
-                logits = outputs.logits.detach()
-                labels = batch["labels"] if isinstance(batch, dict) else batch.labels
-                shift_logits = logits[:, :-1, :].contiguous()
-                shift_labels = labels[:, 1:].contiguous()
-                per_token_loss = F.cross_entropy(
-                    shift_logits.view(-1, shift_logits.size(-1)),
-                    shift_labels.view(-1),
-                    reduction="none",
-                ).view(shift_labels.shape)
-                mask = (shift_labels != -100).float()
-                per_item_loss = (per_token_loss * mask).sum(dim=1) / mask.sum(dim=1).clamp(min=1)
-                batch_tokens = int(mask.sum().item())
-                total_tokens += batch_tokens
+                with sync_context:
+                    try:
+                        if args.no_activations:
+                            # Text-only: no activation extraction, no steering hook
+                            batch = construct_batch(chunk_list, tokenizer, device)
+                            tokenized_input = {"input_ids": batch.input_ids, "attention_mask": batch.attention_mask}
+                            with torch.autocast(device_type="cuda", dtype=dtype):
+                                outputs = ddp_model(**tokenized_input, labels=batch.labels)
+                                loss = outputs.loss * loss_weight / grad_accum
+                        elif args.flamingo:
+                            # Two-pass: collect CoT hidden states, then oracle forward with xattn
+                            flamingo_wrapper = ddp_model.module if isinstance(ddp_model, torch.nn.parallel.DistributedDataParallel) else ddp_model
+                            cot_batch, oracle_batch = construct_flamingo_batch(
+                                chunk_list, tokenizer, device,
+                                max_ctx_tokens=args.flamingo_max_ctx_tokens,
+                            )
+                            # Pass 1: CoT through frozen base model (no grad)
+                            with torch.autocast(device_type="cuda", dtype=dtype):
+                                cot_hs = flamingo_wrapper.collect_cot_hidden_states(
+                                    cot_batch["input_ids"], cot_batch["attention_mask"],
+                                )
+                            # Pass 2: Oracle forward with cross-attention to CoT
+                            batch = oracle_batch  # for per-task loss logging below
+                            with torch.autocast(device_type="cuda", dtype=dtype):
+                                outputs = ddp_model(
+                                    **oracle_batch,
+                                    supervisee_kvs=cot_hs,
+                                    cot_attention_mask=cot_batch["attention_mask"],
+                                )
+                                loss = outputs.loss * loss_weight / grad_accum
+                        else:
+                            # Standard steering path
+                            chunk_list = materialize_multilayer_steering_vectors(
+                                chunk_list, tokenizer, model
+                            )
+                            batch = construct_batch(chunk_list, tokenizer, device)
+                            with torch.autocast(device_type="cuda", dtype=dtype):
+                                outputs = train_features_batch(
+                                    batch, ddp_model, submodule,
+                                    args.steering_coefficient, device, dtype,
+                                )
+                                loss = outputs.loss * loss_weight / grad_accum
+                    except torch.OutOfMemoryError:
+                        if world_size > 1 or len(chunk_list) == 1:
+                            raise
+                        torch.cuda.empty_cache()
+                        split_at = len(chunk_list) // 2
+                        if rank == 0:
+                            print(f"  CUDA OOM at train batch {start}, splitting micro-batch {len(chunk_list)} -> {split_at}+{len(chunk_list) - split_at}")
+                        batch_split_count += 1
+                        pending_chunks = [chunk_list[:split_at], chunk_list[split_at:]] + pending_chunks
+                        continue
+                    loss.backward()
 
-            for i, task_type in enumerate(batch_types):
-                accum_task_losses[task_type].append(per_item_loss[i].item())
-            accum_loss_sum += outputs.loss.item()
-            accum_batch_types.extend(batch_types)
-            accum_batch_tokens += batch_tokens
-            accum_context_lengths.extend(len(dp.context_input_ids) for dp in batch_list if dp.context_input_ids is not None)
+                # Per-task loss (use unscaled loss for logging)
+                with torch.no_grad():
+                    logits = outputs.logits.detach()
+                    labels = batch["labels"] if isinstance(batch, dict) else batch.labels
+                    shift_logits = logits[:, :-1, :].contiguous()
+                    shift_labels = labels[:, 1:].contiguous()
+                    per_token_loss = F.cross_entropy(
+                        shift_logits.view(-1, shift_logits.size(-1)),
+                        shift_labels.view(-1),
+                        reduction="none",
+                    ).view(shift_labels.shape)
+                    mask = (shift_labels != -100).float()
+                    per_item_loss = (per_token_loss * mask).sum(dim=1) / mask.sum(dim=1).clamp(min=1)
+                    batch_tokens = int(mask.sum().item())
+                    total_tokens += batch_tokens
+
+                for i, task_type in enumerate(chunk_types):
+                    accum_task_losses[task_type].append(per_item_loss[i].item())
+                accum_loss_sum += outputs.loss.item() * loss_weight
+                accum_batch_types.extend(chunk_types)
+                accum_batch_tokens += batch_tokens
+                accum_context_lengths.extend(len(dp.context_input_ids) for dp in chunk_list if dp.context_input_ids is not None)
+
+            accum_batch_splits += batch_split_count
 
             micro_step += 1
             if micro_step % grad_accum != 0:
@@ -1540,6 +1636,7 @@ def train(
                     "train/learning_rate": scheduler.get_last_lr()[0],
                     "train/total_tokens": total_tokens,
                     "train/batch_tokens": accum_batch_tokens,
+                    "train/batch_splits": accum_batch_splits,
                     "train/avg_context_length": sum(accum_context_lengths) / len(accum_context_lengths) if accum_context_lengths else 0,
                     "train/tokens_per_sec": accum_batch_tokens / max(now - last_step_time, 1e-6),
                     "train/step_time": now - last_step_time,
@@ -1635,6 +1732,7 @@ def train(
             accum_loss_sum = 0.0
             accum_batch_types = []
             accum_batch_tokens = 0
+            accum_batch_splits = 0
             accum_context_lengths = []
 
             global_step += 1
@@ -1663,6 +1761,14 @@ def load_config(config_path: str) -> dict:
         return yaml.safe_load(f)
 
 
+def _mark_cli_overrides(args, parser, argv: list[str]) -> None:
+    for action in parser._actions:
+        if action.dest == "config" or not action.option_strings:
+            continue
+        if any(token == opt or token.startswith(f"{opt}=") for token in argv for opt in action.option_strings):
+            setattr(args, f"_cli_{action.dest}", True)
+
+
 def apply_config(args, config: dict):
     """Apply config values to args, CLI flags override config."""
     # Task counts
@@ -1674,18 +1780,18 @@ def apply_config(args, config: dict):
             if not getattr(args, f"_cli_{arg_name}", False):
                 setattr(args, arg_name, task_cfg.get("n", 0))
             eval_arg = f"{task_name}_eval_n"
-            if not getattr(args, f"_cli_{eval_arg}", False):
-                setattr(args, eval_arg, task_cfg.get("eval_n", 50))
+            if "eval_n" in task_cfg and not getattr(args, f"_cli_{eval_arg}", False):
+                setattr(args, eval_arg, task_cfg["eval_n"])
 
     # Training params
     if "training" in config:
         t = config["training"]
         _float_keys = {"lr", "warmup_fraction", "max_grad_norm", "steering_coefficient"}
-        _int_keys = {"batch_size", "eval_batch_size", "epochs", "seed", "effective_batch_size", "interleave_blocks", "length_bucket_window_batches"}
+        _int_keys = {"batch_size", "eval_batch_size", "epochs", "seed", "effective_batch_size", "interleave_blocks", "length_bucket_window_batches", "max_train_tokens_per_gpu"}
         for key in ["lr", "batch_size", "eval_batch_size", "epochs",
                      "warmup_fraction", "max_grad_norm", "steering_coefficient",
                      "gradient_checkpointing", "task_order", "seed",
-                     "effective_batch_size", "interleave_blocks",
+                     "effective_batch_size", "interleave_blocks", "max_train_tokens_per_gpu",
                      "length_bucketing", "length_bucket_window_batches"]:
             if key in t and not getattr(args, f"_cli_{key}", False):
                 val = t[key]
@@ -1868,6 +1974,11 @@ def main():
     parser.add_argument("--self-correction-n", type=int, default=0)
     parser.add_argument("--verification-n", type=int, default=0)
     parser.add_argument("--remaining-strategy-n", type=int, default=0)
+    parser.add_argument("--branch-pred-n", type=int, default=0)
+    parser.add_argument("--completion-pred-n", type=int, default=0)
+    parser.add_argument("--hinted-answer-pred-n", type=int, default=0)
+    parser.add_argument("--chunked-convqa-n", type=int, default=0)
+    parser.add_argument("--cotqa-n", type=int, default=0)
     parser.add_argument("--atypical-data-path",
                         default="data/atypical_answer_training.jsonl",
                         help="Path to atypical answer JSONL (from precompute_atypical_training.py)")
@@ -1916,6 +2027,8 @@ def main():
     parser.add_argument("--effective-batch-size", type=int, default=32,
                         help="Total effective batch size (invariant to GPU count). "
                              "gradient_accumulation_steps = effective_batch_size / (batch_size * world_size)")
+    parser.add_argument("--max-train-tokens-per-gpu", type=int, default=0,
+                        help="Approximate per-GPU peak token budget for splitting long train batches (0 disables)")
 
     # Text-only baseline
     parser.add_argument("--no-activations", action="store_true", default=False,
@@ -1969,12 +2082,7 @@ def main():
     args = parser.parse_args()
 
     # Mark which args were explicitly provided on CLI so config doesn't override them
-    _defaults = {action.dest: action.default for action in parser._actions}
-    for key, val in list(vars(args).items()):
-        if key == "config":
-            continue
-        if val != _defaults.get(key):
-            setattr(args, f"_cli_{key}", True)
+    _mark_cli_overrides(args, parser, sys.argv[1:])
 
     # Apply config file(s) (CLI flags override config values)
     if args.config:
