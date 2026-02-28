@@ -1,0 +1,32 @@
+# Ablation: Single Activation (last CoT position only)
+# Oracle only sees 1 activation position x 3 layers = 3 vectors per example.
+# Tests whether a single position suffices for classification/prediction tasks.
+# Override on top of train.yaml: --config configs/train.yaml configs/ablation_single_activation.yaml
+
+tasks:
+  full_recon:
+    n: 0
+  next_step:
+    n: 0
+  answer_trajectory:
+    n: 0
+  conv_qa:
+    n: 0
+
+activations:
+  stride: 5
+  n_layers: 3
+  single_position: true
+  n_prompt_positions: 0
+  position_encoding: false
+
+training:
+  batch_size: 4
+  effective_batch_size: 16
+  eval_batch_size: 2
+
+model:
+  fresh_lora: true
+
+output:
+  wandb_run: ablation-single-activation

@@ -147,11 +147,23 @@ def _apply_oracle_mode_to_extract(model, tokenizer, **kwargs):
     """Wrapper applying current oracle mode to activation extraction.
 
     Delegates to extract_activations() with stride and layers from _ORACLE_MODE.
+    In single_position mode, trims to only the last position per layer.
     """
     kwargs.setdefault("stride", _ORACLE_MODE["stride"])
     kwargs.setdefault("layers", _ORACLE_MODE.get("layers"))
     kwargs.pop("max_boundaries", None)
-    return _extract_activations(model, tokenizer, **kwargs)
+    bundle = _extract_activations(model, tokenizer, **kwargs)
+    # Single position mode: trim activations to last position per layer
+    if bundle is not None and _ORACLE_MODE.get("single_position") and bundle.activations is not None:
+        layers = _ORACLE_MODE.get("layers") or [None]
+        n_layers = len(layers) if layers[0] is not None else 1
+        K = len(bundle.boundary_positions)
+        if K > 1:
+            # Keep only last position's activation from each layer block
+            indices = [K * (i + 1) - 1 for i in range(n_layers)]
+            bundle.activations = bundle.activations[indices]
+            bundle.boundary_positions = [bundle.boundary_positions[-1]]
+    return bundle
 
 
 def _apply_oracle_mode_to_oracle(model, tokenizer, activations, prompt, **kwargs):
@@ -482,7 +494,10 @@ def _batch_extract_activation_bundles(
             len(prompt_ids), len(all_ids), stride=stride,
             tokenizer=tokenizer, input_ids=all_ids,
         )
-        if len(positions) < 2:
+        # Single position mode: keep only the last CoT position
+        if _ORACLE_MODE.get("single_position") and positions:
+            positions = [positions[-1]]
+        if len(positions) < 1:
             continue
         prepared.append({
             **row,
@@ -1437,6 +1452,7 @@ def precache_eval_activations(
     oracle_adapter_name: str = "default",
     stride: int | str = None,
     eval_batch_size: int = 8,
+    single_position: bool = False,
 ):
     """Pre-extract and cache activation bundles for all eval items.
 
@@ -1457,8 +1473,8 @@ def precache_eval_activations(
 
     # Configure oracle mode — layers match training (from CONFIGURED_LAYERS)
     act_layers = get_injection_layers(model_name)
-    set_oracle_mode(trained=True, oracle_adapter_name=oracle_adapter_name, stride=stride, layers=act_layers)
-    print(f"  [precache] Extraction: layers={act_layers}, stride={stride}, batch_size={eval_batch_size}")
+    set_oracle_mode(trained=True, oracle_adapter_name=oracle_adapter_name, stride=stride, layers=act_layers, single_position=single_position)
+    print(f"  [precache] Extraction: layers={act_layers}, stride={stride}, batch_size={eval_batch_size}, single_position={single_position}")
 
     model.eval()
     eval_list = eval_names or TRAINING_EVALS
@@ -1569,6 +1585,7 @@ def run_training_evals(
     log_dir: Path | str | None = None,
     eval_batch_size: int = 8,
     stride: int | str = None,
+    single_position: bool = False,
 ) -> dict[str, Any]:
     """Run evals and return results dict for wandb logging.
 
@@ -1587,6 +1604,7 @@ def run_training_evals(
         log_dir: Path to directory for disk logging of eval tables.
         eval_batch_size: Mini-batch size for batched oracle generation.
         stride: Position extraction stride (int for fixed, "punctuation" for punctuation).
+        single_position: If True, only feed the last CoT position per layer.
 
     Returns:
         Flat dict of metrics suitable for wandb.log().
@@ -1598,8 +1616,8 @@ def run_training_evals(
 
     # Configure oracle mode — layers match training (from CONFIGURED_LAYERS)
     act_layers = get_injection_layers(model_name)
-    set_oracle_mode(trained=True, oracle_adapter_name=oracle_adapter_name, stride=stride, layers=act_layers)
-    print(f"  [training_eval] Extraction: layers={act_layers}, stride={stride}, batch_size={eval_batch_size}")
+    set_oracle_mode(trained=True, oracle_adapter_name=oracle_adapter_name, stride=stride, layers=act_layers, single_position=single_position)
+    print(f"  [training_eval] Extraction: layers={act_layers}, stride={stride}, batch_size={eval_batch_size}, single_position={single_position}")
 
     # Save training state and switch to eval
     was_training = model.training

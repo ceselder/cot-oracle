@@ -51,6 +51,7 @@ _ORACLE_MODE = {
     "placeholder_token": None,       # None = SPECIAL_TOKEN (" ?")
     "oracle_adapter_name": None,     # None = auto-detect original AO
     "layers": None,                  # list[int] for multi-layer, None for single
+    "single_position": False,        # only feed last CoT position per layer
 }
 
 
@@ -59,6 +60,7 @@ def set_oracle_mode(
     oracle_adapter_name: str | None = None,
     stride: int | str = 5,  # default only for standalone run_evals.py; train.py always passes explicitly
     layers: list[int] | None = None,
+    single_position: bool = False,
 ):
     """Configure oracle format for all evals in this module.
 
@@ -67,17 +69,20 @@ def set_oracle_mode(
         oracle_adapter_name: Adapter name. Defaults to "default" when trained=True.
         stride: Stride size in tokens, or "punctuation" to sample at punctuation boundaries.
         layers: List of extraction layers (e.g. [9, 18, 27]). None = single-layer mode.
+        single_position: If True, only feed the last CoT position per layer.
     """
     if trained:
         _ORACLE_MODE["stride"] = stride
         _ORACLE_MODE["placeholder_token"] = TRAINED_PLACEHOLDER
         _ORACLE_MODE["oracle_adapter_name"] = oracle_adapter_name or "default"
         _ORACLE_MODE["layers"] = layers
+        _ORACLE_MODE["single_position"] = single_position
     else:
         _ORACLE_MODE["stride"] = 5
         _ORACLE_MODE["placeholder_token"] = None
         _ORACLE_MODE["oracle_adapter_name"] = None
         _ORACLE_MODE["layers"] = None
+        _ORACLE_MODE["single_position"] = False
 
 
 def extract_activation_bundle(model, tokenizer, **kwargs):

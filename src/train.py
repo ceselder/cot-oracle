@@ -106,6 +106,8 @@ _LAYER_POOL = False
 _SPARSE_POSITIONS = False
 # Strip prompt positions: remove question activations, keep CoT only
 _N_PROMPT_POSITIONS = 5  # how many prompt positions each task generates (for stripping)
+# Single position mode: only feed the last CoT position per layer
+_SINGLE_POSITION = False
 
 
 def _pool_vectors(vectors: torch.Tensor, mode: str) -> torch.Tensor:
@@ -365,6 +367,15 @@ def dicts_to_training_data(
             )
             num_pos = len(ctx_pos)
 
+        # Single position mode: keep only the last CoT position per layer
+        if _SINGLE_POSITION and n_layers_runtime >= 1:
+            total = len(ctx_pos)
+            if total % n_layers_runtime == 0:
+                K = total // n_layers_runtime
+                last_pos = ctx_pos[K - 1]  # last position in first layer block
+                ctx_pos = [last_pos] * n_layers_runtime
+                num_pos = len(ctx_pos)
+
         # Override num_positions for pooling modes (fewer placeholders in prompt)
         # Store full positions in meta_info so materializer can extract all, then pool.
         full_ctx_pos = ctx_pos
@@ -445,9 +456,11 @@ TASK_REGISTRY = {
     },
     "answer_trajectory": {
         "arg": "answer_trajectory_n",
-        "module": None,  # precompute-only (requires vLLM)
-        "loader": None,
-        "corpus": "main",
+        "module": "dataset_classes.cot_answer_trajectory",
+        "loader": "load_cot_answer_trajectory_data",
+        "corpus": "answer_trajectory",
+        "hf_repo": "ceselder/cot-oracle-answer-trajectory",
+        "hf_filename": "answer_trajectory_cleaned.jsonl",
     },
     "atypical_answer": {
         "arg": "atypical_answer_n",
@@ -580,7 +593,7 @@ def _live_load_task(task_name: str, info: dict, n: int, args, tokenizer) -> list
             num_examples=n, stride=args.stride,
             hint_admission_data_path=hint_path,
         )
-    elif info["corpus"] == "cotqa":
+    elif info["corpus"] in ("cotqa", "answer_trajectory"):
         return loader_fn(
             "", tokenizer, args.model,
             num_examples=n, stride=args.stride,
@@ -631,7 +644,14 @@ def load_precomputed_tasks(precomputed_dir: str, args, tokenizer=None) -> list[d
         with open(jsonl_path) as f:
             for line in f:
                 if line.strip():
-                    data.append(json.loads(line))
+                    row = json.loads(line)
+                    # answer_trajectory: swap target_response with cleaned response_filtered
+                    if task_name == "answer_trajectory":
+                        cleaned = row.get("response_filtered", "").strip()
+                        if not cleaned:
+                            continue  # skip rows with empty cleaned response
+                        row["target_response"] = cleaned
+                    data.append(row)
                     if len(data) >= n:
                         break
 
@@ -690,7 +710,7 @@ def load_all_tasks(args, tokenizer) -> list[dict]:
                 stride=args.stride,
                 hint_admission_data_path=hint_path,
             )
-        elif info["corpus"] in ("cotqa", "position_qa"):
+        elif info["corpus"] in ("cotqa", "position_qa", "answer_trajectory"):
             data = loader_fn(
                 "", tokenizer, args.model,
                 num_examples=n,
@@ -923,6 +943,7 @@ def run_evals(model, tokenizer, model_name, global_step, args, log_dir=None):
         eval_names=getattr(args, "evals", None),
         eval_batch_size=args.eval_batch_size,
         stride=args.stride,
+        single_position=_SINGLE_POSITION,
     )
     if metrics:
         wandb.log(metrics, step=global_step)
@@ -1433,7 +1454,7 @@ def apply_config(args, config: dict):
     if "activations" in config:
         a = config["activations"]
         for key in ["stride", "position_encoding", "pe_alpha", "n_layers", "pooling",
-                    "sparse_positions", "n_prompt_positions"]:
+                    "sparse_positions", "n_prompt_positions", "single_position"]:
             if key in a and not getattr(args, f"_cli_{key}", False):
                 if key == "pooling":
                     setattr(args, "pooling_mode", a[key])
@@ -1596,6 +1617,8 @@ def main():
                         help="Average activations across all MULTI_LAYERS at each position (output=1 effective layer)")
     parser.add_argument("--sparse-positions", action="store_true", default=False,
                         help="Randomly subsample CoT positions per example (trains on sparse evidence)")
+    parser.add_argument("--single-position", action="store_true", default=False,
+                        help="Only feed the last CoT position per layer (single activation ablation)")
     parser.add_argument("--n-prompt-positions", type=int, default=5,
                         help="Number of prompt positions (0 = strip all, CoT-only)")
     parser.add_argument("--rot13-start-step", type=int, default=2000)
@@ -1698,6 +1721,9 @@ def main():
     # Sparse position sampling
     global _SPARSE_POSITIONS
     _SPARSE_POSITIONS = getattr(args, "sparse_positions", False)
+    # Single position mode
+    global _SINGLE_POSITION
+    _SINGLE_POSITION = getattr(args, "single_position", False)
     # Prompt positions (0 = strip, 5 = default)
     global _N_PROMPT_POSITIONS
     _N_PROMPT_POSITIONS = getattr(args, "n_prompt_positions", 5)
@@ -1708,6 +1734,8 @@ def main():
             print(f"Layer pooling: ON (averaging {len(MULTI_LAYERS)} layers → 1 effective layer)")
         if _SPARSE_POSITIONS:
             print("Sparse position sampling: ON")
+        if _SINGLE_POSITION:
+            print("Single position mode: ON (last CoT position only)")
         if _N_PROMPT_POSITIONS == 0:
             print("Prompt positions: STRIPPED (CoT-only)")
 
@@ -1878,6 +1906,7 @@ def main():
             eval_names=eval_names,
             eval_batch_size=args.eval_batch_size,
             stride=args.stride,
+            single_position=_SINGLE_POSITION,
         )
         model.train()
         gc.collect()
