@@ -98,35 +98,11 @@ def load_extra_adapter(
     return adapter_name
 
 
-def _is_blackwell_gpu() -> bool:
-    if not torch.cuda.is_available():
-        return False
-    try:
-        major_caps = [torch.cuda.get_device_capability(i)[0] for i in range(torch.cuda.device_count())]
-    except Exception:
-        return False
-    return bool(major_caps) and max(major_caps) >= 12
-
-
 def choose_attn_implementation(model_name: str) -> str:
-    """Choose attention backend with safe defaults for Blackwell GPUs."""
-    if os.environ.get("COT_ORACLE_FORCE_SDPA") == "1":
-        return "sdpa"
+    """Choose attention backend with safe defaults."""
     if "gemma" in model_name.lower():
         return "eager"
-
-    blackwell_detected = _is_blackwell_gpu()
-    allow_flash2 = os.environ.get("COT_ORACLE_ALLOW_FLASH2") == "1"
-    if blackwell_detected and not allow_flash2:
-        print("Blackwell GPU detected; using SDPA for compatibility (set COT_ORACLE_ALLOW_FLASH2=1 to override).")
-        return "sdpa"
-
-    try:
-        import flash_attn  # noqa: F401
-
-        return "flash_attention_2"
-    except ImportError:
-        return "sdpa"
+    return "sdpa"
 
 
 def load_model_with_ao(
@@ -406,10 +382,13 @@ def run_oracle_on_activations(
         act_layer = layer_percent_to_layer(model_name, 50)
 
     if isinstance(act_layer, (list, tuple)):
-        layers_str = ", ".join(str(l) for l in act_layer)
-        prefix = f"Layer: {layers_str}\n" + ph_token * num_positions + " \n"
+        N = len(act_layer)
+        K = num_positions // N
+        assert K * N == num_positions, f"num_positions={num_positions} not divisible by {N} layers"
+        parts = [f"L{l}:" + ph_token * K for l in act_layer]
+        prefix = " ".join(parts) + "\n"
     else:
-        prefix = f"Layer: {act_layer}\n" + ph_token * num_positions + " \n"
+        prefix = f"L{act_layer}:" + ph_token * num_positions + "\n"
     full_prompt = prefix + oracle_prompt
 
     messages = [{"role": "user", "content": full_prompt}]
@@ -521,10 +500,13 @@ def run_oracle_with_answer_logprobs(
         act_layer = layer_percent_to_layer(model_name, 50)
 
     if isinstance(act_layer, (list, tuple)):
-        layers_str = ", ".join(str(l) for l in act_layer)
-        prefix = f"Layer: {layers_str}\n" + ph_token * num_positions + " \n"
+        N = len(act_layer)
+        K = num_positions // N
+        assert K * N == num_positions, f"num_positions={num_positions} not divisible by {N} layers"
+        parts = [f"L{l}:" + ph_token * K for l in act_layer]
+        prefix = " ".join(parts) + "\n"
     else:
-        prefix = f"Layer: {act_layer}\n" + ph_token * num_positions + " \n"
+        prefix = f"L{act_layer}:" + ph_token * num_positions + "\n"
     full_prompt = prefix + oracle_prompt
 
     messages = [{"role": "user", "content": full_prompt}]

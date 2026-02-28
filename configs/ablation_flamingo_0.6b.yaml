@@ -1,0 +1,10 @@
+# Ablation: Flamingo gated cross-attention architecture
+# Uses two-pass (frozen CoT + trainable cross-attention) instead of additive steering
+
+flamingo:
+  enabled: true
+  xattn_interval: 4   # 7 xattn layers for Qwen3-0.6B (28 layers)
+  xattn_lora_r: 64
+
+output:
+  wandb_run: ablation-flamingo-0.6b

@@ -19,6 +19,16 @@ Never include the number of GPUs used in the runname on wandb.
 - **NEVER fail silently.** If a task is enabled (n > 0) but its data can't be loaded, raise an error. Do not silently skip tasks or swallow exceptions.
 
 
+## SAE Feature Analysis
+
+We use Sparse Autoencoders (SAEs) from `adamkarvonen/qwen3-8b-saes` to get interpretable feature-level decompositions of the same residual stream the oracle reads. SAEs are available at layers 9, 18, 27 (same as oracle layers) with 65K features each (trainer 2, BatchTopK architecture).
+
+**How it works:** The SAE encoder projects a residual stream vector `x ∈ R^d_model` into a sparse feature space `f ∈ R^d_sae` via `f = ReLU((x - b_dec) @ W_enc + b_enc)`, then applies a threshold to keep only strongly active features. The decoder reconstructs `x_hat = f @ W_dec + b_dec`. Each feature has a human-readable label generated from its max-activating examples (stored as JSON per layer).
+
+**Loading:** `ao_reference/nl_probes/sae.py` → `load_dictionary_learning_batch_topk_sae()`. Labels at `$CACHE_DIR/sae_features/trainer_2/trainer_2/labels/labels_layer{9,18,27}_trainer2.json` (also on HF: `japhba/qwen3-8b-sae-max-activations`).
+
+**Oracle vs SAE comparison:** `scripts/compare_oracle_sae.py` runs both the trained oracle and SAEs on the same CoT rollouts, producing per-example markdown logs with oracle task outputs alongside top-K SAE features at stride positions.
+
 ## References
 - Activation Oracles: [arXiv:2512.15674](https://arxiv.org/abs/2512.15674), [GitHub](https://github.com/adamkarvonen/activation_oracles)
 - Thought Anchors: [arXiv:2506.19143](https://arxiv.org/abs/2506.19143)

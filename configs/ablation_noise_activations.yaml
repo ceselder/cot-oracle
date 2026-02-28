@@ -1,0 +1,9 @@
+# Ablation: replace real activations with variance-matched random noise
+# After extracting real activations, replaces them with Gaussian noise
+# matching per-dimension variance. Tests whether activation content matters.
+
+ablations:
+  noise_activations: true
+
+output:
+  wandb_run: ablation-noise-activations-0.6b

@@ -53,6 +53,7 @@ class CompletedEvalItem:
     ground_truth_label: str  # "influenced"|"independent"|"correct"|"incorrect"|etc.
 
     # Oracle output
+    oracle_prompt: str = ""
     oracle_response: str = ""
 
     # Activation data
@@ -459,6 +460,9 @@ def determine_ground_truth(
         return item.correct_answer  # "cybercrime" or "benign"
 
     elif item.eval_name == "cot_hint_admission":
+        return item.correct_answer  # "yes" or "no"
+
+    elif item.eval_name.startswith("cls_"):
         return item.correct_answer  # "yes" or "no"
 
     return "indeterminate"

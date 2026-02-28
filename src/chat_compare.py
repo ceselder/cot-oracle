@@ -148,7 +148,7 @@ def query_original_ao(model, tokenizer, acts_l50, prompt, model_name,
     num_positions = acts_l50.shape[0]
     act_layer = layer_percent_to_layer(model_name, 50)
 
-    prefix = f"Layer: {act_layer}\n" + SPECIAL_TOKEN * num_positions + " \n"
+    prefix = f"L{act_layer}:" + SPECIAL_TOKEN * num_positions + "\n"
     full_prompt = prefix + prompt
     messages = [{"role": "user", "content": full_prompt}]
     formatted = tokenizer.apply_chat_template(
@@ -182,9 +182,12 @@ def query_trained_oracle(model, tokenizer, multilayer_acts, prompt, model_name,
     dtype = torch.bfloat16
     num_positions = multilayer_acts.shape[0]  # K * n_layers
 
-    # Build prefix matching training format: "Layer: 9, 18, 27\n¶¶¶...¶ \n"
-    layers_str = ", ".join(str(l) for l in layers)
-    prefix = f"Layer: {layers_str}\n" + TRAINED_PLACEHOLDER * num_positions + " \n"
+    # Build prefix matching training format: "L9: ¶¶¶ L18: ¶¶¶ L27: ¶¶¶\n"
+    N = len(layers)
+    K = num_positions // N
+    assert K * N == num_positions, f"num_positions={num_positions} not divisible by {N} layers"
+    parts = [f"L{l}:" + TRAINED_PLACEHOLDER * K for l in layers]
+    prefix = " ".join(parts) + "\n"
     full_prompt = prefix + prompt
     messages = [{"role": "user", "content": full_prompt}]
     formatted = tokenizer.apply_chat_template(

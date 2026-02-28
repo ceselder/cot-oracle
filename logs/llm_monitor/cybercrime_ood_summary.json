@@ -1,0 +1,27 @@
+{
+  "metrics": {
+    "accuracy": 1.0,
+    "n_items": 100,
+    "labels": [
+      "benign",
+      "cybercrime"
+    ],
+    "precision": {
+      "benign": 1.0,
+      "cybercrime": 1.0
+    },
+    "recall": {
+      "benign": 1.0,
+      "cybercrime": 1.0
+    },
+    "f1": {
+      "benign": 1.0,
+      "cybercrime": 1.0
+    },
+    "support": {
+      "benign": 50,
+      "cybercrime": 50
+    }
+  },
+  "n_items": 100
+}

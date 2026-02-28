@@ -1104,6 +1104,7 @@ MEDIUM_SPLIT = {
     "mmlu_pro": 4800,
     "scruples": 5000,
     "lmsys": 14971,
+    "gpqa": 198,
 }
 
 # Mini scale: 1/200th for testing (~625 problems × 2 rollouts ≈ 500K CoT tokens)
@@ -1120,6 +1121,20 @@ MINI_SPLIT = {
     "mmlu_pro": 60,
     "scruples": 25,
     "lmsys": 250,
+    "gpqa": 10,
+}
+
+# Balanced split for resampling: 198 per dataset (GPQA-limited), ground-truth only
+RESAMPLE_SPLIT = {
+    "math": 198,
+    "aqua_rat": 198,
+    "arc_challenge": 198,
+    "arc_easy": 198,
+    "commonsenseqa": 198,
+    "scienceqa": 198,
+    "medqa": 198,
+    "mmlu_pro": 198,
+    "gpqa": 198,
 }
 
 # Sources without ground truth answers (skip direct response generation)
@@ -1167,7 +1182,7 @@ def _should_enforce_vllm_eager(args) -> bool:
 def main():
     parser = argparse.ArgumentParser(description="Generate CoT corpus v5")
     parser.add_argument("--preset", choices=["full", "medium", "mini"], default=None,
-                        help="Use preset split (full=125K, medium=50K, mini=625 problems)")
+                        help="Use preset split (full=125K, medium=50K, mini=625, resample=198x9)")
     parser.add_argument("--sources", nargs="+", default=None,
                         help="Override sources (default: from preset or all)")
     parser.add_argument("--n-problems", type=int, default=500,
@@ -1204,6 +1219,9 @@ def main():
     if args.preset == "full":
         split = FULL_SPLIT
         default_output = "data/cot_corpus_v5/corpus.jsonl"
+    elif args.preset == "resample":
+        split = RESAMPLE_SPLIT
+        default_output = "data/cot_corpus_v5/corpus_resample.jsonl"
     elif args.preset == "medium":
         split = MEDIUM_SPLIT
         default_output = "data/cot_corpus_v5/corpus_medium.jsonl"

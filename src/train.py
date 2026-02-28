@@ -25,10 +25,13 @@ import argparse
 import gc
 import json
 import logging
+import math
 import os
 import random
+import re
 import sys
 
+from contextlib import nullcontext
 from dotenv import load_dotenv
 load_dotenv()
 import time
@@ -64,7 +67,6 @@ from nl_probes.utils.dataset_utils import (
     construct_batch,
     create_training_datapoint,
 )
-from nl_probes.utils.eval import run_evaluation
 from nl_probes.utils.steering_hooks import add_hook, get_hf_activation_steering_hook
 from nl_probes.utils.activation_utils import (
     collect_activations_multiple_layers,
@@ -80,20 +82,42 @@ du_module.SPECIAL_TOKEN = PLACEHOLDER_TOKEN
 
 # ── Multi-layer config ──
 MULTI_LAYERS: list[int] = []
+NO_ACTIVATIONS: bool = False
+RANDOM_LAYERS: bool = False
+NOISE_ACTIVATIONS: bool = False
+_MODEL_N_LAYERS: int = 36  # total layers in the model (set in main())
 
 
 def _patched_get_prefix(sae_layer: int, num_positions: int) -> str:
     if MULTI_LAYERS:
-        layers_str = ", ".join(str(l) for l in MULTI_LAYERS)
-        prefix = f"Layer: {layers_str}\n"
+        N = len(MULTI_LAYERS)
+        K = num_positions // N
+        assert K * N == num_positions, f"num_positions={num_positions} not divisible by {N} layers"
+        parts = [f"L{layer}:" + PLACEHOLDER_TOKEN * K for layer in MULTI_LAYERS]
+        prefix = " ".join(parts) + "\n"
     else:
-        prefix = f"Layer: {sae_layer}\n"
-    prefix += PLACEHOLDER_TOKEN * num_positions
-    prefix += " \n"
+        prefix = f"L{sae_layer}:" + PLACEHOLDER_TOKEN * num_positions + "\n"
     return prefix
 
 
 du_module.get_introspection_prefix = _patched_get_prefix
+
+
+def _patched_find_pattern_in_tokens(token_ids, special_token_str, num_positions, tokenizer):
+    special_token_id = tokenizer.encode(special_token_str, add_special_tokens=False)
+    assert len(special_token_id) == 1, f"Expected single token, got {len(special_token_id)}"
+    special_token_id = special_token_id[0]
+    positions = []
+    for i in range(len(token_ids)):
+        if len(positions) == num_positions:
+            break
+        if token_ids[i] == special_token_id:
+            positions.append(i)
+    assert len(positions) == num_positions, f"Expected {num_positions} positions, got {len(positions)}"
+    return positions
+
+
+du_module.find_pattern_in_tokens = _patched_find_pattern_in_tokens
 
 
 # ── Position encoding config (module-level, set by main()) ──
@@ -177,9 +201,10 @@ def materialize_multilayer_steering_vectors(
     tokenizer,
     model,
 ) -> list[TrainingDataPoint]:
-    """Materialize steering vectors from MULTI_LAYERS (configurable via --n-layers)."""
-    N_LAYERS = len(MULTI_LAYERS)
+    """Materialize steering vectors from MULTI_LAYERS (configurable via --n-layers).
 
+    Supports per-item random layers (RANDOM_LAYERS) and noise replacement (NOISE_ACTIVATIONS).
+    """
     to_fill = [
         (i, dp) for i, dp in enumerate(batch_points) if dp.steering_vectors is None
     ]
@@ -188,11 +213,22 @@ def materialize_multilayer_steering_vectors(
 
     assert isinstance(model, PeftModel), "Model must be a PeftModel"
 
-    layers = list(MULTI_LAYERS)
-
     for _, dp in to_fill:
         if dp.context_input_ids is None or dp.context_positions is None:
             raise ValueError("context_* must be provided when steering_vectors is None")
+
+    # Determine layers to extract: union of all items' layers
+    if RANDOM_LAYERS:
+        per_item_layers = []
+        all_layers_set = set()
+        for _, dp in to_fill:
+            item_layers = dp.meta_info["layers"]
+            per_item_layers.append(item_layers)
+            all_layers_set.update(item_layers)
+        layers = sorted(all_layers_set)
+    else:
+        layers = list(MULTI_LAYERS)
+        per_item_layers = [layers] * len(to_fill)
 
     pad_id = tokenizer.pad_token_id
     contexts = [list(dp.context_input_ids) for _, dp in to_fill]
@@ -245,13 +281,18 @@ def materialize_multilayer_steering_vectors(
     new_batch = list(batch_points)
     for b in range(len(to_fill)):
         idx, dp = to_fill[b]
+        item_layers = per_item_layers[b]
         total_positions = len(positions_per_item[b])
+        N_item = len(item_layers)
+        K = total_positions // N_item
 
-        if _LAYER_POOL:
-            # Layer pooling: positions are NOT repeated per layer (n_layers_effective=1)
-            K = total_positions
-            adjusted = [p + left_offsets[b] for p in positions_per_item[b]]
-            L = acts_by_layer[layers[0]].shape[1]
+        vectors_parts = []
+        for li, layer in enumerate(item_layers):
+            acts_BLD = acts_by_layer[layer]
+            chunk_positions = positions_per_item[b][li * K : (li + 1) * K]
+            adjusted = [p + left_offsets[b] for p in chunk_positions]
+
+            L = acts_BLD.shape[1]
             if any(i < 0 or i >= L for i in adjusted):
                 raise IndexError(
                     f"Activation index out of range for item {b}: {adjusted} with L={L}"
@@ -289,6 +330,11 @@ def materialize_multilayer_steering_vectors(
 
             vectors = torch.cat(vectors_parts, dim=0).detach().contiguous()
 
+        # Noise ablation: replace real activations with variance-matched Gaussian noise
+        if NOISE_ACTIVATIONS:
+            var = vectors.var(dim=0, keepdim=True)  # per-dimension variance
+            vectors = torch.randn_like(vectors) * var.sqrt()
+
         # Apply positional encoding if enabled
         if _PE_CONFIG["enabled"]:
             from position_encoding import apply_position_encoding
@@ -313,11 +359,256 @@ du_module.materialize_missing_steering_vectors = materialize_multilayer_steering
 eval_module.materialize_missing_steering_vectors = materialize_multilayer_steering_vectors
 
 
+# ── Flamingo activation extraction ──
+def materialize_flamingo_activations(
+    batch_points: list[TrainingDataPoint],
+    tokenizer,
+    model,
+    max_ctx_tokens: int | None = None,
+) -> tuple[dict[int, torch.Tensor], dict[int, torch.Tensor]]:
+    """Extract supervisee residual stream at each xattn layer position.
+
+    Only extracts layers that have cross-attention (matching the wrapper's
+    xattn_layer_indices), not all layers.
+
+    Returns:
+        kvs: {layer_idx: [B, T_max, D]} padded per-layer activations
+        kv_masks: {layer_idx: [B, T_max]} bool masks (True = real, False = pad)
+    """
+    from nl_probes.utils.activation_utils import get_hf_submodule
+
+    # Unwrap FlamingoOracleWrapper to get PeftModel and xattn indices
+    from flamingo_oracle import FlamingoOracleWrapper
+    if isinstance(model, FlamingoOracleWrapper):
+        peft_model = model.base_model
+        xattn_layers = model.xattn_layer_indices
+    else:
+        peft_model = model
+        xattn_layers = list(range(peft_model.config.num_hidden_layers))
+
+    assert isinstance(peft_model, PeftModel), "Expected PeftModel for activation extraction"
+
+    device = next(peft_model.parameters()).device
+    pad_id = tokenizer.pad_token_id
+
+    # Collect context_input_ids (truncate to max_ctx_tokens if set)
+    contexts = []
+    for dp in batch_points:
+        assert dp.context_input_ids is not None, "context_input_ids required for Flamingo"
+        ctx = list(dp.context_input_ids)
+        if max_ctx_tokens and len(ctx) > max_ctx_tokens:
+            ctx = ctx[-max_ctx_tokens:]
+        contexts.append(ctx)
+
+    # Left-pad contexts to same length
+    max_ctx_len = max(len(c) for c in contexts)
+    input_ids_list = []
+    attn_masks_list = []
+    left_offsets = []
+    for c in contexts:
+        pad_len = max_ctx_len - len(c)
+        input_ids_list.append(torch.tensor([pad_id] * pad_len + c, dtype=torch.long, device=device))
+        attn_masks_list.append(torch.tensor([False] * pad_len + [True] * len(c), dtype=torch.bool, device=device))
+        left_offsets.append(pad_len)
+
+    inputs_BL = {
+        "input_ids": torch.stack(input_ids_list),
+        "attention_mask": torch.stack(attn_masks_list),
+    }
+
+    # Only hook the layers we need (xattn positions)
+    submodules = {layer: get_hf_submodule(peft_model, layer, use_lora=True) for layer in xattn_layers}
+
+    was_training = peft_model.training
+    peft_model.eval()
+    with peft_model.disable_adapter():
+        acts_by_layer = collect_activations_multiple_layers(
+            model=peft_model, submodules=submodules, inputs_BL=inputs_BL,
+            min_offset=None, max_offset=None,
+        )
+    if was_training:
+        peft_model.train()
+
+    B = len(batch_points)
+
+    # Build per-layer padded activations and masks
+    # All items share the same T_max (max_ctx_len after left-padding), but we
+    # strip padding per-item and re-pad to batch max
+    max_real_len = max(len(c) for c in contexts)
+    kvs = {}
+    kv_masks = {}
+
+    for layer in xattn_layers:
+        # acts_by_layer[layer] is [B, max_ctx_len, D] (includes left-padding)
+        layer_acts_list = []
+        layer_mask_list = []
+        for b in range(B):
+            ctx_len = len(contexts[b])
+            offset = left_offsets[b]
+            real_acts = acts_by_layer[layer][b, offset:offset + ctx_len, :]  # [T, D]
+            layer_acts_list.append(real_acts)
+            layer_mask_list.append(torch.ones(ctx_len, dtype=torch.bool, device=device))
+
+        # Pad to max_real_len
+        D = layer_acts_list[0].shape[-1]
+        padded = torch.zeros(B, max_real_len, D, dtype=layer_acts_list[0].dtype, device=device)
+        mask = torch.zeros(B, max_real_len, dtype=torch.bool, device=device)
+        for b in range(B):
+            L = layer_acts_list[b].shape[0]
+            padded[b, :L] = layer_acts_list[b]
+            mask[b, :L] = True
+
+        kvs[layer] = padded.detach()
+        kv_masks[layer] = mask
+
+    return kvs, kv_masks
+
+
+def construct_flamingo_batch(
+    batch_list: list[TrainingDataPoint],
+    supervisee_kvs: dict[int, torch.Tensor],
+    supervisee_kv_masks: dict[int, torch.Tensor],
+    tokenizer,
+    device: torch.device,
+) -> dict:
+    """Construct a batch dict for FlamingoOracleWrapper.forward()."""
+    max_length = max(len(dp.input_ids) for dp in batch_list)
+    pad_id = tokenizer.pad_token_id
+
+    all_input_ids = []
+    all_labels = []
+    all_attn_mask = []
+
+    for dp in batch_list:
+        pad_len = max_length - len(dp.input_ids)
+        all_input_ids.append(torch.tensor([pad_id] * pad_len + dp.input_ids, dtype=torch.long))
+        all_labels.append(torch.tensor([-100] * pad_len + dp.labels, dtype=torch.long))
+        all_attn_mask.append(torch.tensor([False] * pad_len + [True] * len(dp.input_ids), dtype=torch.bool))
+
+    return {
+        "input_ids": torch.stack(all_input_ids).to(device),
+        "attention_mask": torch.stack(all_attn_mask).to(device),
+        "labels": torch.stack(all_labels).to(device),
+        "supervisee_kvs": supervisee_kvs,
+        "supervisee_kv_masks": supervisee_kv_masks,
+    }
+
+
+def construct_flamingo_batch(
+    batch_list: list[TrainingDataPoint],
+    tokenizer,
+    device: torch.device,
+    max_ctx_tokens: int | None = None,
+) -> tuple[dict, dict]:
+    """Construct separate CoT and oracle batches for two-pass Flamingo.
+
+    CoT and oracle are padded independently to their own max lengths.
+    No shared L_max — this is the whole point of the two-pass approach.
+
+    Returns:
+        cot_batch: {input_ids: [B, L_cot], attention_mask: [B, L_cot]}
+        oracle_batch: {input_ids: [B, L_oracle], attention_mask: [B, L_oracle], labels: [B, L_oracle]}
+    """
+    pad_id = tokenizer.pad_token_id
+
+    # CoT tokens (truncated if needed)
+    cots = []
+    for dp in batch_list:
+        assert dp.context_input_ids is not None
+        ctx = list(dp.context_input_ids)
+        if max_ctx_tokens and len(ctx) > max_ctx_tokens:
+            ctx = ctx[-max_ctx_tokens:]
+        cots.append(ctx)
+
+    max_cot_len = max(len(c) for c in cots)
+    cot_ids, cot_masks = [], []
+    for c in cots:
+        pad = max_cot_len - len(c)
+        cot_ids.append(torch.tensor([pad_id] * pad + c, dtype=torch.long))
+        cot_masks.append(torch.tensor([False] * pad + [True] * len(c), dtype=torch.bool))
+
+    # Oracle tokens
+    max_oracle_len = max(len(dp.input_ids) for dp in batch_list)
+    oracle_ids, oracle_masks, oracle_labels = [], [], []
+    for dp in batch_list:
+        pad = max_oracle_len - len(dp.input_ids)
+        oracle_ids.append(torch.tensor([pad_id] * pad + dp.input_ids, dtype=torch.long))
+        oracle_masks.append(torch.tensor([False] * pad + [True] * len(dp.input_ids), dtype=torch.bool))
+        oracle_labels.append(torch.tensor([-100] * pad + dp.labels, dtype=torch.long))
+
+    cot_batch = {
+        "input_ids": torch.stack(cot_ids).to(device),
+        "attention_mask": torch.stack(cot_masks).to(device),
+    }
+    oracle_batch = {
+        "input_ids": torch.stack(oracle_ids).to(device),
+        "attention_mask": torch.stack(oracle_masks).to(device),
+        "labels": torch.stack(oracle_labels).to(device),
+    }
+    return cot_batch, oracle_batch
+
+
+def _extract_base_positions(ctx_pos: list[int], n_layers_runtime: int) -> list[int]:
+    """Extract single-layer base positions from multi-layer context_positions."""
+    if not ctx_pos:
+        return ctx_pos
+    # Try runtime layer count first
+    if len(ctx_pos) % n_layers_runtime == 0:
+        return ctx_pos[:len(ctx_pos) // n_layers_runtime]
+    # Try common old layer counts
+    for old_n in [3, 1, 2, 4, 5, 6]:
+        if len(ctx_pos) % old_n == 0:
+            return ctx_pos[:len(ctx_pos) // old_n]
+    return ctx_pos  # can't infer, return as-is
+
+
 # ── Data conversion ──
 def dicts_to_training_data(
     raw_data: list[dict], tokenizer,
 ) -> list[TrainingDataPoint]:
     training_data = []
+
+    if NO_ACTIVATIONS:
+        _act_prefix_re = re.compile(r'^Activations from \d+ positions[^.]*\.\s*')
+        _printed_sample = False
+        for item in raw_data:
+            # Decode context_input_ids to recover CoT text
+            raw_text = tokenizer.decode(item["context_input_ids"], skip_special_tokens=False)
+            # Extract user question
+            user_match = re.search(r'<\|im_start\|>user\n(.*?)<\|im_end\|>', raw_text, re.DOTALL)
+            user_question = user_match.group(1).strip() if user_match else ""
+            # Extract CoT (assistant turn — may lack closing tag since context is truncated)
+            assistant_match = re.search(r'<\|im_start\|>assistant\n(.*?)(?:<\|im_end\|>|$)', raw_text, re.DOTALL)
+            cot_text = assistant_match.group(1).strip() if assistant_match else ""
+            # Strip activation metadata to get task question
+            task_question = _act_prefix_re.sub("", item["prompt"])
+            # Build text-only prompt: question + CoT + task
+            prompt = f"Question: {user_question}\nChain of thought: {cot_text}\n\n{task_question}"
+
+            if not _printed_sample:
+                print(f"  [no-activations] Sample prompt ({item['datapoint_type']}):\n    {prompt[:300]}...")
+                _printed_sample = True
+
+            msgs = [{"role": "user", "content": prompt}]
+            prompt_ids = tokenizer.apply_chat_template(msgs, tokenize=True, add_generation_prompt=True, enable_thinking=False)
+            full_msgs = msgs + [{"role": "assistant", "content": item["target_response"]}]
+            full_ids = tokenizer.apply_chat_template(full_msgs, tokenize=True, add_generation_prompt=False, enable_thinking=False)
+            labels = full_ids.copy()
+            for i in range(len(prompt_ids)):
+                labels[i] = -100
+            # Use a dummy steering vector so pydantic validator doesn't require context_*
+            dp = TrainingDataPoint(
+                input_ids=full_ids, labels=labels, layer=0,
+                steering_vectors=torch.zeros(0, 1), positions=[],
+                feature_idx=-1, target_output=item["target_response"],
+                datapoint_type=item["datapoint_type"],
+                context_input_ids=None, context_positions=None,
+                ds_label=None,
+                meta_info={"prompt": prompt},
+            )
+            training_data.append(dp)
+        return training_data
+
     # With layer pooling, output is 1 effective layer (averaged across MULTI_LAYERS)
     n_layers_runtime = 1 if _LAYER_POOL else (len(MULTI_LAYERS) if MULTI_LAYERS else 3)
     _reexpand_warned = False
@@ -326,80 +617,92 @@ def dicts_to_training_data(
         ctx_pos = item["context_positions"]
         num_pos = item["num_positions"]
 
-        # Re-expand positions if precomputed with fewer layers than runtime config.
-        # Precomputed data stores context_positions = base_positions * n_layers_data.
-        # We detect mismatch by checking if total_positions is divisible by the
-        # runtime layer count.  If not, infer the original layer count, extract
-        # base positions, and re-expand.
-        if n_layers_runtime > 1 and len(ctx_pos) % n_layers_runtime != 0:
-            # Try common old layer counts (3 is the most common)
-            for old_n in [3, 1, 2, 4, 5, 6]:
-                if len(ctx_pos) % old_n == 0:
-                    k = len(ctx_pos) // old_n
-                    base_positions = ctx_pos[:k]
-                    ctx_pos = base_positions * n_layers_runtime
-                    num_pos = len(ctx_pos)
-                    if not _reexpand_warned:
-                        print(f"  [data] Re-expanding positions: {old_n} layers -> {n_layers_runtime} layers (K={k})")
-                        _reexpand_warned = True
-                    break
+        # Extract base positions (single-layer) for re-expansion
+        base_positions = _extract_base_positions(ctx_pos, n_layers_runtime)
 
-        # Strip prompt positions: task loaders prepend N prompt positions to
-        # each layer's positions. Remove them so the oracle only sees CoT.
-        if _N_PROMPT_POSITIONS == 0 and n_layers_runtime >= 1:
-            total = len(ctx_pos)
-            if total % n_layers_runtime == 0:
-                k = total // n_layers_runtime
-                # Each layer block is [prompt_0..prompt_N-1, cot_0..cot_K]
-                # Strip first _ORIG_N_PROMPT positions from each block
-                # (tasks generate with n_prompt_positions=5 by default)
-                orig_n_prompt = 5
-                if k > orig_n_prompt:
-                    new_base = ctx_pos[orig_n_prompt:k]  # first layer block, sans prompt
-                    ctx_pos = new_base * n_layers_runtime
-                    num_pos = len(ctx_pos)
-
-        # Sparse position sampling: randomly subsample CoT positions per example
-        if _SPARSE_POSITIONS:
-            ctx_pos = sparse_sample_positions(
-                ctx_pos, n_layers=n_layers_runtime,
-                n_prompt=0 if _N_PROMPT_POSITIONS == 0 else 5,
-            )
+        if RANDOM_LAYERS:
+            # Per-item random layer sampling
+            from layer_utils import sample_layers
+            sampled = sample_layers(_MODEL_N_LAYERS, mean=3)
+            ctx_pos = base_positions * len(sampled)
             num_pos = len(ctx_pos)
 
-        # Single position mode: keep only the last CoT position per layer
-        if _SINGLE_POSITION and n_layers_runtime >= 1:
-            total = len(ctx_pos)
-            if total % n_layers_runtime == 0:
-                K = total // n_layers_runtime
-                last_pos = ctx_pos[K - 1]  # last position in first layer block
-                ctx_pos = [last_pos] * n_layers_runtime
+            # Temporarily swap MULTI_LAYERS for prefix generation
+            saved_layers = MULTI_LAYERS[:]
+            MULTI_LAYERS[:] = sampled
+            dp = create_training_datapoint(
+                datapoint_type=item["datapoint_type"],
+                prompt=item["prompt"],
+                target_response=item["target_response"],
+                layer=sampled[0],
+                num_positions=num_pos,
+                tokenizer=tokenizer,
+                acts_BD=None,
+                feature_idx=-1,
+                context_input_ids=item["context_input_ids"],
+                context_positions=ctx_pos,
+                meta_info={"prompt": item["prompt"], "layers": sampled},
+            )
+            MULTI_LAYERS[:] = saved_layers
+        else:
+            # Strip prompt positions: task loaders prepend N prompt positions to
+            # each layer's positions. Remove them so the oracle only sees CoT.
+            if _N_PROMPT_POSITIONS == 0 and n_layers_runtime >= 1:
+                total = len(ctx_pos)
+                if total % n_layers_runtime == 0:
+                    k = total // n_layers_runtime
+                    orig_n_prompt = 5
+                    if k > orig_n_prompt:
+                        new_base = ctx_pos[orig_n_prompt:k]
+                        ctx_pos = new_base * n_layers_runtime
+                        num_pos = len(ctx_pos)
+
+            # Sparse position sampling: randomly subsample CoT positions per example
+            if _SPARSE_POSITIONS:
+                ctx_pos = sparse_sample_positions(
+                    ctx_pos, n_layers=n_layers_runtime,
+                    n_prompt=0 if _N_PROMPT_POSITIONS == 0 else 5,
+                )
                 num_pos = len(ctx_pos)
 
-        # Override num_positions for pooling modes (fewer placeholders in prompt)
-        # Store full positions in meta_info so materializer can extract all, then pool.
-        full_ctx_pos = ctx_pos
-        if _POOLING_MODE != "none":
-            K_per_layer = num_pos // n_layers_runtime if n_layers_runtime else num_pos
-            pooled_K = _pooled_count_per_layer(K_per_layer, _POOLING_MODE)
-            num_pos = pooled_K * n_layers_runtime
-            # Truncate context_positions to match pooled num_positions (validator requires equal len)
-            # Full positions stored in meta_info for materializer
-            ctx_pos = ctx_pos[:num_pos]
+            # Single position mode: keep only the last CoT position per layer
+            if _SINGLE_POSITION and n_layers_runtime >= 1:
+                total = len(ctx_pos)
+                if total % n_layers_runtime == 0:
+                    K = total // n_layers_runtime
+                    last_pos = ctx_pos[K - 1]
+                    ctx_pos = [last_pos] * n_layers_runtime
+                    num_pos = len(ctx_pos)
 
-        dp = create_training_datapoint(
-            datapoint_type=item["datapoint_type"],
-            prompt=item["prompt"],
-            target_response=item["target_response"],
-            layer=item["layer"],
-            num_positions=num_pos,
-            tokenizer=tokenizer,
-            acts_BD=None,
-            feature_idx=-1,
-            context_input_ids=item["context_input_ids"],
-            context_positions=ctx_pos,
-            meta_info={"full_context_positions": full_ctx_pos} if _POOLING_MODE != "none" else {},
-        )
+            # Re-expand positions if precomputed with fewer layers than runtime config.
+            if n_layers_runtime > 1 and len(ctx_pos) % n_layers_runtime != 0:
+                ctx_pos = base_positions * n_layers_runtime
+                num_pos = len(ctx_pos)
+                if not _reexpand_warned:
+                    print(f"  [data] Re-expanding positions: -> {n_layers_runtime} layers (K={len(base_positions)})")
+                    _reexpand_warned = True
+
+            # Override num_positions for pooling modes
+            full_ctx_pos = ctx_pos
+            if _POOLING_MODE != "none":
+                K_per_layer = num_pos // n_layers_runtime if n_layers_runtime else num_pos
+                pooled_K = _pooled_count_per_layer(K_per_layer, _POOLING_MODE)
+                num_pos = pooled_K * n_layers_runtime
+                ctx_pos = ctx_pos[:num_pos]
+
+            dp = create_training_datapoint(
+                datapoint_type=item["datapoint_type"],
+                prompt=item["prompt"],
+                target_response=item["target_response"],
+                layer=item["layer"],
+                num_positions=num_pos,
+                tokenizer=tokenizer,
+                acts_BD=None,
+                feature_idx=-1,
+                context_input_ids=item["context_input_ids"],
+                context_positions=ctx_pos,
+                meta_info={"full_context_positions": full_ctx_pos, "prompt": item["prompt"]} if _POOLING_MODE != "none" else {"prompt": item["prompt"]},
+            )
         training_data.append(dp)
 
     return training_data
@@ -504,12 +807,70 @@ TASK_REGISTRY = {
         "loader": "load_cot_position_qa_data",
         "corpus": "position_qa",  # loads from HF directly (QA + corpus)
     },
+    # ── Information gap tasks (partial-CoT, activation-advantaged) ──
+    "early_answer_pred": {
+        "arg": "early_answer_pred_n",
+        "module": "dataset_classes.cot_infogap",
+        "loader": "load_cot_early_answer_pred_data",
+        "corpus": "main",
+    },
+    "backtrack_pred": {
+        "arg": "backtrack_pred_n",
+        "module": "dataset_classes.cot_infogap",
+        "loader": "load_cot_backtrack_pred_data",
+        "corpus": "main",
+    },
+    "error_pred": {
+        "arg": "error_pred_n",
+        "module": "dataset_classes.cot_infogap",
+        "loader": "load_cot_error_pred_data",
+        "corpus": "main",
+    },
+    "self_correction": {
+        "arg": "self_correction_n",
+        "module": "dataset_classes.cot_infogap",
+        "loader": "load_cot_self_correction_data",
+        "corpus": "main",
+    },
+    "verification": {
+        "arg": "verification_n",
+        "module": "dataset_classes.cot_infogap",
+        "loader": "load_cot_verification_data",
+        "corpus": "main",
+    },
+    "remaining_strategy": {
+        "arg": "remaining_strategy_n",
+        "module": "dataset_classes.cot_infogap",
+        "loader": "load_cot_remaining_strategy_data",
+        "corpus": "main",
+    },
+    "chunked_convqa": {
+        "arg": "chunked_convqa_n",
+        "module": "dataset_classes.cot_chunked_convqa",
+        "loader": "load_cot_chunked_convqa_data",
+        "corpus": "chunked_convqa",
+    },
+    "branch_pred": {
+        "arg": "branch_pred_n",
+        "module": "dataset_classes.cot_infogap",
+        "loader": "load_cot_branch_pred_data",
+        "corpus": "main",
+    },
+    "completion_pred": {
+        "arg": "completion_pred_n",
+        "module": "dataset_classes.cot_infogap",
+        "loader": "load_cot_completion_pred_data",
+        "corpus": "main",
+    },
 }
 
 
 HF_TRAINING_REPO = "mats-10-sprint-cs-jb/cot-oracle-training-v6"
+HF_INFOGAP_REPO = "mats-10-sprint-cs-jb/cot-oracle-compqa-chunked"
 
-_HF_CACHE_DIR = Path("data/.hf_cache")
+INFOGAP_TASKS = {"early_answer_pred", "backtrack_pred", "error_pred", "self_correction", "verification", "remaining_strategy", "branch_pred", "completion_pred"}
+
+_HF_CACHE_DIR = Path(os.path.join(os.environ["CACHE_DIR"], "cot_oracle", ".hf_cache")) if os.environ.get("CACHE_DIR") else Path("data/.hf_cache")
 
 
 def _resolve_hf_dataset(path_or_id: str) -> str:
@@ -543,12 +904,29 @@ def _resolve_hf_dataset(path_or_id: str) -> str:
     return str(cache_path)
 
 
+def _download_infogap_from_hf(pdir: Path) -> None:
+    """Download the infogap parquet from HF and split into per-task JSONLs."""
+    from datasets import load_dataset
+    print(f"  [train] Downloading infogap dataset from {HF_INFOGAP_REPO}...")
+    ds = load_dataset(HF_INFOGAP_REPO, split="train")
+    pdir.mkdir(parents=True, exist_ok=True)
+    for task_name in INFOGAP_TASKS:
+        subset = ds.filter(lambda x: x["datapoint_type"] == task_name)
+        out_path = pdir / f"{task_name}.jsonl"
+        subset.to_json(str(out_path))
+        print(f"    {task_name}: {len(subset)} examples -> {out_path}")
+
+
 def _download_precomputed_from_hf(task_name: str, pdir: Path, info: dict | None = None) -> Path:
     """Download a precomputed JSONL file from HuggingFace.
 
     If the task registry entry has 'hf_repo'/'hf_filename', uses those
     instead of the default training repo.
     """
+    if task_name in INFOGAP_TASKS:
+        _download_infogap_from_hf(pdir)
+        return pdir / f"{task_name}.jsonl"
+
     from huggingface_hub import hf_hub_download
 
     repo = (info or {}).get("hf_repo", HF_TRAINING_REPO)
@@ -593,7 +971,7 @@ def _live_load_task(task_name: str, info: dict, n: int, args, tokenizer) -> list
             num_examples=n, stride=args.stride,
             hint_admission_data_path=hint_path,
         )
-    elif info["corpus"] in ("cotqa", "answer_trajectory"):
+    elif info["corpus"] in ("cotqa", "chunked_convqa", "answer_trajectory"):
         return loader_fn(
             "", tokenizer, args.model,
             num_examples=n, stride=args.stride,
@@ -710,7 +1088,7 @@ def load_all_tasks(args, tokenizer) -> list[dict]:
                 stride=args.stride,
                 hint_admission_data_path=hint_path,
             )
-        elif info["corpus"] in ("cotqa", "position_qa", "answer_trajectory"):
+        elif info["corpus"] in ("cotqa", "chunked_convqa", "position_qa", "answer_trajectory"):
             data = loader_fn(
                 "", tokenizer, args.model,
                 num_examples=n,
@@ -731,6 +1109,8 @@ def load_all_tasks(args, tokenizer) -> list[dict]:
     return all_data
 
 
+# ── Train-on-eval conversion ──
+
 # ── Training infrastructure ──
 def _wrap_hook_for_grad_ckpt(hook_fn):
     """Wrap a steering hook so it clones the residual before modifying it.
@@ -748,6 +1128,65 @@ def _wrap_hook_for_grad_ckpt(hook_fn):
             output = output.clone()
         return hook_fn(module, _input, output)
     return safe_hook
+
+
+def _example_context_len(dp: TrainingDataPoint) -> int:
+    return len(dp.context_input_ids) if dp.context_input_ids is not None else len(dp.input_ids)
+
+
+def _label_token_count(dp: TrainingDataPoint) -> int:
+    return sum(label != -100 for label in dp.labels[1:])
+
+
+def _estimate_train_batch_peak_tokens(
+    batch_points: list[TrainingDataPoint],
+    no_activations: bool,
+    flamingo: bool,
+    flamingo_max_ctx_tokens: int,
+) -> int:
+    batch_size = len(batch_points)
+    oracle_peak_tokens = 2 * batch_size * max(len(dp.input_ids) for dp in batch_points)
+    if no_activations:
+        return oracle_peak_tokens
+    if flamingo:
+        context_peak_tokens = batch_size * max(min(_example_context_len(dp), flamingo_max_ctx_tokens) for dp in batch_points)
+    else:
+        context_peak_tokens = batch_size * max(_example_context_len(dp) for dp in batch_points)
+    return max(context_peak_tokens, oracle_peak_tokens)
+
+
+def _split_batch_for_token_budget(
+    batch_points: list[TrainingDataPoint],
+    max_batch_size: int,
+    max_train_tokens_per_gpu: int,
+    no_activations: bool,
+    flamingo: bool,
+    flamingo_max_ctx_tokens: int,
+) -> list[list[TrainingDataPoint]]:
+    if max_train_tokens_per_gpu <= 0:
+        return [batch_points]
+
+    chunks = []
+    current_chunk = []
+    for dp in batch_points:
+        candidate = current_chunk + [dp]
+        if current_chunk and (
+            len(candidate) > max_batch_size
+            or _estimate_train_batch_peak_tokens(candidate, no_activations, flamingo, flamingo_max_ctx_tokens) > max_train_tokens_per_gpu
+        ):
+            chunks.append(current_chunk)
+            current_chunk = [dp]
+            continue
+        current_chunk = candidate
+    chunks.append(current_chunk)
+    return chunks
+
+
+def _window_bucket_training_data(training_data: list[TrainingDataPoint], batch_size: int, window_batches: int) -> None:
+    """Sort by context length inside shuffled windows to reduce padding waste."""
+    window = batch_size * window_batches
+    for i in range(0, len(training_data), window):
+        training_data[i:i + window] = sorted(training_data[i:i + window], key=_example_context_len)
 
 
 def train_features_batch(training_batch, model, submodule, steering_coefficient, device, dtype):
@@ -823,6 +1262,7 @@ def _upload_checkpoint_to_hf(checkpoint_path: Path, args, global_step: int):
         print(f"  [HF upload] Failed: {e}")
 
 
+
 def _save_training_state(save_path: Path, global_step, optimizer, scheduler):
     """Save optimizer/scheduler/RNG state for resume."""
     import wandb
@@ -837,73 +1277,6 @@ def _save_training_state(save_path: Path, global_step, optimizer, scheduler):
         "wandb_run_name": wandb.run.name if wandb.run else None,
     }
     torch.save(state, save_path / "training_state.pt")
-
-
-def run_eval(
-    eval_datasets, model, tokenizer, submodule, device, dtype,
-    global_step, eval_batch_size, steering_coefficient, log_dir=None,
-):
-    """Run fuzzy eval with token F1 scoring + wandb table logging."""
-    import wandb
-
-    torch.cuda.empty_cache()
-    gc.collect()
-
-    model.eval()
-    gen_kwargs = {"do_sample": False, "max_new_tokens": 100}
-    all_scores = {}
-
-    for ds in eval_datasets:
-        eval_responses = run_evaluation(
-            eval_data=eval_datasets[ds],
-            model=model,
-            tokenizer=tokenizer,
-            submodule=submodule,
-            device=device,
-            dtype=dtype,
-            global_step=global_step,
-            lora_path=None,
-            eval_batch_size=eval_batch_size,
-            steering_coefficient=steering_coefficient,
-            generation_kwargs=gen_kwargs,
-        )
-
-        scores = []
-        columns = ["id", "type", "oracle_prompt", "prediction", "target", "token_f1", "pred_tokens", "target_tokens"]
-        table = wandb.Table(columns=columns)
-        rows = []
-
-        for i, (resp, dp) in enumerate(zip(eval_responses, eval_datasets[ds])):
-            pred = resp.api_response.strip()
-            target = dp.target_output.strip()
-            score = _token_f1(pred, target)
-            scores.append(score)
-            oracle_prompt = getattr(resp, 'prompt', '') or getattr(dp, 'prompt', '') or str(dp.meta_info.get('prompt', ''))[:300]
-            row = [i, dp.datapoint_type, oracle_prompt[:300], pred[:500], target[:500], round(score, 3), len(pred.split()), len(target.split())]
-            table.add_data(*row)
-            rows.append(row)
-
-        avg_score = sum(scores) / len(scores) if scores else 0.0
-        wandb.log({f"eval/{ds}": avg_score, f"eval_n/{ds}": len(scores)}, step=global_step)
-        print(f"  Step {global_step} | {ds}: token_f1={avg_score:.3f} (n={len(scores)})")
-
-        if eval_responses:
-            print(f"    pred='{eval_responses[0].api_response.strip()[:120]}'")
-            print(f"    targ='{eval_datasets[ds][0].target_output.strip()[:120]}'")
-
-        wandb.log({f"eval_table/{ds}": table}, step=global_step)
-        if log_dir and rows:
-            _save_table_to_disk(Path(log_dir), f"eval_table_{ds}", global_step, columns, rows)
-
-        all_scores[ds] = avg_score
-
-    if all_scores:
-        eval_mean = sum(all_scores.values()) / len(all_scores)
-        wandb.log({"eval/mean": eval_mean}, step=global_step)
-        print(f"  Step {global_step} | eval_mean={eval_mean:.3f}")
-
-    model.train()
-    torch.cuda.empty_cache()
 
 
 def _load_gemini_baselines(path: str = "logs/llm_monitor/results.json") -> dict[str, float]:
@@ -924,18 +1297,20 @@ def _load_gemini_baselines(path: str = "logs/llm_monitor/results.json") -> dict[
 
 _GEMINI_BASELINES: dict[str, tuple[str, float]] | None = None
 
-def run_evals(model, tokenizer, model_name, global_step, args, log_dir=None):
-    """Run evals if available."""
+
+def _run_unified_eval(model, tokenizer, model_name, global_step, args, eval_datasets, log_dir=None, no_activations=False):
+    """Run all evals (task + detection) in a single call."""
     global _GEMINI_BASELINES
     from evals.training_eval_hook import run_training_evals
     import wandb
 
     print(f"\n--- Evals at step {global_step} ---")
+    eval_start = time.time()
     metrics = run_training_evals(
         model, tokenizer, model_name=model_name,
         step=global_step, device="cuda",
         eval_dir=args.eval_dir,
-        max_items_per_eval=25,
+        max_items_per_eval=args.max_items_per_eval,
         skip_rot13=(global_step < args.rot13_start_step),
         oracle_adapter_name="default",
         activation_cache_dir=args.activation_cache_dir,
@@ -944,7 +1319,17 @@ def run_evals(model, tokenizer, model_name, global_step, args, log_dir=None):
         eval_batch_size=args.eval_batch_size,
         stride=args.stride,
         single_position=_SINGLE_POSITION,
+        eval_batch_size=args.eval_batch_size,
+        eval_batch_sizes=getattr(args, "eval_batch_size_overrides", None),
+        eval_max_new_tokens=args.eval_max_new_tokens,
+        eval_max_new_tokens_overrides=getattr(args, "eval_max_new_tokens_overrides", None),
+        task_eval_max_new_tokens=args.task_eval_max_new_tokens,
+        task_eval_max_new_tokens_overrides=getattr(args, "task_eval_max_new_tokens_overrides", None),
+        eval_oversample_factor=args.eval_oversample_factor,
+        task_eval_datasets=eval_datasets,
+        no_activations=no_activations,
     )
+    elapsed = time.time() - eval_start
     if metrics:
         wandb.log(metrics, step=global_step)
         # Print oracle vs Gemini baseline comparison table
@@ -953,10 +1338,10 @@ def run_evals(model, tokenizer, model_name, global_step, args, log_dir=None):
         oracle_scores = {}
         for k, v in metrics.items():
             if k.endswith("_acc") and isinstance(v, float):
-                name = k.removeprefix("eval/").removesuffix("_acc")
+                name = k.removeprefix("eval/").removeprefix("eval_cls/").removesuffix("_acc")
                 oracle_scores[name] = ("acc", v)
             elif k.endswith("_token_f1") and isinstance(v, float):
-                name = k.removeprefix("eval/").removesuffix("_token_f1")
+                name = k.removeprefix("eval/").removeprefix("eval_cls/").removesuffix("_token_f1")
                 oracle_scores[name] = ("token_f1", v)
         if oracle_scores:
             print(f"\n  {'Eval':<30s} {'Metric':<10s} {'Oracle':>8s} {'Gemini':>8s} {'Δ':>8s}")
@@ -976,7 +1361,8 @@ def run_evals(model, tokenizer, model_name, global_step, args, log_dir=None):
                     gem_mean = sum(gem_accs) / len(gem_accs)
                     print(f"  {'MEAN':<30s} {'acc':<10s} {mean_acc:>8.3f} {gem_mean:>8.3f} {mean_acc - gem_mean:>+8.3f}")
             print()
-    return metrics
+    print(f"  Eval took {elapsed:.1f}s")
+    return metrics, elapsed
 
 
 # ── Main training loop ──
@@ -994,13 +1380,17 @@ def train(
 ) -> int:
     """Train on all tasks. Returns the final global_step.
 
-    model: unwrapped PeftModel (for materialization, eval, checkpoint saving)
+    model: unwrapped PeftModel or FlamingoOracleWrapper (for materialization, eval, checkpoint saving)
     ddp_model: DDP-wrapped model (for forward/backward) or same as model if single-GPU
     """
     import wandb
+    from flamingo_oracle import FlamingoOracleWrapper
 
     device = torch.device(f"cuda:{rank}" if world_size > 1 else "cuda")
     dtype = torch.bfloat16
+
+    # For evals, use the underlying PeftModel (evals use steering-based inference)
+    eval_model = model.base_model if isinstance(model, FlamingoOracleWrapper) else model
 
     assert args.effective_batch_size % (args.batch_size * world_size) == 0, \
         f"effective_batch_size ({args.effective_batch_size}) must be divisible by " \
@@ -1026,16 +1416,26 @@ def train(
         for t, c in sorted(type_counts.items()):
             print(f"    {t}: {c}")
 
-    # Split eval (50 per type)
+    # Split eval (per-task eval_n from config)
+    # Build dtype -> yaml_task_name mapping for eval_n lookup.
+    # Use both module-derived name AND cot_{yaml_name} to handle tasks that
+    # share a module (e.g. all infogap tasks share cot_infogap).
+    dtype_to_yaml = {}
+    for k, v in TASK_REGISTRY.items():
+        if v["module"]:
+            dtype_to_yaml[v["module"].split(".")[-1]] = k
+        dtype_to_yaml[f"cot_{k}"] = k
     random.shuffle(training_data)
     eval_per_type = {}
     train_per_type = defaultdict(list)
 
     for dp in training_data:
         t = dp.datapoint_type
+        yaml_name = dtype_to_yaml.get(t)
+        eval_limit = getattr(args, f"{yaml_name}_eval_n", 50) if yaml_name else 50
         if t not in eval_per_type:
             eval_per_type[t] = []
-        if len(eval_per_type[t]) < 50:
+        if len(eval_per_type[t]) < eval_limit:
             eval_per_type[t].append(dp)
         else:
             train_per_type[t].append(dp)
@@ -1080,6 +1480,66 @@ def train(
                 print(f"    stage {task_stage_idx[task_name]}: {task_name} ({len(items)} examples)")
             if wandb.run:
                 wandb.config.update({"stage_map": {v: k for k, v in task_stage_idx.items()}})
+    elif task_order == "interleaved":
+        # Round-robin blocks: cycle through tasks, eval at every block boundary
+        # Tasks with fewer samples are delayed to appear towards the end of training
+        yaml_task_names = getattr(args, "_yaml_task_order", [])
+        yaml_to_dtype = {k: v["module"].split(".")[-1] if v["module"] else f"cot_{k}" for k, v in TASK_REGISTRY.items()}
+        ordered_types = []
+        for yt in yaml_task_names:
+            dt = yaml_to_dtype.get(yt)
+            if dt and dt in train_per_type:
+                ordered_types.append(dt)
+        for dt in sorted(train_per_type.keys()):
+            if dt not in ordered_types:
+                ordered_types.append(dt)
+
+        n_blocks = getattr(args, "interleave_blocks", 50)
+        total_examples = sum(len(v) for v in train_per_type.values())
+        block_size = total_examples // n_blocks
+
+        # Sort tasks by sample count descending (biggest first = earliest start)
+        sorted_types = sorted(ordered_types, key=lambda dt: len(train_per_type[dt]), reverse=True)
+
+        # Calculate how many rounds each task needs and when it should start
+        # so that all tasks finish at the end of training
+        task_rounds_needed = {dt: max(1, math.ceil(len(train_per_type[dt]) / block_size)) for dt in sorted_types}
+        max_rounds = max(task_rounds_needed.values())
+        task_start_round = {dt: max_rounds - task_rounds_needed[dt] for dt in sorted_types}
+
+        # Shuffle within each task, create queues
+        task_queues = {}
+        for dt in sorted_types:
+            items = list(train_per_type[dt])
+            random.shuffle(items)
+            task_queues[dt] = items
+
+        # Round-robin with delayed starts: small tasks appear only in later rounds
+        task_blocks = []
+        for round_idx in range(max_rounds):
+            for task in sorted_types:
+                if round_idx >= task_start_round[task] and task_queues[task]:
+                    queue = task_queues[task]
+                    block = queue[:block_size]
+                    task_queues[task] = queue[block_size:]
+                    if block:
+                        task_blocks.append((task, block))
+
+        final_training = []
+        for _, items in task_blocks:
+            final_training.extend(items)
+
+        for i, (task_name, _) in enumerate(task_blocks):
+            task_stage_idx.setdefault(task_name, i)
+
+        if rank == 0:
+            print(f"  Task order: INTERLEAVED ({n_blocks} blocks, block_size={block_size}, {max_rounds} rounds)")
+            for dt in sorted_types:
+                print(f"    {dt}: {len(train_per_type[dt])} examples, {task_rounds_needed[dt]} rounds, starts round {task_start_round[dt]}")
+            for i, (task_name, items) in enumerate(task_blocks):
+                print(f"    block {i}: {task_name} ({len(items)} examples)")
+            if wandb.run:
+                wandb.config.update({"stage_map": {v: k for k, v in task_stage_idx.items()}})
     else:
         random.shuffle(final_training)
         if rank == 0:
@@ -1096,6 +1556,23 @@ def train(
         print(f"  Training: {len(final_training)}, Eval: {sum(len(v) for v in eval_datasets.values())}")
         print(f"  Eval tasks: {', '.join(sorted(eval_datasets.keys()))}")
 
+    # Pre-materialize eval steering vectors once (avoids re-extraction every eval call)
+    # Vectors stored on CPU to avoid hogging GPU memory; moved to GPU during eval.
+    # Skip for Flamingo and no-activations modes
+    if rank == 0 and not args.flamingo and not args.no_activations:
+        print(f"\n  Pre-materializing eval steering vectors (CPU)...")
+        mat_start = time.time()
+        mat_batch_size = 2
+        all_eval_items = [dp for dps in eval_datasets.values() for dp in dps]
+        for i in range(0, len(all_eval_items), mat_batch_size):
+            batch = all_eval_items[i : i + mat_batch_size]
+            materialized = materialize_multilayer_steering_vectors(batch, tokenizer, model)
+            for orig, mat in zip(batch, materialized):
+                orig.steering_vectors = mat.steering_vectors.cpu()
+        print(f"  Pre-materialized {len(all_eval_items)} eval items in {time.time() - mat_start:.1f}s")
+    if world_size > 1:
+        dist.barrier()
+
     # Optimizer + scheduler
     num_batches = len(final_training) // args.batch_size
     total_steps = (num_batches // grad_accum) * args.epochs
@@ -1103,24 +1580,53 @@ def train(
 
     # Precompute per-stage step boundaries for progress tracking
     stage_step_ranges = {}  # task_name -> (start_step, end_step)
-    if task_order == "sequential" and task_blocks:
+    if task_order in ("sequential", "interleaved") and task_blocks:
         cursor = 0
         for task_name, items in task_blocks:
-            stage_steps = len(items) // (args.batch_size * grad_accum)
+            stage_steps = len(items) // (args.batch_size * grad_accum * world_size)
             stage_step_ranges[task_name] = (cursor, cursor + stage_steps)
             cursor += stage_steps
 
+    # Precompute block-boundary eval/save steps for interleaved mode
+    # Eval at both start and end of every block; account for world_size in step counts
+    block_eval_steps = set()
+    block_save_steps = set()
+    if task_order == "interleaved" and task_blocks:
+        cursor = 0
+        for _, items in task_blocks:
+            block_eval_steps.add(cursor)  # start of block
+            block_steps = len(items) // (args.batch_size * grad_accum * world_size)
+            if block_steps >= 2:
+                block_eval_steps.add(cursor + block_steps // 2)  # midpoint
+            cursor += block_steps
+            block_eval_steps.add(cursor)  # end of block
+        block_eval_steps.discard(0)  # step-0 eval handled separately
+        sorted_evals = sorted(block_eval_steps)
+        block_save_steps = set(sorted_evals[i] for i in range(4, len(sorted_evals), 5))
+
     # Dynamic eval/save cadence: ~10 evals over the relevant span
-    if task_order == "sequential":
-        reference_steps = min(len(items) // (args.batch_size * grad_accum) for items in train_per_type.values() if len(items) >= args.batch_size)
+    if task_order == "interleaved":
+        # Interleaved uses block-boundary eval/save; disable modulo-based triggers
+        args.eval_steps = max(total_steps + 1, 999999)
+        args.save_steps = max(total_steps + 1, 999999)
+        if rank == 0:
+            print(f"\n  Interleaved cadence: eval at {len(block_eval_steps)} block boundaries, save at {len(block_save_steps)}")
+    elif task_order == "sequential":
+        reference_steps = max(len(items) // (args.batch_size * grad_accum) for items in train_per_type.values() if len(items) >= args.batch_size)
+        args.eval_steps = max(-(-reference_steps // 10), 1)
+        args.save_steps = args.eval_steps * 5
+        if rank == 0:
+            print(f"\n  Dynamic cadence (reference = {reference_steps} steps):")
+            print(f"    eval_steps: {args.eval_steps} (~{reference_steps // max(args.eval_steps, 1)}x)")
+            print(f"    save_steps: {args.save_steps}")
     else:
         reference_steps = total_steps
-    args.eval_steps = max(-(-reference_steps // 10), 1)
-    args.save_steps = args.eval_steps * 5
-    if rank == 0:
-        print(f"\n  Dynamic cadence (reference = {reference_steps} steps):")
-        print(f"    eval_steps: {args.eval_steps} (~{reference_steps // max(args.eval_steps, 1)}x)")
-        print(f"    save_steps: {args.save_steps}")
+        args.eval_steps = max(-(-reference_steps // 10), 1)
+        args.save_steps = args.eval_steps * 5
+        if rank == 0:
+            print(f"\n  Dynamic cadence (reference = {reference_steps} steps):")
+            print(f"    eval_steps: {args.eval_steps} (~{reference_steps // max(args.eval_steps, 1)}x)")
+            print(f"    save_steps: {args.save_steps}")
 
     optimizer = torch.optim.AdamW(ddp_model.parameters(), lr=args.lr)
     scheduler = get_linear_schedule_with_warmup(
@@ -1169,26 +1675,32 @@ def train(
         wandb.config.update({"task_index_legend": task_to_idx}, allow_val_change=True)
 
     save_dir.mkdir(parents=True, exist_ok=True)
-    log_dir = save_dir / "eval_logs"
+    _run_name = wandb.run.name if wandb.run else (args.wandb_run or "cot-oracle")
+    from datetime import datetime, timezone
+    _date_prefix = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M")
+    log_dir = Path("eval_logs") / f"{_date_prefix}_{_run_name}"
+    log_dir.mkdir(parents=True, exist_ok=True)
 
     if rank == 0:
         print(f"\n  LR: {args.lr}")
         print(f"  Batch: {args.batch_size}")
         print(f"  Gradient accumulation: {grad_accum}")
         print(f"  Effective batch size: {args.batch_size * grad_accum * world_size}")
+        print(f"  Train token budget: {args.max_train_tokens_per_gpu or 'disabled'}")
+        print(f"  Length bucketing: {args.length_bucketing} (window_batches={args.length_bucket_window_batches})")
         print(f"  Epochs: {args.epochs}")
         print(f"  Steps: {total_steps}")
         print(f"  Warmup: {warmup_steps}")
+        print(f"  Eval limits: max_items={args.max_items_per_eval}, oversample={args.eval_oversample_factor}")
+        print(f"  Eval decode caps: detection={args.eval_max_new_tokens}, task={args.task_eval_max_new_tokens}")
 
     model.train()
 
     # Step-0 eval (baseline before any training)
+    # Skip all evals in Flamingo mode — evals use steering injection, not cross-attention
     skip_step0 = getattr(args, "no_step0_eval", False)
-    if global_step == 0 and rank == 0 and not skip_step0:
-        print("\n--- Step 0 eval (pre-training baseline) ---")
-        model.eval()
-        run_eval(eval_datasets, model, tokenizer, submodule, device, dtype, 0, args.eval_batch_size, args.steering_coefficient, log_dir=log_dir)
-        run_evals(model, tokenizer, args.model, 0, args, log_dir=log_dir)
+    if global_step == 0 and rank == 0 and not skip_step0 and not args.flamingo:
+        _run_unified_eval(eval_model, tokenizer, args.model, 0, args, eval_datasets, log_dir=log_dir, no_activations=args.no_activations)
         model.train()
     if world_size > 1:
         dist.barrier()
@@ -1205,8 +1717,10 @@ def train(
     micro_step = 0  # counts micro-batches within a gradient accumulation window
 
     for epoch in range(args.epochs):
-        if task_order != "sequential":
+        if task_order not in ("sequential", "interleaved"):
             random.shuffle(final_training)
+            if args.length_bucketing:
+                _window_bucket_training_data(final_training, args.batch_size, args.length_bucket_window_batches)
         optimizer.zero_grad()
 
         pbar = tqdm(
@@ -1220,6 +1734,7 @@ def train(
         accum_loss_sum = 0.0
         accum_batch_types = []
         accum_batch_tokens = 0
+        accum_batch_splits = 0
         accum_context_lengths = []
 
         for start in pbar:
@@ -1227,45 +1742,101 @@ def train(
             if len(batch_list) < args.batch_size:
                 break
 
-            batch_types = [dp.datapoint_type for dp in batch_list]
-
-            # Materialize (uses unwrapped model)
-            batch_list = materialize_multilayer_steering_vectors(
-                batch_list, tokenizer, model
+            base_label_tokens = sum(_label_token_count(dp) for dp in batch_list)
+            pending_chunks = _split_batch_for_token_budget(
+                batch_list,
+                args.batch_size,
+                args.max_train_tokens_per_gpu,
+                args.no_activations,
+                args.flamingo,
+                args.flamingo_max_ctx_tokens,
             )
+            batch_split_count = len(pending_chunks) - 1
 
-            batch = construct_batch(batch_list, tokenizer, device)
+            while pending_chunks:
+                chunk_list = pending_chunks.pop(0)
+                chunk_types = [dp.datapoint_type for dp in chunk_list]
+                loss_weight = sum(_label_token_count(dp) for dp in chunk_list) / base_label_tokens
+                sync_context = ddp_model.no_sync() if world_size > 1 and pending_chunks else nullcontext()
 
-            with torch.autocast(device_type="cuda", dtype=dtype):
-                outputs = train_features_batch(
-                    batch, ddp_model, submodule,
-                    args.steering_coefficient, device, dtype,
-                )
-                loss = outputs.loss / grad_accum
-            loss.backward()
+                with sync_context:
+                    try:
+                        if args.no_activations:
+                            # Text-only: no activation extraction, no steering hook
+                            batch = construct_batch(chunk_list, tokenizer, device)
+                            tokenized_input = {"input_ids": batch.input_ids, "attention_mask": batch.attention_mask}
+                            with torch.autocast(device_type="cuda", dtype=dtype):
+                                outputs = ddp_model(**tokenized_input, labels=batch.labels)
+                                loss = outputs.loss * loss_weight / grad_accum
+                        elif args.flamingo:
+                            # Two-pass: collect CoT hidden states, then oracle forward with xattn
+                            flamingo_wrapper = ddp_model.module if isinstance(ddp_model, torch.nn.parallel.DistributedDataParallel) else ddp_model
+                            cot_batch, oracle_batch = construct_flamingo_batch(
+                                chunk_list, tokenizer, device,
+                                max_ctx_tokens=args.flamingo_max_ctx_tokens,
+                            )
+                            # Pass 1: CoT through frozen base model (no grad)
+                            with torch.autocast(device_type="cuda", dtype=dtype):
+                                cot_hs = flamingo_wrapper.collect_cot_hidden_states(
+                                    cot_batch["input_ids"], cot_batch["attention_mask"],
+                                )
+                            # Pass 2: Oracle forward with cross-attention to CoT
+                            batch = oracle_batch  # for per-task loss logging below
+                            with torch.autocast(device_type="cuda", dtype=dtype):
+                                outputs = ddp_model(
+                                    **oracle_batch,
+                                    supervisee_kvs=cot_hs,
+                                    cot_attention_mask=cot_batch["attention_mask"],
+                                )
+                                loss = outputs.loss * loss_weight / grad_accum
+                        else:
+                            # Standard steering path
+                            chunk_list = materialize_multilayer_steering_vectors(
+                                chunk_list, tokenizer, model
+                            )
+                            batch = construct_batch(chunk_list, tokenizer, device)
+                            with torch.autocast(device_type="cuda", dtype=dtype):
+                                outputs = train_features_batch(
+                                    batch, ddp_model, submodule,
+                                    args.steering_coefficient, device, dtype,
+                                )
+                                loss = outputs.loss * loss_weight / grad_accum
+                    except torch.OutOfMemoryError:
+                        if world_size > 1 or len(chunk_list) == 1:
+                            raise
+                        torch.cuda.empty_cache()
+                        split_at = len(chunk_list) // 2
+                        if rank == 0:
+                            print(f"  CUDA OOM at train batch {start}, splitting micro-batch {len(chunk_list)} -> {split_at}+{len(chunk_list) - split_at}")
+                        batch_split_count += 1
+                        pending_chunks = [chunk_list[:split_at], chunk_list[split_at:]] + pending_chunks
+                        continue
+                    loss.backward()
 
-            # Per-task loss (use unscaled loss for logging)
-            with torch.no_grad():
-                logits = outputs.logits.detach()
-                labels = batch.labels
-                shift_logits = logits[:, :-1, :].contiguous()
-                shift_labels = labels[:, 1:].contiguous()
-                per_token_loss = F.cross_entropy(
-                    shift_logits.view(-1, shift_logits.size(-1)),
-                    shift_labels.view(-1),
-                    reduction="none",
-                ).view(shift_labels.shape)
-                mask = (shift_labels != -100).float()
-                per_item_loss = (per_token_loss * mask).sum(dim=1) / mask.sum(dim=1).clamp(min=1)
-                batch_tokens = int(mask.sum().item())
-                total_tokens += batch_tokens
+                # Per-task loss (use unscaled loss for logging)
+                with torch.no_grad():
+                    logits = outputs.logits.detach()
+                    labels = batch["labels"] if isinstance(batch, dict) else batch.labels
+                    shift_logits = logits[:, :-1, :].contiguous()
+                    shift_labels = labels[:, 1:].contiguous()
+                    per_token_loss = F.cross_entropy(
+                        shift_logits.view(-1, shift_logits.size(-1)),
+                        shift_labels.view(-1),
+                        reduction="none",
+                    ).view(shift_labels.shape)
+                    mask = (shift_labels != -100).float()
+                    per_item_loss = (per_token_loss * mask).sum(dim=1) / mask.sum(dim=1).clamp(min=1)
+                    batch_tokens = int(mask.sum().item())
+                    total_tokens += batch_tokens
 
-            for i, task_type in enumerate(batch_types):
-                accum_task_losses[task_type].append(per_item_loss[i].item())
-            accum_loss_sum += outputs.loss.item()
-            accum_batch_types.extend(batch_types)
-            accum_batch_tokens += batch_tokens
-            accum_context_lengths.extend(len(dp.context_input_ids) for dp in batch_list if dp.context_input_ids is not None)
+                for i, task_type in enumerate(chunk_types):
+                    accum_task_losses[task_type].append(per_item_loss[i].item())
+                accum_loss_sum += outputs.loss.item() * loss_weight
+                accum_batch_types.extend(chunk_types)
+                accum_batch_tokens += batch_tokens
+                accum_context_lengths.extend(len(dp.context_input_ids) for dp in chunk_list if dp.context_input_ids is not None)
+
+            accum_batch_splits += batch_split_count
 
             micro_step += 1
             if micro_step % grad_accum != 0:
@@ -1293,7 +1864,9 @@ def train(
                     "train/learning_rate": scheduler.get_last_lr()[0],
                     "train/total_tokens": total_tokens,
                     "train/batch_tokens": accum_batch_tokens,
+                    "train/batch_splits": accum_batch_splits,
                     "train/avg_context_length": sum(accum_context_lengths) / len(accum_context_lengths) if accum_context_lengths else 0,
+                    "train/tokens_per_sec": accum_batch_tokens / max(now - last_step_time, 1e-6),
                     "train/step_time": now - last_step_time,
                     "train/wallclock_hours": (now - train_start_time - eval_time_total) / 3600,
                     "eval/wallclock_hours": eval_time_total / 3600,
@@ -1317,7 +1890,29 @@ def train(
                     s_len = max(s_end - s_start, 1)
                     log_dict["train/stage_progress"] = min((global_step - s_start) / s_len, 1.0)
 
-                wandb.log(log_dict, step=global_step)
+                # Log block index for interleaved mode
+                if task_order == "interleaved" and task_blocks:
+                    cursor = 0
+                    for bi, (_, items) in enumerate(task_blocks):
+                        cursor += len(items) // (args.batch_size * grad_accum * world_size)
+                        if global_step < cursor:
+                            log_dict["train/block_idx"] = bi
+                            break
+                    else:
+                        log_dict["train/block_idx"] = len(task_blocks) - 1
+
+                # Log Flamingo gate values
+                if args.flamingo:
+                    from flamingo_oracle import FlamingoOracleWrapper
+                    wrapper = model.module if isinstance(model, torch.nn.parallel.DistributedDataParallel) else model
+                    if isinstance(wrapper, FlamingoOracleWrapper):
+                        for idx in wrapper.xattn_layer_indices:
+                            gate_val = wrapper.xattn_layers[str(idx)].gate.item()
+                            log_dict[f"flamingo/gate_{idx}"] = gate_val
+                            log_dict[f"flamingo/tanh_gate_{idx}"] = math.tanh(gate_val)
+
+                if global_step % 10 == 0 or global_step == total_steps:
+                    wandb.log(log_dict, step=global_step)
 
             pbar.set_postfix(loss=f"{accum_loss_sum / grad_accum:.4f}")
 
@@ -1328,48 +1923,30 @@ def train(
                     batch_task_counts[t] += 1
                 dominant_task = max(batch_task_counts, key=batch_task_counts.get)
 
-            # Phase checkpoint: save when dominant task changes in sequential mode
-            if rank == 0 and task_order == "sequential" and prev_dominant_task is not None and dominant_task != prev_dominant_task:
+            # Phase checkpoint: save when dominant task changes in sequential/interleaved mode
+            if rank == 0 and task_order in ("sequential", "interleaved") and prev_dominant_task is not None and dominant_task != prev_dominant_task:
                 ckpt_path = save_dir / f"step_{global_step}_phase_{prev_dominant_task}"
                 print(f"\n  Phase transition: {prev_dominant_task} -> {dominant_task}")
                 print(f"  Saving phase checkpoint to {ckpt_path}")
                 model.save_pretrained(str(ckpt_path))
                 _save_training_state(ckpt_path, global_step, optimizer, scheduler)
-            if world_size > 1 and task_order == "sequential" and prev_dominant_task is not None and dominant_task != prev_dominant_task:
+            if world_size > 1 and task_order in ("sequential", "interleaved") and prev_dominant_task is not None and dominant_task != prev_dominant_task:
                 dist.barrier()
             prev_dominant_task = dominant_task
 
-            # Task-level eval (rank 0 only, step 0 handled by pre-loop baseline eval)
-            if global_step > 0 and global_step % args.eval_steps == 0:
+            # Unified eval (task + detection, rank 0 only)
+            should_eval = (global_step > 0 and global_step % args.eval_steps == 0) or global_step in block_eval_steps
+            if should_eval and not args.flamingo:
                 if rank == 0:
-                    print(f"\n--- Task eval at step {global_step} ---")
-                    eval_start = time.time()
-                    run_eval(
-                        eval_datasets, model, tokenizer, submodule,
-                        device, dtype, global_step, args.eval_batch_size,
-                        args.steering_coefficient, log_dir=log_dir,
-                    )
-                    eval_time_total += time.time() - eval_start
+                    _, elapsed = _run_unified_eval(eval_model, tokenizer, args.model, global_step, args, eval_datasets, log_dir=log_dir, no_activations=args.no_activations)
+                    eval_time_total += elapsed
                     model.train()
-                if world_size > 1:
-                    dist.barrier()
-
-            # Detection eval (rank 0 only)
-            if global_step > 0 and global_step % args.eval_steps == 0:
-                if rank == 0:
-                    gc.collect()
-                    torch.cuda.empty_cache()
-                    eval_start = time.time()
-                    run_evals(model, tokenizer, args.model, global_step, args, log_dir=log_dir)
-                    eval_time_total += time.time() - eval_start
-                    model.train()
-                    gc.collect()
-                    torch.cuda.empty_cache()
                 if world_size > 1:
                     dist.barrier()
 
             # Save checkpoint (rank 0 only)
-            if global_step > 0 and global_step % args.save_steps == 0:
+            should_save = (global_step > 0 and global_step % args.save_steps == 0) or global_step in block_save_steps
+            if should_save:
                 if rank == 0:
                     ckpt_path = save_dir / f"step_{global_step}"
                     print(f"  Saving checkpoint to {ckpt_path}")
@@ -1383,20 +1960,14 @@ def train(
             accum_loss_sum = 0.0
             accum_batch_types = []
             accum_batch_tokens = 0
+            accum_batch_splits = 0
             accum_context_lengths = []
 
             global_step += 1
 
     # Final eval (rank 0 only)
-    if rank == 0:
-        print(f"\n--- Final eval at step {global_step} ---")
-        run_eval(
-            eval_datasets, model, tokenizer, submodule,
-            device, dtype, global_step, args.eval_batch_size,
-            args.steering_coefficient, log_dir=log_dir,
-        )
-
-        run_evals(model, tokenizer, args.model, global_step, args, log_dir=log_dir)
+    if rank == 0 and not args.flamingo:
+        _run_unified_eval(eval_model, tokenizer, args.model, global_step, args, eval_datasets, log_dir=log_dir, no_activations=args.no_activations)
 
         # Save final
         final_path = save_dir / "final"
@@ -1421,6 +1992,14 @@ def load_config(config_path: str) -> dict:
         return yaml.safe_load(f)
 
 
+def _mark_cli_overrides(args, parser, argv: list[str]) -> None:
+    for action in parser._actions:
+        if action.dest == "config" or not action.option_strings:
+            continue
+        if any(token == opt or token.startswith(f"{opt}=") for token in argv for opt in action.option_strings):
+            setattr(args, f"_cli_{action.dest}", True)
+
+
 def apply_config(args, config: dict):
     """Apply config values to args, CLI flags override config."""
     # Task counts
@@ -1432,16 +2011,20 @@ def apply_config(args, config: dict):
             # YAML is source of truth — always set unless CLI explicitly overrode
             if not getattr(args, f"_cli_{arg_name}", False):
                 setattr(args, arg_name, task_cfg.get("n", 0))
+            eval_arg = f"{task_name}_eval_n"
+            if "eval_n" in task_cfg and not getattr(args, f"_cli_{eval_arg}", False):
+                setattr(args, eval_arg, task_cfg["eval_n"])
 
     # Training params
     if "training" in config:
         t = config["training"]
         _float_keys = {"lr", "warmup_fraction", "max_grad_norm", "steering_coefficient"}
-        _int_keys = {"batch_size", "eval_batch_size", "epochs", "seed", "effective_batch_size"}
+        _int_keys = {"batch_size", "eval_batch_size", "epochs", "seed", "effective_batch_size", "interleave_blocks", "length_bucket_window_batches", "max_train_tokens_per_gpu"}
         for key in ["lr", "batch_size", "eval_batch_size", "epochs",
                      "warmup_fraction", "max_grad_norm", "steering_coefficient",
                      "gradient_checkpointing", "task_order", "seed",
-                     "effective_batch_size"]:
+                     "effective_batch_size", "interleave_blocks", "max_train_tokens_per_gpu",
+                     "length_bucketing", "length_bucket_window_batches"]:
             if key in t and not getattr(args, f"_cli_{key}", False):
                 val = t[key]
                 if key in _float_keys:
@@ -1474,15 +2057,20 @@ def apply_config(args, config: dict):
     # Eval
     if "eval" in config:
         e = config["eval"]
-        for key in ["eval_dir", "rot13_start_step", "eval_steps", "save_steps"]:
+        for key in [
+            "eval_dir", "rot13_start_step", "eval_steps", "save_steps",
+            "max_items_per_eval", "eval_max_new_tokens", "task_eval_max_new_tokens",
+            "eval_oversample_factor",
+        ]:
             if key in e and not getattr(args, f"_cli_{key}", False):
                 val = e[key]
-                if key in {"rot13_start_step", "eval_steps", "save_steps"}:
+                if key in {"rot13_start_step", "eval_steps", "save_steps", "max_items_per_eval", "eval_max_new_tokens", "task_eval_max_new_tokens"}:
                     val = int(val)
+                elif key == "eval_oversample_factor":
+                    val = float(val)
                 setattr(args, key, val)
-        evals_key = "unfaith_evals" if "unfaith_evals" in e else "evals"
-        if evals_key in e and not getattr(args, "_cli_evals", False):
-            raw_evals = e[evals_key]
+        if "evals" in e and not getattr(args, "_cli_evals", False):
+            raw_evals = e["evals"]
             eval_names = []
             eval_baselines = {}
             for entry in raw_evals:
@@ -1493,8 +2081,36 @@ def apply_config(args, config: dict):
                     eval_names.append(name)
                     if isinstance(entry[name], dict) and "baselines" in entry[name]:
                         eval_baselines[name] = entry[name]["baselines"]
+            # Append classification evals from separate config section
+            if "classification_evals" in e:
+                for entry in e["classification_evals"]:
+                    if isinstance(entry, str):
+                        eval_names.append(entry)
+                    elif isinstance(entry, dict):
+                        name = list(entry.keys())[0]
+                        eval_names.append(name)
+                        if isinstance(entry[name], dict) and "baselines" in entry[name]:
+                            eval_baselines[name] = entry[name]["baselines"]
             args.evals = eval_names
             args.eval_baselines = eval_baselines
+        if "eval_batch_size_overrides" in e and not getattr(args, "_cli_eval_batch_size_overrides", False):
+            raw_overrides = e["eval_batch_size_overrides"] or {}
+            args.eval_batch_size_overrides = {
+                str(k): int(v)
+                for k, v in raw_overrides.items()
+            }
+        if "eval_max_new_tokens_overrides" in e and not getattr(args, "_cli_eval_max_new_tokens_overrides", False):
+            raw_overrides = e["eval_max_new_tokens_overrides"] or {}
+            args.eval_max_new_tokens_overrides = {
+                str(k): int(v)
+                for k, v in raw_overrides.items()
+            }
+        if "task_eval_max_new_tokens_overrides" in e and not getattr(args, "_cli_task_eval_max_new_tokens_overrides", False):
+            raw_overrides = e["task_eval_max_new_tokens_overrides"] or {}
+            args.task_eval_max_new_tokens_overrides = {
+                str(k): int(v)
+                for k, v in raw_overrides.items()
+            }
 
     # Data paths
     if "data" in config:
@@ -1510,11 +2126,36 @@ def apply_config(args, config: dict):
         if "hint_admission_data_path" in d and not getattr(args, "_cli_hint_admission_data_path", False):
             args.hint_admission_data_path = d["hint_admission_data_path"]
 
+    # Flamingo
+    if "flamingo" in config:
+        f = config["flamingo"]
+        if f.get("enabled") and not getattr(args, "_cli_flamingo", False):
+            args.flamingo = True
+        if "xattn_interval" in f and not getattr(args, "_cli_flamingo_xattn_interval", False):
+            args.flamingo_xattn_interval = int(f["xattn_interval"])
+        if "xattn_lora_r" in f and not getattr(args, "_cli_flamingo_xattn_lora_r", False):
+            args.flamingo_xattn_lora_r = int(f["xattn_lora_r"])
+
+    # No-activations baseline
+    if "no_activations" in config:
+        if config["no_activations"].get("enabled") and not getattr(args, "_cli_no_activations", False):
+            args.no_activations = True
+
+    # Ablations
+    if "ablations" in config:
+        ab = config["ablations"]
+        if ab.get("random_layers") and not getattr(args, "_cli_random_layers", False):
+            args.random_layers = True
+        if ab.get("noise_activations") and not getattr(args, "_cli_noise_activations", False):
+            args.noise_activations = True
+
     # Model
     if "model" in config:
         m = config["model"]
         if "name" in m and not getattr(args, "_cli_model", False):
             args.model = m["name"]
+        if "attn_implementation" in m and not getattr(args, "_cli_attn_implementation", False):
+            args.attn_implementation = m["attn_implementation"]
         if "ao_checkpoint" in m and not getattr(args, "_cli_ao_checkpoint", False):
             args.ao_checkpoint = m["ao_checkpoint"]
         if "fresh_lora" in m and not getattr(args, "_cli_fresh_lora", False):
@@ -1543,6 +2184,9 @@ def main():
     parser.add_argument("--corpus", default="data/cot_corpus_v5/corpus_medium.jsonl",
                         help="Path to corpus.jsonl")
     parser.add_argument("--model", default="Qwen/Qwen3-8B")
+    parser.add_argument("--attn-implementation", default="sdpa",
+                        choices=["sdpa", "eager"],
+                        help="Transformer attention backend")
 
     # Checkpoint control
     parser.add_argument("--resume-from", default=None,
@@ -1569,6 +2213,16 @@ def main():
     parser.add_argument("--hint-admission-n", type=int, default=0)
     parser.add_argument("--cotqa-n", type=int, default=0)
     parser.add_argument("--hinted-answer-pred-n", type=int, default=0)
+    # Information gap tasks
+    parser.add_argument("--early-answer-pred-n", type=int, default=0)
+    parser.add_argument("--backtrack-pred-n", type=int, default=0)
+    parser.add_argument("--error-pred-n", type=int, default=0)
+    parser.add_argument("--self-correction-n", type=int, default=0)
+    parser.add_argument("--verification-n", type=int, default=0)
+    parser.add_argument("--remaining-strategy-n", type=int, default=0)
+    parser.add_argument("--branch-pred-n", type=int, default=0)
+    parser.add_argument("--completion-pred-n", type=int, default=0)
+    parser.add_argument("--chunked-convqa-n", type=int, default=0)
     parser.add_argument("--atypical-data-path",
                         default="data/atypical_answer_training.jsonl",
                         help="Path to atypical answer JSONL (from precompute_atypical_training.py)")
@@ -1580,6 +2234,14 @@ def main():
     parser.add_argument("--lr", type=float, default=1e-5)
     parser.add_argument("--batch-size", type=int, default=8)
     parser.add_argument("--eval-batch-size", type=int, default=2)
+    parser.add_argument("--max-items-per-eval", type=int, default=10,
+                        help="Maximum items per detection eval")
+    parser.add_argument("--eval-oversample-factor", type=float, default=1.0,
+                        help="Non-classification eval sample multiplier (1.0 = no oversampling)")
+    parser.add_argument("--eval-max-new-tokens", type=int, default=32,
+                        help="Default max_new_tokens for detection eval generation")
+    parser.add_argument("--task-eval-max-new-tokens", type=int, default=64,
+                        help="Default max_new_tokens for task-level eval generation")
     parser.add_argument("--epochs", type=int, default=1)
     parser.add_argument("--stride", type=str, default=None, help="Stride for position extraction (int or 'punctuation'). Must be set via config or CLI.")
     parser.add_argument("--n-layers", type=int, default=3,
@@ -1597,11 +2259,40 @@ def main():
                         help="Apply sinusoidal PE to activation vectors")
     parser.add_argument("--pe-alpha", type=float, default=0.1,
                         help="PE mixing coefficient (only used if --position-encoding)")
-    parser.add_argument("--task-order", choices=["shuffled", "sequential"], default="shuffled",
-                        help="'shuffled' mixes all tasks; 'sequential' trains tasks one at a time")
+    parser.add_argument("--task-order", choices=["shuffled", "sequential", "interleaved"], default="shuffled",
+                        help="'shuffled' mixes all tasks; 'sequential' trains one at a time; 'interleaved' round-robin blocks")
+    parser.add_argument("--interleave-blocks", type=int, default=50,
+                        help="Number of blocks for interleaved mode (default 50)")
+    parser.add_argument("--length-bucketing", action="store_true", default=True,
+                        help="Enable windowed context-length bucketing in shuffled mode")
+    parser.add_argument("--no-length-bucketing", dest="length_bucketing", action="store_false")
+    parser.add_argument("--length-bucket-window-batches", type=int, default=32,
+                        help="Window size for length bucketing, in units of train batches")
     parser.add_argument("--effective-batch-size", type=int, default=32,
                         help="Total effective batch size (invariant to GPU count). "
                              "gradient_accumulation_steps = effective_batch_size / (batch_size * world_size)")
+    parser.add_argument("--max-train-tokens-per-gpu", type=int, default=0,
+                        help="Approximate per-GPU peak token budget for splitting long train batches (0 disables)")
+
+    # Text-only baseline
+    parser.add_argument("--no-activations", action="store_true", default=False,
+                        help="Text-only baseline: train without activation steering (same data, no prefix/injection)")
+
+    # Flamingo cross-attention
+    parser.add_argument("--flamingo", action="store_true", default=False,
+                        help="Use Flamingo-style gated cross-attention instead of additive steering")
+    parser.add_argument("--flamingo-xattn-interval", type=int, default=4,
+                        help="Insert cross-attention every N transformer blocks")
+    parser.add_argument("--flamingo-xattn-lora-r", type=int, default=64,
+                        help="LoRA rank for cross-attention projections")
+    parser.add_argument("--flamingo-max-ctx-tokens", type=int, default=2048,
+                        help="Max context tokens for flamingo activation extraction (truncates from left)")
+
+    # Ablations
+    parser.add_argument("--random-layers", action="store_true", default=False,
+                        help="Randomize layer count and indices per training sequence")
+    parser.add_argument("--noise-activations", action="store_true", default=False,
+                        help="Replace real activations with variance-matched Gaussian noise")
 
     # Eval / save
     parser.add_argument("--eval-steps", type=int, default=2000,
@@ -1625,8 +2316,8 @@ def main():
     parser.add_argument("--start-step", type=int, default=None,
                         help="Starting global step (for resuming; 0 = restart data from beginning)")
     parser.add_argument("--eval-dir", default="data/evals")
-    _default_cache = os.path.join(os.environ["CACHE_DIR"], "cot_oracle", "eval_precomputed") if os.environ.get("CACHE_DIR") else "data/eval_precomputed"
-    parser.add_argument("--activation-cache-dir", default=_default_cache,
+    _default_act_cache = os.path.join(os.environ["FAST_CACHE_DIR"], "cot_oracle", "eval_precomputed") if os.environ.get("FAST_CACHE_DIR") else "data/eval_precomputed"
+    parser.add_argument("--activation-cache-dir", default=_default_act_cache,
                         help="Dir with precomputed activation bundles (.pt)")
 
     # Output
@@ -1635,6 +2326,7 @@ def main():
     parser.add_argument("--wandb-entity", default="MATS10-CS-JB",
                         help="Wandb entity (team/org)")
     parser.add_argument("--wandb-run", default=None)
+    parser.add_argument("--wandb-group", default=None, help="Wandb group name")
 
     # Data loading
     parser.add_argument("--precomputed-dir", default=None,
@@ -1645,12 +2337,7 @@ def main():
     args = parser.parse_args()
 
     # Mark which args were explicitly provided on CLI so config doesn't override them
-    _defaults = {action.dest: action.default for action in parser._actions}
-    for key, val in list(vars(args).items()):
-        if key == "config":
-            continue
-        if val != _defaults.get(key):
-            setattr(args, f"_cli_{key}", True)
+    _mark_cli_overrides(args, parser, sys.argv[1:])
 
     # Apply config file(s) (CLI flags override config values)
     if args.config:
@@ -1667,6 +2354,12 @@ def main():
             print(f"{'=' * 60}")
             print(yaml.dump(config, default_flow_style=False, sort_keys=False).rstrip())
             print(f"{'=' * 60}\n")
+
+    # Mutual exclusion and no-activations setup
+    assert not (getattr(args, "flamingo", False) and getattr(args, "no_activations", False)), \
+        "--flamingo and --no-activations are mutually exclusive"
+    if getattr(args, "no_activations", False):
+        args.fresh_lora = True
 
     # Resolve HF dataset IDs to local paths
     if rank == 0:
@@ -1685,7 +2378,12 @@ def main():
     set_seed(args.seed)
 
     # Multi-layer config
-    global MULTI_LAYERS
+    global MULTI_LAYERS, NO_ACTIVATIONS, RANDOM_LAYERS, NOISE_ACTIVATIONS, _MODEL_N_LAYERS
+    NO_ACTIVATIONS = getattr(args, "no_activations", False)
+    RANDOM_LAYERS = getattr(args, "random_layers", False)
+    NOISE_ACTIVATIONS = getattr(args, "noise_activations", False)
+    from cot_utils import LAYER_COUNTS
+    _MODEL_N_LAYERS = LAYER_COUNTS.get(args.model, 36)
     if hasattr(args, "layers") and args.layers:
         MULTI_LAYERS = [int(l) for l in args.layers]
     else:
@@ -1696,8 +2394,15 @@ def main():
     import cot_utils as _cu
     _cu.CONFIGURED_LAYERS = MULTI_LAYERS
     if rank == 0:
-        print(f"Multi-layer injection: {MULTI_LAYERS}")
+        if NO_ACTIVATIONS:
+            print(f"No-activations mode (text-only baseline, layers computed for data loaders only): {MULTI_LAYERS}")
+        else:
+            print(f"Multi-layer injection: {MULTI_LAYERS}")
         print(f"Distributed: world_size={world_size}, rank={rank}, local_rank={local_rank}")
+        if RANDOM_LAYERS:
+            print("Ablation: RANDOM LAYERS (per-item random layer sampling)")
+        if NOISE_ACTIVATIONS:
+            print("Ablation: NOISE ACTIVATIONS (variance-matched Gaussian noise)")
 
     # Position encoding config
     global _PE_CONFIG
@@ -1753,11 +2458,12 @@ def main():
 
     if rank == 0:
         print(f"\nLoading model: {args.model}")
+        print(f"Attention backend: {args.attn_implementation}")
     base_model = AutoModelForCausalLM.from_pretrained(
         args.model,
         torch_dtype=dtype,
         device_map={"": f"cuda:{local_rank}"},
-        attn_implementation="sdpa",  # O(n) memory; "eager" was O(n²) and OOMed at batch>8
+        attn_implementation=args.attn_implementation,
     )
     base_model.enable_input_require_grads()
 
@@ -1772,7 +2478,35 @@ def main():
 
     # Resume state (loaded before wandb init so we can reuse the run ID)
     _resume_state = None
-    if args.resume_from:
+    if args.flamingo:
+        # Flamingo: frozen base model + cross-attention LoRA only (no self-attn LoRA)
+        from flamingo_oracle import FlamingoOracleWrapper
+        if rank == 0:
+            print("Flamingo mode: freezing base model (no self-attention LoRA)")
+        for p in base_model.parameters():
+            p.requires_grad = False
+        xattn_lora_r = args.flamingo_xattn_lora_r
+        if rank == 0:
+            print(f"Wrapping with Flamingo cross-attention (interval={args.flamingo_xattn_interval}, lora_r={xattn_lora_r})")
+        model = FlamingoOracleWrapper(
+            base_model, base_model.config,
+            xattn_interval=args.flamingo_xattn_interval,
+            lora_r=xattn_lora_r, lora_alpha=xattn_lora_r * 2,
+        )
+        if args.resume_from:
+            flamingo_path = Path(args.resume_from) / "flamingo_modules.pt"
+            if flamingo_path.exists():
+                model.load_flamingo_modules(str(args.resume_from))
+                if rank == 0:
+                    print(f"  Loaded Flamingo modules from {args.resume_from}")
+            state_path = Path(args.resume_from) / "training_state.pt"
+            if state_path.exists():
+                _resume_state = torch.load(state_path, map_location="cpu", weights_only=False)
+                if not getattr(args, "_cli_start_step", False):
+                    args.start_step = _resume_state["global_step"]
+                if rank == 0:
+                    print(f"  Loaded training_state.pt: step={_resume_state['global_step']}, wandb_id={_resume_state.get('wandb_run_id')}")
+    elif args.resume_from:
         if rank == 0:
             print(f"Resuming from checkpoint: {args.resume_from}")
         model = PeftModel.from_pretrained(
@@ -1808,7 +2542,7 @@ def main():
             is_trainable=True, autocast_adapter_dtype=False,
         )
 
-    # Ensure LoRA params are fp32 (optimizer states stay fp32; autocast handles forward pass)
+    # Ensure trainable params are fp32 (optimizer states stay fp32; autocast handles forward pass)
     for p in model.parameters():
         if p.requires_grad:
             p.data = p.data.float()
@@ -1872,6 +2606,7 @@ def main():
             project=args.wandb_project,
             entity=args.wandb_entity,
             name=run_name,
+            group=args.wandb_group,
             id=resume_id,
             resume="allow" if resume_id else None,
             config=wandb_config,
@@ -1893,14 +2628,17 @@ def main():
     save_dir = Path(args.save_dir)
 
     # ── Precompute eval activation caches (rank 0 only) ──
+    # Skip in Flamingo and no-activations modes
     eval_names = getattr(args, "evals", None)
-    if rank == 0 and eval_names:
+    if rank == 0 and eval_names and not args.flamingo and not args.no_activations:
         from evals.training_eval_hook import precache_eval_activations
         print(f"\n{'=' * 60}")
         print("PRECOMPUTING EVAL ACTIVATIONS")
         print(f"{'=' * 60}")
+        # For Flamingo mode, use the underlying base model for eval caching
+        eval_model = model.base_model if args.flamingo else model
         precache_eval_activations(
-            model, tokenizer, model_name=args.model,
+            eval_model, tokenizer, model_name=args.model,
             device=f"cuda:{local_rank}", eval_dir=args.eval_dir,
             activation_cache_dir=args.activation_cache_dir,
             eval_names=eval_names,
@@ -1908,7 +2646,7 @@ def main():
             stride=args.stride,
             single_position=_SINGLE_POSITION,
         )
-        model.train()
+        eval_model.train()
         gc.collect()
         torch.cuda.empty_cache()
     if world_size > 1:

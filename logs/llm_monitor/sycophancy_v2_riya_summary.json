@@ -1,0 +1,27 @@
+{
+  "metrics": {
+    "accuracy": 0.58,
+    "n_items": 100,
+    "labels": [
+      "independent",
+      "influenced"
+    ],
+    "precision": {
+      "independent": 0.5689655172413793,
+      "influenced": 0.5952380952380952
+    },
+    "recall": {
+      "independent": 0.66,
+      "influenced": 0.5
+    },
+    "f1": {
+      "independent": 0.6111111111111112,
+      "influenced": 0.5434782608695652
+    },
+    "support": {
+      "independent": 50,
+      "influenced": 50
+    }
+  },
+  "n_items": 100
+}

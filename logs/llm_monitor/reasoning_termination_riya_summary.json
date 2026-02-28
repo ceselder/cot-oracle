@@ -1,0 +1,27 @@
+{
+  "metrics": {
+    "accuracy": 0.5238095238095238,
+    "n_items": 84,
+    "labels": [
+      "will_continue",
+      "will_terminate"
+    ],
+    "precision": {
+      "will_continue": 0.5217391304347826,
+      "will_terminate": 0.5263157894736842
+    },
+    "recall": {
+      "will_continue": 0.5714285714285714,
+      "will_terminate": 0.47619047619047616
+    },
+    "f1": {
+      "will_continue": 0.5454545454545454,
+      "will_terminate": 0.5
+    },
+    "support": {
+      "will_continue": 42,
+      "will_terminate": 42
+    }
+  },
+  "n_items": 84
+}
