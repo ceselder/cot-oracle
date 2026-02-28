@@ -1,14 +1,33 @@
-# Ablation: stride=10, 6 layers (sparser temporal, denser layer coverage)
-# Inherits everything from train.yaml except overrides below
+# Ablation: Stride-10, 6 Layers, No Pooling
+# Dense stride (10), 6 injection layers [5,10,15,20,25,30], no pooling, no PE.
+# Probe-only (no text inversion tasks). Fresh LoRA.
+# Override on top of train.yaml: --config configs/train.yaml configs/ablation_stride10_6layers.yaml
+
+tasks:
+  full_recon:
+    n: 0
+  next_step:
+    n: 0
+  answer_trajectory:
+    n: 0
+  conv_qa:
+    n: 0
 
 activations:
   stride: 10
   n_layers: 6
+  # no pooling at stride=10 (dense enough already)
+  sparse_positions: true
+  n_prompt_positions: 0
+  position_encoding: false
 
 training:
-  batch_size: 4
-  effective_batch_size: 16   # grad_accum=4
+  batch_size: 2
+  effective_batch_size: 16
   eval_batch_size: 2
+
+model:
+  fresh_lora: true
 
 output:
   wandb_run: ablation-stride10-6layers
