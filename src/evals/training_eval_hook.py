@@ -61,7 +61,9 @@ from evals.activation_cache import (
     maybe_load_cached_bundle as _maybe_load_cached,
     save_bundle_with_metadata as _save_bundle_with_metadata,
 )
+import evals.activation_cache as activation_cache_module
 from core.ao import (
+    collect_activations,
     run_oracle_on_activations as _run_oracle_raw,
     load_extra_adapter,
     layer_percent_to_layer,
@@ -73,6 +75,8 @@ from core.ao import (
     SPECIAL_TOKEN,
 )
 from cot_utils import get_injection_layers
+from cot_utils import get_cot_positions
+from evals.activation_cache import build_full_text_from_prompt_and_cot
 
 
 # Evals to run during training, in order of cost (cheapest first).
@@ -410,6 +414,137 @@ def _collect_and_batch_oracle(
     except Exception as e:
         print(f"    [{eval_name}] Batched oracle generation failed: {e}")
         traceback.print_exc()
+
+
+def _pool_vectors(vectors: torch.Tensor, mode: str) -> torch.Tensor:
+    """Pool activation vectors to mirror eval activation cache behavior."""
+    if mode == "single":
+        return vectors.mean(dim=0, keepdim=True)
+    if mode == "chunks5":
+        k = vectors.shape[0]
+        n = min(5, k)
+        chunks = torch.chunk(vectors, n, dim=0)
+        return torch.stack([c.mean(dim=0) for c in chunks])
+    return vectors
+
+
+def _mean_pool_windows(acts_ld: torch.Tensor, positions: list[int]) -> torch.Tensor:
+    """Mean-pool token windows between consecutive extraction positions."""
+    pooled = []
+    prev = 0
+    for p in positions:
+        window = acts_ld[prev:p + 1, :]
+        pooled.append(window.mean(dim=0))
+        prev = p + 1
+    return torch.stack(pooled, dim=0)
+
+
+def _batch_extract_activation_bundles(
+    model,
+    tokenizer,
+    rows: list[dict],
+    layers: list[int],
+    stride: int | str,
+    *,
+    device: str = "cuda",
+    batch_size: int = 8,
+) -> dict[str, ActivationBundle]:
+    """Extract eval activation bundles in mini-batches.
+
+    Args:
+        rows: dicts with keys eval_name, example_id, prompt, cot_text.
+        layers: activation extraction layers.
+        stride: extraction stride (int or "punctuation").
+        batch_size: max number of eval items per extraction forward batch.
+    """
+    if not rows:
+        return {}
+
+    pooling_mode = getattr(activation_cache_module, "_POOLING_MODE", "none")
+    if pooling_mode not in {"none", "windows", "single", "chunks5"}:
+        pooling_mode = "none"
+
+    pad_id = tokenizer.pad_token_id if tokenizer.pad_token_id is not None else tokenizer.eos_token_id
+    prepared = []
+    for row in rows:
+        cot_text = (row.get("cot_text") or "").strip()
+        if not cot_text:
+            continue
+        prompt = row["prompt"]
+        full_text = build_full_text_from_prompt_and_cot(tokenizer, prompt, cot_text)
+        messages = [{"role": "user", "content": prompt}]
+        formatted = tokenizer.apply_chat_template(
+            messages, tokenize=False, add_generation_prompt=True, enable_thinking=True,
+        )
+        prompt_ids = tokenizer.encode(formatted, add_special_tokens=False)
+        all_ids = tokenizer.encode(full_text, add_special_tokens=False)
+        positions = get_cot_positions(
+            len(prompt_ids), len(all_ids), stride=stride,
+            tokenizer=tokenizer, input_ids=all_ids,
+        )
+        if len(positions) < 2:
+            continue
+        prepared.append({
+            **row,
+            "all_ids": all_ids,
+            "positions": positions,
+        })
+
+    if not prepared:
+        return {}
+
+    bundles: dict[str, ActivationBundle] = {}
+    bs = max(1, int(batch_size))
+    for start in range(0, len(prepared), bs):
+        chunk = prepared[start:start + bs]
+        max_len = max(len(r["all_ids"]) for r in chunk)
+
+        input_rows = []
+        attn_rows = []
+        left_offsets = []
+        for r in chunk:
+            ids = r["all_ids"]
+            pad_len = max_len - len(ids)
+            input_rows.append([pad_id] * pad_len + ids)
+            attn_rows.append([0] * pad_len + [1] * len(ids))
+            left_offsets.append(pad_len)
+
+        input_ids = torch.tensor(input_rows, dtype=torch.long, device=device)
+        attention_mask = torch.tensor(attn_rows, dtype=torch.bool, device=device)
+
+        acts_by_layer: dict[int, torch.Tensor] = {}
+        for layer in layers:
+            acts_by_layer[layer] = collect_activations(
+                model, layer, input_ids, attention_mask,
+            )
+
+        for i, r in enumerate(chunk):
+            adjusted = [p + left_offsets[i] for p in r["positions"]]
+            per_layer = []
+            for layer in layers:
+                acts_ld = acts_by_layer[layer][i]
+                if pooling_mode == "windows":
+                    lv = _mean_pool_windows(acts_ld, adjusted)
+                else:
+                    lv = acts_ld[adjusted, :]
+                    lv = _pool_vectors(lv, pooling_mode)
+                per_layer.append(lv)
+            activations = torch.cat(per_layer, dim=0) if len(per_layer) > 1 else per_layer[0]
+            key = f"{r['eval_name']}::{r['example_id']}"
+            bundles[key] = ActivationBundle(
+                eval_name=r["eval_name"],
+                example_id=r["example_id"],
+                prompt=r["prompt"],
+                cot_text=r["cot_text"],
+                activations=activations.detach().contiguous(),
+                boundary_positions=r["positions"],
+                sentences=[],
+            )
+
+        del acts_by_layer, input_ids, attention_mask
+        torch.cuda.empty_cache()
+
+    return bundles
 
 
 def _run_standard_eval(
@@ -1301,6 +1436,7 @@ def precache_eval_activations(
     eval_names: list[str] | None = None,
     oracle_adapter_name: str = "default",
     stride: int | str = None,
+    eval_batch_size: int = 8,
 ):
     """Pre-extract and cache activation bundles for all eval items.
 
@@ -1322,7 +1458,7 @@ def precache_eval_activations(
     # Configure oracle mode — layers match training (from CONFIGURED_LAYERS)
     act_layers = get_injection_layers(model_name)
     set_oracle_mode(trained=True, oracle_adapter_name=oracle_adapter_name, stride=stride, layers=act_layers)
-    print(f"  [precache] Extraction: layers={act_layers}, stride={stride}")
+    print(f"  [precache] Extraction: layers={act_layers}, stride={stride}, batch_size={eval_batch_size}")
 
     model.eval()
     eval_list = eval_names or TRAINING_EVALS
@@ -1357,7 +1493,8 @@ def precache_eval_activations(
         stale_msg = f" ({total_stale} stale)" if total_stale else ""
         print(f"  [precache] {eval_name}: {len(uncached)}/{len(items)} items need extraction{stale_msg}")
 
-        for item in tqdm(uncached, desc=f"  {eval_name}", leave=False):
+        rows_to_extract = []
+        for item in uncached:
             # Get CoT text from precomputed metadata
             cot_text = (
                 item.metadata.get("qwen3_8b_test_response")
@@ -1373,35 +1510,44 @@ def precache_eval_activations(
                 )
             if not cot_text:
                 continue
-
-            bundle = _apply_oracle_mode_to_extract(
-                model, tokenizer,
-                eval_name=eval_name,
-                example_id=item.example_id,
-                prompt=item.test_prompt,
-                cot_text=cot_text,
-                act_layer=act_layers[0],
-                device=device,
-                max_boundaries=10,
-                generation_adapter_name=None,
-            )
-            if bundle:
-                # Store text responses too
-                clean_text = (
+            rows_to_extract.append({
+                "eval_name": eval_name,
+                "example_id": item.example_id,
+                "prompt": item.test_prompt,
+                "cot_text": cot_text,
+                "clean_text": (
                     item.metadata.get("qwen3_8b_clean_response")
                     or _first_rollout(item.metadata.get("clean_rollouts"))
                     or ""
-                )
-                _auto_cache_bundle(
-                    cache_dir, eval_name=eval_name, example_id=item.example_id,
-                    prompt=item.test_prompt, cot_text=cot_text,
-                    activations=bundle.activations,
-                    boundary_positions=bundle.boundary_positions,
-                    clean_response=clean_text, test_response=cot_text,
-                    clean_answer=item.metadata.get("qwen3_8b_clean_answer"),
-                    test_answer=item.metadata.get("qwen3_8b_test_answer"),
-                )
-                total_new += 1
+                ),
+                "clean_answer": item.metadata.get("qwen3_8b_clean_answer"),
+                "test_answer": item.metadata.get("qwen3_8b_test_answer"),
+            })
+
+        if not rows_to_extract:
+            continue
+
+        bundles = _batch_extract_activation_bundles(
+            model, tokenizer, rows_to_extract, act_layers, stride,
+            device=device, batch_size=eval_batch_size,
+        )
+
+        # Persist bundles + text metadata for cache hits during training eval.
+        for row in tqdm(rows_to_extract, desc=f"  {eval_name}", leave=False):
+            key = f"{eval_name}::{row['example_id']}"
+            bundle = bundles.get(key)
+            if not bundle:
+                continue
+            _auto_cache_bundle(
+                cache_dir, eval_name=eval_name, example_id=row["example_id"],
+                prompt=row["prompt"], cot_text=row["cot_text"],
+                activations=bundle.activations,
+                boundary_positions=bundle.boundary_positions,
+                clean_response=row["clean_text"], test_response=row["cot_text"],
+                clean_answer=row["clean_answer"],
+                test_answer=row["test_answer"],
+            )
+            total_new += 1
 
         torch.cuda.empty_cache()
 
