@@ -38,7 +38,7 @@ def load_cot_position_qa_data(
       4. Oracle prompt asks about reasoning at that position
       5. Target is the LLM-generated description of next reasoning steps
     """
-    from cot_utils import get_cot_positions, get_injection_layers
+    from cot_utils import get_injection_layers
 
     random.seed(seed)
 
@@ -67,12 +67,6 @@ def load_cot_position_qa_data(
                for qa in qa_pairs if qa["cot_id"] in corpus_by_id]
     random.shuffle(matched)
     print(f"  Matched {len(matched)} QA pairs to corpus entries")
-
-    def _get_prompt_positions(formatted_len: int, n: int = 5) -> list[int]:
-        if formatted_len < n:
-            return list(range(formatted_len))
-        step = formatted_len / (n + 1)
-        return [int(step * (i + 1)) for i in range(n)]
 
     datapoints = []
 
@@ -116,22 +110,9 @@ def load_cot_position_qa_data(
         if abs_pos >= len(full_ids) - 5:
             continue  # position too close to end
 
-        # Get stride positions only up to the target position
-        positions = get_cot_positions(
-            prompt_len, abs_pos + 1,  # only up to the position
-            stride=stride, tokenizer=tokenizer, input_ids=full_ids[:abs_pos + 1],
-        )
-        if len(positions) < 1:
-            continue
-
-        # Ensure the target position itself is included
-        if abs_pos not in positions:
-            positions.append(abs_pos)
-            positions.sort()
-
-        prompt_positions = _get_prompt_positions(prompt_len, n_prompt_positions)
-        combined = prompt_positions + positions
-        context_positions = combined * len(LAYERS)
+        # Only feed the single activation at the target position
+        positions = [abs_pos]
+        context_positions = positions * len(LAYERS)
         num_positions = len(context_positions)
 
         # Context: tokens up to the target position
