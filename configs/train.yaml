@@ -38,7 +38,7 @@ tasks:
     description: "Predict final answer from partial CoT"
 
   answer_trajectory:
-    n: 20000
+    n: 60000
     description: "What does the model currently think the answer is? (per-sentence, precompute-only)"
 
   # --- Analytical / classification (computational queries over activations) ---
