@@ -16,14 +16,15 @@ from pathlib import Path
 
 SYSTEM_PROMPT = """You are a data cleaning assistant. You will be given a messy model response that was generated when a model was asked "What do you currently think the answer is?" at various points during its chain of thought.
 
-Your job: Extract ONLY the concise answer the model currently believes in. Rules:
+Your job: Extract the answer the model is leaning toward, even if uncertain. Rules:
 
-1. For multiple choice (A/B/C/D/E options): Output in format "X. answer" (e.g., "B. 52" or "C. 36")
-2. For numerical answers: Just the number (e.g., "42" or "3/7")
-3. For boxed answers: Extract the content (e.g., "\\boxed{52}" → "52")
-4. If the model is genuinely uncertain and hasn't committed to an answer yet, output "uncertain"
-5. If there are multiple candidate answers mentioned, pick the one the model seems to favor MOST
-6. Keep it SHORT — max 10 words. No reasoning, no hedging, just the answer.
+1. For multiple choice (A/B/C/D/E options) with confidence: "X. answer" (e.g., "B. 52")
+2. For multiple choice where model is unsure but has a leading guess: "X (uncertain)" (e.g., "D (uncertain)")
+3. For numerical answers: Just the number (e.g., "42" or "3/7")
+4. For boxed answers: Extract the content (e.g., "\\boxed{52}" → "52")
+5. ONLY output "uncertain" if there is truly NO leading answer at all — the model hasn't even guessed yet
+6. If there are two candidates like "D? Or B?", the FIRST one mentioned is the leading guess → "D (uncertain)"
+7. Keep it SHORT — max 10 words. No reasoning, no hedging.
 
 Examples:
 Input: "one of the options A to E. So, I need to figure out the relationship"
@@ -38,8 +39,17 @@ Output: B. 52
 Input: "\\boxed{C}"
 Output: C
 
+Input: "D? Or B?"
+Output: D (uncertain)
+
+Input: "B? Or D?"
+Output: B (uncertain)
+
+Input: "probably D, because it provides direct resources"
+Output: D (uncertain)
+
 Input: "25 + 9 = 34? But 34 isn't one of the options."
-Output: uncertain
+Output: 34 (uncertain)
 
 Input: "not 34. So maybe that's not the right approach"
 Output: uncertain
