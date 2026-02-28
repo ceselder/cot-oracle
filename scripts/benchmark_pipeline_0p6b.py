@@ -2,7 +2,6 @@
 """Benchmark local train/eval throughput for CoT Oracle with Qwen3-0.6B."""
 
 import argparse
-import importlib.util
 import json
 import os
 import random
@@ -386,18 +385,14 @@ def main():
     precomputed_dir = Path(args.precomputed_dir)
     raw_rows = load_raw_training_examples(precomputed_dir, args.tasks, args.samples_per_task)
 
-    attn_cap = {
-        "flash_attn_pkg": importlib.util.find_spec("flash_attn") is not None,
-        "device_name": torch.cuda.get_device_name(0),
-        "compute_capability": torch.cuda.get_device_capability(0),
-    }
+    device_name = torch.cuda.get_device_name(0)
+    compute_capability = torch.cuda.get_device_capability(0)
 
     report = {
         "timestamp_utc": datetime.now(timezone.utc).isoformat(),
         "model_name": args.model_name,
-        "gpu": attn_cap["device_name"],
-        "compute_capability": attn_cap["compute_capability"],
-        "flash_attn_installed": attn_cap["flash_attn_pkg"],
+        "gpu": device_name,
+        "compute_capability": compute_capability,
         "layers": layers,
         "stride": stride,
         "train_tasks": args.tasks,

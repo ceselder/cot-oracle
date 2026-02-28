@@ -1,0 +1,1688 @@
+{
+  "config": {
+    "model": "Qwen/Qwen3-8B",
+    "checkpoint": "checkpoints/cot-oracle-ablation-stride5-3layers",
+    "layers": [
+      9,
+      18,
+      27
+    ],
+    "stride": 5,
+    "oracle_tasks": [
+      "recon",
+      "domain",
+      "correctness",
+      "answer",
+      "decorative"
+    ],
+    "top_k_features": 10,
+    "n_questions": 15
+  },
+  "results": [
+    {
+      "idx": 0,
+      "question": "A vessel contains 20 liters of a mixture of milk and water in the ratio 3:2. 10 liters of the mixture are removed and replaced with an equal quantity of pure milk. If the process is repeated once more, find the ratio of milk and water in the final mixture obtained?\n\nA)9:1\nB)4:2\nC)5:2\nD)9:2\nE)9:0\n\nAnswer with the letter.",
+      "cot_tokens": 3836,
+      "n_positions": 768,
+      "oracle_outputs": {
+        "recon": "Okay, let's see. There's this problem about a vessel containing 20 liters of a mixture of milk and water in the ratio 3:2. Then 10 liters of the mixture are removed and replaced with an equal quantity of pure milk. If the process is repeated once more, we need to find the ratio of milk and water in the final mixture. Hmm, let me think through this step by step.\n\nFirst, the initial mixture is 20 liters with milk to water ratio 3:2. So, I should figure out how much milk and water there is initially. Since the ratio is 3:2, that means for every 5 parts of the mixture, 3 are milk and 2 are water. So, total parts = 3 + 2 = 5. Therefore, milk is (3/5)*20 liters, and water is (2/5)*20 liters. Let me calculate that.\n\nMilk initially: (3/5)*20 = 12 liters. Water initially: (2/5)*20 = 8 liters. So, the vessel starts with 12 liters milk and 8 liters water.\n\nNow, the first step is removing 10 liters of the mixture and replacing it with pure milk. Since the mixture is uniform, removing 10 liters would remove both milk and water in the same ratio as the original mixture. So, the ratio of milk to water",
+        "domain": "math",
+        "correctness": "incorrect",
+        "answer": "A",
+        "decorative": "load_bearing"
+      },
+      "top_sae_features": {
+        "9": [
+          {
+            "feature": 63067,
+            "count": 697,
+            "mean_act": 5.77,
+            "label": "flutter/material import in code examples"
+          },
+          {
+            "feature": 65103,
+            "count": 446,
+            "mean_act": 3.56,
+            "label": "quantifiable information and calculation"
+          },
+          {
+            "feature": 26421,
+            "count": 207,
+            "mean_act": 3.44,
+            "label": "adverbs and participles ending in -ly/-ing"
+          },
+          {
+            "feature": 19556,
+            "count": 167,
+            "mean_act": 4.64,
+            "label": "Numerical examples"
+          },
+          {
+            "feature": 17539,
+            "count": 138,
+            "mean_act": 3.92,
+            "label": "Influx and negative terms"
+          }
+        ],
+        "18": [
+          {
+            "feature": 32670,
+            "count": 543,
+            "mean_act": 8.12,
+            "label": "Ratio and parts calculation"
+          },
+          {
+            "feature": 3459,
+            "count": 500,
+            "mean_act": 7.1,
+            "label": "Verbs related to positive actions and processes"
+          },
+          {
+            "feature": 27634,
+            "count": 462,
+            "mean_act": 10.64,
+            "label": "Placeholder or connective words"
+          },
+          {
+            "feature": 48777,
+            "count": 333,
+            "mean_act": 7.17,
+            "label": "Applications and production of chemicals"
+          },
+          {
+            "feature": 34587,
+            "count": 192,
+            "mean_act": 8.79,
+            "label": "Specific letter sequences in words"
+          }
+        ],
+        "27": [
+          {
+            "feature": 37172,
+            "count": 311,
+            "mean_act": 50.25,
+            "label": "Words indicating refusal or negative intent"
+          },
+          {
+            "feature": 3459,
+            "count": 227,
+            "mean_act": 25.71,
+            "label": "Technical testing and operational procedures"
+          },
+          {
+            "feature": 61947,
+            "count": 208,
+            "mean_act": 25.54,
+            "label": "Quantities and entities in word problems"
+          },
+          {
+            "feature": 29254,
+            "count": 190,
+            "mean_act": 40.56,
+            "label": "Common punctuation and short words/numbers"
+          },
+          {
+            "feature": 34632,
+            "count": 153,
+            "mean_act": 28.68,
+            "label": "Careful analysis and determination"
+          }
+        ]
+      }
+    },
+    {
+      "idx": 1,
+      "question": "Martha buys 1 latte for $4.00 every morning, 5 days a week.  3 days a week, she buys an iced coffee for $2.00.  Her goal for the entire year is to cut her coffee spending by 25%.  How much will she save?",
+      "cot_tokens": 1433,
+      "n_positions": 288,
+      "oracle_outputs": {
+        "recon": "Okay, let's see. Marsha wants to save money on her coffee. She buys a latte every day, 5 days a week, and an iced coffee 3 days a week. Each latte is $4.00, and each iced coffee is $2.00. Her goal is to cut her coffee spending by 25%. I need to figure out how much she'll save by doing that.\n\nFirst, I should calculate how much she currently spends on coffee in a year. Let me break it down step by step.\n\nStarting with the lattes. She buys one every day, 5 days a week. So, per week, that's 5 lattes. Each latte is $4.00. So, weekly cost for lattes would be 5 times $4.00. Let me do that math: 5 * 4 = $20.00 per week. \n\nNow, for the iced coffee. She buys one 3 days a week. Each iced coffee is $2.00. So, weekly cost for iced coffee is 3 * $2.00. That's $6.00 per week.\n\nAdding those two together, her total weekly coffee spending is $20.00 (lattes) + $6.00 (iced coffee) = $26.00 per week.\n\nNow, to find",
+        "domain": "commonsense",
+        "correctness": "incorrect",
+        "answer": "338",
+        "decorative": "load_bearing"
+      },
+      "top_sae_features": {
+        "9": [
+          {
+            "feature": 63067,
+            "count": 215,
+            "mean_act": 5.83,
+            "label": "flutter/material import in code examples"
+          },
+          {
+            "feature": 65103,
+            "count": 102,
+            "mean_act": 3.36,
+            "label": "quantifiable information and calculation"
+          },
+          {
+            "feature": 26421,
+            "count": 90,
+            "mean_act": 3.76,
+            "label": "adverbs and participles ending in -ly/-ing"
+          },
+          {
+            "feature": 17539,
+            "count": 58,
+            "mean_act": 4.54,
+            "label": "Influx and negative terms"
+          },
+          {
+            "feature": 64838,
+            "count": 55,
+            "mean_act": 4.13,
+            "label": "Mathematical steps to isolate a variable"
+          }
+        ],
+        "18": [
+          {
+            "feature": 3459,
+            "count": 188,
+            "mean_act": 8.43,
+            "label": "Verbs related to positive actions and processes"
+          },
+          {
+            "feature": 27634,
+            "count": 164,
+            "mean_act": 11.07,
+            "label": "Placeholder or connective words"
+          },
+          {
+            "feature": 20938,
+            "count": 139,
+            "mean_act": 8.88,
+            "label": "Difficulty with language or communication"
+          },
+          {
+            "feature": 25531,
+            "count": 97,
+            "mean_act": 8.34,
+            "label": "Factually consistent with document query"
+          },
+          {
+            "feature": 32670,
+            "count": 95,
+            "mean_act": 7.25,
+            "label": "Ratio and parts calculation"
+          }
+        ],
+        "27": [
+          {
+            "feature": 37172,
+            "count": 157,
+            "mean_act": 57.87,
+            "label": "Words indicating refusal or negative intent"
+          },
+          {
+            "feature": 3459,
+            "count": 98,
+            "mean_act": 28.76,
+            "label": "Technical testing and operational procedures"
+          },
+          {
+            "feature": 35246,
+            "count": 70,
+            "mean_act": 39.74,
+            "label": "Numerical calculations and formulas"
+          },
+          {
+            "feature": 34632,
+            "count": 52,
+            "mean_act": 31.39,
+            "label": "Careful analysis and determination"
+          },
+          {
+            "feature": 60820,
+            "count": 51,
+            "mean_act": 27.85,
+            "label": "Numerical and symbolic representations"
+          }
+        ]
+      }
+    },
+    {
+      "idx": 2,
+      "question": "Is the following trait inherited or acquired?\nMost humans can hear many different sounds.\n\nA) inherited\nB) acquired\n\nAnswer with the letter.",
+      "cot_tokens": 533,
+      "n_positions": 108,
+      "oracle_outputs": {
+        "recon": "A) inherited",
+        "domain": "science",
+        "correctness": "incorrect",
+        "answer": "A",
+        "decorative": "load_bearing"
+      },
+      "top_sae_features": {
+        "9": [
+          {
+            "feature": 63067,
+            "count": 74,
+            "mean_act": 6.11,
+            "label": "flutter/material import in code examples"
+          },
+          {
+            "feature": 26421,
+            "count": 72,
+            "mean_act": 4.55,
+            "label": "adverbs and participles ending in -ly/-ing"
+          },
+          {
+            "feature": 26478,
+            "count": 20,
+            "mean_act": 5.71,
+            "label": "medical term 'sensorineural'"
+          },
+          {
+            "feature": 43098,
+            "count": 16,
+            "mean_act": 3.1,
+            "label": "describes something directly related to the subject"
+          },
+          {
+            "feature": 23138,
+            "count": 12,
+            "mean_act": 8.43,
+            "label": "ear anatomy/medical terms"
+          }
+        ],
+        "18": [
+          {
+            "feature": 3459,
+            "count": 101,
+            "mean_act": 10.25,
+            "label": "Verbs related to positive actions and processes"
+          },
+          {
+            "feature": 27634,
+            "count": 91,
+            "mean_act": 12.77,
+            "label": "Placeholder or connective words"
+          },
+          {
+            "feature": 20938,
+            "count": 89,
+            "mean_act": 9.29,
+            "label": "Difficulty with language or communication"
+          },
+          {
+            "feature": 48777,
+            "count": 35,
+            "mean_act": 7.79,
+            "label": "Applications and production of chemicals"
+          },
+          {
+            "feature": 26421,
+            "count": 32,
+            "mean_act": 7.53,
+            "label": "Common connecting and numerical words"
+          }
+        ],
+        "27": [
+          {
+            "feature": 3459,
+            "count": 89,
+            "mean_act": 33.51,
+            "label": "Technical testing and operational procedures"
+          },
+          {
+            "feature": 34632,
+            "count": 58,
+            "mean_act": 31.94,
+            "label": "Careful analysis and determination"
+          },
+          {
+            "feature": 29254,
+            "count": 36,
+            "mean_act": 38.96,
+            "label": "Common punctuation and short words/numbers"
+          },
+          {
+            "feature": 60820,
+            "count": 27,
+            "mean_act": 28.63,
+            "label": "Numerical and symbolic representations"
+          },
+          {
+            "feature": 34266,
+            "count": 24,
+            "mean_act": 32.82,
+            "label": "genetic and environmental factors"
+          }
+        ]
+      }
+    },
+    {
+      "idx": 3,
+      "question": "\u043a\u0442\u043e \u0442\u0430\u043a\u043e\u0439 \u0434\u0438\u0441\u0446\u0438\u043f\u043b\u0438\u043d\u0430\u0442\u043e\u0440",
+      "cot_tokens": 884,
+      "n_positions": 178,
+      "oracle_outputs": {
+        "recon": "\u0425\u043e\u0440\u043e\u0448\u043e, \u043f\u043e\u043b\u044c\u0437\u043e\u0432\u0430\u0442\u0435\u043b\u044c \u0441\u043f\u0440\u0430\u0448\u0438\u0432\u0430\u0435\u0442, \u043a\u0442\u043e \u0442\u0430\u043a\u043e\u0439 \u0434\u0438\u0441\u0446\u0438\u043f\u043b\u0438\u043d\u0430\u0442\u043e\u0440. \u0421\u043d\u0430\u0447\u0430\u043b\u0430 \u043c\u043d\u0435 \u043d\u0443\u0436\u043d\u043e \u043f\u043e\u043d\u044f\u0442\u044c, \u0447\u0442\u043e \u043e\u043d \u0438\u043c\u0435\u0435\u0442 \u0432 \u0432\u0438\u0434\u0443 \u043f\u043e\u0434 \u044d\u0442\u0438\u043c \u0442\u0435\u0440\u043c\u0438\u043d\u043e\u043c. \u0412\u043e\u0437\u043c\u043e\u0436\u043d\u043e, \u044d\u0442\u043e \u043d\u0435 \u043e\u0447\u0435\u043d\u044c \u0440\u0430\u0441\u043f\u0440\u043e\u0441\u0442\u0440\u0430\u043d\u0451\u043d\u043d\u044b\u0439 \u0442\u0435\u0440\u043c\u0438\u043d, \u043f\u043e\u044d\u0442\u043e\u043c\u0443 \u0441\u0442\u043e\u0438\u0442 \u0440\u0430\u0441\u0441\u043c\u043e\u0442\u0440\u0435\u0442\u044c \u0432\u043e\u0437\u043c\u043e\u0436\u043d\u044b\u0435 \u0438\u043d\u0442\u0435\u0440\u043f\u0440\u0435\u0442\u0430\u0446\u0438\u0438.\n\n\u0421\u043d\u0430\u0447\u0430\u043b\u0430 \u0432\u0441\u043f\u043e\u043c\u043d\u044e, \u0447\u0442\u043e \u0441\u043b\u043e\u0432\u043e \"\u0434\u0438\u0441\u0446\u0438\u043f\u043b\u0438\u043d\u0430\u0442\u043e\u0440\" \u043c\u043e\u0436\u0435\u0442 \u0431\u044b\u0442\u044c \u043d\u0435 \u0441\u043e\u0432\u0441\u0435\u043c \u0441\u0442\u0430\u043d\u0434\u0430\u0440\u0442\u043d\u044b\u043c. \u0412\u043e\u0437\u043c\u043e\u0436\u043d\u043e, \u043f\u043e\u043b\u044c\u0437\u043e\u0432\u0430\u0442\u0435\u043b\u044c \u0438\u043c\u0435\u043b \u0432 \u0432\u0438\u0434\u0443 \"\u0434\u0438\u0441\u0446\u0438\u043f\u043b\u0438\u043d\u0430\u0440\u043d\u044b\u0439\" \u0438\u043b\u0438 \"\u0434\u0438\u0441\u0446\u0438\u043f\u043b\u0438\u043d\u0438\u0440\u0443\u044e\u0449\u0438\u0439\". \u041d\u043e \u0435\u0441\u043b\u0438 \u043e\u043d \u043d\u0430\u043f\u0438\u0441\u0430\u043b \u0438\u043c\u0435\u043d\u043d\u043e \"\u0434\u0438\u0441\u0446\u0438\u043f\u043b\u0438\u043d\u0430\u0442\u043e\u0440\", \u0442\u043e \u043d\u0443\u0436\u043d\u043e \u0443\u0442\u043e\u0447\u043d\u0438\u0442\u044c.\n\n\u041c\u043e\u0436\u0435\u0442 \u0431\u044b\u0442\u044c, \u044d\u0442\u043e \u0447\u0435\u043b\u043e\u0432\u0435\u043a, \u043a\u043e\u0442\u043e\u0440\u044b\u0439 \u043d\u0430\u043a\u0430\u0437\u044b\u0432\u0430\u0435\u0442 \u0437\u0430 \u043d\u0430\u0440\u0443\u0448\u0435\u043d\u0438\u0435 \u0434\u0438\u0441\u0446\u0438\u043f\u043b\u0438\u043d\u044b, \u043d\u0430\u043f\u0440\u0438\u043c\u0435\u0440, \u0443\u0447\u0438\u0442\u0435\u043b\u044c, \u043d\u0430\u0447\u0430\u043b\u044c\u043d\u0438\u043a \u0438\u043b\u0438 \u0441\u0443\u0434\u044c\u044f. \u041d\u043e \u0442\u043e\u0433\u0434\u0430 \u0441\u0442\u043e\u0438\u0442 \u0443\u0442\u043e\u0447\u043d\u0438\u0442\u044c \u043a\u043e\u043d\u0442\u0435\u043a\u0441\u0442. \u0412\u043e\u0437\u043c\u043e\u0436\u043d\u043e, \u044d\u0442\u043e \u043f\u0435\u0440\u0441\u043e\u043d\u0430\u0436 \u0438\u0437 \u043a\u0430\u043a\u043e\u0439-\u0442\u043e \u043a\u043d\u0438\u0433\u0438, \u0444\u0438\u043b\u044c\u043c\u0430 \u0438\u043b\u0438 \u0438\u0433\u0440\u044b. \u041d\u0430\u043f\u0440\u0438\u043c\u0435\u0440, \u0432 \u043d\u0435\u043a\u043e\u0442\u043e\u0440\u044b\u0445 \u043f\u0440\u043e\u0438\u0437\u0432\u0435\u0434\u0435\u043d\u0438\u044f\u0445 \u0435\u0441\u0442\u044c \u043f\u0435\u0440\u0441\u043e\u043d\u0430\u0436\u0438, \u043a\u043e\u0442\u043e\u0440\u044b\u0435 \u0441\u0442\u0440\u043e\u0433\u043e \u0441\u043b\u0435\u0434\u044f\u0442 \u0437\u0430 \u0434\u0438\u0441\u0446\u0438\u043f\u043b\u0438\u043d\u043e\u0439.\n\n\u0422\u0430\u043a\u0436\u0435 \u0441\u0442\u043e\u0438\u0442 \u043f\u0440\u043e\u0432\u0435\u0440\u0438\u0442\u044c, \u043d\u0435 \u044f\u0432\u043b\u044f\u0435\u0442\u0441\u044f \u043b\u0438 \u044d\u0442\u043e \u043e\u043f\u0435\u0447\u0430\u0442\u043a\u043e\u0439. \u041d\u0430\u043f\u0440\u0438\u043c\u0435\u0440, \"\u0434\u0438\u0441\u0446\u0438\u043f\u043b\u0438\u043d\u0430\u0442\u043e\u0440\" \u043c\u043e\u0436\u0435\u0442 \u0431\u044b\u0442\u044c \u043e\u0448\u0438\u0431\u043a\u043e\u0439 \u0432 \u043d\u0430\u043f\u0438\u0441\u0430\u043d\u0438\u0438, \u0438 \u0438\u043c\u0435\u043b\u043e\u0441\u044c \u0432 \u0432\u0438\u0434\u0443 \"\u0434\u0438\u0441\u0446\u0438\u043f\u043b\u0438\u043d\u0430\u0440\u043d\u044b\u0439\" \u0438\u043b\u0438 \"\u0434\u0438\u0441\u0446\u0438\u043f\u043b\u0438\u043d\u0438\u0440\u0443\u044e\u0449\u0438\u0439\". \u041d\u043e \u0435\u0441\u043b\u0438 \u043f\u043e\u043b\u044c\u0437\u043e\u0432\u0430\u0442\u0435\u043b\u044c \u0442\u043e\u0447\u043d\u043e \u043d\u0430\u043f\u0438\u0441\u0430\u043b \"\u0434\u0438\u0441\u0446\u0438\u043f\u043b\u0438\u043d\u0430\u0442\u043e\u0440",
+        "domain": "commonsense",
+        "correctness": "incorrect",
+        "answer": "\u0414\u0438\u0441\u0446\u0438\u043f\u043b\u0438\u043d\u0430\u0442\u043e\u0440 \u2014 \u044d\u0442\u043e \u0447\u0435\u043b\u043e\u0432\u0435\u043a, \u043a\u043e\u0442\u043e\u0440\u044b\u0439 \u043f\u043e\u0434\u0434\u0435\u0440\u0436\u0438\u0432\u0430\u0435\u0442 \u0434\u0438\u0441\u0446\u0438\u043f\u043b\u0438\u043d\u0443, \u043d\u0430\u043a\u0430\u0437\u044b\u0432\u0430\u0435\u0442 \u0437\u0430 \u043d\u0430\u0440\u0443\u0448\u0435\u043d\u0438\u044f \u043f\u0440\u0430\u0432\u0438\u043b \u0438\u043b\u0438 \u043a\u043e\u043d\u0442\u0440\u043e\u043b\u0438\u0440\u0443\u0435\u0442 \u043f\u043e\u0432\u0435\u0434\u0435\u043d\u0438\u0435. \u0412 \u0437\u0430\u0432\u0438\u0441\u0438\u043c\u043e\u0441\u0442\u0438 \u043e\u0442 \u043a\u043e\u043d\u0442\u0435\u043a\u0441\u0442\u0430, \u044d\u0442\u043e \u043c\u043e\u0436\u0435\u0442 \u0431\u044b\u0442\u044c \u0443\u0447\u0438\u0442\u0435\u043b\u044c, \u043d\u0430\u0447\u0430\u043b\u044c\u043d\u0438\u043a, \u0442\u0440\u0435\u043d\u0435\u0440 \u0438\u043b\u0438 \u043b\u044e\u0431\u043e\u0439 \u0434\u0440\u0443\u0433\u043e\u0439 \u0447\u0435\u043b\u043e\u0432\u0435\u043a, \u043e\u0442\u0432\u0435\u0447\u0430\u044e\u0449\u0438\u0439 \u0437\u0430 \u0441\u043e\u0431\u043b\u044e\u0434\u0435\u043d\u0438\u0435 \u043f\u0440\u0430\u0432\u0438\u043b.",
+        "decorative": "load_bearing"
+      },
+      "top_sae_features": {
+        "9": [
+          {
+            "feature": 22946,
+            "count": 152,
+            "mean_act": 6.64,
+            "label": "Reasons for painting trees in spring"
+          },
+          {
+            "feature": 63067,
+            "count": 56,
+            "mean_act": 6.07,
+            "label": "flutter/material import in code examples"
+          },
+          {
+            "feature": 26421,
+            "count": 55,
+            "mean_act": 4.4,
+            "label": "adverbs and participles ending in -ly/-ing"
+          },
+          {
+            "feature": 23824,
+            "count": 45,
+            "mean_act": 8.66,
+            "label": "Specific character sequences in various languages"
+          },
+          {
+            "feature": 17194,
+            "count": 44,
+            "mean_act": 5.2,
+            "label": "instructional phrasing and guidance"
+          }
+        ],
+        "18": [
+          {
+            "feature": 3459,
+            "count": 160,
+            "mean_act": 10.21,
+            "label": "Verbs related to positive actions and processes"
+          },
+          {
+            "feature": 14715,
+            "count": 149,
+            "mean_act": 9.69,
+            "label": "Research objectives and methodology"
+          },
+          {
+            "feature": 20938,
+            "count": 111,
+            "mean_act": 9.46,
+            "label": "Difficulty with language or communication"
+          },
+          {
+            "feature": 27634,
+            "count": 104,
+            "mean_act": 12.0,
+            "label": "Placeholder or connective words"
+          },
+          {
+            "feature": 5592,
+            "count": 95,
+            "mean_act": 7.92,
+            "label": "language and dependency indicators"
+          }
+        ],
+        "27": [
+          {
+            "feature": 55201,
+            "count": 172,
+            "mean_act": 76.57,
+            "label": "Pronouns and interrogative words"
+          },
+          {
+            "feature": 37172,
+            "count": 115,
+            "mean_act": 96.8,
+            "label": "Words indicating refusal or negative intent"
+          },
+          {
+            "feature": 3459,
+            "count": 69,
+            "mean_act": 31.24,
+            "label": "Technical testing and operational procedures"
+          },
+          {
+            "feature": 14044,
+            "count": 40,
+            "mean_act": 31.38,
+            "label": "Russian pronouns and question particles"
+          },
+          {
+            "feature": 38312,
+            "count": 35,
+            "mean_act": 44.34,
+            "label": "parts of systems or objects"
+          }
+        ]
+      }
+    },
+    {
+      "idx": 4,
+      "question": "AITA for asking my parents not to upload pictures of me?\n\nThis is a recurring theme for my family for years already. Basically, they take stolen shots of me and upload them despite me asking them not to. I'm often met with \"whats wrong with uploading a picture of you\" and \"why cant you let me be happy\" whenever this happens, and that's a frequent.\n\n\nBased on this situation, is the author in the right or in the wrong? Answer with RIGHT or WRONG.",
+      "cot_tokens": 395,
+      "n_positions": 80,
+      "oracle_outputs": {
+        "recon": "Okay, let's see. The user is asking if they're in the right for asking their parents not to take pictures of them and upload them online. The context is that their parents have been taking pictures of them without permission and uploading them to social media, even after being told not to. The parents respond with things like \"What's wrong with uploading a picture of you?\" and \"Why can't you just let me be happy?\"\n\nFirst, I need to consider the rights of the individual. Privacy is a big part of this. Even if the parents are close, taking pictures of someone without their consent, especially minors, could be a privacy violation. The user has been asking them not to do it, so they're asserting their right to privacy. \n\nThen there's the aspect of consent. If the user hasn't given permission, the parents are violating their privacy. Uploading to social media without consent is a breach of privacy. Even if the parents mean well, the act of taking and sharing photos without permission is problematic.\n\nThe parents' responses seem dismissive. They're not acknowledging the user's feelings or the request. This could be a sign of a lack of respect for the user's boundaries. The user has been asking them not to do it, so it's a repeated issue, which might indicate that the parents aren't respecting the user's wishes.\n\nAlso, considering the legal aspect, in many places, taking and sharing photos of minors without consent can be illegal, especially",
+        "domain": "ethics",
+        "correctness": "incorrect",
+        "answer": "RIGHT",
+        "decorative": "load_bearing"
+      },
+      "top_sae_features": {
+        "9": [
+          {
+            "feature": 26421,
+            "count": 62,
+            "mean_act": 4.38,
+            "label": "adverbs and participles ending in -ly/-ing"
+          },
+          {
+            "feature": 63067,
+            "count": 43,
+            "mean_act": 5.06,
+            "label": "flutter/material import in code examples"
+          },
+          {
+            "feature": 17194,
+            "count": 19,
+            "mean_act": 3.65,
+            "label": "instructional phrasing and guidance"
+          },
+          {
+            "feature": 45132,
+            "count": 9,
+            "mean_act": 4.26,
+            "label": "Ethical dilemmas and right/wrong judgments"
+          },
+          {
+            "feature": 43098,
+            "count": 8,
+            "mean_act": 2.93,
+            "label": "describes something directly related to the subject"
+          }
+        ],
+        "18": [
+          {
+            "feature": 3459,
+            "count": 73,
+            "mean_act": 9.18,
+            "label": "Verbs related to positive actions and processes"
+          },
+          {
+            "feature": 20938,
+            "count": 68,
+            "mean_act": 7.81,
+            "label": "Difficulty with language or communication"
+          },
+          {
+            "feature": 27634,
+            "count": 62,
+            "mean_act": 12.36,
+            "label": "Placeholder or connective words"
+          },
+          {
+            "feature": 25531,
+            "count": 25,
+            "mean_act": 8.62,
+            "label": "Factually consistent with document query"
+          },
+          {
+            "feature": 26421,
+            "count": 21,
+            "mean_act": 7.74,
+            "label": "Common connecting and numerical words"
+          }
+        ],
+        "27": [
+          {
+            "feature": 3459,
+            "count": 60,
+            "mean_act": 29.57,
+            "label": "Technical testing and operational procedures"
+          },
+          {
+            "feature": 34632,
+            "count": 36,
+            "mean_act": 28.13,
+            "label": "Careful analysis and determination"
+          },
+          {
+            "feature": 29254,
+            "count": 32,
+            "mean_act": 39.82,
+            "label": "Common punctuation and short words/numbers"
+          },
+          {
+            "feature": 52306,
+            "count": 14,
+            "mean_act": 36.34,
+            "label": "Setting boundaries and saying no"
+          },
+          {
+            "feature": 9254,
+            "count": 14,
+            "mean_act": 35.21,
+            "label": "invasion of privacy"
+          }
+        ]
+      }
+    },
+    {
+      "idx": 5,
+      "question": "What about you will decrease after you exercise for many months?\n\nA) work out\nB) blood\nC) expend energy\nD) stretch\nE) weigh\n\nAnswer with the letter.",
+      "cot_tokens": 874,
+      "n_positions": 176,
+      "oracle_outputs": {
+        "recon": "Okay, so the question is asking what will decrease after you exercise for many months. The options are A) work out, B) blood, C) expend energy, D) stretch, E) weigh.\n\nFirst, I need to understand what each option refers to. The question is about something that decreases with prolonged exercise. Let me think about each option.\n\nOption A is \"work out.\" If you work out, you're doing exercise, so that's more about the action itself. But the question is about something that decreases, so working out might not be the answer. It's more about the activity, not a result of it.\n\nOption B is \"blood.\" Blood is a fluid in the body. I'm not sure how exercise affects blood volume. I think during exercise, the body might increase blood flow to muscles, but over time, maybe blood volume could decrease? Not sure. Maybe not the best answer.\n\nOption C is \"expend energy.\" If you exercise, you're expending energy. But the question is about something that decreases. If you expend energy, that means you're using up energy, so the amount of energy you have might decrease. But the option is phrased as \"expend energy,\" which is an action. Maybe the answer is about the energy being used up, so the energy stored in the body decreases. But I'm not certain if that's the intended answer here.\n\nOption D is \"stretch.\" Stretching is part of exercise,",
+        "domain": "commonsense",
+        "correctness": "incorrect",
+        "answer": "E",
+        "decorative": "load_bearing"
+      },
+      "top_sae_features": {
+        "9": [
+          {
+            "feature": 63067,
+            "count": 131,
+            "mean_act": 5.62,
+            "label": "flutter/material import in code examples"
+          },
+          {
+            "feature": 26421,
+            "count": 69,
+            "mean_act": 3.97,
+            "label": "adverbs and participles ending in -ly/-ing"
+          },
+          {
+            "feature": 43098,
+            "count": 55,
+            "mean_act": 3.48,
+            "label": "describes something directly related to the subject"
+          },
+          {
+            "feature": 17194,
+            "count": 51,
+            "mean_act": 4.14,
+            "label": "instructional phrasing and guidance"
+          },
+          {
+            "feature": 17539,
+            "count": 25,
+            "mean_act": 4.55,
+            "label": "Influx and negative terms"
+          }
+        ],
+        "18": [
+          {
+            "feature": 3459,
+            "count": 148,
+            "mean_act": 8.16,
+            "label": "Verbs related to positive actions and processes"
+          },
+          {
+            "feature": 27634,
+            "count": 141,
+            "mean_act": 10.94,
+            "label": "Placeholder or connective words"
+          },
+          {
+            "feature": 20938,
+            "count": 136,
+            "mean_act": 7.86,
+            "label": "Difficulty with language or communication"
+          },
+          {
+            "feature": 25531,
+            "count": 70,
+            "mean_act": 8.28,
+            "label": "Factually consistent with document query"
+          },
+          {
+            "feature": 48777,
+            "count": 65,
+            "mean_act": 7.25,
+            "label": "Applications and production of chemicals"
+          }
+        ],
+        "27": [
+          {
+            "feature": 3459,
+            "count": 114,
+            "mean_act": 28.4,
+            "label": "Technical testing and operational procedures"
+          },
+          {
+            "feature": 29254,
+            "count": 101,
+            "mean_act": 44.23,
+            "label": "Common punctuation and short words/numbers"
+          },
+          {
+            "feature": 65308,
+            "count": 64,
+            "mean_act": 36.69,
+            "label": "referencing answer choices"
+          },
+          {
+            "feature": 60820,
+            "count": 61,
+            "mean_act": 26.53,
+            "label": "Numerical and symbolic representations"
+          },
+          {
+            "feature": 34632,
+            "count": 40,
+            "mean_act": 32.25,
+            "label": "Careful analysis and determination"
+          }
+        ]
+      }
+    },
+    {
+      "idx": 6,
+      "question": "Which statement describes a positive effect of a scientific discovery?\n\nA) It makes some people upset.\nB) It takes a long time to be useful.\nC) It helps explain how things work.\nD) It causes work to be more difficult.\n\nAnswer with the letter.",
+      "cot_tokens": 561,
+      "n_positions": 113,
+      "oracle_outputs": {
+        "recon": "Okay, let's see. The question is asking which statement describes a positive effect of a scientific discovery. The options are A to D.\n\nFirst, I need to recall what a positive effect would be. Positive effects are the beneficial outcomes or advantages that result from a scientific discovery. So, I need to look for an option that highlights something good or beneficial.\n\nLooking at option A: \"It makes some people upset.\" That sounds negative. If a discovery makes people upset, that's a negative effect, not positive. So A is probably not the answer.\n\nOption B: \"It takes a long time to become useful.\" Hmm, this might be neutral or even negative. If it takes a long time, that could be seen as a drawback. But maybe sometimes it's necessary. But the question is about a positive effect, so this might not be it. Not sure yet.\n\nOption C: \"It helps people understand how things work.\" That sounds positive. Understanding how things work is a good thing. Scientific discoveries often lead to better understanding, which is a positive effect. This seems like a strong candidate.\n\nOption D: \"It causes work to be more difficult.\" That's definitely negative. If a discovery makes work harder, that's a negative effect. So D is out.\n\nSo between B and C. The question says \"a positive effect,\" so even if B is a process, the actual effect of the discovery is the understanding. So C is the answer. B is about the",
+        "domain": "science",
+        "correctness": "incorrect",
+        "answer": "C",
+        "decorative": "load_bearing"
+      },
+      "top_sae_features": {
+        "9": [
+          {
+            "feature": 63067,
+            "count": 83,
+            "mean_act": 5.87,
+            "label": "flutter/material import in code examples"
+          },
+          {
+            "feature": 26421,
+            "count": 77,
+            "mean_act": 4.63,
+            "label": "adverbs and participles ending in -ly/-ing"
+          },
+          {
+            "feature": 43098,
+            "count": 40,
+            "mean_act": 4.07,
+            "label": "describes something directly related to the subject"
+          },
+          {
+            "feature": 17194,
+            "count": 25,
+            "mean_act": 4.36,
+            "label": "instructional phrasing and guidance"
+          },
+          {
+            "feature": 60159,
+            "count": 14,
+            "mean_act": 4.92,
+            "label": "Identifying the correct answer"
+          }
+        ],
+        "18": [
+          {
+            "feature": 3459,
+            "count": 105,
+            "mean_act": 10.01,
+            "label": "Verbs related to positive actions and processes"
+          },
+          {
+            "feature": 27634,
+            "count": 93,
+            "mean_act": 13.29,
+            "label": "Placeholder or connective words"
+          },
+          {
+            "feature": 20938,
+            "count": 73,
+            "mean_act": 8.45,
+            "label": "Difficulty with language or communication"
+          },
+          {
+            "feature": 27050,
+            "count": 49,
+            "mean_act": 7.07,
+            "label": "Processes and concepts in science"
+          },
+          {
+            "feature": 25531,
+            "count": 48,
+            "mean_act": 9.06,
+            "label": "Factually consistent with document query"
+          }
+        ],
+        "27": [
+          {
+            "feature": 34632,
+            "count": 74,
+            "mean_act": 35.34,
+            "label": "Careful analysis and determination"
+          },
+          {
+            "feature": 3459,
+            "count": 70,
+            "mean_act": 28.88,
+            "label": "Technical testing and operational procedures"
+          },
+          {
+            "feature": 29254,
+            "count": 38,
+            "mean_act": 42.96,
+            "label": "Common punctuation and short words/numbers"
+          },
+          {
+            "feature": 65308,
+            "count": 32,
+            "mean_act": 42.27,
+            "label": "referencing answer choices"
+          },
+          {
+            "feature": 60820,
+            "count": 22,
+            "mean_act": 27.24,
+            "label": "Numerical and symbolic representations"
+          }
+        ]
+      }
+    },
+    {
+      "idx": 7,
+      "question": "Where can birds clean themselves?\n\nA) outside\nB) nest\nC) birdhouse\nD) roof\nE) water fountain\n\nAnswer with the letter.",
+      "cot_tokens": 735,
+      "n_positions": 148,
+      "oracle_outputs": {
+        "recon": "Okay, so the question is asking where birds can clean themselves. The options are outside, tree, birdhouse, roof, and water fountain. I need to figure out which of these is the correct answer.\n\nFirst, I should think about how birds clean themselves. I know that birds often take baths to clean their feathers. They might use water sources like puddles, streams, or even man-made things like bird baths. So maybe the answer is related to water. Let me check the options again.\n\nOption E is water fountain. That sounds like a place where birds can get water to clean themselves. But wait, what about the other options? \n\nOption A is outside. Well, birds are outside, but that's a general location. The question is asking for a specific place. \n\nOption B is nest. Birds might clean their nests, but do they clean themselves there? Maybe not. They might preen their feathers while in the nest, but the nest itself is more for shelter.\n\nOption C is birdhouse. Similar to a nest, a birdhouse is a place they live, not necessarily where they clean themselves. \n\nOption D is roof. I don't think birds clean themselves on roofs. That seems unlikely. \n\nSo, the most logical answer would be E) water fountain. Birds can use water fountains to bathe and clean their feathers. I think that's the intended answer here. Let me double-check. Yes, bird baths and water fountains are common places",
+        "domain": "commonsense",
+        "correctness": "incorrect",
+        "answer": "E",
+        "decorative": "load_bearing"
+      },
+      "top_sae_features": {
+        "9": [
+          {
+            "feature": 63067,
+            "count": 99,
+            "mean_act": 6.03,
+            "label": "flutter/material import in code examples"
+          },
+          {
+            "feature": 26421,
+            "count": 89,
+            "mean_act": 4.54,
+            "label": "adverbs and participles ending in -ly/-ing"
+          },
+          {
+            "feature": 17194,
+            "count": 27,
+            "mean_act": 4.42,
+            "label": "instructional phrasing and guidance"
+          },
+          {
+            "feature": 43098,
+            "count": 21,
+            "mean_act": 3.13,
+            "label": "describes something directly related to the subject"
+          },
+          {
+            "feature": 28330,
+            "count": 18,
+            "mean_act": 5.81,
+            "label": "pet supplies like scratching posts and beds"
+          }
+        ],
+        "18": [
+          {
+            "feature": 3459,
+            "count": 139,
+            "mean_act": 9.82,
+            "label": "Verbs related to positive actions and processes"
+          },
+          {
+            "feature": 27634,
+            "count": 117,
+            "mean_act": 12.46,
+            "label": "Placeholder or connective words"
+          },
+          {
+            "feature": 20938,
+            "count": 96,
+            "mean_act": 8.81,
+            "label": "Difficulty with language or communication"
+          },
+          {
+            "feature": 48777,
+            "count": 49,
+            "mean_act": 8.42,
+            "label": "Applications and production of chemicals"
+          },
+          {
+            "feature": 27050,
+            "count": 40,
+            "mean_act": 6.33,
+            "label": "Processes and concepts in science"
+          }
+        ],
+        "27": [
+          {
+            "feature": 3459,
+            "count": 100,
+            "mean_act": 30.05,
+            "label": "Technical testing and operational procedures"
+          },
+          {
+            "feature": 34632,
+            "count": 65,
+            "mean_act": 33.88,
+            "label": "Careful analysis and determination"
+          },
+          {
+            "feature": 60820,
+            "count": 55,
+            "mean_act": 27.01,
+            "label": "Numerical and symbolic representations"
+          },
+          {
+            "feature": 29254,
+            "count": 51,
+            "mean_act": 42.86,
+            "label": "Common punctuation and short words/numbers"
+          },
+          {
+            "feature": 65308,
+            "count": 35,
+            "mean_act": 37.81,
+            "label": "referencing answer choices"
+          }
+        ]
+      }
+    },
+    {
+      "idx": 8,
+      "question": "When trees are removed from a tropical rain forest, other plants and animals are affected. Which statement identifies another change that will most likely occur when a rain forest habitat is destroyed?\n\nA) Oxygen levels will increase.\nB) Carbon dioxide levels will increase.\nC) The temperature of Earth will decrease.\nD) The air pollution in the atmosphere will decrease.\n\nAnswer with the letter.",
+      "cot_tokens": 705,
+      "n_positions": 142,
+      "oracle_outputs": {
+        "recon": "A) Oxygen levels will increase.\nB) Carbon dioxide levels will increase.\nC) The temperature of the Earth will decrease.\nD) The air pollution will decrease.\nE) The temperature of the Earth will decrease.\n\nNow, let's analyze each option:\n\nA) Oxygen levels will increase: This is incorrect. Trees produce oxygen through photosynthesis, but if a rainforest is destroyed, the amount of oxygen produced by the trees will decrease. Therefore, oxygen levels would likely decrease, not increase.\n\nB) Carbon dioxide levels will increase: This is correct. Trees absorb carbon dioxide from the atmosphere during photosynthesis. If a rainforest is destroyed, the amount of carbon dioxide that can be absorbed by the trees will decrease, leading to an increase in atmospheric carbon dioxide levels.\n\nC) The temperature of the Earth will decrease: This is incorrect. The destruction of a rainforest can lead to an increase in atmospheric carbon dioxide levels, which is a greenhouse gas. This can contribute to global warming, not a decrease in temperature.\n\nD) The air pollution will decrease: This is incorrect. While the destruction of a rainforest may reduce the amount of particulate matter in the air, it does not necessarily lead to a decrease in air pollution. In fact, the increase in carbon dioxide levels can contribute to air pollution.\n\nE) The temperature of the Earth will decrease: This is the same as option C and is incorrect for the same reasons.\n\nTherefore, the most likely change that will occur is an increase in",
+        "domain": "science",
+        "correctness": "incorrect",
+        "answer": "B",
+        "decorative": "load_bearing"
+      },
+      "top_sae_features": {
+        "9": [
+          {
+            "feature": 63067,
+            "count": 109,
+            "mean_act": 6.05,
+            "label": "flutter/material import in code examples"
+          },
+          {
+            "feature": 26421,
+            "count": 95,
+            "mean_act": 4.82,
+            "label": "adverbs and participles ending in -ly/-ing"
+          },
+          {
+            "feature": 20072,
+            "count": 19,
+            "mean_act": 4.82,
+            "label": "atmosphere"
+          },
+          {
+            "feature": 43098,
+            "count": 19,
+            "mean_act": 3.62,
+            "label": "describes something directly related to the subject"
+          },
+          {
+            "feature": 17194,
+            "count": 13,
+            "mean_act": 4.14,
+            "label": "instructional phrasing and guidance"
+          }
+        ],
+        "18": [
+          {
+            "feature": 3459,
+            "count": 132,
+            "mean_act": 10.76,
+            "label": "Verbs related to positive actions and processes"
+          },
+          {
+            "feature": 27634,
+            "count": 111,
+            "mean_act": 12.15,
+            "label": "Placeholder or connective words"
+          },
+          {
+            "feature": 20938,
+            "count": 65,
+            "mean_act": 8.54,
+            "label": "Difficulty with language or communication"
+          },
+          {
+            "feature": 27050,
+            "count": 49,
+            "mean_act": 7.42,
+            "label": "Processes and concepts in science"
+          },
+          {
+            "feature": 26421,
+            "count": 38,
+            "mean_act": 7.74,
+            "label": "Common connecting and numerical words"
+          }
+        ],
+        "27": [
+          {
+            "feature": 3459,
+            "count": 96,
+            "mean_act": 32.19,
+            "label": "Technical testing and operational procedures"
+          },
+          {
+            "feature": 34632,
+            "count": 70,
+            "mean_act": 35.7,
+            "label": "Careful analysis and determination"
+          },
+          {
+            "feature": 29254,
+            "count": 36,
+            "mean_act": 40.92,
+            "label": "Common punctuation and short words/numbers"
+          },
+          {
+            "feature": 65308,
+            "count": 32,
+            "mean_act": 48.26,
+            "label": "referencing answer choices"
+          },
+          {
+            "feature": 37172,
+            "count": 29,
+            "mean_act": 58.99,
+            "label": "Words indicating refusal or negative intent"
+          }
+        ]
+      }
+    },
+    {
+      "idx": 9,
+      "question": "Why is a person likely to stop eating hamburger and save the rest for later?\n\nA) sadness\nB) being full\nC) heartburn\nD) food poisoning\nE) death\n\nAnswer with the letter.",
+      "cot_tokens": 821,
+      "n_positions": 165,
+      "oracle_outputs": {
+        "recon": "A person might stop eating a burger and save the rest for later because they are **B) full**. When someone is full, they may decide to stop eating and save the remaining food for a later time.",
+        "domain": "commonsense",
+        "correctness": "incorrect",
+        "answer": "B",
+        "decorative": "load_bearing"
+      },
+      "top_sae_features": {
+        "9": [
+          {
+            "feature": 63067,
+            "count": 120,
+            "mean_act": 5.4,
+            "label": "flutter/material import in code examples"
+          },
+          {
+            "feature": 26421,
+            "count": 113,
+            "mean_act": 4.45,
+            "label": "adverbs and participles ending in -ly/-ing"
+          },
+          {
+            "feature": 43098,
+            "count": 38,
+            "mean_act": 3.42,
+            "label": "describes something directly related to the subject"
+          },
+          {
+            "feature": 17539,
+            "count": 28,
+            "mean_act": 4.69,
+            "label": "Influx and negative terms"
+          },
+          {
+            "feature": 17194,
+            "count": 22,
+            "mean_act": 4.43,
+            "label": "instructional phrasing and guidance"
+          }
+        ],
+        "18": [
+          {
+            "feature": 3459,
+            "count": 154,
+            "mean_act": 9.6,
+            "label": "Verbs related to positive actions and processes"
+          },
+          {
+            "feature": 27634,
+            "count": 124,
+            "mean_act": 11.42,
+            "label": "Placeholder or connective words"
+          },
+          {
+            "feature": 20938,
+            "count": 110,
+            "mean_act": 8.21,
+            "label": "Difficulty with language or communication"
+          },
+          {
+            "feature": 27050,
+            "count": 73,
+            "mean_act": 6.49,
+            "label": "Processes and concepts in science"
+          },
+          {
+            "feature": 26421,
+            "count": 56,
+            "mean_act": 7.11,
+            "label": "Common connecting and numerical words"
+          }
+        ],
+        "27": [
+          {
+            "feature": 3459,
+            "count": 102,
+            "mean_act": 28.13,
+            "label": "Technical testing and operational procedures"
+          },
+          {
+            "feature": 34632,
+            "count": 88,
+            "mean_act": 34.68,
+            "label": "Careful analysis and determination"
+          },
+          {
+            "feature": 29254,
+            "count": 78,
+            "mean_act": 48.21,
+            "label": "Common punctuation and short words/numbers"
+          },
+          {
+            "feature": 60820,
+            "count": 50,
+            "mean_act": 26.66,
+            "label": "Numerical and symbolic representations"
+          },
+          {
+            "feature": 65308,
+            "count": 31,
+            "mean_act": 37.56,
+            "label": "referencing answer choices"
+          }
+        ]
+      }
+    },
+    {
+      "idx": 10,
+      "question": "What is the sum of all 3 digit numbers that leave a remainder of '2' when divided by 8?\n\nA)61,600\nB)64,850\nC)64,749\nD)49,700\nE)56,720\n\nAnswer with the letter.",
+      "cot_tokens": 4096,
+      "n_positions": 820,
+      "oracle_outputs": {
+        "recon": "Okay, so I need to find the sum of all three-digit numbers that leave a remainder of '2' when divided by 8. Let me think about how to approach this. \n\nFirst, let me recall what it means for a number to leave a remainder of 2 when divided by 8. If a number N leaves a remainder of 2 when divided by 8, then N can be expressed as N = 8k + 2, where k is some integer. So, all such numbers are in the form of 8k + 2. \n\nNow, the question is about three-digit numbers. So, I need to find all three-digit numbers that fit this form. Let me figure out the range of k that would make N a three-digit number. \n\nThe smallest three-digit number is 100, and the largest is 999. So, I need to find the smallest k such that 8k + 2 \u2265 100, and the largest k such that 8k + 2 \u2264 999. \n\nLet me solve for k in both cases. \n\nStarting with the lower bound:\n8k + 2 \u2265 100\nSubtract 2 from both sides: 8k \u2265 98\nDivide by 8: k \u2265 98/8 = 12.25\nSince k must be an integer, the smallest k is 13",
+        "domain": "math",
+        "correctness": "correct",
+        "answer": "A",
+        "decorative": "load_bearing"
+      },
+      "top_sae_features": {
+        "9": [
+          {
+            "feature": 63067,
+            "count": 660,
+            "mean_act": 5.09,
+            "label": "flutter/material import in code examples"
+          },
+          {
+            "feature": 65103,
+            "count": 273,
+            "mean_act": 2.93,
+            "label": "quantifiable information and calculation"
+          },
+          {
+            "feature": 19556,
+            "count": 227,
+            "mean_act": 4.11,
+            "label": "Numerical examples"
+          },
+          {
+            "feature": 63380,
+            "count": 177,
+            "mean_act": 4.7,
+            "label": "fractional division"
+          },
+          {
+            "feature": 64838,
+            "count": 152,
+            "mean_act": 3.65,
+            "label": "Mathematical steps to isolate a variable"
+          }
+        ],
+        "18": [
+          {
+            "feature": 27634,
+            "count": 491,
+            "mean_act": 20.73,
+            "label": "Placeholder or connective words"
+          },
+          {
+            "feature": 3459,
+            "count": 406,
+            "mean_act": 6.16,
+            "label": "Verbs related to positive actions and processes"
+          },
+          {
+            "feature": 32670,
+            "count": 392,
+            "mean_act": 7.22,
+            "label": "Ratio and parts calculation"
+          },
+          {
+            "feature": 48777,
+            "count": 308,
+            "mean_act": 7.47,
+            "label": "Applications and production of chemicals"
+          },
+          {
+            "feature": 25531,
+            "count": 279,
+            "mean_act": 8.6,
+            "label": "Factually consistent with document query"
+          }
+        ],
+        "27": [
+          {
+            "feature": 37172,
+            "count": 447,
+            "mean_act": 56.18,
+            "label": "Words indicating refusal or negative intent"
+          },
+          {
+            "feature": 46270,
+            "count": 207,
+            "mean_act": 31.88,
+            "label": "sum of arithmetic series"
+          },
+          {
+            "feature": 35246,
+            "count": 183,
+            "mean_act": 36.67,
+            "label": "Numerical calculations and formulas"
+          },
+          {
+            "feature": 58850,
+            "count": 164,
+            "mean_act": 35.05,
+            "label": "Mathematical calculations and results"
+          },
+          {
+            "feature": 29254,
+            "count": 161,
+            "mean_act": 93.41,
+            "label": "Common punctuation and short words/numbers"
+          }
+        ]
+      }
+    },
+    {
+      "idx": 11,
+      "question": "Erich Fromm states that the society prevents you from realizing true nature to be loving, creative, and productive. Which of the responses to societal demands allow a person to realize that?\n\nA) The authoritative allows a person to realize its true nature, to be loving, creative, productive\nB) The productive allows a person to realize its true nature, to be loving, creative, etc.\nC) The destructive allows a person to realize its true nature, to be loving, creative, productive\nD) The exploitative allows a person to realize its true nature, to be loving, creative, productive\nE) The manipulative allows a person to realize its true nature, to be loving, creative, productive\nF) The marketing surely allows a person to realize its true nature, to be loving, creative, productive\nG) The hoarding allows a person to realize its true nature, to be loving, creative, productive\nH) The submissive allows a person to realize its true nature, to be loving, creative, productive\nI) The controlling allows a person to realize its true nature, to be loving, creative, productive\nJ) The receptive definitely allows a person to realize its true nature, to loving, creative, productive\n\nAnswer with the letter.",
+      "cot_tokens": 1019,
+      "n_positions": 205,
+      "oracle_outputs": {
+        "recon": "Okay, so I need to figure out this question about Erich Fromm's theory on how society affects our ability to realize our true nature. The question is asking which response to society allows a person to realize their true nature as being loving, creative, and productive. The options are different responses to society, and I have to pick the correct one.\n\nFirst, I remember that Erich Fromm was a psychologist and social theorist who wrote about the concept of \"social character.\" He talked about how people adapt to society in different ways, which can affect their personality and behavior. He identified several types of social characters, like the authoritarian, the exploitative, the receptive, etc. \n\nFromm's main idea was that society can stifle individuality and prevent people from being their true selves. He believed that people have a natural tendency to be loving, creative, and productive, but societal structures can hinder that. He also talked about the \"productive mode\" of adaptation, which is the one that allows individuals to realize their potential. \n\nWait, let me think. Fromm's theory includes different modes of adaptation. The productive mode is when individuals are creative and productive, contributing to society in a positive way. The other modes, like the authoritarian or the exploitative, are more about conforming to societal pressures in ways that might suppress individuality. \n\nSo the question is asking which response to society allows a person to realize their true nature. The options are A to J. The",
+        "domain": "ethics",
+        "correctness": "incorrect",
+        "answer": "B",
+        "decorative": "load_bearing"
+      },
+      "top_sae_features": {
+        "9": [
+          {
+            "feature": 63067,
+            "count": 156,
+            "mean_act": 6.01,
+            "label": "flutter/material import in code examples"
+          },
+          {
+            "feature": 26421,
+            "count": 139,
+            "mean_act": 4.71,
+            "label": "adverbs and participles ending in -ly/-ing"
+          },
+          {
+            "feature": 17194,
+            "count": 38,
+            "mean_act": 4.42,
+            "label": "instructional phrasing and guidance"
+          },
+          {
+            "feature": 57111,
+            "count": 29,
+            "mean_act": 5.13,
+            "label": "Partial words related to various topics"
+          },
+          {
+            "feature": 43098,
+            "count": 22,
+            "mean_act": 2.85,
+            "label": "describes something directly related to the subject"
+          }
+        ],
+        "18": [
+          {
+            "feature": 3459,
+            "count": 192,
+            "mean_act": 9.35,
+            "label": "Verbs related to positive actions and processes"
+          },
+          {
+            "feature": 27634,
+            "count": 160,
+            "mean_act": 11.68,
+            "label": "Placeholder or connective words"
+          },
+          {
+            "feature": 20938,
+            "count": 106,
+            "mean_act": 7.69,
+            "label": "Difficulty with language or communication"
+          },
+          {
+            "feature": 48777,
+            "count": 97,
+            "mean_act": 8.03,
+            "label": "Applications and production of chemicals"
+          },
+          {
+            "feature": 27050,
+            "count": 67,
+            "mean_act": 6.1,
+            "label": "Processes and concepts in science"
+          }
+        ],
+        "27": [
+          {
+            "feature": 3459,
+            "count": 153,
+            "mean_act": 29.0,
+            "label": "Technical testing and operational procedures"
+          },
+          {
+            "feature": 29254,
+            "count": 108,
+            "mean_act": 48.6,
+            "label": "Common punctuation and short words/numbers"
+          },
+          {
+            "feature": 34632,
+            "count": 89,
+            "mean_act": 34.43,
+            "label": "Careful analysis and determination"
+          },
+          {
+            "feature": 60820,
+            "count": 40,
+            "mean_act": 27.54,
+            "label": "Numerical and symbolic representations"
+          },
+          {
+            "feature": 24895,
+            "count": 40,
+            "mean_act": 26.86,
+            "label": "emphasis on emotion and individualism"
+          }
+        ]
+      }
+    },
+    {
+      "idx": 12,
+      "question": "Bryan bought three different bottles of milk. The bottles contain the following volumes of milk: 2 liters, 750 milliliters, 250 milliliters. How many liters of milk did Bryan buy in total?",
+      "cot_tokens": 1398,
+      "n_positions": 281,
+      "oracle_outputs": {
+        "recon": "Bryan bought three bottles of milk with different volumes: one is 2 liters, another is 750 milliliters, and the third is 250 milliliters. To find out how many liters of milk Bryan bought in total, we need to add up the volumes of all three bottles.\n\nFirst, we convert the milliliters to liters since the question asks for the total in liters. We know that 1 liter is equal to 1000 milliliters. Therefore:\n\n- 750 milliliters = 750 / 1000 = 0.75 liters\n- 250 milliliters = 250 / 1000 = 0.25 liters\n\nNow, we add the volumes of all three bottles:\n\n- 2 liters + 0.75 liters + 0.25 liters = 3 liters\n\nTo verify the result, we can convert all volumes to milliliters and add them up:\n\n- 2 liters = 2000 milliliters\n- 750 milliliters = 750 milliliters\n- 250 milliliters = 250 milliliters\n\nAdding these together:\n\n- 2000 milliliters + 750 milliliters + 250 milliliters = 3000 milliliters\n\nConverting",
+        "domain": "math",
+        "correctness": "incorrect",
+        "answer": "3",
+        "decorative": "load_bearing"
+      },
+      "top_sae_features": {
+        "9": [
+          {
+            "feature": 63067,
+            "count": 227,
+            "mean_act": 5.83,
+            "label": "flutter/material import in code examples"
+          },
+          {
+            "feature": 65103,
+            "count": 108,
+            "mean_act": 4.01,
+            "label": "quantifiable information and calculation"
+          },
+          {
+            "feature": 26421,
+            "count": 95,
+            "mean_act": 3.86,
+            "label": "adverbs and participles ending in -ly/-ing"
+          },
+          {
+            "feature": 64838,
+            "count": 78,
+            "mean_act": 4.49,
+            "label": "Mathematical steps to isolate a variable"
+          },
+          {
+            "feature": 17539,
+            "count": 49,
+            "mean_act": 4.55,
+            "label": "Influx and negative terms"
+          }
+        ],
+        "18": [
+          {
+            "feature": 3459,
+            "count": 218,
+            "mean_act": 8.64,
+            "label": "Verbs related to positive actions and processes"
+          },
+          {
+            "feature": 27634,
+            "count": 196,
+            "mean_act": 29.87,
+            "label": "Placeholder or connective words"
+          },
+          {
+            "feature": 20938,
+            "count": 147,
+            "mean_act": 19.01,
+            "label": "Difficulty with language or communication"
+          },
+          {
+            "feature": 32670,
+            "count": 97,
+            "mean_act": 7.85,
+            "label": "Ratio and parts calculation"
+          },
+          {
+            "feature": 48777,
+            "count": 76,
+            "mean_act": 8.18,
+            "label": "Applications and production of chemicals"
+          }
+        ],
+        "27": [
+          {
+            "feature": 3459,
+            "count": 129,
+            "mean_act": 30.7,
+            "label": "Technical testing and operational procedures"
+          },
+          {
+            "feature": 37172,
+            "count": 110,
+            "mean_act": 59.12,
+            "label": "Words indicating refusal or negative intent"
+          },
+          {
+            "feature": 21348,
+            "count": 64,
+            "mean_act": 39.3,
+            "label": "Units of measurement conversion"
+          },
+          {
+            "feature": 35246,
+            "count": 62,
+            "mean_act": 38.21,
+            "label": "Numerical calculations and formulas"
+          },
+          {
+            "feature": 34632,
+            "count": 61,
+            "mean_act": 33.12,
+            "label": "Careful analysis and determination"
+          }
+        ]
+      }
+    },
+    {
+      "idx": 13,
+      "question": "A 50 mole % solution ofpropylalcohol and ethyl alcohol is distilled to the boiling point of 90\u00b0C. The vapor pressure of the condensate collected in a cooled receiver is 1066 mm Hg at that temperature. The vapor pressure of pure ethyl andpropylalcohols are 1190 and 574 mm Hg respectively, at 90\u00b0C. Calculate a) the mole fraction of ethyl alcohol in the boiling liquid; b) the mole fraction of ethyl alcohol in the distillate; c) the number of moles of ethyl alcohol that were distilled. Assume ideal behavior of the solution and the vapors.\n\nA) a) 0.60, b) 0.70, c) 0.62\nB) a) 0.45, b) 0.85, c) 0.47\nC) a) 0.40, b) 0.90, c) 0.42\nD) a) 0.25, b) 0.65, c) 0.27\nE) a) 0.35, b) 0.75, c) 0.37\nF) a) 0.30, b) 0.80, c) 0.32\nG) a) 0.10, b) 0.60, c) 0.12\nH) a) 0.55, b) 0.95, c) 0.57\nI) a) 0.20, b) 0.70, c) 0.22\nJ) a) 0.50, b) 1.00, c) 0.52\n\nAnswer with the letter.",
+      "cot_tokens": 4096,
+      "n_positions": 820,
+      "oracle_outputs": {
+        "recon": "Okay, let's try to tackle this problem step by step. So, we have a 50 mole % solution of propyl alcohol and ethyl alcohol. They are distilled to the boiling point of 90\u00b0C. The vapor pressure of the condensate collected in a cooled receiver is 1066 mm Hg at that temperature. We need to find three things: a) the mole fraction of ethyl alcohol in the boiling liquid, b) the mole fraction of ethyl alcohol in the distillate, and c) the number of moles of ethyl alcohol that were distilled. The options are given from A to J, so I need to figure out which one is correct.\n\nFirst, let me recall some concepts. Since the problem mentions vapor pressures and distillation, I think Raoult's Law might be involved here. Raoult's Law states that the partial vapor pressure of each component in a solution is proportional to its mole fraction in the solution. The total vapor pressure of the solution is the sum of the partial pressures of each component.\n\nBut wait, the problem says that the vapor pressure of the condensate is 1066 mm Hg at 90\u00b0C. So, the condensate is the vapor that has condensed, which would be the vapor from the boiling liquid. Therefore, the vapor pressure of the condensate is the same as the vapor pressure of the boiling liquid. Wait, but the condens",
+        "domain": "science",
+        "correctness": "incorrect",
+        "answer": "A",
+        "decorative": "load_bearing"
+      },
+      "top_sae_features": {
+        "9": [
+          {
+            "feature": 63067,
+            "count": 712,
+            "mean_act": 6.1,
+            "label": "flutter/material import in code examples"
+          },
+          {
+            "feature": 17539,
+            "count": 208,
+            "mean_act": 4.7,
+            "label": "Influx and negative terms"
+          },
+          {
+            "feature": 57111,
+            "count": 191,
+            "mean_act": 4.09,
+            "label": "Partial words related to various topics"
+          },
+          {
+            "feature": 43988,
+            "count": 181,
+            "mean_act": 5.9,
+            "label": "normal boiling point of a substance"
+          },
+          {
+            "feature": 26421,
+            "count": 170,
+            "mean_act": 2.96,
+            "label": "adverbs and participles ending in -ly/-ing"
+          }
+        ],
+        "18": [
+          {
+            "feature": 32670,
+            "count": 463,
+            "mean_act": 6.11,
+            "label": "Ratio and parts calculation"
+          },
+          {
+            "feature": 3459,
+            "count": 454,
+            "mean_act": 6.06,
+            "label": "Verbs related to positive actions and processes"
+          },
+          {
+            "feature": 48777,
+            "count": 416,
+            "mean_act": 7.46,
+            "label": "Applications and production of chemicals"
+          },
+          {
+            "feature": 27634,
+            "count": 414,
+            "mean_act": 9.7,
+            "label": "Placeholder or connective words"
+          },
+          {
+            "feature": 32210,
+            "count": 233,
+            "mean_act": 6.96,
+            "label": "Units of measurement and specific entities"
+          }
+        ],
+        "27": [
+          {
+            "feature": 29254,
+            "count": 311,
+            "mean_act": 44.74,
+            "label": "Common punctuation and short words/numbers"
+          },
+          {
+            "feature": 55719,
+            "count": 295,
+            "mean_act": 27.62,
+            "label": "Common English words"
+          },
+          {
+            "feature": 3459,
+            "count": 240,
+            "mean_act": 25.21,
+            "label": "Technical testing and operational procedures"
+          },
+          {
+            "feature": 37172,
+            "count": 223,
+            "mean_act": 61.67,
+            "label": "Words indicating refusal or negative intent"
+          },
+          {
+            "feature": 9529,
+            "count": 152,
+            "mean_act": 32.14,
+            "label": "Chemical potential and Gibbs energy formulas"
+          }
+        ]
+      }
+    },
+    {
+      "idx": 14,
+      "question": "What does a server need to be to serve customers well?\n\nA) polite\nB) commercial\nC) make money\nD) drivers license\nE) smile\n\nAnswer with the letter.",
+      "cot_tokens": 1079,
+      "n_positions": 217,
+      "oracle_outputs": {
+        "recon": "Okay, so the question is asking what a server needs to be to serve customers well, with options A to E. Let me think through this step by step.\n\nFirst, I need to consider the role of a server. Servers are typically in restaurants or similar places, right? Their main job is to take orders, bring food and drinks, and ensure customers have a good experience. So, what qualities or skills are necessary for that?\n\nOption A is \"polite.\" That makes sense because being polite is important in customer service. If a server is polite, they're more likely to make customers feel welcome and comfortable. But is politeness the only thing? Maybe not, but it's definitely a key factor.\n\nOption B is \"commercial.\" Hmm, commercial usually refers to something related to business or advertising. I'm not sure how that directly relates to serving customers well. Maybe if the server is commercial, they're promoting the restaurant? But that's more about marketing than direct service. Not sure if this is the right answer.\n\nOption C is \"make money.\" Well, servers do earn money, but that's more of a result of their job rather than a requirement to serve customers well. They need to make money, but that's not a trait they need to be to serve customers. So probably not C.\n\nOption D is \"drivers license.\" Wait, do servers need a drivers license? Unless they're delivering food, which is a different role. In a typical restaurant setting,",
+        "domain": "commonsense",
+        "correctness": "incorrect",
+        "answer": "A",
+        "decorative": "load_bearing"
+      },
+      "top_sae_features": {
+        "9": [
+          {
+            "feature": 63067,
+            "count": 158,
+            "mean_act": 6.22,
+            "label": "flutter/material import in code examples"
+          },
+          {
+            "feature": 26421,
+            "count": 130,
+            "mean_act": 4.44,
+            "label": "adverbs and participles ending in -ly/-ing"
+          },
+          {
+            "feature": 17194,
+            "count": 84,
+            "mean_act": 5.23,
+            "label": "instructional phrasing and guidance"
+          },
+          {
+            "feature": 43098,
+            "count": 50,
+            "mean_act": 3.44,
+            "label": "describes something directly related to the subject"
+          },
+          {
+            "feature": 60159,
+            "count": 22,
+            "mean_act": 4.42,
+            "label": "Identifying the correct answer"
+          }
+        ],
+        "18": [
+          {
+            "feature": 3459,
+            "count": 201,
+            "mean_act": 9.53,
+            "label": "Verbs related to positive actions and processes"
+          },
+          {
+            "feature": 27634,
+            "count": 183,
+            "mean_act": 12.07,
+            "label": "Placeholder or connective words"
+          },
+          {
+            "feature": 20938,
+            "count": 137,
+            "mean_act": 8.11,
+            "label": "Difficulty with language or communication"
+          },
+          {
+            "feature": 25531,
+            "count": 92,
+            "mean_act": 9.64,
+            "label": "Factually consistent with document query"
+          },
+          {
+            "feature": 27050,
+            "count": 78,
+            "mean_act": 6.55,
+            "label": "Processes and concepts in science"
+          }
+        ],
+        "27": [
+          {
+            "feature": 3459,
+            "count": 133,
+            "mean_act": 28.51,
+            "label": "Technical testing and operational procedures"
+          },
+          {
+            "feature": 29254,
+            "count": 99,
+            "mean_act": 49.06,
+            "label": "Common punctuation and short words/numbers"
+          },
+          {
+            "feature": 34632,
+            "count": 96,
+            "mean_act": 35.43,
+            "label": "Careful analysis and determination"
+          },
+          {
+            "feature": 65308,
+            "count": 83,
+            "mean_act": 38.21,
+            "label": "referencing answer choices"
+          },
+          {
+            "feature": 60820,
+            "count": 55,
+            "mean_act": 26.65,
+            "label": "Numerical and symbolic representations"
+          }
+        ]
+      }
+    }
+  ]
+}

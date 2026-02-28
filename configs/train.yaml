@@ -105,16 +105,6 @@ tasks:
     eval_n: 10
     description: "Will the model double-check its work?"
 
-  branch_pred:
-    n: 10000
-    eval_n: 10
-    description: "Which reasoning strategy will the model use? (MCQ)"
-
-  completion_pred:
-    n: 10000
-    eval_n: 10
-    description: "Which continuation is real? (MCQ)"
-
   remaining_strategy:
     n: 10000
     eval_n: 10
