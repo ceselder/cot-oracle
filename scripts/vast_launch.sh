@@ -140,6 +140,7 @@ source /workspace/venvs/cot-oracle/bin/activate
 ln -sf /workspace/ao_reference/datasets /workspace/cot-oracle/datasets
 
 mkdir -p /workspace/hf_cache
+mkdir -p /workspace/hf_cache/hub /workspace/hf_cache/datasets /workspace/hf_cache/transformers
 
 # Detect GPUs
 NUM_GPUS=\$(nvidia-smi -L | wc -l)
@@ -151,10 +152,12 @@ printf '%s\n' \
     "HF_HOME=/workspace/hf_cache" \
     "HF_HUB_CACHE=/workspace/hf_cache/hub" \
     "HF_DATASETS_CACHE=/workspace/hf_cache/datasets" \
+    "TRANSFORMERS_CACHE=/workspace/hf_cache/transformers" \
     "HF_TOKEN=${HF_TOKEN}" \
     "WANDB_API_KEY=${WANDB_API_KEY}" \
     "TOKENIZERS_PARALLELISM=false" \
     "CACHE_DIR=/workspace" \
+    "COT_ORACLE_EVAL_CACHE_POLICY=refresh" \
     > /workspace/.env
 
 # Start training in tmux

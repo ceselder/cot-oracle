@@ -11,6 +11,14 @@ export HF_TOKEN="${HF_TOKEN:-}"
 export AO_REPO_PATH="${AO_REPO_PATH:-/root/activation_oracles}"
 export PYTHONPATH="${PYTHONPATH:-/root/cot-oracle/src}"
 export PYTHONUNBUFFERED=1
+export CACHE_DIR="${CACHE_DIR:-/root/.cache}"
+export HF_HOME="${HF_HOME:-$CACHE_DIR/hf}"
+export HF_HUB_CACHE="${HF_HUB_CACHE:-$HF_HOME/hub}"
+export HF_DATASETS_CACHE="${HF_DATASETS_CACHE:-$HF_HOME/datasets}"
+export TRANSFORMERS_CACHE="${TRANSFORMERS_CACHE:-$HF_HOME/transformers}"
+export COT_ORACLE_EVAL_CACHE_POLICY="${COT_ORACLE_EVAL_CACHE_POLICY:-refresh}"
+
+mkdir -p "$HF_HUB_CACHE" "$HF_DATASETS_CACHE" "$TRANSFORMERS_CACHE" "$CACHE_DIR/cot_oracle"
 
 cd /root/cot-oracle
 
@@ -40,6 +48,8 @@ echo "  Sequential task order, eval every 1000 steps"
 echo "  Config: configs/train_curriculum.yaml"
 echo "  Precomputed data: data/precomputed/"
 echo "  wandb: MATS10-CS-JB/cot_oracle"
+echo "  HF cache: ${HF_HOME}"
+echo "  Eval cache policy: ${COT_ORACLE_EVAL_CACHE_POLICY}"
 echo ""
 
 nohup python3 src/train.py \

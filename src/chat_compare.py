@@ -212,6 +212,57 @@ def query_trained_oracle(model, tokenizer, multilayer_acts, prompt, model_name,
     return tokenizer.decode(output[0][len(input_ids):], skip_special_tokens=True)
 
 
+def apply_activation_filters(multilayer_acts, ao_acts, all_layers, n_positions_per_layer,
+                              selected_layers=None, pos_slice=None):
+    """Apply layer and position filters to activation tensors.
+
+    Returns (filtered_multilayer, filtered_ao, filtered_layers, n_filtered_pos).
+    """
+    D = multilayer_acts.shape[1]
+    n_layers = len(all_layers)
+
+    # Reshape to [n_layers, K, D]
+    acts_by_layer = multilayer_acts.view(n_layers, n_positions_per_layer, D)
+
+    # Layer filter
+    if selected_layers is not None:
+        layer_indices = [i for i, l in enumerate(all_layers) if l in selected_layers]
+        acts_by_layer = acts_by_layer[layer_indices]
+        filtered_layers = [all_layers[i] for i in layer_indices]
+    else:
+        filtered_layers = list(all_layers)
+
+    # Position filter
+    if pos_slice is not None:
+        acts_by_layer = acts_by_layer[:, pos_slice, :]
+
+    n_filtered_pos = acts_by_layer.shape[1]
+    filtered_multilayer = acts_by_layer.reshape(-1, D)
+
+    # Filter ao_acts with same position slice
+    filtered_ao = ao_acts
+    if ao_acts is not None and pos_slice is not None:
+        filtered_ao = ao_acts[pos_slice]
+
+    return filtered_multilayer, filtered_ao, filtered_layers, n_filtered_pos
+
+
+def build_oracle_prompt(selected_layers, all_layers, pos_slice, n_positions_per_layer):
+    """Build the prompt suffix showing active filters, e.g. ' [L9,27 P0-10]'."""
+    parts = []
+    if selected_layers is not None and set(selected_layers) != set(all_layers):
+        parts.append("L" + ",".join(str(l) for l in selected_layers))
+    if pos_slice is not None:
+        start = pos_slice.start or 0
+        stop = (pos_slice.stop or n_positions_per_layer) - 1
+        if stop >= n_positions_per_layer:
+            stop = n_positions_per_layer - 1
+        parts.append(f"P{start}-{stop}")
+    if parts:
+        return f" [{' '.join(parts)}]"
+    return ""
+
+
 def print_side_by_side(label_a, text_a, label_b, text_b, width=38):
     import textwrap
     lines_a = textwrap.wrap(text_a, width=width) or ["(empty)"]
@@ -269,6 +320,10 @@ def main():
     use_organism = args.cot_adapter is not None
     stride = args.stride
 
+    # Filter state (None = no filter / use all)
+    selected_layers = None  # None means all layers
+    pos_slice = None        # None means all positions
+
     print("=" * 80)
     print("  CoT Oracle A/B Comparison")
     print()
@@ -290,13 +345,23 @@ def main():
     print("    'answer'       = predict final answer")
     print("    <anything>     = free-form question to both oracles")
     print("    'new'          = start fresh, 'quit' = exit")
+    print()
+    print("  Filters (in oracle phase):")
+    print("    layers 9 27    = only use layers 9 and 27")
+    print("    layers all     = reset to all layers")
+    print("    pos 0-10       = only use stride positions 0-10")
+    print("    pos last 5     = only use last 5 positions")
+    print("    pos all        = reset to all positions")
+    print("    filters        = show current filter state")
+    print("    reset          = reset all filters")
     print("=" * 80)
 
     while True:
         if multilayer_acts is None:
             user_input = input("\nQuestion> ").strip()
         else:
-            user_input = input("\nAsk oracles> ").strip()
+            filter_suffix = build_oracle_prompt(selected_layers, layers, pos_slice, n_positions_per_layer)
+            user_input = input(f"\nAsk oracles{filter_suffix}> ").strip()
 
         if not user_input:
             continue
@@ -306,8 +371,96 @@ def main():
             multilayer_acts = None
             ao_acts = None
             n_positions_per_layer = 0
+            selected_layers = None
+            pos_slice = None
             print("\nStarting fresh.")
             continue
+
+        # --- Filter commands (only in oracle phase) ---
+        if multilayer_acts is not None:
+            cmd_parts = user_input.lower().split()
+
+            if cmd_parts[0] == "layers":
+                if len(cmd_parts) < 2:
+                    print("  Usage: layers <num> [num ...] | layers all")
+                    continue
+                if cmd_parts[1] == "all":
+                    selected_layers = None
+                    print(f"  Filters: layers ALL ({layers}), "
+                          f"positions {'all' if pos_slice is None else pos_slice}/{n_positions_per_layer}")
+                else:
+                    try:
+                        requested = [int(x) for x in cmd_parts[1:]]
+                    except ValueError:
+                        print("  Usage: layers <num> [num ...] | layers all")
+                        continue
+                    invalid = [l for l in requested if l not in layers]
+                    if invalid:
+                        print(f"  Invalid layers {invalid}. Available: {layers}")
+                        continue
+                    selected_layers = requested
+                    print(f"  Filters: layers {selected_layers}, "
+                          f"positions {'all' if pos_slice is None else f'{pos_slice.start or 0}-{(pos_slice.stop or n_positions_per_layer)-1}'}/{n_positions_per_layer}")
+                continue
+
+            if cmd_parts[0] == "pos":
+                if len(cmd_parts) < 2:
+                    print("  Usage: pos <start>-<end> | pos last <N> | pos all")
+                    continue
+                if cmd_parts[1] == "all":
+                    pos_slice = None
+                    active_layers = selected_layers if selected_layers else layers
+                    print(f"  Filters: layers {active_layers}, positions all/{n_positions_per_layer}")
+                elif cmd_parts[1] == "last":
+                    if len(cmd_parts) < 3:
+                        print("  Usage: pos last <N>")
+                        continue
+                    try:
+                        n = int(cmd_parts[2])
+                    except ValueError:
+                        print("  Usage: pos last <N>")
+                        continue
+                    if n > n_positions_per_layer:
+                        n = n_positions_per_layer
+                    start = n_positions_per_layer - n
+                    pos_slice = slice(start, n_positions_per_layer)
+                    active_layers = selected_layers if selected_layers else layers
+                    print(f"  Filters: layers {active_layers}, positions {start}-{n_positions_per_layer - 1}/{n_positions_per_layer}")
+                else:
+                    # Parse "0-10" or "5-20"
+                    try:
+                        if "-" in cmd_parts[1]:
+                            start_s, end_s = cmd_parts[1].split("-", 1)
+                            start = int(start_s)
+                            end = int(end_s)
+                        else:
+                            start = int(cmd_parts[1])
+                            end = start
+                    except ValueError:
+                        print("  Usage: pos <start>-<end> | pos last <N> | pos all")
+                        continue
+                    end = min(end, n_positions_per_layer - 1)
+                    start = max(start, 0)
+                    pos_slice = slice(start, end + 1)  # inclusive end
+                    active_layers = selected_layers if selected_layers else layers
+                    print(f"  Filters: layers {active_layers}, positions {start}-{end}/{n_positions_per_layer}")
+                continue
+
+            if cmd_parts[0] == "filters":
+                active_layers = selected_layers if selected_layers else layers
+                if pos_slice is not None:
+                    pos_str = f"{pos_slice.start or 0}-{(pos_slice.stop or n_positions_per_layer) - 1}"
+                else:
+                    pos_str = "all"
+                print(f"  Layers: {active_layers} ({'filtered' if selected_layers else 'all'})")
+                print(f"  Positions: {pos_str}/{n_positions_per_layer} ({'filtered' if pos_slice else 'all'})")
+                continue
+
+            if cmd_parts[0] == "reset":
+                selected_layers = None
+                pos_slice = None
+                print(f"  All filters reset. Layers: {layers}, positions: all/{n_positions_per_layer}")
+                continue
 
         if multilayer_acts is None:
             current_question = user_input
@@ -396,11 +549,21 @@ def main():
 
         print()
 
+        # Apply activation filters
+        filt_ml, filt_ao, filt_layers, filt_npos = apply_activation_filters(
+            multilayer_acts, ao_acts, layers, n_positions_per_layer,
+            selected_layers=selected_layers, pos_slice=pos_slice,
+        )
+
+        if selected_layers is not None or pos_slice is not None:
+            print(f"  Using {len(filt_layers)} layer(s) {filt_layers}, "
+                  f"{filt_npos} positions -> {filt_ml.shape[0]} vectors")
+
         # Query original AO (single-layer L50%)
-        if ao_acts is not None:
+        if filt_ao is not None:
             try:
                 resp_original = query_original_ao(
-                    model, tokenizer, ao_acts,
+                    model, tokenizer, filt_ao,
                     ao_prompt, model_name=args.model,
                     max_new_tokens=args.max_tokens, device=args.device,
                 )
@@ -412,9 +575,9 @@ def main():
         # Query trained oracle (multi-layer, ¶ tokens, task prompt)
         try:
             resp_trained = query_trained_oracle(
-                model, tokenizer, multilayer_acts,
+                model, tokenizer, filt_ml,
                 trained_prompt, model_name=args.model,
-                layers=layers,
+                layers=filt_layers,
                 max_new_tokens=args.max_tokens, device=args.device,
             )
         except Exception as e:

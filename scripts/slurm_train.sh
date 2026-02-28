@@ -21,14 +21,21 @@ export VENV=/var/tmp/jbauer/venvs/cot-oracle
 export PATH="$VENV/bin:$PATH"
 export HF_HOME="/ceph/scratch/jbauer/hf"
 export HF_HUB_CACHE="/ceph/scratch/jbauer/hf/hub"
+export HF_DATASETS_CACHE="/ceph/scratch/jbauer/hf/datasets"
+export TRANSFORMERS_CACHE="/ceph/scratch/jbauer/hf/transformers"
+export CACHE_DIR="/ceph/scratch/jbauer"
+export COT_ORACLE_EVAL_CACHE_POLICY="${COT_ORACLE_EVAL_CACHE_POLICY:-refresh}"
 
 cd /nfs/nhome/live/jbauer/cot-oracle
 mkdir -p logs
+mkdir -p "$HF_HUB_CACHE" "$HF_DATASETS_CACHE" "$TRANSFORMERS_CACHE" "$CACHE_DIR/cot_oracle"
 
 echo "=== COT Oracle: Multi-GPU Training ==="
 echo "Node: $(hostname)"
 echo "GPUs: $(nvidia-smi -L | wc -l)x $(nvidia-smi --query-gpu=name --format=csv,noheader | head -1)"
 echo "Job ID: $SLURM_JOB_ID"
+echo "HF cache: $HF_HOME"
+echo "Eval cache policy: $COT_ORACLE_EVAL_CACHE_POLICY"
 echo "Start: $(date)"
 echo ""
 

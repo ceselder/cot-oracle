@@ -8,6 +8,7 @@ Two-phase design:
 
 import json
 import math
+import os
 import re
 from dataclasses import dataclass, asdict, field
 from pathlib import Path
@@ -676,34 +677,62 @@ def _pull_from_hf(repo_id: str, split: str) -> list[dict]:
 
 
 def _write_cache(items_raw: list[dict], local_path: Path, meta_path: Path,
-                 repo_id: str, last_modified: str) -> None:
+                 repo_id: str, last_modified: str, repo_sha: str | None = None) -> None:
     """Write eval JSON and sidecar metadata atomically."""
     local_path.parent.mkdir(parents=True, exist_ok=True)
     with open(local_path, "w") as f:
         json.dump(items_raw, f)
     with open(meta_path, "w") as f:
-        json.dump({"last_modified": last_modified, "repo_id": repo_id}, f)
+        json.dump(
+            {
+                "last_modified": last_modified,
+                "repo_id": repo_id,
+                "repo_sha": repo_sha or "",
+            },
+            f,
+        )
 
 
 def load_eval_items_hf(eval_name: str, eval_dir: Path | None = None,
                        split: str = "test") -> list[EvalItem]:
     """Load eval items with HF-first freshness validation.
 
-    Checks the remote last_modified timestamp via HfApi.dataset_info().
-    Uses local cache only if the sidecar metadata confirms it matches.
+    Checks remote metadata via HfApi.dataset_info() (repo SHA + last_modified).
+    Uses local cache only if sidecar metadata confirms it matches.
     Falls back to local cache (with warning) if HF is unreachable.
+
+    Cache policy (env: COT_ORACLE_EVAL_CACHE_POLICY):
+      - refresh (default): validate local cache against HF metadata (hash first).
+      - prefer_local: use local JSON immediately when present.
+      - offline: require local JSON; never touch HF.
     """
     repo_id = f"{HF_EVAL_ORG}/cot-oracle-eval-{eval_name.replace('_', '-')}"
     local_path = Path(eval_dir) / f"{eval_name}.json" if eval_dir else None
     meta_path = Path(eval_dir) / f"{eval_name}.meta.json" if eval_dir else None
+    policy = os.environ.get("COT_ORACLE_EVAL_CACHE_POLICY", "refresh").strip().lower()
+    if policy not in {"prefer_local", "refresh", "offline"}:
+        print(f"  [eval] Warning: unknown COT_ORACLE_EVAL_CACHE_POLICY={policy!r}; using refresh")
+        policy = "refresh"
+
+    # Fast path: local-first or fully offline
+    if local_path and local_path.exists() and policy in {"prefer_local", "offline"}:
+        mode = "offline" if policy == "offline" else "local-first"
+        print(f"  [eval] {eval_name}: using local cache ({mode})")
+        return load_eval_items(local_path, split=split)
+    if policy == "offline":
+        raise FileNotFoundError(
+            f"Eval {eval_name}: offline policy set and no local cache at {local_path}"
+        )
 
     # Check HF for freshness
     hf_last_modified = None
+    hf_repo_sha = None
     hf_reachable = False
     try:
         from huggingface_hub import HfApi
         info = HfApi().dataset_info(repo_id)
         hf_last_modified = info.last_modified.isoformat() if info.last_modified else None
+        hf_repo_sha = getattr(info, "sha", None)
         hf_reachable = True
     except Exception:
         hf_reachable = False
@@ -715,7 +744,11 @@ def load_eval_items_hf(eval_name: str, eval_dir: Path | None = None,
             try:
                 with open(meta_path) as f:
                     sidecar = json.load(f)
-                if sidecar.get("last_modified") == hf_last_modified:
+                # Prefer exact repo revision hash match when available.
+                if hf_repo_sha and sidecar.get("repo_sha") == hf_repo_sha:
+                    cache_fresh = True
+                # Backward-compatible fallback for older sidecars.
+                elif sidecar.get("last_modified") == hf_last_modified:
                     cache_fresh = True
             except (json.JSONDecodeError, OSError):
                 pass
@@ -735,7 +768,7 @@ def load_eval_items_hf(eval_name: str, eval_dir: Path | None = None,
 
         if local_path and meta_path:
             _write_cache(items_raw, local_path, meta_path, repo_id,
-                         hf_last_modified or "")
+                         hf_last_modified or "", repo_sha=hf_repo_sha)
             print(f"  [eval] Cached {len(items_raw)} items to {local_path}")
 
         valid_fields = {f.name for f in EvalItem.__dataclass_fields__.values()}
