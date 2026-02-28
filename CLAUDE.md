@@ -35,6 +35,10 @@ We use Sparse Autoencoders (SAEs) from `adamkarvonen/qwen3-8b-saes` to get inter
 - Thought Branches: [arXiv:2510.27484](https://arxiv.org/abs/2510.27484)
 - "When Just Read the CoT Fails" (ICLR 2026)
 
+## Vast.ai
+- **Prefer on-demand over interruptible.** Spot/bid instances get preempted during long init phases (model download, flamingo setup). Use on-demand unless cost is a strong concern.
+- **Use Docker-based launch** (`scripts/vast_launch_docker.sh`) — pre-baked image skips uv sync + rsync.
+
 ## Workflow
 - **Push after every notable change.** Commit and push to remote after completing any meaningful unit of work (bug fix, feature, refactor). Don't accumulate uncommitted changes.
 

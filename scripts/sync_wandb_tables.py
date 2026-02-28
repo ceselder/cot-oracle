@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-Sync eval tables from wandb runs to local eval_logs/ directory.
+Sync eval traces from wandb runs to local eval_logs_wandb/ directory.
 
-Downloads all eval_table/* entries from wandb runs and saves them
-in the same format as _save_table_to_disk() from training_eval_hook.py.
+Downloads eval_traces artifacts (preferred, full-text) and falls back to
+eval_table/* media files (truncated by wandb) for runs without artifacts.
 
 Usage:
     # Sync all runs
@@ -17,6 +17,9 @@ Usage:
 
     # Dry run (show what would be downloaded)
     python scripts/sync_wandb_tables.py --dry-run
+
+    # Also sync legacy table files (truncated by wandb)
+    python scripts/sync_wandb_tables.py --tables
 """
 
 import argparse
@@ -94,21 +97,65 @@ def download_and_convert(run, file_obj, eval_name: str, step: int, out_dir: Path
     return True
 
 
-def sync_run(run, dry_run: bool = False) -> int:
-    """Sync all eval tables for a single run. Returns count of new files."""
+def sync_artifacts(run, out_dir: Path, dry_run: bool = False) -> int:
+    """Download eval_traces artifacts for a run. Returns count of new files."""
+    try:
+        artifacts = retry(lambda: list(run.logged_artifacts()))
+    except Exception as e:
+        tqdm.write(f"  {run.name}: no artifacts ({type(e).__name__})")
+        return 0
+
+    eval_artifacts = [a for a in artifacts if a.type == "eval_traces"]
+    if not eval_artifacts:
+        return 0
+
+    new = 0
+    for art in tqdm(eval_artifacts, desc=f"  {run.name} artifacts", leave=False):
+        step = art.metadata.get("step", None)
+        # Check if any files from this artifact are already present
+        # Artifact dir contains files like eval_table_<name>_step<N>.json
+        # We download to a temp dir first, then copy only new files
+        if dry_run:
+            tqdm.write(f"    would download artifact: {art.name} (step {step})")
+            new += 1
+            continue
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            retry(lambda a=art: a.download(tmpdir))
+            tmppath = Path(tmpdir)
+            for src in tmppath.rglob("*.json"):
+                dst = out_dir / src.name
+                if dst.exists():
+                    continue
+                out_dir.mkdir(parents=True, exist_ok=True)
+                dst.write_text(src.read_text())
+                new += 1
+    return new
+
+
+def sync_run(run, dry_run: bool = False, artifacts_only: bool = False) -> int:
+    """Sync all eval traces for a single run. Returns count of new files."""
     run_dir = OUTPUT_DIR / run_dir_name(run)
+
+    # Try artifacts first (full-text, preferred)
+    new = sync_artifacts(run, run_dir, dry_run=dry_run)
+
+    if artifacts_only:
+        return new
+
+    # Fall back to table files for anything not covered by artifacts
     try:
         all_files = retry(lambda: list(run.files()))
     except Exception as e:
-        tqdm.write(f"  {run.name} ({run.id}): skipped ({type(e).__name__})")
-        return 0
+        tqdm.write(f"  {run.name} ({run.id}): skipped files ({type(e).__name__})")
+        return new
     table_files = [(f, parse_table_file(f.name)) for f in all_files if "eval_table" in f.name and f.name.endswith(".table.json")]
     table_files = [(f, parsed) for f, parsed in table_files if parsed is not None]
 
     if not table_files:
-        return 0
+        return new
 
-    # Skip already-synced files
+    # Skip already-synced files (including those just pulled from artifacts)
     to_download = []
     for f, (eval_name, step) in table_files:
         out_path = run_dir / f"eval_table_{eval_name}_step{step}.json"
@@ -116,25 +163,25 @@ def sync_run(run, dry_run: bool = False) -> int:
             to_download.append((f, eval_name, step))
 
     if not to_download:
-        return 0
+        return new
 
     if dry_run:
         for _, eval_name, step in to_download:
-            print(f"    would download: eval_table_{eval_name}_step{step}.json")
-        return len(to_download)
+            print(f"    would download table: eval_table_{eval_name}_step{step}.json")
+        return new + len(to_download)
 
-    new = 0
-    for f, eval_name, step in tqdm(to_download, desc=f"  {run.name}", leave=False):
+    for f, eval_name, step in tqdm(to_download, desc=f"  {run.name} tables", leave=False):
         if download_and_convert(run, f, eval_name, step, run_dir):
             new += 1
     return new
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Sync eval tables from wandb to eval_logs/")
+    parser = argparse.ArgumentParser(description="Sync eval traces from wandb to eval_logs_wandb/")
     parser.add_argument("--filter", type=str, default=None, help="Only sync runs whose name contains this substring")
     parser.add_argument("--min-steps", type=int, default=50, help="Skip runs with fewer than N steps (default: 50)")
     parser.add_argument("--dry-run", action="store_true", help="Show what would be downloaded without downloading")
+    parser.add_argument("--tables", action="store_true", help="Also download legacy table files (truncated by wandb)")
     parser.add_argument("--project", type=str, default=PROJECT, help="Wandb project path")
     args = parser.parse_args()
 
@@ -154,14 +201,13 @@ def main():
 
     total_new = 0
     for run in tqdm(eligible, desc="Runs"):
-        n = sync_run(run, dry_run=args.dry_run)
+        n = sync_run(run, dry_run=args.dry_run, artifacts_only=not args.tables)
         if n > 0:
-            tqdm.write(f"  {run.name} ({run.id}): {'would sync' if args.dry_run else 'synced'} {n} tables")
+            tqdm.write(f"  {run.name} ({run.id}): {'would sync' if args.dry_run else 'synced'} {n} files")
         total_new += n
 
     action = "would download" if args.dry_run else "downloaded"
-    print(f"\nDone. {action} {total_new} new table files to {OUTPUT_DIR}/")
-    print("Note: these tables have truncated text (wandb limits). Full-text tables are in eval_logs/.")
+    print(f"\nDone. {action} {total_new} new files to {OUTPUT_DIR}/")
 
 
 if __name__ == "__main__":
