@@ -24,6 +24,10 @@ tasks:
     n: 10000
     description: "Conversational questions about CoTs (from concept corpus, HF)"
 
+  position_qa:
+    n: 15000
+    description: "What reasoning function is the model performing at a specific position?"
+
   compqa:
     n: 8000
     description: "Answer questions about CoT reasoning quality (10 types, Gemini GT)"

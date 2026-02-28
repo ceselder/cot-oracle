@@ -458,6 +458,12 @@ TASK_REGISTRY = {
         "loader": "load_cot_cotqa_data",
         "corpus": "cotqa",  # loads from HF directly
     },
+    "position_qa": {
+        "arg": "position_qa_n",
+        "module": "dataset_classes.cot_position_qa",
+        "loader": "load_cot_position_qa_data",
+        "corpus": "position_qa",  # loads from HF directly (QA + corpus)
+    },
 }
 
 
@@ -657,7 +663,7 @@ def load_all_tasks(args, tokenizer) -> list[dict]:
                 stride=args.stride,
                 hint_admission_data_path=hint_path,
             )
-        elif info["corpus"] == "cotqa":
+        elif info["corpus"] in ("cotqa", "position_qa"):
             data = loader_fn(
                 "", tokenizer, args.model,
                 num_examples=n,
@@ -888,6 +894,7 @@ def run_evals(model, tokenizer, model_name, global_step, args, log_dir=None):
         activation_cache_dir=args.activation_cache_dir,
         log_dir=log_dir,
         eval_names=getattr(args, "evals", None),
+        eval_batch_size=args.eval_batch_size,
         stride=args.stride,
     )
     if metrics:
@@ -1826,6 +1833,7 @@ def main():
             device=f"cuda:{local_rank}", eval_dir=args.eval_dir,
             activation_cache_dir=args.activation_cache_dir,
             eval_names=eval_names,
+            eval_batch_size=args.eval_batch_size,
             stride=args.stride,
         )
         model.train()
