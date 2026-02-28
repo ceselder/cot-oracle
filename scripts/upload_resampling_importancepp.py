@@ -32,6 +32,7 @@ def build_dataset(resampling_path: Path, corpus_path: Path) -> list[dict]:
 
     items = []
     n_joined = 0
+    n_dropped = 0
     with open(resampling_path) as f:
         for line in f:
             if not line.strip():
@@ -48,8 +49,9 @@ def build_dataset(resampling_path: Path, corpus_path: Path) -> list[dict]:
             acc_scores = [s["resampling_importance_accuracy"] for s in imp]
             top_k = sorted(range(len(kl_scores)), key=lambda i: kl_scores[i], reverse=True)[:3]
 
-            # Filter: only include entries where at least one sentence has KL > 0.1
-            if max(kl_scores) <= 0.1:
+            # Filter: skip entries where all KL scores are zero
+            if max(kl_scores) <= 0:
+                n_dropped += 1
                 continue
 
             # Build SFT input/label
@@ -61,8 +63,8 @@ def build_dataset(resampling_path: Path, corpus_path: Path) -> list[dict]:
                 f"Problem: {question}\n\n"
                 f"Chain of thought:\n{numbered_cot}"
             )
-            # Only include sentences above threshold, up to 3
-            important_indices = [i for i in range(len(kl_scores)) if kl_scores[i] > 0.1]
+            # Top 3 sentences by KL, must have KL > 0
+            important_indices = [i for i in range(len(kl_scores)) if kl_scores[i] > 0]
             important_indices.sort(key=lambda i: kl_scores[i], reverse=True)
             important_indices = important_indices[:3]
             top_k = important_indices
@@ -101,21 +103,21 @@ def build_dataset(resampling_path: Path, corpus_path: Path) -> list[dict]:
                 "importance_acc_scores": json.dumps(acc_scores),
             })
 
-    print(f"  Loaded {len(items)} resampling entries ({n_joined} joined with corpus)")
-    return items
+    print(f"  Loaded {len(items)} resampling entries ({n_joined} joined with corpus, {n_dropped} dropped for zero KL)")
+    return items, n_dropped
 
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--resampling", default="data/pipeline_medium_20260224_003836/resampling.jsonl")
-    parser.add_argument("--corpus", default="data/pipeline_medium_20260224_003836/corpus_subset_650.jsonl")
+    parser.add_argument("--resampling", default="data/pipeline_resample_20260226_233856/resampling.jsonl")
+    parser.add_argument("--corpus", default="data/pipeline_resample_20260226_233856/corpus.jsonl")
     parser.add_argument("--repo", default=REPO_ID)
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
 
     resampling_path = PROJECT_ROOT / args.resampling
     corpus_path = PROJECT_ROOT / args.corpus
-    items = build_dataset(resampling_path, corpus_path)
+    items, n_dropped = build_dataset(resampling_path, corpus_path)
 
     # Stats for README
     sources = {}
@@ -216,7 +218,7 @@ On-policy Qwen3-8B chain-of-thought traces with **importance++ scores** computed
 ## Overview
 
 - **Model:** Qwen/Qwen3-8B
-- **Entries:** {len(items)} (filtered from 565 resampled entries, requiring max KL > 0.1)
+- **Entries:** {len(items)} (filtered from {len(items) + n_dropped} resampled, dropping zero-KL entries)
 - **Total sentences scored:** {total_sentences}
 - **Important sentences:** {total_important} ({total_important/max(total_sentences,1)*100:.1f}%)
 - **Rollouts per truncation point:** 20
@@ -256,7 +258,7 @@ A sentence is marked **important** if `importance_accuracy > 0.3` or `kl_binary 
 | Field | Description |
 |-------|-------------|
 | `sft_input` | **SFT input**: problem + numbered CoT sentences |
-| `sft_label` | **SFT label**: up to 3 most important sentences (KL > 0.1) |
+| `sft_label` | **SFT label**: top 3 sentences by KL divergence |
 | `id` | Entry ID (format: `source_idx_rN`) |
 | `source` | Dataset source (math, gsm8k, aqua_rat, etc.) |
 | `domain` | Problem domain |

@@ -730,6 +730,11 @@ def worker_resample(args):
                 continue
             corpus.append(entry)
 
+    # Shuffle so heavy entries (long CoTs) are spread across shards
+    import random as _rng
+    _rng.seed(42)
+    _rng.shuffle(corpus)
+
     sz = math.ceil(len(corpus) / args._nshards)
     start = args._shard * sz
     selected = corpus[start : min(start + sz, len(corpus))]

@@ -1,0 +1,12 @@
+# Ablation: random layers per sequence
+# Each training example gets a random subset of layers (Poisson(3) count, sampled from [0, 75% depth))
+# Tests whether the oracle relies on layer identity or just any activations
+
+ablations:
+  random_layers: true
+
+training:
+  batch_size: 2  # union-of-layers extraction uses more VRAM
+
+output:
+  wandb_run: ablation-random-layers-0.6b

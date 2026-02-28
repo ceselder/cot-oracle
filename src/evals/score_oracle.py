@@ -161,6 +161,18 @@ EVAL_PARSING = {
         "positive_label": "",
         "negative_label": "",
     },
+    "chunked_convqa": {
+        # Text generation eval — scoring handled by _score_compqa (same token F1)
+        "positive_keywords": [],
+        "negative_keywords": [],
+        "positive_label": "",
+        "negative_label": "",
+    },
+    **{name: {"positive_keywords": ["yes"], "negative_keywords": ["no"], "positive_label": "yes", "negative_label": "no"} for name in (
+        "cls_sst2", "cls_snli", "cls_md_gender", "cls_ag_news", "cls_ner",
+        "cls_tense", "cls_language_id", "cls_singular_plural",
+        "cls_geometry_of_truth", "cls_relations",
+    )},
 }
 
 
@@ -396,7 +408,7 @@ def score_eval(
         return _score_reconstruction_metrics(items)
     if eval_name == "forced_answer_entropy_riya":
         return _score_forced_answer_entropy(items)
-    if eval_name == "compqa":
+    if eval_name in ("compqa", "chunked_convqa"):
         return _score_compqa(items)
 
     # Filter to scoreable items

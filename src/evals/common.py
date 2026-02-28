@@ -459,6 +459,9 @@ def determine_ground_truth(
     elif item.eval_name == "hint_admission":
         return item.correct_answer  # "yes" or "no"
 
+    elif item.eval_name.startswith("cls_"):
+        return item.correct_answer  # "yes" or "no"
+
     return "indeterminate"
 
 

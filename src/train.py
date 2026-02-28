@@ -82,6 +82,9 @@ du_module.SPECIAL_TOKEN = PLACEHOLDER_TOKEN
 # ── Multi-layer config ──
 MULTI_LAYERS: list[int] = []
 NO_ACTIVATIONS: bool = False
+RANDOM_LAYERS: bool = False
+NOISE_ACTIVATIONS: bool = False
+_MODEL_N_LAYERS: int = 36  # total layers in the model (set in main())
 
 
 def _patched_get_prefix(sae_layer: int, num_positions: int) -> str:
@@ -143,9 +146,10 @@ def materialize_multilayer_steering_vectors(
     tokenizer,
     model,
 ) -> list[TrainingDataPoint]:
-    """Materialize steering vectors from MULTI_LAYERS (configurable via --n-layers)."""
-    N_LAYERS = len(MULTI_LAYERS)
+    """Materialize steering vectors from MULTI_LAYERS (configurable via --n-layers).
 
+    Supports per-item random layers (RANDOM_LAYERS) and noise replacement (NOISE_ACTIVATIONS).
+    """
     to_fill = [
         (i, dp) for i, dp in enumerate(batch_points) if dp.steering_vectors is None
     ]
@@ -154,11 +158,22 @@ def materialize_multilayer_steering_vectors(
 
     assert isinstance(model, PeftModel), "Model must be a PeftModel"
 
-    layers = list(MULTI_LAYERS)
-
     for _, dp in to_fill:
         if dp.context_input_ids is None or dp.context_positions is None:
             raise ValueError("context_* must be provided when steering_vectors is None")
+
+    # Determine layers to extract: union of all items' layers
+    if RANDOM_LAYERS:
+        per_item_layers = []
+        all_layers_set = set()
+        for _, dp in to_fill:
+            item_layers = dp.meta_info["layers"]
+            per_item_layers.append(item_layers)
+            all_layers_set.update(item_layers)
+        layers = sorted(all_layers_set)
+    else:
+        layers = list(MULTI_LAYERS)
+        per_item_layers = [layers] * len(to_fill)
 
     pad_id = tokenizer.pad_token_id
     contexts = [list(dp.context_input_ids) for _, dp in to_fill]
@@ -207,11 +222,13 @@ def materialize_multilayer_steering_vectors(
     new_batch = list(batch_points)
     for b in range(len(to_fill)):
         idx, dp = to_fill[b]
+        item_layers = per_item_layers[b]
         total_positions = len(positions_per_item[b])
-        K = total_positions // N_LAYERS
+        N_item = len(item_layers)
+        K = total_positions // N_item
 
         vectors_parts = []
-        for li, layer in enumerate(layers):
+        for li, layer in enumerate(item_layers):
             acts_BLD = acts_by_layer[layer]
             chunk_positions = positions_per_item[b][li * K : (li + 1) * K]
             adjusted = [p + left_offsets[b] for p in chunk_positions]
@@ -225,6 +242,11 @@ def materialize_multilayer_steering_vectors(
 
         vectors = torch.cat(vectors_parts, dim=0).detach().contiguous()
         assert vectors.shape[0] == total_positions
+
+        # Noise ablation: replace real activations with variance-matched Gaussian noise
+        if NOISE_ACTIVATIONS:
+            var = vectors.var(dim=0, keepdim=True)  # per-dimension variance
+            vectors = torch.randn_like(vectors) * var.sqrt()
 
         # Apply positional encoding if enabled
         if _PE_CONFIG["enabled"]:
@@ -435,6 +457,20 @@ def construct_flamingo_batch(
     return cot_batch, oracle_batch
 
 
+def _extract_base_positions(ctx_pos: list[int], n_layers_runtime: int) -> list[int]:
+    """Extract single-layer base positions from multi-layer context_positions."""
+    if not ctx_pos:
+        return ctx_pos
+    # Try runtime layer count first
+    if len(ctx_pos) % n_layers_runtime == 0:
+        return ctx_pos[:len(ctx_pos) // n_layers_runtime]
+    # Try common old layer counts
+    for old_n in [3, 1, 2, 4, 5, 6]:
+        if len(ctx_pos) % old_n == 0:
+            return ctx_pos[:len(ctx_pos) // old_n]
+    return ctx_pos  # can't infer, return as-is
+
+
 # ── Data conversion ──
 def dicts_to_training_data(
     raw_data: list[dict], tokenizer,
@@ -489,37 +525,55 @@ def dicts_to_training_data(
         ctx_pos = item["context_positions"]
         num_pos = item["num_positions"]
 
-        # Re-expand positions if precomputed with fewer layers than runtime config.
-        # Precomputed data stores context_positions = base_positions * n_layers_data.
-        # We detect mismatch by checking if total_positions is divisible by the
-        # runtime layer count.  If not, infer the original layer count, extract
-        # base positions, and re-expand.
-        if n_layers_runtime > 1 and len(ctx_pos) % n_layers_runtime != 0:
-            # Try common old layer counts (3 is the most common)
-            for old_n in [3, 1, 2, 4, 5, 6]:
-                if len(ctx_pos) % old_n == 0:
-                    k = len(ctx_pos) // old_n
-                    base_positions = ctx_pos[:k]
-                    ctx_pos = base_positions * n_layers_runtime
-                    num_pos = len(ctx_pos)
-                    if not _reexpand_warned:
-                        print(f"  [data] Re-expanding positions: {old_n} layers -> {n_layers_runtime} layers (K={k})")
-                        _reexpand_warned = True
-                    break
+        # Extract base positions (single-layer) for re-expansion
+        base_positions = _extract_base_positions(ctx_pos, n_layers_runtime)
 
-        dp = create_training_datapoint(
-            datapoint_type=item["datapoint_type"],
-            prompt=item["prompt"],
-            target_response=item["target_response"],
-            layer=item["layer"],
-            num_positions=num_pos,
-            tokenizer=tokenizer,
-            acts_BD=None,
-            feature_idx=-1,
-            context_input_ids=item["context_input_ids"],
-            context_positions=ctx_pos,
-            meta_info={"prompt": item["prompt"]},
-        )
+        if RANDOM_LAYERS:
+            # Per-item random layer sampling
+            from layer_utils import sample_layers
+            sampled = sample_layers(_MODEL_N_LAYERS, mean=3)
+            ctx_pos = base_positions * len(sampled)
+            num_pos = len(ctx_pos)
+
+            # Temporarily swap MULTI_LAYERS for prefix generation
+            saved_layers = MULTI_LAYERS[:]
+            MULTI_LAYERS[:] = sampled
+            dp = create_training_datapoint(
+                datapoint_type=item["datapoint_type"],
+                prompt=item["prompt"],
+                target_response=item["target_response"],
+                layer=sampled[0],
+                num_positions=num_pos,
+                tokenizer=tokenizer,
+                acts_BD=None,
+                feature_idx=-1,
+                context_input_ids=item["context_input_ids"],
+                context_positions=ctx_pos,
+                meta_info={"prompt": item["prompt"], "layers": sampled},
+            )
+            MULTI_LAYERS[:] = saved_layers
+        else:
+            # Re-expand positions if precomputed with fewer layers than runtime config.
+            if n_layers_runtime > 1 and len(ctx_pos) % n_layers_runtime != 0:
+                ctx_pos = base_positions * n_layers_runtime
+                num_pos = len(ctx_pos)
+                if not _reexpand_warned:
+                    print(f"  [data] Re-expanding positions: -> {n_layers_runtime} layers (K={len(base_positions)})")
+                    _reexpand_warned = True
+
+            dp = create_training_datapoint(
+                datapoint_type=item["datapoint_type"],
+                prompt=item["prompt"],
+                target_response=item["target_response"],
+                layer=item["layer"],
+                num_positions=num_pos,
+                tokenizer=tokenizer,
+                acts_BD=None,
+                feature_idx=-1,
+                context_input_ids=item["context_input_ids"],
+                context_positions=ctx_pos,
+                meta_info={"prompt": item["prompt"]},
+            )
         training_data.append(dp)
 
     return training_data
@@ -614,6 +668,61 @@ TASK_REGISTRY = {
         "loader": "load_cot_cotqa_data",
         "corpus": "cotqa",  # loads from HF directly
     },
+    # ── Information gap tasks (partial-CoT, activation-advantaged) ──
+    "early_answer_pred": {
+        "arg": "early_answer_pred_n",
+        "module": "dataset_classes.cot_infogap",
+        "loader": "load_cot_early_answer_pred_data",
+        "corpus": "main",
+    },
+    "backtrack_pred": {
+        "arg": "backtrack_pred_n",
+        "module": "dataset_classes.cot_infogap",
+        "loader": "load_cot_backtrack_pred_data",
+        "corpus": "main",
+    },
+    "error_pred": {
+        "arg": "error_pred_n",
+        "module": "dataset_classes.cot_infogap",
+        "loader": "load_cot_error_pred_data",
+        "corpus": "main",
+    },
+    "self_correction": {
+        "arg": "self_correction_n",
+        "module": "dataset_classes.cot_infogap",
+        "loader": "load_cot_self_correction_data",
+        "corpus": "main",
+    },
+    "verification": {
+        "arg": "verification_n",
+        "module": "dataset_classes.cot_infogap",
+        "loader": "load_cot_verification_data",
+        "corpus": "main",
+    },
+    "branch_pred": {
+        "arg": "branch_pred_n",
+        "module": "dataset_classes.cot_infogap",
+        "loader": "load_cot_branch_pred_data",
+        "corpus": "main",
+    },
+    "completion_pred": {
+        "arg": "completion_pred_n",
+        "module": "dataset_classes.cot_infogap",
+        "loader": "load_cot_completion_pred_data",
+        "corpus": "main",
+    },
+    "remaining_strategy": {
+        "arg": "remaining_strategy_n",
+        "module": "dataset_classes.cot_infogap",
+        "loader": "load_cot_remaining_strategy_data",
+        "corpus": "main",
+    },
+    "chunked_convqa": {
+        "arg": "chunked_convqa_n",
+        "module": "dataset_classes.cot_chunked_convqa",
+        "loader": "load_cot_chunked_convqa_data",
+        "corpus": "chunked_convqa",
+    },
 }
 
 
@@ -698,7 +807,7 @@ def _live_load_task(task_name: str, info: dict, n: int, args, tokenizer) -> list
             num_examples=n, stride=args.stride,
             hint_admission_data_path=hint_path,
         )
-    elif info["corpus"] == "cotqa":
+    elif info["corpus"] == "cotqa" or info["corpus"] == "chunked_convqa":
         return loader_fn(
             "", tokenizer, args.model,
             num_examples=n, stride=args.stride,
@@ -807,7 +916,7 @@ def load_all_tasks(args, tokenizer) -> list[dict]:
                 stride=args.stride,
                 hint_admission_data_path=hint_path,
             )
-        elif info["corpus"] == "cotqa":
+        elif info["corpus"] == "cotqa" or info["corpus"] == "chunked_convqa":
             data = loader_fn(
                 "", tokenizer, args.model,
                 num_examples=n,
@@ -828,7 +937,20 @@ def load_all_tasks(args, tokenizer) -> list[dict]:
     return all_data
 
 
+# ── Train-on-eval conversion ──
+
 # ── Training infrastructure ──
+def _example_context_len(dp: TrainingDataPoint) -> int:
+    return len(dp.context_input_ids) if dp.context_input_ids is not None else len(dp.input_ids)
+
+
+def _window_bucket_training_data(training_data: list[TrainingDataPoint], batch_size: int, window_batches: int) -> None:
+    """Sort by context length inside shuffled windows to reduce padding waste."""
+    window = batch_size * window_batches
+    for i in range(0, len(training_data), window):
+        training_data[i:i + window] = sorted(training_data[i:i + window], key=_example_context_len)
+
+
 def train_features_batch(training_batch, model, submodule, steering_coefficient, device, dtype):
     hook_fn = get_hf_activation_steering_hook(
         vectors=training_batch.steering_vectors,
@@ -893,14 +1015,20 @@ def _run_unified_eval(model, tokenizer, model_name, global_step, args, eval_data
         model, tokenizer, model_name=model_name,
         step=global_step, device="cuda",
         eval_dir=args.eval_dir,
-        max_items_per_eval=25,
+        max_items_per_eval=args.max_items_per_eval,
         skip_rot13=(global_step < args.rot13_start_step),
         oracle_adapter_name="default",
         activation_cache_dir=args.activation_cache_dir,
         log_dir=log_dir,
-        eval_names=[] if no_activations else getattr(args, "evals", None),
+        eval_names=getattr(args, "evals", None),
         stride=args.stride,
         eval_batch_size=args.eval_batch_size,
+        eval_batch_sizes=getattr(args, "eval_batch_size_overrides", None),
+        eval_max_new_tokens=args.eval_max_new_tokens,
+        eval_max_new_tokens_overrides=getattr(args, "eval_max_new_tokens_overrides", None),
+        task_eval_max_new_tokens=args.task_eval_max_new_tokens,
+        task_eval_max_new_tokens_overrides=getattr(args, "task_eval_max_new_tokens_overrides", None),
+        eval_oversample_factor=args.eval_oversample_factor,
         task_eval_datasets=eval_datasets,
         no_activations=no_activations,
     )
@@ -991,16 +1119,20 @@ def train(
         for t, c in sorted(type_counts.items()):
             print(f"    {t}: {c}")
 
-    # Split eval (50 per type)
+    # Split eval (per-task eval_n from config)
+    # Build dtype -> yaml_task_name mapping for eval_n lookup
+    dtype_to_yaml = {(v["module"].split(".")[-1] if v["module"] else f"cot_{k}"): k for k, v in TASK_REGISTRY.items()}
     random.shuffle(training_data)
     eval_per_type = {}
     train_per_type = defaultdict(list)
 
     for dp in training_data:
         t = dp.datapoint_type
+        yaml_name = dtype_to_yaml.get(t)
+        eval_limit = getattr(args, f"{yaml_name}_eval_n", 50) if yaml_name else 50
         if t not in eval_per_type:
             eval_per_type[t] = []
-        if len(eval_per_type[t]) < 50:
+        if len(eval_per_type[t]) < eval_limit:
             eval_per_type[t].append(dp)
         else:
             train_per_type[t].append(dp)
@@ -1045,6 +1177,66 @@ def train(
                 print(f"    stage {task_stage_idx[task_name]}: {task_name} ({len(items)} examples)")
             if wandb.run:
                 wandb.config.update({"stage_map": {v: k for k, v in task_stage_idx.items()}})
+    elif task_order == "interleaved":
+        # Round-robin blocks: cycle through tasks, eval at every block boundary
+        # Tasks with fewer samples are delayed to appear towards the end of training
+        yaml_task_names = getattr(args, "_yaml_task_order", [])
+        yaml_to_dtype = {k: v["module"].split(".")[-1] if v["module"] else f"cot_{k}" for k, v in TASK_REGISTRY.items()}
+        ordered_types = []
+        for yt in yaml_task_names:
+            dt = yaml_to_dtype.get(yt)
+            if dt and dt in train_per_type:
+                ordered_types.append(dt)
+        for dt in sorted(train_per_type.keys()):
+            if dt not in ordered_types:
+                ordered_types.append(dt)
+
+        n_blocks = getattr(args, "interleave_blocks", 50)
+        total_examples = sum(len(v) for v in train_per_type.values())
+        block_size = total_examples // n_blocks
+
+        # Sort tasks by sample count descending (biggest first = earliest start)
+        sorted_types = sorted(ordered_types, key=lambda dt: len(train_per_type[dt]), reverse=True)
+
+        # Calculate how many rounds each task needs and when it should start
+        # so that all tasks finish at the end of training
+        task_rounds_needed = {dt: max(1, math.ceil(len(train_per_type[dt]) / block_size)) for dt in sorted_types}
+        max_rounds = max(task_rounds_needed.values())
+        task_start_round = {dt: max_rounds - task_rounds_needed[dt] for dt in sorted_types}
+
+        # Shuffle within each task, create queues
+        task_queues = {}
+        for dt in sorted_types:
+            items = list(train_per_type[dt])
+            random.shuffle(items)
+            task_queues[dt] = items
+
+        # Round-robin with delayed starts: small tasks appear only in later rounds
+        task_blocks = []
+        for round_idx in range(max_rounds):
+            for task in sorted_types:
+                if round_idx >= task_start_round[task] and task_queues[task]:
+                    queue = task_queues[task]
+                    block = queue[:block_size]
+                    task_queues[task] = queue[block_size:]
+                    if block:
+                        task_blocks.append((task, block))
+
+        final_training = []
+        for _, items in task_blocks:
+            final_training.extend(items)
+
+        for i, (task_name, _) in enumerate(task_blocks):
+            task_stage_idx.setdefault(task_name, i)
+
+        if rank == 0:
+            print(f"  Task order: INTERLEAVED ({n_blocks} blocks, block_size={block_size}, {max_rounds} rounds)")
+            for dt in sorted_types:
+                print(f"    {dt}: {len(train_per_type[dt])} examples, {task_rounds_needed[dt]} rounds, starts round {task_start_round[dt]}")
+            for i, (task_name, items) in enumerate(task_blocks):
+                print(f"    block {i}: {task_name} ({len(items)} examples)")
+            if wandb.run:
+                wandb.config.update({"stage_map": {v: k for k, v in task_stage_idx.items()}})
     else:
         random.shuffle(final_training)
         if rank == 0:
@@ -1062,17 +1254,18 @@ def train(
         print(f"  Eval tasks: {', '.join(sorted(eval_datasets.keys()))}")
 
     # Pre-materialize eval steering vectors once (avoids re-extraction every eval call)
+    # Vectors stored on CPU to avoid hogging GPU memory; moved to GPU during eval.
     # Skip for Flamingo and no-activations modes
     if rank == 0 and not args.flamingo and not args.no_activations:
-        print(f"\n  Pre-materializing eval steering vectors...")
+        print(f"\n  Pre-materializing eval steering vectors (CPU)...")
         mat_start = time.time()
-        mat_batch_size = 8
+        mat_batch_size = 2
         all_eval_items = [dp for dps in eval_datasets.values() for dp in dps]
         for i in range(0, len(all_eval_items), mat_batch_size):
             batch = all_eval_items[i : i + mat_batch_size]
             materialized = materialize_multilayer_steering_vectors(batch, tokenizer, model)
             for orig, mat in zip(batch, materialized):
-                orig.steering_vectors = mat.steering_vectors
+                orig.steering_vectors = mat.steering_vectors.cpu()
         print(f"  Pre-materialized {len(all_eval_items)} eval items in {time.time() - mat_start:.1f}s")
     if world_size > 1:
         dist.barrier()
@@ -1084,24 +1277,51 @@ def train(
 
     # Precompute per-stage step boundaries for progress tracking
     stage_step_ranges = {}  # task_name -> (start_step, end_step)
-    if task_order == "sequential" and task_blocks:
+    if task_order in ("sequential", "interleaved") and task_blocks:
         cursor = 0
         for task_name, items in task_blocks:
-            stage_steps = len(items) // (args.batch_size * grad_accum)
+            stage_steps = len(items) // (args.batch_size * grad_accum * world_size)
             stage_step_ranges[task_name] = (cursor, cursor + stage_steps)
             cursor += stage_steps
 
+    # Precompute block-boundary eval/save steps for interleaved mode
+    # Eval at both start and end of every block; account for world_size in step counts
+    block_eval_steps = set()
+    block_save_steps = set()
+    if task_order == "interleaved" and task_blocks:
+        cursor = 0
+        for _, items in task_blocks:
+            block_eval_steps.add(cursor)  # start of block
+            block_steps = len(items) // (args.batch_size * grad_accum * world_size)
+            cursor += block_steps
+            block_eval_steps.add(cursor)  # end of block
+        block_eval_steps.discard(0)  # step-0 eval handled separately
+        sorted_evals = sorted(block_eval_steps)
+        block_save_steps = set(sorted_evals[i] for i in range(4, len(sorted_evals), 5))
+
     # Dynamic eval/save cadence: ~10 evals over the relevant span
-    if task_order == "sequential":
+    if task_order == "interleaved":
+        # Interleaved uses block-boundary eval/save; disable modulo-based triggers
+        args.eval_steps = max(total_steps + 1, 999999)
+        args.save_steps = max(total_steps + 1, 999999)
+        if rank == 0:
+            print(f"\n  Interleaved cadence: eval at {len(block_eval_steps)} block boundaries, save at {len(block_save_steps)}")
+    elif task_order == "sequential":
         reference_steps = max(len(items) // (args.batch_size * grad_accum) for items in train_per_type.values() if len(items) >= args.batch_size)
+        args.eval_steps = max(-(-reference_steps // 10), 1)
+        args.save_steps = args.eval_steps * 5
+        if rank == 0:
+            print(f"\n  Dynamic cadence (reference = {reference_steps} steps):")
+            print(f"    eval_steps: {args.eval_steps} (~{reference_steps // max(args.eval_steps, 1)}x)")
+            print(f"    save_steps: {args.save_steps}")
     else:
         reference_steps = total_steps
-    args.eval_steps = max(-(-reference_steps // 10), 1)
-    args.save_steps = args.eval_steps * 5
-    if rank == 0:
-        print(f"\n  Dynamic cadence (reference = {reference_steps} steps):")
-        print(f"    eval_steps: {args.eval_steps} (~{reference_steps // max(args.eval_steps, 1)}x)")
-        print(f"    save_steps: {args.save_steps}")
+        args.eval_steps = max(-(-reference_steps // 10), 1)
+        args.save_steps = args.eval_steps * 5
+        if rank == 0:
+            print(f"\n  Dynamic cadence (reference = {reference_steps} steps):")
+            print(f"    eval_steps: {args.eval_steps} (~{reference_steps // max(args.eval_steps, 1)}x)")
+            print(f"    save_steps: {args.save_steps}")
 
     optimizer = torch.optim.AdamW(ddp_model.parameters(), lr=args.lr)
     scheduler = get_linear_schedule_with_warmup(
@@ -1161,9 +1381,12 @@ def train(
         print(f"  Batch: {args.batch_size}")
         print(f"  Gradient accumulation: {grad_accum}")
         print(f"  Effective batch size: {args.batch_size * grad_accum * world_size}")
+        print(f"  Length bucketing: {args.length_bucketing} (window_batches={args.length_bucket_window_batches})")
         print(f"  Epochs: {args.epochs}")
         print(f"  Steps: {total_steps}")
         print(f"  Warmup: {warmup_steps}")
+        print(f"  Eval limits: max_items={args.max_items_per_eval}, oversample={args.eval_oversample_factor}")
+        print(f"  Eval decode caps: detection={args.eval_max_new_tokens}, task={args.task_eval_max_new_tokens}")
 
     model.train()
 
@@ -1188,8 +1411,10 @@ def train(
     micro_step = 0  # counts micro-batches within a gradient accumulation window
 
     for epoch in range(args.epochs):
-        if task_order != "sequential":
+        if task_order not in ("sequential", "interleaved"):
             random.shuffle(final_training)
+            if args.length_bucketing:
+                _window_bucket_training_data(final_training, args.batch_size, args.length_bucket_window_batches)
         optimizer.zero_grad()
 
         pbar = tqdm(
@@ -1330,6 +1555,17 @@ def train(
                     s_len = max(s_end - s_start, 1)
                     log_dict["train/stage_progress"] = min((global_step - s_start) / s_len, 1.0)
 
+                # Log block index for interleaved mode
+                if task_order == "interleaved" and task_blocks:
+                    cursor = 0
+                    for bi, (_, items) in enumerate(task_blocks):
+                        cursor += len(items) // (args.batch_size * grad_accum * world_size)
+                        if global_step < cursor:
+                            log_dict["train/block_idx"] = bi
+                            break
+                    else:
+                        log_dict["train/block_idx"] = len(task_blocks) - 1
+
                 # Log Flamingo gate values
                 if args.flamingo:
                     from flamingo_oracle import FlamingoOracleWrapper
@@ -1352,19 +1588,20 @@ def train(
                     batch_task_counts[t] += 1
                 dominant_task = max(batch_task_counts, key=batch_task_counts.get)
 
-            # Phase checkpoint: save when dominant task changes in sequential mode
-            if rank == 0 and task_order == "sequential" and prev_dominant_task is not None and dominant_task != prev_dominant_task:
+            # Phase checkpoint: save when dominant task changes in sequential/interleaved mode
+            if rank == 0 and task_order in ("sequential", "interleaved") and prev_dominant_task is not None and dominant_task != prev_dominant_task:
                 ckpt_path = save_dir / f"step_{global_step}_phase_{prev_dominant_task}"
                 print(f"\n  Phase transition: {prev_dominant_task} -> {dominant_task}")
                 print(f"  Saving phase checkpoint to {ckpt_path}")
                 model.save_pretrained(str(ckpt_path))
                 _save_training_state(ckpt_path, global_step, optimizer, scheduler)
-            if world_size > 1 and task_order == "sequential" and prev_dominant_task is not None and dominant_task != prev_dominant_task:
+            if world_size > 1 and task_order in ("sequential", "interleaved") and prev_dominant_task is not None and dominant_task != prev_dominant_task:
                 dist.barrier()
             prev_dominant_task = dominant_task
 
             # Unified eval (task + detection, rank 0 only)
-            if global_step > 0 and global_step % args.eval_steps == 0 and not args.flamingo:
+            should_eval = (global_step > 0 and global_step % args.eval_steps == 0) or global_step in block_eval_steps
+            if should_eval and not args.flamingo:
                 if rank == 0:
                     _, elapsed = _run_unified_eval(eval_model, tokenizer, args.model, global_step, args, eval_datasets, log_dir=log_dir, no_activations=args.no_activations)
                     eval_time_total += elapsed
@@ -1373,7 +1610,8 @@ def train(
                     dist.barrier()
 
             # Save checkpoint (rank 0 only)
-            if global_step > 0 and global_step % args.save_steps == 0:
+            should_save = (global_step > 0 and global_step % args.save_steps == 0) or global_step in block_save_steps
+            if should_save:
                 if rank == 0:
                     ckpt_path = save_dir / f"step_{global_step}"
                     print(f"  Saving checkpoint to {ckpt_path}")
@@ -1423,18 +1661,22 @@ def apply_config(args, config: dict):
         args._yaml_task_order = list(config["tasks"].keys())
         for task_name, task_cfg in config["tasks"].items():
             arg_name = f"{task_name}_n"
-            if hasattr(args, arg_name) and getattr(args, f"_cli_{arg_name}", False) is False:
+            if not getattr(args, f"_cli_{arg_name}", False):
                 setattr(args, arg_name, task_cfg.get("n", 0))
+            eval_arg = f"{task_name}_eval_n"
+            if not getattr(args, f"_cli_{eval_arg}", False):
+                setattr(args, eval_arg, task_cfg.get("eval_n", 50))
 
     # Training params
     if "training" in config:
         t = config["training"]
         _float_keys = {"lr", "warmup_fraction", "max_grad_norm", "steering_coefficient"}
-        _int_keys = {"batch_size", "eval_batch_size", "epochs", "seed", "effective_batch_size"}
+        _int_keys = {"batch_size", "eval_batch_size", "epochs", "seed", "effective_batch_size", "interleave_blocks", "length_bucket_window_batches"}
         for key in ["lr", "batch_size", "eval_batch_size", "epochs",
                      "warmup_fraction", "max_grad_norm", "steering_coefficient",
                      "gradient_checkpointing", "task_order", "seed",
-                     "effective_batch_size"]:
+                     "effective_batch_size", "interleave_blocks",
+                     "length_bucketing", "length_bucket_window_batches"]:
             if key in t and not getattr(args, f"_cli_{key}", False):
                 val = t[key]
                 if key in _float_keys:
@@ -1455,11 +1697,17 @@ def apply_config(args, config: dict):
     # Eval
     if "eval" in config:
         e = config["eval"]
-        for key in ["eval_dir", "rot13_start_step", "eval_steps", "save_steps"]:
+        for key in [
+            "eval_dir", "rot13_start_step", "eval_steps", "save_steps",
+            "max_items_per_eval", "eval_max_new_tokens", "task_eval_max_new_tokens",
+            "eval_oversample_factor",
+        ]:
             if key in e and not getattr(args, f"_cli_{key}", False):
                 val = e[key]
-                if key in {"rot13_start_step", "eval_steps", "save_steps"}:
+                if key in {"rot13_start_step", "eval_steps", "save_steps", "max_items_per_eval", "eval_max_new_tokens", "task_eval_max_new_tokens"}:
                     val = int(val)
+                elif key == "eval_oversample_factor":
+                    val = float(val)
                 setattr(args, key, val)
         if "evals" in e and not getattr(args, "_cli_evals", False):
             raw_evals = e["evals"]
@@ -1473,8 +1721,36 @@ def apply_config(args, config: dict):
                     eval_names.append(name)
                     if isinstance(entry[name], dict) and "baselines" in entry[name]:
                         eval_baselines[name] = entry[name]["baselines"]
+            # Append classification evals from separate config section
+            if "classification_evals" in e:
+                for entry in e["classification_evals"]:
+                    if isinstance(entry, str):
+                        eval_names.append(entry)
+                    elif isinstance(entry, dict):
+                        name = list(entry.keys())[0]
+                        eval_names.append(name)
+                        if isinstance(entry[name], dict) and "baselines" in entry[name]:
+                            eval_baselines[name] = entry[name]["baselines"]
             args.evals = eval_names
             args.eval_baselines = eval_baselines
+        if "eval_batch_size_overrides" in e and not getattr(args, "_cli_eval_batch_size_overrides", False):
+            raw_overrides = e["eval_batch_size_overrides"] or {}
+            args.eval_batch_size_overrides = {
+                str(k): int(v)
+                for k, v in raw_overrides.items()
+            }
+        if "eval_max_new_tokens_overrides" in e and not getattr(args, "_cli_eval_max_new_tokens_overrides", False):
+            raw_overrides = e["eval_max_new_tokens_overrides"] or {}
+            args.eval_max_new_tokens_overrides = {
+                str(k): int(v)
+                for k, v in raw_overrides.items()
+            }
+        if "task_eval_max_new_tokens_overrides" in e and not getattr(args, "_cli_task_eval_max_new_tokens_overrides", False):
+            raw_overrides = e["task_eval_max_new_tokens_overrides"] or {}
+            args.task_eval_max_new_tokens_overrides = {
+                str(k): int(v)
+                for k, v in raw_overrides.items()
+            }
 
     # Data paths
     if "data" in config:
@@ -1505,11 +1781,21 @@ def apply_config(args, config: dict):
         if config["no_activations"].get("enabled") and not getattr(args, "_cli_no_activations", False):
             args.no_activations = True
 
+    # Ablations
+    if "ablations" in config:
+        ab = config["ablations"]
+        if ab.get("random_layers") and not getattr(args, "_cli_random_layers", False):
+            args.random_layers = True
+        if ab.get("noise_activations") and not getattr(args, "_cli_noise_activations", False):
+            args.noise_activations = True
+
     # Model
     if "model" in config:
         m = config["model"]
         if "name" in m and not getattr(args, "_cli_model", False):
             args.model = m["name"]
+        if "attn_implementation" in m and not getattr(args, "_cli_attn_implementation", False):
+            args.attn_implementation = m["attn_implementation"]
         if "ao_checkpoint" in m and not getattr(args, "_cli_ao_checkpoint", False):
             args.ao_checkpoint = m["ao_checkpoint"]
         if "fresh_lora" in m and not getattr(args, "_cli_fresh_lora", False):
@@ -1538,6 +1824,9 @@ def main():
     parser.add_argument("--corpus", default="data/cot_corpus_v5/corpus_medium.jsonl",
                         help="Path to corpus.jsonl")
     parser.add_argument("--model", default="Qwen/Qwen3-8B")
+    parser.add_argument("--attn-implementation", default="sdpa",
+                        choices=["sdpa", "eager", "flash_attention_2", "flash_attention_3"],
+                        help="Transformer attention backend")
 
     # Checkpoint control
     parser.add_argument("--resume-from", default=None,
@@ -1562,6 +1851,15 @@ def main():
     parser.add_argument("--prompt-inversion-n", type=int, default=0)
     parser.add_argument("--compqa-n", type=int, default=0)
     parser.add_argument("--hint-admission-n", type=int, default=0)
+    # Information gap tasks
+    parser.add_argument("--early-answer-pred-n", type=int, default=0)
+    parser.add_argument("--backtrack-pred-n", type=int, default=0)
+    parser.add_argument("--error-pred-n", type=int, default=0)
+    parser.add_argument("--self-correction-n", type=int, default=0)
+    parser.add_argument("--verification-n", type=int, default=0)
+    parser.add_argument("--branch-pred-n", type=int, default=0)
+    parser.add_argument("--completion-pred-n", type=int, default=0)
+    parser.add_argument("--remaining-strategy-n", type=int, default=0)
     parser.add_argument("--atypical-data-path",
                         default="data/atypical_answer_training.jsonl",
                         help="Path to atypical answer JSONL (from precompute_atypical_training.py)")
@@ -1573,6 +1871,14 @@ def main():
     parser.add_argument("--lr", type=float, default=1e-5)
     parser.add_argument("--batch-size", type=int, default=8)
     parser.add_argument("--eval-batch-size", type=int, default=2)
+    parser.add_argument("--max-items-per-eval", type=int, default=10,
+                        help="Maximum items per detection eval")
+    parser.add_argument("--eval-oversample-factor", type=float, default=1.0,
+                        help="Non-classification eval sample multiplier (1.0 = no oversampling)")
+    parser.add_argument("--eval-max-new-tokens", type=int, default=32,
+                        help="Default max_new_tokens for detection eval generation")
+    parser.add_argument("--task-eval-max-new-tokens", type=int, default=64,
+                        help="Default max_new_tokens for task-level eval generation")
     parser.add_argument("--epochs", type=int, default=1)
     parser.add_argument("--stride", type=str, default=None, help="Stride for position extraction (int or 'punctuation'). Must be set via config or CLI.")
     parser.add_argument("--n-layers", type=int, default=3,
@@ -1590,8 +1896,15 @@ def main():
                         help="Apply sinusoidal PE to activation vectors")
     parser.add_argument("--pe-alpha", type=float, default=0.1,
                         help="PE mixing coefficient (only used if --position-encoding)")
-    parser.add_argument("--task-order", choices=["shuffled", "sequential"], default="shuffled",
-                        help="'shuffled' mixes all tasks; 'sequential' trains tasks one at a time")
+    parser.add_argument("--task-order", choices=["shuffled", "sequential", "interleaved"], default="shuffled",
+                        help="'shuffled' mixes all tasks; 'sequential' trains one at a time; 'interleaved' round-robin blocks")
+    parser.add_argument("--interleave-blocks", type=int, default=50,
+                        help="Number of blocks for interleaved mode (default 50)")
+    parser.add_argument("--length-bucketing", action="store_true", default=True,
+                        help="Enable windowed context-length bucketing in shuffled mode")
+    parser.add_argument("--no-length-bucketing", dest="length_bucketing", action="store_false")
+    parser.add_argument("--length-bucket-window-batches", type=int, default=32,
+                        help="Window size for length bucketing, in units of train batches")
     parser.add_argument("--effective-batch-size", type=int, default=32,
                         help="Total effective batch size (invariant to GPU count). "
                              "gradient_accumulation_steps = effective_batch_size / (batch_size * world_size)")
@@ -1610,6 +1923,12 @@ def main():
     parser.add_argument("--flamingo-max-ctx-tokens", type=int, default=2048,
                         help="Max context tokens for flamingo activation extraction (truncates from left)")
 
+    # Ablations
+    parser.add_argument("--random-layers", action="store_true", default=False,
+                        help="Randomize layer count and indices per training sequence")
+    parser.add_argument("--noise-activations", action="store_true", default=False,
+                        help="Replace real activations with variance-matched Gaussian noise")
+
     # Eval / save
     parser.add_argument("--eval-steps", type=int, default=2000,
                         help="Run evals every N steps (shuffled mode)")
@@ -1626,12 +1945,12 @@ def main():
                         help="Dir with precomputed activation bundles (.pt)")
 
     # Output
-    _default_save = os.path.join(os.environ["CACHE_DIR"], "cot_oracle", "checkpoints") if os.environ.get("CACHE_DIR") else "checkpoints"
-    parser.add_argument("--save-dir", default=_default_save)
+    parser.add_argument("--save-dir", default="checkpoints")
     parser.add_argument("--wandb-project", default="cot_oracle")
     parser.add_argument("--wandb-entity", default="MATS10-CS-JB",
                         help="Wandb entity (team/org)")
     parser.add_argument("--wandb-run", default=None)
+    parser.add_argument("--wandb-group", default=None, help="Wandb group name")
 
     # Data loading
     parser.add_argument("--precomputed-dir", default=None,
@@ -1688,8 +2007,12 @@ def main():
     set_seed(args.seed)
 
     # Multi-layer config
-    global MULTI_LAYERS, NO_ACTIVATIONS
+    global MULTI_LAYERS, NO_ACTIVATIONS, RANDOM_LAYERS, NOISE_ACTIVATIONS, _MODEL_N_LAYERS
     NO_ACTIVATIONS = getattr(args, "no_activations", False)
+    RANDOM_LAYERS = getattr(args, "random_layers", False)
+    NOISE_ACTIVATIONS = getattr(args, "noise_activations", False)
+    from cot_utils import LAYER_COUNTS
+    _MODEL_N_LAYERS = LAYER_COUNTS.get(args.model, 36)
     if hasattr(args, "layers") and args.layers:
         MULTI_LAYERS = [int(l) for l in args.layers]
     else:
@@ -1705,6 +2028,10 @@ def main():
         else:
             print(f"Multi-layer injection: {MULTI_LAYERS}")
         print(f"Distributed: world_size={world_size}, rank={rank}, local_rank={local_rank}")
+        if RANDOM_LAYERS:
+            print("Ablation: RANDOM LAYERS (per-item random layer sampling)")
+        if NOISE_ACTIVATIONS:
+            print("Ablation: NOISE ACTIVATIONS (variance-matched Gaussian noise)")
 
     # Position encoding config
     global _PE_CONFIG
@@ -1730,11 +2057,12 @@ def main():
 
     if rank == 0:
         print(f"\nLoading model: {args.model}")
+        print(f"Attention backend: {args.attn_implementation}")
     base_model = AutoModelForCausalLM.from_pretrained(
         args.model,
         torch_dtype=dtype,
         device_map={"": f"cuda:{local_rank}"},
-        attn_implementation="sdpa",  # O(n) memory; "eager" was O(n²) and OOMed at batch>8
+        attn_implementation=args.attn_implementation,
     )
     base_model.enable_input_require_grads()
 
@@ -1869,6 +2197,7 @@ def main():
             project=args.wandb_project,
             entity=args.wandb_entity,
             name=run_name,
+            group=args.wandb_group,
             id=resume_id,
             resume="allow" if resume_id else None,
             config=wandb_config,

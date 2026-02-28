@@ -1,0 +1,39 @@
+# Base config for Qwen3-0.6B ablation runs (1/5 scale)
+# Use as first overlay: --config configs/train.yaml configs/ablation_base_0.6b.yaml configs/ablation_<name>.yaml
+
+model:
+  name: Qwen/Qwen3-0.6B
+  fresh_lora: true  # no pretrained AO checkpoint for 0.6B
+
+tasks:
+  full_recon:
+    n: 8000
+  next_step:
+    n: 6000
+  conv_qa:
+    n: 2000
+  cotqa:
+    n: 2000
+  compqa:
+    n: 1600
+  answer_pred:
+    n: 4000
+  answer_trajectory:
+    n: 4000
+  correctness:
+    n: 3000
+  decorative:
+    n: 5000
+  reasoning_term:
+    n: 3000
+  atypical_answer:
+    n: 4000
+  hint_admission:
+    n: 3000
+  hinted_answer_pred:
+    n: 2000
+
+training:
+  batch_size: 4
+  effective_batch_size: 256
+  eval_batch_size: 4

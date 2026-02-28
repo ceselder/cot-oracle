@@ -348,6 +348,7 @@ def maybe_load_cached_bundle(
     map_location: str = "cpu",
     stride: int | str | None = None,
     layers: list[int] | None = None,
+    expected_hidden_size: int | None = None,
 ) -> ActivationBundle | None:
     """Load a cached activation bundle with optional staleness validation.
 
@@ -379,6 +380,11 @@ def maybe_load_cached_bundle(
         n_positions = len(bundle.boundary_positions)
         expected_rows = n_positions * len(layers)
         if bundle.activations.shape[0] != expected_rows:
+            path.unlink(missing_ok=True)
+            return None
+
+    if expected_hidden_size is not None:
+        if bundle.activations.ndim < 2 or bundle.activations.shape[-1] != expected_hidden_size:
             path.unlink(missing_ok=True)
             return None
 
