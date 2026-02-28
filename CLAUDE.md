@@ -21,8 +21,12 @@ Key files:
 
 All data uses the same schema: `{task, prompt, target_response, context_input_ids, context_positions, layers}`
 
-### 50/50 stride sampling
-During training, 50% of examples see all stride positions (full context), and 50% see only the last position per layer (minimal context). This trains the oracle to work with both rich and sparse activation information.
+### 50/50 suffix-based stride sampling
+During training, positions are always a contiguous suffix up to the prediction barrier:
+- **50%** of examples: only the **last 1 position** per layer (minimal context at the barrier)
+- **50%** of examples: sample `m` uniformly from `1..K`, take the **last `m` positions** per layer
+
+This trains the oracle to work with varying amounts of trailing activation context, from a single activation to the full CoT.
 
 ## Training
 
