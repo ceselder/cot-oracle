@@ -1685,7 +1685,7 @@ def main():
     if args.gradient_checkpointing:
         base_model.use_cache = False
         base_model.gradient_checkpointing_enable(
-            gradient_checkpointing_kwargs={"use_reentrant": False}
+            gradient_checkpointing_kwargs={"use_reentrant": True}
         )
 
     # Get hook submodule BEFORE LoRA
