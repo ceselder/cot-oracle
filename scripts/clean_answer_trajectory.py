@@ -79,9 +79,8 @@ def main():
     llm = LLM(
         model=args.model,
         tensor_parallel_size=1,
-        max_model_len=1024,
+        max_model_len=2048,
         gpu_memory_utilization=0.9,
-        enable_thinking=False,
     )
 
     sampling_params = SamplingParams(
@@ -89,6 +88,9 @@ def main():
         max_tokens=30,
         stop=["\n"],
     )
+
+    # Disable thinking via chat template extra kwargs
+    chat_kwargs = {"enable_thinking": False}
 
     # Process in batches
     print(f"Processing {len(rows)} rows in batches of {args.batch_size}...")
@@ -110,7 +112,7 @@ def main():
             ]
             prompts.append(messages)
 
-        outputs = llm.chat(prompts, sampling_params)
+        outputs = llm.chat(prompts, sampling_params, chat_template_kwargs=chat_kwargs)
 
         for row, output in zip(batch, outputs):
             cleaned = output.outputs[0].text.strip()
