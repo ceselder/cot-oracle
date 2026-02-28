@@ -1,0 +1,33 @@
+# Ablation: Stride-10 with Positional Embeddings ON
+# Dense stride (10), sinusoidal PE, sparse sampling, no prompt positions.
+# Override on top of train.yaml: --config configs/train.yaml configs/ablation_stride10_pe_on.yaml
+
+tasks:
+  full_recon:
+    n: 0
+  next_step:
+    n: 0
+  answer_trajectory:
+    n: 0
+  conv_qa:
+    n: 0
+
+activations:
+  stride: 10
+  n_layers: 3
+  pooling: windows
+  sparse_positions: true
+  n_prompt_positions: 0
+  position_encoding: true
+  pe_alpha: 0.1
+
+training:
+  batch_size: 2
+  effective_batch_size: 16
+  eval_batch_size: 2
+
+model:
+  fresh_lora: true
+
+output:
+  wandb_run: ablation-stride10-pe-on
