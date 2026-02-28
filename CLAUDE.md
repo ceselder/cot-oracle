@@ -6,6 +6,24 @@ A white-box chain-of-thought (CoT) monitoring system built on Activation Oracles
 
 The oracle is Qwen3-8B fine-tuned with LoRA to accept its own activations via norm-matched injection at layer 1.
 
+### Unified Task System
+
+11 tasks total (6 trainable + 5 eval-only), defined in `src/tasks.py`:
+
+**Training + Eval:** hint_admission, atypical_answer, reasoning_termination, answer_trajectory, futurelens, backtrack_prediction
+
+**Eval-only:** rot13_reconstruction, sycophancy, truthfulqa_hint_verbalized, truthfulqa_hint_unverbalized, sentence_insertion
+
+Key files:
+- `src/tasks.py` — TaskDef definitions, scoring modes, HF repos
+- `src/data_loading.py` — Unified HF data loading (replaces 30+ dataset loaders)
+- `src/eval_loop.py` — Unified eval with 4 scoring modes (replaces training_eval_hook.py)
+
+All data uses the same schema: `{task, prompt, target_response, context_input_ids, context_positions, layers}`
+
+### 50/50 stride sampling
+During training, 50% of examples see all stride positions (full context), and 50% see only the last position per layer (minimal context). This trains the oracle to work with both rich and sparse activation information.
+
 ## Training
 
 ### Config (`configs/train.yaml`)
@@ -15,7 +33,7 @@ Never include the number of GPUs used in the runname on wandb.
 
 ### Data pipeline rules
 - **ALL training data comes from HuggingFace.** The training script downloads precomputed JSONL from HF automatically. Never bake activation positions or limits into precomputed data — precomputed data stores `context_input_ids` and `context_positions`, and activation extraction happens at training time on GPU.
-- **NEVER cap or truncate activation positions.** Do not set `max_positions_per_layer` or any limit on the number of stride positions fed to the oracle. The oracle should see ALL stride positions from the CoT. Stride=5 already controls density. Previous `max_positions_per_layer=20` silently threw away 50-84% of activations for longer CoTs.
+- **NEVER cap or truncate activation positions.** Do not set `max_positions_per_layer` or any limit on the number of stride positions fed to the oracle. The oracle should see ALL stride positions from the CoT. Stride=5 already controls density.
 - **NEVER fail silently.** If a task is enabled (n > 0) but its data can't be loaded, raise an error. Do not silently skip tasks or swallow exceptions.
 
 

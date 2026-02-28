@@ -1,134 +1,32 @@
-# CoT Oracle Training Config
-# Set n: 0 to disable a task.
-# This file lists all training tasks currently wired in TASK_REGISTRY.
+# CoT Oracle Training Config (Unified Task System)
+# Set n: 0 to disable a task. Eval-only tasks are always evaluated.
+# All data is downloaded from HuggingFace automatically.
 
 tasks:
-  # Task eval times: H100 vast.ai, eval_n=10
-  # --- Reconstruction (grounding: learn to read activations as text) ---
-  full_recon:
-    n: 40000
-    eval_n: 5
-    description: "Reconstruct full CoT from stride activations"
-
-  next_step:                       # ~39s
-    n: 30000
-    eval_n: 5
-    description: "Predict next ~50 tokens of CoT"
-
-  prompt_inversion:
-    n: 0
-    eval_n: 5
-    description: "Reconstruct the original question/prompt from CoT activations"
-
-  # --- Open-ended QA (articulate understanding of CoT) ---
-  # conv_qa is legacy and not wired in current TASK_REGISTRY.
-
-  cotqa:                           # ~32s
-    n: 10000
-    eval_n: 5
-    description: "Conversational questions about CoTs (from concept corpus, HF)"
-
-  position_qa:
+  # --- Training + Eval (6 tasks, 80/20 train/test split on HF) ---
+  hint_admission:
     n: 15000
-    description: "What reasoning function is the model performing at a specific position?"
+    description: "Did the model use an external hint? (binary, CoT activations only)"
 
-  compqa:                          # ~38s
-    n: 8000
-    eval_n: 5
-    description: "Answer questions about CoT reasoning quality (10 types, Gemini GT)"
-
-  # --- Trajectory tracking (answer evolution through CoT) ---
-  answer_pred:                     # ~13s
+  atypical_answer:
     n: 20000
-    eval_n: 5
-    description: "Predict final answer from partial CoT"
+    description: "Majority or minority answer? (from 25-rollout distributions)"
 
-  answer_trajectory:               # ~28s
+  reasoning_termination:
+    n: 15000
+    description: "Will the model emit </think> within ~100 tokens? (partial CoT prefix)"
+
+  answer_trajectory:
     n: 60000
-    eval_n: 5
-    description: "What does the model currently think the answer is? (per-sentence, precompute-only)"
+    description: "What does the model currently think the answer is? (per-sentence tracking)"
 
-  # --- Analytical / classification (computational queries over activations) ---
-  correctness:                     # ~22s
+  futurelens:
+    n: 30000
+    description: "Predict next ~50 tokens of reasoning (single activation, 3 layers)"
+
+  backtrack_prediction:
     n: 15000
-    eval_n: 5
-    description: "Did the model get the right answer?"
-
-  decorative:                      # ~12-20s
-    n: 25000
-    eval_n: 5
-    description: "Is the CoT decorative or load-bearing?"
-
-  reasoning_term:                  # ~2s
-    n: 15000
-    eval_n: 5
-    description: "Will the model emit </think> soon?"
-
-  atypical_answer:                 # ~6-12s
-    n: 20000
-    eval_n: 5
-    description: "Is this a majority or minority answer? (from 25-rollout distributions)"
-
-  hint_admission:                  # ~40s
-    n: 15000
-    eval_n: 5
-    description: "Did the model use an external hint? What was it?"
-
-  hinted_answer_pred:              # ~13s
-    n: 10000
-    eval_n: 5
-    description: "Predict final answer from partial hinted CoT"
-
-  domain:
-    n: 0
-    eval_n: 5
-    description: "What domain is this problem?"
-
-  # --- Information gap tasks (partial-CoT, activation-advantaged) ---
-  early_answer_pred:               # ~26s
-    n: 20000
-    eval_n: 5
-    description: "Predict final answer from early partial CoT (20-60%)"
-
-  backtrack_pred:                  # ~32s
-    n: 15000
-    eval_n: 5
     description: "Will the model revise/backtrack in the next ~150 tokens?"
-
-  error_pred:                      # ~32s
-    n: 15000
-    eval_n: 5
-    description: "Will the model's next reasoning step be wrong?"
-
-  self_correction:                 # ~33s
-    n: 10000
-    eval_n: 5
-    description: "Will the model fix its own error?"
-
-  verification:                    # ~31s
-    n: 10000
-    eval_n: 5
-    description: "Will the model double-check its work?"
-
-  remaining_strategy:              # ~32s
-    n: 10000
-    eval_n: 5
-    description: "Describe the reasoning approach for remaining steps"
-
-  branch_pred:                     # ~32s
-    n: 10000
-    eval_n: 5
-    description: "Which strategy branch will the model take?"
-
-  completion_pred:                 # ~32s
-    n: 10000
-    eval_n: 5
-    description: "Which continuation is the real one?"
-
-  chunked_convqa:                  # ~7s
-    n: 10000
-    eval_n: 5
-    description: "Answer questions about CoT suffix from prefix activations (info-gap, Gemini GT)"
 
 # Training
 training:
@@ -159,126 +57,19 @@ activations:
   position_encoding: false   # sinusoidal PE for activation vectors
   pe_alpha: 0.1              # PE mixing coefficient (only used if position_encoding: true)
 
-# Eval
+# Eval (unified: all evals use HF test splits via eval_loop.py)
 eval:
-  eval_dir: data/evals
   eval_steps: 2000
   save_steps: 10000
   rot13_start_step: 2000
-  max_items_per_eval: 10
-  eval_oversample_factor: 1.0
-  eval_max_new_tokens: 32
-  task_eval_max_new_tokens: 64
-  # Optional per-eval decoding caps.
-  # Supported keys: exact eval name, "cls_*", or "*".
-  eval_max_new_tokens_overrides:
-    compqa: 128
-    chunked_convqa: 128
-    rot13_reconstruction: 512
-  # Optional per-task decoding caps for task-level evals.
-  task_eval_max_new_tokens_overrides:
-    cot_next_step: 80
-    cot_rollout_multilayer: 80
-    cot_compqa: 80
-    cot_hint_admission: 80
-  # Optional per-eval batch-size overrides.
-  # Useful for long-sequence evals that OOM at the global eval_batch_size.
-  # Supported keys: exact eval name, "cls_*", or "*".
-  eval_batch_size_overrides:
-    sentence_insertion: 1
-    reasoning_termination_riya: 1
-    rot13_reconstruction: 1
-    cls_*: 8
-  # Detection evals (all supported eval names are listed below;
-  # uncomment any disabled entry to enable it).
-  # Times: H100, n=30, bs=8 (profile_heavy_evals_step_385.json)
-  evals:
-    - hinted_mcq_truthfulqa       # ~10s
-    - sycophancy_v2_riya          # ~22s
-    # - decorative_cot  # disabled: very noisy labels in current preprocessing
-    - sentence_insertion          # ~32s (bs=1, OOMs at bs>1)
-    - reasoning_termination_riya  # ~114s (bs=1, slower at higher bs)
-    - atypical_answer_riya        # ~28s
-    - atypical_answer_mcq         # ~21s
-    - cybercrime_ood              # ~33s
-    # - compqa  # disabled: expensive open-ended eval
-    - chunked_convqa
-    - cot_hint_admission
-    # - hint_admission  # disabled: eval dataset not available on HF
-    # - forced_answer_entropy_riya  # disabled: logprob extraction broken, always 0.000
-    # - rot13_reconstruction      # ~184s
-  # OOD classification evals (Adam's NL probes — oracle reads arbitrary text activations)
-  # Times: ~6-8s each at n=30 bs=8
-  classification_evals:
-    - cls_sst2                    # ~7s
-    - cls_snli                    # ~6s
-    # - cls_md_gender  # disabled: facebook/md_gender_bias uses deprecated loading script
-    - cls_ag_news                 # ~6s
-    - cls_ner                     # ~6s
-    - cls_tense                   # ~6s
-    - cls_language_id             # ~8s
-    - cls_singular_plural         # ~6s
-    - cls_geometry_of_truth       # ~6s
-    - cls_relations               # ~6s
-
-# Data — HF dataset IDs auto-download; local paths used as-is
-data:
-  corpus: mats-10-sprint-cs-jb/cot-oracle-corpus-v5
-  precomputed_dir: data/precomputed
-  # activation_cache_dir: sourced from CACHE_DIR env var (dotenv), fallback: data/eval_precomputed
-  atypical_data_path: mats-10-sprint-cs-jb/qwen3-8b-atypical-answer-rollouts
-  hint_admission_data_path: mats-10-sprint-cs-jb/qwen3-8b-hint-admission-rollouts
+  max_items_per_eval: 30
+  eval_batch_size: 4
 
 # Model
 model:
   name: Qwen/Qwen3-8B
   ao_checkpoint: adamkarvonen/checkpoints_latentqa_cls_past_lens_addition_Qwen3-8B
   fresh_lora: false
-
-# Baselines
-baselines:
-  output_dir: data/baseline_results
-  log_dir: logs/baselines
-
-  evals:
-    - sycophancy_v2_riya
-    - reasoning_termination_riya
-    - rot13_reconstruction
-    - thought_anchors
-    - thought_branches
-
-  stride: 5
-
-  linear_probe:
-    layers: [9, 18, 27]       # also runs concat of all 3
-    k_folds: 5
-    lr: 0.01
-    epochs: 100b
-    weight_decay: 0.0001
-
-  attention_probe:
-    n_layers: 36               # all layers
-    k_folds: 5
-    n_heads: 4
-    hidden_dim: 256
-    lr: 0.001
-    epochs: 50
-    patience: 10
-
-  original_ao:
-    checkpoint: adamkarvonen/checkpoints_latentqa_cls_past_lens_addition_Qwen3-8B
-
-  llm_monitor:
-    model: google/gemini-3-flash-preview
-    api_base: https://openrouter.ai/api/v1
-    max_tokens: 300
-    temperature: 0.0
-
-  patchscopes:
-    source_layers: [9, 18, 27]
-    injection_layer: 1
-    steering_coefficient: 1.0
-    max_new_tokens: 100
 
 # Output
 output:
