@@ -705,7 +705,8 @@ def train_features_batch(training_batch, model, submodule, steering_coefficient,
         device=device,
         dtype=dtype,
     )
-    hook_fn = _wrap_hook_for_grad_ckpt(hook_fn)
+    # NOTE: _wrap_hook_for_grad_ckpt removed — only needed for use_reentrant=False.
+    # With use_reentrant=True the clone is unnecessary and wastes ~20GB on long sequences.
     tokenized_input = {
         "input_ids": training_batch.input_ids,
         "attention_mask": training_batch.attention_mask,
