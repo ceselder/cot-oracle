@@ -1,0 +1,28 @@
+# Ablation: Probe + FutureLens (next-step prediction)
+# Same as probe-only but re-enables next_step task.
+# Override on top of train.yaml: --config configs/train.yaml configs/ablation_probe_futurelens.yaml
+
+tasks:
+  # Disable reconstruction tasks (except next_step)
+  full_recon:
+    n: 0
+  answer_trajectory:
+    n: 0
+  conv_qa:
+    n: 0
+
+activations:
+  stride: 100
+  n_layers: 3
+  pooling: windows
+
+training:
+  batch_size: 2
+  effective_batch_size: 16
+  eval_batch_size: 2
+
+model:
+  fresh_lora: true
+
+output:
+  wandb_run: ablation-probe-futurelens
