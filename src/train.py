@@ -1702,6 +1702,7 @@ def main():
     global _N_PROMPT_POSITIONS
     _N_PROMPT_POSITIONS = getattr(args, "n_prompt_positions", 5)
     if rank == 0:
+        print(f"Activation stride: {args.stride}")
         print(f"Activation pooling: {_POOLING_MODE}")
         if _LAYER_POOL:
             print(f"Layer pooling: ON (averaging {len(MULTI_LAYERS)} layers → 1 effective layer)")

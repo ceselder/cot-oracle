@@ -1234,9 +1234,9 @@ def main():
         print(f"Loading trained oracle from {args.trained_oracle} as '{adapter_name}'...")
         load_extra_adapter(model, args.trained_oracle, adapter_name=adapter_name)
         set_oracle_mode(trained=True, oracle_adapter_name=adapter_name)
-        print(f"  Oracle mode: trained (¶ tokens, stride=5, adapter='{adapter_name}')")
+        print(f"  Oracle mode: trained (¶ tokens, stride={_ORACLE_MODE['stride']}, adapter='{adapter_name}')")
     else:
-        print("  Oracle mode: baseline (? tokens, stride=5)")
+        print(f"  Oracle mode: baseline (? tokens, stride={_ORACLE_MODE['stride']})")
 
     # Find eval datasets
     eval_files = sorted(eval_dir.glob("*.json"))
