@@ -680,18 +680,6 @@ TASK_REGISTRY = {
         "loader": "load_cot_verification_data",
         "corpus": "main",
     },
-    "branch_pred": {
-        "arg": "branch_pred_n",
-        "module": "dataset_classes.cot_infogap",
-        "loader": "load_cot_branch_pred_data",
-        "corpus": "main",
-    },
-    "completion_pred": {
-        "arg": "completion_pred_n",
-        "module": "dataset_classes.cot_infogap",
-        "loader": "load_cot_completion_pred_data",
-        "corpus": "main",
-    },
     "remaining_strategy": {
         "arg": "remaining_strategy_n",
         "module": "dataset_classes.cot_infogap",
@@ -708,6 +696,9 @@ TASK_REGISTRY = {
 
 
 HF_TRAINING_REPO = "mats-10-sprint-cs-jb/cot-oracle-training-v6"
+HF_INFOGAP_REPO = "mats-10-sprint-cs-jb/cot-oracle-compqa-chunked"
+
+INFOGAP_TASKS = {"early_answer_pred", "backtrack_pred", "error_pred", "self_correction", "verification", "remaining_strategy"}
 
 _HF_CACHE_DIR = Path(os.path.join(os.environ["CACHE_DIR"], "cot_oracle", ".hf_cache")) if os.environ.get("CACHE_DIR") else Path("data/.hf_cache")
 
@@ -743,8 +734,25 @@ def _resolve_hf_dataset(path_or_id: str) -> str:
     return str(cache_path)
 
 
+def _download_infogap_from_hf(pdir: Path) -> None:
+    """Download the infogap parquet from HF and split into per-task JSONLs."""
+    from datasets import load_dataset
+    print(f"  [train] Downloading infogap dataset from {HF_INFOGAP_REPO}...")
+    ds = load_dataset(HF_INFOGAP_REPO, split="train")
+    pdir.mkdir(parents=True, exist_ok=True)
+    for task_name in INFOGAP_TASKS:
+        subset = ds.filter(lambda x: x["datapoint_type"] == task_name)
+        out_path = pdir / f"{task_name}.jsonl"
+        subset.to_json(str(out_path))
+        print(f"    {task_name}: {len(subset)} examples -> {out_path}")
+
+
 def _download_precomputed_from_hf(task_name: str, pdir: Path) -> Path:
     """Download a precomputed JSONL file from HuggingFace."""
+    if task_name in INFOGAP_TASKS:
+        _download_infogap_from_hf(pdir)
+        return pdir / f"{task_name}.jsonl"
+
     from huggingface_hub import hf_hub_download
 
     filename = f"{task_name}.jsonl"
@@ -1807,7 +1815,7 @@ def main():
                         help="Path to corpus.jsonl")
     parser.add_argument("--model", default="Qwen/Qwen3-8B")
     parser.add_argument("--attn-implementation", default="sdpa",
-                        choices=["sdpa", "eager", "flash_attention_2", "flash_attention_3"],
+                        choices=["sdpa", "eager"],
                         help="Transformer attention backend")
 
     # Checkpoint control
@@ -1839,8 +1847,6 @@ def main():
     parser.add_argument("--error-pred-n", type=int, default=0)
     parser.add_argument("--self-correction-n", type=int, default=0)
     parser.add_argument("--verification-n", type=int, default=0)
-    parser.add_argument("--branch-pred-n", type=int, default=0)
-    parser.add_argument("--completion-pred-n", type=int, default=0)
     parser.add_argument("--remaining-strategy-n", type=int, default=0)
     parser.add_argument("--atypical-data-path",
                         default="data/atypical_answer_training.jsonl",

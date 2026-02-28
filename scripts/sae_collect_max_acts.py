@@ -183,11 +183,7 @@ def main():
     if not tokenizer.pad_token_id:
         tokenizer.pad_token_id = tokenizer.eos_token_id
 
-    try:
-        import flash_attn  # noqa: F401
-        attn_impl = "flash_attention_2"
-    except ImportError:
-        attn_impl = "sdpa"
+    attn_impl = "sdpa"
     model = AutoModelForCausalLM.from_pretrained(
         MODEL_NAME, device_map="auto", dtype=dtype, attn_implementation=attn_impl,
     )
