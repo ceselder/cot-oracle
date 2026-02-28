@@ -1,5 +1,8 @@
 # Core ML — pin versions to match AO repo
-torch==2.7.1
+# torch 2.7.1 has a gradient checkpointing bug with forward hooks (tensor count mismatch).
+# Install torch 2.6.0 separately first: pip install torch==2.6.0 --index-url https://download.pytorch.org/whl/cu124
+# Then: pip install -r requirements.txt (without torch reinstalling)
+torch>=2.6.0,<2.7.0
 transformers==4.55.2
 peft==0.17.1
 bitsandbytes>=0.48.1
