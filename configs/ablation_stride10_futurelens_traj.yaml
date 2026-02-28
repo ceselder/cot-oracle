@@ -1,0 +1,30 @@
+# Ablation: Stride-10 + FutureLens + Answer Trajectory
+# Dense stride (10), no PE, no pooling, sparse sampling, no prompt positions.
+# Enables next_step + answer_trajectory alongside probe tasks.
+# Override on top of train.yaml: --config configs/train.yaml configs/ablation_stride10_futurelens_traj.yaml
+
+tasks:
+  full_recon:
+    n: 0
+  # next_step stays enabled (30K from base config)
+  # answer_trajectory stays enabled (60K from base config)
+  conv_qa:
+    n: 0
+
+activations:
+  stride: 10
+  n_layers: 3
+  sparse_positions: true
+  n_prompt_positions: 0
+  position_encoding: false
+
+training:
+  batch_size: 2
+  effective_batch_size: 16
+  eval_batch_size: 2
+
+model:
+  fresh_lora: true
+
+output:
+  wandb_run: ablation-stride10-futurelens-traj
