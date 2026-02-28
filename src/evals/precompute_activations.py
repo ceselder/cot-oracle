@@ -41,8 +41,23 @@ import torch
 from tqdm import tqdm
 
 from evals.activation_cache import extract_activations, save_bundle_with_metadata, cache_path
-from evals.common import load_eval_items, EvalItem, extract_numerical_answer, answers_match, ci_label
-from evals.run_evals import _extract_answer
+from evals.common import load_eval_items, EvalItem, extract_numerical_answer, extract_letter_answer, answers_match, ci_label
+
+
+def _extract_answer(response: str, eval_name: str) -> str | None:
+    """Extract answer from model response, dispatching by eval type."""
+    if eval_name in ("hinted_mcq", "hinted_mcq_truthfulqa",
+                      "hinted_mcq_truthfulqa_verbalized", "hinted_mcq_truthfulqa_unverbalized"):
+        return extract_letter_answer(response)
+    elif eval_name == "sycophancy_v2_riya":
+        import re
+        lower = response.lower() if response else ""
+        matches = list(re.finditer(r"\b(right|wrong)\b", lower))
+        if matches:
+            return matches[-1].group(1).upper()
+        return None
+    else:
+        return extract_numerical_answer(response)
 
 
 ROT13_ADAPTER_HF = "ceselder/rot13-qwen3-8b-lora"
