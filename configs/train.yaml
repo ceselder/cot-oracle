@@ -1,70 +1,129 @@
 # CoT Oracle Training Config
-# Set n: 0 to disable a task
+# Set n: 0 to disable a task.
+# This file lists all training tasks currently wired in TASK_REGISTRY.
 
 tasks:
   # --- Reconstruction (grounding: learn to read activations as text) ---
   full_recon:
     n: 40000
+    eval_n: 10
     description: "Reconstruct full CoT from stride activations"
 
   next_step:
     n: 30000
+    eval_n: 10
     description: "Predict next ~50 tokens of CoT"
 
   prompt_inversion:
     n: 0
+    eval_n: 10
     description: "Reconstruct the original question/prompt from CoT activations"
 
   # --- Open-ended QA (articulate understanding of CoT) ---
-  conv_qa:
-    n: 10000
-    description: "Answer conversational questions about the CoT"
+  # conv_qa is legacy and not wired in current TASK_REGISTRY.
 
   cotqa:
     n: 10000
+    eval_n: 10
     description: "Conversational questions about CoTs (from concept corpus, HF)"
 
   compqa:
     n: 8000
+    eval_n: 10
     description: "Answer questions about CoT reasoning quality (10 types, Gemini GT)"
 
   # --- Trajectory tracking (answer evolution through CoT) ---
   answer_pred:
     n: 20000
+    eval_n: 10
     description: "Predict final answer from partial CoT"
 
   answer_trajectory:
     n: 20000
+    eval_n: 10
     description: "What does the model currently think the answer is? (per-sentence, precompute-only)"
 
   # --- Analytical / classification (computational queries over activations) ---
   correctness:
     n: 15000
+    eval_n: 10
     description: "Did the model get the right answer?"
 
   decorative:
     n: 25000
+    eval_n: 10
     description: "Is the CoT decorative or load-bearing?"
 
   reasoning_term:
     n: 15000
+    eval_n: 10
     description: "Will the model emit </think> soon?"
 
   atypical_answer:
     n: 20000
+    eval_n: 10
     description: "Is this a majority or minority answer? (from 25-rollout distributions)"
 
   hint_admission:
     n: 15000
+    eval_n: 10
     description: "Did the model use an external hint? What was it?"
 
   hinted_answer_pred:
     n: 10000
+    eval_n: 10
     description: "Predict final answer from partial hinted CoT"
 
   domain:
     n: 0
+    eval_n: 10
     description: "What domain is this problem?"
+
+  # --- Information gap tasks (partial-CoT, activation-advantaged) ---
+  early_answer_pred:
+    n: 20000
+    eval_n: 10
+    description: "Predict final answer from early partial CoT (20-60%)"
+
+  backtrack_pred:
+    n: 15000
+    eval_n: 10
+    description: "Will the model revise/backtrack in the next ~150 tokens?"
+
+  error_pred:
+    n: 15000
+    eval_n: 10
+    description: "Will the model's next reasoning step be wrong?"
+
+  self_correction:
+    n: 10000
+    eval_n: 10
+    description: "Will the model fix its own error?"
+
+  verification:
+    n: 10000
+    eval_n: 10
+    description: "Will the model double-check its work?"
+
+  branch_pred:
+    n: 10000
+    eval_n: 10
+    description: "Which reasoning strategy will the model use? (MCQ)"
+
+  completion_pred:
+    n: 10000
+    eval_n: 10
+    description: "Which continuation is real? (MCQ)"
+
+  remaining_strategy:
+    n: 10000
+    eval_n: 10
+    description: "Describe the reasoning approach for remaining steps"
+
+  chunked_convqa:
+    n: 10000
+    eval_n: 10
+    description: "Answer questions about CoT suffix from prefix activations (info-gap, Gemini GT)"
 
 # Training
 training:
@@ -100,19 +159,42 @@ eval:
   eval_steps: 2000
   save_steps: 10000
   rot13_start_step: 2000
-  # All evals to run during training (pulled from HF)
-  # Entries can be plain strings or dicts with baselines for wandb reference lines
+  # Optional per-eval batch-size overrides.
+  # Useful for long-sequence evals that OOM at the global eval_batch_size.
+  # Supported keys: exact eval name, "cls_*", or "*".
+  eval_batch_size_overrides:
+    sentence_insertion: 1
+    reasoning_termination_riya: 1
+    rot13_reconstruction: 1
+    cls_*: 8
+  # Detection evals (all supported eval names are listed below;
+  # uncomment any disabled entry to enable it).
   evals:
     - hinted_mcq_truthfulqa
     - sycophancy_v2_riya
+    # - decorative_cot  # disabled: very noisy labels in current preprocessing
     - sentence_insertion
     - reasoning_termination_riya
     - atypical_answer_riya
     - atypical_answer_mcq
     - cybercrime_ood
+    # - compqa  # disabled: expensive open-ended eval
+    - chunked_convqa
     # - hint_admission  # disabled: eval dataset not available on HF
     # - forced_answer_entropy_riya  # disabled: logprob extraction broken, always 0.000
-    - rot13_reconstruction
+    # - rot13_reconstruction
+  # OOD classification evals (Adam's NL probes — oracle reads arbitrary text activations)
+  classification_evals:
+    - cls_sst2
+    - cls_snli
+    # - cls_md_gender  # disabled: facebook/md_gender_bias uses deprecated loading script
+    - cls_ag_news
+    - cls_ner
+    - cls_tense
+    - cls_language_id
+    - cls_singular_plural
+    - cls_geometry_of_truth
+    - cls_relations
 
 # Data — HF dataset IDs auto-download; local paths used as-is
 data:

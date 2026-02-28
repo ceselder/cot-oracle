@@ -94,6 +94,35 @@ ROT13_ADAPTER_HF = "ceselder/rot13-qwen3-8b-lora"
 ROT13_ADAPTER_NAME = "rot13"
 
 
+def _is_probable_oom_error(exc: Exception) -> bool:
+    msg = str(exc).lower()
+    return "out of memory" in msg or "cuda oom" in msg
+
+
+def _resolve_eval_batch_size(
+    eval_name: str,
+    default_batch_size: int,
+    overrides: dict[str, int] | None,
+) -> int:
+    """Resolve per-eval batch size with optional wildcard overrides.
+
+    Match order:
+    1) exact eval name
+    2) "cls_*" for classification evals
+    3) "*" global fallback
+    4) default_batch_size
+    """
+    resolved = default_batch_size
+    if overrides:
+        if eval_name in overrides:
+            resolved = overrides[eval_name]
+        elif eval_name.startswith("cls_") and "cls_*" in overrides:
+            resolved = overrides["cls_*"]
+        elif "*" in overrides:
+            resolved = overrides["*"]
+    return max(1, int(resolved))
+
+
 def _first_rollout(rollouts) -> str | None:
     """Extract first rollout from a list of precomputed rollouts."""
     if isinstance(rollouts, list) and len(rollouts) > 0:
@@ -152,6 +181,7 @@ def _batched_oracle_generate(
     """
     if not items:
         return []
+    eval_batch_size = max(1, int(eval_batch_size))
 
     dtype = torch.bfloat16
     ph_token = _ORACLE_MODE.get("placeholder_token") or SPECIAL_TOKEN
@@ -209,58 +239,78 @@ def _batched_oracle_generate(
     model.eval()
 
     # --- Phase 3: Generate in mini-batches ---
+    # Length bucketing reduces padding waste and peak memory in each mini-batch.
+    sorted_indices = sorted(range(len(items)), key=lambda i: len(all_input_ids[i]))
     all_responses: list[str] = [""] * len(items)
 
     try:
-        for batch_start in range(0, len(items), eval_batch_size):
-            batch_end = min(batch_start + eval_batch_size, len(items))
+        for group_start in range(0, len(sorted_indices), eval_batch_size):
+            initial_indices = sorted_indices[group_start:group_start + eval_batch_size]
+            pending_groups: list[list[int]] = [initial_indices]
 
-            try:
-                batch_ids = all_input_ids[batch_start:batch_end]
-                batch_pre_pad_pos = all_ph_positions[batch_start:batch_end]
-                batch_acts = [items[i][0] for i in range(batch_start, batch_end)]
+            while pending_groups:
+                batch_indices = pending_groups.pop(0)
+                try:
+                    batch_ids = [all_input_ids[i] for i in batch_indices]
+                    batch_pre_pad_pos = [all_ph_positions[i] for i in batch_indices]
+                    batch_acts = [items[i][0] for i in batch_indices]
 
-                # Left-pad to max length in this mini-batch
-                max_len = max(len(ids) for ids in batch_ids)
-                padded_ids = []
-                attention_masks = []
-                batch_padded_positions = []
+                    # Left-pad to max length in this mini-batch
+                    max_len = max(len(ids) for ids in batch_ids)
+                    padded_ids = []
+                    attention_masks = []
+                    batch_padded_positions = []
 
-                for j, ids in enumerate(batch_ids):
-                    pad_len = max_len - len(ids)
-                    padded_ids.append([pad_id] * pad_len + ids)
-                    attention_masks.append([0] * pad_len + [1] * len(ids))
-                    # Shift placeholder positions by padding offset
-                    batch_padded_positions.append([p + pad_len for p in batch_pre_pad_pos[j]])
+                    for j, ids in enumerate(batch_ids):
+                        pad_len = max_len - len(ids)
+                        padded_ids.append([pad_id] * pad_len + ids)
+                        attention_masks.append([0] * pad_len + [1] * len(ids))
+                        # Shift placeholder positions by padding offset
+                        batch_padded_positions.append([p + pad_len for p in batch_pre_pad_pos[j]])
 
-                input_tensor = torch.tensor(padded_ids, device=device)
-                attn_mask = torch.tensor(attention_masks, device=device)
+                    input_tensor = torch.tensor(padded_ids, device=device)
+                    attn_mask = torch.tensor(attention_masks, device=device)
 
-                hook_fn = get_batched_steering_hook(
-                    vectors=batch_acts,
-                    positions=batch_padded_positions,
-                    device=device,
-                    dtype=dtype,
-                )
-
-                with add_hook(injection_submodule, hook_fn):
-                    outputs = model.generate(
-                        input_ids=input_tensor,
-                        attention_mask=attn_mask,
-                        max_new_tokens=max_new_tokens,
-                        do_sample=False,
-                        pad_token_id=pad_id,
+                    hook_fn = get_batched_steering_hook(
+                        vectors=batch_acts,
+                        positions=batch_padded_positions,
+                        device=device,
+                        dtype=dtype,
                     )
 
-                # Decode generated tokens (everything after the padded prompt)
-                for j in range(len(batch_ids)):
-                    generated = outputs[j][max_len:]
-                    all_responses[batch_start + j] = tokenizer.decode(
-                        generated, skip_special_tokens=True,
-                    )
-            except Exception as e:
-                print(f"    [batched_oracle] Mini-batch {batch_start}-{batch_end} failed: {e}")
-                # Leave responses as "" for this mini-batch
+                    with add_hook(injection_submodule, hook_fn):
+                        outputs = model.generate(
+                            input_ids=input_tensor,
+                            attention_mask=attn_mask,
+                            max_new_tokens=max_new_tokens,
+                            do_sample=False,
+                            pad_token_id=pad_id,
+                        )
+
+                    # Decode generated tokens (everything after the padded prompt)
+                    for j, item_idx in enumerate(batch_indices):
+                        generated = outputs[j][max_len:]
+                        all_responses[item_idx] = tokenizer.decode(
+                            generated, skip_special_tokens=True,
+                        )
+                except Exception as e:
+                    # OOM backoff: split and retry smaller chunks before giving up.
+                    if _is_probable_oom_error(e) and len(batch_indices) > 1:
+                        mid = len(batch_indices) // 2
+                        left = batch_indices[:mid]
+                        right = batch_indices[mid:]
+                        print(
+                            "    [batched_oracle] OOM for chunk "
+                            f"size {len(batch_indices)}; retrying with {len(left)} + {len(right)}"
+                        )
+                        pending_groups.insert(0, right)
+                        pending_groups.insert(0, left)
+                        torch.cuda.empty_cache()
+                        continue
+
+                    print(f"    [batched_oracle] Mini-batch of {len(batch_indices)} failed: {e}")
+                    if _is_probable_oom_error(e):
+                        torch.cuda.empty_cache()
     finally:
         if was_training:
             model.train()
@@ -279,6 +329,7 @@ def _batched_textonly_generate(
     """Batched text-only generation (no activation steering)."""
     if not prompts:
         return []
+    eval_batch_size = max(1, int(eval_batch_size))
     pad_id = tokenizer.pad_token_id if tokenizer.pad_token_id is not None else tokenizer.eos_token_id
     was_training = model.training
     model.eval()
@@ -290,10 +341,13 @@ def _batched_textonly_generate(
         input_ids = tokenizer.encode(formatted, add_special_tokens=False)
         all_input_ids.append(input_ids)
 
+    # Length bucketing for less padding and better throughput.
+    sorted_indices = sorted(range(len(prompts)), key=lambda i: len(all_input_ids[i]))
+
     all_responses: list[str] = [""] * len(prompts)
-    for batch_start in range(0, len(prompts), eval_batch_size):
-        batch_end = min(batch_start + eval_batch_size, len(prompts))
-        batch_ids = all_input_ids[batch_start:batch_end]
+    for group_start in range(0, len(prompts), eval_batch_size):
+        batch_indices = sorted_indices[group_start:group_start + eval_batch_size]
+        batch_ids = [all_input_ids[i] for i in batch_indices]
         max_len = max(len(ids) for ids in batch_ids)
         padded_ids, attention_masks = [], []
         for ids in batch_ids:
@@ -304,24 +358,29 @@ def _batched_textonly_generate(
         attn_mask = torch.tensor(attention_masks, device=device)
         with torch.no_grad():
             outputs = model.generate(input_ids=input_tensor, attention_mask=attn_mask, max_new_tokens=max_new_tokens, do_sample=False, pad_token_id=pad_id)
-        for j in range(len(batch_ids)):
+        for j, item_idx in enumerate(batch_indices):
             generated = outputs[j][max_len:]
-            all_responses[batch_start + j] = tokenizer.decode(generated, skip_special_tokens=True)
+            all_responses[item_idx] = tokenizer.decode(generated, skip_special_tokens=True)
 
     if was_training:
         model.train()
     return all_responses
 
 
-def _subsample(items: list[EvalItem], max_items: int, seed: int) -> list[EvalItem]:
+def _subsample(
+    items: list[EvalItem],
+    max_items: int,
+    seed: int,
+    oversample_factor: float = 1.5,
+) -> list[EvalItem]:
     """Deterministically subsample items for fast training evals.
 
-    Oversamples by 1.5x to compensate for items that become "indeterminate"
-    during scoring (ground truth filtering).  The scoring functions cap the
-    final scoreable count at ``max_items`` so we never report *more* than
-    the caller intended.
+    Oversamples by ``oversample_factor`` to compensate for items that become
+    "indeterminate" during scoring (ground truth filtering).  The scoring
+    functions cap the final scoreable count at ``max_items`` so we never
+    report *more* than the caller intended.
     """
-    oversample = int(max_items * 1.5)
+    oversample = int(max_items * oversample_factor)
     if len(items) <= oversample:
         return items
     rng = random.Random(seed)
@@ -337,6 +396,7 @@ def _try_load_cached(cache_dir: Path | None, eval_name: str, example_id: str, de
         map_location=device,
         stride=_ORACLE_MODE.get("stride"),
         layers=_ORACLE_MODE.get("layers"),
+        expected_hidden_size=_ORACLE_MODE.get("hidden_size"),
     )
 
 
@@ -416,6 +476,115 @@ def _collect_and_batch_oracle(
     except Exception as e:
         print(f"    [{eval_name}] Batched oracle generation failed: {e}")
         traceback.print_exc()
+
+
+def _run_classification_eval(
+    model,
+    tokenizer,
+    items: list[EvalItem],
+    eval_name: str,
+    act_layer: int | list[int],
+    model_name: str,
+    device: str,
+    oracle_adapter_name: str,
+    cache_dir: Path | None = None,
+    eval_batch_size: int = 8,
+) -> list[CompletedEvalItem]:
+    """Run a classification eval (cls_sst2, cls_snli, etc.).
+
+    These evals test OOD generalization: the oracle reads activations from
+    arbitrary text (not CoT) and answers a per-item yes/no question.
+
+    Flow (batched):
+    1. Extract activations using neutral prompt + metadata["cot_text"]
+    2. Build oracle prompt from item.test_prompt (per-item question)
+    3. Batched oracle generation + assemble CompletedEvalItem list
+    """
+    neutral_prompt = "Read the following text."
+    extracted = []
+
+    for item in items:
+        cot_text = item.metadata.get("cot_text", "")
+        if not cot_text:
+            print(f"    [{eval_name}] {item.example_id}: no cot_text in metadata, skipping")
+            continue
+
+        # Try cached activations first (must match neutral prompt used by this eval).
+        cached = _try_load_cached(cache_dir, eval_name, item.example_id, device)
+        if cached is not None and cached.prompt == neutral_prompt:
+            activations = cached.activations
+        else:
+            # Extract activations from the source text
+            try:
+                bundle = _apply_oracle_mode_to_extract(
+                    model, tokenizer,
+                    eval_name=eval_name,
+                    example_id=item.example_id,
+                    prompt=neutral_prompt,
+                    cot_text=cot_text,
+                    act_layer=act_layer if isinstance(act_layer, int) else act_layer[0],
+                    device=device,
+                    generation_adapter_name=None,
+                )
+            except Exception as e:
+                print(f"    [{eval_name}] Activation extraction failed for {item.example_id}: {e}")
+                bundle = None
+
+            activations = bundle.activations if bundle else None
+            if bundle:
+                _auto_cache_bundle(
+                    cache_dir, eval_name=eval_name, example_id=item.example_id,
+                    prompt=neutral_prompt, cot_text=cot_text,
+                    activations=activations, boundary_positions=bundle.boundary_positions,
+                    clean_response=cot_text, test_response=cot_text,
+                )
+
+        # Build oracle prompt using the per-item classification question
+        oracle_prompt = ""
+        if activations is not None:
+            n_positions = activations.shape[0]
+            oracle_prompt = _oracle_prompt(n_positions, item.test_prompt + " Answer: yes or no.")
+
+        extracted.append({
+            "item": item,
+            "clean_response": cot_text,
+            "test_response": cot_text,
+            "clean_answer": None,
+            "test_answer": None,
+            "activations": activations,
+            "ground_truth": item.correct_answer,  # "yes" or "no"
+            "oracle_prompt": oracle_prompt,
+            "oracle_response": "",
+        })
+
+    # Batched oracle generation
+    _collect_and_batch_oracle(
+        extracted, model, tokenizer, model_name, device,
+        eval_name=eval_name, eval_batch_size=eval_batch_size,
+    )
+
+    # Build CompletedEvalItem list
+    completed = []
+    for ex in extracted:
+        item = ex["item"]
+        completed.append(CompletedEvalItem(
+            eval_name=eval_name,
+            example_id=item.example_id,
+            clean_prompt=item.clean_prompt,
+            test_prompt=item.test_prompt,
+            correct_answer=item.correct_answer,
+            nudge_answer=item.nudge_answer,
+            clean_response=ex["clean_response"],
+            test_response=ex["test_response"],
+            clean_answer=ex["clean_answer"],
+            test_answer=ex["test_answer"],
+            ground_truth_label=ex["ground_truth"],
+            oracle_response=ex["oracle_response"],
+            activations_path=None,
+            metadata={**item.metadata},
+        ))
+
+    return completed
 
 
 def _run_standard_eval(
@@ -1213,6 +1382,152 @@ def _run_compqa_eval(
     return completed
 
 
+def _load_chunked_convqa_eval_items() -> list[EvalItem]:
+    """Load chunked ConvQA eval items from the test split of the training dataset."""
+    import importlib
+    hf_datasets = importlib.import_module("datasets")
+
+    repo_id = "mats-10-sprint-cs-jb/cot-oracle-convqa-chunked"
+    print(f"  [eval] Loading chunked_convqa test split from {repo_id}...")
+    ds = hf_datasets.load_dataset(repo_id, split="test")
+
+    items = []
+    for row in ds:
+        items.append(EvalItem(
+            eval_name="chunked_convqa",
+            example_id=f"chunked_convqa_{row['cot_id']}_{row['chunk_index']}_{row['query_type']}",
+            clean_prompt=row["question"],
+            test_prompt=row["query"],
+            correct_answer=row["gt_response"],
+            nudge_answer=None,
+            metadata={
+                "cot_text": row["cot_text"],
+                "chunk_index": row["chunk_index"],
+                "num_chunks": row["num_chunks"],
+                "query_type": row["query_type"],
+                "source": row["source"],
+                "cot_id": row["cot_id"],
+                "bb_response": row["bb_response"],
+                "bb_correct": row["bb_correct"],
+            },
+        ))
+    print(f"  [eval] Loaded {len(items)} chunked_convqa test items")
+    return items
+
+
+def _run_chunked_convqa_eval(
+    model,
+    tokenizer,
+    items: list[EvalItem],
+    act_layer: int | list[int],
+    model_name: str,
+    device: str,
+    oracle_adapter_name: str,
+    cache_dir: Path | None = None,
+    eval_batch_size: int = 8,
+) -> list[CompletedEvalItem]:
+    """Chunked ConvQA eval: answer questions about CoT suffix from prefix activations.
+
+    Like compqa but with truncated activation extraction — the oracle only sees
+    activations from the prefix (up to chunk_index), not the full CoT.
+    Scored via token F1 against Gemini ground truth.
+    """
+    import re as _re
+
+    extracted = []
+
+    for item in items:
+        try:
+            cot_text = (item.metadata.get("cot_text") or "").strip()
+            chunk_index = item.metadata.get("chunk_index")
+            if not cot_text or chunk_index is None:
+                continue
+
+            # Split into sentences and build prefix
+            sentences = _re.split(r'(?<=[.!?])\s+', cot_text.strip())
+            sentences = [s.strip() for s in sentences if s.strip()]
+            if chunk_index + 1 >= len(sentences):
+                continue
+            prefix_text = " ".join(sentences[:chunk_index + 1])
+
+            # Try cached bundle first
+            cached = _try_load_cached(cache_dir, "chunked_convqa", item.example_id, device)
+
+            if cached is not None:
+                activations = cached.activations
+            else:
+                # Extract activations from question + PREFIX only (truncated CoT)
+                try:
+                    bundle = _apply_oracle_mode_to_extract(
+                        model, tokenizer,
+                        eval_name="chunked_convqa", example_id=item.example_id,
+                        prompt=item.clean_prompt, cot_text=prefix_text,
+                        act_layer=act_layer if isinstance(act_layer, int) else act_layer[0],
+                        device=device,
+                        generation_adapter_name=None,
+                    )
+                except Exception as e:
+                    print(f"    [chunked_convqa] Activation extraction failed for {item.example_id}: {e}")
+                    bundle = None
+                activations = bundle.activations if bundle else None
+
+                if bundle:
+                    _auto_cache_bundle(
+                        cache_dir, eval_name="chunked_convqa", example_id=item.example_id,
+                        prompt=item.clean_prompt, cot_text=prefix_text,
+                        activations=activations, boundary_positions=bundle.boundary_positions,
+                        test_response=prefix_text,
+                    )
+
+            oracle_prompt = ""
+            if activations is not None:
+                oracle_prompt = _oracle_prompt(activations.shape[0], item.test_prompt)
+
+            extracted.append({
+                "item": item,
+                "cot_text": cot_text,
+                "activations": activations,
+                "oracle_prompt": oracle_prompt,
+                "oracle_response": "",
+            })
+        except Exception as e:
+            print(f"  [training_eval] Warning: chunked_convqa item {item.example_id} failed: {e}")
+            continue
+
+    _collect_and_batch_oracle(
+        extracted, model, tokenizer, model_name, device,
+        eval_name="chunked_convqa", eval_batch_size=eval_batch_size,
+        max_new_tokens=256,
+    )
+
+    completed = []
+    for ex in extracted:
+        item = ex["item"]
+        oracle_response = ex["oracle_response"]
+        f1 = 0.0
+        if oracle_response and item.correct_answer:
+            f1 = _token_f1(tokenizer, item.correct_answer, oracle_response)
+
+        completed.append(CompletedEvalItem(
+            eval_name=item.eval_name,
+            example_id=item.example_id,
+            clean_prompt=item.clean_prompt,
+            test_prompt=item.test_prompt,
+            correct_answer=item.correct_answer,
+            nudge_answer=item.nudge_answer,
+            clean_response="",
+            test_response=ex["cot_text"],
+            clean_answer=None,
+            test_answer=None,
+            ground_truth_label="pending_token_f1",
+            oracle_response=oracle_response,
+            activations_path=None,
+            metadata={**item.metadata, "token_f1": f1},
+        ))
+
+    return completed
+
+
 def _score_binary_eval(
     eval_name: str,
     items: list[CompletedEvalItem],
@@ -1324,6 +1639,7 @@ def precache_eval_activations(
     # Configure oracle mode — layers match training (from CONFIGURED_LAYERS)
     act_layers = get_injection_layers(model_name)
     set_oracle_mode(trained=True, oracle_adapter_name=oracle_adapter_name, stride=stride, layers=act_layers)
+    _ORACLE_MODE["hidden_size"] = getattr(model.config, "hidden_size", None)
     print(f"  [precache] Extraction: layers={act_layers}, stride={stride}")
 
     model.eval()
@@ -1344,6 +1660,7 @@ def precache_eval_activations(
                 map_location="cpu",
                 stride=stride,
                 layers=act_layers,
+                expected_hidden_size=_ORACLE_MODE.get("hidden_size"),
             )
             if bundle is not None:
                 total_cached += 1
@@ -1376,11 +1693,14 @@ def precache_eval_activations(
             if not cot_text:
                 continue
 
+            # Classification evals use neutral extraction prompt.
+            prompt = "Read the following text." if eval_name.startswith("cls_") else item.test_prompt
+
             bundle = _apply_oracle_mode_to_extract(
                 model, tokenizer,
                 eval_name=eval_name,
                 example_id=item.example_id,
-                prompt=item.test_prompt,
+                prompt=prompt,
                 cot_text=cot_text,
                 act_layer=act_layers[0],
                 device=device,
@@ -1396,7 +1716,7 @@ def precache_eval_activations(
                 )
                 _auto_cache_bundle(
                     cache_dir, eval_name=eval_name, example_id=item.example_id,
-                    prompt=item.test_prompt, cot_text=cot_text,
+                    prompt=prompt, cot_text=cot_text,
                     activations=bundle.activations,
                     boundary_positions=bundle.boundary_positions,
                     clean_response=clean_text, test_response=cot_text,
@@ -1424,6 +1744,7 @@ def run_training_evals(
     eval_names: list[str] | None = None,
     log_dir: Path | str | None = None,
     eval_batch_size: int = 8,
+    eval_batch_sizes: dict[str, int] | None = None,
     stride: int | str = None,
     task_eval_datasets: dict[str, list] | None = None,
     no_activations: bool = False,
@@ -1444,6 +1765,9 @@ def run_training_evals(
         eval_names: List of eval names to run. If None, uses TRAINING_EVALS default.
         log_dir: Path to directory for disk logging of eval tables.
         eval_batch_size: Mini-batch size for batched oracle generation.
+        eval_batch_sizes: Optional per-eval batch size overrides.
+            Keys can be exact eval names, ``cls_*`` (all classification evals),
+            or ``*`` (global fallback).
         stride: Position extraction stride (int for fixed, "punctuation" for punctuation).
         task_eval_datasets: dict of task_name -> list[TrainingDataPoint] with pre-materialized
             steering_vectors. If provided, runs task-level generation evals (token F1) before
@@ -1460,6 +1784,7 @@ def run_training_evals(
     # Configure oracle mode — layers match training (from CONFIGURED_LAYERS)
     act_layers = get_injection_layers(model_name)
     set_oracle_mode(trained=True, oracle_adapter_name=oracle_adapter_name, stride=stride, layers=act_layers)
+    _ORACLE_MODE["hidden_size"] = getattr(model.config, "hidden_size", None)
     print(f"  [training_eval] Extraction: layers={act_layers}, stride={stride}, batch_size={eval_batch_size}")
 
     # Save training state and switch to eval
@@ -1478,6 +1803,7 @@ def run_training_evals(
         "no_activations": no_activations,
         "max_items_per_eval": max_items_per_eval,
         "eval_batch_size": eval_batch_size,
+        "eval_batch_sizes": eval_batch_sizes or {},
         "wandb_run": wandb.run.name if "wandb" in sys.modules and wandb.run else None,
         "wandb_run_id": wandb.run.id if "wandb" in sys.modules and wandb.run else None,
     }
@@ -1490,6 +1816,7 @@ def run_training_evals(
         print(f"  [training_eval] Running {len(task_eval_datasets)} task evals{' (text-only)' if no_activations else ''}...")
         task_scores = {}
         for ds_name, dp_list in task_eval_datasets.items():
+            ds_batch_size = _resolve_eval_batch_size(ds_name, eval_batch_size, eval_batch_sizes)
             # Build extracted dicts
             extracted = []
             for dp in dp_list:
@@ -1521,14 +1848,14 @@ def run_training_evals(
                 prompts = [ex["oracle_prompt"] for ex in extracted]
                 responses = _batched_textonly_generate(
                     model, tokenizer, prompts, device=device,
-                    eval_batch_size=eval_batch_size,
+                    eval_batch_size=ds_batch_size,
                 )
                 for j, resp in enumerate(responses):
                     extracted[j]["oracle_response"] = resp
             else:
                 _collect_and_batch_oracle(
                     extracted, model, tokenizer, model_name, device,
-                    eval_name=ds_name, eval_batch_size=eval_batch_size,
+                    eval_name=ds_name, eval_batch_size=ds_batch_size,
                 )
 
             # Score with word-level token F1
@@ -1572,49 +1899,71 @@ def run_training_evals(
     print(f"  [training_eval] Running {len(evals_to_run)} evals: {', '.join(evals_to_run)}")
 
     for eval_name in evals_to_run:
-        print(f"  [training_eval] Running {eval_name}...")
+        this_eval_batch_size = _resolve_eval_batch_size(eval_name, eval_batch_size, eval_batch_sizes)
+        print(f"  [training_eval] Running {eval_name} (batch_size={this_eval_batch_size})...")
 
         try:
-            items = load_eval_items_hf(eval_name, eval_dir=eval_dir)
-            items = _subsample(items, max_items_per_eval, seed=hash(eval_name))  # fixed seed: same items every step
+            if eval_name == "chunked_convqa":
+                items = _load_chunked_convqa_eval_items()
+            else:
+                items = load_eval_items_hf(eval_name, eval_dir=eval_dir)
+            # Classification evals do not produce "indeterminate" labels, so skip
+            # oversampling to avoid 1.5x unnecessary extraction/generation work.
+            oversample_factor = 1.0 if eval_name.startswith("cls_") else 1.5
+            items = _subsample(
+                items, max_items_per_eval, seed=hash(eval_name),
+                oversample_factor=oversample_factor,
+            )  # fixed seed: same items every step
 
             # Dispatch to appropriate handler
             if eval_name == "decorative_cot":
                 completed = _run_decorative_cot_eval(
                     model, tokenizer, items, act_layers,
                     model_name, device, oracle_adapter_name,
-                    cache_dir=cache_dir, eval_batch_size=eval_batch_size,
+                    cache_dir=cache_dir, eval_batch_size=this_eval_batch_size,
                 )
             elif eval_name == "sentence_insertion":
                 completed = _run_sentence_insertion_eval(
                     model, tokenizer, items, act_layers,
                     model_name, device, oracle_adapter_name,
-                    cache_dir=cache_dir, eval_batch_size=eval_batch_size,
+                    cache_dir=cache_dir, eval_batch_size=this_eval_batch_size,
                 )
             elif eval_name == "reasoning_termination_riya":
                 completed = _run_reasoning_termination_eval(
                     model, tokenizer, items, act_layers,
                     model_name, device, oracle_adapter_name,
-                    cache_dir=cache_dir, eval_batch_size=eval_batch_size,
+                    cache_dir=cache_dir, eval_batch_size=this_eval_batch_size,
                 )
             elif eval_name == "rot13_reconstruction":
                 completed = _run_rot13_eval(
                     model, tokenizer, items, act_layers,
                     model_name, device, oracle_adapter_name,
-                    cache_dir=cache_dir, eval_batch_size=eval_batch_size,
+                    cache_dir=cache_dir, eval_batch_size=this_eval_batch_size,
                 )
             elif eval_name == "compqa":
                 completed = _run_compqa_eval(
                     model, tokenizer, items, act_layers,
                     model_name, device, oracle_adapter_name,
-                    cache_dir=cache_dir, eval_batch_size=eval_batch_size,
+                    cache_dir=cache_dir, eval_batch_size=this_eval_batch_size,
+                )
+            elif eval_name == "chunked_convqa":
+                completed = _run_chunked_convqa_eval(
+                    model, tokenizer, items, act_layers,
+                    model_name, device, oracle_adapter_name,
+                    cache_dir=cache_dir, eval_batch_size=this_eval_batch_size,
+                )
+            elif eval_name.startswith("cls_"):
+                completed = _run_classification_eval(
+                    model, tokenizer, items, eval_name, act_layers,
+                    model_name, device, oracle_adapter_name,
+                    cache_dir=cache_dir, eval_batch_size=this_eval_batch_size,
                 )
             else:
                 # Standard binary evals + any new evals from config
                 completed = _run_standard_eval(
                     model, tokenizer, items, eval_name, act_layers,
                     model_name, device, oracle_adapter_name,
-                    cache_dir=cache_dir, eval_batch_size=eval_batch_size,
+                    cache_dir=cache_dir, eval_batch_size=this_eval_batch_size,
                 )
 
             if not completed:
@@ -1682,7 +2031,7 @@ def run_training_evals(
                     all_metrics[f"eval/{eval_name}_acc"] = acc
                     all_metrics[f"eval_n/{eval_name}"] = total
                     print(f"    {eval_name}: top1_acc={acc:.3f} (n={total})")
-            elif eval_name == "compqa":
+            elif eval_name in ("compqa", "chunked_convqa"):
                 # Score via aggregate token F1 from per-item metadata
                 f1_scores = [c.metadata.get("token_f1", 0.0) for c in completed if c.oracle_response]
                 if f1_scores:
@@ -1756,6 +2105,12 @@ def run_training_evals(
     if acc_keys:
         acc_values = [all_metrics[k] for k in acc_keys]
         all_metrics["eval/mean_acc"] = sum(acc_values) / len(acc_values)
+
+    # Compute mean accuracy across classification evals specifically
+    cls_acc_keys = [k for k in all_metrics if k.startswith("eval/cls_") and k.endswith("_acc")]
+    if cls_acc_keys:
+        cls_acc_values = [all_metrics[k] for k in cls_acc_keys]
+        all_metrics["eval/classification_mean_acc"] = sum(cls_acc_values) / len(cls_acc_values)
 
     # Restore training state
     if was_training:

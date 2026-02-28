@@ -81,6 +81,9 @@ du_module.SPECIAL_TOKEN = PLACEHOLDER_TOKEN
 # ── Multi-layer config ──
 MULTI_LAYERS: list[int] = []
 NO_ACTIVATIONS: bool = False
+RANDOM_LAYERS: bool = False
+NOISE_ACTIVATIONS: bool = False
+_MODEL_N_LAYERS: int = 36  # total layers in the model (set in main())
 
 
 def _patched_get_prefix(sae_layer: int, num_positions: int) -> str:
@@ -142,9 +145,10 @@ def materialize_multilayer_steering_vectors(
     tokenizer,
     model,
 ) -> list[TrainingDataPoint]:
-    """Materialize steering vectors from MULTI_LAYERS (configurable via --n-layers)."""
-    N_LAYERS = len(MULTI_LAYERS)
+    """Materialize steering vectors from MULTI_LAYERS (configurable via --n-layers).
 
+    Supports per-item random layers (RANDOM_LAYERS) and noise replacement (NOISE_ACTIVATIONS).
+    """
     to_fill = [
         (i, dp) for i, dp in enumerate(batch_points) if dp.steering_vectors is None
     ]
@@ -153,11 +157,22 @@ def materialize_multilayer_steering_vectors(
 
     assert isinstance(model, PeftModel), "Model must be a PeftModel"
 
-    layers = list(MULTI_LAYERS)
-
     for _, dp in to_fill:
         if dp.context_input_ids is None or dp.context_positions is None:
             raise ValueError("context_* must be provided when steering_vectors is None")
+
+    # Determine layers to extract: union of all items' layers
+    if RANDOM_LAYERS:
+        per_item_layers = []
+        all_layers_set = set()
+        for _, dp in to_fill:
+            item_layers = dp.meta_info["layers"]
+            per_item_layers.append(item_layers)
+            all_layers_set.update(item_layers)
+        layers = sorted(all_layers_set)
+    else:
+        layers = list(MULTI_LAYERS)
+        per_item_layers = [layers] * len(to_fill)
 
     pad_id = tokenizer.pad_token_id
     contexts = [list(dp.context_input_ids) for _, dp in to_fill]
@@ -206,11 +221,13 @@ def materialize_multilayer_steering_vectors(
     new_batch = list(batch_points)
     for b in range(len(to_fill)):
         idx, dp = to_fill[b]
+        item_layers = per_item_layers[b]
         total_positions = len(positions_per_item[b])
-        K = total_positions // N_LAYERS
+        N_item = len(item_layers)
+        K = total_positions // N_item
 
         vectors_parts = []
-        for li, layer in enumerate(layers):
+        for li, layer in enumerate(item_layers):
             acts_BLD = acts_by_layer[layer]
             chunk_positions = positions_per_item[b][li * K : (li + 1) * K]
             adjusted = [p + left_offsets[b] for p in chunk_positions]
@@ -224,6 +241,11 @@ def materialize_multilayer_steering_vectors(
 
         vectors = torch.cat(vectors_parts, dim=0).detach().contiguous()
         assert vectors.shape[0] == total_positions
+
+        # Noise ablation: replace real activations with variance-matched Gaussian noise
+        if NOISE_ACTIVATIONS:
+            var = vectors.var(dim=0, keepdim=True)  # per-dimension variance
+            vectors = torch.randn_like(vectors) * var.sqrt()
 
         # Apply positional encoding if enabled
         if _PE_CONFIG["enabled"]:
@@ -434,6 +456,20 @@ def construct_flamingo_batch(
     return cot_batch, oracle_batch
 
 
+def _extract_base_positions(ctx_pos: list[int], n_layers_runtime: int) -> list[int]:
+    """Extract single-layer base positions from multi-layer context_positions."""
+    if not ctx_pos:
+        return ctx_pos
+    # Try runtime layer count first
+    if len(ctx_pos) % n_layers_runtime == 0:
+        return ctx_pos[:len(ctx_pos) // n_layers_runtime]
+    # Try common old layer counts
+    for old_n in [3, 1, 2, 4, 5, 6]:
+        if len(ctx_pos) % old_n == 0:
+            return ctx_pos[:len(ctx_pos) // old_n]
+    return ctx_pos  # can't infer, return as-is
+
+
 # ── Data conversion ──
 def dicts_to_training_data(
     raw_data: list[dict], tokenizer,
@@ -470,37 +506,55 @@ def dicts_to_training_data(
         ctx_pos = item["context_positions"]
         num_pos = item["num_positions"]
 
-        # Re-expand positions if precomputed with fewer layers than runtime config.
-        # Precomputed data stores context_positions = base_positions * n_layers_data.
-        # We detect mismatch by checking if total_positions is divisible by the
-        # runtime layer count.  If not, infer the original layer count, extract
-        # base positions, and re-expand.
-        if n_layers_runtime > 1 and len(ctx_pos) % n_layers_runtime != 0:
-            # Try common old layer counts (3 is the most common)
-            for old_n in [3, 1, 2, 4, 5, 6]:
-                if len(ctx_pos) % old_n == 0:
-                    k = len(ctx_pos) // old_n
-                    base_positions = ctx_pos[:k]
-                    ctx_pos = base_positions * n_layers_runtime
-                    num_pos = len(ctx_pos)
-                    if not _reexpand_warned:
-                        print(f"  [data] Re-expanding positions: {old_n} layers -> {n_layers_runtime} layers (K={k})")
-                        _reexpand_warned = True
-                    break
+        # Extract base positions (single-layer) for re-expansion
+        base_positions = _extract_base_positions(ctx_pos, n_layers_runtime)
 
-        dp = create_training_datapoint(
-            datapoint_type=item["datapoint_type"],
-            prompt=item["prompt"],
-            target_response=item["target_response"],
-            layer=item["layer"],
-            num_positions=num_pos,
-            tokenizer=tokenizer,
-            acts_BD=None,
-            feature_idx=-1,
-            context_input_ids=item["context_input_ids"],
-            context_positions=ctx_pos,
-            meta_info={"prompt": item["prompt"]},
-        )
+        if RANDOM_LAYERS:
+            # Per-item random layer sampling
+            from layer_utils import sample_layers
+            sampled = sample_layers(_MODEL_N_LAYERS, mean=3)
+            ctx_pos = base_positions * len(sampled)
+            num_pos = len(ctx_pos)
+
+            # Temporarily swap MULTI_LAYERS for prefix generation
+            saved_layers = MULTI_LAYERS[:]
+            MULTI_LAYERS[:] = sampled
+            dp = create_training_datapoint(
+                datapoint_type=item["datapoint_type"],
+                prompt=item["prompt"],
+                target_response=item["target_response"],
+                layer=sampled[0],
+                num_positions=num_pos,
+                tokenizer=tokenizer,
+                acts_BD=None,
+                feature_idx=-1,
+                context_input_ids=item["context_input_ids"],
+                context_positions=ctx_pos,
+                meta_info={"prompt": item["prompt"], "layers": sampled},
+            )
+            MULTI_LAYERS[:] = saved_layers
+        else:
+            # Re-expand positions if precomputed with fewer layers than runtime config.
+            if n_layers_runtime > 1 and len(ctx_pos) % n_layers_runtime != 0:
+                ctx_pos = base_positions * n_layers_runtime
+                num_pos = len(ctx_pos)
+                if not _reexpand_warned:
+                    print(f"  [data] Re-expanding positions: -> {n_layers_runtime} layers (K={len(base_positions)})")
+                    _reexpand_warned = True
+
+            dp = create_training_datapoint(
+                datapoint_type=item["datapoint_type"],
+                prompt=item["prompt"],
+                target_response=item["target_response"],
+                layer=item["layer"],
+                num_positions=num_pos,
+                tokenizer=tokenizer,
+                acts_BD=None,
+                feature_idx=-1,
+                context_input_ids=item["context_input_ids"],
+                context_positions=ctx_pos,
+                meta_info={"prompt": item["prompt"]},
+            )
         training_data.append(dp)
 
     return training_data
@@ -595,6 +649,61 @@ TASK_REGISTRY = {
         "loader": "load_cot_cotqa_data",
         "corpus": "cotqa",  # loads from HF directly
     },
+    # ── Information gap tasks (partial-CoT, activation-advantaged) ──
+    "early_answer_pred": {
+        "arg": "early_answer_pred_n",
+        "module": "dataset_classes.cot_infogap",
+        "loader": "load_cot_early_answer_pred_data",
+        "corpus": "main",
+    },
+    "backtrack_pred": {
+        "arg": "backtrack_pred_n",
+        "module": "dataset_classes.cot_infogap",
+        "loader": "load_cot_backtrack_pred_data",
+        "corpus": "main",
+    },
+    "error_pred": {
+        "arg": "error_pred_n",
+        "module": "dataset_classes.cot_infogap",
+        "loader": "load_cot_error_pred_data",
+        "corpus": "main",
+    },
+    "self_correction": {
+        "arg": "self_correction_n",
+        "module": "dataset_classes.cot_infogap",
+        "loader": "load_cot_self_correction_data",
+        "corpus": "main",
+    },
+    "verification": {
+        "arg": "verification_n",
+        "module": "dataset_classes.cot_infogap",
+        "loader": "load_cot_verification_data",
+        "corpus": "main",
+    },
+    "branch_pred": {
+        "arg": "branch_pred_n",
+        "module": "dataset_classes.cot_infogap",
+        "loader": "load_cot_branch_pred_data",
+        "corpus": "main",
+    },
+    "completion_pred": {
+        "arg": "completion_pred_n",
+        "module": "dataset_classes.cot_infogap",
+        "loader": "load_cot_completion_pred_data",
+        "corpus": "main",
+    },
+    "remaining_strategy": {
+        "arg": "remaining_strategy_n",
+        "module": "dataset_classes.cot_infogap",
+        "loader": "load_cot_remaining_strategy_data",
+        "corpus": "main",
+    },
+    "chunked_convqa": {
+        "arg": "chunked_convqa_n",
+        "module": "dataset_classes.cot_chunked_convqa",
+        "loader": "load_cot_chunked_convqa_data",
+        "corpus": "chunked_convqa",
+    },
 }
 
 
@@ -679,7 +788,7 @@ def _live_load_task(task_name: str, info: dict, n: int, args, tokenizer) -> list
             num_examples=n, stride=args.stride,
             hint_admission_data_path=hint_path,
         )
-    elif info["corpus"] == "cotqa":
+    elif info["corpus"] == "cotqa" or info["corpus"] == "chunked_convqa":
         return loader_fn(
             "", tokenizer, args.model,
             num_examples=n, stride=args.stride,
@@ -788,7 +897,7 @@ def load_all_tasks(args, tokenizer) -> list[dict]:
                 stride=args.stride,
                 hint_admission_data_path=hint_path,
             )
-        elif info["corpus"] == "cotqa":
+        elif info["corpus"] == "cotqa" or info["corpus"] == "chunked_convqa":
             data = loader_fn(
                 "", tokenizer, args.model,
                 num_examples=n,
@@ -808,6 +917,8 @@ def load_all_tasks(args, tokenizer) -> list[dict]:
     print(f"  Total: {len(all_data)} examples")
     return all_data
 
+
+# ── Train-on-eval conversion ──
 
 # ── Training infrastructure ──
 def train_features_batch(training_batch, model, submodule, steering_coefficient, device, dtype):
@@ -879,9 +990,10 @@ def _run_unified_eval(model, tokenizer, model_name, global_step, args, eval_data
         oracle_adapter_name="default",
         activation_cache_dir=args.activation_cache_dir,
         log_dir=log_dir,
-        eval_names=[] if no_activations else getattr(args, "evals", None),
+        eval_names=getattr(args, "evals", None),
         stride=args.stride,
         eval_batch_size=args.eval_batch_size,
+        eval_batch_sizes=getattr(args, "eval_batch_size_overrides", None),
         task_eval_datasets=eval_datasets,
         no_activations=no_activations,
     )
@@ -972,16 +1084,20 @@ def train(
         for t, c in sorted(type_counts.items()):
             print(f"    {t}: {c}")
 
-    # Split eval (50 per type)
+    # Split eval (per-task eval_n from config)
+    # Build dtype -> yaml_task_name mapping for eval_n lookup
+    dtype_to_yaml = {(v["module"].split(".")[-1] if v["module"] else f"cot_{k}"): k for k, v in TASK_REGISTRY.items()}
     random.shuffle(training_data)
     eval_per_type = {}
     train_per_type = defaultdict(list)
 
     for dp in training_data:
         t = dp.datapoint_type
+        yaml_name = dtype_to_yaml.get(t)
+        eval_limit = getattr(args, f"{yaml_name}_eval_n", 50) if yaml_name else 50
         if t not in eval_per_type:
             eval_per_type[t] = []
-        if len(eval_per_type[t]) < 50:
+        if len(eval_per_type[t]) < eval_limit:
             eval_per_type[t].append(dp)
         else:
             train_per_type[t].append(dp)
@@ -1028,6 +1144,7 @@ def train(
                 wandb.config.update({"stage_map": {v: k for k, v in task_stage_idx.items()}})
     elif task_order == "interleaved":
         # Round-robin blocks: cycle through tasks, eval at every block boundary
+        # Tasks with fewer samples are delayed to appear towards the end of training
         yaml_task_names = getattr(args, "_yaml_task_order", [])
         yaml_to_dtype = {k: v["module"].split(".")[-1] if v["module"] else f"cot_{k}" for k, v in TASK_REGISTRY.items()}
         ordered_types = []
@@ -1043,26 +1160,32 @@ def train(
         total_examples = sum(len(v) for v in train_per_type.values())
         block_size = total_examples // n_blocks
 
+        # Sort tasks by sample count descending (biggest first = earliest start)
+        sorted_types = sorted(ordered_types, key=lambda dt: len(train_per_type[dt]), reverse=True)
+
+        # Calculate how many rounds each task needs and when it should start
+        # so that all tasks finish at the end of training
+        task_rounds_needed = {dt: max(1, math.ceil(len(train_per_type[dt]) / block_size)) for dt in sorted_types}
+        max_rounds = max(task_rounds_needed.values())
+        task_start_round = {dt: max_rounds - task_rounds_needed[dt] for dt in sorted_types}
+
         # Shuffle within each task, create queues
         task_queues = {}
-        for dt in ordered_types:
+        for dt in sorted_types:
             items = list(train_per_type[dt])
             random.shuffle(items)
             task_queues[dt] = items
 
-        # Round-robin fill blocks
+        # Round-robin with delayed starts: small tasks appear only in later rounds
         task_blocks = []
-        task_idx = 0
-        while any(len(q) > 0 for q in task_queues.values()):
-            active_types = [dt for dt in ordered_types if task_queues[dt]]
-            if not active_types:
-                break
-            task = active_types[task_idx % len(active_types)]
-            task_idx += 1
-            queue = task_queues[task]
-            block = queue[:block_size]
-            task_queues[task] = queue[block_size:]
-            task_blocks.append((task, block))
+        for round_idx in range(max_rounds):
+            for task in sorted_types:
+                if round_idx >= task_start_round[task] and task_queues[task]:
+                    queue = task_queues[task]
+                    block = queue[:block_size]
+                    task_queues[task] = queue[block_size:]
+                    if block:
+                        task_blocks.append((task, block))
 
         final_training = []
         for _, items in task_blocks:
@@ -1072,7 +1195,9 @@ def train(
             task_stage_idx.setdefault(task_name, i)
 
         if rank == 0:
-            print(f"  Task order: INTERLEAVED ({n_blocks} blocks, block_size={block_size})")
+            print(f"  Task order: INTERLEAVED ({n_blocks} blocks, block_size={block_size}, {max_rounds} rounds)")
+            for dt in sorted_types:
+                print(f"    {dt}: {len(train_per_type[dt])} examples, {task_rounds_needed[dt]} rounds, starts round {task_start_round[dt]}")
             for i, (task_name, items) in enumerate(task_blocks):
                 print(f"    block {i}: {task_name} ({len(items)} examples)")
             if wandb.run:
@@ -1119,19 +1244,22 @@ def train(
     if task_order in ("sequential", "interleaved") and task_blocks:
         cursor = 0
         for task_name, items in task_blocks:
-            stage_steps = len(items) // (args.batch_size * grad_accum)
+            stage_steps = len(items) // (args.batch_size * grad_accum * world_size)
             stage_step_ranges[task_name] = (cursor, cursor + stage_steps)
             cursor += stage_steps
 
     # Precompute block-boundary eval/save steps for interleaved mode
+    # Eval at both start and end of every block; account for world_size in step counts
     block_eval_steps = set()
     block_save_steps = set()
     if task_order == "interleaved" and task_blocks:
         cursor = 0
         for _, items in task_blocks:
-            block_steps = len(items) // (args.batch_size * grad_accum)
+            block_eval_steps.add(cursor)  # start of block
+            block_steps = len(items) // (args.batch_size * grad_accum * world_size)
             cursor += block_steps
-            block_eval_steps.add(cursor)
+            block_eval_steps.add(cursor)  # end of block
+        block_eval_steps.discard(0)  # step-0 eval handled separately
         sorted_evals = sorted(block_eval_steps)
         block_save_steps = set(sorted_evals[i] for i in range(4, len(sorted_evals), 5))
 
@@ -1390,7 +1518,7 @@ def train(
                 if task_order == "interleaved" and task_blocks:
                     cursor = 0
                     for bi, (_, items) in enumerate(task_blocks):
-                        cursor += len(items) // (args.batch_size * grad_accum)
+                        cursor += len(items) // (args.batch_size * grad_accum * world_size)
                         if global_step < cursor:
                             log_dict["train/block_idx"] = bi
                             break
@@ -1491,8 +1619,11 @@ def apply_config(args, config: dict):
         args._yaml_task_order = list(config["tasks"].keys())
         for task_name, task_cfg in config["tasks"].items():
             arg_name = f"{task_name}_n"
-            if hasattr(args, arg_name) and getattr(args, f"_cli_{arg_name}", False) is False:
+            if not getattr(args, f"_cli_{arg_name}", False):
                 setattr(args, arg_name, task_cfg.get("n", 0))
+            eval_arg = f"{task_name}_eval_n"
+            if not getattr(args, f"_cli_{eval_arg}", False):
+                setattr(args, eval_arg, task_cfg.get("eval_n", 50))
 
     # Training params
     if "training" in config:
@@ -1541,8 +1672,24 @@ def apply_config(args, config: dict):
                     eval_names.append(name)
                     if isinstance(entry[name], dict) and "baselines" in entry[name]:
                         eval_baselines[name] = entry[name]["baselines"]
+            # Append classification evals from separate config section
+            if "classification_evals" in e:
+                for entry in e["classification_evals"]:
+                    if isinstance(entry, str):
+                        eval_names.append(entry)
+                    elif isinstance(entry, dict):
+                        name = list(entry.keys())[0]
+                        eval_names.append(name)
+                        if isinstance(entry[name], dict) and "baselines" in entry[name]:
+                            eval_baselines[name] = entry[name]["baselines"]
             args.evals = eval_names
             args.eval_baselines = eval_baselines
+        if "eval_batch_size_overrides" in e and not getattr(args, "_cli_eval_batch_size_overrides", False):
+            raw_overrides = e["eval_batch_size_overrides"] or {}
+            args.eval_batch_size_overrides = {
+                str(k): int(v)
+                for k, v in raw_overrides.items()
+            }
 
     # Data paths
     if "data" in config:
@@ -1572,6 +1719,14 @@ def apply_config(args, config: dict):
     if "no_activations" in config:
         if config["no_activations"].get("enabled") and not getattr(args, "_cli_no_activations", False):
             args.no_activations = True
+
+    # Ablations
+    if "ablations" in config:
+        ab = config["ablations"]
+        if ab.get("random_layers") and not getattr(args, "_cli_random_layers", False):
+            args.random_layers = True
+        if ab.get("noise_activations") and not getattr(args, "_cli_noise_activations", False):
+            args.noise_activations = True
 
     # Model
     if "model" in config:
@@ -1630,6 +1785,15 @@ def main():
     parser.add_argument("--prompt-inversion-n", type=int, default=0)
     parser.add_argument("--compqa-n", type=int, default=0)
     parser.add_argument("--hint-admission-n", type=int, default=0)
+    # Information gap tasks
+    parser.add_argument("--early-answer-pred-n", type=int, default=0)
+    parser.add_argument("--backtrack-pred-n", type=int, default=0)
+    parser.add_argument("--error-pred-n", type=int, default=0)
+    parser.add_argument("--self-correction-n", type=int, default=0)
+    parser.add_argument("--verification-n", type=int, default=0)
+    parser.add_argument("--branch-pred-n", type=int, default=0)
+    parser.add_argument("--completion-pred-n", type=int, default=0)
+    parser.add_argument("--remaining-strategy-n", type=int, default=0)
     parser.add_argument("--atypical-data-path",
                         default="data/atypical_answer_training.jsonl",
                         help="Path to atypical answer JSONL (from precompute_atypical_training.py)")
@@ -1680,6 +1844,12 @@ def main():
     parser.add_argument("--flamingo-max-ctx-tokens", type=int, default=2048,
                         help="Max context tokens for flamingo activation extraction (truncates from left)")
 
+    # Ablations
+    parser.add_argument("--random-layers", action="store_true", default=False,
+                        help="Randomize layer count and indices per training sequence")
+    parser.add_argument("--noise-activations", action="store_true", default=False,
+                        help="Replace real activations with variance-matched Gaussian noise")
+
     # Eval / save
     parser.add_argument("--eval-steps", type=int, default=2000,
                         help="Run evals every N steps (shuffled mode)")
@@ -1701,6 +1871,7 @@ def main():
     parser.add_argument("--wandb-entity", default="MATS10-CS-JB",
                         help="Wandb entity (team/org)")
     parser.add_argument("--wandb-run", default=None)
+    parser.add_argument("--wandb-group", default=None, help="Wandb group name")
 
     # Data loading
     parser.add_argument("--precomputed-dir", default=None,
@@ -1757,8 +1928,12 @@ def main():
     set_seed(args.seed)
 
     # Multi-layer config
-    global MULTI_LAYERS, NO_ACTIVATIONS
+    global MULTI_LAYERS, NO_ACTIVATIONS, RANDOM_LAYERS, NOISE_ACTIVATIONS, _MODEL_N_LAYERS
     NO_ACTIVATIONS = getattr(args, "no_activations", False)
+    RANDOM_LAYERS = getattr(args, "random_layers", False)
+    NOISE_ACTIVATIONS = getattr(args, "noise_activations", False)
+    from cot_utils import LAYER_COUNTS
+    _MODEL_N_LAYERS = LAYER_COUNTS.get(args.model, 36)
     if hasattr(args, "layers") and args.layers:
         MULTI_LAYERS = [int(l) for l in args.layers]
     else:
@@ -1774,6 +1949,10 @@ def main():
         else:
             print(f"Multi-layer injection: {MULTI_LAYERS}")
         print(f"Distributed: world_size={world_size}, rank={rank}, local_rank={local_rank}")
+        if RANDOM_LAYERS:
+            print("Ablation: RANDOM LAYERS (per-item random layer sampling)")
+        if NOISE_ACTIVATIONS:
+            print("Ablation: NOISE ACTIVATIONS (variance-matched Gaussian noise)")
 
     # Position encoding config
     global _PE_CONFIG
@@ -1938,6 +2117,7 @@ def main():
             project=args.wandb_project,
             entity=args.wandb_entity,
             name=run_name,
+            group=args.wandb_group,
             id=resume_id,
             resume="allow" if resume_id else None,
             config=wandb_config,
