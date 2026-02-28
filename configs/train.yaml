@@ -158,6 +158,10 @@ activations:
   n_prompt_positions: 5
   position_encoding: false   # sinusoidal PE for activation vectors
   pe_alpha: 0.1              # PE mixing coefficient (only used if position_encoding: true)
+  layers: [9, 18, 27]        # injection layers (25%, 50%, 75% of Qwen3-8B's 36 layers)
+  layer_dropout:
+    train: true              # random non-empty subsets of layers per training example
+    eval: false              # always feed all configured layers during eval
 
 # Eval
 eval:
@@ -233,7 +237,7 @@ data:
 model:
   name: Qwen/Qwen3-8B
   ao_checkpoint: adamkarvonen/checkpoints_latentqa_cls_past_lens_addition_Qwen3-8B
-  fresh_lora: false
+  fresh_lora: true
 
 # Baselines
 baselines:
