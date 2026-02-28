@@ -1,12 +1,8 @@
 """
-CoT Next-Step Prediction — Sparse activation feeding.
+CoT Next-Step Prediction — Single activation at cutoff.
 
-Pick a cutoff position k in the CoT, then sample a random number of stride
-positions from [0..k] (uniform between 1 and k+1, with 1 double-weighted)
-and predict the next 50 tokens after position k.
-
-This forces the oracle to extrapolate from sparse, incomplete activation
-evidence — sometimes a single activation, sometimes many.
+Pick a random cutoff position k in the CoT, feed only the activation at
+that position, and predict the next 50 tokens after it.
 """
 
 import json
@@ -58,12 +54,6 @@ def load_cot_next_step_data(
 
     print(f"  Loaded {len(corpus)} corpus entries for next-step prediction")
 
-    def _get_prompt_positions(formatted_len: int, n: int = 5) -> list[int]:
-        if formatted_len < n:
-            return list(range(formatted_len))
-        step = formatted_len / (n + 1)
-        return [int(step * (i + 1)) for i in range(n)]
-
     datapoints = []
     attempts = 0
     max_attempts = num_examples * 5
@@ -96,28 +86,14 @@ def load_cot_next_step_data(
         if len(all_positions) < 3:
             continue
 
-        # Pick a random cutoff, then sparsely sample positions up to it
+        # Pick random cutoff positions (up to 3 per entry)
         max_k = len(all_positions) - 1
-        for _ in range(3):  # Try a few cutoffs per entry
+        for _ in range(3):
             k = random.randint(0, max_k)
-            available = all_positions[:k + 1]
-            last_pos = available[-1]
+            cutoff_pos = all_positions[k]
 
-            # Sample how many positions to feed: uniform over [1, len(available)]
-            # but with 1 double-weighted (appears twice in the pool)
-            pool = [1] + list(range(1, len(available) + 1))  # [1, 1, 2, ..., len]
-            n_feed = random.choice(pool)
-            # Always include the last position (defines the cutoff boundary),
-            # sample the rest randomly from the remaining available positions
-            if n_feed >= len(available):
-                feed_positions = available
-            else:
-                rest = available[:-1]  # everything except last
-                sampled = sorted(random.sample(rest, n_feed - 1))
-                feed_positions = sampled + [last_pos]
-
-            # Target: next predict_tokens tokens after last_pos
-            target_start = last_pos + 1
+            # Target: next predict_tokens tokens after cutoff
+            target_start = cutoff_pos + 1
             target_end = min(target_start + predict_tokens, len(full_ids))
             if target_end - target_start < 5:
                 continue
@@ -127,18 +103,13 @@ def load_cot_next_step_data(
             if not target_text.strip():
                 continue
 
-            # Add prompt positions
-            prompt_positions = _get_prompt_positions(prompt_len, n_prompt_positions)
-
-            # Triple for 3 layers
-            combined_positions = prompt_positions + feed_positions
-            context_positions = combined_positions * len(LAYERS)
+            # Only feed the single activation at the cutoff position
+            context_positions = [cutoff_pos] * len(LAYERS)
             num_positions = len(context_positions)
 
-            # Context: tokens up to last position
-            context_slice = full_ids[:last_pos + 1]
+            # Context: tokens up to cutoff position
+            context_slice = full_ids[:cutoff_pos + 1]
 
-            n_feed = len(feed_positions)
             layers_str = ", ".join(str(l) for l in LAYERS)
             prompt = (
                 f"Activations from {num_positions} positions across layers {layers_str}. "
@@ -149,7 +120,7 @@ def load_cot_next_step_data(
                 "datapoint_type": "cot_next_step",
                 "prompt": prompt,
                 "target_response": target_text,
-                "layer": LAYERS[0],  # Sentinel — materialization uses all 3
+                "layer": LAYERS[0],
                 "layers": LAYERS,
                 "num_positions": num_positions,
                 "context_input_ids": context_slice,
