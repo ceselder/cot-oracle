@@ -108,6 +108,7 @@ def run_attention_probe(
     n_layers: int = 36, k_folds: int = 5, n_heads: int = 4,
     hidden_dim: int = 256, lr: float = 0.001, epochs: int = 50,
     patience: int = 10, device: str = "cuda",
+    test_inputs: list[BaselineInput] | None = None,
 ) -> dict:
     eval_name = inputs[0].eval_name
     eval_type = EVAL_TYPES[eval_name]
@@ -116,43 +117,65 @@ def run_attention_probe(
         return {"skipped": True, "reason": "attention probe cannot do generation"}
 
     # Use all available layers (sorted)
-    available_layers = sorted(set().union(*(inp.activations_by_layer.keys() for inp in inputs)))
+    all_items = inputs + test_inputs if test_inputs else inputs
+    available_layers = sorted(set().union(*(inp.activations_by_layer.keys() for inp in all_items)))
     layers_to_use = available_layers[:n_layers]
     actual_n_layers = len(layers_to_use)
-
-    X_all = _build_layer_features(inputs, layers_to_use)  # [N, n_layers, D]
-    d_model = X_all.shape[2]
 
     traces = []
     all_attn_weights = []
 
-    if eval_type == "binary":
-        labels_unique = sorted(set(inp.ground_truth_label for inp in inputs))
+    if eval_type in ("binary", "multiclass"):
+        labels_unique = sorted(set(inp.ground_truth_label for inp in all_items))
         label_to_idx = {l: i for i, l in enumerate(labels_unique)}
-        y_all = torch.tensor([label_to_idx[inp.ground_truth_label] for inp in inputs])
         n_classes = len(labels_unique)
 
-        skf = StratifiedKFold(n_splits=k_folds, shuffle=True, random_state=42)
-        all_preds = [None] * len(inputs)
+        if test_inputs is not None:
+            # Train/test split mode — no k-fold
+            X_train = _build_layer_features(inputs, layers_to_use)
+            X_test = _build_layer_features(test_inputs, layers_to_use)
+            y_train = torch.tensor([label_to_idx[inp.ground_truth_label] for inp in inputs])
 
-        for train_idx, test_idx in tqdm(list(skf.split(X_all.numpy(), y_all.numpy())), desc="Attention probe folds"):
             preds, attn_w = _train_attention_probe_fold(
-                X_all[train_idx], y_all[train_idx], X_all[test_idx],
+                X_train, y_train, X_test,
                 n_heads=n_heads, hidden_dim=hidden_dim, n_outputs=n_classes,
                 lr=lr, epochs=epochs, patience=patience, device=device,
             )
-            all_attn_weights.append(attn_w.mean(dim=0))  # avg over test items
-            for i, idx in enumerate(test_idx):
-                all_preds[idx] = labels_unique[preds[i].item()]
+            all_attn_weights.append(attn_w.mean(dim=0))
+            all_preds = [labels_unique[p.item()] for p in preds]
+            gt_labels = [inp.ground_truth_label for inp in test_inputs]
+            metrics = score_binary(all_preds, gt_labels)
 
-        gt_labels = [inp.ground_truth_label for inp in inputs]
-        metrics = score_binary(all_preds, gt_labels)
+            for i in range(min(10, len(test_inputs))):
+                traces.append({
+                    "example_id": test_inputs[i].example_id,
+                    "prediction": all_preds[i], "ground_truth": test_inputs[i].ground_truth_label,
+                })
+        else:
+            # K-fold CV mode (existing behavior)
+            X_all = _build_layer_features(inputs, layers_to_use)
+            y_all = torch.tensor([label_to_idx[inp.ground_truth_label] for inp in inputs])
 
-        for i in range(min(10, len(inputs))):
-            traces.append({
-                "example_id": inputs[i].example_id,
-                "prediction": all_preds[i], "ground_truth": inputs[i].ground_truth_label,
-            })
+            all_preds = [None] * len(inputs)
+
+            for train_idx, test_idx in tqdm(list(StratifiedKFold(n_splits=k_folds, shuffle=True, random_state=42).split(X_all.numpy(), y_all.numpy())), desc="Attention probe folds"):
+                preds, attn_w = _train_attention_probe_fold(
+                    X_all[train_idx], y_all[train_idx], X_all[test_idx],
+                    n_heads=n_heads, hidden_dim=hidden_dim, n_outputs=n_classes,
+                    lr=lr, epochs=epochs, patience=patience, device=device,
+                )
+                all_attn_weights.append(attn_w.mean(dim=0))
+                for i, idx in enumerate(test_idx):
+                    all_preds[idx] = labels_unique[preds[i].item()]
+
+            gt_labels = [inp.ground_truth_label for inp in inputs]
+            metrics = score_binary(all_preds, gt_labels)
+
+            for i in range(min(10, len(inputs))):
+                traces.append({
+                    "example_id": inputs[i].example_id,
+                    "prediction": all_preds[i], "ground_truth": inputs[i].ground_truth_label,
+                })
 
     elif eval_type == "ranking":
         items_with_chunks = [

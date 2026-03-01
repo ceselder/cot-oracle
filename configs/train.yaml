@@ -82,6 +82,10 @@ activations:
   n_prompt_positions: 5
   position_encoding: false
   pe_alpha: 0.1
+  layers: [9, 18, 27]        # injection layers (25%, 50%, 75% of Qwen3-8B's 36 layers)
+  layer_dropout:
+    train: true              # random non-empty subsets of layers per training example
+    eval: false              # always feed all configured layers during eval
 
 # Eval
 eval:
@@ -95,6 +99,94 @@ model:
   name: Qwen/Qwen3-8B
   ao_checkpoint: adamkarvonen/checkpoints_latentqa_cls_past_lens_addition_Qwen3-8B
   fresh_lora: true
+
+# Baselines
+baselines:
+  output_dir: data/baseline_results
+  log_dir: logs/baselines
+
+  evals:
+    - hinted_mcq_truthfulqa
+    - sycophancy_v2_riya
+    - sentence_insertion
+    - reasoning_termination_riya
+    - atypical_answer_riya
+    - atypical_answer_mcq
+    - cybercrime_ood
+    - chunked_convqa
+    - cot_hint_admission
+    - rot13_reconstruction
+    - thought_anchors
+    - thought_branches
+
+  classification_evals:
+    - cls_sst2
+    - cls_snli
+    - cls_ag_news
+    - cls_ner
+    - cls_tense
+    - cls_language_id
+    - cls_singular_plural
+    - cls_geometry_of_truth
+    - cls_relations
+
+  stride: 5
+
+  cleaned_datasets:
+    train_fraction: 0.01
+    datasets:
+      - mats-10-sprint-cs-jb/cot-oracle-correctness-cleaned
+      - mats-10-sprint-cs-jb/cot-oracle-reasoning-termination-cleaned
+      - mats-10-sprint-cs-jb/cot-oracle-atypical-answer-cleaned
+      - mats-10-sprint-cs-jb/cot-oracle-hint-admission-cleaned
+      - mats-10-sprint-cs-jb/cot-oracle-truthfulqa-hint-unverbalized-cleaned
+      - mats-10-sprint-cs-jb/cot-oracle-truthfulqa-hint-verbalized-cleaned
+
+  linear_probe:
+    layers: [9, 18, 27]       # also runs concat of all 3
+    k_folds: 5
+    lr: 0.01
+    epochs: 100
+    weight_decay: 0.0001
+
+  attention_probe:
+    n_layers: 36               # all layers
+    k_folds: 5
+    n_heads: 4
+    hidden_dim: 256
+    lr: 0.001
+    epochs: 50
+    patience: 10
+
+  original_ao:
+    checkpoint: adamkarvonen/checkpoints_latentqa_cls_past_lens_addition_Qwen3-8B
+
+  llm_monitor:
+    model: google/gemini-3-flash-preview
+    api_base: https://openrouter.ai/api/v1
+    max_tokens: 300
+    temperature: 0.0
+
+  patchscopes:
+    source_layers: [9, 18, 27]
+    injection_layer: 1
+    steering_coefficients: [0.5, 1.0, 2.0]
+    max_new_tokens: 100
+
+  no_act_oracle:
+    checkpoint: checkpoints/no_act_oracle
+    max_new_tokens: 150
+
+  sae_probe:
+    sae_dir: downloaded_saes
+    sae_labels_dir: /ceph/scratch/jbauer/sae_features/trainer_2/trainer_2/labels
+    sae_trainer: 2
+    layers: [9, 18, 27]
+    top_k: 20
+    llm_model: google/gemini-2.5-flash-lite
+    api_base: https://openrouter.ai/api/v1
+    max_tokens: 300
+    temperature: 0.0
 
 # Output
 output:

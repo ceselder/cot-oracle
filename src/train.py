@@ -87,6 +87,7 @@ du_module.SPECIAL_TOKEN = PLACEHOLDER_TOKEN
 MULTI_LAYERS: list[int] = []
 NO_ACTIVATIONS: bool = False
 RANDOM_LAYERS: bool = False
+LAYER_DROPOUT: bool = False
 NOISE_ACTIVATIONS: bool = False
 _MODEL_N_LAYERS: int = 36  # total layers in the model (set in main())
 
@@ -221,7 +222,7 @@ def materialize_multilayer_steering_vectors(
             raise ValueError("context_* must be provided when steering_vectors is None")
 
     # Determine layers to extract: union of all items' layers
-    if RANDOM_LAYERS:
+    if RANDOM_LAYERS or LAYER_DROPOUT:
         per_item_layers = []
         all_layers_set = set()
         for _, dp in to_fill:
@@ -626,13 +627,36 @@ def dicts_to_training_data(
         base_positions = _extract_base_positions(ctx_pos, n_layers_runtime)
 
         if RANDOM_LAYERS:
-            # Per-item random layer sampling
+            # Per-item random layer sampling (ablation: arbitrary model layers)
             from layer_utils import sample_layers
             sampled = sample_layers(_MODEL_N_LAYERS, mean=3)
             ctx_pos = base_positions * len(sampled)
             num_pos = len(ctx_pos)
 
             # Temporarily swap MULTI_LAYERS for prefix generation
+            saved_layers = MULTI_LAYERS[:]
+            MULTI_LAYERS[:] = sampled
+            dp = create_training_datapoint(
+                datapoint_type=item["datapoint_type"],
+                prompt=item["prompt"],
+                target_response=item["target_response"],
+                layer=sampled[0],
+                num_positions=num_pos,
+                tokenizer=tokenizer,
+                acts_BD=None,
+                feature_idx=-1,
+                context_input_ids=item["context_input_ids"],
+                context_positions=ctx_pos,
+                meta_info={"prompt": item["prompt"], "layers": sampled},
+            )
+            MULTI_LAYERS[:] = saved_layers
+        elif LAYER_DROPOUT:
+            # Random non-empty subset of configured layers per item
+            k = random.randint(1, len(MULTI_LAYERS))
+            sampled = sorted(random.sample(MULTI_LAYERS, k))
+            ctx_pos = base_positions * len(sampled)
+            num_pos = len(ctx_pos)
+
             saved_layers = MULTI_LAYERS[:]
             MULTI_LAYERS[:] = sampled
             dp = create_training_datapoint(
@@ -1600,6 +1624,13 @@ def apply_config(args, config: dict):
                     setattr(args, key, a[key])
         if "layers" in a and not getattr(args, "_cli_layers", False):
             args.layers = a["layers"]  # list of ints, e.g. [9, 18, 27]
+        if "layer_dropout" in a and not getattr(args, "_cli_layer_dropout", False):
+            ld = a["layer_dropout"]
+            if isinstance(ld, bool):
+                args.layer_dropout = ld
+            elif isinstance(ld, dict):
+                args.layer_dropout = ld.get("train", False)
+                args.layer_dropout_eval = ld.get("eval", False)
         if "layer_pool" in a:
             if isinstance(a["layer_pool"], bool):
                 args.layer_pool = a["layer_pool"]
@@ -1773,6 +1804,12 @@ def main():
     parser.add_argument("--flamingo-max-ctx-tokens", type=int, default=2048,
                         help="Max context tokens for flamingo activation extraction (truncates from left)")
 
+    # Layer dropout
+    parser.add_argument("--layer-dropout", action="store_true", default=False,
+                        help="Random non-empty subsets of configured layers per training example")
+    parser.add_argument("--no-layer-dropout", dest="layer_dropout", action="store_false",
+                        help="Disable layer dropout (override config)")
+
     # Ablations
     parser.add_argument("--random-layers", action="store_true", default=False,
                         help="Randomize layer count and indices per training sequence")
@@ -1852,9 +1889,10 @@ def main():
     set_seed(args.seed)
 
     # Multi-layer config
-    global MULTI_LAYERS, NO_ACTIVATIONS, RANDOM_LAYERS, NOISE_ACTIVATIONS, _MODEL_N_LAYERS
+    global MULTI_LAYERS, NO_ACTIVATIONS, RANDOM_LAYERS, LAYER_DROPOUT, NOISE_ACTIVATIONS, _MODEL_N_LAYERS
     NO_ACTIVATIONS = getattr(args, "no_activations", False)
     RANDOM_LAYERS = getattr(args, "random_layers", False)
+    LAYER_DROPOUT = getattr(args, "layer_dropout", False)
     NOISE_ACTIVATIONS = getattr(args, "noise_activations", False)
     from cot_utils import LAYER_COUNTS
     _MODEL_N_LAYERS = LAYER_COUNTS.get(args.model, 36)
@@ -1873,6 +1911,8 @@ def main():
         else:
             print(f"Multi-layer injection: {MULTI_LAYERS}")
         print(f"Distributed: world_size={world_size}, rank={rank}, local_rank={local_rank}")
+        if LAYER_DROPOUT:
+            print(f"Layer dropout: ON (random non-empty subsets of {MULTI_LAYERS} per example)")
         if RANDOM_LAYERS:
             print("Ablation: RANDOM LAYERS (per-item random layer sampling)")
         if NOISE_ACTIVATIONS:
@@ -1996,13 +2036,24 @@ def main():
                 print(f"  Loaded training_state.pt: step={_resume_state['global_step']}, wandb_id={_resume_state.get('wandb_run_id')}")
     elif args.fresh_lora:
         if rank == 0:
-            print("Starting with FRESH LoRA (load AO structure, reinit weights)")
-        # Load Adam's checkpoint for the model structure (compatible with grad checkpointing),
-        # then reinitialize all LoRA weights to random (kaiming for A, zero for B).
-        model = PeftModel.from_pretrained(
-            base_model, args.ao_checkpoint,
-            is_trainable=True, autocast_adapter_dtype=False,
-        )
+            print("Starting with FRESH LoRA (random init)")
+        try:
+            # Try loading AO checkpoint structure, then reinit weights
+            model = PeftModel.from_pretrained(
+                base_model, args.ao_checkpoint,
+                is_trainable=True, autocast_adapter_dtype=False,
+            )
+        except RuntimeError:
+            # Checkpoint doesn't match model (e.g. 8B checkpoint on 0.6B model) — create fresh LoRA
+            if rank == 0:
+                print("  AO checkpoint incompatible, creating LoRA from scratch")
+            from peft import LoraConfig, get_peft_model
+            lora_config = LoraConfig(
+                r=64, lora_alpha=16, lora_dropout=0.0,
+                target_modules=["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"],
+                bias="none", task_type="CAUSAL_LM",
+            )
+            model = get_peft_model(base_model, lora_config)
         for name, param in model.named_parameters():
             if "lora_A" in name:
                 torch.nn.init.kaiming_uniform_(param, a=5**0.5)

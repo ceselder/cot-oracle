@@ -46,19 +46,20 @@ def main():
     df = pd.DataFrame(rows)
 
     # Stats
-    print(f"\n  By query_type:")
-    for qt, cnt in sorted(Counter(df["query_type"]).items()):
-        print(f"    {qt}: {cnt}")
     print(f"\n  By source:")
     for src, cnt in sorted(Counter(df["source"]).items()):
         print(f"    {src}: {cnt}")
+
+    print(f"\n  Split position stats:")
+    fracs = df["split_index"] / df["num_sentences"]
+    print(f"    mean: {fracs.mean():.2f}, median: {fracs.median():.2f}, min: {fracs.min():.2f}, max: {fracs.max():.2f}")
 
     scored = df[df["bb_correct"].notna()]
     if len(scored) > 0:
         n_correct = scored["bb_correct"].sum()
         print(f"\n  BB correctness: {int(n_correct)}/{len(scored)} = {n_correct/len(scored):.1%}")
 
-    # Train/test split by cot_id (all queries for a CoT go to same split)
+    # Train/test split by cot_id (all rows for a CoT go to same split)
     cot_ids = sorted(df["cot_id"].unique())
     rng = random.Random(args.seed)
     rng.shuffle(cot_ids)
@@ -82,10 +83,22 @@ def main():
     print(f"  Saved {len(df_test)} test → {test_path}")
 
     # Build README
-    type_dist = Counter(df["query_type"])
-    type_table = "\n".join(f"| `{qt}` | {cnt} |" for qt, cnt in sorted(type_dist.items()))
     source_dist = Counter(df["source"])
     source_table = "\n".join(f"| {src} | {cnt} |" for src, cnt in sorted(source_dist.items()))
+
+    scored = df[df["bb_correct"].notna()]
+    bb_acc_str = f"{scored['bb_correct'].sum() / len(scored):.1%}" if len(scored) > 0 else "N/A"
+
+    # Per-source BB accuracy
+    source_acc_rows = []
+    for src in sorted(source_dist.keys()):
+        src_scored = scored[scored["source"] == src]
+        if len(src_scored) > 0:
+            acc = src_scored["bb_correct"].sum() / len(src_scored)
+            source_acc_rows.append(f"| {src} | {len(df[df['source'] == src])} | {acc:.0%} |")
+        else:
+            source_acc_rows.append(f"| {src} | {len(df[df['source'] == src])} | — |")
+    source_acc_table = "\n".join(source_acc_rows)
 
     readme = f"""---
 tags:
@@ -96,14 +109,23 @@ tags:
 license: mit
 ---
 
-# CoT Oracle: Chunked ConvQA
+# CoT Oracle: Chunked ConvQA (Natural Split Points)
 
-Sentence-chunked conversational QA where queries ask about the **suffix** (future reasoning)
-of a chain-of-thought. Designed to test whether an oracle with activation access can answer
-questions about unseen future reasoning that a black-box text monitor cannot.
+Information-gap QA dataset for training and evaluating chain-of-thought oracles.
 
-Each CoT is truncated at 25%, 50%, and 75% of sentences. For each truncation point, 8 queries
-across 4 categories probe the suffix.
+Each Qwen3-8B chain-of-thought is split at a **natural turning point** chosen by
+Gemini 2.5 Flash Lite. At the split, a tailored open-ended question is generated
+about the suffix content that is not obvious from reading the prefix alone.
+An oracle with activation access to the prefix should outperform a black-box
+text monitor that can only read the prefix.
+
+- **Round 1:** Gemini sees the full CoT, picks a natural split, generates a question.
+- **Round 2:** Gemini sees only the prefix, answers the question (BB baseline).
+- **Round 3:** Gemini sees only the suffix, answers the question (ground truth).
+- **Scoring:** Gemini judges whether the BB answer is substantively correct given the GT.
+
+**Overall BB accuracy: {bb_acc_str}** — the oracle should beat this by reading latent
+information from the prefix activations.
 
 ## Splits
 
@@ -112,36 +134,33 @@ across 4 categories probe the suffix.
 | train | {len(train_ids)} | {len(df_train)} |
 | test | {len(test_ids)} | {len(df_test)} |
 
-## Query Types
+Split by `cot_id` (all data for a given CoT goes to the same split).
 
-| Type | Count |
-|------|-------|
-{type_table}
+## Sources ({len(source_dist)} task domains)
 
-## Sources
+| Source | Count | BB accuracy |
+|--------|-------|-------------|
+{source_acc_table}
 
-| Source | Count |
-|--------|-------|
-{source_table}
-
-**Total: {len(rows)} rows**
+**Total: {len(rows)} rows** (1 per CoT)
 
 ## Schema
 
 | Field | Description |
 |-------|-------------|
-| `cot_id` | Source corpus ID |
-| `source` | Task source (MATH, GSM8K, etc.) |
 | `question` | Original problem |
-| `cot_text` | Full chain-of-thought |
-| `chunk_index` | Truncation point (0-based sentence index) |
-| `num_chunks` | Total number of sentences |
-| `next_chunk` | The sentence right after the truncation point |
-| `query_type` | Category: general, thematic, behavior, reasoning |
-| `query` | Question about the suffix |
-| `gt_response` | Ground truth (Gemini sees prefix + suffix) |
-| `bb_response` | Black-box monitor guess (Gemini sees only prefix) |
-| `bb_correct` | Whether BB response matches ground truth |
+| `cot_text` | Full chain-of-thought text |
+| `prompt` | Generated question about the suffix |
+| `target_response` | GT answer (Gemini sees suffix, Round 3) |
+| `bb_response` | BB answer (Gemini sees prefix, Round 2) |
+| `bb_correct` | Whether BB answer is substantively correct (Gemini-judged) |
+| `cot_prefix` | Prefix text (sentences 0..split_index) |
+| `cot_suffix` | Suffix text (sentences split_index+1..end) |
+| `split_index` | Sentence index chosen by Gemini (0-based, last sentence of prefix) |
+| `num_sentences` | Total sentences in the CoT |
+| `cot_id` | Source corpus ID |
+| `source` | Task domain (MATH, GSM8K, etc.) |
+| `generation_prompt` | Round 1 system+user prompt (for regeneration) |
 
 ## Usage
 

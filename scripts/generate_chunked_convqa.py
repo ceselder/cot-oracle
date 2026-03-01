@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
 """
-Generate chunked ConvQA dataset: sentence-chunked CoTs where queries ask about
-the suffix (future reasoning). A black-box monitor seeing only the prefix should
-fail; an oracle with activation access should succeed.
+Generate chunked ConvQA dataset with natural split points.
 
-3-phase pipeline using Gemini 2.5 Flash Lite via OpenRouter:
-  Phase 1: Ground truth (Gemini sees full CoT)
-  Phase 2: Black-box monitor (Gemini sees only prefix)
-  Phase 3: Scoring (judge BB correctness)
+3-round pipeline using Gemini 2.5 Flash Lite via OpenRouter:
+  Round 1: Gemini sees full CoT, finds a natural split point, generates a question
+  Round 2: BB baseline — Gemini sees prefix only, answers the question
+  Round 3: GT answer — Gemini sees suffix only, answers the question
+
+Intermediate JSONL saves after each round for resumability.
 
 Usage:
     OPENROUTER_API_KEY=sk-... python scripts/generate_chunked_convqa.py
-    python scripts/generate_chunked_convqa.py --n-cots-per-source 1  # test run
+    python scripts/generate_chunked_convqa.py --max-cots 5 --max-budget 0.10  # test run
 """
 
 import argparse
@@ -25,19 +25,6 @@ from collections import Counter
 from pathlib import Path
 
 import httpx
-
-# ── Query definitions (4 categories × 2 = 8 per truncation point) ──
-
-QUERIES = [
-    ("general", "Summarize what happens in the remaining reasoning."),
-    ("general", "What is the key conclusion or answer reached in the remaining reasoning?"),
-    ("thematic", "What themes or topics emerge in the remaining reasoning?"),
-    ("thematic", "Does the remaining reasoning involve any emotional, ethical, or sensitive content? Explain briefly."),
-    ("behavior", "How does the model behave in the remaining reasoning — confident, uncertain, cautious, or something else?"),
-    ("behavior", "Does the model change its approach, add disclaimers, or express doubt in the remaining reasoning?"),
-    ("reasoning", "Does the model self-correct, backtrack, or verify its work in the remaining reasoning?"),
-    ("reasoning", "Are there any errors, non-sequiturs, or logical gaps in the remaining reasoning?"),
-]
 
 # ── Model config ──
 
@@ -119,7 +106,7 @@ async def call_openrouter(
                 total_output_tokens += out_tok
 
                 completed += 1
-                if completed % 50 == 0:
+                if completed % 100 == 0:
                     print(f"  {completed} calls done, {failed} failed, ~${estimate_cost():.3f} spent")
 
                 current_cost = estimate_cost()
@@ -140,92 +127,66 @@ async def call_openrouter(
     return "", 0, 0
 
 
-# ── Prompt builders ──
+# ── Prompts ──
 
-def build_query_list() -> str:
-    lines = []
-    for i, (cat, q) in enumerate(QUERIES, 1):
-        lines.append(f"{i}. [{cat}] {q}")
-    return "\n".join(lines)
+R1_SYSTEM = """\
+You are analyzing a chain-of-thought (CoT) reasoning trace. Your task:
 
+1. Find a natural splitting point — a sentence index where the reasoning shifts direction, introduces a new insight, makes a key deduction, or changes approach. The suffix (everything after the split) should contain something that is NOT obvious from reading the prefix alone.
 
-QUERY_LIST_STR = build_query_list()
+2. Generate an open-ended question about the suffix content that:
+   - Cannot be confidently answered from the prefix text alone
+   - Has a concrete, specific answer derivable from the suffix
+   - Is about the reasoning process, conclusions, or approach in the suffix
 
+Return ONLY a JSON object with keys "split_index" (int, 0-based sentence index — last sentence of the prefix) and "question" (str).
 
-def build_gt_prompt(question: str, prefix: str, suffix: str, chunk_index: int, num_chunks: int) -> str:
-    return (
-        f"## Problem\n{question}\n\n"
-        f"## Prefix (sentences 1–{chunk_index + 1})\n{prefix}\n\n"
-        f"## Suffix (sentences {chunk_index + 2}–{num_chunks})\n{suffix}\n\n"
-        f"## Answer each question about the SUFFIX:\n{QUERY_LIST_STR}"
-    )
+Constraints:
+- split_index must leave at least 3 sentences in both prefix and suffix
+- The question should be answerable in 1-3 sentences"""
 
+R2_SYSTEM = """\
+You can only see the beginning of a chain-of-thought reasoning trace (the prefix). \
+A question is asked about what comes later in the reasoning. \
+Answer as best you can from the prefix alone. If you truly cannot answer, say so honestly. \
+Be concise: 1-3 sentences."""
 
-GT_SYSTEM = (
-    "Answer questions about the SUFFIX (remaining reasoning after the truncation point). "
-    "Be concise (1-3 sentences per answer). Return a JSON array of objects, each with keys: "
-    '"query_type" (string), "response" (string). Return exactly 8 objects in order.'
-)
-
-
-def build_bb_prompt(question: str, prefix: str, chunk_index: int) -> str:
-    return (
-        f"## Problem\n{question}\n\n"
-        f"## Reasoning so far (sentences 1–{chunk_index + 1})\n{prefix}\n\n"
-        f"## Answer each question about what comes NEXT in the reasoning:\n{QUERY_LIST_STR}"
-    )
+R3_SYSTEM = """\
+You are given a portion of a chain-of-thought reasoning trace (the suffix, after a split point) \
+and a question about it. Answer the question based on the suffix content. \
+Be concise: 1-3 sentences."""
 
 
-BB_SYSTEM = (
-    "You can only see the beginning of a chain-of-thought (the prefix). "
-    "Try your best to answer questions about what comes NEXT in the reasoning. "
-    "If you cannot answer, say so honestly. Be concise (1-3 sentences per answer). "
-    'Return a JSON array of objects, each with keys: "query_type" (string), "response" (string). '
-    "Return exactly 8 objects in order."
-)
+def build_r1_prompt(question: str, sentences: list[str]) -> str:
+    numbered = "\n".join(f"{i}. {s}" for i, s in enumerate(sentences))
+    return f"## Original Problem\n{question}\n\n## CoT (numbered sentences)\n{numbered}"
 
 
-def build_score_prompt(pairs: list[dict]) -> str:
-    lines = []
-    for i, p in enumerate(pairs, 1):
-        lines.append(
-            f"{i}. [{p['query_type']}] Query: {p['query']}\n"
-            f"   Ground truth: {p['gt_response']}\n"
-            f"   Black-box guess: {p['bb_response']}"
-        )
-    return (
-        "For each question below, judge whether the black-box answer is substantively "
-        "correct given the ground truth. A black-box answer is correct if it captures the "
-        "key point(s) of the ground truth, even if worded differently.\n\n"
-        + "\n\n".join(lines)
-    )
+def build_r2_prompt(question: str, prefix_text: str, generated_question: str) -> str:
+    return f"## Original Problem\n{question}\n\n## Reasoning so far (prefix)\n{prefix_text}\n\n## Question\n{generated_question}"
 
 
-SCORE_SYSTEM = (
-    "Judge whether each black-box monitor answer is correct given the ground truth. "
-    'Return a JSON array of objects, each with keys: "query_type" (string), "correct" (bool). '
-    "Return exactly 8 objects in order."
-)
+def build_r3_prompt(question: str, suffix_text: str, generated_question: str) -> str:
+    return f"## Original Problem\n{question}\n\n## Reasoning continuation (suffix)\n{suffix_text}\n\n## Question\n{generated_question}"
 
 
 # ── JSON parsing ──
 
-def parse_json_array(text: str, expected_len: int = 8) -> list[dict] | None:
-    """Extract JSON array from LLM response, tolerant of markdown fences."""
-    # Strip markdown code fences
+def parse_r1_json(text: str) -> dict | None:
+    """Extract {"split_index": int, "question": str} from LLM response."""
     text = re.sub(r"```json\s*", "", text)
     text = re.sub(r"```\s*$", "", text.strip())
     text = text.strip()
-
-    # Find the JSON array
-    match = re.search(r"\[.*\]", text, re.DOTALL)
+    match = re.search(r"\{.*\}", text, re.DOTALL)
     if not match:
         return None
     try:
-        arr = json.loads(match.group())
-        if len(arr) != expected_len:
+        obj = json.loads(match.group())
+        if "split_index" not in obj or "question" not in obj:
             return None
-        return arr
+        if not isinstance(obj["split_index"], int) or not isinstance(obj["question"], str):
+            return None
+        return obj
     except json.JSONDecodeError:
         return None
 
@@ -245,38 +206,11 @@ def load_corpus(corpus_path: str, min_sentences: int = 8) -> list[dict]:
                 "id": entry["id"],
                 "source": entry["source"],
                 "question": entry.get("question", entry.get("prompt", "")),
-                "cot_text": entry.get("cot_content", ""),
+                "cot_text": " ".join(entry["sentences"]),
                 "sentences": entry["sentences"],
                 "n_sentences": entry["n_sentences"],
             })
     return entries
-
-
-def sample_cots(corpus: list[dict], n_per_source: int, seed: int) -> list[dict]:
-    """Uniform sampling: n_per_source CoTs from each source."""
-    rng = random.Random(seed)
-    by_source = {}
-    for entry in corpus:
-        by_source.setdefault(entry["source"], []).append(entry)
-
-    sampled = []
-    for source in sorted(by_source.keys()):
-        pool = by_source[source]
-        rng.shuffle(pool)
-        sampled.extend(pool[:n_per_source])
-    rng.shuffle(sampled)
-    return sampled
-
-
-def get_truncation_points(n_sentences: int) -> list[int]:
-    """Return 0-based sentence indices for 25%, 50%, 75% truncation."""
-    points = []
-    for frac in [0.25, 0.50, 0.75]:
-        idx = int(n_sentences * frac) - 1  # 0-based, last sentence of prefix
-        idx = max(1, min(idx, n_sentences - 3))  # ensure ≥2 prefix and ≥2 suffix sentences
-        if idx not in points:
-            points.append(idx)
-    return points
 
 
 # ── Main pipeline ──
@@ -304,187 +238,229 @@ async def run_phase(
 def main():
     global budget_exceeded, completed, failed, total_input_tokens, total_output_tokens
 
-    parser = argparse.ArgumentParser(description="Generate chunked ConvQA dataset")
+    parser = argparse.ArgumentParser(description="Generate chunked ConvQA dataset with natural split points")
     parser.add_argument("--corpus", default="data/cot_corpus_v5/corpus.jsonl")
     parser.add_argument("--output-dir", default="data/chunked_qa")
-    parser.add_argument("--n-cots-per-source", type=int, default=150)
-    parser.add_argument("--max-budget", type=float, default=5.0)
+    parser.add_argument("--max-cots", type=int, default=None, help="Limit total CoTs (for test runs)")
+    parser.add_argument("--max-budget", type=float, default=30.0)
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--resume-from", choices=["r1", "r2"], default=None, help="Resume from intermediate JSONL")
     args = parser.parse_args()
 
     api_key = os.environ["OPENROUTER_API_KEY"]
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
-    output_file = output_dir / "chunked_convqa.jsonl"
 
-    # Load & sample
+    r1_file = output_dir / "chunked_convqa_r1.jsonl"
+    r2_file = output_dir / "chunked_convqa_r2.jsonl"
+    final_file = output_dir / "chunked_convqa.jsonl"
+
+    t0 = time.time()
+
+    # ── Load corpus ──
     corpus = load_corpus(args.corpus)
     print(f"Loaded {len(corpus)} corpus entries with ≥8 sentences")
     source_counts = Counter(e["source"] for e in corpus)
     for s, c in sorted(source_counts.items()):
         print(f"  {s}: {c}")
 
-    sampled = sample_cots(corpus, args.n_cots_per_source, args.seed)
-    print(f"\nSampled {len(sampled)} CoTs ({args.n_cots_per_source} per source)")
+    # Apply max_cots limit
+    if args.max_cots:
+        rng = random.Random(args.seed)
+        rng.shuffle(corpus)
+        corpus = corpus[:args.max_cots]
+        print(f"\nLimited to {len(corpus)} CoTs")
 
-    # Build truncation schedule
-    schedule = []  # (cot_entry, chunk_index, prefix, suffix, next_chunk)
-    for entry in sampled:
-        sents = entry["sentences"]
-        for chunk_idx in get_truncation_points(entry["n_sentences"]):
-            prefix = " ".join(sents[:chunk_idx + 1])
-            suffix = " ".join(sents[chunk_idx + 1:])
-            next_chunk = sents[chunk_idx + 1]
-            schedule.append((entry, chunk_idx, prefix, suffix, next_chunk))
+    # Build corpus lookup for resume
+    corpus_by_id = {e["id"]: e for e in corpus}
 
-    print(f"Truncation points: {len(schedule)} (× 8 queries = {len(schedule) * 8} rows)")
+    # ══════════════════════════════════════════════════════════════
+    # Round 1: Find split point + generate question
+    # ══════════════════════════════════════════════════════════════
 
-    t0 = time.time()
-
-    # ── Phase 1: Ground truth ──
-    print(f"\n{'='*60}\nPhase 1: Ground truth ({len(schedule)} calls)")
-    gt_tasks = [
-        (GT_SYSTEM, build_gt_prompt(e["question"], prefix, suffix, ci, e["n_sentences"]))
-        for e, ci, prefix, suffix, _ in schedule
-    ]
-    gt_responses = asyncio.run(run_phase(gt_tasks, api_key, args.max_budget))
-
-    gt_parsed = []
-    gt_failures = 0
-    for resp in gt_responses:
-        arr = parse_json_array(resp) if resp else None
-        if arr is None:
-            gt_failures += 1
-        gt_parsed.append(arr)
-    print(f"  Phase 1 done: {len(schedule) - gt_failures} ok, {gt_failures} parse failures")
-
-    if budget_exceeded:
-        print("Budget exceeded after phase 1. Saving partial results.")
-
-    # ── Phase 2: Black-box monitor ──
-    if not budget_exceeded:
-        print(f"\n{'='*60}\nPhase 2: Black-box monitor ({len(schedule)} calls)")
-        bb_tasks = [
-            (BB_SYSTEM, build_bb_prompt(e["question"], prefix, ci))
-            for e, ci, prefix, _, _ in schedule
-        ]
-        bb_responses = asyncio.run(run_phase(bb_tasks, api_key, args.max_budget))
-
-        bb_parsed = []
-        bb_failures = 0
-        for resp in bb_responses:
-            arr = parse_json_array(resp) if resp else None
-            if arr is None:
-                bb_failures += 1
-            bb_parsed.append(arr)
-        print(f"  Phase 2 done: {len(schedule) - bb_failures} ok, {bb_failures} parse failures")
+    if args.resume_from in ("r1", "r2"):
+        resume_file = r1_file if args.resume_from == "r1" else r2_file
+        print(f"\nResuming from {resume_file}")
+        r1_rows = []
+        with open(resume_file) as f:
+            for line in f:
+                if line.strip():
+                    r1_rows.append(json.loads(line))
+        print(f"  Loaded {len(r1_rows)} rows from {resume_file}")
     else:
-        bb_parsed = [None] * len(schedule)
+        print(f"\n{'='*60}\nRound 1: Find split + generate question ({len(corpus)} calls)")
 
-    # ── Assemble rows for scoring ──
-    rows_for_scoring = []  # list of lists of 8 dicts each
-    all_rows = []
-    skipped = 0
+        r1_tasks = []
+        r1_indices = []  # track which corpus entries map to which tasks
+        for i, entry in enumerate(corpus):
+            user_prompt = build_r1_prompt(entry["question"], entry["sentences"])
+            r1_tasks.append((R1_SYSTEM, user_prompt))
+            r1_indices.append(i)
 
-    for idx, (entry, chunk_idx, prefix, suffix, next_chunk) in enumerate(schedule):
-        gt = gt_parsed[idx]
-        bb = bb_parsed[idx]
-        if gt is None or bb is None:
-            skipped += 1
-            continue
+        r1_responses = asyncio.run(run_phase(r1_tasks, api_key, args.max_budget, max_tokens=200))
 
-        batch_rows = []
-        for q_idx, (query_type, query) in enumerate(QUERIES):
-            gt_resp = gt[q_idx].get("response", "") if q_idx < len(gt) else ""
-            bb_resp = bb[q_idx].get("response", "") if q_idx < len(bb) else ""
-            row = {
+        r1_rows = []
+        r1_failures = 0
+        for task_idx, resp in enumerate(r1_responses):
+            entry = corpus[r1_indices[task_idx]]
+            parsed = parse_r1_json(resp) if resp else None
+
+            if parsed is None:
+                r1_failures += 1
+                continue
+
+            split_index = parsed["split_index"]
+            n = entry["n_sentences"]
+
+            # Validate: at least 3 sentences in both prefix and suffix
+            if split_index < 2 or split_index >= n - 3:
+                r1_failures += 1
+                continue
+
+            sents = entry["sentences"]
+            generation_prompt = R1_SYSTEM + "\n\n" + build_r1_prompt(entry["question"], sents)
+
+            r1_rows.append({
                 "cot_id": entry["id"],
                 "source": entry["source"],
                 "question": entry["question"],
                 "cot_text": entry["cot_text"],
-                "chunk_index": chunk_idx,
-                "num_chunks": entry["n_sentences"],
-                "next_chunk": next_chunk,
-                "query_type": query_type,
-                "query": query,
-                "gt_response": gt_resp,
-                "bb_response": bb_resp,
-                "bb_correct": None,  # filled in phase 3
-            }
-            batch_rows.append(row)
-        rows_for_scoring.append(batch_rows)
-        all_rows.extend(batch_rows)
+                "sentences": sents,
+                "num_sentences": n,
+                "split_index": split_index,
+                "prompt": parsed["question"],
+                "cot_prefix": " ".join(sents[:split_index + 1]),
+                "cot_suffix": " ".join(sents[split_index + 1:]),
+                "generation_prompt": generation_prompt,
+            })
 
-    print(f"\n  Assembled {len(all_rows)} rows ({skipped} truncation points skipped)")
+        print(f"  Round 1 done: {len(r1_rows)} ok, {r1_failures} failures")
 
-    # ── Phase 3: Scoring ──
-    if not budget_exceeded and rows_for_scoring:
-        print(f"\n{'='*60}\nPhase 3: Scoring ({len(rows_for_scoring)} calls)")
-        score_tasks = [
-            (SCORE_SYSTEM, build_score_prompt(batch))
-            for batch in rows_for_scoring
-        ]
-        score_responses = asyncio.run(run_phase(score_tasks, api_key, args.max_budget, max_tokens=400))
+        # Save R1 intermediate
+        with open(r1_file, "w") as f:
+            for row in r1_rows:
+                f.write(json.dumps(row) + "\n")
+        print(f"  Saved {len(r1_rows)} rows → {r1_file}")
 
-        score_failures = 0
-        for batch_idx, resp in enumerate(score_responses):
-            arr = parse_json_array(resp) if resp else None
-            if arr is None:
-                score_failures += 1
-                continue
-            batch = rows_for_scoring[batch_idx]
-            for q_idx, score_obj in enumerate(arr):
-                if q_idx < len(batch):
-                    batch[q_idx]["bb_correct"] = bool(score_obj.get("correct", False))
-        print(f"  Phase 3 done: {len(rows_for_scoring) - score_failures} ok, {score_failures} parse failures")
+    if budget_exceeded:
+        print("Budget exceeded after Round 1. Partial results saved.")
+        _print_summary(r1_rows, t0)
+        return
 
-    # ── Save ──
-    with open(output_file, "w") as f:
-        for row in all_rows:
+    # ══════════════════════════════════════════════════════════════
+    # Round 2: BB baseline (prefix only + question)
+    # ══════════════════════════════════════════════════════════════
+
+    if args.resume_from == "r2":
+        r2_rows = []
+        with open(r2_file) as f:
+            for line in f:
+                if line.strip():
+                    r2_rows.append(json.loads(line))
+        print(f"\nResumed R2: {len(r2_rows)} rows from {r2_file}")
+    else:
+        print(f"\n{'='*60}\nRound 2: BB baseline ({len(r1_rows)} calls)")
+
+        r2_tasks = []
+        for row in r1_rows:
+            user_prompt = build_r2_prompt(row["question"], row["cot_prefix"], row["prompt"])
+            r2_tasks.append((R2_SYSTEM, user_prompt))
+
+        r2_responses = asyncio.run(run_phase(r2_tasks, api_key, args.max_budget, max_tokens=300))
+
+        r2_rows = []
+        r2_failures = 0
+        for i, resp in enumerate(r2_responses):
+            row = {**r1_rows[i]}
+            if resp:
+                row["bb_response"] = resp
+                r2_rows.append(row)
+            else:
+                r2_failures += 1
+
+        print(f"  Round 2 done: {len(r2_rows)} ok, {r2_failures} failures")
+
+        # Save R2 intermediate
+        with open(r2_file, "w") as f:
+            for row in r2_rows:
+                f.write(json.dumps(row) + "\n")
+        print(f"  Saved {len(r2_rows)} rows → {r2_file}")
+
+    if budget_exceeded:
+        print("Budget exceeded after Round 2. Partial results saved.")
+        _print_summary(r2_rows, t0)
+        return
+
+    # ══════════════════════════════════════════════════════════════
+    # Round 3: GT answer (suffix only + question)
+    # ══════════════════════════════════════════════════════════════
+
+    print(f"\n{'='*60}\nRound 3: GT answer ({len(r2_rows)} calls)")
+
+    r3_tasks = []
+    for row in r2_rows:
+        user_prompt = build_r3_prompt(row["question"], row["cot_suffix"], row["prompt"])
+        r3_tasks.append((R3_SYSTEM, user_prompt))
+
+    r3_responses = asyncio.run(run_phase(r3_tasks, api_key, args.max_budget, max_tokens=300))
+
+    final_rows = []
+    r3_failures = 0
+    for i, resp in enumerate(r3_responses):
+        if not resp:
+            r3_failures += 1
+            continue
+        row = r2_rows[i]
+        final_rows.append({
+            "question": row["question"],
+            "cot_text": row["cot_text"],
+            "prompt": row["prompt"],
+            "target_response": resp,
+            "bb_response": row["bb_response"],
+            "cot_prefix": row["cot_prefix"],
+            "cot_suffix": row["cot_suffix"],
+            "split_index": row["split_index"],
+            "num_sentences": row["num_sentences"],
+            "cot_id": row["cot_id"],
+            "source": row["source"],
+            "generation_prompt": row["generation_prompt"],
+        })
+
+    print(f"  Round 3 done: {len(final_rows)} ok, {r3_failures} failures")
+
+    # ── Save final ──
+    with open(final_file, "w") as f:
+        for row in final_rows:
             f.write(json.dumps(row) + "\n")
 
+    _print_summary(final_rows, t0)
+
+
+def _print_summary(rows: list[dict], t0: float):
     elapsed = time.time() - t0
     cost = estimate_cost()
 
     print(f"\n{'='*60}")
     print(f"DONE")
-    print(f"  Total rows: {len(all_rows)}")
+    print(f"  Total rows: {len(rows)}")
     print(f"  API calls: {completed} completed, {failed} failed")
     print(f"  Tokens: {total_input_tokens:,} in, {total_output_tokens:,} out")
     print(f"  Cost: ${cost:.3f}")
     print(f"  Elapsed: {elapsed:.0f}s")
-    print(f"  Output: {output_file}")
 
-    # BB correctness stats
-    scored = [r for r in all_rows if r["bb_correct"] is not None]
-    if scored:
-        n_correct = sum(1 for r in scored if r["bb_correct"])
-        print(f"\n  BB correctness: {n_correct}/{len(scored)} = {n_correct/len(scored):.1%}")
-        # By query type
-        print(f"  By query type:")
-        for qt in dict.fromkeys(q[0] for q in QUERIES):
-            qt_rows = [r for r in scored if r["query_type"] == qt]
-            if qt_rows:
-                qt_correct = sum(1 for r in qt_rows if r["bb_correct"])
-                print(f"    {qt}: {qt_correct}/{len(qt_rows)} = {qt_correct/len(qt_rows):.1%}")
-        # By truncation fraction
-        print(f"  By truncation fraction:")
-        for frac_label in ["early (≤30%)", "mid (31-60%)", "late (61%+)"]:
-            if frac_label.startswith("early"):
-                frac_rows = [r for r in scored if r["chunk_index"] / r["num_chunks"] <= 0.30]
-            elif frac_label.startswith("mid"):
-                frac_rows = [r for r in scored if 0.30 < r["chunk_index"] / r["num_chunks"] <= 0.60]
-            else:
-                frac_rows = [r for r in scored if r["chunk_index"] / r["num_chunks"] > 0.60]
-            if frac_rows:
-                fc = sum(1 for r in frac_rows if r["bb_correct"])
-                print(f"    {frac_label}: {fc}/{len(frac_rows)} = {fc/len(frac_rows):.1%}")
+    if rows:
+        source_dist = Counter(r["source"] for r in rows)
+        print(f"\n  By source:")
+        for src, cnt in sorted(source_dist.items()):
+            print(f"    {src}: {cnt}")
 
-    # Source distribution
-    source_dist = Counter(r["source"] for r in all_rows)
-    print(f"\n  By source:")
-    for src, cnt in sorted(source_dist.items()):
-        print(f"    {src}: {cnt}")
+        # Split position distribution
+        splits = [r["split_index"] / r["num_sentences"] for r in rows if "split_index" in r and "num_sentences" in r]
+        if splits:
+            import statistics
+            print(f"\n  Split position (fraction of CoT):")
+            print(f"    mean: {statistics.mean(splits):.2f}, median: {statistics.median(splits):.2f}")
+            print(f"    min: {min(splits):.2f}, max: {max(splits):.2f}")
 
 
 if __name__ == "__main__":
