@@ -384,7 +384,7 @@ def mae(preds, gt):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--max-train", type=int, default=10000)
-    parser.add_argument("--max-test", type=int, default=500)
+    parser.add_argument("--max-test", type=int, default=1000)
     parser.add_argument("--datasets", nargs="+", default=None, help="Subset of datasets to run")
     parser.add_argument("--device", default="cuda")
     parser.add_argument("--output", default="data/probe_baseline_results.json")
