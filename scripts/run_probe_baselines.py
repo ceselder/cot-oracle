@@ -38,7 +38,7 @@ if str(_SRC) not in sys.path:
 
 from core.ao import EarlyStopException, get_hf_submodule
 
-LAYERS = [9, 18, 27]  # default, can override with --layers
+LAYERS = list(range(9, 28))  # layers 9-27 inclusive (default)
 SEED = 42
 
 # All cleaned datasets: (hf_repo, task_type, label_field_or_target)
@@ -576,8 +576,8 @@ def mae(preds, gt):
 def main():
     parser = argparse.ArgumentParser(
         description="Probe baselines v2: Eleuther attention probes")
-    parser.add_argument("--max-train", type=int, default=5000,
-                        help="Max training examples (5K keeps RAM < 200GB at stride=1)")
+    parser.add_argument("--max-train", type=int, default=2000,
+                        help="Max training examples (Gemini paper used 3175)")
     parser.add_argument("--max-test", type=int, default=1000)
     parser.add_argument("--stride", type=int, default=1,
                         help="Token stride for extraction (1=every token)")
@@ -592,7 +592,7 @@ def main():
                         help="Layers to extract (default: 9 18 27)")
     parser.add_argument("--n-heads", type=int, default=4,
                         help="Number of attention heads in probe")
-    parser.add_argument("--attn-epochs", type=int, default=300)
+    parser.add_argument("--attn-epochs", type=int, default=1000)
     parser.add_argument("--attn-lr", type=float, default=1e-3)
     parser.add_argument("--attn-batch-size", type=int, default=32,
                         help="Batch size for attention probe training "
@@ -687,10 +687,10 @@ def main():
                 ds_results[name] = {"balanced_accuracy": bal}
                 print(f"    {name:<28s} bal_acc={bal:.3f}")
 
-        # ─── Per-layer probes ───
+        # ─── Linear probes on ALL layers (fast) ───
+        print(f"\n  Linear probes (mean-pool & last-pos) on {len(layers)} layers:")
         for layer in layers:
             ln = f"L{layer}"
-            print(f"\n  --- {ln} ---")
 
             # Mean-pool linear
             X_tr = mean_pool_vec(train_items, [layer])
@@ -706,7 +706,26 @@ def main():
                                        device=args.device)
             record(f"last_linear_{ln}", preds)
 
-            # Attention probe (full sequence)
+        # Concat all layers — linear
+        print(f"\n  Linear probes (concat all {len(layers)} layers):")
+        X_tr = mean_pool_vec(train_items, layers)
+        X_te = mean_pool_vec(test_items, layers)
+        preds = train_linear_probe(X_tr, y_train, X_te, n_classes,
+                                   device=args.device)
+        record("mean_linear_concat", preds)
+
+        X_tr = last_pool_vec(train_items, layers)
+        X_te = last_pool_vec(test_items, layers)
+        preds = train_linear_probe(X_tr, y_train, X_te, n_classes,
+                                   device=args.device)
+        record("last_linear_concat", preds)
+
+        # ─── Attention probes on key layers only (slow) ───
+        attn_layers = [9, 18, 27]  # attention probes are expensive
+        attn_layers = [l for l in attn_layers if l in layers]
+        print(f"\n  Attention probes on layers {attn_layers} + concat:")
+        for layer in attn_layers:
+            ln = f"L{layer}"
             preds = train_attn_probe(
                 train_items, y_train, test_items, [layer],
                 n_classes, n_heads=args.n_heads,
@@ -716,24 +735,7 @@ def main():
             record(f"attn_{ln}", preds)
             torch.cuda.empty_cache()
 
-        # ─── Concat all layers ───
-        print(f"\n  --- Concat (all layers) ---")
-
-        # Mean-pool concat linear
-        X_tr = mean_pool_vec(train_items, layers)
-        X_te = mean_pool_vec(test_items, layers)
-        preds = train_linear_probe(X_tr, y_train, X_te, n_classes,
-                                   device=args.device)
-        record("mean_linear_concat", preds)
-
-        # Last-pos concat linear
-        X_tr = last_pool_vec(train_items, layers)
-        X_te = last_pool_vec(test_items, layers)
-        preds = train_linear_probe(X_tr, y_train, X_te, n_classes,
-                                   device=args.device)
-        record("last_linear_concat", preds)
-
-        # Attention probe concat
+        # Attention probe concat (all extracted layers)
         preds = train_attn_probe(
             train_items, y_train, test_items, layers,
             n_classes, n_heads=args.n_heads,
