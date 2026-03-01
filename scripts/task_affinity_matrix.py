@@ -219,13 +219,29 @@ def _load_model(args, device: torch.device):
     return model, submodule
 
 
+def _load_train_heldout_rows(task_name: str, n: int, seed: int) -> list[dict]:
+    rows = load_task_data(task_name, split="train", n=None, shuffle=False)
+    indices = list(range(len(rows)))
+    random.Random(seed).shuffle(indices)
+    heldout_start = int(0.8 * len(indices))
+    heldout_rows = [rows[idx] for idx in indices[heldout_start:]]
+    if len(heldout_rows) > n:
+        random.Random(seed).shuffle(heldout_rows)
+        heldout_rows = heldout_rows[:n]
+    return heldout_rows
+
+
 def _load_task_rows(task_name: str, split: str, n: int, tokenizer, layers: list[int], args, seed: int) -> tuple[list[dict], dict[str, int | None]]:
     if task_name == "rot13_reconstruction":
         raise ValueError("rot13_reconstruction needs the dedicated ROT13 adapter and is not supported here")
     if task_name == "futurelens":
         rows = load_futurelens_data(tokenizer=tokenizer, n=n, split=split, layers=layers, seed=seed)
     else:
-        rows = load_task_data(task_name, split=split, n=n, shuffle=True)
+        if split == "test" and task_name == "chunked_compqa":
+            print(f"[{task_name}] HF repo has no test split; using deterministic held-out 20% slice from train")
+            rows = _load_train_heldout_rows(task_name, n=n, seed=seed)
+        else:
+            rows = load_task_data(task_name, split=split, n=n, shuffle=True)
         if any(not row.get("context_input_ids") for row in rows):
             if not isinstance(args.stride, int):
                 raise ValueError(f"Task {task_name} requires tokenizing cot_text but stride={args.stride!r} is not an integer")
