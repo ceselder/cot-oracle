@@ -485,10 +485,26 @@ def fetch_suggested_question():
     return {"question": row["question"], "source_label": f"{SUGGESTED_QUESTION_DATASET} (Hugging Face)", "source_url": SUGGESTED_QUESTION_DATASET_URL}
 
 
+def split_cot_answer(response_text):
+    """Split a response into CoT (inside <think>...</think>) and answer (after </think>)."""
+    think_end = response_text.find("</think>")
+    if think_end == -1:
+        # No thinking tags — treat entire response as CoT, no answer
+        return response_text, ""
+    cot_part = response_text[:think_end]
+    # Strip leading <think> tag if present
+    if cot_part.startswith("<think>"):
+        cot_part = cot_part[len("<think>"):]
+    answer_part = response_text[think_end + len("</think>"):].strip()
+    return cot_part.strip(), answer_part.strip()
+
+
 @dataclass
 class SessionState:
     question: str = ""
     cot_response: str = ""
+    cot_text: str = ""
+    answer_text: str = ""
     full_text: str = ""
     enable_thinking: bool = True
     stride_positions: list[int] = field(default_factory=list)
@@ -605,16 +621,20 @@ class ChatCompareWebApp:
         messages = [{"role": "user", "content": question}]
         formatted = self.tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True, enable_thinking=enable_thinking)
         full_text = formatted + cot_response
+        cot_text, answer_text = split_cot_answer(cot_response)
         self.state = SessionState(
             question=question,
             cot_response=cot_response,
+            cot_text=cot_text,
+            answer_text=answer_text,
             full_text=full_text,
             enable_thinking=enable_thinking,
         )
         return {
             "question": question,
             "cot_response": cot_response,
-            "cot_preview": cot_response[:3000],
+            "cot_text": cot_text,
+            "answer_text": answer_text,
         }
 
     def _extract_current_session(self):
@@ -625,7 +645,14 @@ class ChatCompareWebApp:
         prompt_ids = self.tokenizer.encode(formatted, add_special_tokens=False)
         all_ids = self.tokenizer.encode(self.state.full_text, add_special_tokens=False)
         prompt_len = len(prompt_ids)
-        stride_positions = get_cot_positions(prompt_len, len(all_ids), stride=self.args.stride, tokenizer=self.tokenizer, input_ids=all_ids)
+        # Find the </think> boundary so activations only come from CoT
+        think_end_token = self.tokenizer.encode("</think>", add_special_tokens=False)
+        cot_end = len(all_ids)  # fallback: entire response
+        for i in range(prompt_len, len(all_ids) - len(think_end_token) + 1):
+            if all_ids[i:i + len(think_end_token)] == think_end_token:
+                cot_end = i  # stop before </think>
+                break
+        stride_positions = get_cot_positions(prompt_len, cot_end, stride=self.args.stride, tokenizer=self.tokenizer, input_ids=all_ids[:cot_end])
         if len(stride_positions) < 1:
             raise ValueError("CoT is too short for any stride positions")
         input_device = str(get_model_input_device(self.model))
@@ -633,11 +660,14 @@ class ChatCompareWebApp:
         ao_acts = collect_activations_at_positions(self.model, self.tokenizer, self.state.full_text, self.layer_50, stride_positions, device=input_device, adapter_name=None)
         stride_token_ids = [all_ids[pos] for pos in stride_positions]
         token_labels = [token_preview(self.tokenizer, token_id) for token_id in stride_token_ids]
-        cot_token_ids = all_ids[prompt_len:]
+        # Only show CoT tokens (up to </think>) in the token row
+        cot_token_ids = all_ids[prompt_len:cot_end]
         cot_token_texts = [decode_token_text(self.tokenizer, token_id) for token_id in cot_token_ids]
         sampled_token_to_stride_index = [None] * len(cot_token_ids)
         for stride_idx, full_pos in enumerate(stride_positions):
-            sampled_token_to_stride_index[full_pos - prompt_len] = stride_idx
+            cot_relative = full_pos - prompt_len
+            if 0 <= cot_relative < len(sampled_token_to_stride_index):
+                sampled_token_to_stride_index[cot_relative] = stride_idx
         self.state.stride_positions = list(stride_positions)
         self.state.stride_token_ids = stride_token_ids
         self.state.token_labels = token_labels
@@ -1048,6 +1078,7 @@ class ChatCompareWebApp:
         <div class=\"row\">
           <button id=\"runBtn\">Run selected activations</button>
           <button id=\"selectAllBtn\" class=\"secondary\">Select all</button>
+          <button id=\"lastOnlyBtn\" class=\"secondary\">Last only</button>
           <button id=\"clearBtn\" class=\"secondary\">Clear</button>
         </div>
         <div class=\"small muted\" id=\"selectionInfo\" style=\"margin-top:8px\">No session yet.</div>
@@ -1058,13 +1089,19 @@ class ChatCompareWebApp:
         <div id=\"meta\" class=\"muted\">Generate a CoT to populate the selectable activation text.</div>
         <div id=\"tagPills\" style=\"margin-top:8px\"></div>
       </div>
-      <div class=\"panel\">
-        <h3 style=\"margin-top:0\">CoT Preview</h3>
-        <div id=\"cotPreview\" class=\"text-block\"></div>
+      <div style=\"display:grid;grid-template-columns:1fr 1fr;gap:12px\">
+        <div class=\"panel\">
+          <h3 style=\"margin-top:0\">Chain of Thought</h3>
+          <div id=\"cotPreview\" class=\"text-block\" style=\"max-height:400px;overflow-y:auto\"></div>
+        </div>
+        <div class=\"panel\">
+          <h3 style=\"margin-top:0\">Answer</h3>
+          <div id=\"answerPreview\" class=\"text-block\" style=\"max-height:400px;overflow-y:auto\"></div>
+        </div>
       </div>
       <div class=\"panel\">
-        <h3 style=\"margin-top:0\">Layer-Replicated CoT</h3>
-        <div class=\"muted\">The same CoT is repeated once per layer. Drag across highlighted stride tokens to choose exactly which activations to inject.</div>
+        <h3 style=\"margin-top:0\">Activation Positions (CoT only)</h3>
+        <div class=\"muted\">Drag across highlighted stride tokens to choose which activations to inject. Selection applies to all layers.</div>
         <div id=\"tokenRowsWrap\" class=\"token-wrap\" style=\"margin-top:12px\"></div>
       </div>
       <div class=\"outputs\">
@@ -1211,10 +1248,11 @@ class ChatCompareWebApp:
       document.getElementById('generateBtn').disabled = isBusy;
       document.getElementById('runBtn').disabled = isBusy;
       document.getElementById('selectAllBtn').disabled = isBusy;
+      document.getElementById('lastOnlyBtn').disabled = isBusy;
       document.getElementById('clearBtn').disabled = isBusy;
       document.getElementById('refreshPromptBtn').disabled = isBusy;
     }
-    function keyFor(layer, position) { return `${layer}:${position}`; }
+    function keyFor(layer, position) { return `${position}`; }
     function currentRunPayload() {
       return {
         task_key: document.getElementById('taskSelect').value,
@@ -1227,16 +1265,20 @@ class ChatCompareWebApp:
       };
     }
     function selectedCells() {
-      return Array.from(selected).map(item => {
-        const [layer, position] = item.split(':').map(Number);
-        return { layer, position };
-      });
+      if (!session) return [];
+      const cells = [];
+      for (const posStr of selected) {
+        const position = Number(posStr);
+        for (const layer of session.layers) {
+          cells.push({ layer, position });
+        }
+      }
+      return cells;
     }
     function updateSelectionInfo() {
       if (!session) { selectionInfo.textContent = 'No session yet.'; return; }
-      const total = session.layers.length * session.n_positions;
       const count = selected.size;
-      selectionInfo.textContent = `${count} / ${total} cells selected (${count === 0 ? 'oracle run will fail' : 'drag to edit'})`;
+      selectionInfo.textContent = `${count} / ${session.n_positions} positions selected across ${session.layers.length} layers (${count === 0 ? 'oracle run will fail' : 'drag to edit'})`;
     }
     function renderTaskOptions() {
       const taskSelect = document.getElementById('taskSelect');
@@ -1267,51 +1309,45 @@ class ChatCompareWebApp:
       const wrap = document.getElementById('tokenRowsWrap');
       if (!session) { wrap.innerHTML = ''; return; }
       wrap.innerHTML = '';
-      session.layers.forEach(layer => {
-        const block = document.createElement('div');
-        block.className = 'layer-block';
-        const label = document.createElement('div');
-        label.className = 'layer-label';
-        label.textContent = `Layer ${layer}`;
-        block.appendChild(label);
-        const paragraph = document.createElement('div');
-        paragraph.className = 'token-paragraph';
-        session.cot_token_texts.forEach((tokenText, tokenIndex) => {
-          const strideIndex = session.sampled_token_to_stride_index[tokenIndex];
-          const span = document.createElement('span');
-          span.className = `tok ${strideIndex === null ? 'unsampled' : 'sampled'}`;
-          span.textContent = tokenText;
-          if (strideIndex !== null) {
-            span.dataset.layer = layer;
-            span.dataset.position = strideIndex;
-            span.title = `Layer ${layer}, stride token ${strideIndex}, model token ${session.stride_positions[strideIndex]}`;
-            applyCellSelection(span);
-            span.addEventListener('mousedown', event => {
-              event.preventDefault();
-              const key = keyFor(layer, strideIndex);
-              dragMode = selected.has(key) ? 'remove' : 'add';
-              dragStart = { x: event.clientX, y: event.clientY };
-              updateSelectionBox(event.clientX, event.clientY);
-              applyRectSelection();
-            });
-          }
-          paragraph.appendChild(span);
-        });
-        block.appendChild(paragraph);
-        wrap.appendChild(block);
+      const layerInfo = document.createElement('div');
+      layerInfo.className = 'layer-label';
+      layerInfo.textContent = `Layers ${session.layers.join(', ')}`;
+      wrap.appendChild(layerInfo);
+      const paragraph = document.createElement('div');
+      paragraph.className = 'token-paragraph';
+      session.cot_token_texts.forEach((tokenText, tokenIndex) => {
+        const strideIndex = session.sampled_token_to_stride_index[tokenIndex];
+        const span = document.createElement('span');
+        span.className = `tok ${strideIndex === null ? 'unsampled' : 'sampled'}`;
+        span.textContent = tokenText;
+        if (strideIndex !== null) {
+          span.dataset.position = strideIndex;
+          span.title = `Stride token ${strideIndex}, model token ${session.stride_positions[strideIndex]}`;
+          applyCellSelection(span);
+          span.addEventListener('mousedown', event => {
+            event.preventDefault();
+            const key = keyFor(null, strideIndex);
+            dragMode = selected.has(key) ? 'remove' : 'add';
+            dragStart = { x: event.clientX, y: event.clientY };
+            updateSelectionBox(event.clientX, event.clientY);
+            applyRectSelection();
+          });
+        }
+        paragraph.appendChild(span);
       });
+      wrap.appendChild(paragraph);
       updateSelectionInfo();
     }
     function applyCellSelection(cell) {
-      const key = keyFor(Number(cell.dataset.layer), Number(cell.dataset.position));
+      const key = keyFor(null, Number(cell.dataset.position));
       cell.classList.toggle('selected', selected.has(key));
     }
     function refreshCells() {
       document.querySelectorAll('.tok.sampled').forEach(applyCellSelection);
       updateSelectionInfo();
     }
-    function setCellSelection(layer, position, isSelected) {
-      const key = keyFor(layer, position);
+    function setCellSelection(position, isSelected) {
+      const key = keyFor(null, position);
       if (isSelected) selected.add(key); else selected.delete(key);
       refreshCells();
     }
@@ -1334,9 +1370,8 @@ class ChatCompareWebApp:
         const rect = span.getBoundingClientRect();
         const overlaps = !(rect.right < box.left || rect.left > box.right || rect.bottom < box.top || rect.top > box.bottom);
         if (!overlaps) return;
-        const layer = Number(span.dataset.layer);
         const position = Number(span.dataset.position);
-        const key = keyFor(layer, position);
+        const key = keyFor(null, position);
         if (dragMode === 'add') selected.add(key); else selected.delete(key);
       });
       refreshCells();
@@ -1351,7 +1386,13 @@ class ChatCompareWebApp:
     function selectAll() {
       if (!session) return;
       selected = new Set();
-      for (const layer of session.layers) for (let pos = 0; pos < session.n_positions; pos += 1) selected.add(keyFor(layer, pos));
+      for (let pos = 0; pos < session.n_positions; pos += 1) selected.add(keyFor(null, pos));
+      refreshCells();
+    }
+    function selectLastOnly() {
+      if (!session) return;
+      selected = new Set();
+      selected.add(keyFor(null, session.n_positions - 1));
       refreshCells();
     }
     function clearSelection() { selected = new Set(); refreshCells(); }
@@ -1412,7 +1453,8 @@ class ChatCompareWebApp:
       const cotResponse = await fetch('/api/generate_cot', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ question, enable_thinking: enableThinking }) });
       const cotData = await cotResponse.json();
       if (!cotResponse.ok) { setBusy(false); setStatus(cotData.detail || 'CoT generation failed'); return; }
-      document.getElementById('cotPreview').textContent = compactText(cotData.cot_preview);
+      document.getElementById('cotPreview').textContent = cotData.cot_text || '(no CoT)';
+      document.getElementById('answerPreview').textContent = cotData.answer_text || '(no answer yet)';
       setStatus('Extracting activations...');
       setBusy(true, 'Stage 2/2: extracting activations...', 70);
       const extractResponse = await fetch('/api/extract_activations', { method: 'POST' });
@@ -1420,7 +1462,6 @@ class ChatCompareWebApp:
       setBusy(false);
       if (!extractResponse.ok) { setStatus(extractData.detail || 'Activation extraction failed'); return; }
       session = { ...cotData, ...extractData };
-      document.getElementById('cotPreview').textContent = compactText(session.cot_preview);
       document.getElementById('meta').textContent = `Question ready | ${session.n_positions} stride positions x ${session.layers.length} layers = ${session.n_vectors} vectors | AO layer ${session.layer_50}`;
       document.getElementById('aoOut').textContent = '';
       document.getElementById('patchOut').textContent = '';
@@ -1601,6 +1642,7 @@ class ChatCompareWebApp:
     document.getElementById('refreshPromptBtn').addEventListener('click', loadSuggestedQuestion);
     document.getElementById('runBtn').addEventListener('click', runSelection);
     document.getElementById('selectAllBtn').addEventListener('click', selectAll);
+    document.getElementById('lastOnlyBtn').addEventListener('click', selectLastOnly);
     document.getElementById('clearBtn').addEventListener('click', clearSelection);
     window.addEventListener('mousemove', event => {
       if (!dragMode || !dragStart) return;
