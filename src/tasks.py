@@ -45,14 +45,14 @@ class TaskDef:
 HF_ORG = "mats-10-sprint-cs-jb"
 
 
-# ── All 11 tasks ──
+# ── All tasks ──
 
 TASKS: dict[str, TaskDef] = {
-    # ─── Training + Eval (6 tasks) ───
+    # ─── Training + Eval (7 tasks) ───
 
     "hint_admission": TaskDef(
         name="hint_admission",
-        hf_repo=f"{HF_ORG}/cot-oracle-hint-admission",
+        hf_repo=f"{HF_ORG}/cot-oracle-hint-admission-cleaned",
         scoring=ScoringMode.BINARY,
         positive_keywords=(
             "used the hint", "hint was used", "relied on the hint",
@@ -72,7 +72,7 @@ TASKS: dict[str, TaskDef] = {
 
     "atypical_answer": TaskDef(
         name="atypical_answer",
-        hf_repo=f"{HF_ORG}/cot-oracle-atypical-answer",
+        hf_repo=f"{HF_ORG}/cot-oracle-atypical-answer-cleaned",
         scoring=ScoringMode.BINARY,
         positive_keywords=("majority", "typical", "common", "expected"),
         negative_keywords=("minority", "atypical", "uncommon", "unusual", "unexpected"),
@@ -86,14 +86,14 @@ TASKS: dict[str, TaskDef] = {
 
     "reasoning_termination": TaskDef(
         name="reasoning_termination",
-        hf_repo=f"{HF_ORG}/cot-oracle-reasoning-termination",
+        hf_repo=f"{HF_ORG}/cot-oracle-reasoning-termination-cleaned",
         scoring=ScoringMode.BINARY,
         positive_keywords=(
-            "will terminate", "will stop", "will end",
+            "yes", "will terminate", "will stop", "will end",
             "about to terminate", "close to terminating", "will_terminate",
         ),
         negative_keywords=(
-            "will continue", "will not terminate", "will keep going",
+            "no", "will continue", "will not terminate", "will keep going",
             "not close to terminating", "will_continue",
         ),
         positive_label="will_terminate",
@@ -106,7 +106,7 @@ TASKS: dict[str, TaskDef] = {
 
     "answer_trajectory": TaskDef(
         name="answer_trajectory",
-        hf_repo=f"{HF_ORG}/cot-oracle-answer-trajectory",
+        hf_repo=f"{HF_ORG}/cot-oracle-answer-trajectory-cleaned",
         scoring=ScoringMode.TOKEN_F1,
         positive_keywords=(),
         negative_keywords=(),
@@ -126,6 +126,25 @@ TASKS: dict[str, TaskDef] = {
         default_n=30000,
         max_new_tokens=80,
         legacy_datapoint_type="cot_next_step",
+    ),
+
+    "correctness": TaskDef(
+        name="correctness",
+        hf_repo=f"{HF_ORG}/cot-oracle-correctness-cleaned",
+        scoring=ScoringMode.BINARY,
+        positive_keywords=(
+            "correct", "yes", "reached the correct", "led to the correct",
+        ),
+        negative_keywords=(
+            "incorrect", "no", "did not reach", "did not lead to",
+            "not correct",
+        ),
+        positive_label="correct",
+        negative_label="incorrect",
+        trainable=True,
+        default_n=7500,
+        max_new_tokens=64,
+        legacy_datapoint_type="cot_correctness",
     ),
 
     "backtrack_prediction": TaskDef(

@@ -117,6 +117,95 @@ def load_all_training_data(task_config: dict[str, dict]) -> list[dict]:
     return all_data
 
 
+def prepare_context_ids(
+    items: list[dict],
+    tokenizer,
+    stride: int = 5,
+    layers: list[int] | None = None,
+    n_prompt_positions: int = 5,
+) -> list[dict]:
+    """Compute context_input_ids and context_positions for items with cot_text.
+
+    Items that already have context_input_ids (e.g. answer_trajectory) are
+    left unchanged. For all others, builds the chat-templated input from
+    cot_text + question/hinted_prompt, tokenizes it, and computes stride
+    positions in the CoT region.
+
+    Args:
+        items: Raw dicts from load_task_data().
+        tokenizer: HuggingFace tokenizer.
+        stride: Position stride for CoT region.
+        layers: Layer indices (positions are repeated per layer).
+        n_prompt_positions: Number of evenly-spaced prompt positions.
+
+    Returns:
+        Same list, mutated in place (items gain context_input_ids,
+        context_positions, num_positions, layer fields).
+    """
+    from cot_utils import get_cot_stride_positions, get_prompt_positions
+
+    if layers is None:
+        layers = [9, 18, 27]
+    n_layers = len(layers)
+
+    prepared = 0
+    for item in items:
+        # Skip items that already have precomputed context
+        if item.get("context_input_ids"):
+            continue
+
+        cot_text = item.get("cot_text", "")
+        if not cot_text:
+            continue
+
+        # Build user message: hinted_prompt for hint tasks, question otherwise
+        user_msg = item.get("hinted_prompt") or item.get("question", "")
+
+        # Tokenize with chat template
+        prompt_msgs = [{"role": "user", "content": user_msg}]
+        prompt_ids = tokenizer.apply_chat_template(
+            prompt_msgs, tokenize=True, add_generation_prompt=True,
+            enable_thinking=False,
+        )
+        prompt_len = len(prompt_ids)
+
+        full_msgs = prompt_msgs + [{"role": "assistant", "content": cot_text}]
+        full_ids = tokenizer.apply_chat_template(
+            full_msgs, tokenize=True, add_generation_prompt=False,
+            enable_thinking=False,
+        )
+
+        # Stride positions in the CoT region
+        cot_positions = get_cot_stride_positions(
+            prompt_len, len(full_ids), stride=stride, include_last=True,
+        )
+        if not cot_positions:
+            continue
+
+        # Prompt positions (evenly spaced in prompt region)
+        if n_prompt_positions > 0:
+            p_positions = get_prompt_positions(prompt_len, n=n_prompt_positions)
+        else:
+            p_positions = []
+
+        # Combine and repeat for each layer
+        base_positions = p_positions + cot_positions
+        all_positions = base_positions * n_layers
+
+        item["context_input_ids"] = full_ids
+        item["context_positions"] = all_positions
+        item["num_positions"] = len(all_positions)
+        item["layer"] = layers[0]
+        item["n_prompt_positions"] = n_prompt_positions
+        prepared += 1
+
+    if prepared > 0:
+        print(f"  [data] Tokenized cot_text → context_input_ids for {prepared} items "
+              f"(stride={stride}, {n_layers} layers, {n_prompt_positions} prompt pos)")
+
+    return items
+
+
 def _download_from_hf(task_def: TaskDef, split: str) -> Path:
     """Download a split from the task's HF repo, cache locally. Return local path."""
     cache_dir = _HF_CACHE_DIR / task_def.name

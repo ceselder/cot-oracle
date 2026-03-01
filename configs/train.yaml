@@ -24,6 +24,10 @@ tasks:
     n: 30000
     description: "Predict next ~50 tokens of reasoning (single activation, 3 layers)"
 
+  correctness:
+    n: 7500
+    description: "Did the model's reasoning lead to the correct answer? (binary)"
+
   backtrack_prediction:
     n: 15000
     description: "Will the model revise/backtrack in the next ~150 tokens?"

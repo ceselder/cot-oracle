@@ -1755,12 +1755,13 @@ def main():
                         help="Load Adam's pretrained AO checkpoint instead of fresh LoRA")
 
     # Per-task example counts — defaults are 0; set via --config (train.yaml is source of truth)
-    # 6 trainable tasks in the unified system:
+    # 7 trainable tasks in the unified system:
     parser.add_argument("--hint-admission-n", type=int, default=0)
     parser.add_argument("--atypical-answer-n", type=int, default=0)
     parser.add_argument("--reasoning-termination-n", type=int, default=0)
     parser.add_argument("--answer-trajectory-n", type=int, default=0)
     parser.add_argument("--futurelens-n", type=int, default=0)
+    parser.add_argument("--correctness-n", type=int, default=0)
     parser.add_argument("--backtrack-prediction-n", type=int, default=0)
 
     # Training hyperparams
@@ -2127,6 +2128,22 @@ def main():
             print("ERROR: No training data loaded!")
         cleanup_distributed()
         return
+
+    # Tokenize cot_text → context_input_ids for items that don't have them yet
+    from data_loading import prepare_context_ids
+    stride_val = int(args.stride) if args.stride and args.stride != "punctuation" else 5
+    prepare_context_ids(
+        raw_data, tokenizer,
+        stride=stride_val,
+        layers=MULTI_LAYERS,
+        n_prompt_positions=_N_PROMPT_POSITIONS,
+    )
+
+    # Drop items that still lack context_input_ids (e.g. empty cot_text)
+    before = len(raw_data)
+    raw_data = [d for d in raw_data if d.get("context_input_ids")]
+    if len(raw_data) < before and rank == 0:
+        print(f"  [data] Dropped {before - len(raw_data)} items without context_input_ids")
 
     random.shuffle(raw_data)
 
