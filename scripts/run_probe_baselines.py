@@ -45,7 +45,7 @@ SEED = 42
 DATASETS = {
     "hint_admission": (
         "mats-10-sprint-cs-jb/cot-oracle-hint-admission-cleaned",
-        "multiclass", "label",
+        "binary", "label",
     ),
     "atypical_answer": (
         "mats-10-sprint-cs-jb/cot-oracle-atypical-answer-cleaned",
@@ -69,11 +69,11 @@ DATASETS = {
     ),
     "truthfulqa_verb": (
         "mats-10-sprint-cs-jb/cot-oracle-eval-hinted-mcq-truthfulqa-verbalized",
-        "multiclass", "label",
+        "binary", "label",
     ),
     "truthfulqa_unverb": (
         "mats-10-sprint-cs-jb/cot-oracle-eval-hinted-mcq-truthfulqa-unverbalized",
-        "multiclass", "label",
+        "binary", "label",
     ),
     "answer_trajectory": (
         "mats-10-sprint-cs-jb/cot-oracle-answer-trajectory-cleaned",
@@ -186,6 +186,21 @@ def process_dataset(
             print(f"    {split_name}: {len(items)} ok, {skipped} skipped")
 
     return results.get("train", []), results.get("test", [])
+
+
+# Binarize hint labels: hint_used_correct + hint_used_wrong → hint_used
+HINT_BINARIZE = {"hint_used_correct": "hint_used", "hint_used_wrong": "hint_used", "hint_resisted": "hint_resisted"}
+
+def binarize_labels(items, ds_name):
+    """Merge hint_used_correct/wrong into hint_used for hint-type datasets."""
+    if ds_name not in ("hint_admission", "truthfulqa_verb", "truthfulqa_unverb"):
+        return items
+    out = []
+    for acts, row in items:
+        row = dict(row)
+        row["label"] = HINT_BINARIZE.get(row["label"], row["label"])
+        out.append((acts, row))
+    return out
 
 
 # ── Pooling ──
@@ -368,8 +383,8 @@ def mae(preds, gt):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--max-train", type=int, default=100)
-    parser.add_argument("--max-test", type=int, default=5000)
+    parser.add_argument("--max-train", type=int, default=10000)
+    parser.add_argument("--max-test", type=int, default=500)
     parser.add_argument("--datasets", nargs="+", default=None, help="Subset of datasets to run")
     parser.add_argument("--device", default="cuda")
     parser.add_argument("--output", default="data/probe_baseline_results.json")
@@ -410,6 +425,9 @@ def main():
         if not train_items or not test_items:
             print(f"  Skipping {ds_name}: no data")
             continue
+
+        train_items = binarize_labels(train_items, ds_name)
+        test_items = binarize_labels(test_items, ds_name)
 
         print(f"  Extracted: {len(train_items)} train, {len(test_items)} test ({extract_time:.0f}s)")
 
