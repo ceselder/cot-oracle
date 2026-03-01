@@ -931,7 +931,6 @@ def _run_unified_eval(model, tokenizer, model_name, global_step, args, log_dir=N
     import wandb
 
     print(f"\n--- Evals at step {global_step} ---")
-    eval_start = time.time()
     stride_val = int(args.stride) if args.stride and args.stride != "punctuation" else 5
     metrics = run_eval(
         model=model,
@@ -940,26 +939,12 @@ def _run_unified_eval(model, tokenizer, model_name, global_step, args, log_dir=N
         eval_batch_size=args.eval_batch_size,
         device="cuda",
         layers=MULTI_LAYERS,
-        skip_rot13=(global_step < args.rot13_start_step),
         stride=stride_val,
         n_prompt_positions=_N_PROMPT_POSITIONS,
     )
-    elapsed = time.time() - eval_start
     if metrics:
         wandb.log(metrics, step=global_step)
-        # Print summary table
-        eval_scores = {
-            k.removeprefix("eval/"): v
-            for k, v in metrics.items()
-            if k.startswith("eval/") and not k.endswith("_error") and isinstance(v, float)
-        }
-        if eval_scores:
-            print(f"\n  {'Eval':<35s} {'Score':>8s}")
-            print(f"  {'-'*45}")
-            for name, val in sorted(eval_scores.items()):
-                print(f"  {name:<35s} {val:>8.3f}")
-            print()
-    print(f"  Eval took {elapsed:.1f}s")
+    elapsed = sum(v for k, v in metrics.items() if k.startswith("eval_time/"))
     return metrics, elapsed
 
 
