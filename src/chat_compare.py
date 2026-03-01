@@ -1258,6 +1258,8 @@ class ChatCompareWebApp:
         el.textContent = option.label;
         taskSelect.appendChild(el);
       }
+      const defaultTask = config.task_options.find(opt => opt.key === 'recon') || config.task_options[1] || config.task_options[0];
+      taskSelect.value = defaultTask.key;
       taskSelect.addEventListener('change', () => {
         const item = config.task_options.find(opt => opt.key === taskSelect.value);
         document.getElementById('customPrompt').value = item && item.key !== 'custom' ? item.prompt : '';
