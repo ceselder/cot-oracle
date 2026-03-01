@@ -41,6 +41,7 @@ from llm_monitor import run_llm_monitor
 from patchscopes import run_patchscopes
 from no_act_oracle import run_no_act_oracle
 from sae_probe import run_sae_probe
+from qwen_attention_probe import run_qwen_attention_probe
 
 
 # Which baselines can handle which eval types
@@ -52,6 +53,7 @@ BASELINE_COMPATIBILITY = {
     "patchscopes":      {"binary", "generation"},
     "no_act_oracle":    {"binary", "generation"},
     "sae_probe":        {"binary", "generation", "ranking"},
+    "qwen_attention_probe": {"binary", "multiclass", "ranking"},
 }
 
 ALL_BASELINES = list(BASELINE_COMPATIBILITY.keys())
@@ -118,6 +120,8 @@ def main():
         layers_needed.update(bcfg["patchscopes"]["source_layers"])
     if "sae_probe" in baselines_to_run:
         layers_needed.update(bcfg["sae_probe"]["layers"])
+    if "qwen_attention_probe" in baselines_to_run:
+        layers_needed.update(bcfg["qwen_attention_probe"]["layers"])
     layers = sorted(layers_needed) or [layer_percent_to_layer(model_name, 50)]
 
     # Load model
@@ -252,6 +256,15 @@ def main():
                     temperature=sp_cfg["temperature"], device=args.device,
                 )
 
+            elif baseline_name == "qwen_attention_probe":
+                qp_cfg = bcfg["qwen_attention_probe"]
+                results = run_qwen_attention_probe(
+                    inputs, layers=qp_cfg["layers"], k_folds=qp_cfg["k_folds"],
+                    lr=qp_cfg["lr"], epochs=qp_cfg["epochs"],
+                    patience=qp_cfg["patience"], batch_size=qp_cfg["batch_size"],
+                    device=args.device,
+                )
+
             log_results(results, eval_name, baseline_name, output_dir, log_dir, wandb_run)
             eval_results[baseline_name] = results
 
@@ -380,6 +393,14 @@ def main():
                         llm_model=sp_cfg["llm_model"], api_base=sp_cfg["api_base"],
                         api_key=api_key, max_tokens=sp_cfg["max_tokens"],
                         temperature=sp_cfg["temperature"], device=args.device,
+                    )
+                elif baseline_name == "qwen_attention_probe":
+                    qp_cfg = bcfg["qwen_attention_probe"]
+                    results = run_qwen_attention_probe(
+                        train_inputs, layers=qp_cfg["layers"], k_folds=qp_cfg["k_folds"],
+                        lr=qp_cfg["lr"], epochs=qp_cfg["epochs"],
+                        patience=qp_cfg["patience"], batch_size=qp_cfg["batch_size"],
+                        device=args.device, test_inputs=test_inputs,
                     )
                 else:
                     continue
