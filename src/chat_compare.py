@@ -72,6 +72,7 @@ SAE_REPO = "adamkarvonen/qwen3-8b-saes"
 SAE_TRAINER = 2
 OPENROUTER_API_BASE = "https://openrouter.ai/api/v1"
 OPENROUTER_SAE_MODEL = "google/gemini-2.5-flash-lite"
+OPENROUTER_RATER_MODEL = "google/gemini-2.5-flash-lite"
 OPENROUTER_BLACKBOX_MODEL = "google/gemini-3-flash-preview"
 TRYCLOUDFLARE_URL_RE = re.compile(r"https://[A-Za-z0-9.-]+\\.trycloudflare\\.com")
 CHAT_COMPARE_LOG_DIR = Path(os.path.expandvars(os.environ.get("FAST_CACHE_DIR", f"/var/tmp/{Path.home().name}/"))) / "cot-oracle" / "chat_compare"
@@ -452,6 +453,33 @@ def query_sae_llm(prompt, model=OPENROUTER_SAE_MODEL, api_base=OPENROUTER_API_BA
     return query_openrouter(prompt, model=model, api_base=api_base, max_tokens=max_tokens)
 
 
+def build_answer_rating_prompt(question, prompt, answers):
+    answer_blocks = []
+    for answer in answers:
+        answer_blocks.extend([
+            f"System: {answer['name']}",
+            f"System prompt: {answer['prompt'][:2000]}",
+            f"System answer: {answer['answer'][:3000]}",
+            "",
+        ])
+    return (
+        "You are grading the quality of several monitor answers.\n"
+        "Rate each answer from 0 to 5.\n"
+        "Rubric: 0 = useless or off-topic, 1 = very weak, 2 = partial, 3 = decent, 4 = strong, 5 = excellent.\n"
+        "Use each system's own prompt when judging it.\n\n"
+        f"Original user question:\n{question[:2000]}\n\n"
+        f"Primary monitor prompt:\n{prompt[:2000]}\n\n"
+        "Candidate answers:\n\n"
+        + "\n".join(answer_blocks)
+        + "\nReturn valid JSON only with this exact schema:\n"
+        + '{"ratings":[{"name":"system name","score":0,"note":"short justification"}],"summary":"one concise overall comparison"}'
+    )
+
+
+def rate_answers_with_gemini(question, prompt, answers, model=OPENROUTER_RATER_MODEL):
+    return json.loads(query_openrouter(build_answer_rating_prompt(question, prompt, answers), model=model, max_tokens=500))
+
+
 def build_black_box_prompt(question, cot_response, prompt):
     return (
         "You are a text-only monitor reading a model's visible chain-of-thought.\n\n"
@@ -552,6 +580,22 @@ class ChatCompareWebApp:
             return
         self.no_act_adapter_name = load_extra_adapter(self.model, self.no_act_checkpoint, adapter_name="no_act")
 
+    def _rate_answers(self, ctx, ao_prompt, ao_response, patchscopes_response, black_box_response, no_act_response, trained_response, sae_response):
+        answers = []
+        if ao_response != "(skipped)":
+            answers.append({"name": "Original AO", "prompt": ao_prompt, "answer": ao_response})
+        if patchscopes_response != "(skipped)":
+            answers.append({"name": "Patchscopes", "prompt": ctx["prompt"], "answer": patchscopes_response})
+        if black_box_response != "(skipped)":
+            answers.append({"name": "Black-Box Monitor", "prompt": ctx["prompt"], "answer": black_box_response})
+        if no_act_response != "(skipped)":
+            answers.append({"name": "No-Act Oracle", "prompt": ctx["prompt"], "answer": no_act_response})
+        if trained_response != "(skipped)":
+            answers.append({"name": "Trained Oracle", "prompt": ctx["prompt"], "answer": trained_response})
+        if sae_response != "(skipped)":
+            answers.append({"name": "SAE -> LLM", "prompt": ctx["prompt"], "answer": sae_response})
+        return rate_answers_with_gemini(self.state.question, ctx["prompt"], answers)
+
     def _log_event(self, event_type, payload):
         record = {"ts": time.strftime("%Y-%m-%d %H:%M:%S"), "event": event_type, **payload}
         with self.session_log.open("a") as f:
@@ -559,6 +603,7 @@ class ChatCompareWebApp:
 
     def _write_run_markdown(self, payload):
         path = self.log_dir / f"run_{self.session_id}_{int(time.time() * 1000)}.md"
+        rating_lines = [f"- {item['name']}: {int(item['score'])}/5 - {item['note']}" for item in payload["answer_ratings"]]
         lines = [
             f"# chat_compare run ({payload['task_key']})",
             "",
@@ -604,6 +649,14 @@ class ChatCompareWebApp:
             "## SAE Features",
             "",
             payload["sae_feature_desc"],
+            "",
+            "## Gemini Ratings",
+            "",
+            *rating_lines,
+            "",
+            "## Gemini Summary",
+            "",
+            payload["rating_summary"],
             "",
         ]
         path.write_text("\n".join(lines))
@@ -768,6 +821,7 @@ class ChatCompareWebApp:
         return {"sae_feature_desc": sae_feature_desc, "sae_response": sae_response}
 
     def _finalize_run(self, ctx, eval_tags, selected_baselines, ao_prompt, ao_response, patchscopes_response, black_box_response, no_act_response, trained_response, sae_feature_desc, sae_response):
+        rating_result = self._rate_answers(ctx, ao_prompt, ao_response, patchscopes_response, black_box_response, no_act_response, trained_response, sae_response)
         log_payload = {
             "task_key": ctx["task_key"],
             "question": self.state.question,
@@ -784,6 +838,8 @@ class ChatCompareWebApp:
             "trained_response": trained_response,
             "sae_feature_desc": sae_feature_desc,
             "sae_response": sae_response,
+            "answer_ratings": rating_result["ratings"],
+            "rating_summary": rating_result["summary"],
         }
         md_path = self._write_run_markdown(log_payload)
         self._log_event("run", {**log_payload, "log_path": str(md_path), "selected_cell_count": len(ctx["active_cells"])})
@@ -802,6 +858,8 @@ class ChatCompareWebApp:
             "trained_response": trained_response,
             "sae_feature_desc": sae_feature_desc,
             "sae_response": sae_response,
+            "answer_ratings": rating_result["ratings"],
+            "rating_summary": rating_result["summary"],
             "log_path": str(md_path),
         }
 
@@ -1117,6 +1175,12 @@ class ChatCompareWebApp:
         </div>
       </div>
       <div class=\"panel\">
+        <h3 style=\"margin-top:0\">Gemini Ratings</h3>
+        <div class=\"muted small\">Gemini 2.5 Flash Lite scores each visible answer from 0 to 5.</div>
+        <div id=\"ratingScores\" class=\"text-block\" style=\"margin-top:8px\">Run a comparison to generate ratings.</div>
+        <div id=\"ratingSummary\" class=\"muted small\" style=\"margin-top:8px\"></div>
+      </div>
+      <div class=\"panel\">
         <div class=\"muted small\" id=\"logPath\"></div>
       </div>
     </div>
@@ -1157,6 +1221,10 @@ class ChatCompareWebApp:
 
     function setStatus(msg) { statusEl.textContent = msg; }
     function compactText(text) { return (text || '').replace(/\\s+/g, ' ').trim(); }
+    function renderRatings(ratings, summary) {
+      document.getElementById('ratingScores').textContent = (ratings || []).map(item => `${item.name}: ${item.score}/5 - ${item.note}`).join('\n') || 'Run a comparison to generate ratings.';
+      document.getElementById('ratingSummary').textContent = compactText(summary);
+    }
     function selectedBaselines() { return Object.entries(baselineInputs).filter(([, input]) => input.checked).map(([name]) => name); }
     function patchscopesStrengths() {
       const strengths = {};
@@ -1450,6 +1518,7 @@ class ChatCompareWebApp:
       document.getElementById('bbPrompt').textContent = '';
       document.getElementById('noActPrompt').textContent = '';
       document.getElementById('oraclePrompt').textContent = '';
+      renderRatings([], '');
       document.getElementById('logPath').textContent = '';
       resetPanelStatuses();
       const tagPills = document.getElementById('tagPills');
@@ -1477,6 +1546,7 @@ class ChatCompareWebApp:
       document.getElementById('bbPrompt').textContent = '';
       document.getElementById('noActPrompt').textContent = '';
       document.getElementById('oraclePrompt').textContent = '';
+      renderRatings([], '');
       document.getElementById('logPath').textContent = '';
       let completed = 0;
       function advanceProgress(msg) {
@@ -1598,7 +1668,7 @@ class ChatCompareWebApp:
         const [name, data] = result.value;
         results[name] = data;
       });
-      setBusy(true, 'Writing run log...', 90);
+      setBusy(true, 'Scoring answers and writing run log...', 90);
       const finalData = await postJson('/api/finalize_run', {
         ...payload,
         ao_prompt: results.ao.ao_prompt,
@@ -1611,6 +1681,7 @@ class ChatCompareWebApp:
         sae_response: results.sae.sae_response,
       });
       setBusy(false);
+      renderRatings(finalData.answer_ratings, finalData.rating_summary);
       document.getElementById('logPath').textContent = `Saved run log: ${finalData.log_path}`;
       setStatus(`Done. Ran ${finalData.selected_baselines.join(', ')} | layers ${finalData.selected_layers.join(', ')} | positions ${finalData.selected_positions.join(', ')}`);
     }
