@@ -1053,6 +1053,8 @@ class ChatCompareWebApp:
     let selected = new Set();
     let dragMode = null;
     let dragStart = null;
+    let patchRefreshTimer = null;
+    let patchRefreshNonce = 0;
     const statusEl = document.getElementById('status');
     const selectionInfo = document.getElementById('selectionInfo');
     const busyWrap = document.getElementById('busyWrap');
@@ -1103,7 +1105,10 @@ class ChatCompareWebApp:
         input.value = '1.0';
         input.className = 'patch-layer-strength';
         input.dataset.layer = String(layer);
-        input.addEventListener('input', () => setPatchStrengthLabel(layer, input.value));
+        input.addEventListener('input', () => {
+          setPatchStrengthLabel(layer, input.value);
+          queuePatchscopesRefresh();
+        });
         const value = document.createElement('div');
         value.id = `patchStrengthValue_${layer}`;
         value.className = 'small muted';
@@ -1143,6 +1148,17 @@ class ChatCompareWebApp:
       document.getElementById('refreshPromptBtn').disabled = isBusy;
     }
     function keyFor(layer, position) { return `${layer}:${position}`; }
+    function currentRunPayload() {
+      return {
+        task_key: document.getElementById('taskSelect').value,
+        custom_prompt: document.getElementById('customPrompt').value,
+        selected_cells: selectedCells(),
+        max_tokens: Number(document.getElementById('maxTokens').value),
+        eval_tags: Array.from(document.getElementById('evalTags').selectedOptions).map(opt => opt.value),
+        selected_baselines: selectedBaselines(),
+        patchscopes_strengths: patchscopesStrengths(),
+      };
+    }
     function selectedCells() {
       return Array.from(selected).map(item => {
         const [layer, position] = item.split(':').map(Number);
@@ -1272,6 +1288,28 @@ class ChatCompareWebApp:
       refreshCells();
     }
     function clearSelection() { selected = new Set(); refreshCells(); }
+    function queuePatchscopesRefresh() {
+      if (patchRefreshTimer) clearTimeout(patchRefreshTimer);
+      patchRefreshTimer = setTimeout(refreshPatchscopesFromSliders, 150);
+    }
+    async function refreshPatchscopesFromSliders() {
+      patchRefreshTimer = null;
+      if (!session || !baselineInputs.patch.checked || !selected.size) return;
+      const nonce = patchRefreshNonce + 1;
+      patchRefreshNonce = nonce;
+      setPanelLoading('patch', true, 'Refreshing...');
+      try {
+        const data = await postJson('/api/run_patchscopes', currentRunPayload());
+        if (nonce !== patchRefreshNonce) return;
+        document.getElementById('patchPrompt').textContent = `Patchscopes prompt: ${data.patchscopes_prompt}`;
+        document.getElementById('patchOut').textContent = compactText(data.patchscopes_response);
+        setPanelLoading('patch', false, 'Updated');
+      } catch (error) {
+        if (nonce !== patchRefreshNonce) return;
+        setPanelLoading('patch', false, 'Failed');
+        setStatus(error.message);
+      }
+    }
     async function loadConfig() {
       const response = await fetch('/api/config');
       config = await response.json();
@@ -1334,13 +1372,9 @@ class ChatCompareWebApp:
     }
     async function runSelection() {
       if (!session) { setStatus('Generate a CoT first'); return; }
-      const taskKey = document.getElementById('taskSelect').value;
-      const customPrompt = document.getElementById('customPrompt').value;
-      const evalTags = Array.from(document.getElementById('evalTags').selectedOptions).map(opt => opt.value);
-      const maxTokens = Number(document.getElementById('maxTokens').value);
-      const baselines = selectedBaselines();
+      const payload = currentRunPayload();
+      const baselines = payload.selected_baselines;
       if (!baselines.length) { setStatus('Select at least one baseline'); return; }
-      const payload = { task_key: taskKey, custom_prompt: customPrompt, selected_cells: selectedCells(), max_tokens: maxTokens, eval_tags: evalTags, selected_baselines: baselines, patchscopes_strengths: patchscopesStrengths() };
       setStatus('Running baselines...');
       setBusy(true, 'Running baselines and populating panels...', 25);
       resetPanelStatuses();
