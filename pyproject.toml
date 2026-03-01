@@ -32,3 +32,6 @@ dependencies = [
     "ipywidgets",
     "vllm",
 ]
+
+[tool.cot-oracle]
+system-requirements = ["cloudflared"]
