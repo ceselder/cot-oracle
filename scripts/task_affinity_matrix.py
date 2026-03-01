@@ -24,6 +24,7 @@ import json
 import math
 import random
 import re
+import subprocess
 import sys
 
 from dataclasses import dataclass
@@ -397,6 +398,12 @@ def _save_single_row_csv(path: Path, row_name: str, col_names: list[str], row_va
         writer.writerow([row_name, *[row_values[col_name] for col_name in col_names]])
 
 
+def _render_affinity_plots(summary_path: Path) -> Path:
+    plot_script = ROOT / "scripts" / "plot_task_affinity_heatmaps.py"
+    subprocess.run(["uv", "run", "--no-project", "--with", "matplotlib", "python", str(plot_script), str(summary_path)], cwd=ROOT, check=True)
+    return summary_path.parent / "affinity_heatmaps.png"
+
+
 def _parse_args():
     parser = argparse.ArgumentParser(description="Train-task vs eval gradient affinity matrices")
     parser.add_argument("--config", nargs="+", default=["configs/train.yaml"])
@@ -432,6 +439,7 @@ def _parse_args():
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--device", default="cuda")
     parser.add_argument("--output-dir", default="eval_logs/task_affinity")
+    parser.add_argument("--skip-plot", action="store_true", default=False)
     parser.add_argument("--evals", nargs="+", default=None, help="Explicit eval list; defaults to enabled evals from config")
     parser.add_argument("--train-tasks", nargs="+", default=None, help="Subset of training tasks to analyze")
     for task_name, info in train_module.TASK_REGISTRY.items():
@@ -629,7 +637,8 @@ def main():
     with open(run_dir / "pairs.jsonl", "w") as f:
         for row in pair_rows:
             f.write(json.dumps(row) + "\n")
-    with open(run_dir / "summary.json", "w") as f:
+    summary_path = run_dir / "summary.json"
+    with open(summary_path, "w") as f:
         json.dump(
             {
                 "timestamp_utc": run_ts,
@@ -654,8 +663,13 @@ def main():
             f,
             indent=2,
         )
+    plot_path = None
+    if not args.skip_plot:
+        plot_path = _render_affinity_plots(summary_path)
 
     print(f"Saved outputs to {run_dir}")
+    if plot_path is not None:
+        print(f"Saved plot to {plot_path}")
     for support_size in train_support_sizes:
         print(f"train_support={support_size}")
         matrix = results_by_size[str(support_size)]["first_order_uplift_matrix"]
