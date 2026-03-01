@@ -229,7 +229,7 @@ def _load_task_rows(task_name: str, split: str, n: int, tokenizer, layers: list[
         if any(not row.get("context_input_ids") for row in rows):
             if not isinstance(args.stride, int):
                 raise ValueError(f"Task {task_name} requires tokenizing cot_text but stride={args.stride!r} is not an integer")
-            prepare_context_ids(rows, tokenizer, stride=args.stride, layers=layers, n_prompt_positions=args.n_prompt_positions)
+            prepare_context_ids(rows, tokenizer, stride=args.stride, layers=layers)
     if len(rows) < n:
         raise ValueError(f"Task {task_name} ({split}) only produced {len(rows)} rows, need {n}")
     truncation_stats = _apply_context_truncation(rows, args.max_context_tokens)
