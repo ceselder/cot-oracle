@@ -84,8 +84,8 @@ activations:
   pe_alpha: 0.1
 
 eval:
-  eval_steps: 500
-  save_steps: 5000
+  eval_steps: 999999
+  save_steps: 380
   max_items_per_eval: 25
   eval_batch_size: 2
 
