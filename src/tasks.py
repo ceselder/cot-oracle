@@ -118,7 +118,7 @@ TASKS: dict[str, TaskDef] = {
 
     "futurelens": TaskDef(
         name="futurelens",
-        hf_repo=f"{HF_ORG}/cot-oracle-futurelens",
+        hf_repo=f"{HF_ORG}/cot-oracle-corpus-v5",
         scoring=ScoringMode.TOKEN_F1,
         positive_keywords=(),
         negative_keywords=(),

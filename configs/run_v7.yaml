@@ -22,10 +22,10 @@ tasks:
     n: 7500
     eval: true
 
-  # Not on HF yet
+  # Constructed from corpus-v5 at load time
   futurelens:
-    n: 0
-    eval: false
+    n: 30000
+    eval: true
 
   # Eval-only
   truthfulqa_hint_verbalized:

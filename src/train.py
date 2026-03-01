@@ -2097,7 +2097,26 @@ def main():
         if n > 0:
             task_config[task_name] = {"n": n}
 
+    # FutureLens uses corpus-v5 + tokenizer — handle separately (like FineWeb)
+    futurelens_n = task_config.pop("futurelens", {}).get("n", 0)
+
     raw_data = load_all_training_data(task_config)
+
+    # FutureLens (corpus-based, needs tokenizer)
+    if futurelens_n > 0:
+        from data_loading import load_futurelens_data
+        if rank == 0:
+            print(f"  [data] Generating {futurelens_n} FutureLens examples from corpus...")
+        futurelens_data = load_futurelens_data(
+            tokenizer=tokenizer,
+            n=futurelens_n,
+            split="train",
+            layers=MULTI_LAYERS,
+            seed=args.seed,
+        )
+        raw_data.extend(futurelens_data)
+        if rank == 0:
+            print(f"  [data]   -> {len(futurelens_data)} FutureLens examples added (total: {len(raw_data)})")
 
     # FineWeb context prediction (PastLens-style, if enabled)
     fineweb_n = getattr(args, "fineweb_n", 0)

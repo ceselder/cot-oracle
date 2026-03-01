@@ -19,7 +19,7 @@ from typing import Any
 import torch
 
 from tasks import TASKS, TaskDef, ScoringMode, get_eval_tasks
-from data_loading import load_task_data, prepare_context_ids
+from data_loading import load_task_data, load_futurelens_data, prepare_context_ids
 
 
 # ── Per-task response parsers ──
@@ -780,12 +780,19 @@ def _eval_single_task(
         test_data = cached.test_data
         all_activations = [a.to(device) for a in cached.activations]
     else:
-        # Load test data (deterministic: no shuffle, first N items)
-        test_data = load_task_data(task_name, split="test", n=max_items, shuffle=False)
+        # Load test data
+        if task_name == "futurelens":
+            # FutureLens constructs examples from corpus (needs tokenizer)
+            test_data = load_futurelens_data(
+                tokenizer=tokenizer, n=max_items, split="test",
+                layers=layers, seed=99,  # different seed from train
+            )
+        else:
+            test_data = load_task_data(task_name, split="test", n=max_items, shuffle=False)
         if not test_data:
             return {"n": 0}
 
-        # Prepare context_input_ids for items with cot_text
+        # Prepare context_input_ids for items with cot_text (futurelens already has them)
         prepare_context_ids(
             test_data, tokenizer, stride=stride, layers=layers,
             n_prompt_positions=n_prompt_positions,

@@ -280,6 +280,195 @@ def _download_via_datasets_lib(task_def: TaskDef, split: str, local_path: Path) 
             f.write(json.dumps(dict(row)) + "\n")
 
 
+# ── FutureLens (next-token prediction from corpus) ──
+
+
+def load_futurelens_data(
+    tokenizer,
+    n: int = 30000,
+    split: str = "train",
+    predict_tokens: int = 50,
+    layers: list[int] | None = None,
+    seed: int = 42,
+) -> list[dict]:
+    """Generate FutureLens training/eval data from corpus-v5.
+
+    For each corpus entry, picks random cutoff positions in the CoT and
+    constructs examples where the oracle sees a single activation at that
+    position and must predict the next ~50 tokens of reasoning.
+
+    Args:
+        tokenizer: HuggingFace tokenizer.
+        n: Number of examples to generate.
+        split: "train" (first 80% of corpus) or "test" (last 20%).
+        predict_tokens: How many tokens to predict after cutoff.
+        layers: Layer indices for activation extraction.
+        seed: Random seed.
+
+    Returns:
+        List of dicts with context_input_ids, context_positions, etc.
+    """
+    from cot_utils import get_cot_stride_positions
+
+    if layers is None:
+        layers = [9, 18, 27]
+    n_layers = len(layers)
+
+    rng = random.Random(seed)
+
+    # Download corpus-v5 from HF
+    corpus = _load_corpus_v5(split)
+    if not corpus:
+        raise RuntimeError(f"No entries found in corpus-v5 ({split} split)")
+
+    print(f"  [futurelens] Loaded {len(corpus)} corpus entries ({split} split)")
+    print(f"  [futurelens] Generating {n} examples (predict_tokens={predict_tokens})...")
+
+    datapoints: list[dict] = []
+    attempts = 0
+    max_attempts = n * 5
+
+    while len(datapoints) < n and attempts < max_attempts:
+        attempts += 1
+        entry = rng.choice(corpus)
+
+        cot_text = entry.get("cot_response", "")
+        if not cot_text:
+            continue
+
+        # Strip <think> tags
+        think_end = cot_text.find("</think>")
+        if think_end != -1:
+            cot_text = cot_text[:think_end]
+        cot_text = cot_text.replace("<think>", "").strip()
+        if not cot_text:
+            continue
+
+        question = entry.get("question", "")
+
+        # Tokenize question + CoT
+        messages = [{"role": "user", "content": question}]
+        prompt_text = tokenizer.apply_chat_template(
+            messages, tokenize=False, add_generation_prompt=True,
+            enable_thinking=False,
+        )
+        prompt_ids = tokenizer.encode(prompt_text, add_special_tokens=False)
+        prompt_len = len(prompt_ids)
+
+        full_text = prompt_text + cot_text
+        full_ids = tokenizer.encode(full_text, add_special_tokens=False)
+
+        # Get stride positions in CoT region
+        stride_positions = get_cot_stride_positions(
+            prompt_len, len(full_ids), stride=5, include_last=True,
+        )
+        if len(stride_positions) < 3:
+            continue
+
+        # Pick up to 3 random cutoff positions per entry
+        max_k = len(stride_positions) - 1
+        n_picks = min(3, max_k + 1)
+
+        for _ in range(n_picks):
+            if len(datapoints) >= n:
+                break
+
+            k = rng.randint(0, max_k)
+            cutoff_pos = stride_positions[k]
+
+            # Target: next predict_tokens tokens after cutoff
+            target_start = cutoff_pos + 1
+            target_end = min(target_start + predict_tokens, len(full_ids))
+            if target_end - target_start < 5:
+                continue
+
+            target_ids = full_ids[target_start:target_end]
+            target_text = tokenizer.decode(target_ids, skip_special_tokens=True)
+            if not target_text.strip():
+                continue
+
+            # Single activation at cutoff, repeated for each layer
+            context_positions = [cutoff_pos] * n_layers
+
+            # Context: tokens up to cutoff position
+            context_slice = full_ids[:cutoff_pos + 1]
+
+            layers_str = ", ".join(str(l) for l in layers)
+            prompt = (
+                f"Activations from {n_layers} positions across layers {layers_str}. "
+                f"Predict the next {target_end - target_start} tokens of reasoning."
+            )
+
+            datapoints.append({
+                "datapoint_type": "cot_next_step",
+                "task": "futurelens",
+                "prompt": prompt,
+                "target_response": target_text,
+                "layer": layers[0],
+                "layers": layers,
+                "num_positions": len(context_positions),
+                "context_input_ids": context_slice,
+                "context_positions": context_positions,
+                "n_prompt_positions": 0,  # single activation, no prompt positions
+            })
+
+        if len(datapoints) % 10000 == 0 and len(datapoints) > 0:
+            print(f"  [futurelens] {len(datapoints)}/{n} examples...")
+
+    print(f"  [futurelens] Generated {len(datapoints)} examples "
+          f"(from {attempts} attempts, {len(corpus)} corpus entries)")
+    return datapoints[:n]
+
+
+def _load_corpus_v5(split: str = "train") -> list[dict]:
+    """Load corpus-v5 from HF and split 80/20 for train/test.
+
+    Corpus-v5 has only a train split on HF, so we deterministically
+    split by entry index (seed=42).
+    """
+    from tasks import TASKS
+
+    task_def = TASKS["futurelens"]
+    cache_dir = _HF_CACHE_DIR / "futurelens_corpus"
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    local_path = cache_dir / "corpus.jsonl"
+
+    if not local_path.exists():
+        print(f"  [futurelens] Downloading corpus from {task_def.hf_repo}...")
+        try:
+            from datasets import load_dataset
+            ds = load_dataset(task_def.hf_repo, split="train")
+            with open(local_path, "w") as f:
+                for row in ds:
+                    f.write(json.dumps(dict(row)) + "\n")
+            print(f"  [futurelens] Saved {len(ds)} entries to {local_path}")
+        except Exception as e:
+            raise RuntimeError(
+                f"Failed to download corpus-v5: {e}"
+            ) from e
+
+    # Load all entries
+    entries = []
+    with open(local_path) as f:
+        for line in f:
+            line = line.strip()
+            if line:
+                entries.append(json.loads(line))
+
+    # Deterministic 80/20 split
+    rng = random.Random(42)
+    indices = list(range(len(entries)))
+    rng.shuffle(indices)
+
+    n_train = int(0.8 * len(indices))
+    if split == "train":
+        selected = indices[:n_train]
+    else:
+        selected = indices[n_train:]
+
+    return [entries[i] for i in selected]
+
+
 # ── FineWeb context prediction (PastLens-style) ──
 
 
