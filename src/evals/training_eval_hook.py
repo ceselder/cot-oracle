@@ -1675,20 +1675,18 @@ def _load_chunked_convqa_eval_items() -> list[EvalItem]:
     for row in ds:
         items.append(EvalItem(
             eval_name="chunked_convqa",
-            example_id=f"chunked_convqa_{row['cot_id']}_{row['chunk_index']}_{row['query_type']}",
+            example_id=f"chunked_convqa_{row['cot_id']}_{row['split_index']}",
             clean_prompt=row["question"],
             test_prompt=row["prompt"],
             correct_answer=row["target_response"],
             nudge_answer=None,
             metadata={
                 "cot_text": row["cot_text"],
-                "chunk_index": row["chunk_index"],
-                "num_chunks": row["num_chunks"],
-                "query_type": row["query_type"],
+                "split_index": row["split_index"],
+                "num_sentences": row["num_sentences"],
                 "source": row["source"],
                 "cot_id": row["cot_id"],
                 "bb_response": row["bb_response"],
-                "bb_correct": row["bb_correct"],
             },
         ))
     print(f"  [eval] Loaded {len(items)} chunked_convqa test items")
@@ -1710,7 +1708,7 @@ def _run_chunked_convqa_eval(
     """Chunked ConvQA eval: answer questions about CoT suffix from prefix activations.
 
     Like compqa but with truncated activation extraction — the oracle only sees
-    activations from the prefix (up to chunk_index), not the full CoT.
+    activations from the prefix (up to split_index), not the full CoT.
     Scored via token F1 against Gemini ground truth.
     """
     import re as _re
@@ -1720,16 +1718,16 @@ def _run_chunked_convqa_eval(
     for item in items:
         try:
             cot_text = (item.metadata.get("cot_text") or "").strip()
-            chunk_index = item.metadata.get("chunk_index")
-            if not cot_text or chunk_index is None:
+            split_index = item.metadata.get("split_index")
+            if not cot_text or split_index is None:
                 continue
 
             # Split into sentences and build prefix
             sentences = _re.split(r'(?<=[.!?])\s+', cot_text.strip())
             sentences = [s.strip() for s in sentences if s.strip()]
-            if chunk_index + 1 >= len(sentences):
+            if split_index + 1 >= len(sentences):
                 continue
-            prefix_text = " ".join(sentences[:chunk_index + 1])
+            prefix_text = " ".join(sentences[:split_index + 1])
 
             # Try cached bundle first
             cached = _try_load_cached(cache_dir, "chunked_convqa", item.example_id, device)
