@@ -35,7 +35,6 @@ from core.ao import load_model_with_ao
 from shared import load_baseline_inputs, load_cleaned_baseline_inputs, CLEANED_DATASET_NAMES, log_results
 from scoring import EVAL_TYPES
 from linear_probe import run_linear_probe
-from attention_probe import run_attention_probe
 from original_ao import run_original_ao
 from llm_monitor import run_llm_monitor
 from patchscopes import run_patchscopes
@@ -47,7 +46,6 @@ from qwen_attention_probe import run_qwen_attention_probe
 # Which baselines can handle which eval types
 BASELINE_COMPATIBILITY = {
     "linear_probe":     {"binary", "multiclass", "ranking"},
-    "attention_probe":  {"binary", "multiclass", "ranking"},
     "original_ao":      {"binary", "generation"},
     "llm_monitor":      {"binary", "generation", "ranking"},
     "patchscopes":      {"binary", "generation"},
@@ -112,8 +110,6 @@ def main():
     layers_needed = set()
     if "linear_probe" in baselines_to_run:
         layers_needed.update(bcfg["linear_probe"]["layers"])
-    if "attention_probe" in baselines_to_run:
-        layers_needed.update(range(bcfg["attention_probe"]["n_layers"]))
     if "original_ao" in baselines_to_run:
         layers_needed.add(layer_percent_to_layer(model_name, 50))
     if "patchscopes" in baselines_to_run:
@@ -194,15 +190,6 @@ def main():
                     inputs, layers=lp_cfg["layers"], k_folds=lp_cfg["k_folds"],
                     lr=lp_cfg["lr"], epochs=lp_cfg["epochs"],
                     weight_decay=lp_cfg["weight_decay"], device=args.device,
-                )
-
-            elif baseline_name == "attention_probe":
-                ap_cfg = bcfg["attention_probe"]
-                results = run_attention_probe(
-                    inputs, n_layers=ap_cfg["n_layers"], k_folds=ap_cfg["k_folds"],
-                    n_heads=ap_cfg["n_heads"], hidden_dim=ap_cfg["hidden_dim"],
-                    lr=ap_cfg["lr"], epochs=ap_cfg["epochs"],
-                    patience=ap_cfg["patience"], device=args.device,
                 )
 
             elif baseline_name == "original_ao":
@@ -337,15 +324,6 @@ def main():
                         train_inputs, layers=lp_cfg["layers"], k_folds=lp_cfg["k_folds"],
                         lr=lp_cfg["lr"], epochs=lp_cfg["epochs"],
                         weight_decay=lp_cfg["weight_decay"], device=args.device,
-                        test_inputs=test_inputs,
-                    )
-                elif baseline_name == "attention_probe":
-                    ap_cfg = bcfg["attention_probe"]
-                    results = run_attention_probe(
-                        train_inputs, n_layers=ap_cfg["n_layers"], k_folds=ap_cfg["k_folds"],
-                        n_heads=ap_cfg["n_heads"], hidden_dim=ap_cfg["hidden_dim"],
-                        lr=ap_cfg["lr"], epochs=ap_cfg["epochs"],
-                        patience=ap_cfg["patience"], device=args.device,
                         test_inputs=test_inputs,
                     )
                 elif baseline_name == "llm_monitor":

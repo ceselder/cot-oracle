@@ -28,8 +28,13 @@ experiments/
 # Logs / wandb
 logs/
 wandb/
+eval_logs/
 eval_logs_wandb/
+slurm_logs/
 test_chainscope.log
+
+# Downloaded models / SAEs
+downloaded_saes/
 
 # PDFs
 *.pdf

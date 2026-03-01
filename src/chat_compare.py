@@ -51,6 +51,8 @@ from core.ao import (
     collect_activations_at_positions,
     get_hf_submodule,
     get_steering_hook,
+    load_extra_adapter,
+    using_adapter,
 )
 from nl_probes.sae import load_dictionary_learning_batch_topk_sae
 from patchscopes import _run_patchscope_single as run_patchscope_single
@@ -72,7 +74,7 @@ OPENROUTER_API_BASE = "https://openrouter.ai/api/v1"
 OPENROUTER_SAE_MODEL = "google/gemini-2.5-flash-lite"
 OPENROUTER_BLACKBOX_MODEL = "google/gemini-3-flash-preview"
 TRYCLOUDFLARE_URL_RE = re.compile(r"https://[A-Za-z0-9.-]+\\.trycloudflare\\.com")
-CHAT_COMPARE_LOG_DIR = Path(os.path.expandvars(os.environ["FAST_CACHE_DIR"])) / "cot-oracle" / "chat_compare"
+CHAT_COMPARE_LOG_DIR = Path(os.path.expandvars(os.environ.get("FAST_CACHE_DIR", f"/var/tmp/{Path.home().name}/"))) / "cot-oracle" / "chat_compare"
 
 BUILTIN_TASK_PROMPTS = {
     "recon": "Reconstruct the original chain-of-thought reasoning from these activations.",
@@ -183,10 +185,18 @@ def load_train_task_config(config_path):
     ]
     seen = {item["key"] for item in task_options}
     for task_name, task_cfg in config["tasks"].items():
-        enabled = task_cfg["n"] > 0 or task_cfg.get("eval_n", 0) > 0
+        train_n = task_cfg["n"] if "n" in task_cfg else 0
+        eval_n = task_cfg["eval_n"] if "eval_n" in task_cfg else 0
+        enabled = train_n > 0 or eval_n > 0
         if not enabled:
             continue
-        prompt = BUILTIN_TASK_PROMPTS.get(task_name, task_cfg["description"])
+        if task_name in BUILTIN_TASK_PROMPTS:
+            prompt = BUILTIN_TASK_PROMPTS[task_name]
+        elif "description" in task_cfg:
+            prompt = task_cfg["description"]
+        else:
+            prompt = task_name
+        description = task_cfg["description"] if "description" in task_cfg else prompt
         prompt_map[task_name] = prompt
         if task_name in seen:
             continue
@@ -194,12 +204,13 @@ def load_train_task_config(config_path):
             "key": task_name,
             "label": f"train.yaml: {task_name}",
             "prompt": prompt,
-            "description": task_cfg["description"],
+            "description": description,
         })
         seen.add(task_name)
     eval_tags = [{"key": name, "group": "eval.evals"} for name in config.get("eval", {}).get("evals", [])]
     eval_tags.extend({"key": name, "group": "eval.classification_evals"} for name in config.get("eval", {}).get("classification_evals", []))
-    return prompt_map, task_options, eval_tags
+    no_act_checkpoint = config["baselines"]["no_act_oracle"]["checkpoint"]
+    return prompt_map, task_options, eval_tags, no_act_checkpoint
 
 
 def load_dual_model(model_name, checkpoint_path, cot_adapter=None, device="cuda"):
@@ -324,6 +335,20 @@ def query_trained_oracle(model, tokenizer, selected_acts, prompt, selected_layer
     hook_fn = get_steering_hook(vectors=selected_acts, positions=positions, device=get_module_device(injection_submodule), dtype=dtype)
     with torch.no_grad(), add_hook(injection_submodule, hook_fn):
         output = model.generate(input_ids=input_tensor, attention_mask=attn_mask, max_new_tokens=max_new_tokens, do_sample=False)
+    return tokenizer.decode(output[0][len(input_ids):], skip_special_tokens=True)
+
+
+def query_no_act_oracle(model, tokenizer, question, cot_response, prompt, no_act_adapter_name, max_new_tokens=150):
+    cot_text = cot_response[:4000]
+    prompt_text = f"Question: {question}\nChain of thought: {cot_text}\n\n{prompt}"
+    messages = [{"role": "user", "content": prompt_text}]
+    formatted = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True, enable_thinking=False)
+    input_ids = tokenizer.encode(formatted, add_special_tokens=False)
+    input_tensor = torch.tensor([input_ids], device=get_model_input_device(model))
+    attn_mask = torch.ones_like(input_tensor)
+    with using_adapter(model, no_act_adapter_name):
+        with torch.no_grad():
+            output = model.generate(input_ids=input_tensor, attention_mask=attn_mask, max_new_tokens=max_new_tokens, do_sample=False)
     return tokenizer.decode(output[0][len(input_ids):], skip_special_tokens=True)
 
 
@@ -481,12 +506,13 @@ class ChatCompareWebApp:
         self.share_info = share_info
         self.layers = compute_layers(args.model, n_layers=args.n_layers, layers=args.layers)
         self.layer_50 = layer_percent_to_layer(args.model, 50)
-        self.prompt_map, self.task_options, self.eval_tags = load_train_task_config(args.config)
+        self.prompt_map, self.task_options, self.eval_tags, self.no_act_checkpoint = load_train_task_config(args.config)
         self.use_organism = args.cot_adapter is not None
         self.model, self.tokenizer = load_dual_model(args.model, args.checkpoint, cot_adapter=args.cot_adapter, device=args.device)
         self.model_lock = threading.Lock()
         self.saes = None
         self.sae_labels = None
+        self.no_act_adapter_name = None
         self.state = SessionState()
         self.log_dir = CHAT_COMPARE_LOG_DIR
         self.log_dir.mkdir(parents=True, exist_ok=True)
@@ -511,6 +537,11 @@ class ChatCompareWebApp:
             return
         self.saes = load_saes(self.layers, "cpu")
         self.sae_labels = load_sae_labels(self.layers)
+
+    def _ensure_no_act_loaded(self):
+        if self.no_act_adapter_name is not None:
+            return
+        self.no_act_adapter_name = load_extra_adapter(self.model, self.no_act_checkpoint, adapter_name="no_act")
 
     def _log_event(self, event_type, payload):
         record = {"ts": time.strftime("%Y-%m-%d %H:%M:%S"), "event": event_type, **payload}
@@ -548,6 +579,10 @@ class ChatCompareWebApp:
             "## Black-Box Monitor",
             "",
             payload["black_box_response"],
+            "",
+            "## No-Act Oracle",
+            "",
+            payload["no_act_response"],
             "",
             "## Trained Oracle",
             "",
@@ -709,6 +744,12 @@ class ChatCompareWebApp:
         black_box_response = query_black_box_monitor(self.state.question, self.state.cot_response, ctx["prompt"], max_tokens=max_tokens)
         return {"black_box_prompt": ctx["prompt"], "black_box_response": black_box_response}
 
+    def _run_no_act_oracle_component(self, ctx, max_tokens):
+        self._ensure_no_act_loaded()
+        with self.model_lock:
+            no_act_response = query_no_act_oracle(self.model, self.tokenizer, self.state.question, self.state.cot_response, ctx["prompt"], self.no_act_adapter_name, max_new_tokens=max_tokens)
+        return {"no_act_prompt": ctx["prompt"], "no_act_response": no_act_response}
+
     def _run_sae_component(self, ctx):
         self._ensure_sae_loaded()
         layer_to_selected_acts = self._selected_acts_by_layer(ctx)
@@ -717,7 +758,7 @@ class ChatCompareWebApp:
         sae_response = query_sae_llm(sae_prompt)
         return {"sae_feature_desc": sae_feature_desc, "sae_response": sae_response}
 
-    def _finalize_run(self, ctx, eval_tags, selected_baselines, ao_prompt, ao_response, patchscopes_response, black_box_response, trained_response, sae_feature_desc, sae_response):
+    def _finalize_run(self, ctx, eval_tags, selected_baselines, ao_prompt, ao_response, patchscopes_response, black_box_response, no_act_response, trained_response, sae_feature_desc, sae_response):
         log_payload = {
             "task_key": ctx["task_key"],
             "question": self.state.question,
@@ -730,6 +771,7 @@ class ChatCompareWebApp:
             "ao_response": ao_response,
             "patchscopes_response": patchscopes_response,
             "black_box_response": black_box_response,
+            "no_act_response": no_act_response,
             "trained_response": trained_response,
             "sae_feature_desc": sae_feature_desc,
             "sae_response": sae_response,
@@ -747,6 +789,7 @@ class ChatCompareWebApp:
             "ao_response": ao_response,
             "patchscopes_response": patchscopes_response,
             "black_box_response": black_box_response,
+            "no_act_response": no_act_response,
             "trained_response": trained_response,
             "sae_feature_desc": sae_feature_desc,
             "sae_response": sae_response,
@@ -758,6 +801,7 @@ class ChatCompareWebApp:
         ao_result = {"ao_prompt": "", "ao_response": "(skipped)"}
         patchscopes_result = {"patchscopes_response": "(skipped)"}
         black_box_result = {"black_box_response": "(skipped)"}
+        no_act_result = {"no_act_response": "(skipped)"}
         trained_result = {"trained_response": "(skipped)"}
         sae_result = {"sae_feature_desc": "(skipped)", "sae_response": "(skipped)"}
         if "ao" in selected_baselines:
@@ -766,6 +810,8 @@ class ChatCompareWebApp:
             patchscopes_result = self._run_patchscopes_component(ctx, max_tokens, patchscopes_strengths)
         if "bb" in selected_baselines:
             black_box_result = self._run_black_box_component(ctx, max_tokens)
+        if "noact" in selected_baselines:
+            no_act_result = self._run_no_act_oracle_component(ctx, max_tokens)
         if "oracle" in selected_baselines:
             trained_result = self._run_trained_oracle_component(ctx, max_tokens)
         if "sae" in selected_baselines:
@@ -778,6 +824,7 @@ class ChatCompareWebApp:
             ao_result["ao_response"],
             patchscopes_result["patchscopes_response"],
             black_box_result["black_box_response"],
+            no_act_result["no_act_response"],
             trained_result["trained_response"],
             sae_result["sae_feature_desc"],
             sae_result["sae_response"],
@@ -801,6 +848,8 @@ class ChatCompareWebApp:
                 "is_ucl_host": self.share_info["is_ucl_host"],
                 "share_policy": self.share_info["share_policy"],
                 "public_url": self.share_info["public_url"],
+                "no_act_checkpoint": self.no_act_checkpoint,
+                "no_act_available": Path(self.no_act_checkpoint).exists(),
             }
 
         @self.app.post("/api/generate")
@@ -869,6 +918,13 @@ class ChatCompareWebApp:
             result = await asyncio.to_thread(self._run_black_box_component, ctx, max_tokens)
             return {**result, "task_key": ctx["task_key"], "selected_layers": ctx["selected_layers"], "selected_positions": ctx["selected_positions"]}
 
+        @self.app.post("/api/run_no_act_oracle")
+        async def run_no_act_oracle(payload: dict):
+            ctx = self._resolve_run_context(payload["task_key"], payload.get("custom_prompt", ""), payload.get("selected_cells", []))
+            max_tokens = int(payload.get("max_tokens", self.args.max_tokens))
+            result = await asyncio.to_thread(self._run_no_act_oracle_component, ctx, max_tokens)
+            return {**result, "task_key": ctx["task_key"], "selected_layers": ctx["selected_layers"], "selected_positions": ctx["selected_positions"]}
+
         @self.app.post("/api/run_sae_partial")
         async def run_sae_partial(payload: dict):
             ctx = self._resolve_run_context(payload["task_key"], payload.get("custom_prompt", ""), payload.get("selected_cells", []))
@@ -894,6 +950,7 @@ class ChatCompareWebApp:
                 payload["ao_response"],
                 payload["patchscopes_response"],
                 payload["black_box_response"],
+                payload["no_act_response"],
                 payload["trained_response"],
                 payload["sae_feature_desc"],
                 payload["sae_response"],
@@ -982,6 +1039,7 @@ class ChatCompareWebApp:
           <label class=\"inline-check\"><input id=\"baselineAo\" type=\"checkbox\" checked>Original AO</label>
           <label class=\"inline-check\"><input id=\"baselinePatch\" type=\"checkbox\" checked>Patchscopes</label>
           <label class=\"inline-check\"><input id=\"baselineBb\" type=\"checkbox\" checked>Black-box</label>
+          <label class=\"inline-check\"><input id=\"baselineNoAct\" type=\"checkbox\" checked>No-act oracle</label>
           <label class=\"inline-check\"><input id=\"baselineOracle\" type=\"checkbox\" checked>Trained oracle</label>
           <label class=\"inline-check\"><input id=\"baselineSae\" type=\"checkbox\" checked>SAE -> LLM</label>
         </div>
@@ -1029,6 +1087,12 @@ class ChatCompareWebApp:
           <div id=\"bbOut\" class=\"text-block\"></div>
         </div>
         <div class=\"panel\">
+          <h3 style=\"margin-top:0\">No-Act Oracle</h3>
+          <div class=\"mini-status\" id=\"noActStatus\"><span class=\"mini-dot\"></span><span id=\"noActStatusText\"></span></div>
+          <div class=\"muted small\" id=\"noActPrompt\"></div>
+          <div id=\"noActOut\" class=\"text-block\"></div>
+        </div>
+        <div class=\"panel\">
           <h3 style=\"margin-top:0\">Trained Oracle</h3>
           <div class=\"mini-status\" id=\"oracleStatus\"><span class=\"mini-dot\"></span><span id=\"oracleStatusText\"></span></div>
           <div class=\"muted small\" id=\"oraclePrompt\"></div>
@@ -1067,6 +1131,7 @@ class ChatCompareWebApp:
       ao: document.getElementById('baselineAo'),
       patch: document.getElementById('baselinePatch'),
       bb: document.getElementById('baselineBb'),
+      noact: document.getElementById('baselineNoAct'),
       oracle: document.getElementById('baselineOracle'),
       sae: document.getElementById('baselineSae'),
     };
@@ -1074,6 +1139,7 @@ class ChatCompareWebApp:
       ao: { box: document.getElementById('aoStatus'), text: document.getElementById('aoStatusText') },
       patch: { box: document.getElementById('patchStatus'), text: document.getElementById('patchStatusText') },
       bb: { box: document.getElementById('bbStatus'), text: document.getElementById('bbStatusText') },
+      noact: { box: document.getElementById('noActStatus'), text: document.getElementById('noActStatusText') },
       oracle: { box: document.getElementById('oracleStatus'), text: document.getElementById('oracleStatusText') },
       sae: { box: document.getElementById('saeStatus'), text: document.getElementById('saeStatusText') },
     };
@@ -1134,6 +1200,7 @@ class ChatCompareWebApp:
       setPanelLoading('ao', false, '');
       setPanelLoading('patch', false, '');
       setPanelLoading('bb', false, '');
+      setPanelLoading('noact', false, '');
       setPanelLoading('oracle', false, '');
       setPanelLoading('sae', false, '');
     }
@@ -1320,6 +1387,8 @@ class ChatCompareWebApp:
       } else {
         shareInfo.textContent = `Host: ${config.host_fqdn} | share policy: ${config.share_policy}`;
       }
+      baselineInputs.noact.checked = config.no_act_available;
+      baselineInputs.noact.disabled = !config.no_act_available;
       renderPatchStrengthRows();
       renderTaskOptions();
       renderEvalTags();
@@ -1356,11 +1425,13 @@ class ChatCompareWebApp:
       document.getElementById('aoOut').textContent = '';
       document.getElementById('patchOut').textContent = '';
       document.getElementById('bbOut').textContent = '';
+      document.getElementById('noActOut').textContent = '';
       document.getElementById('oracleOut').textContent = '';
       document.getElementById('saeOut').textContent = '';
       document.getElementById('aoPrompt').textContent = '';
       document.getElementById('patchPrompt').textContent = '';
       document.getElementById('bbPrompt').textContent = '';
+      document.getElementById('noActPrompt').textContent = '';
       document.getElementById('oraclePrompt').textContent = '';
       document.getElementById('logPath').textContent = '';
       resetPanelStatuses();
@@ -1381,11 +1452,13 @@ class ChatCompareWebApp:
       document.getElementById('aoOut').textContent = '';
       document.getElementById('patchOut').textContent = '';
       document.getElementById('bbOut').textContent = '';
+      document.getElementById('noActOut').textContent = '';
       document.getElementById('oracleOut').textContent = '';
       document.getElementById('saeOut').textContent = '';
       document.getElementById('aoPrompt').textContent = '';
       document.getElementById('patchPrompt').textContent = '';
       document.getElementById('bbPrompt').textContent = '';
+      document.getElementById('noActPrompt').textContent = '';
       document.getElementById('oraclePrompt').textContent = '';
       document.getElementById('logPath').textContent = '';
       let completed = 0;
@@ -1442,6 +1515,22 @@ class ChatCompareWebApp:
         setPanelLoading('bb', false, 'Skipped');
         document.getElementById('bbOut').textContent = '(skipped)';
       }
+      if (baselines.includes('noact')) {
+        setPanelLoading('noact', true, 'Running...');
+        requests.push(postJson('/api/run_no_act_oracle', payload).then(data => {
+        document.getElementById('noActPrompt').textContent = `No-act prompt: ${data.no_act_prompt}`;
+        document.getElementById('noActOut').textContent = compactText(data.no_act_response);
+        setPanelLoading('noact', false, 'Loaded');
+        advanceProgress('No-act oracle loaded...');
+        return ['noact', data];
+      }).catch(error => {
+        setPanelLoading('noact', false, 'Failed');
+        throw error;
+      }));
+      } else {
+        setPanelLoading('noact', false, 'Skipped');
+        document.getElementById('noActOut').textContent = '(skipped)';
+      }
       if (baselines.includes('oracle')) {
         setPanelLoading('oracle', true, 'Running...');
         requests.push(postJson('/api/run_trained_oracle', payload).then(data => {
@@ -1484,6 +1573,7 @@ class ChatCompareWebApp:
         ao: { ao_prompt: '', ao_response: '(skipped)' },
         patch: { patchscopes_response: '(skipped)' },
         bb: { black_box_response: '(skipped)' },
+        noact: { no_act_response: '(skipped)' },
         oracle: { trained_response: '(skipped)' },
         sae: { sae_feature_desc: '(skipped)', sae_response: '(skipped)' },
       };
@@ -1498,6 +1588,7 @@ class ChatCompareWebApp:
         ao_response: results.ao.ao_response,
         patchscopes_response: results.patch.patchscopes_response,
         black_box_response: results.bb.black_box_response,
+        no_act_response: results.noact.no_act_response,
         trained_response: results.oracle.trained_response,
         sae_feature_desc: results.sae.sae_feature_desc,
         sae_response: results.sae.sae_response,
@@ -1538,7 +1629,7 @@ def run_web(args):
 def run_cli(args):
     layers = compute_layers(args.model, n_layers=args.n_layers, layers=args.layers)
     layer_50 = layer_percent_to_layer(args.model, 50)
-    prompt_map, _, _ = load_train_task_config(args.config)
+    prompt_map, _, _, _ = load_train_task_config(args.config)
     model, tokenizer = load_dual_model(args.model, args.checkpoint, cot_adapter=args.cot_adapter, device=args.device)
     use_organism = args.cot_adapter is not None
     multilayer_acts = None

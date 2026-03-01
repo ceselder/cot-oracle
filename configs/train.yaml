@@ -153,15 +153,6 @@ baselines:
     epochs: 100
     weight_decay: 0.0001
 
-  attention_probe:
-    n_layers: 36               # all layers
-    k_folds: 5
-    n_heads: 4
-    hidden_dim: 256
-    lr: 0.001
-    epochs: 50
-    patience: 10
-
   original_ao:
     checkpoint: adamkarvonen/checkpoints_latentqa_cls_past_lens_addition_Qwen3-8B
 

@@ -1,7 +1,6 @@
 """Baseline: Qwen-architecture attention probe over raw position sequences.
 
-Unlike attention_probe.py (which mean-pools positions first, then attends over layers),
-this probe operates on the raw per-layer position sequences using Qwen3-8B dimensions:
+Operates on the raw per-layer position sequences using Qwen3-8B dimensions:
 32 attention heads, head_dim=128, hidden_size=4096, SwiGLU MLP (4096→12288→4096).
 """
 
