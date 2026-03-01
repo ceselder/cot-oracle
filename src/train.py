@@ -676,7 +676,6 @@ def dicts_to_training_data(
             if _SPARSE_POSITIONS:
                 ctx_pos = sparse_sample_positions(
                     ctx_pos, n_layers=n_layers_runtime,
-                    n_prompt=0,
                 )
                 num_pos = len(ctx_pos)
 
