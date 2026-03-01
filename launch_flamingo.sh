@@ -16,6 +16,8 @@ nohup "$VENV_LOCAL/cot-oracle/bin/torchrun" --nproc_per_node=8 src/train.py \
     --flamingo \
     --flamingo-xattn-interval 4 \
     --flamingo-xattn-lora-r 64 \
+    --torch-compile \
+    --torch-compile-mode reduce-overhead \
     --fresh-lora \
     --full-recon-n 5000 \
     --next-step-n 3000 \

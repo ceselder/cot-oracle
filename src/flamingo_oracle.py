@@ -36,12 +36,10 @@ class LoRALinear(nn.Module):
         super().__init__()
         in_features = base_linear.in_features
         out_features = base_linear.out_features
-        self.base = nn.Linear(in_features, out_features, bias=base_linear.bias is not None)
-        self.base.weight.data.copy_(base_linear.weight.data)
-        if base_linear.bias is not None:
-            self.base.bias.data.copy_(base_linear.bias.data)
-        for p in self.base.parameters():
-            p.requires_grad = False
+        # Reuse the frozen backbone projection directly instead of cloning it into
+        # every xattn block. This keeps checkpoint size and memory proportional to
+        # the actual trainable LoRA weights.
+        object.__setattr__(self, "_base", base_linear)
 
         self.lora_A = nn.Linear(in_features, r, bias=False)
         self.lora_B = nn.Linear(r, out_features, bias=False)
@@ -52,7 +50,7 @@ class LoRALinear(nn.Module):
         nn.init.zeros_(self.lora_B.weight)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        base_out = self.base(x)
+        base_out = self._base(x)
         lora_out = self.lora_B(self.lora_A(self.lora_dropout(x))) * self.scaling
         return base_out + lora_out
 
@@ -120,9 +118,8 @@ class GatedCrossAttentionLayer(nn.Module):
         q = self.q_norm(q)
         k = self.k_norm(k)
 
-        # Pass None when all-True to enable flash attention
         attn_mask = None
-        if kv_attention_mask is not None and not kv_attention_mask.all():
+        if kv_attention_mask is not None:
             attn_mask = kv_attention_mask[:, None, None, :].expand(-1, -1, L_q, -1)
 
         attn_output = F.scaled_dot_product_attention(q, k, v, attn_mask=attn_mask, is_causal=False, enable_gqa=True)
@@ -244,15 +241,20 @@ class FlamingoOracleWrapper(nn.Module):
             target = layer.original_layer if hasattr(layer, 'original_layer') else layer
             hooks.append(target.register_forward_hook(make_hook(idx)))
 
-        with torch.no_grad():
-            if hasattr(self.base_model, 'disable_adapter'):
-                with self.base_model.disable_adapter():
+        was_training = self.base_model.training
+        self.base_model.eval()
+        try:
+            with torch.no_grad():
+                if hasattr(self.base_model, 'disable_adapter'):
+                    with self.base_model.disable_adapter():
+                        self.base_model(input_ids=input_ids, attention_mask=attention_mask)
+                else:
                     self.base_model(input_ids=input_ids, attention_mask=attention_mask)
-            else:
-                self.base_model(input_ids=input_ids, attention_mask=attention_mask)
-
-        for h in hooks:
-            h.remove()
+        finally:
+            for h in hooks:
+                h.remove()
+            if was_training:
+                self.base_model.train()
 
         return hidden_states
 
@@ -273,28 +275,33 @@ class FlamingoOracleWrapper(nn.Module):
             supervisee_kvs: {layer_idx: [B, L_cot, D]} from collect_cot_hidden_states()
             cot_attention_mask: [B, L_cot] mask for CoT tokens (True = attend)
         """
+        kv_mask = None if cot_attention_mask is None else cot_attention_mask
+        if kv_mask is not None and bool(kv_mask.all()):
+            kv_mask = None
+
         self._current_kvs = supervisee_kvs
-        self._current_kv_mask = cot_attention_mask
-
-        outputs = self.base_model(input_ids=input_ids, attention_mask=attention_mask, labels=labels)
-
-        self._current_kvs = None
-        self._current_kv_mask = None
-
-        return outputs
+        self._current_kv_mask = kv_mask
+        try:
+            return self.base_model(input_ids=input_ids, attention_mask=attention_mask, labels=labels)
+        finally:
+            self._current_kvs = None
+            self._current_kv_mask = None
 
     def generate(self, **kwargs):
         supervisee_kvs = kwargs.pop("supervisee_kvs", None)
         cot_attention_mask = kwargs.pop("cot_attention_mask", None)
 
+        kv_mask = None if cot_attention_mask is None else cot_attention_mask
+        if kv_mask is not None and bool(kv_mask.all()):
+            kv_mask = None
+
         self._current_kvs = supervisee_kvs
-        self._current_kv_mask = cot_attention_mask
-
-        outputs = self.base_model.generate(**kwargs)
-
-        self._current_kvs = None
-        self._current_kv_mask = None
-        return outputs
+        self._current_kv_mask = kv_mask
+        try:
+            return self.base_model.generate(**kwargs)
+        finally:
+            self._current_kvs = None
+            self._current_kv_mask = None
 
     def save_flamingo_modules(self, path: str):
         import os

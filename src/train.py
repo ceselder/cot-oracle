@@ -1558,7 +1558,8 @@ def apply_config(args, config: dict):
                      "warmup_fraction", "max_grad_norm", "steering_coefficient",
                      "gradient_checkpointing", "task_order", "seed",
                      "effective_batch_size", "interleave_blocks", "max_train_tokens_per_gpu",
-                     "length_bucketing", "length_bucket_window_batches"]:
+                     "length_bucketing", "length_bucket_window_batches",
+                     "torch_compile", "torch_compile_mode"]:
             if key in t and not getattr(args, f"_cli_{key}", False):
                 val = t[key]
                 if key in _float_keys:
@@ -1732,6 +1733,10 @@ def main():
                              "gradient_accumulation_steps = effective_batch_size / (batch_size * world_size)")
     parser.add_argument("--max-train-tokens-per-gpu", type=int, default=0,
                         help="Approximate per-GPU peak token budget for splitting long train batches (0 disables)")
+    parser.add_argument("--torch-compile", action="store_true", default=False,
+                        help="Compile the training forward path with torch.compile")
+    parser.add_argument("--torch-compile-mode", choices=["default", "reduce-overhead", "max-autotune", "max-autotune-no-cudagraphs"], default="default",
+                        help="torch.compile mode")
 
     # Text-only baseline
     parser.add_argument("--no-activations", action="store_true", default=False,
@@ -2011,6 +2016,17 @@ def main():
 
     if rank == 0:
         model.print_trainable_parameters()
+
+    if args.torch_compile:
+        compile_mode = None if args.torch_compile_mode == "default" else args.torch_compile_mode
+        if args.flamingo:
+            if rank == 0:
+                print(f"Compiling Flamingo base model with torch.compile (mode={args.torch_compile_mode})")
+            model.base_model = torch.compile(model.base_model, fullgraph=False, mode=compile_mode)
+        else:
+            if rank == 0:
+                print(f"Compiling model with torch.compile (mode={args.torch_compile_mode})")
+            model = torch.compile(model, fullgraph=False, mode=compile_mode)
 
     # DDP wrapping
     if world_size > 1:

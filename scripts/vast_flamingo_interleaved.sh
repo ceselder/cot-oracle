@@ -179,6 +179,8 @@ tmux new-session -d -s train bash -c "
         --flamingo \
         --flamingo-xattn-interval 4 \
         --flamingo-xattn-lora-r 64 \
+        --torch-compile \
+        --torch-compile-mode reduce-overhead \
         --flamingo-max-ctx-tokens 2048 \
         --fresh-lora \
         --task-order interleaved \
