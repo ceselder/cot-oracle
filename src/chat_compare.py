@@ -231,9 +231,12 @@ def load_dual_model(model_name, checkpoint_path, cot_adapter=None, device="cuda"
     model.eval()
     print(f"Loading trained LoRA from {checkpoint_path}...")
     model = PeftModel.from_pretrained(model, checkpoint_path, adapter_name="trained", is_trainable=False)
-    ao_path = AO_CHECKPOINTS[model_name]
-    print(f"Loading original AO from {ao_path}...")
-    model.load_adapter(ao_path, adapter_name="original_ao", is_trainable=False)
+    if model_name in AO_CHECKPOINTS:
+        ao_path = AO_CHECKPOINTS[model_name]
+        print(f"Loading original AO from {ao_path}...")
+        model.load_adapter(ao_path, adapter_name="original_ao", is_trainable=False)
+    else:
+        print(f"No original AO checkpoint configured for {model_name}; original AO baseline disabled.")
     if cot_adapter:
         print(f"Loading model organism LoRA from {cot_adapter}...")
         model.load_adapter(cot_adapter, adapter_name="organism", is_trainable=False)
@@ -295,6 +298,8 @@ def encode_prompt_with_positions(tokenizer, full_prompt, relative_spans):
 
 
 def query_original_ao(model, tokenizer, acts_l50, prompt, model_name, injection_layer=1, max_new_tokens=150, device="cuda"):
+    if "original_ao" not in model.peft_config:
+        raise ValueError(f"Original AO baseline is unavailable for {model_name}")
     dtype = torch.bfloat16
     num_positions = acts_l50.shape[0]
     act_layer = layer_percent_to_layer(model_name, 50)
@@ -524,6 +529,8 @@ class ChatCompareWebApp:
             "model": args.model,
             "checkpoint": args.checkpoint,
             "cot_adapter": args.cot_adapter,
+            "original_ao_available": "original_ao" in self.model.peft_config,
+            "sae_available": args.model == "Qwen/Qwen3-8B",
             "layers": self.layers,
             "stride": args.stride,
             "host_fqdn": share_info["host_fqdn"],
@@ -535,6 +542,8 @@ class ChatCompareWebApp:
     def _ensure_sae_loaded(self):
         if self.saes is not None:
             return
+        if self.args.model != "Qwen/Qwen3-8B":
+            raise ValueError("SAE baseline is only available for Qwen/Qwen3-8B")
         self.saes = load_saes(self.layers, "cpu")
         self.sae_labels = load_sae_labels(self.layers)
 
@@ -848,6 +857,8 @@ class ChatCompareWebApp:
                 "is_ucl_host": self.share_info["is_ucl_host"],
                 "share_policy": self.share_info["share_policy"],
                 "public_url": self.share_info["public_url"],
+                "ao_available": "original_ao" in self.model.peft_config,
+                "sae_available": self.args.model == "Qwen/Qwen3-8B",
                 "no_act_checkpoint": self.no_act_checkpoint,
                 "no_act_available": Path(self.no_act_checkpoint).exists(),
             }
@@ -1389,6 +1400,10 @@ class ChatCompareWebApp:
       }
       baselineInputs.noact.checked = config.no_act_available;
       baselineInputs.noact.disabled = !config.no_act_available;
+      baselineInputs.ao.checked = config.ao_available;
+      baselineInputs.ao.disabled = !config.ao_available;
+      baselineInputs.sae.checked = config.sae_available;
+      baselineInputs.sae.disabled = !config.sae_available;
       renderPatchStrengthRows();
       renderTaskOptions();
       renderEvalTags();
@@ -1673,10 +1688,16 @@ def run_cli(args):
         prompt = prompt_map.get(task_key, user_input)
         selected_cells = [{"layer": layer, "position": pos} for layer in layers for pos in range(n_positions_per_layer)]
         selected_ml, selected_ao, selected_layers, layer_counts, _ = select_activation_cells(multilayer_acts, ao_acts, layers, n_positions_per_layer, selected_cells)
-        ao_prompt = user_input if task_key not in prompt_map else "Can you predict the next 10 tokens that come after this?"
-        resp_original = query_original_ao(model, tokenizer, selected_ao, ao_prompt, model_name=args.model, max_new_tokens=args.max_tokens, device=args.device)
         resp_trained = query_trained_oracle(model, tokenizer, selected_ml, prompt, selected_layers, layer_counts, max_new_tokens=args.max_tokens, device=args.device)
-        print_side_by_side("ORIGINAL AO", resp_original, "TRAINED COT ORACLE", resp_trained)
+        if "original_ao" in model.peft_config:
+            ao_prompt = user_input if task_key not in prompt_map else "Can you predict the next 10 tokens that come after this?"
+            resp_original = query_original_ao(model, tokenizer, selected_ao, ao_prompt, model_name=args.model, max_new_tokens=args.max_tokens, device=args.device)
+            print_side_by_side("ORIGINAL AO", resp_original, "TRAINED COT ORACLE", resp_trained)
+        else:
+            print(f"Original AO baseline is unavailable for {args.model}.")
+            print("\n--- TRAINED COT ORACLE ---")
+            print(resp_trained)
+            print("--- End ---")
 
 
 def build_parser():
