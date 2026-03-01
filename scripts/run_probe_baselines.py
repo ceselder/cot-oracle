@@ -429,15 +429,22 @@ def train_attn_probe(train_items, y_train, test_items, layers,
     opt = torch.optim.AdamW(probe.parameters(), lr=lr, weight_decay=0.01)
     N = len(train_items)
 
+    # Pre-build length-sorted batches to minimize padding waste
+    sorted_indices = sorted(range(N), key=lambda i: train_items[i][2])
+    fixed_batches = []
+    for start in range(0, N, batch_size):
+        fixed_batches.append(sorted_indices[start:start + batch_size])
+
     best_loss, best_epoch, best_state = float("inf"), 0, None
     for ep in range(epochs):
         probe.train()
-        perm = torch.randperm(N).tolist()
+        # Shuffle batch ORDER (not items within batches) each epoch
+        batch_order = torch.randperm(len(fixed_batches)).tolist()
         epoch_loss = 0.0
         n_batches = 0
 
-        for start in range(0, N, batch_size):
-            idx = perm[start:start + batch_size]
+        for bi in batch_order:
+            idx = fixed_batches[bi]
             bx, bm, bp = collate_batch(train_items, idx, layers)
             bx, bm, bp = bx.to(device), bm.to(device), bp.to(device)
             by = y_train[idx].to(device)
@@ -592,7 +599,9 @@ def main():
                         help="Layers to extract (default: 9 18 27)")
     parser.add_argument("--n-heads", type=int, default=4,
                         help="Number of attention heads in probe")
-    parser.add_argument("--attn-epochs", type=int, default=1000)
+    parser.add_argument("--attn-epochs", type=int, default=100,
+                        help="100 epochs × 63 mini-batches = 6300 steps "
+                             "(Gemini paper: 1000 full-batch steps)")
     parser.add_argument("--attn-lr", type=float, default=1e-3)
     parser.add_argument("--attn-batch-size", type=int, default=32,
                         help="Batch size for attention probe training "
