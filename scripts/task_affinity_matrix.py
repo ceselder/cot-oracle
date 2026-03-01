@@ -45,11 +45,10 @@ from transformers import AutoModelForCausalLM, BitsAndBytesConfig
 
 import cot_utils
 import train as train_module
-from core.ao import choose_attn_implementation, get_hf_submodule
-from evals.common import EvalItem, determine_ground_truth
-from evals.run_evals import ORACLE_PROMPTS_TEMPLATES, _extract_answer, _oracle_prompt
-from evals.training_eval_hook import _batch_extract_activation_bundles, _load_chunked_convqa_eval_items, _load_eval_items
+from data_loading import load_futurelens_data, load_task_data, prepare_context_ids
 from nl_probes.utils.dataset_utils import TrainingDataPoint, construct_batch, create_training_datapoint
+from nl_probes.utils.activation_utils import get_hf_submodule
+from tasks import get_eval_tasks, get_trainable_tasks
 
 
 @dataclass
@@ -121,7 +120,7 @@ def _configure_runtime(args) -> list[int]:
     train_module._PE_CONFIG["alpha"] = float(args.pe_alpha)
     train_module._POOLING_MODE = args.pooling_mode
     train_module._LAYER_POOL = bool(args.layer_pool)
-    train_module._SPARSE_POSITIONS = False
+    train_module._SPARSE_POSITIONS = bool(getattr(args, "sparse_positions", False))
     train_module._SINGLE_POSITION = bool(args.single_position)
     train_module._N_PROMPT_POSITIONS = int(args.n_prompt_positions)
     import evals.activation_cache as activation_cache_module
@@ -130,10 +129,7 @@ def _configure_runtime(args) -> list[int]:
 
 
 def _resolve_data_paths(args) -> None:
-    args.corpus = train_module._resolve_hf_dataset(args.corpus)
-    args.atypical_data_path = train_module._resolve_hf_dataset(args.atypical_data_path)
-    if getattr(args, "hint_admission_n", 0) > 0:
-        args.hint_admission_data_path = train_module._resolve_hf_dataset(args.hint_admission_data_path)
+    return None
 
 
 def _make_fresh_lora(base_model, ao_checkpoint: str):
@@ -156,11 +152,11 @@ def _make_fresh_lora(base_model, ao_checkpoint: str):
 
 def _load_model(args, device: torch.device):
     dtype = torch.bfloat16
-    attn_impl = args.attn_implementation or choose_attn_implementation(args.model)
     model_kwargs = {
         "device_map": {"": str(device)},
-        "attn_implementation": attn_impl,
     }
+    if args.attn_implementation:
+        model_kwargs["attn_implementation"] = args.attn_implementation
     if args.load_in_8bit:
         model_kwargs["quantization_config"] = BitsAndBytesConfig(load_in_8bit=True)
     else:
@@ -187,35 +183,20 @@ def _load_model(args, device: torch.device):
     return model, submodule
 
 
-def _load_train_rows_for_task(task_name: str, info: dict, n: int, args, tokenizer) -> list[dict]:
-    if args.precomputed_dir:
-        pdir = Path(args.precomputed_dir)
-        pdir.mkdir(parents=True, exist_ok=True)
-        local_filename = info["hf_filename"] if "hf_filename" in info else f"{task_name}.jsonl"
-        jsonl_path = pdir / local_filename
-        if not jsonl_path.exists():
-            try:
-                jsonl_path = train_module._download_precomputed_from_hf(task_name, pdir, info=info)
-            except Exception:
-                if info["module"] is None:
-                    raise
-                return train_module._live_load_task(task_name, info, n, args, tokenizer)
-        rows = []
-        with open(jsonl_path) as f:
-            for line in f:
-                if not line.strip():
-                    continue
-                row = json.loads(line)
-                if task_name == "answer_trajectory":
-                    cleaned = row["response_filtered"].strip()
-                    row["target_response"] = cleaned
-                rows.append(row)
-                if len(rows) >= n:
-                    break
-        return rows
-    if info["module"] is None:
-        raise ValueError(f"Task {task_name} is precompute-only and needs --precomputed-dir")
-    return train_module._live_load_task(task_name, info, n, args, tokenizer)
+def _load_task_rows(task_name: str, split: str, n: int, tokenizer, layers: list[int], args, seed: int) -> list[dict]:
+    if task_name == "rot13_reconstruction":
+        raise ValueError("rot13_reconstruction needs the dedicated ROT13 adapter and is not supported here")
+    if task_name == "futurelens":
+        rows = load_futurelens_data(tokenizer=tokenizer, n=n, split=split, layers=layers, seed=seed)
+    else:
+        rows = load_task_data(task_name, split=split, n=n, shuffle=True)
+        if any(not row.get("context_input_ids") for row in rows):
+            if not isinstance(args.stride, int):
+                raise ValueError(f"Task {task_name} requires tokenizing cot_text but stride={args.stride!r} is not an integer")
+            prepare_context_ids(rows, tokenizer, stride=args.stride, layers=layers, n_prompt_positions=args.n_prompt_positions)
+    if len(rows) < n:
+        raise ValueError(f"Task {task_name} ({split}) only produced {len(rows)} rows, need {n}")
+    return rows
 
 
 def _sample_rows(rows: list, sample_n: int, rng: random.Random) -> list:
@@ -442,15 +423,11 @@ def _parse_args():
     parser.add_argument("--skip-plot", action="store_true", default=False)
     parser.add_argument("--evals", nargs="+", default=None, help="Explicit eval list; defaults to enabled evals from config")
     parser.add_argument("--train-tasks", nargs="+", default=None, help="Subset of training tasks to analyze")
-    for task_name, info in train_module.TASK_REGISTRY.items():
-        parser.add_argument(f"--{task_name.replace('_', '-')}-n", dest=info["arg"], type=int, default=0)
     args = parser.parse_args()
     train_module._mark_cli_overrides(args, parser, sys.argv[1:])
     for cfg_path in args.config:
         cfg = train_module.load_config(cfg_path)
         train_module.apply_config(args, cfg)
-    if args.attn_implementation is None:
-        args.attn_implementation = choose_attn_implementation(args.model)
     if args.stride is None:
         raise ValueError("Set stride in config or via --stride")
     args.stride = _normalize_stride(args.stride)
@@ -520,17 +497,18 @@ def main():
         raise ValueError(f"Placeholder token {train_module.PLACEHOLDER_TOKEN!r} must be a single token")
     model, submodule = _load_model(args, device)
 
-    train_task_names = []
-    for task_name, info in train_module.TASK_REGISTRY.items():
-        n = getattr(args, info["arg"])
-        if n <= 0:
-            continue
-        if args.train_tasks and task_name not in args.train_tasks:
-            continue
-        train_task_names.append(task_name)
+    trainable_tasks = get_trainable_tasks()
+    eval_task_defs = get_eval_tasks()
+    train_task_names = list(args.train_tasks) if args.train_tasks else list(trainable_tasks.keys())
+    invalid_train = [task_name for task_name in train_task_names if task_name not in trainable_tasks]
+    if invalid_train:
+        raise ValueError(f"Unknown or non-trainable tasks: {invalid_train}")
     if not train_task_names:
         raise ValueError("No enabled train tasks")
-    eval_names = list(args.evals) if args.evals else list(getattr(args, "evals", []))
+    eval_names = list(args.evals) if args.evals else [task_name for task_name in eval_task_defs.keys() if task_name != "rot13_reconstruction"]
+    invalid_evals = [eval_name for eval_name in eval_names if eval_name not in eval_task_defs]
+    if invalid_evals:
+        raise ValueError(f"Unknown eval tasks: {invalid_evals}")
     if not eval_names:
         raise ValueError("No evals selected")
     if "rot13_reconstruction" in eval_names:
@@ -544,95 +522,87 @@ def main():
     max_train_support = max(train_support_sizes)
     step_lr = args.virtual_lr if args.virtual_lr is not None else args.lr
     rng = random.Random(args.seed)
-    train_datapoints_full = {}
     train_sizes = {}
-    for task_name in tqdm(train_task_names, desc="load-train"):
-        info = train_module.TASK_REGISTRY[task_name]
-        raw_rows = _load_train_rows_for_task(task_name, info, getattr(args, info["arg"]), args, tokenizer)
-        train_sizes[task_name] = len(raw_rows)
-        if len(raw_rows) < max_train_support:
-            raise ValueError(f"Task {task_name} only has {len(raw_rows)} loaded examples, need at least {max_train_support}")
-        support_rng = random.Random(f"{args.seed}:{task_name}:support")
-        support_rows = _sample_rows(raw_rows, max_train_support, support_rng)
-        train_datapoints_full[task_name] = _materialize_train_task(task_name, support_rows, tokenizer, model, max_train_support, args.eval_batch_size, support_rng)
 
     eval_datapoints = {}
     eval_sizes = {}
     for eval_name in tqdm(eval_names, desc="load-evals"):
-        items = _load_eval_items_for_name(eval_name, args.eval_dir)
-        eval_sizes[eval_name] = len(items)
-        eval_datapoints[eval_name] = _build_eval_datapoints(eval_name, items, tokenizer, model, layers, args.eval_samples_per_eval, args.eval_batch_size, args.stride, device, rng)
+        rows = _load_task_rows(eval_name, "test", args.eval_samples_per_eval, tokenizer, layers, args, seed=args.seed)
+        eval_sizes[eval_name] = len(rows)
+        eval_datapoints[eval_name] = _materialize_train_task(eval_name, rows, tokenizer, model, args.eval_samples_per_eval, args.eval_batch_size, rng)
 
     eval_snaps = {}
     eval_grad_meta = {}
+    eval_probe_sizes = {}
     for eval_name in tqdm(eval_names, desc="eval-grads"):
         snap = _compute_gradient_snapshot(model, submodule, tokenizer, eval_datapoints[eval_name], args.analysis_batch_size, args.steering_coefficient, device)
         eval_snaps[eval_name] = snap
         eval_grad_meta[eval_name] = {"mean_loss": snap.mean_loss, "token_count": snap.token_count, "grad_norm": snap.grad_norm}
+        eval_probe_sizes[eval_name] = len(eval_datapoints[eval_name])
         torch.cuda.empty_cache()
+    del eval_datapoints
 
     pair_rows = []
-    results_by_size = {}
-    for support_size in train_support_sizes:
-        train_snaps = {}
-        for task_name in tqdm(train_task_names, desc=f"train-grads-{support_size}", leave=False):
-            datapoints = train_datapoints_full[task_name][:support_size]
-            if len(datapoints) != support_size:
-                raise ValueError(f"Task {task_name} materialized {len(datapoints)} examples, need {support_size}")
-            train_snaps[task_name] = _compute_gradient_snapshot(model, submodule, tokenizer, datapoints, args.analysis_batch_size, args.steering_coefficient, device)
-
-        cosine_matrix = {task_name: {} for task_name in train_task_names}
-        dot_matrix = {task_name: {} for task_name in train_task_names}
-        first_order_uplift_matrix = {task_name: {} for task_name in train_task_names}
-
-        for task_name in train_task_names:
+    results_by_size = {
+        str(support_size): {
+            "cosine_matrix": {task_name: {} for task_name in train_task_names},
+            "dot_row": {eval_name: float("-inf") for eval_name in eval_names},
+            "dot_row_argmax": {},
+            "first_order_uplift_matrix": {task_name: {} for task_name in train_task_names},
+            "train_grad_meta": {},
+        }
+        for support_size in train_support_sizes
+    }
+    for task_name in tqdm(train_task_names, desc="train-task-affinity"):
+        raw_rows = _load_task_rows(task_name, "train", max_train_support, tokenizer, layers, args, seed=args.seed)
+        train_sizes[task_name] = len(raw_rows)
+        if len(raw_rows) < max_train_support:
+            raise ValueError(f"Task {task_name} only has {len(raw_rows)} loaded examples, need at least {max_train_support}")
+        support_rng = random.Random(f"{args.seed}:{task_name}:support")
+        task_datapoints = _materialize_train_task(task_name, raw_rows, tokenizer, model, max_train_support, args.eval_batch_size, support_rng)
+        if len(task_datapoints) != max_train_support:
+            raise ValueError(f"Task {task_name} materialized {len(task_datapoints)} examples, need {max_train_support}")
+        for support_size in train_support_sizes:
+            datapoints = task_datapoints[:support_size]
+            train_snap = _compute_gradient_snapshot(model, submodule, tokenizer, datapoints, args.analysis_batch_size, args.steering_coefficient, device)
+            size_result = results_by_size[str(support_size)]
+            size_result["train_grad_meta"][task_name] = {
+                "mean_loss": train_snap.mean_loss,
+                "token_count": train_snap.token_count,
+                "grad_norm": train_snap.grad_norm,
+            }
             for eval_name in eval_names:
-                dot = _gradient_dot(train_snaps[task_name].grads, eval_snaps[eval_name].grads)
-                denom = train_snaps[task_name].grad_norm * eval_snaps[eval_name].grad_norm
+                dot = _gradient_dot(train_snap.grads, eval_snaps[eval_name].grads)
+                denom = train_snap.grad_norm * eval_snaps[eval_name].grad_norm
                 cosine = dot / denom if denom else 0.0
-                dot_matrix[task_name][eval_name] = dot
-                cosine_matrix[task_name][eval_name] = cosine
-                first_order_uplift_matrix[task_name][eval_name] = step_lr * dot
+                size_result["cosine_matrix"][task_name][eval_name] = cosine
+                size_result["first_order_uplift_matrix"][task_name][eval_name] = step_lr * dot
+                if dot > size_result["dot_row"][eval_name]:
+                    size_result["dot_row"][eval_name] = dot
+                    size_result["dot_row_argmax"][eval_name] = task_name
                 pair_rows.append({
                     "train_support_size": support_size,
                     "train_task": task_name,
                     "eval_name": eval_name,
-                    "train_loss": train_snaps[task_name].mean_loss,
+                    "train_loss": train_snap.mean_loss,
                     "eval_loss": eval_snaps[eval_name].mean_loss,
-                    "train_grad_norm": train_snaps[task_name].grad_norm,
+                    "train_grad_norm": train_snap.grad_norm,
                     "eval_grad_norm": eval_snaps[eval_name].grad_norm,
                     "dot": dot,
                     "cosine": cosine,
                     "first_order_uplift": step_lr * dot,
                     "train_support_examples": support_size,
-                    "eval_probe_examples": len(eval_datapoints[eval_name]),
+                    "eval_probe_examples": eval_probe_sizes[eval_name],
                 })
+        del task_datapoints
+        torch.cuda.empty_cache()
 
-        dot_row = {}
-        dot_row_argmax = {}
-        for eval_name in eval_names:
-            best_task = max(train_task_names, key=lambda task_name: dot_matrix[task_name][eval_name])
-            dot_row[eval_name] = dot_matrix[best_task][eval_name]
-            dot_row_argmax[eval_name] = best_task
-
+    for support_size in train_support_sizes:
+        size_result = results_by_size[str(support_size)]
         size_dir = run_dir / f"train_support_{support_size}"
-        _save_matrix_csv(size_dir / "cosine.csv", train_task_names, eval_names, cosine_matrix)
-        _save_matrix_csv(size_dir / "first_order_uplift.csv", train_task_names, eval_names, first_order_uplift_matrix)
-        _save_single_row_csv(size_dir / "dot_row.csv", "best_dot", eval_names, dot_row)
-        results_by_size[str(support_size)] = {
-            "cosine_matrix": cosine_matrix,
-            "dot_row": dot_row,
-            "dot_row_argmax": dot_row_argmax,
-            "first_order_uplift_matrix": first_order_uplift_matrix,
-            "train_grad_meta": {
-                task_name: {
-                    "mean_loss": train_snaps[task_name].mean_loss,
-                    "token_count": train_snaps[task_name].token_count,
-                    "grad_norm": train_snaps[task_name].grad_norm,
-                }
-                for task_name in train_task_names
-            },
-        }
+        _save_matrix_csv(size_dir / "cosine.csv", train_task_names, eval_names, size_result["cosine_matrix"])
+        _save_matrix_csv(size_dir / "first_order_uplift.csv", train_task_names, eval_names, size_result["first_order_uplift_matrix"])
+        _save_single_row_csv(size_dir / "dot_row.csv", "best_dot", eval_names, size_result["dot_row"])
 
     with open(run_dir / "pairs.jsonl", "w") as f:
         for row in pair_rows:
