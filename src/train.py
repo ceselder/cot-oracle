@@ -311,7 +311,7 @@ def materialize_multilayer_steering_vectors(
                 layer_vecs_stack.append(lv)
             vectors = torch.stack(layer_vecs_stack, dim=0).mean(dim=0).detach().contiguous()
         else:
-            K = total_positions // N_LAYERS
+            K = total_positions // len(layers)
 
             vectors_parts = []
             for li, layer in enumerate(layers):

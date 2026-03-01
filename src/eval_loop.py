@@ -89,16 +89,6 @@ def _parse_backtrack(text: str) -> dict | None:
     return None
 
 
-def _parse_trajectory(text: str) -> dict | None:
-    """answer_trajectory: single letter A-J."""
-    m = re.match(r'\s*([A-Ja-j])\b', text)
-    if m:
-        return {"label": m.group(1).upper()}
-    m = re.search(r'\b([A-Ja-j])\b', text)
-    if m:
-        return {"label": m.group(1).upper()}
-    return None
-
 
 def _parse_sycophancy(text: str) -> dict | None:
     """sycophancy: influenced / independent."""
@@ -119,7 +109,6 @@ TASK_PARSERS: dict[str, Any] = {
     "reasoning_termination": _parse_termination,
     "correctness": _parse_correctness,
     "backtrack_prediction": _parse_backtrack,
-    "answer_trajectory": _parse_trajectory,
     "sycophancy": _parse_sycophancy,
 }
 
@@ -345,11 +334,13 @@ def _ensure_ao_imports():
     global _AO_IMPORTS_LOADED, _ao_modules
     if _AO_IMPORTS_LOADED:
         return
-    from core.ao import (
+    from nl_probes.utils.activation_utils import (
         collect_activations_multiple_layers,
-        get_batched_steering_hook,
         get_hf_submodule,
-        add_hook,
+    )
+    from nl_probes.utils.steering_hooks import add_hook
+    from core.ao import (
+        get_batched_steering_hook,
         _active_adapter_name,
         SPECIAL_TOKEN,
     )
