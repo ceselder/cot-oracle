@@ -1687,6 +1687,7 @@ def _load_chunked_convqa_eval_items() -> list[EvalItem]:
                 "source": row["source"],
                 "cot_id": row["cot_id"],
                 "bb_response": row["bb_response"],
+                "bb_correct": row["bb_correct"],
             },
         ))
     print(f"  [eval] Loaded {len(items)} chunked_convqa test items")

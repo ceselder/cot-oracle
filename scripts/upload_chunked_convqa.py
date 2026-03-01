@@ -54,6 +54,11 @@ def main():
     fracs = df["split_index"] / df["num_sentences"]
     print(f"    mean: {fracs.mean():.2f}, median: {fracs.median():.2f}, min: {fracs.min():.2f}, max: {fracs.max():.2f}")
 
+    scored = df[df["bb_correct"].notna()]
+    if len(scored) > 0:
+        n_correct = scored["bb_correct"].sum()
+        print(f"\n  BB correctness: {int(n_correct)}/{len(scored)} = {n_correct/len(scored):.1%}")
+
     # Train/test split by cot_id (all rows for a CoT go to same split)
     cot_ids = sorted(df["cot_id"].unique())
     rng = random.Random(args.seed)
@@ -81,6 +86,20 @@ def main():
     source_dist = Counter(df["source"])
     source_table = "\n".join(f"| {src} | {cnt} |" for src, cnt in sorted(source_dist.items()))
 
+    scored = df[df["bb_correct"].notna()]
+    bb_acc_str = f"{scored['bb_correct'].sum() / len(scored):.1%}" if len(scored) > 0 else "N/A"
+
+    # Per-source BB accuracy
+    source_acc_rows = []
+    for src in sorted(source_dist.keys()):
+        src_scored = scored[scored["source"] == src]
+        if len(src_scored) > 0:
+            acc = src_scored["bb_correct"].sum() / len(src_scored)
+            source_acc_rows.append(f"| {src} | {len(df[df['source'] == src])} | {acc:.0%} |")
+        else:
+            source_acc_rows.append(f"| {src} | {len(df[df['source'] == src])} | — |")
+    source_acc_table = "\n".join(source_acc_rows)
+
     readme = f"""---
 tags:
   - cot-oracle
@@ -103,6 +122,10 @@ text monitor that can only read the prefix.
 - **Round 1:** Gemini sees the full CoT, picks a natural split, generates a question.
 - **Round 2:** Gemini sees only the prefix, answers the question (BB baseline).
 - **Round 3:** Gemini sees only the suffix, answers the question (ground truth).
+- **Scoring:** Gemini judges whether the BB answer is substantively correct given the GT.
+
+**Overall BB accuracy: {bb_acc_str}** — the oracle should beat this by reading latent
+information from the prefix activations.
 
 ## Splits
 
@@ -115,9 +138,9 @@ Split by `cot_id` (all data for a given CoT goes to the same split).
 
 ## Sources ({len(source_dist)} task domains)
 
-| Source | Count |
-|--------|-------|
-{source_table}
+| Source | Count | BB accuracy |
+|--------|-------|-------------|
+{source_acc_table}
 
 **Total: {len(rows)} rows** (1 per CoT)
 
@@ -130,6 +153,7 @@ Split by `cot_id` (all data for a given CoT goes to the same split).
 | `prompt` | Generated question about the suffix |
 | `target_response` | GT answer (Gemini sees suffix, Round 3) |
 | `bb_response` | BB answer (Gemini sees prefix, Round 2) |
+| `bb_correct` | Whether BB answer is substantively correct (Gemini-judged) |
 | `cot_prefix` | Prefix text (sentences 0..split_index) |
 | `cot_suffix` | Suffix text (sentences split_index+1..end) |
 | `split_index` | Sentence index chosen by Gemini (0-based, last sentence of prefix) |
