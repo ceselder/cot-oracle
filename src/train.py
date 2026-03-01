@@ -932,9 +932,11 @@ def _run_unified_eval(model, tokenizer, model_name, global_step, args, log_dir=N
 
     print(f"\n--- Evals at step {global_step} ---")
     stride_val = int(args.stride) if args.stride and args.stride != "punctuation" else 5
+    eval_tasks = getattr(args, "eval_tasks", None)
     metrics = run_eval(
         model=model,
         tokenizer=tokenizer,
+        task_names=eval_tasks,
         max_items=args.max_items_per_eval,
         eval_batch_size=args.eval_batch_size,
         device="cuda",
@@ -1555,12 +1557,16 @@ def apply_config(args, config: dict):
     if "tasks" in config:
         # Preserve YAML ordering for sequential curriculum
         args._yaml_task_order = list(config["tasks"].keys())
+        eval_tasks = []
         for task_name, task_cfg in config["tasks"].items():
             arg_name = f"{task_name}_n"
             # YAML is source of truth — always set unless CLI explicitly overrode
             if not getattr(args, f"_cli_{arg_name}", False):
                 setattr(args, arg_name, task_cfg.get("n", 0))
-            # eval_n is unused in unified system (eval uses HF test splits)
+            # Per-task eval flag (default True)
+            if task_cfg.get("eval", True):
+                eval_tasks.append(task_name)
+        args.eval_tasks = eval_tasks
 
     # Training params
     if "training" in config:
@@ -1604,60 +1610,9 @@ def apply_config(args, config: dict):
     # Eval
     if "eval" in config:
         e = config["eval"]
-        for key in [
-            "eval_dir", "rot13_start_step", "eval_steps", "save_steps",
-            "max_items_per_eval", "eval_max_new_tokens", "task_eval_max_new_tokens",
-            "eval_oversample_factor",
-        ]:
+        for key in ["eval_steps", "save_steps", "max_items_per_eval"]:
             if key in e and not getattr(args, f"_cli_{key}", False):
-                val = e[key]
-                if key in {"rot13_start_step", "eval_steps", "save_steps", "max_items_per_eval", "eval_max_new_tokens", "task_eval_max_new_tokens"}:
-                    val = int(val)
-                elif key == "eval_oversample_factor":
-                    val = float(val)
-                setattr(args, key, val)
-        if "evals" in e and not getattr(args, "_cli_evals", False):
-            raw_evals = e["evals"]
-            eval_names = []
-            eval_baselines = {}
-            for entry in raw_evals:
-                if isinstance(entry, str):
-                    eval_names.append(entry)
-                elif isinstance(entry, dict):
-                    name = list(entry.keys())[0]
-                    eval_names.append(name)
-                    if isinstance(entry[name], dict) and "baselines" in entry[name]:
-                        eval_baselines[name] = entry[name]["baselines"]
-            # Append classification evals from separate config section
-            if "classification_evals" in e:
-                for entry in e["classification_evals"]:
-                    if isinstance(entry, str):
-                        eval_names.append(entry)
-                    elif isinstance(entry, dict):
-                        name = list(entry.keys())[0]
-                        eval_names.append(name)
-                        if isinstance(entry[name], dict) and "baselines" in entry[name]:
-                            eval_baselines[name] = entry[name]["baselines"]
-            args.evals = eval_names
-            args.eval_baselines = eval_baselines
-        if "eval_batch_size_overrides" in e and not getattr(args, "_cli_eval_batch_size_overrides", False):
-            raw_overrides = e["eval_batch_size_overrides"] or {}
-            args.eval_batch_size_overrides = {
-                str(k): int(v)
-                for k, v in raw_overrides.items()
-            }
-        if "eval_max_new_tokens_overrides" in e and not getattr(args, "_cli_eval_max_new_tokens_overrides", False):
-            raw_overrides = e["eval_max_new_tokens_overrides"] or {}
-            args.eval_max_new_tokens_overrides = {
-                str(k): int(v)
-                for k, v in raw_overrides.items()
-            }
-        if "task_eval_max_new_tokens_overrides" in e and not getattr(args, "_cli_task_eval_max_new_tokens_overrides", False):
-            raw_overrides = e["task_eval_max_new_tokens_overrides"] or {}
-            args.task_eval_max_new_tokens_overrides = {
-                str(k): int(v)
-                for k, v in raw_overrides.items()
-            }
+                setattr(args, key, int(e[key]))
 
     # Data paths (unified: all data from HuggingFace, no local corpus/precomputed paths needed)
 

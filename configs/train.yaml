@@ -1,78 +1,92 @@
 # CoT Oracle Training Config (Unified Task System)
-# Set n: 0 to disable a task. Eval-only tasks are always evaluated.
+# Each task has `n` (training samples, 0 to skip) and `eval` (whether to evaluate).
 # All data is downloaded from HuggingFace automatically.
 
 tasks:
-  # --- Training + Eval (6 tasks, 80/20 train/test split on HF) ---
+  # --- Trainable tasks (have train + test splits on HF) ---
   hint_admission:
     n: 15000
-    description: "Did the model use an external hint? (binary, CoT activations only)"
+    eval: true
 
   atypical_answer:
     n: 20000
-    description: "Majority or minority answer? (from 25-rollout distributions)"
+    eval: true
 
   reasoning_termination:
     n: 15000
-    description: "Will the model emit </think> within ~100 tokens? (partial CoT prefix)"
+    eval: true
 
   answer_trajectory:
     n: 60000
-    description: "What does the model currently think the answer is? (per-sentence tracking)"
+    eval: true
 
   futurelens:
     n: 30000
-    description: "Predict next ~50 tokens of reasoning (single activation, 3 layers)"
+    eval: true
 
   correctness:
     n: 7500
-    description: "Did the model's reasoning lead to the correct answer? (binary)"
+    eval: true
 
   backtrack_prediction:
     n: 15000
-    description: "Will the model revise/backtrack in the next ~150 tokens?"
+    eval: true
+
+  # --- Eval-only tasks (test split only, n is ignored) ---
+  sycophancy:
+    eval: true
+
+  truthfulqa_hint_verbalized:
+    eval: true
+
+  truthfulqa_hint_unverbalized:
+    eval: true
+
+  sentence_insertion:
+    eval: true
+
+  rot13_reconstruction:
+    eval: false     # skip for now
 
 # FineWeb context prediction (PastLens-style auxiliary training)
-# Streams FineWeb + LMSYS chat, generates past/future token prediction examples.
 fineweb:
-  enabled: false          # toggle on to mix web text context prediction into training
+  enabled: false
   n: 50000
   max_context_tokens: 2000
 
 # Training
 training:
   lr: 0.00001
-  batch_size: 32             # per-GPU micro-batch size
-  effective_batch_size: 256  # total across GPUs + accumulation (invariant to GPU count)
+  batch_size: 32
+  effective_batch_size: 256
   eval_batch_size: 8
   epochs: 1
   warmup_fraction: 0.1
   max_grad_norm: 1.0
   steering_coefficient: 1.0
   gradient_checkpointing: true
-  task_order: shuffled    # "shuffled" (default), "sequential" (one at a time), or "interleaved" (round-robin blocks)
-  interleave_blocks: 50   # number of blocks for interleaved mode
+  task_order: shuffled
+  interleave_blocks: 50
   max_train_tokens_per_gpu: 32768
   seed: 42
 
-# Flamingo cross-attention (alternative to steering injection)
+# Flamingo cross-attention
 flamingo:
   enabled: false
-  xattn_interval: 4       # cross-attention every N transformer blocks (9 layers for Qwen3-8B)
-  xattn_lora_r: 64        # LoRA rank for cross-attention projections
+  xattn_interval: 4
+  xattn_lora_r: 64
 
 # Activation extraction
 activations:
   stride: 5
   n_prompt_positions: 5
-  position_encoding: false   # sinusoidal PE for activation vectors
-  pe_alpha: 0.1              # PE mixing coefficient (only used if position_encoding: true)
+  position_encoding: false
+  pe_alpha: 0.1
 
-# Eval (unified: all evals use HF test splits via eval_loop.py)
+# Eval
 eval:
   eval_steps: 2000
   save_steps: 10000
-  rot13_start_step: 2000
   max_items_per_eval: 25
   eval_batch_size: 4
 
@@ -87,4 +101,4 @@ output:
   save_dir: checkpoints
   wandb_project: cot_oracle
   wandb_entity: MATS10-CS-JB
-  wandb_run: null  # auto-generated if null
+  wandb_run: null
