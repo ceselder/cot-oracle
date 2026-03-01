@@ -1444,8 +1444,7 @@ def train(
                             log_dict[f"flamingo/gate_{idx}"] = gate_val
                             log_dict[f"flamingo/tanh_gate_{idx}"] = math.tanh(gate_val)
 
-                if global_step % 10 == 0 or global_step == total_steps:
-                    wandb.log(log_dict, step=global_step)
+                wandb.log(log_dict, step=global_step)
 
             pbar.set_postfix(loss=f"{accum_loss_sum / grad_accum:.4f}")
 
