@@ -1677,8 +1677,8 @@ def _load_chunked_convqa_eval_items() -> list[EvalItem]:
             eval_name="chunked_convqa",
             example_id=f"chunked_convqa_{row['cot_id']}_{row['chunk_index']}_{row['query_type']}",
             clean_prompt=row["question"],
-            test_prompt=row["query"],
-            correct_answer=row["gt_response"],
+            test_prompt=row["prompt"],
+            correct_answer=row["target_response"],
             nudge_answer=None,
             metadata={
                 "cot_text": row["cot_text"],

@@ -58,12 +58,12 @@ def load_cot_chunked_convqa_data(
 
         question = row["question"]
         cot_text = row["cot_text"]
-        query = row["query"]
-        gt_response = row["gt_response"]
+        query = row["prompt"]
+        target_response = row["target_response"]
         chunk_index = row["chunk_index"]
         num_chunks = row["num_chunks"]
 
-        if not gt_response or not gt_response.strip():
+        if not target_response or not target_response.strip():
             skipped += 1
             continue
 
@@ -116,7 +116,7 @@ def load_cot_chunked_convqa_data(
         datapoints.append({
             "datapoint_type": "cot_chunked_convqa",
             "prompt": oracle_prompt,
-            "target_response": gt_response,
+            "target_response": target_response,
             "layer": LAYERS[0],
             "layers": LAYERS,
             "num_positions": num_positions,

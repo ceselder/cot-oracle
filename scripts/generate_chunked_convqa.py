@@ -245,7 +245,7 @@ def load_corpus(corpus_path: str, min_sentences: int = 8) -> list[dict]:
                 "id": entry["id"],
                 "source": entry["source"],
                 "question": entry.get("question", entry.get("prompt", "")),
-                "cot_text": entry.get("cot_content", ""),
+                "cot_text": " ".join(entry["sentences"]),
                 "sentences": entry["sentences"],
                 "n_sentences": entry["n_sentences"],
             })
