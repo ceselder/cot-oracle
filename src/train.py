@@ -2154,11 +2154,12 @@ def main():
                 if Path(cfg_path).exists():
                     wandb.save(cfg_path)
 
-        # Fix: wandb file_stream is broken on Vast.ai — streaming never
-        # uploads history data. But wandb.finish() reliably syncs everything.
-        # Solution: queue metrics in-memory, upload in batches via short-lived
-        # wandb sessions (init→log→finish) from a background thread.
+        # Fix: wandb file_stream is completely broken on Vast.ai — run.log()
+        # never uploads history data regardless of session length.
+        # Solution: queue metrics, write to OFFLINE wandb sessions (local files
+        # only), then `wandb sync` uses batch HTTP upload (different code path).
         import threading
+        import subprocess
 
         _wandb_run_id = wandb.run.id
         _wandb_init_kw = dict(
@@ -2170,8 +2171,7 @@ def main():
             resume="allow",
         )
 
-        # Close initial session — syncs config, tags, code.
-        # All subsequent logging goes through the upload thread.
+        # Close initial session — syncs config, tags, code via normal path.
         wandb.finish()
 
         _metric_queue = []  # list of (data_dict, step)
@@ -2186,7 +2186,7 @@ def main():
         wandb.log = _queued_wandb_log
 
         def _wandb_upload_thread(interval=300):
-            """Upload queued metrics via short-lived wandb sessions."""
+            """Write metrics to offline wandb session, then `wandb sync` to upload."""
             while True:
                 time.sleep(interval)
                 with _metric_lock:
@@ -2195,19 +2195,30 @@ def main():
                     batch = list(_metric_queue)
                     _metric_queue.clear()
                 try:
-                    run = wandb.init(**_wandb_init_kw)
+                    # Step 1: Write to offline session (no network, just local files)
+                    run = wandb.init(**_wandb_init_kw, mode="offline")
                     for data, step in batch:
                         run.log(data, step=step)
+                    run_dir = run.dir
                     wandb.finish()
-                    wandb.log = _queued_wandb_log  # re-patch after finish
-                    print(f"  [wandb] Uploaded {len(batch)} records")
+                    wandb.log = _queued_wandb_log  # re-patch
+
+                    # Step 2: Upload via `wandb sync` (batch HTTP, bypasses file_stream)
+                    result = subprocess.run(
+                        ["wandb", "sync", run_dir],
+                        capture_output=True, text=True, timeout=120,
+                    )
+                    if result.returncode == 0:
+                        print(f"  [wandb] Synced {len(batch)} records")
+                    else:
+                        print(f"  [wandb] Sync failed: {result.stderr[:200]}")
                 except Exception as e:
                     print(f"  [wandb] Upload error: {e}")
                     with _metric_lock:
                         _metric_queue[:0] = batch  # put back for retry
 
         threading.Thread(target=_wandb_upload_thread, daemon=True).start()
-        print(f"  [wandb] Batched upload thread started (every 300s)")
+        print(f"  [wandb] Offline+sync upload thread started (every 300s)")
     else:
         enabled_tasks = sorted(task_config.keys())
 
@@ -2239,20 +2250,25 @@ def main():
         print(f"TRAINING COMPLETE at step {global_step}")
         print(f"{'#' * 60}")
 
-        # Final flush of queued metrics
+        # Final flush of queued metrics via offline+sync
         import wandb
-        if _metric_queue:
+        import subprocess
+        with _metric_lock:
+            batch = list(_metric_queue)
+            _metric_queue.clear()
+        if batch:
             try:
-                run = wandb.init(**_wandb_init_kw)
-                with _metric_lock:
-                    batch = list(_metric_queue)
-                    _metric_queue.clear()
+                run = wandb.init(**_wandb_init_kw, mode="offline")
                 for data, step in batch:
                     run.log(data, step=step)
-                print(f"  [wandb] Final flush: {len(batch)} records")
+                run_dir = run.dir
+                wandb.finish()
+                subprocess.run(["wandb", "sync", run_dir], capture_output=True, timeout=120)
+                print(f"  [wandb] Final sync: {len(batch)} records")
             except Exception as e:
-                print(f"  [wandb] Final flush error: {e}")
-        wandb.finish()
+                print(f"  [wandb] Final sync error: {e}")
+        else:
+            wandb.finish()
 
     cleanup_distributed()
 
