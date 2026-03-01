@@ -375,7 +375,7 @@ def binarize_labels(items, ds_name):
     ]
 
 
-# ── Dynamic Batch Collation (for probe training) ──────────────────────────
+# ── Batch Collation (for probe training) ───────────────────────────────────
 
 def collate_batch(items, indices, layers):
     """Pad a mini-batch of items for the given layer(s).
@@ -384,11 +384,11 @@ def collate_batch(items, indices, layers):
     where D = d_model * len(layers).
     """
     batch = [items[i] for i in indices]
-    max_seq = max(n for _, _, n in batch)
     d_model = batch[0][0][layers[0]].shape[1]
     n_layers = len(layers)
     B = len(batch)
 
+    max_seq = max(n for _, _, n in batch)
     x = torch.zeros(B, max_seq, d_model * n_layers)
     mask = torch.zeros(B, max_seq, dtype=torch.bool)
     position = torch.zeros(B, max_seq, dtype=torch.long)
@@ -404,20 +404,14 @@ def collate_batch(items, indices, layers):
 
 # ── Probe Training ─────────────────────────────────────────────────────────
 
-def _make_length_sorted_batches(items, batch_size):
-    """Sort by n_positions, group into batches. Reduces padding waste."""
-    indexed = sorted(range(len(items)), key=lambda i: items[i][2])  # sort by n_pos
-    batches = []
-    for start in range(0, len(indexed), batch_size):
-        batches.append(indexed[start:start + batch_size])
-    return batches
-
-
 def train_attn_probe(train_items, y_train, test_items, layers,
                      n_classes, n_heads=4, lr=1e-3, epochs=300,
-                     batch_size=32, patience=30, device="cuda"):
+                     batch_size=32, patience=30,
+                     device="cuda"):
     """Train Eleuther attention probe with AdamW + early stopping.
 
+    Pre-collates all batches once (caches padded tensors on GPU) so the
+    expensive CPU padding work happens only once, not 100x per epoch.
     Uses length-sorted batching to minimize padding waste.
     Returns: predictions tensor on test set.
     """
@@ -435,19 +429,25 @@ def train_attn_probe(train_items, y_train, test_items, layers,
     for start in range(0, N, batch_size):
         fixed_batches.append(sorted_indices[start:start + batch_size])
 
+    # Pre-collate ALL batches once and cache on GPU
+    print(f"      Pre-collating {len(fixed_batches)} batches...", end=" ", flush=True)
+    cached_batches = []
+    for idx in fixed_batches:
+        bx, bm, bp = collate_batch(train_items, idx, layers)
+        by = y_train[idx]
+        cached_batches.append((
+            bx.to(device), bm.to(device), bp.to(device), by.to(device),
+        ))
+    print("done")
+
     best_loss, best_epoch, best_state = float("inf"), 0, None
     for ep in range(epochs):
         probe.train()
-        # Shuffle batch ORDER (not items within batches) each epoch
-        batch_order = torch.randperm(len(fixed_batches)).tolist()
+        batch_order = torch.randperm(len(cached_batches)).tolist()
         epoch_loss = 0.0
-        n_batches = 0
 
         for bi in batch_order:
-            idx = fixed_batches[bi]
-            bx, bm, bp = collate_batch(train_items, idx, layers)
-            bx, bm, bp = bx.to(device), bm.to(device), bp.to(device)
-            by = y_train[idx].to(device)
+            bx, bm, bp, by = cached_batches[bi]
 
             opt.zero_grad(set_to_none=True)
             out = probe(bx, bm, bp)
@@ -462,9 +462,8 @@ def train_attn_probe(train_items, y_train, test_items, layers,
             loss.backward()
             opt.step()
             epoch_loss += loss.item()
-            n_batches += 1
 
-        avg_loss = epoch_loss / max(n_batches, 1)
+        avg_loss = epoch_loss / max(len(cached_batches), 1)
         if avg_loss < best_loss:
             best_loss = avg_loss
             best_epoch = ep
@@ -475,7 +474,10 @@ def train_attn_probe(train_items, y_train, test_items, layers,
     if best_state:
         probe.load_state_dict({k: v.to(device) for k, v in best_state.items()})
 
-    # Evaluate
+    # Free cached training batches
+    del cached_batches
+
+    # Evaluate (pre-collate test batches too)
     probe.eval()
     all_preds = []
     N_te = len(test_items)
@@ -604,8 +606,7 @@ def main():
                              "(Gemini paper: 1000 full-batch steps)")
     parser.add_argument("--attn-lr", type=float, default=1e-3)
     parser.add_argument("--attn-batch-size", type=int, default=32,
-                        help="Batch size for attention probe training "
-                             "(small to avoid OOM on long sequences)")
+                        help="Batch size for attention probe training")
     args = parser.parse_args()
 
     datasets_to_run = args.datasets or list(DATASETS.keys())
