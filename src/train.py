@@ -2117,7 +2117,7 @@ def main():
     # ── Wandb (rank 0 only) ──
     if rank == 0:
         import wandb
-        wandb.login(key=os.environ.get("WANDB_API_KEY"))
+        wandb.login()
 
         # Build a descriptive run name from enabled tasks
         enabled_tasks = sorted(task_config.keys())
