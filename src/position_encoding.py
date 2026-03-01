@@ -19,12 +19,12 @@ import torch.nn.functional as F
 def sinusoidal_position_encoding(positions, total_length, d_model, max_freq=10000.0, device="cuda", dtype=torch.bfloat16):
     """Standard sinusoidal PE on normalized position t = pos/total_length.
     Returns unit-normalized [K, d_model]."""
-    t = torch.tensor([p / total_length for p in positions], dtype=torch.float32)
+    t = torch.tensor([p / total_length for p in positions], device=device, dtype=torch.float32)
     half_d = d_model // 2
-    freqs = torch.exp(torch.arange(half_d, dtype=torch.float32) * -(math.log(max_freq) / half_d))
+    freqs = torch.exp(torch.arange(half_d, device=device, dtype=torch.float32) * -(math.log(max_freq) / half_d))
     angles = t.unsqueeze(1) * freqs.unsqueeze(0)  # [K, half_d]
     pe = torch.cat([torch.sin(angles), torch.cos(angles)], dim=-1)  # [K, d_model]
-    return F.normalize(pe, dim=-1).to(device=device, dtype=dtype)
+    return F.normalize(pe, dim=-1).to(dtype=dtype)
 
 
 def apply_position_encoding(vectors, source_positions, total_length, alpha=0.1):

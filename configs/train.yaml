@@ -173,6 +173,14 @@ baselines:
     checkpoint: checkpoints/no_act_oracle
     max_new_tokens: 150
 
+  qwen_attention_probe:
+    layers: [9, 18, 27]
+    k_folds: 5
+    lr: 0.0001
+    epochs: 50
+    patience: 10
+    batch_size: 32
+
   sae_probe:
     sae_dir: downloaded_saes
     sae_labels_dir: /ceph/scratch/jbauer/sae_features/trainer_2/trainer_2/labels
