@@ -55,7 +55,6 @@ training:
 # Activation extraction
 activations:
   stride: 5
-  n_prompt_positions: 5
   position_encoding: false
   pe_alpha: 0.1
 

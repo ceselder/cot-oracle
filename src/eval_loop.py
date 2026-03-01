@@ -663,7 +663,6 @@ def run_eval(
     skip_rot13: bool = True,
     activation_extract_batch_size: int = 4,
     stride: int = 5,
-    n_prompt_positions: int = 0,
 ) -> dict[str, float]:
     """Run eval for all (or specified) tasks.
 
@@ -702,7 +701,6 @@ def run_eval(
                 oracle_adapter_name=oracle_adapter_name,
                 activation_extract_batch_size=activation_extract_batch_size,
                 stride=stride,
-                n_prompt_positions=n_prompt_positions,
             )
             elapsed = time.time() - t0
 
@@ -771,7 +769,6 @@ def _eval_single_task(
     oracle_adapter_name: str,
     activation_extract_batch_size: int,
     stride: int = 5,
-    n_prompt_positions: int = 0,
 ) -> dict[str, float]:
     """Eval a single task with activation caching."""
     # Check cache
@@ -801,7 +798,6 @@ def _eval_single_task(
         # Prepare context_input_ids for items with cot_text (futurelens already has them)
         prepare_context_ids(
             test_data, tokenizer, stride=stride, layers=layers,
-            n_prompt_positions=n_prompt_positions,
         )
         test_data = [d for d in test_data if d.get("context_input_ids")]
         if not test_data:

@@ -132,8 +132,6 @@ _POOLING_MODE = "none"
 _LAYER_POOL = False
 # Sparse position sampling: randomly subsample CoT positions per example
 _SPARSE_POSITIONS = False
-# Strip prompt positions: remove question activations, keep CoT only
-_N_PROMPT_POSITIONS = 0  # no prompt positions — oracle sees only CoT activations
 # Single position mode: only feed the last CoT position per layer
 _SINGLE_POSITION = False
 
@@ -674,25 +672,11 @@ def dicts_to_training_data(
             )
             MULTI_LAYERS[:] = saved_layers
         else:
-            # Strip prompt positions: task loaders prepend N prompt positions to
-            # each layer's positions. Remove them so the oracle only sees CoT.
-            # Per-item n_prompt_positions (e.g. FineWeb has 0) overrides the default.
-            if _N_PROMPT_POSITIONS == 0 and n_layers_runtime >= 1:
-                total = len(ctx_pos)
-                if total % n_layers_runtime == 0:
-                    k = total // n_layers_runtime
-                    orig_n_prompt = item.get("n_prompt_positions", 5)
-                    if orig_n_prompt > 0 and k > orig_n_prompt:
-                        new_base = ctx_pos[orig_n_prompt:k]
-                        ctx_pos = new_base * n_layers_runtime
-                        num_pos = len(ctx_pos)
-
             # Sparse position sampling: randomly subsample CoT positions per example
             if _SPARSE_POSITIONS:
-                item_n_prompt = item.get("n_prompt_positions", 5)
                 ctx_pos = sparse_sample_positions(
                     ctx_pos, n_layers=n_layers_runtime,
-                    n_prompt=0 if _N_PROMPT_POSITIONS == 0 else item_n_prompt,
+                    n_prompt=0,
                 )
                 num_pos = len(ctx_pos)
 
@@ -968,7 +952,6 @@ def _run_unified_eval(model, tokenizer, model_name, global_step, args, log_dir=N
         device="cuda",
         layers=MULTI_LAYERS,
         stride=stride_val,
-        n_prompt_positions=_N_PROMPT_POSITIONS,
     )
     if metrics:
         wandb.log(metrics, step=global_step)
@@ -1616,7 +1599,7 @@ def apply_config(args, config: dict):
     if "activations" in config:
         a = config["activations"]
         for key in ["stride", "position_encoding", "pe_alpha", "n_layers", "pooling",
-                    "sparse_positions", "n_prompt_positions", "single_position"]:
+                    "sparse_positions", "single_position"]:
             if key in a and not getattr(args, f"_cli_{key}", False):
                 if key == "pooling":
                     setattr(args, "pooling_mode", a[key])
@@ -1833,8 +1816,6 @@ def main():
                         help="Randomly subsample CoT positions per example (trains on sparse evidence)")
     parser.add_argument("--single-position", action="store_true", default=False,
                         help="Only feed the last CoT position per layer (single activation ablation)")
-    parser.add_argument("--n-prompt-positions", type=int, default=5,
-                        help="Number of prompt positions (0 = strip all, CoT-only)")
     parser.add_argument("--rot13-start-step", type=int, default=2000)
     parser.add_argument("--start-step", type=int, default=None,
                         help="Starting global step (for resuming; 0 = restart data from beginning)")
@@ -1944,9 +1925,6 @@ def main():
     # Single position mode
     global _SINGLE_POSITION
     _SINGLE_POSITION = getattr(args, "single_position", False)
-    # Prompt positions (0 = strip, 5 = default)
-    global _N_PROMPT_POSITIONS
-    _N_PROMPT_POSITIONS = getattr(args, "n_prompt_positions", 5)
     if rank == 0:
         print(f"Activation stride: {args.stride}")
         print(f"Activation pooling: {_POOLING_MODE}")
@@ -1956,8 +1934,6 @@ def main():
             print("Sparse position sampling: ON")
         if _SINGLE_POSITION:
             print("Single position mode: ON (last CoT position only)")
-        if _N_PROMPT_POSITIONS == 0:
-            print("Prompt positions: STRIPPED (CoT-only)")
 
     tokenizer = load_tokenizer(args.model)
 
@@ -2152,7 +2128,6 @@ def main():
         raw_data, tokenizer,
         stride=stride_val,
         layers=MULTI_LAYERS,
-        n_prompt_positions=_N_PROMPT_POSITIONS,
     )
 
     # Drop items that still lack context_input_ids (e.g. empty cot_text)
