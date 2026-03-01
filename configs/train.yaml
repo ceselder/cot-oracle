@@ -28,6 +28,10 @@ tasks:
     n: 7500
     eval: true
 
+  decorative_cot:
+    n: 8000
+    eval: true
+
   chunked_convqa:
     n: 25000
     eval: true
@@ -36,8 +40,8 @@ tasks:
     n: 30000
     eval: true
 
-  # --- Eval-only tasks (test split only, n is ignored) ---
   sycophancy:
+    n: 15000
     eval: true
 
   truthfulqa_hint_verbalized:
@@ -83,7 +87,6 @@ flamingo:
 # Activation extraction
 activations:
   stride: 5
-  n_prompt_positions: 0
   position_encoding: false
   pe_alpha: 0.1
   layers: [9, 18, 27]        # injection layers (25%, 50%, 75% of Qwen3-8B's 36 layers)

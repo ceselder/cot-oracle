@@ -1,155 +1,202 @@
-"""
-Clean answer_trajectory target_response using Qwen 3.5 27B via vLLM.
+#!/usr/bin/env python3
+"""Rebuild answer_trajectory dataset with per-position predictions and entropy.
 
-Extracts concise, standardized answers from the messy vLLM continuations.
-For MCQ: "B. 52", for math: "36", for open-ended: short phrase.
+MCQ-only: filters to questions with single-letter final answers (A-J) and
+parseable answer choices. Target response includes letter + content, e.g. "B. 52".
 
-Usage:
-  python scripts/clean_answer_trajectory.py --n 1000  # test on 1000 rows
-  python scripts/clean_answer_trajectory.py            # all rows
+Inputs:
+  - data/cleaned/answer_trajectory_cots.jsonl  (4906 questions with CoTs)
+  - data/cleaned/entropy_hf.jsonl              (108K per-position entropy results)
+
+Outputs:
+  - data/cleaned/answer_trajectory_v2_train.jsonl
+  - data/cleaned/answer_trajectory_v2_test.jsonl
 """
 
 import json
-import argparse
+import random
+import re
 from pathlib import Path
+from collections import defaultdict
+
+SEED = 42
+ORACLE_PROMPT = "What does the model currently think the answer is? Also estimate the model's confidence (0-100%) and answer entropy."
+
+DATA_DIR = Path(__file__).parent.parent / "data" / "cleaned"
+COTS_PATH = DATA_DIR / "answer_trajectory_cots.jsonl"
+ENTROPY_PATH = DATA_DIR / "entropy_hf.jsonl"
+OUT_TRAIN = DATA_DIR / "answer_trajectory_v2_train.jsonl"
+OUT_TEST = DATA_DIR / "answer_trajectory_v2_test.jsonl"
 
 
-SYSTEM_PROMPT = """You are a data cleaning assistant. You will be given a messy model response that was generated when a model was asked "What do you currently think the answer is?" at various points during its chain of thought.
+def split_sentences(text: str) -> list[str]:
+    parts = re.split(r'(?<=[.!?])\s+|\n{2,}', text.strip())
+    return [p for p in parts if p.strip()]
 
-Your job: Extract the answer the model is leaning toward, even if uncertain. Rules:
 
-1. For multiple choice (A/B/C/D/E options) with confidence: "X. answer" (e.g., "B. 52")
-2. For multiple choice where model is unsure but has a leading guess: "X (uncertain)" (e.g., "D (uncertain)")
-3. For numerical answers: Just the number (e.g., "42" or "3/7")
-4. For boxed answers: Extract the content (e.g., "\\boxed{52}" → "52")
-5. ONLY output "uncertain" if there is truly NO leading answer at all — the model hasn't even guessed yet
-6. If there are two candidates like "D? Or B?", the FIRST one mentioned is the leading guess → "D (uncertain)"
-7. Keep it SHORT — max 10 words. No reasoning, no hedging.
+def parse_choices(text: str) -> dict[str, str]:
+    """Extract answer choices from question text. E.g. A)49 B)52 -> {'A': '49', 'B': '52'}"""
+    choices = {}
+    for m in re.finditer(r'(?:^|\n|\s)([A-J])[).\s]+([^\n]+)', text):
+        letter = m.group(1)
+        content = m.group(2).strip()
+        choices[letter] = content
+    return choices
 
-Examples:
-Input: "one of the options A to E. So, I need to figure out the relationship"
-Output: uncertain
 
-Input: "C)36. Wait, but let me check again."
-Output: C. 36
+def format_answer(letter: str, choices: dict[str, str]) -> str:
+    """MCQ: 'B. 52'. Non-MCQ (no choices): just the value."""
+    if letter in choices:
+        return f"{letter}. {choices[letter]}"
+    return letter
 
-Input: "the reverse of 25. Let's check: 25 reversed is 52. And 52 is option B. So maybe the answer is B)52?"
-Output: B. 52
 
-Input: "\\boxed{C}"
-Output: C
-
-Input: "D? Or B?"
-Output: D (uncertain)
-
-Input: "B? Or D?"
-Output: B (uncertain)
-
-Input: "probably D, because it provides direct resources"
-Output: D (uncertain)
-
-Input: "25 + 9 = 34? But 34 isn't one of the options."
-Output: 34 (uncertain)
-
-Input: "not 34. So maybe that's not the right approach"
-Output: uncertain
-
-Input: "I think the answer is 144"
-Output: 144"""
+def format_target(letter: str, choices: dict[str, str], confidence: float, entropy: float) -> str:
+    """Full target with answer, confidence, and entropy.
+    E.g. 'B. 52 (confidence: 49%, entropy: 1.09)'"""
+    answer = format_answer(letter, choices)
+    conf_pct = int(round(confidence * 100))
+    return f"{answer} (confidence: {conf_pct}%, entropy: {entropy:.2f})"
 
 
 def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--input", default="data/precomputed/answer_trajectory.jsonl")
-    parser.add_argument("--output", default=None, help="Output path (default: input with _cleaned suffix)")
-    parser.add_argument("--n", type=int, default=0, help="Process only first N rows (0=all)")
-    parser.add_argument("--batch-size", type=int, default=256)
-    parser.add_argument("--model", default="Qwen/Qwen3.5-27B")
-    args = parser.parse_args()
-
-    if args.output is None:
-        p = Path(args.input)
-        args.output = str(p.parent / f"{p.stem}_cleaned{p.suffix}")
-
-    # Load data
-    print(f"Loading {args.input}...")
-    rows = []
-    with open(args.input) as f:
+    # Load CoTs
+    print("Loading CoTs...")
+    cots = []
+    with open(COTS_PATH) as f:
         for line in f:
-            if line.strip():
-                rows.append(json.loads(line))
-                if args.n > 0 and len(rows) >= args.n:
-                    break
-    print(f"Loaded {len(rows)} rows")
+            cots.append(json.loads(line))
+    print(f"  {len(cots)} questions total")
 
-    # Init vLLM
-    from vllm import LLM, SamplingParams
+    # Filter to MCQ only (single-letter final answer)
+    mcq_cots = []
+    for c in cots:
+        fa = c["final_answer"].strip()
+        if len(fa) == 1 and fa.isalpha():
+            choices = parse_choices(c["prompt"])
+            if fa in choices:
+                c["_choices"] = choices
+                mcq_cots.append(c)
+    print(f"  {len(mcq_cots)} MCQ questions (filtered from {len(cots)})")
 
-    print(f"Loading {args.model}...")
-    llm = LLM(
-        model=args.model,
-        tensor_parallel_size=1,
-        max_model_len=2048,
-        gpu_memory_utilization=0.9,
-    )
+    # Load entropy results, keyed by (fp_tuple, sent_idx)
+    print("Loading entropy results...")
+    entropy_map = {}
+    with open(ENTROPY_PATH) as f:
+        for line in f:
+            r = json.loads(line)
+            fp_key = tuple(r["question_fp"][:20])
+            entropy_map[(fp_key, r["sent_idx"])] = r
+    print(f"  {len(entropy_map)} entropy results")
 
-    sampling_params = SamplingParams(
-        temperature=0,
-        max_tokens=30,
-        stop=["\n"],
-    )
+    # Build dataset rows
+    print("Building dataset...")
+    all_rows = []
+    n_matched = 0
+    n_missing_entropy = 0
 
-    # Disable thinking via chat template extra kwargs
-    chat_kwargs = {"enable_thinking": False}
+    for cot_data in mcq_cots:
+        fp_key = tuple(cot_data["fp"][:20])
+        sentences = split_sentences(cot_data["cot_text"])
+        if not sentences:
+            continue
 
-    # Process in batches
-    print(f"Processing {len(rows)} rows in batches of {args.batch_size}...")
+        n_sents = len(sentences)
+        question = cot_data["prompt"]
+        final_answer = cot_data["final_answer"].strip()
+        choices = cot_data["_choices"]
 
-    all_cleaned = []
-    for batch_start in range(0, len(rows), args.batch_size):
-        batch = rows[batch_start:batch_start + args.batch_size]
+        for sent_idx in range(n_sents):
+            ent_result = entropy_map.get((fp_key, sent_idx))
+            if ent_result is None:
+                n_missing_entropy += 1
+                continue
 
-        prompts = []
-        for row in batch:
-            target = row["target_response"]
-            # Truncate very long responses
-            if len(target) > 500:
-                target = target[:500] + "..."
+            n_matched += 1
 
-            messages = [
-                {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user", "content": target},
-            ]
-            prompts.append(messages)
+            # Build CoT prefix
+            prefix = " ".join(sentences[:sent_idx + 1])
+            predicted = ent_result["predicted_answer"]
+            pct = int(100 * (sent_idx + 1) / n_sents)
 
-        outputs = llm.chat(prompts, sampling_params, chat_template_kwargs=chat_kwargs)
+            row = {
+                "task": "answer_trajectory",
+                "datapoint_type": "cot_answer_trajectory",
+                "prompt": ORACLE_PROMPT,
+                "target_response": format_target(predicted, choices, ent_result["confidence"], ent_result["answer_entropy"]),
+                "question": question,
+                "cot_text": prefix,
+                "sent_idx": sent_idx,
+                "total_sentences": n_sents,
+                "pct": pct,
+                "final_answer": format_answer(final_answer, choices),
+                "predicted_answer": predicted,
+                "confidence": ent_result["confidence"],
+                "answer_entropy": ent_result["answer_entropy"],
+                "answer_probs": ent_result["answer_probs"],
+            }
+            all_rows.append(row)
 
-        for row, output in zip(batch, outputs):
-            cleaned = output.outputs[0].text.strip()
-            row["response_filtered"] = cleaned
-            all_cleaned.append(row)
+    print(f"  {n_matched} matched rows, {n_missing_entropy} missing entropy")
+    print(f"  Total rows: {len(all_rows)}")
 
-        done = batch_start + len(batch)
-        print(f"  {done}/{len(rows)} done")
+    # 80/20 train/test split by question
+    print("Splitting train/test by question...")
+    rng = random.Random(SEED)
 
-        # Show samples from first batch
-        if batch_start == 0:
-            print("\n=== SAMPLES ===")
-            for i in range(min(20, len(batch))):
-                r = all_cleaned[i]
-                print(f"  sent {r['sent_idx']}/{r['total_sentences']} ({r['pct']}%)")
-                print(f"    raw:      {r['target_response'][:100]}")
-                print(f"    cleaned:  {r['response_filtered']}")
-                print(f"    final_gt: {r['final_answer']}")
-                print()
+    by_question = defaultdict(list)
+    for row in all_rows:
+        fp = row["question"][:80]
+        by_question[fp].append(row)
+
+    question_fps = list(by_question.keys())
+    rng.shuffle(question_fps)
+
+    n_train_q = int(0.8 * len(question_fps))
+    train_fps = set(question_fps[:n_train_q])
+
+    train_rows = []
+    test_rows = []
+    for fp, rows in by_question.items():
+        if fp in train_fps:
+            train_rows.extend(rows)
+        else:
+            test_rows.extend(rows)
+
+    rng.shuffle(train_rows)
+    rng.shuffle(test_rows)
+
+    print(f"  Train: {len(train_rows)} rows ({len(train_fps)} questions)")
+    print(f"  Test:  {len(test_rows)} rows ({len(question_fps) - n_train_q} questions)")
 
     # Save
-    print(f"Saving to {args.output}...")
-    with open(args.output, "w") as f:
-        for row in all_cleaned:
-            f.write(json.dumps(row) + "\n")
+    for path, rows in [(OUT_TRAIN, train_rows), (OUT_TEST, test_rows)]:
+        with open(path, "w") as f:
+            for row in rows:
+                f.write(json.dumps(row) + "\n")
+        print(f"  Saved {path}")
 
-    print(f"Done! {len(all_cleaned)} rows saved to {args.output}")
+    # Stats
+    entropies = [r["answer_entropy"] for r in all_rows]
+    correct = sum(1 for r in all_rows if r["predicted_answer"] == r["final_answer"].split(".")[0].strip())
+    print(f"\nStats:")
+    print(f"  Entropy: min={min(entropies):.3f}, max={max(entropies):.3f}, "
+          f"mean={sum(entropies)/len(entropies):.3f}")
+    print(f"  Predicted == final: {correct}/{len(all_rows)} ({100*correct/len(all_rows):.1f}%)")
+
+    for lo, hi in [(0, 20), (20, 50), (50, 80), (80, 101)]:
+        subset = [r for r in all_rows if lo <= r["pct"] < hi]
+        if subset:
+            acc = sum(1 for r in subset if r["predicted_answer"] == r["final_answer"].split(".")[0].strip()) / len(subset)
+            mean_ent = sum(r["answer_entropy"] for r in subset) / len(subset)
+            print(f"  pct {lo:3d}-{hi:3d}: acc={acc:.1%}, H={mean_ent:.3f} (n={len(subset)})")
+
+    # Sample output
+    print("\nSample rows:")
+    for r in all_rows[:3]:
+        print(f"  sent {r['sent_idx']}/{r['total_sentences']} ({r['pct']}%): "
+              f"target={r['target_response']!r}, final={r['final_answer']!r}, "
+              f"H={r['answer_entropy']:.3f}")
 
 
 if __name__ == "__main__":

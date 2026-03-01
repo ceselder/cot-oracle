@@ -147,7 +147,6 @@ def prepare_context_ids(
     tokenizer,
     stride: int = 5,
     layers: list[int] | None = None,
-    n_prompt_positions: int = 0,
 ) -> list[dict]:
     """Compute context_input_ids and context_positions for items with cot_text.
 
@@ -161,13 +160,12 @@ def prepare_context_ids(
         tokenizer: HuggingFace tokenizer.
         stride: Position stride for CoT region.
         layers: Layer indices (positions are repeated per layer).
-        n_prompt_positions: Number of evenly-spaced prompt positions.
 
     Returns:
         Same list, mutated in place (items gain context_input_ids,
         context_positions, num_positions, layer fields).
     """
-    from cot_utils import get_cot_stride_positions, get_prompt_positions
+    from cot_utils import get_cot_stride_positions
 
     if layers is None:
         layers = [9, 18, 27]
@@ -206,26 +204,18 @@ def prepare_context_ids(
         if not cot_positions:
             continue
 
-        # Prompt positions (evenly spaced in prompt region)
-        if n_prompt_positions > 0:
-            p_positions = get_prompt_positions(prompt_len, n=n_prompt_positions)
-        else:
-            p_positions = []
-
-        # Combine and repeat for each layer
-        base_positions = p_positions + cot_positions
-        all_positions = base_positions * n_layers
+        # Repeat CoT positions for each layer
+        all_positions = cot_positions * n_layers
 
         item["context_input_ids"] = full_ids
         item["context_positions"] = all_positions
         item["num_positions"] = len(all_positions)
         item["layer"] = layers[0]
-        item["n_prompt_positions"] = n_prompt_positions
         prepared += 1
 
     if prepared > 0:
         print(f"  [data] Tokenized cot_text → context_input_ids for {prepared} items "
-              f"(stride={stride}, {n_layers} layers, {n_prompt_positions} prompt pos)")
+              f"(stride={stride}, {n_layers} layers)")
 
     return items
 
@@ -412,7 +402,6 @@ def load_futurelens_data(
                 "num_positions": len(context_positions),
                 "context_input_ids": context_slice,
                 "context_positions": context_positions,
-                "n_prompt_positions": 0,  # single activation, no prompt positions
             })
 
         if len(datapoints) % 10000 == 0 and len(datapoints) > 0:
@@ -621,7 +610,6 @@ def load_fineweb_data(
             "num_positions": len(all_positions),
             "context_input_ids": context_ids,
             "context_positions": all_positions,
-            "n_prompt_positions": 0,  # web text has no prompt/question positions
         })
 
         if len(datapoints) % 10000 == 0:

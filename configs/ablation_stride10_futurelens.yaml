@@ -17,7 +17,6 @@ activations:
   n_layers: 3
   # no pooling at stride=10 (dense enough already)
   sparse_positions: true
-  n_prompt_positions: 0
   position_encoding: false
 
 training:

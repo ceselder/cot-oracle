@@ -128,12 +128,8 @@ du_module.find_pattern_in_tokens = _patched_find_pattern_in_tokens
 _PE_CONFIG = {"enabled": False, "alpha": 0.1}
 # Pooling mode: "none", "windows" (mean-pool token windows), "single", "chunks5"
 _POOLING_MODE = "none"
-# Layer pooling: average activations across all MULTI_LAYERS at each position
-_LAYER_POOL = False
 # Sparse position sampling: randomly subsample CoT positions per example
 _SPARSE_POSITIONS = False
-# Strip prompt positions: remove question activations, keep CoT only
-_N_PROMPT_POSITIONS = 0  # no prompt positions — oracle sees only CoT activations
 # Single position mode: only feed the last CoT position per layer
 _SINGLE_POSITION = False
 
@@ -301,38 +297,14 @@ def materialize_multilayer_steering_vectors(
                 raise IndexError(
                     f"Activation index out of range for item {b}: {adjusted} with L={L}"
                 )
-            layer_vecs_stack = []
-            for layer in layers:
-                acts_BLD = acts_by_layer[layer]
-                if _POOLING_MODE == "windows":
-                    lv = _mean_pool_windows(acts_BLD[b], adjusted)
-                else:
-                    lv = acts_BLD[b, adjusted, :]  # [K, D]
-                    lv = _pool_vectors(lv, _POOLING_MODE)
-                layer_vecs_stack.append(lv)
-            vectors = torch.stack(layer_vecs_stack, dim=0).mean(dim=0).detach().contiguous()
-        else:
-            K = total_positions // len(layers)
+            if _POOLING_MODE == "windows":
+                layer_vecs = _mean_pool_windows(acts_BLD[b], adjusted)
+            else:
+                layer_vecs = acts_BLD[b, adjusted, :]  # [K, D]
+                layer_vecs = _pool_vectors(layer_vecs, _POOLING_MODE)
+            vectors_parts.append(layer_vecs)
 
-            vectors_parts = []
-            for li, layer in enumerate(layers):
-                acts_BLD = acts_by_layer[layer]
-                chunk_positions = positions_per_item[b][li * K : (li + 1) * K]
-                adjusted = [p + left_offsets[b] for p in chunk_positions]
-
-                L = acts_BLD.shape[1]
-                if any(i < 0 or i >= L for i in adjusted):
-                    raise IndexError(
-                        f"Activation index out of range for item {b}: {adjusted} with L={L}"
-                    )
-                if _POOLING_MODE == "windows":
-                    layer_vecs = _mean_pool_windows(acts_BLD[b], adjusted)
-                else:
-                    layer_vecs = acts_BLD[b, adjusted, :]  # [K, D]
-                    layer_vecs = _pool_vectors(layer_vecs, _POOLING_MODE)
-                vectors_parts.append(layer_vecs)
-
-            vectors = torch.cat(vectors_parts, dim=0).detach().contiguous()
+        vectors = torch.cat(vectors_parts, dim=0).detach().contiguous()
 
         # Noise ablation: replace real activations with variance-matched Gaussian noise
         if NOISE_ACTIVATIONS:
@@ -615,8 +587,7 @@ def dicts_to_training_data(
             training_data.append(dp)
         return training_data
 
-    # With layer pooling, output is 1 effective layer (averaged across MULTI_LAYERS)
-    n_layers_runtime = 1 if _LAYER_POOL else (len(MULTI_LAYERS) if MULTI_LAYERS else 3)
+    n_layers_runtime = len(MULTI_LAYERS) if MULTI_LAYERS else 3
     _reexpand_warned = False
 
     for item in raw_data:
@@ -674,25 +645,10 @@ def dicts_to_training_data(
             )
             MULTI_LAYERS[:] = saved_layers
         else:
-            # Strip prompt positions: task loaders prepend N prompt positions to
-            # each layer's positions. Remove them so the oracle only sees CoT.
-            # Per-item n_prompt_positions (e.g. FineWeb has 0) overrides the default.
-            if _N_PROMPT_POSITIONS == 0 and n_layers_runtime >= 1:
-                total = len(ctx_pos)
-                if total % n_layers_runtime == 0:
-                    k = total // n_layers_runtime
-                    orig_n_prompt = item.get("n_prompt_positions", 5)
-                    if orig_n_prompt > 0 and k > orig_n_prompt:
-                        new_base = ctx_pos[orig_n_prompt:k]
-                        ctx_pos = new_base * n_layers_runtime
-                        num_pos = len(ctx_pos)
-
             # Sparse position sampling: randomly subsample CoT positions per example
             if _SPARSE_POSITIONS:
-                item_n_prompt = item.get("n_prompt_positions", 5)
                 ctx_pos = sparse_sample_positions(
                     ctx_pos, n_layers=n_layers_runtime,
-                    n_prompt=0 if _N_PROMPT_POSITIONS == 0 else item_n_prompt,
                 )
                 num_pos = len(ctx_pos)
 
@@ -968,7 +924,6 @@ def _run_unified_eval(model, tokenizer, model_name, global_step, args, log_dir=N
         device="cuda",
         layers=MULTI_LAYERS,
         stride=stride_val,
-        n_prompt_positions=_N_PROMPT_POSITIONS,
     )
     if metrics:
         wandb.log(metrics, step=global_step)
@@ -1616,7 +1571,7 @@ def apply_config(args, config: dict):
     if "activations" in config:
         a = config["activations"]
         for key in ["stride", "position_encoding", "pe_alpha", "n_layers", "pooling",
-                    "sparse_positions", "n_prompt_positions", "single_position"]:
+                    "sparse_positions", "single_position"]:
             if key in a and not getattr(args, f"_cli_{key}", False):
                 if key == "pooling":
                     setattr(args, "pooling_mode", a[key])
@@ -1631,15 +1586,6 @@ def apply_config(args, config: dict):
             elif isinstance(ld, dict):
                 args.layer_dropout = ld.get("train", False)
                 args.layer_dropout_eval = ld.get("eval", False)
-        if "layer_pool" in a:
-            if isinstance(a["layer_pool"], bool):
-                args.layer_pool = a["layer_pool"]
-            elif isinstance(a["layer_pool"], list) and len(a["layer_pool"]) == 2:
-                # [start, end] → expand to full layer list and enable pooling
-                start, end = a["layer_pool"]
-                args.layers = list(range(start, end + 1))
-                args.layer_pool = True
-
     # Eval
     if "eval" in config:
         e = config["eval"]
@@ -1738,8 +1684,10 @@ def main():
     parser.add_argument("--answer-trajectory-n", type=int, default=0)
     parser.add_argument("--futurelens-n", type=int, default=0)
     parser.add_argument("--correctness-n", type=int, default=0)
+    parser.add_argument("--decorative-cot-n", type=int, default=0)
     parser.add_argument("--chunked-convqa-n", type=int, default=0)
     parser.add_argument("--chunked-compqa-n", type=int, default=0)
+    parser.add_argument("--sycophancy-n", type=int, default=0)
 
     # Training hyperparams
     parser.add_argument("--lr", type=float, default=1e-5)
@@ -1833,8 +1781,6 @@ def main():
                         help="Randomly subsample CoT positions per example (trains on sparse evidence)")
     parser.add_argument("--single-position", action="store_true", default=False,
                         help="Only feed the last CoT position per layer (single activation ablation)")
-    parser.add_argument("--n-prompt-positions", type=int, default=5,
-                        help="Number of prompt positions (0 = strip all, CoT-only)")
     parser.add_argument("--rot13-start-step", type=int, default=2000)
     parser.add_argument("--start-step", type=int, default=None,
                         help="Starting global step (for resuming; 0 = restart data from beginning)")
@@ -1935,29 +1881,19 @@ def main():
     if _POOLING_MODE != "none":
         import evals.activation_cache as _cache_module
         _cache_module._POOLING_MODE = _POOLING_MODE
-    # Layer pooling
-    global _LAYER_POOL
-    _LAYER_POOL = getattr(args, "layer_pool", False)
     # Sparse position sampling
     global _SPARSE_POSITIONS
     _SPARSE_POSITIONS = getattr(args, "sparse_positions", False)
     # Single position mode
     global _SINGLE_POSITION
     _SINGLE_POSITION = getattr(args, "single_position", False)
-    # Prompt positions (0 = strip, 5 = default)
-    global _N_PROMPT_POSITIONS
-    _N_PROMPT_POSITIONS = getattr(args, "n_prompt_positions", 5)
     if rank == 0:
         print(f"Activation stride: {args.stride}")
         print(f"Activation pooling: {_POOLING_MODE}")
-        if _LAYER_POOL:
-            print(f"Layer pooling: ON (averaging {len(MULTI_LAYERS)} layers → 1 effective layer)")
         if _SPARSE_POSITIONS:
             print("Sparse position sampling: ON")
         if _SINGLE_POSITION:
             print("Single position mode: ON (last CoT position only)")
-        if _N_PROMPT_POSITIONS == 0:
-            print("Prompt positions: STRIPPED (CoT-only)")
 
     tokenizer = load_tokenizer(args.model)
 
@@ -2152,7 +2088,6 @@ def main():
         raw_data, tokenizer,
         stride=stride_val,
         layers=MULTI_LAYERS,
-        n_prompt_positions=_N_PROMPT_POSITIONS,
     )
 
     # Drop items that still lack context_input_ids (e.g. empty cot_text)
