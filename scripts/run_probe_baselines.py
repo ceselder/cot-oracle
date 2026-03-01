@@ -38,7 +38,7 @@ if str(_SRC) not in sys.path:
 
 from core.ao import EarlyStopException, get_hf_submodule
 
-LAYERS = list(range(9, 28))  # layers 9-27 inclusive (default)
+LAYERS = [9, 14, 18, 23, 27]  # 5 layers covering 25%-75% of Qwen3-8B (36 layers)
 SEED = 42
 
 # All cleaned datasets: (hf_repo, task_type, label_field_or_target)
@@ -721,7 +721,7 @@ def main():
         record("last_linear_concat", preds)
 
         # ─── Attention probes on key layers only (slow) ───
-        attn_layers = [9, 18, 27]  # attention probes are expensive
+        attn_layers = [18]  # attention probes are expensive, run on best layer only
         attn_layers = [l for l in attn_layers if l in layers]
         print(f"\n  Attention probes on layers {attn_layers} + concat:")
         for layer in attn_layers:
