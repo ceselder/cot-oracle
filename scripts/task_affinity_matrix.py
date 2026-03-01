@@ -237,7 +237,7 @@ def _load_task_rows(task_name: str, split: str, n: int, tokenizer, layers: list[
     if task_name == "futurelens":
         rows = load_futurelens_data(tokenizer=tokenizer, n=n, split=split, layers=layers, seed=seed)
     else:
-        if split == "test" and task_name == "chunked_compqa":
+        if split == "test" and task_name in ("chunked_compqa", "sentence_insertion"):
             print(f"[{task_name}] HF repo has no test split; using deterministic held-out 20% slice from train")
             rows = _load_train_heldout_rows(task_name, n=n, seed=seed)
         else:
