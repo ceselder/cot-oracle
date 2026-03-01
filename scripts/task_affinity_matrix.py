@@ -132,16 +132,13 @@ def _resolve_data_paths(args) -> None:
     return None
 
 
-def _make_fresh_lora(base_model, ao_checkpoint: str):
-    try:
-        model = PeftModel.from_pretrained(base_model, ao_checkpoint, is_trainable=True, autocast_adapter_dtype=False)
-    except RuntimeError:
-        lora_config = LoraConfig(
-            r=64, lora_alpha=16, lora_dropout=0.0,
-            target_modules=["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"],
-            bias="none", task_type="CAUSAL_LM",
-        )
-        model = get_peft_model(base_model, lora_config)
+def _make_fresh_lora(base_model):
+    lora_config = LoraConfig(
+        r=64, lora_alpha=16, lora_dropout=0.0,
+        target_modules=["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"],
+        bias="none", task_type="CAUSAL_LM",
+    )
+    model = get_peft_model(base_model, lora_config)
     for name, param in model.named_parameters():
         if "lora_A" in name:
             torch.nn.init.kaiming_uniform_(param, a=5 ** 0.5)
@@ -171,12 +168,12 @@ def _load_model(args, device: torch.device):
             base_model.gradient_checkpointing_enable(gradient_checkpointing_kwargs={"use_reentrant": True})
     submodule = get_hf_submodule(base_model, 1)
     checkpoint = str(Path(args.checkpoint).resolve()) if args.checkpoint and Path(args.checkpoint).exists() else args.checkpoint
-    ao_checkpoint = str(Path(args.ao_checkpoint).resolve()) if args.ao_checkpoint and Path(args.ao_checkpoint).exists() else args.ao_checkpoint
     if args.checkpoint:
         model = PeftModel.from_pretrained(base_model, checkpoint, is_trainable=True, autocast_adapter_dtype=False)
     elif args.fresh_lora:
-        model = _make_fresh_lora(base_model, ao_checkpoint)
+        model = _make_fresh_lora(base_model)
     else:
+        ao_checkpoint = str(Path(args.ao_checkpoint).resolve()) if args.ao_checkpoint and Path(args.ao_checkpoint).exists() else args.ao_checkpoint
         model = PeftModel.from_pretrained(base_model, ao_checkpoint, is_trainable=True, autocast_adapter_dtype=False)
     for param in model.parameters():
         if param.requires_grad:
