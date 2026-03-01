@@ -593,9 +593,11 @@ def dicts_to_training_data(
                 _printed_sample = True
 
             msgs = [{"role": "user", "content": prompt}]
-            prompt_ids = tokenizer.apply_chat_template(msgs, tokenize=True, add_generation_prompt=True, enable_thinking=False)
+            prompt_text = tokenizer.apply_chat_template(msgs, tokenize=False, add_generation_prompt=True, enable_thinking=False)
+            prompt_ids = tokenizer.encode(prompt_text, add_special_tokens=False)
             full_msgs = msgs + [{"role": "assistant", "content": item["target_response"]}]
-            full_ids = tokenizer.apply_chat_template(full_msgs, tokenize=True, add_generation_prompt=False, enable_thinking=False)
+            full_text = tokenizer.apply_chat_template(full_msgs, tokenize=False, add_generation_prompt=False, enable_thinking=False)
+            full_ids = tokenizer.encode(full_text, add_special_tokens=False)
             labels = full_ids.copy()
             for i in range(len(prompt_ids)):
                 labels[i] = -100

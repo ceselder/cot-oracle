@@ -163,19 +163,22 @@ def prepare_context_ids(
         # Build user message: hinted_prompt for hint tasks, question otherwise
         user_msg = item.get("hinted_prompt") or item.get("question", "")
 
-        # Tokenize with chat template
+        # Tokenize with chat template (use tokenize=False + encode to avoid
+        # transformers 5.x returning Encoding objects instead of flat ID lists)
         prompt_msgs = [{"role": "user", "content": user_msg}]
-        prompt_ids = tokenizer.apply_chat_template(
-            prompt_msgs, tokenize=True, add_generation_prompt=True,
+        prompt_text = tokenizer.apply_chat_template(
+            prompt_msgs, tokenize=False, add_generation_prompt=True,
             enable_thinking=False,
         )
+        prompt_ids = tokenizer.encode(prompt_text, add_special_tokens=False)
         prompt_len = len(prompt_ids)
 
         full_msgs = prompt_msgs + [{"role": "assistant", "content": cot_text}]
-        full_ids = tokenizer.apply_chat_template(
-            full_msgs, tokenize=True, add_generation_prompt=False,
+        full_text = tokenizer.apply_chat_template(
+            full_msgs, tokenize=False, add_generation_prompt=False,
             enable_thinking=False,
         )
+        full_ids = tokenizer.encode(full_text, add_special_tokens=False)
 
         # Stride positions in the CoT region
         cot_positions = get_cot_stride_positions(
