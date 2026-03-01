@@ -650,21 +650,23 @@ def dicts_to_training_data(
         else:
             # Strip prompt positions: task loaders prepend N prompt positions to
             # each layer's positions. Remove them so the oracle only sees CoT.
+            # Per-item n_prompt_positions (e.g. FineWeb has 0) overrides the default.
             if _N_PROMPT_POSITIONS == 0 and n_layers_runtime >= 1:
                 total = len(ctx_pos)
                 if total % n_layers_runtime == 0:
                     k = total // n_layers_runtime
-                    orig_n_prompt = 5
-                    if k > orig_n_prompt:
+                    orig_n_prompt = item.get("n_prompt_positions", 5)
+                    if orig_n_prompt > 0 and k > orig_n_prompt:
                         new_base = ctx_pos[orig_n_prompt:k]
                         ctx_pos = new_base * n_layers_runtime
                         num_pos = len(ctx_pos)
 
             # Sparse position sampling: randomly subsample CoT positions per example
             if _SPARSE_POSITIONS:
+                item_n_prompt = item.get("n_prompt_positions", 5)
                 ctx_pos = sparse_sample_positions(
                     ctx_pos, n_layers=n_layers_runtime,
-                    n_prompt=0 if _N_PROMPT_POSITIONS == 0 else 5,
+                    n_prompt=0 if _N_PROMPT_POSITIONS == 0 else item_n_prompt,
                 )
                 num_pos = len(ctx_pos)
 
@@ -1706,6 +1708,14 @@ def apply_config(args, config: dict):
         if "fresh_lora" in m and not getattr(args, "_cli_fresh_lora", False):
             args.fresh_lora = m["fresh_lora"]
 
+    # FineWeb
+    if "fineweb" in config:
+        fw = config["fineweb"]
+        if fw.get("enabled", False) and not getattr(args, "_cli_fineweb_n", False):
+            args.fineweb_n = fw.get("n", 50000)
+        if "max_context_tokens" in fw and not getattr(args, "_cli_fineweb_max_context_tokens", False):
+            args.fineweb_max_context_tokens = fw["max_context_tokens"]
+
     # Output
     if "output" in config:
         o = config["output"]
@@ -1739,8 +1749,10 @@ def main():
     parser.add_argument("--ao-checkpoint",
                         default="adamkarvonen/checkpoints_latentqa_cls_past_lens_addition_Qwen3-8B",
                         help="Adam's pretrained AO checkpoint to start from")
-    parser.add_argument("--fresh-lora", action="store_true",
-                        help="Start with fresh LoRA instead of Adam's checkpoint")
+    parser.add_argument("--fresh-lora", action="store_true", default=True,
+                        help="Start with fresh LoRA (default). Use --no-fresh-lora to load Adam's checkpoint")
+    parser.add_argument("--no-fresh-lora", dest="fresh_lora", action="store_false",
+                        help="Load Adam's pretrained AO checkpoint instead of fresh LoRA")
 
     # Per-task example counts — defaults are 0; set via --config (train.yaml is source of truth)
     # 6 trainable tasks in the unified system:
@@ -1798,6 +1810,12 @@ def main():
     # Text-only baseline
     parser.add_argument("--no-activations", action="store_true", default=False,
                         help="Text-only baseline: train without activation steering (same data, no prefix/injection)")
+
+    # FineWeb context prediction
+    parser.add_argument("--fineweb-n", type=int, default=0,
+                        help="Number of FineWeb context prediction examples (0 = disabled, set via config)")
+    parser.add_argument("--fineweb-max-context-tokens", type=int, default=2000,
+                        help="Max context tokens for FineWeb activation extraction")
 
     # Flamingo cross-attention
     parser.add_argument("--flamingo", action="store_true", default=False,
@@ -2083,6 +2101,26 @@ def main():
             task_config[task_name] = {"n": n}
 
     raw_data = load_all_training_data(task_config)
+
+    # FineWeb context prediction (PastLens-style, if enabled)
+    fineweb_n = getattr(args, "fineweb_n", 0)
+    if fineweb_n > 0:
+        from data_loading import load_fineweb_data
+        if rank == 0:
+            print(f"  [data] Generating {fineweb_n} FineWeb context prediction examples...")
+        fw_stride = int(args.stride) if args.stride and args.stride != "punctuation" else 5
+        fineweb_data = load_fineweb_data(
+            tokenizer=tokenizer,
+            model_name=args.model,
+            n=fineweb_n,
+            max_context_tokens=getattr(args, "fineweb_max_context_tokens", 2000),
+            stride=fw_stride,
+            layers=MULTI_LAYERS,
+            seed=args.seed,
+        )
+        raw_data.extend(fineweb_data)
+        if rank == 0:
+            print(f"  [data]   -> {len(fineweb_data)} FineWeb examples added (total: {len(raw_data)})")
 
     if not raw_data:
         if rank == 0:

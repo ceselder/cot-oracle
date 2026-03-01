@@ -28,6 +28,13 @@ tasks:
     n: 15000
     description: "Will the model revise/backtrack in the next ~150 tokens?"
 
+# FineWeb context prediction (PastLens-style auxiliary training)
+# Streams FineWeb + LMSYS chat, generates past/future token prediction examples.
+fineweb:
+  enabled: false          # toggle on to mix web text context prediction into training
+  n: 50000
+  max_context_tokens: 2000
+
 # Training
 training:
   lr: 0.00001
@@ -69,7 +76,7 @@ eval:
 model:
   name: Qwen/Qwen3-8B
   ao_checkpoint: adamkarvonen/checkpoints_latentqa_cls_past_lens_addition_Qwen3-8B
-  fresh_lora: false
+  fresh_lora: true
 
 # Output
 output:
