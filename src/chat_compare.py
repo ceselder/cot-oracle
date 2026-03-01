@@ -13,6 +13,7 @@ CLI mode is still available with --cli.
 import argparse
 import atexit
 import asyncio
+import html
 import json
 import os
 import random
@@ -900,7 +901,9 @@ class ChatCompareWebApp:
     def _register_routes(self):
         @self.app.get("/", response_class=HTMLResponse)
         async def index():
-            return HTMLResponse(self._render_html())
+            suggestion = await asyncio.to_thread(fetch_suggested_question)
+            source_html = f'Sample prompt source: <a href="{html.escape(suggestion["source_url"], quote=True)}" target="_blank" rel="noreferrer" style="color:#93c5fd">{html.escape(suggestion["source_label"])}</a>'
+            return HTMLResponse(self._render_html(initial_question=suggestion["question"], initial_question_source_html=source_html, initial_status="Loaded sample prompt. You can refresh it for another one."))
 
         @self.app.get("/api/config")
         async def config():
@@ -1025,8 +1028,8 @@ class ChatCompareWebApp:
                 payload["sae_response"],
             )
 
-    def _render_html(self):
-        return """<!doctype html>
+    def _render_html(self, initial_question="", initial_question_source_html="", initial_status=""):
+        doc = """<!doctype html>
 <html>
 <head>
   <meta charset=\"utf-8\">
@@ -1084,12 +1087,12 @@ class ChatCompareWebApp:
       <div class=\"muted\">Bind this app with <code>--host 0.0.0.0</code> to reach it off-machine; public internet access still depends on your firewall / tunnel setup.</div>
       <div class=\"small muted\" id=\"shareInfo\" style=\"margin-top:8px\"></div>
       <label style=\"display:block;margin-top:16px\">Question</label>
-      <textarea id=\"question\" placeholder=\"Ask the base model to think...\"></textarea>
+      <textarea id=\"question\" placeholder=\"Ask the base model to think...\">__INITIAL_QUESTION__</textarea>
       <label class=\"small\" style=\"display:flex;align-items:center;gap:8px;margin-top:8px\"><input id=\"thinkingToggle\" type=\"checkbox\" checked style=\"width:auto\">Enable thinking for base-model CoT generation</label>
       <div class=\"row\"><button id=\"refreshPromptBtn\" class=\"secondary\">Refresh sample prompt</button></div>
-      <div class=\"small muted\" id=\"questionSource\" style=\"margin-top:8px\"></div>
+      <div class=\"small muted\" id=\"questionSource\" style=\"margin-top:8px\">__INITIAL_QUESTION_SOURCE__</div>
       <div class=\"row\"><button id=\"generateBtn\">Generate CoT + Activations</button></div>
-      <div class=\"status\" id=\"status\"></div>
+      <div class=\"status\" id=\"status\">__INITIAL_STATUS__</div>
       <div class=\"busy\" id=\"busyWrap\">
         <div class=\"busy-row\"><div class=\"spinner\"></div><div class=\"small\" id=\"busyLabel\">Working...</div></div>
         <div class=\"progress-track\"><div class=\"progress-bar\"></div></div>
@@ -1477,7 +1480,7 @@ class ChatCompareWebApp:
       renderPatchStrengthRows();
       renderTaskOptions();
       renderEvalTags();
-      await loadSuggestedQuestion();
+      setStatus(statusEl.textContent || 'Ready. Generate CoT + Activations to begin.');
     }
     async function loadSuggestedQuestion() {
       setStatus('Fetching a sample prompt from Hugging Face...');
@@ -1700,6 +1703,7 @@ class ChatCompareWebApp:
   </script>
 </body>
 </html>"""
+        return doc.replace("__INITIAL_QUESTION__", html.escape(initial_question)).replace("__INITIAL_QUESTION_SOURCE__", initial_question_source_html).replace("__INITIAL_STATUS__", html.escape(initial_status))
 
 
 def run_web(args):
