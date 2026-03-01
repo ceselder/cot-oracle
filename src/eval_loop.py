@@ -3,10 +3,12 @@ Unified eval loop for the CoT Oracle.
 
 Replaces training_eval_hook.py (~2000 lines), score_oracle.py, and run_evals.py.
 
-All 11 tasks share the same flow:
-  load test split → materialize activations → oracle generate → score → wandb metrics
+All tasks share the same flow:
+  load test split → prepare context → materialize activations → oracle generate → score → wandb metrics
 
-Four scoring functions cover all tasks with zero per-task special-casing.
+Scoring uses regex-first parsing on the trained output templates, with keyword
+fallback. Task-specific numeric metrics (e.g. token count MAE for
+reasoning_termination) are reported alongside the primary accuracy metric.
 """
 
 from __future__ import annotations
@@ -14,14 +16,33 @@ from __future__ import annotations
 import gc
 import re
 import time
-from pathlib import Path
 from typing import Any
 
 import torch
 
 from tasks import TASKS, TaskDef, ScoringMode, get_eval_tasks
-from data_loading import load_task_data
-from evals.common import parse_oracle_binary
+from data_loading import load_task_data, prepare_context_ids
+
+
+# ── Parsing helpers ──
+
+def _parse_yes_no(text: str) -> str | None:
+    """Parse 'yes'/'no' from the start of the oracle response.
+
+    Returns 'positive' for yes, 'negative' for no, None if unparseable.
+    """
+    text = text.strip().lower()
+    if text.startswith("yes"):
+        return "positive"
+    if text.startswith("no"):
+        return "negative"
+    return None
+
+
+def _extract_number(text: str) -> float | None:
+    """Extract the first number (int or float) from text."""
+    m = re.search(r'(\d+(?:\.\d+)?)', text)
+    return float(m.group(1)) if m else None
 
 
 # ── Scoring functions ──
@@ -31,7 +52,11 @@ def _score_binary(
     predictions: list[str],
     targets: list[str],
 ) -> dict[str, float]:
-    """Score binary classification via keyword parsing → accuracy."""
+    """Score binary classification via regex-first parsing → accuracy.
+
+    Tries regex yes/no parsing first. Falls back to keyword matching
+    for tasks that don't use yes/no templates (e.g. atypical_answer).
+    """
     if not predictions:
         return {"accuracy": 0.0, "n": 0}
 
@@ -39,22 +64,43 @@ def _score_binary(
     total = 0
     unparsed = 0
 
+    # Determine target labels from test data
+    # The target field contains the full template response;
+    # we compare against the task's positive/negative label
     for pred_text, target in zip(predictions, targets):
-        parsed = parse_oracle_binary(
-            pred_text,
-            list(task_def.positive_keywords),
-            list(task_def.negative_keywords),
-        )
-        if parsed is None:
-            unparsed += 1
-            continue
+        # Determine ground-truth label
+        target_lower = target.lower().strip()
+        if task_def.positive_label and target_lower.startswith(task_def.positive_label.lower()):
+            gt_label = task_def.positive_label
+        elif task_def.negative_label and target_lower.startswith(task_def.negative_label.lower()):
+            gt_label = task_def.negative_label
+        else:
+            # Fallback: check if target contains positive/negative keywords
+            gt_label = _label_from_keywords(
+                target, task_def.positive_keywords, task_def.negative_keywords,
+                task_def.positive_label, task_def.negative_label,
+            )
+            if gt_label is None:
+                continue
 
-        pred_label = (
-            task_def.positive_label if parsed == "positive"
-            else task_def.negative_label
-        )
+        # Parse prediction: regex first, keyword fallback
+        parsed = _parse_yes_no(pred_text)
+        if parsed is not None:
+            pred_label = (
+                task_def.positive_label if parsed == "positive"
+                else task_def.negative_label
+            )
+        else:
+            pred_label = _label_from_keywords(
+                pred_text, task_def.positive_keywords, task_def.negative_keywords,
+                task_def.positive_label, task_def.negative_label,
+            )
+            if pred_label is None:
+                unparsed += 1
+                continue
+
         total += 1
-        if pred_label == target:
+        if pred_label == gt_label:
             correct += 1
 
     acc = correct / total if total > 0 else 0.0
@@ -63,6 +109,53 @@ def _score_binary(
         "n": total,
         "unparsed": unparsed,
         "unparsed_rate": unparsed / len(predictions) if predictions else 0.0,
+    }
+
+
+def _label_from_keywords(
+    text: str,
+    positive_keywords: tuple[str, ...],
+    negative_keywords: tuple[str, ...],
+    positive_label: str,
+    negative_label: str,
+) -> str | None:
+    """Classify text by keyword presence. Returns label or None."""
+    text_lower = text.lower()
+    pos_found = any(kw in text_lower for kw in positive_keywords)
+    neg_found = any(kw in text_lower for kw in negative_keywords)
+    if pos_found and not neg_found:
+        return positive_label
+    if neg_found and not pos_found:
+        return negative_label
+    if pos_found and neg_found:
+        # Ambiguous — check which keyword appears first
+        first_pos = min(text_lower.find(kw) for kw in positive_keywords if kw in text_lower)
+        first_neg = min(text_lower.find(kw) for kw in negative_keywords if kw in text_lower)
+        return positive_label if first_pos < first_neg else negative_label
+    return None
+
+
+def _score_numeric(
+    predictions: list[str],
+    test_data: list[dict],
+    gt_field: str,
+) -> dict[str, float]:
+    """Extract the first number from each prediction, compare to ground truth field.
+
+    Returns MAE (mean absolute error) and count.
+    """
+    errors = []
+    for pred_text, item in zip(predictions, test_data):
+        pred_num = _extract_number(pred_text)
+        gt_val = item.get(gt_field)
+        if pred_num is not None and gt_val is not None:
+            errors.append(abs(pred_num - float(gt_val)))
+
+    if not errors:
+        return {}
+    return {
+        f"{gt_field}_mae": sum(errors) / len(errors),
+        f"{gt_field}_n": len(errors),
     }
 
 
@@ -156,11 +249,7 @@ def _score_token_match(
     targets: list[str],
     tokenizer=None,
 ) -> dict[str, float]:
-    """Token-level match rate for reconstruction tasks.
-
-    If tokenizer is provided, uses token IDs for matching.
-    Otherwise falls back to word-level matching.
-    """
+    """Token-level match rate for reconstruction tasks."""
     if not predictions:
         return {"token_match_rate": 0.0, "n": 0}
 
@@ -177,10 +266,7 @@ def _score_token_match(
             match_rates.append(1.0 if not pred_ids else 0.0)
             continue
 
-        # Count matching tokens up to min length
-        matches = sum(
-            1 for p, t in zip(pred_ids, target_ids) if p == t
-        )
+        matches = sum(1 for p, t in zip(pred_ids, target_ids) if p == t)
         match_rates.append(matches / len(target_ids))
 
     return {
@@ -195,19 +281,36 @@ def score_task(
     task_def: TaskDef,
     predictions: list[str],
     targets: list[str],
+    test_data: list[dict] | None = None,
     tokenizer=None,
 ) -> dict[str, float]:
-    """Score any task via its ScoringMode. Returns {metric: value, n: count}."""
+    """Score any task via its ScoringMode. Returns {metric: value, n: count}.
+
+    test_data is passed through for task-specific numeric metrics
+    (e.g. tokens_remaining MAE for reasoning_termination).
+    """
+    # Primary scoring
     if task_def.scoring == ScoringMode.BINARY:
-        return _score_binary(task_def, predictions, targets)
+        result = _score_binary(task_def, predictions, targets)
     elif task_def.scoring == ScoringMode.TOKEN_F1:
-        return _score_token_f1(predictions, targets)
+        result = _score_token_f1(predictions, targets)
     elif task_def.scoring == ScoringMode.STEP_ACCURACY:
-        return _score_step_accuracy(predictions, targets)
+        result = _score_step_accuracy(predictions, targets)
     elif task_def.scoring == ScoringMode.TOKEN_MATCH:
-        return _score_token_match(predictions, targets, tokenizer)
+        result = _score_token_match(predictions, targets, tokenizer)
     else:
         raise ValueError(f"Unknown scoring mode: {task_def.scoring}")
+
+    # Task-specific numeric metrics
+    if test_data:
+        if task_def.name == "reasoning_termination":
+            result.update(_score_numeric(predictions, test_data, "tokens_remaining"))
+        elif task_def.name == "correctness":
+            # Entropy MAE if the data has an entropy field
+            if any("answer_entropy" in d for d in test_data):
+                result.update(_score_numeric(predictions, test_data, "answer_entropy"))
+
+    return result
 
 
 # ── Batched oracle generation ──
@@ -499,10 +602,12 @@ def run_eval(
     oracle_adapter_name: str = "default",
     skip_rot13: bool = False,
     activation_extract_batch_size: int = 4,
+    stride: int = 5,
+    n_prompt_positions: int = 5,
 ) -> dict[str, float]:
     """Run eval for all (or specified) tasks.
 
-    For each task: load test split → materialize activations → oracle generate → score.
+    For each task: load test split → prepare context → materialize → generate → score.
     Returns flat metrics dict for wandb.log().
     """
     if layers is None:
@@ -534,6 +639,8 @@ def run_eval(
                 injection_layer=injection_layer,
                 oracle_adapter_name=oracle_adapter_name,
                 activation_extract_batch_size=activation_extract_batch_size,
+                stride=stride,
+                n_prompt_positions=n_prompt_positions,
             )
             elapsed = time.time() - t0
 
@@ -544,11 +651,22 @@ def run_eval(
             metrics[f"eval_n/{task_name}"] = result.get("n", 0)
             if "unparsed_rate" in result:
                 metrics[f"eval_n/{task_name}_parse_fail"] = result["unparsed_rate"]
+            # Task-specific numeric metrics
+            if "tokens_remaining_mae" in result:
+                metrics[f"eval/{task_name}_tokens_mae"] = result["tokens_remaining_mae"]
+            if "answer_entropy_mae" in result:
+                metrics[f"eval/{task_name}_entropy_mae"] = result["answer_entropy_mae"]
             metrics[f"eval_time/{task_name}"] = elapsed
 
+            # Build info string
+            info_parts = [f"{primary_metric}={result.get(primary_metric, 0):.3f}"]
+            if "tokens_remaining_mae" in result:
+                info_parts.append(f"tokens_mae={result['tokens_remaining_mae']:.1f}")
+            if "answer_entropy_mae" in result:
+                info_parts.append(f"entropy_mae={result['answer_entropy_mae']:.3f}")
             print(
                 f"  [eval] {task_name}: "
-                f"{primary_metric}={result.get(primary_metric, 0):.3f} "
+                f"{', '.join(info_parts)} "
                 f"(n={result.get('n', 0)}, {elapsed:.1f}s)"
             )
 
@@ -574,10 +692,21 @@ def _eval_single_task(
     injection_layer: int,
     oracle_adapter_name: str,
     activation_extract_batch_size: int,
+    stride: int = 5,
+    n_prompt_positions: int = 5,
 ) -> dict[str, float]:
-    """Eval a single task: load → materialize → generate → score."""
-    # Load test data
-    test_data = load_task_data(task_name, split="test", n=max_items)
+    """Eval a single task: load → prepare context → materialize → generate → score."""
+    # Load test data (deterministic: no shuffle)
+    test_data = load_task_data(task_name, split="test", n=max_items, shuffle=False)
+    if not test_data:
+        return {"n": 0}
+
+    # Prepare context_input_ids for items with cot_text
+    prepare_context_ids(
+        test_data, tokenizer, stride=stride, layers=layers,
+        n_prompt_positions=n_prompt_positions,
+    )
+    test_data = [d for d in test_data if d.get("context_input_ids")]
     if not test_data:
         return {"n": 0}
 
@@ -612,8 +741,8 @@ def _eval_single_task(
     # Extract targets
     targets = [item["target_response"] for item in test_data]
 
-    # Score
-    return score_task(task_def, predictions, targets, tokenizer)
+    # Score (pass test_data for numeric metrics)
+    return score_task(task_def, predictions, targets, test_data=test_data, tokenizer=tokenizer)
 
 
 def _primary_metric_name(scoring: ScoringMode) -> str:

@@ -26,6 +26,7 @@ def load_task_data(
     task_name: str,
     split: str = "train",
     n: int | None = None,
+    shuffle: bool = True,
 ) -> list[dict]:
     """Download {split}.jsonl from task's HF repo, return list of dicts.
 
@@ -69,7 +70,8 @@ def load_task_data(
             data.append(item)
 
     if n is not None and len(data) > n:
-        random.shuffle(data)
+        if shuffle:
+            random.shuffle(data)
         data = data[:n]
 
     return data

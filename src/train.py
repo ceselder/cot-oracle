@@ -932,6 +932,7 @@ def _run_unified_eval(model, tokenizer, model_name, global_step, args, log_dir=N
 
     print(f"\n--- Evals at step {global_step} ---")
     eval_start = time.time()
+    stride_val = int(args.stride) if args.stride and args.stride != "punctuation" else 5
     metrics = run_eval(
         model=model,
         tokenizer=tokenizer,
@@ -940,6 +941,8 @@ def _run_unified_eval(model, tokenizer, model_name, global_step, args, log_dir=N
         device="cuda",
         layers=MULTI_LAYERS,
         skip_rot13=(global_step < args.rot13_start_step),
+        stride=stride_val,
+        n_prompt_positions=_N_PROMPT_POSITIONS,
     )
     elapsed = time.time() - eval_start
     if metrics:
