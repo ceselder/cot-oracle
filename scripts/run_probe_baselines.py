@@ -599,6 +599,8 @@ def main():
     parser.add_argument("--attn-lr", type=float, default=1e-3)
     parser.add_argument("--attn-batch-size", type=int, default=32,
                         help="Batch size for attention probe training")
+    parser.add_argument("--skip-attn", action="store_true",
+                        help="Skip attention probes (linear only, much faster)")
     args = parser.parse_args()
 
     datasets_to_run = args.datasets or list(DATASETS.keys())
@@ -723,19 +725,20 @@ def main():
         record("last_linear_concat", preds)
 
         # ─── Attention probes (per-iteration collation, no pre-caching) ───
-        attn_layers_to_try = [18]  # single-layer only; concat too slow
-        attn_layers_to_try = [l for l in attn_layers_to_try if l in layers]
-        print(f"\n  Attention probes on layers {attn_layers_to_try}:")
-        for layer in attn_layers_to_try:
-            ln = f"L{layer}"
-            preds = train_attn_probe(
-                train_items, y_train, test_items, [layer],
-                n_classes, n_heads=args.n_heads,
-                lr=args.attn_lr, epochs=args.attn_epochs,
-                batch_size=args.attn_batch_size, device=args.device,
-            )
-            record(f"attn_{ln}", preds)
-            torch.cuda.empty_cache()
+        if not args.skip_attn:
+            attn_layers_to_try = [18]  # single-layer only; concat too slow
+            attn_layers_to_try = [l for l in attn_layers_to_try if l in layers]
+            print(f"\n  Attention probes on layers {attn_layers_to_try}:")
+            for layer in attn_layers_to_try:
+                ln = f"L{layer}"
+                preds = train_attn_probe(
+                    train_items, y_train, test_items, [layer],
+                    n_classes, n_heads=args.n_heads,
+                    lr=args.attn_lr, epochs=args.attn_epochs,
+                    batch_size=args.attn_batch_size, device=args.device,
+                )
+                record(f"attn_{ln}", preds)
+                torch.cuda.empty_cache()
 
         all_results[ds_name] = ds_results
 
