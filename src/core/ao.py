@@ -288,10 +288,10 @@ def get_steering_hook(vectors, positions, device, dtype, steering_coefficient=1.
         if l <= 1:
             return (resid, *rest) if is_tuple else resid
 
-        pos = torch.tensor(positions, dtype=torch.long, device=device)
+        pos = torch.tensor(positions, dtype=torch.long, device=resid.device)
         orig = resid[0, pos, :]
         norms = orig.norm(dim=-1, keepdim=True)
-        steered = (normed.to(device, dtype) * norms * steering_coefficient).detach()
+        steered = (normed.to(device=orig.device, dtype=orig.dtype) * norms.to(orig.dtype) * steering_coefficient).to(orig.dtype).detach()
         resid[0, pos, :] = steered + orig
 
         return (resid, *rest) if is_tuple else resid
