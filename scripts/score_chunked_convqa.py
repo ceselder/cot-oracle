@@ -109,14 +109,23 @@ def build_score_prompt(question, generated_question, gt_response, bb_response):
 def parse_bool_json(text):
     text = re.sub(r"```json\s*", "", text)
     text = re.sub(r"```\s*$", "", text.strip())
+    # Try JSON first
     match = re.search(r"\{.*\}", text, re.DOTALL)
-    if not match:
-        return None
-    try:
-        obj = json.loads(match.group())
-        return bool(obj["correct"])
-    except (json.JSONDecodeError, KeyError):
-        return None
+    if match:
+        try:
+            obj = json.loads(match.group())
+            return bool(obj["correct"])
+        except (json.JSONDecodeError, KeyError):
+            pass
+    # Fallback: parse prose for correctness signal
+    lower = text.lower()
+    # Strong incorrect signals
+    if re.search(r"\b(incorrect|not correct|fails to|does not capture|missing the key|substantially wrong|misses)\b", lower):
+        return False
+    # Strong correct signals
+    if re.search(r"\b(correctly|is correct|captures the key|substantively correct|matches|accurate)\b", lower):
+        return True
+    return None
 
 
 def main():
@@ -136,9 +145,15 @@ def main():
                 rows.append(json.loads(line))
     print(f"Loaded {len(rows)} rows from {args.input}")
 
-    # Build scoring tasks
+    # Build scoring tasks (only nulls if retrying)
+    null_indices = [i for i, r in enumerate(rows) if r.get("bb_correct") is None]
+    if null_indices:
+        print(f"  {len(null_indices)} rows with bb_correct=null")
+    score_indices = null_indices if null_indices and len(null_indices) < len(rows) else list(range(len(rows)))
+
     tasks = []
-    for row in rows:
+    for i in score_indices:
+        row = rows[i]
         user_prompt = build_score_prompt(row["question"], row["prompt"], row["target_response"], row["bb_response"])
         tasks.append((SCORE_SYSTEM, user_prompt))
 
@@ -160,13 +175,14 @@ def main():
 
     score_ok = 0
     score_fail = 0
-    for i, (resp_text, _, _) in enumerate(results):
+    for j, (resp_text, _, _) in enumerate(results):
+        row_idx = score_indices[j]
         val = parse_bool_json(resp_text) if resp_text else None
         if val is not None:
-            rows[i]["bb_correct"] = val
+            rows[row_idx]["bb_correct"] = val
             score_ok += 1
         else:
-            rows[i]["bb_correct"] = None
+            rows[row_idx]["bb_correct"] = None
             score_fail += 1
 
     # Save
