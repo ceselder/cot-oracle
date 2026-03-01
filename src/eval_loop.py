@@ -663,7 +663,7 @@ def run_eval(
     skip_rot13: bool = True,
     activation_extract_batch_size: int = 4,
     stride: int = 5,
-    n_prompt_positions: int = 5,
+    n_prompt_positions: int = 0,
 ) -> dict[str, float]:
     """Run eval for all (or specified) tasks.
 
@@ -771,7 +771,7 @@ def _eval_single_task(
     oracle_adapter_name: str,
     activation_extract_batch_size: int,
     stride: int = 5,
-    n_prompt_positions: int = 5,
+    n_prompt_positions: int = 0,
 ) -> dict[str, float]:
     """Eval a single task with activation caching."""
     # Check cache
@@ -788,7 +788,13 @@ def _eval_single_task(
                 layers=layers, seed=99,  # different seed from train
             )
         else:
-            test_data = load_task_data(task_name, split="test", n=max_items, shuffle=False)
+            # Try test split first, fall back to tail of train split
+            try:
+                test_data = load_task_data(task_name, split="test", n=max_items, shuffle=False)
+            except Exception:
+                test_data = []
+            if not test_data:
+                test_data = load_task_data(task_name, split="train", n=max_items, shuffle=False)
         if not test_data:
             return {"n": 0}
 

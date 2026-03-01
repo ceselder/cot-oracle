@@ -133,7 +133,7 @@ _LAYER_POOL = False
 # Sparse position sampling: randomly subsample CoT positions per example
 _SPARSE_POSITIONS = False
 # Strip prompt positions: remove question activations, keep CoT only
-_N_PROMPT_POSITIONS = 5  # how many prompt positions each task generates (for stripping)
+_N_PROMPT_POSITIONS = 0  # no prompt positions — oracle sees only CoT activations
 # Single position mode: only feed the last CoT position per layer
 _SINGLE_POSITION = False
 

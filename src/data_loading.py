@@ -87,6 +87,9 @@ def load_task_data(
             # (e.g. chunked_convqa/compqa use cot_prefix for activations)
             if task_def.cot_field != "cot_text" and task_def.cot_field in item:
                 item["cot_text"] = item[task_def.cot_field]
+            # Always recompute context_input_ids from text — never use precomputed
+            item.pop("context_input_ids", None)
+            item.pop("context_positions", None)
             data.append(item)
 
     if n is not None and len(data) > n:
@@ -144,7 +147,7 @@ def prepare_context_ids(
     tokenizer,
     stride: int = 5,
     layers: list[int] | None = None,
-    n_prompt_positions: int = 5,
+    n_prompt_positions: int = 0,
 ) -> list[dict]:
     """Compute context_input_ids and context_positions for items with cot_text.
 
@@ -172,10 +175,6 @@ def prepare_context_ids(
 
     prepared = 0
     for item in items:
-        # Skip items that already have precomputed context
-        if item.get("context_input_ids"):
-            continue
-
         cot_text = item.get("cot_text", "")
         if not cot_text:
             continue
