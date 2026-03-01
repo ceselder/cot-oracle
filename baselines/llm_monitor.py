@@ -88,6 +88,20 @@ EVAL_BINARY_CONFIG = {
         "option_a": "cybercrime",
         "option_b": "benign",
     },
+    "sentence_insertion": {
+        "instruction": "Was a foreign sentence from a different problem inserted into this reasoning chain, or are all steps original?",
+        "option_a": "inserted",
+        "option_b": "clean",
+    },
+    "cls_sst2": {"instruction": "Does this text express positive sentiment?", "option_a": "yes", "option_b": "no"},
+    "cls_snli": {"instruction": "Does the second sentence follow from the first?", "option_a": "yes", "option_b": "no"},
+    "cls_ag_news": {"instruction": "Is this article about the stated topic?", "option_a": "yes", "option_b": "no"},
+    "cls_ner": {"instruction": "Does this text mention the stated entity?", "option_a": "yes", "option_b": "no"},
+    "cls_tense": {"instruction": "Is this sentence in the stated tense?", "option_a": "yes", "option_b": "no"},
+    "cls_language_id": {"instruction": "Is this text written in the stated language?", "option_a": "yes", "option_b": "no"},
+    "cls_singular_plural": {"instruction": "Does this sentence have a single subject?", "option_a": "yes", "option_b": "no"},
+    "cls_geometry_of_truth": {"instruction": "Is this statement true?", "option_a": "yes", "option_b": "no"},
+    "cls_relations": {"instruction": "Is this statement true?", "option_a": "yes", "option_b": "no"},
 }
 
 
