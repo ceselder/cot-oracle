@@ -231,6 +231,13 @@ def _load_train_heldout_rows(task_name: str, n: int, seed: int) -> list[dict]:
     return heldout_rows
 
 
+def _normalize_loaded_rows(task_name: str, rows: list[dict]) -> None:
+    if task_name == "sentence_insertion":
+        for row in rows:
+            row["cot_text"] = row["meta_spliced_cot_text"]
+            row["target_response"] = str(row["meta_oracle_target"])
+
+
 def _load_task_rows(task_name: str, split: str, n: int, tokenizer, layers: list[int], args, seed: int) -> tuple[list[dict], dict[str, int | None]]:
     if task_name == "rot13_reconstruction":
         raise ValueError("rot13_reconstruction needs the dedicated ROT13 adapter and is not supported here")
@@ -242,6 +249,7 @@ def _load_task_rows(task_name: str, split: str, n: int, tokenizer, layers: list[
             rows = _load_train_heldout_rows(task_name, n=n, seed=seed)
         else:
             rows = load_task_data(task_name, split=split, n=n, shuffle=True)
+        _normalize_loaded_rows(task_name, rows)
         if any(not row.get("context_input_ids") for row in rows):
             if not isinstance(args.stride, int):
                 raise ValueError(f"Task {task_name} requires tokenizing cot_text but stride={args.stride!r} is not an integer")
