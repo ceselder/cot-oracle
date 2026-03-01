@@ -410,9 +410,8 @@ def train_attn_probe(train_items, y_train, test_items, layers,
                      device="cuda"):
     """Train Eleuther attention probe with AdamW + early stopping.
 
-    Pre-collates all batches once (caches padded tensors on GPU) so the
-    expensive CPU padding work happens only once, not 100x per epoch.
-    Uses length-sorted batching to minimize padding waste.
+    Uses length-sorted batching with per-iteration collation (pre-collation
+    OOMs on 252GB RAM when raw activations + collated batches both in memory).
     Returns: predictions tensor on test set.
     """
     d_in = train_items[0][0][layers[0]].shape[1] * len(layers)
@@ -429,24 +428,20 @@ def train_attn_probe(train_items, y_train, test_items, layers,
     for start in range(0, N, batch_size):
         fixed_batches.append(sorted_indices[start:start + batch_size])
 
-    # Pre-collate ALL batches once on CPU (avoid re-padding every epoch)
-    print(f"      Pre-collating {len(fixed_batches)} batches...", end=" ", flush=True)
-    cached_batches = []
-    for idx in fixed_batches:
-        bx, bm, bp = collate_batch(train_items, idx, layers)
-        by = y_train[idx]
-        cached_batches.append((bx, bm, bp, by))
-    print("done")
-
+    n_batches = len(fixed_batches)
     best_loss, best_epoch, best_state = float("inf"), 0, None
-    for ep in range(epochs):
+
+    pbar = trange(epochs, desc="      attn_probe", leave=False)
+    for ep in pbar:
         probe.train()
-        batch_order = torch.randperm(len(cached_batches)).tolist()
+        batch_order = torch.randperm(n_batches).tolist()
         epoch_loss = 0.0
 
         for bi in batch_order:
-            bx, bm, bp, by = cached_batches[bi]
-            bx, bm, bp, by = bx.to(device), bm.to(device), bp.to(device), by.to(device)
+            idx = fixed_batches[bi]
+            bx, bm, bp = collate_batch(train_items, idx, layers)
+            bx, bm, bp = bx.to(device), bm.to(device), bp.to(device)
+            by = y_train[idx].to(device)
 
             opt.zero_grad(set_to_none=True)
             out = probe(bx, bm, bp)
@@ -462,7 +457,8 @@ def train_attn_probe(train_items, y_train, test_items, layers,
             opt.step()
             epoch_loss += loss.item()
 
-        avg_loss = epoch_loss / max(len(cached_batches), 1)
+        avg_loss = epoch_loss / max(n_batches, 1)
+        pbar.set_postfix(loss=f"{avg_loss:.4f}", best_ep=best_epoch)
         if avg_loss < best_loss:
             best_loss = avg_loss
             best_epoch = ep
@@ -473,10 +469,7 @@ def train_attn_probe(train_items, y_train, test_items, layers,
     if best_state:
         probe.load_state_dict({k: v.to(device) for k, v in best_state.items()})
 
-    # Free cached training batches
-    del cached_batches
-
-    # Evaluate (pre-collate test batches too)
+    # Evaluate
     probe.eval()
     all_preds = []
     N_te = len(test_items)
@@ -729,11 +722,11 @@ def main():
                                    device=args.device)
         record("last_linear_concat", preds)
 
-        # ─── Attention probes on key layers only (slow) ───
-        attn_layers = [18]  # attention probes are expensive, run on best layer only
-        attn_layers = [l for l in attn_layers if l in layers]
-        print(f"\n  Attention probes on layers {attn_layers} + concat:")
-        for layer in attn_layers:
+        # ─── Attention probes (per-iteration collation, no pre-caching) ───
+        attn_layers_to_try = [18]  # single-layer only; concat too slow
+        attn_layers_to_try = [l for l in attn_layers_to_try if l in layers]
+        print(f"\n  Attention probes on layers {attn_layers_to_try}:")
+        for layer in attn_layers_to_try:
             ln = f"L{layer}"
             preds = train_attn_probe(
                 train_items, y_train, test_items, [layer],
@@ -743,16 +736,6 @@ def main():
             )
             record(f"attn_{ln}", preds)
             torch.cuda.empty_cache()
-
-        # Attention probe concat (all extracted layers)
-        preds = train_attn_probe(
-            train_items, y_train, test_items, layers,
-            n_classes, n_heads=args.n_heads,
-            lr=args.attn_lr, epochs=args.attn_epochs,
-            batch_size=args.attn_batch_size, device=args.device,
-        )
-        record("attn_concat", preds)
-        torch.cuda.empty_cache()
 
         all_results[ds_name] = ds_results
 
@@ -787,11 +770,10 @@ def main():
             short.append(f"lL{l}")
         cols.append("last_linear_concat")
         short.append("lAll")
-        for l in layers:
-            cols.append(f"attn_L{l}")
-            short.append(f"aL{l}")
-        cols.append("attn_concat")
-        short.append("aAll")
+        for l in [18]:
+            if l in layers:
+                cols.append(f"attn_L{l}")
+                short.append(f"aL{l}")
 
         header = f"{'Dataset':<22s} " + " ".join(f"{s:>6s}" for s in short) + "  N"
         print(header)
