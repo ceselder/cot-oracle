@@ -170,12 +170,14 @@ def _load_model(args, device: torch.device):
             base_model.use_cache = False
             base_model.gradient_checkpointing_enable(gradient_checkpointing_kwargs={"use_reentrant": True})
     submodule = get_hf_submodule(base_model, 1)
+    checkpoint = str(Path(args.checkpoint).resolve()) if args.checkpoint and Path(args.checkpoint).exists() else args.checkpoint
+    ao_checkpoint = str(Path(args.ao_checkpoint).resolve()) if args.ao_checkpoint and Path(args.ao_checkpoint).exists() else args.ao_checkpoint
     if args.checkpoint:
-        model = PeftModel.from_pretrained(base_model, args.checkpoint, is_trainable=True, autocast_adapter_dtype=False)
+        model = PeftModel.from_pretrained(base_model, checkpoint, is_trainable=True, autocast_adapter_dtype=False)
     elif args.fresh_lora:
-        model = _make_fresh_lora(base_model, args.ao_checkpoint)
+        model = _make_fresh_lora(base_model, ao_checkpoint)
     else:
-        model = PeftModel.from_pretrained(base_model, args.ao_checkpoint, is_trainable=True, autocast_adapter_dtype=False)
+        model = PeftModel.from_pretrained(base_model, ao_checkpoint, is_trainable=True, autocast_adapter_dtype=False)
     for param in model.parameters():
         if param.requires_grad:
             param.data = param.data.float()
