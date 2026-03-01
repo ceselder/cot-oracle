@@ -40,8 +40,8 @@ tasks:
     n: 30000
     eval: true
 
-  # --- Eval-only tasks (test split only, n is ignored) ---
   sycophancy:
+    n: 15000
     eval: true
 
   truthfulqa_hint_verbalized:

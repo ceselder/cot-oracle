@@ -48,10 +48,11 @@ tasks:
     eval: true
 
   sycophancy:
-    eval: false    # not on HF
+    n: 15000
+    eval: true
 
   sentence_insertion:
-    eval: false    # no test split
+    eval: true
 
   rot13_reconstruction:
     eval: false
@@ -78,7 +79,7 @@ flamingo:
   enabled: false
 
 activations:
-  stride: 5
+  stride: 10
   position_encoding: false
   pe_alpha: 0.1
 
@@ -97,4 +98,4 @@ output:
   save_dir: /root/checkpoints
   wandb_project: cot_oracle
   wandb_entity: MATS10-CS-JB
-  wandb_run: v7-unified
+  wandb_run: v7-all-tasks-s10
