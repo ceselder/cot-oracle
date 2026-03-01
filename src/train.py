@@ -2152,6 +2152,45 @@ def main():
             for cfg_path in (args.config if isinstance(args.config, list) else [args.config]):
                 if Path(cfg_path).exists():
                     wandb.save(cfg_path)
+
+        # Workaround: wandb file_stream broken on Vast.ai.
+        # Periodically finish+reinit to force data upload via wandb.finish().
+        import threading
+
+        _wandb_lock = threading.Lock()
+        _wandb_run_id = wandb.run.id
+        _wandb_init_kw = dict(
+            project=args.wandb_project,
+            entity=args.wandb_entity,
+            name=run_name,
+            group=args.wandb_group,
+            id=_wandb_run_id,
+            resume="allow",
+            config=wandb_config,
+            tags=[args.model.split("/")[-1]] + enabled_tasks,
+        )
+        _original_wandb_log = wandb.log
+
+        def _safe_wandb_log(data, *a, **kw):
+            with _wandb_lock:
+                _original_wandb_log(data, *a, **kw)
+
+        wandb.log = _safe_wandb_log
+
+        def _wandb_flush_thread(interval=180):
+            """Periodically finish+reinit to force data upload."""
+            while True:
+                time.sleep(interval)
+                with _wandb_lock:
+                    try:
+                        wandb.finish(quiet=True)
+                        wandb.init(**_wandb_init_kw)
+                        print(f"  [wandb] Sync flush completed")
+                    except Exception as e:
+                        print(f"  [wandb] Sync error: {e}")
+
+        threading.Thread(target=_wandb_flush_thread, daemon=True).start()
+        print(f"  [wandb] Periodic flush thread started (every {180}s)")
     else:
         enabled_tasks = sorted(task_config.keys())
 
