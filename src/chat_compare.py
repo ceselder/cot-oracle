@@ -72,6 +72,7 @@ OPENROUTER_API_BASE = "https://openrouter.ai/api/v1"
 OPENROUTER_SAE_MODEL = "google/gemini-2.5-flash-lite"
 OPENROUTER_BLACKBOX_MODEL = "google/gemini-3-flash-preview"
 TRYCLOUDFLARE_URL_RE = re.compile(r"https://[A-Za-z0-9.-]+\\.trycloudflare\\.com")
+CHAT_COMPARE_LOG_DIR = Path(os.path.expandvars(os.environ["FAST_CACHE_DIR"])) / "cot-oracle" / "chat_compare"
 
 BUILTIN_TASK_PROMPTS = {
     "recon": "Reconstruct the original chain-of-thought reasoning from these activations.",
@@ -487,7 +488,7 @@ class ChatCompareWebApp:
         self.saes = None
         self.sae_labels = None
         self.state = SessionState()
-        self.log_dir = Path("logs/chat_compare")
+        self.log_dir = CHAT_COMPARE_LOG_DIR
         self.log_dir.mkdir(parents=True, exist_ok=True)
         self.session_id = time.strftime("%Y%m%d-%H%M%S")
         self.session_log = self.log_dir / f"session_{self.session_id}.jsonl"
@@ -524,6 +525,7 @@ class ChatCompareWebApp:
             f"- Time: {time.strftime('%Y-%m-%d %H:%M:%S')}",
             f"- Question: {payload['question']}",
             f"- Eval tags: {', '.join(payload['eval_tags']) if payload['eval_tags'] else '(none)'}",
+            f"- Baselines: {', '.join(payload['selected_baselines']) if payload['selected_baselines'] else '(none)'}",
             f"- Selected layers: {payload['selected_layers']}",
             f"- Selected positions: {payload['selected_positions']}",
             "",
@@ -679,7 +681,11 @@ class ChatCompareWebApp:
             )
         return {"prompt": ctx["prompt"], "trained_response": trained_response}
 
-    def _run_patchscopes_component(self, ctx, max_tokens, steering_coefficient):
+    def _parse_patchscopes_strengths(self, payload):
+        raw_strengths = payload["patchscopes_strengths"]
+        return {layer: float(raw_strengths[str(layer)]) for layer in self.layers}
+
+    def _run_patchscopes_component(self, ctx, max_tokens, steering_by_layer):
         per_layer_acts = self._selected_acts_by_layer(ctx)
         responses = []
         with self.model_lock:
@@ -692,12 +698,12 @@ class ChatCompareWebApp:
                     per_layer_acts[layer],
                     ctx["prompt"],
                     injection_layer=1,
-                    steering_coefficient=steering_coefficient,
+                    steering_coefficient=steering_by_layer[layer],
                     max_new_tokens=max_tokens,
                     device=str(get_model_input_device(self.model)),
                 )
                 responses.append(f"L{layer}: {generated}")
-        return {"patchscopes_prompt": ctx["prompt"], "patchscopes_response": " ".join(responses), "patchscopes_strength": steering_coefficient}
+        return {"patchscopes_prompt": ctx["prompt"], "patchscopes_response": " ".join(responses), "patchscopes_strengths": steering_by_layer}
 
     def _run_black_box_component(self, ctx, max_tokens):
         black_box_response = query_black_box_monitor(self.state.question, self.state.cot_response, ctx["prompt"], max_tokens=max_tokens)
@@ -711,12 +717,13 @@ class ChatCompareWebApp:
         sae_response = query_sae_llm(sae_prompt)
         return {"sae_feature_desc": sae_feature_desc, "sae_response": sae_response}
 
-    def _finalize_run(self, ctx, eval_tags, ao_prompt, ao_response, patchscopes_response, black_box_response, trained_response, sae_feature_desc, sae_response):
+    def _finalize_run(self, ctx, eval_tags, selected_baselines, ao_prompt, ao_response, patchscopes_response, black_box_response, trained_response, sae_feature_desc, sae_response):
         log_payload = {
             "task_key": ctx["task_key"],
             "question": self.state.question,
             "prompt": ctx["prompt"],
             "eval_tags": eval_tags,
+            "selected_baselines": selected_baselines,
             "selected_layers": ctx["selected_layers"],
             "selected_positions": ctx["selected_positions"],
             "cot_preview": self.state.cot_response[:2000],
@@ -733,6 +740,7 @@ class ChatCompareWebApp:
             "task_key": ctx["task_key"],
             "prompt": ctx["prompt"],
             "ao_prompt": ao_prompt,
+            "selected_baselines": selected_baselines,
             "selected_layers": ctx["selected_layers"],
             "layer_counts": ctx["layer_counts"],
             "selected_positions": ctx["selected_positions"],
@@ -745,16 +753,27 @@ class ChatCompareWebApp:
             "log_path": str(md_path),
         }
 
-    def _run_query(self, task_key, custom_prompt, selected_cells, max_tokens, eval_tags, patchscopes_strength):
+    def _run_query(self, task_key, custom_prompt, selected_cells, max_tokens, eval_tags, selected_baselines, patchscopes_strengths):
         ctx = self._resolve_run_context(task_key, custom_prompt, selected_cells)
-        ao_result = self._run_original_ao_component(ctx, max_tokens)
-        patchscopes_result = self._run_patchscopes_component(ctx, max_tokens, patchscopes_strength)
-        black_box_result = self._run_black_box_component(ctx, max_tokens)
-        trained_result = self._run_trained_oracle_component(ctx, max_tokens)
-        sae_result = self._run_sae_component(ctx)
+        ao_result = {"ao_prompt": "", "ao_response": "(skipped)"}
+        patchscopes_result = {"patchscopes_response": "(skipped)"}
+        black_box_result = {"black_box_response": "(skipped)"}
+        trained_result = {"trained_response": "(skipped)"}
+        sae_result = {"sae_feature_desc": "(skipped)", "sae_response": "(skipped)"}
+        if "ao" in selected_baselines:
+            ao_result = self._run_original_ao_component(ctx, max_tokens)
+        if "patch" in selected_baselines:
+            patchscopes_result = self._run_patchscopes_component(ctx, max_tokens, patchscopes_strengths)
+        if "bb" in selected_baselines:
+            black_box_result = self._run_black_box_component(ctx, max_tokens)
+        if "oracle" in selected_baselines:
+            trained_result = self._run_trained_oracle_component(ctx, max_tokens)
+        if "sae" in selected_baselines:
+            sae_result = self._run_sae_component(ctx)
         return self._finalize_run(
             ctx,
             eval_tags,
+            selected_baselines,
             ao_result["ao_prompt"],
             ao_result["ao_response"],
             patchscopes_result["patchscopes_response"],
@@ -817,8 +836,9 @@ class ChatCompareWebApp:
             selected_cells = payload.get("selected_cells", [])
             max_tokens = int(payload.get("max_tokens", self.args.max_tokens))
             eval_tags = payload.get("eval_tags", [])
-            patchscopes_strength = float(payload.get("patchscopes_strength", 1.0))
-            return await asyncio.to_thread(self._run_query, task_key, custom_prompt, selected_cells, max_tokens, eval_tags, patchscopes_strength)
+            selected_baselines = payload["selected_baselines"]
+            patchscopes_strengths = self._parse_patchscopes_strengths(payload)
+            return await asyncio.to_thread(self._run_query, task_key, custom_prompt, selected_cells, max_tokens, eval_tags, selected_baselines, patchscopes_strengths)
 
         @self.app.post("/api/run_original_ao")
         async def run_original_ao(payload: dict):
@@ -831,8 +851,8 @@ class ChatCompareWebApp:
         async def run_patchscopes(payload: dict):
             ctx = self._resolve_run_context(payload["task_key"], payload.get("custom_prompt", ""), payload.get("selected_cells", []))
             max_tokens = int(payload.get("max_tokens", self.args.max_tokens))
-            patchscopes_strength = float(payload.get("patchscopes_strength", 1.0))
-            result = await asyncio.to_thread(self._run_patchscopes_component, ctx, max_tokens, patchscopes_strength)
+            patchscopes_strengths = self._parse_patchscopes_strengths(payload)
+            result = await asyncio.to_thread(self._run_patchscopes_component, ctx, max_tokens, patchscopes_strengths)
             return {**result, "task_key": ctx["task_key"], "selected_layers": ctx["selected_layers"], "selected_positions": ctx["selected_positions"]}
 
         @self.app.post("/api/run_trained_oracle")
@@ -869,6 +889,7 @@ class ChatCompareWebApp:
                 self._finalize_run,
                 ctx,
                 eval_tags,
+                payload["selected_baselines"],
                 payload["ao_prompt"],
                 payload["ao_response"],
                 payload["patchscopes_response"],
@@ -921,6 +942,12 @@ class ChatCompareWebApp:
     .mini-status.loading .mini-dot { display: inline-block; }
     .small { font-size: 12px; }
     .pill { display: inline-block; padding: 2px 8px; border-radius: 999px; background: #1e293b; margin-right: 6px; margin-bottom: 4px; font-size: 12px; }
+    .check-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 10px; margin-top: 8px; }
+    .inline-check { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #cbd5e1; }
+    .inline-check input { width: auto; margin: 0; }
+    .slider-stack { display: grid; gap: 8px; margin-top: 8px; }
+    .slider-row { display: grid; grid-template-columns: 40px 1fr 42px; gap: 8px; align-items: center; }
+    .slider-row input { padding: 0; }
     @keyframes spin { to { transform: rotate(360deg); } }
   </style>
 </head>
@@ -950,8 +977,16 @@ class ChatCompareWebApp:
         <select id=\"evalTags\" multiple size=\"8\"></select>
         <label style=\"display:block;margin-top:10px\">Max new tokens</label>
         <input id=\"maxTokens\" type=\"number\" value=\"150\" min=\"1\" step=\"1\">
-        <label style=\"display:block;margin-top:10px\">Patchscopes injection strength <span id=\"patchStrengthValue\">1.0</span></label>
-        <input id=\"patchStrength\" type=\"range\" value=\"1.0\" min=\"0.0\" max=\"3.0\" step=\"0.1\">
+        <label style=\"display:block;margin-top:10px\">Baselines to run</label>
+        <div class=\"check-grid\">
+          <label class=\"inline-check\"><input id=\"baselineAo\" type=\"checkbox\" checked>Original AO</label>
+          <label class=\"inline-check\"><input id=\"baselinePatch\" type=\"checkbox\" checked>Patchscopes</label>
+          <label class=\"inline-check\"><input id=\"baselineBb\" type=\"checkbox\" checked>Black-box</label>
+          <label class=\"inline-check\"><input id=\"baselineOracle\" type=\"checkbox\" checked>Trained oracle</label>
+          <label class=\"inline-check\"><input id=\"baselineSae\" type=\"checkbox\" checked>SAE -> LLM</label>
+        </div>
+        <label style=\"display:block;margin-top:10px\">Patchscopes per-layer injection strength</label>
+        <div id=\"patchStrengthRows\" class=\"slider-stack\"></div>
         <div class=\"row\">
           <button id=\"runBtn\">Run selected activations</button>
           <button id=\"selectAllBtn\" class=\"secondary\">Select all</button>
@@ -1026,8 +1061,13 @@ class ChatCompareWebApp:
     const questionSource = document.getElementById('questionSource');
     const shareInfo = document.getElementById('shareInfo');
     const selectionBox = document.getElementById('selectionBox');
-    const patchStrength = document.getElementById('patchStrength');
-    const patchStrengthValue = document.getElementById('patchStrengthValue');
+    const baselineInputs = {
+      ao: document.getElementById('baselineAo'),
+      patch: document.getElementById('baselinePatch'),
+      bb: document.getElementById('baselineBb'),
+      oracle: document.getElementById('baselineOracle'),
+      sae: document.getElementById('baselineSae'),
+    };
     const panelStatus = {
       ao: { box: document.getElementById('aoStatus'), text: document.getElementById('aoStatusText') },
       patch: { box: document.getElementById('patchStatus'), text: document.getElementById('patchStatusText') },
@@ -1038,6 +1078,42 @@ class ChatCompareWebApp:
 
     function setStatus(msg) { statusEl.textContent = msg; }
     function compactText(text) { return (text || '').replace(/\\s+/g, ' ').trim(); }
+    function selectedBaselines() { return Object.entries(baselineInputs).filter(([, input]) => input.checked).map(([name]) => name); }
+    function patchscopesStrengths() {
+      const strengths = {};
+      document.querySelectorAll('.patch-layer-strength').forEach(input => { strengths[input.dataset.layer] = Number(input.value); });
+      return strengths;
+    }
+    function setPatchStrengthLabel(layer, value) {
+      document.getElementById(`patchStrengthValue_${layer}`).textContent = Number(value).toFixed(1);
+    }
+    function renderPatchStrengthRows() {
+      const wrap = document.getElementById('patchStrengthRows');
+      wrap.innerHTML = '';
+      config.layers.forEach(layer => {
+        const row = document.createElement('div');
+        row.className = 'slider-row';
+        const label = document.createElement('div');
+        label.textContent = `L${layer}`;
+        const input = document.createElement('input');
+        input.type = 'range';
+        input.min = '0.0';
+        input.max = '3.0';
+        input.step = '0.1';
+        input.value = '1.0';
+        input.className = 'patch-layer-strength';
+        input.dataset.layer = String(layer);
+        input.addEventListener('input', () => setPatchStrengthLabel(layer, input.value));
+        const value = document.createElement('div');
+        value.id = `patchStrengthValue_${layer}`;
+        value.className = 'small muted';
+        value.textContent = '1.0';
+        row.appendChild(label);
+        row.appendChild(input);
+        row.appendChild(value);
+        wrap.appendChild(row);
+      });
+    }
     async function postJson(url, payload) {
       const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
       const data = await response.json();
@@ -1206,6 +1282,7 @@ class ChatCompareWebApp:
       } else {
         shareInfo.textContent = `Host: ${config.host_fqdn} | share policy: ${config.share_policy}`;
       }
+      renderPatchStrengthRows();
       renderTaskOptions();
       renderEvalTags();
       await loadSuggestedQuestion();
@@ -1261,8 +1338,9 @@ class ChatCompareWebApp:
       const customPrompt = document.getElementById('customPrompt').value;
       const evalTags = Array.from(document.getElementById('evalTags').selectedOptions).map(opt => opt.value);
       const maxTokens = Number(document.getElementById('maxTokens').value);
-      const patchscopesStrength = Number(patchStrength.value);
-      const payload = { task_key: taskKey, custom_prompt: customPrompt, selected_cells: selectedCells(), max_tokens: maxTokens, eval_tags: evalTags, patchscopes_strength: patchscopesStrength };
+      const baselines = selectedBaselines();
+      if (!baselines.length) { setStatus('Select at least one baseline'); return; }
+      const payload = { task_key: taskKey, custom_prompt: customPrompt, selected_cells: selectedCells(), max_tokens: maxTokens, eval_tags: evalTags, selected_baselines: baselines, patchscopes_strengths: patchscopesStrengths() };
       setStatus('Running baselines...');
       setBusy(true, 'Running baselines and populating panels...', 25);
       resetPanelStatuses();
@@ -1279,98 +1357,132 @@ class ChatCompareWebApp:
       let completed = 0;
       function advanceProgress(msg) {
         completed += 1;
-        setBusy(true, msg, 25 + Math.round((completed / 5) * 55));
+        setBusy(true, msg, 25 + Math.round((completed / baselines.length) * 55));
       }
-      setPanelLoading('ao', true, 'Running...');
-      setPanelLoading('patch', true, 'Running...');
-      setPanelLoading('bb', true, 'Running...');
-      setPanelLoading('oracle', true, 'Running...');
-      setPanelLoading('sae', true, 'Running...');
-      const aoPromise = postJson('/api/run_original_ao', payload).then(data => {
+      const requests = [];
+      if (baselines.includes('ao')) {
+        setPanelLoading('ao', true, 'Running...');
+        requests.push(postJson('/api/run_original_ao', payload).then(data => {
         document.getElementById('aoPrompt').textContent = `AO prompt: ${data.ao_prompt}`;
         document.getElementById('aoOut').textContent = compactText(data.ao_response);
         setPanelLoading('ao', false, 'Loaded');
         advanceProgress('Original AO loaded...');
-        return data;
+        return ['ao', data];
       }).catch(error => {
         setPanelLoading('ao', false, 'Failed');
         throw error;
-      });
-      const patchPromise = postJson('/api/run_patchscopes', payload).then(data => {
+      }));
+      } else {
+        setPanelLoading('ao', false, 'Skipped');
+        document.getElementById('aoOut').textContent = '(skipped)';
+      }
+      if (baselines.includes('patch')) {
+        setPanelLoading('patch', true, 'Running...');
+        requests.push(postJson('/api/run_patchscopes', payload).then(data => {
         document.getElementById('patchPrompt').textContent = `Patchscopes prompt: ${data.patchscopes_prompt}`;
         document.getElementById('patchOut').textContent = compactText(data.patchscopes_response);
         setPanelLoading('patch', false, 'Loaded');
         advanceProgress('Patchscopes loaded...');
-        return data;
+        return ['patch', data];
       }).catch(error => {
         setPanelLoading('patch', false, 'Failed');
         throw error;
-      });
-      const bbPromise = postJson('/api/run_black_box_monitor', payload).then(data => {
+      }));
+      } else {
+        setPanelLoading('patch', false, 'Skipped');
+        document.getElementById('patchOut').textContent = '(skipped)';
+      }
+      if (baselines.includes('bb')) {
+        setPanelLoading('bb', true, 'Running...');
+        requests.push(postJson('/api/run_black_box_monitor', payload).then(data => {
         document.getElementById('bbPrompt').textContent = `Black-box prompt: ${data.black_box_prompt}`;
         document.getElementById('bbOut').textContent = compactText(data.black_box_response);
         setPanelLoading('bb', false, 'Loaded');
         advanceProgress('Black-box monitor loaded...');
-        return data;
+        return ['bb', data];
       }).catch(error => {
         setPanelLoading('bb', false, 'Failed');
         throw error;
-      });
-      const oraclePromise = postJson('/api/run_trained_oracle', payload).then(data => {
+      }));
+      } else {
+        setPanelLoading('bb', false, 'Skipped');
+        document.getElementById('bbOut').textContent = '(skipped)';
+      }
+      if (baselines.includes('oracle')) {
+        setPanelLoading('oracle', true, 'Running...');
+        requests.push(postJson('/api/run_trained_oracle', payload).then(data => {
         document.getElementById('oraclePrompt').textContent = `Oracle prompt: ${data.prompt}`;
         document.getElementById('oracleOut').textContent = compactText(data.trained_response);
         setPanelLoading('oracle', false, 'Loaded');
         advanceProgress('Trained oracle loaded...');
-        return data;
+        return ['oracle', data];
       }).catch(error => {
         setPanelLoading('oracle', false, 'Failed');
         throw error;
-      });
-      const saePromise = postJson('/api/run_sae_partial', payload).then(data => {
+      }));
+      } else {
+        setPanelLoading('oracle', false, 'Skipped');
+        document.getElementById('oracleOut').textContent = '(skipped)';
+      }
+      if (baselines.includes('sae')) {
+        setPanelLoading('sae', true, 'Running...');
+        requests.push(postJson('/api/run_sae_partial', payload).then(data => {
         document.getElementById('saeOut').textContent = compactText(data.sae_response);
         setPanelLoading('sae', false, 'Loaded');
         advanceProgress('SAE baseline loaded...');
-        return data;
+        return ['sae', data];
       }).catch(error => {
         setPanelLoading('sae', false, 'Failed');
         throw error;
-      });
-      const settled = await Promise.allSettled([aoPromise, patchPromise, bbPromise, oraclePromise, saePromise]);
+      }));
+      } else {
+        setPanelLoading('sae', false, 'Skipped');
+        document.getElementById('saeOut').textContent = '(skipped)';
+      }
+      const settled = await Promise.allSettled(requests);
       const failed = settled.find(result => result.status === 'rejected');
       if (failed) {
         setBusy(false);
         setStatus(failed.reason.message);
         return;
       }
-      const [aoData, patchData, bbData, oracleData, saeData] = settled.map(result => result.value);
+      const results = {
+        ao: { ao_prompt: '', ao_response: '(skipped)' },
+        patch: { patchscopes_response: '(skipped)' },
+        bb: { black_box_response: '(skipped)' },
+        oracle: { trained_response: '(skipped)' },
+        sae: { sae_feature_desc: '(skipped)', sae_response: '(skipped)' },
+      };
+      settled.forEach(result => {
+        const [name, data] = result.value;
+        results[name] = data;
+      });
       setBusy(true, 'Writing run log...', 90);
       const finalData = await postJson('/api/finalize_run', {
         ...payload,
-        ao_prompt: aoData.ao_prompt,
-        ao_response: aoData.ao_response,
-        patchscopes_response: patchData.patchscopes_response,
-        black_box_response: bbData.black_box_response,
-        trained_response: oracleData.trained_response,
-        sae_feature_desc: saeData.sae_feature_desc,
-        sae_response: saeData.sae_response,
+        ao_prompt: results.ao.ao_prompt,
+        ao_response: results.ao.ao_response,
+        patchscopes_response: results.patch.patchscopes_response,
+        black_box_response: results.bb.black_box_response,
+        trained_response: results.oracle.trained_response,
+        sae_feature_desc: results.sae.sae_feature_desc,
+        sae_response: results.sae.sae_response,
       });
       setBusy(false);
       document.getElementById('logPath').textContent = `Saved run log: ${finalData.log_path}`;
-      setStatus(`Done. Active layers ${finalData.selected_layers.join(', ')} | positions ${finalData.selected_positions.join(', ')}`);
+      setStatus(`Done. Ran ${finalData.selected_baselines.join(', ')} | layers ${finalData.selected_layers.join(', ')} | positions ${finalData.selected_positions.join(', ')}`);
     }
     document.getElementById('generateBtn').addEventListener('click', generateSession);
     document.getElementById('refreshPromptBtn').addEventListener('click', loadSuggestedQuestion);
     document.getElementById('runBtn').addEventListener('click', runSelection);
     document.getElementById('selectAllBtn').addEventListener('click', selectAll);
     document.getElementById('clearBtn').addEventListener('click', clearSelection);
-    patchStrength.addEventListener('input', () => { patchStrengthValue.textContent = Number(patchStrength.value).toFixed(1); });
     window.addEventListener('mousemove', event => {
       if (!dragMode || !dragStart) return;
       updateSelectionBox(event.clientX, event.clientY);
       applyRectSelection();
     });
     window.addEventListener('mouseup', endRectSelection);
-    patchStrengthValue.textContent = Number(patchStrength.value).toFixed(1);
     loadConfig();
   </script>
 </body>
