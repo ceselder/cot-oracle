@@ -429,15 +429,13 @@ def train_attn_probe(train_items, y_train, test_items, layers,
     for start in range(0, N, batch_size):
         fixed_batches.append(sorted_indices[start:start + batch_size])
 
-    # Pre-collate ALL batches once and cache on GPU
+    # Pre-collate ALL batches once on CPU (avoid re-padding every epoch)
     print(f"      Pre-collating {len(fixed_batches)} batches...", end=" ", flush=True)
     cached_batches = []
     for idx in fixed_batches:
         bx, bm, bp = collate_batch(train_items, idx, layers)
         by = y_train[idx]
-        cached_batches.append((
-            bx.to(device), bm.to(device), bp.to(device), by.to(device),
-        ))
+        cached_batches.append((bx, bm, bp, by))
     print("done")
 
     best_loss, best_epoch, best_state = float("inf"), 0, None
@@ -448,6 +446,7 @@ def train_attn_probe(train_items, y_train, test_items, layers,
 
         for bi in batch_order:
             bx, bm, bp, by = cached_batches[bi]
+            bx, bm, bp, by = bx.to(device), bm.to(device), bp.to(device), by.to(device)
 
             opt.zero_grad(set_to_none=True)
             out = probe(bx, bm, bp)
