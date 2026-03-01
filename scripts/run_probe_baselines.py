@@ -34,7 +34,7 @@ _SRC = Path(__file__).resolve().parent.parent / "src"
 if str(_SRC) not in sys.path:
     sys.path.insert(0, str(_SRC))
 
-from core.ao import EarlyStopException, get_hf_submodule, using_adapter
+from core.ao import EarlyStopException, get_hf_submodule
 from cot_utils import get_cot_stride_positions
 
 LAYERS = [9, 18, 27]
@@ -173,13 +173,12 @@ def process_dataset(
                 skipped += 1
                 continue
 
-            with using_adapter(model, None):
-                acts = extract_activations(
-                    model,
-                    tok_out["input_ids"].to(device),
-                    tok_out["attention_mask"].to(device),
-                    positions, LAYERS,
-                )
+            acts = extract_activations(
+                model,
+                tok_out["input_ids"].to(device),
+                tok_out["attention_mask"].to(device),
+                positions, LAYERS,
+            )
             items.append((acts, dict(row)))
 
         results[split_name] = items
