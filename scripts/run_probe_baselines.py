@@ -38,7 +38,7 @@ if str(_SRC) not in sys.path:
 
 from core.ao import EarlyStopException, get_hf_submodule
 
-LAYERS = [9, 18, 27]
+LAYERS = [9, 18, 27]  # default, can override with --layers
 SEED = 42
 
 # All cleaned datasets: (hf_repo, task_type, label_field_or_target)
@@ -307,7 +307,7 @@ def extract_batched(model, tokenizer, items, batches, device, layers):
 
 
 def process_dataset(ds_name, hf_repo, model, tokenizer, device,
-                    max_train, max_test, stride, max_batch_tokens):
+                    max_train, max_test, stride, max_batch_tokens, layers):
     """Load dataset and extract per-token activations with batched forward passes.
 
     Returns (train_items, test_items) where each item is
@@ -352,7 +352,7 @@ def process_dataset(ds_name, hf_repo, model, tokenizer, device,
               f"p50={sorted(lens)[len(lens)//2]} max={max(lens)}")
 
         # Phase 3: Batched extraction
-        items, n_ok = extract_batched(model, tokenizer, pretok, batches, device, LAYERS)
+        items, n_ok = extract_batched(model, tokenizer, pretok, batches, device, layers)
 
         pos_counts = [n for _, _, n in items]
         if pos_counts:
@@ -404,11 +404,21 @@ def collate_batch(items, indices, layers):
 
 # ── Probe Training ─────────────────────────────────────────────────────────
 
+def _make_length_sorted_batches(items, batch_size):
+    """Sort by n_positions, group into batches. Reduces padding waste."""
+    indexed = sorted(range(len(items)), key=lambda i: items[i][2])  # sort by n_pos
+    batches = []
+    for start in range(0, len(indexed), batch_size):
+        batches.append(indexed[start:start + batch_size])
+    return batches
+
+
 def train_attn_probe(train_items, y_train, test_items, layers,
                      n_classes, n_heads=4, lr=1e-3, epochs=300,
-                     batch_size=256, patience=30, device="cuda"):
+                     batch_size=32, patience=30, device="cuda"):
     """Train Eleuther attention probe with AdamW + early stopping.
 
+    Uses length-sorted batching to minimize padding waste.
     Returns: predictions tensor on test set.
     """
     d_in = train_items[0][0][layers[0]].shape[1] * len(layers)
@@ -578,14 +588,19 @@ def main():
     parser.add_argument("--datasets", nargs="+", default=None)
     parser.add_argument("--device", default="cuda")
     parser.add_argument("--output", default="data/probe_baseline_results_v2.json")
+    parser.add_argument("--layers", type=int, nargs="+", default=None,
+                        help="Layers to extract (default: 9 18 27)")
     parser.add_argument("--n-heads", type=int, default=4,
                         help="Number of attention heads in probe")
     parser.add_argument("--attn-epochs", type=int, default=300)
     parser.add_argument("--attn-lr", type=float, default=1e-3)
-    parser.add_argument("--attn-batch-size", type=int, default=256)
+    parser.add_argument("--attn-batch-size", type=int, default=32,
+                        help="Batch size for attention probe training "
+                             "(small to avoid OOM on long sequences)")
     args = parser.parse_args()
 
     datasets_to_run = args.datasets or list(DATASETS.keys())
+    layers = args.layers or LAYERS
 
     # ── Phase 1: Load model + extract activations ──
     print("Loading Qwen3-8B...")
@@ -615,6 +630,7 @@ def main():
             ds_name, hf_repo, model, tokenizer, args.device,
             max_train=args.max_train, max_test=args.max_test,
             stride=args.stride, max_batch_tokens=args.max_batch_tokens,
+            layers=layers,
         )
         if not train_items or not test_items:
             print(f"  Skipped (no data)")
@@ -672,7 +688,7 @@ def main():
                 print(f"    {name:<28s} bal_acc={bal:.3f}")
 
         # ─── Per-layer probes ───
-        for layer in LAYERS:
+        for layer in layers:
             ln = f"L{layer}"
             print(f"\n  --- {ln} ---")
 
@@ -704,22 +720,22 @@ def main():
         print(f"\n  --- Concat (all layers) ---")
 
         # Mean-pool concat linear
-        X_tr = mean_pool_vec(train_items, LAYERS)
-        X_te = mean_pool_vec(test_items, LAYERS)
+        X_tr = mean_pool_vec(train_items, layers)
+        X_te = mean_pool_vec(test_items, layers)
         preds = train_linear_probe(X_tr, y_train, X_te, n_classes,
                                    device=args.device)
         record("mean_linear_concat", preds)
 
         # Last-pos concat linear
-        X_tr = last_pool_vec(train_items, LAYERS)
-        X_te = last_pool_vec(test_items, LAYERS)
+        X_tr = last_pool_vec(train_items, layers)
+        X_te = last_pool_vec(test_items, layers)
         preds = train_linear_probe(X_tr, y_train, X_te, n_classes,
                                    device=args.device)
         record("last_linear_concat", preds)
 
         # Attention probe concat
         preds = train_attn_probe(
-            train_items, y_train, test_items, LAYERS,
+            train_items, y_train, test_items, layers,
             n_classes, n_heads=args.n_heads,
             lr=args.attn_lr, epochs=args.attn_epochs,
             batch_size=args.attn_batch_size, device=args.device,
@@ -747,14 +763,26 @@ def main():
                  if d in all_results and DATASETS[d][1] != "regression"]
     if binary_ds:
         print(f"\nClassification (balanced accuracy):")
-        cols = ["mean_linear_L9", "mean_linear_L18", "mean_linear_L27",
-                "mean_linear_concat",
-                "last_linear_L9", "last_linear_L18", "last_linear_L27",
-                "attn_L9", "attn_L18", "attn_L27", "attn_concat"]
-        short = ["mL9", "mL18", "mL27", "mAll",
-                 "lL9", "lL18", "lL27",
-                 "aL9", "aL18", "aL27", "aAll"]
-        header = f"{'Dataset':<22s} " + " ".join(f"{s:>5s}" for s in short) + "  N"
+        # Build dynamic columns based on layers used
+        cols = []
+        short = []
+        for l in layers:
+            cols.append(f"mean_linear_L{l}")
+            short.append(f"mL{l}")
+        cols.append("mean_linear_concat")
+        short.append("mAll")
+        for l in layers:
+            cols.append(f"last_linear_L{l}")
+            short.append(f"lL{l}")
+        cols.append("last_linear_concat")
+        short.append("lAll")
+        for l in layers:
+            cols.append(f"attn_L{l}")
+            short.append(f"aL{l}")
+        cols.append("attn_concat")
+        short.append("aAll")
+
+        header = f"{'Dataset':<22s} " + " ".join(f"{s:>6s}" for s in short) + "  N"
         print(header)
         print("-" * len(header))
         for ds_name in binary_ds:
@@ -763,7 +791,7 @@ def main():
             for c in cols:
                 v = r.get(c, {}).get("balanced_accuracy", 0)
                 vals.append(f"{v:.3f}"[1:])  # strip leading 0
-            print(f"{ds_name:<22s} " + " ".join(f"{v:>5s}" for v in vals)
+            print(f"{ds_name:<22s} " + " ".join(f"{v:>6s}" for v in vals)
                   + f"  {r['n_train']}")
 
     reg_ds = [d for d in datasets_to_run
