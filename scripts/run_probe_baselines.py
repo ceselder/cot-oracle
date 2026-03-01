@@ -15,7 +15,7 @@ Reference: https://blog.eleuther.ai/attention-probes/
 
 Usage:
     python scripts/run_probe_baselines.py
-    python scripts/run_probe_baselines.py --stride 1 --max-positions 256
+    python scripts/run_probe_baselines.py --stride 1 --max-train 10000
     python scripts/run_probe_baselines.py --datasets correctness sycophancy
 """
 
@@ -155,20 +155,18 @@ def extract_activations(model, input_ids, attn_mask, positions, layers):
     return acts
 
 
-def get_cot_positions(prompt_len, total_len, stride=1, max_positions=256):
-    """Get CoT token positions. Keep LAST max_positions (closest to answer)."""
+def get_cot_positions(prompt_len, total_len, stride=1):
+    """Get all CoT token positions at the given stride."""
     all_pos = list(range(prompt_len, total_len, stride))
     # Always include the very last token
     if all_pos and all_pos[-1] != total_len - 1:
         all_pos.append(total_len - 1)
-    if len(all_pos) > max_positions:
-        all_pos = all_pos[-max_positions:]
     return all_pos
 
 
 def process_dataset(ds_name, hf_repo, model, tokenizer, device,
-                    max_train, max_test, stride, max_positions):
-    """Load dataset and extract per-token activations.
+                    max_train, max_test, stride):
+    """Load dataset and extract per-token activations (full CoT, no truncation).
 
     Returns (train_items, test_items) where each item is
     (acts_by_layer: {layer: [n_pos, D]}, row_dict, n_positions).
@@ -218,20 +216,24 @@ def process_dataset(ds_name, hf_repo, model, tokenizer, device,
             seq_len = tok_out["input_ids"].shape[1]
 
             positions = get_cot_positions(
-                len(prompt_ids), seq_len,
-                stride=stride, max_positions=max_positions,
+                len(prompt_ids), seq_len, stride=stride,
             )
             positions = [p for p in positions if p < seq_len]
             if len(positions) < 2:
                 skipped += 1
                 continue
 
-            acts = extract_activations(
-                model,
-                tok_out["input_ids"].to(device),
-                tok_out["attention_mask"].to(device),
-                positions, LAYERS,
-            )
+            try:
+                acts = extract_activations(
+                    model,
+                    tok_out["input_ids"].to(device),
+                    tok_out["attention_mask"].to(device),
+                    positions, LAYERS,
+                )
+            except torch.cuda.OutOfMemoryError:
+                torch.cuda.empty_cache()
+                skipped += 1
+                continue
             items.append((acts, dict(row), len(positions)))
             pos_counts.append(len(positions))
 
@@ -449,8 +451,6 @@ def main():
     parser.add_argument("--max-test", type=int, default=1000)
     parser.add_argument("--stride", type=int, default=1,
                         help="Token stride for extraction (1=every token)")
-    parser.add_argument("--max-positions", type=int, default=256,
-                        help="Max CoT positions per example (keep last N)")
     parser.add_argument("--datasets", nargs="+", default=None)
     parser.add_argument("--device", default="cuda")
     parser.add_argument("--output", default="data/probe_baseline_results_v2.json")
@@ -471,7 +471,7 @@ def main():
         "Qwen/Qwen3-8B", torch_dtype=torch.bfloat16, device_map=args.device,
     )
     model.eval()
-    print(f"  Model loaded. Stride={args.stride}, max_positions={args.max_positions}\n")
+    print(f"  Model loaded. Stride={args.stride}, full CoT (no truncation)\n")
 
     all_data = {}
     for ds_name in datasets_to_run:
@@ -486,7 +486,7 @@ def main():
         train_items, test_items = process_dataset(
             ds_name, hf_repo, model, tokenizer, args.device,
             max_train=args.max_train, max_test=args.max_test,
-            stride=args.stride, max_positions=args.max_positions,
+            stride=args.stride,
         )
         if train_items and test_items:
             train_items = binarize_labels(train_items, ds_name)
