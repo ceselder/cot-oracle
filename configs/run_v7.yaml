@@ -1,0 +1,92 @@
+# CoT Oracle v7 — unified task system, first full run
+# Only tasks with available HF data enabled
+
+tasks:
+  hint_admission:
+    n: 15000
+    eval: true
+
+  atypical_answer:
+    n: 20000
+    eval: true
+
+  reasoning_termination:
+    n: 15000
+    eval: true
+
+  answer_trajectory:
+    n: 60000
+    eval: true
+
+  correctness:
+    n: 7500
+    eval: true
+
+  # Not on HF yet
+  futurelens:
+    n: 0
+    eval: false
+
+  backtrack_prediction:
+    n: 0
+    eval: false
+
+  # Eval-only
+  truthfulqa_hint_verbalized:
+    eval: true
+
+  truthfulqa_hint_unverbalized:
+    eval: true
+
+  sycophancy:
+    eval: false    # not on HF
+
+  sentence_insertion:
+    eval: false    # no test split
+
+  rot13_reconstruction:
+    eval: false
+
+fineweb:
+  enabled: false
+
+training:
+  lr: 0.00001
+  batch_size: 8
+  effective_batch_size: 256
+  eval_batch_size: 4
+  epochs: 1
+  warmup_fraction: 0.1
+  max_grad_norm: 1.0
+  steering_coefficient: 1.0
+  gradient_checkpointing: true
+  task_order: shuffled
+  interleave_blocks: 50
+  max_train_tokens_per_gpu: 32768
+  seed: 42
+
+flamingo:
+  enabled: false
+
+activations:
+  stride: 5
+  n_prompt_positions: 5
+  position_encoding: false
+  pe_alpha: 0.1
+
+eval:
+  eval_steps: 500
+  save_steps: 5000
+  max_items_per_eval: 25
+  eval_batch_size: 2
+
+model:
+  name: Qwen/Qwen3-8B
+  ao_checkpoint: adamkarvonen/checkpoints_latentqa_cls_past_lens_addition_Qwen3-8B
+  fresh_lora: true
+
+output:
+  save_dir: /root/checkpoints
+  wandb_project: cot_oracle
+  wandb_entity: MATS10-CS-JB
+  wandb_run: v7-unified
