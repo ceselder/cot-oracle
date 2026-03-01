@@ -2153,45 +2153,44 @@ def main():
                 if Path(cfg_path).exists():
                     wandb.save(cfg_path)
 
-        # Workaround: wandb file_stream broken on Vast.ai.
-        # Periodically finish+reinit to force data upload via wandb.finish().
-        import threading
+        # Write metrics to JSONL file for sidecar upload.
+        # wandb file_stream is broken on Vast.ai — sidecar does short-lived
+        # wandb sessions to upload metrics reliably.
+        _metrics_path = Path(args.save_dir) / "metrics.jsonl"
+        _metrics_path.parent.mkdir(parents=True, exist_ok=True)
+        # Write run metadata header so sidecar can auto-configure
+        import json as _json
+        with open(_metrics_path, "w") as _f:
+            _f.write(_json.dumps({
+                "_meta": True,
+                "run_id": wandb.run.id,
+                "project": args.wandb_project,
+                "entity": args.wandb_entity,
+                "run_name": run_name,
+            }) + "\n")
 
-        _wandb_lock = threading.Lock()
-        _wandb_run_id = wandb.run.id
-        _wandb_init_kw = dict(
-            project=args.wandb_project,
-            entity=args.wandb_entity,
-            name=run_name,
-            group=args.wandb_group,
-            id=_wandb_run_id,
-            resume="allow",
-            config=wandb_config,
-            tags=[args.model.split("/")[-1]] + enabled_tasks,
-        )
+        _original_wandb_log = wandb.log
 
-        def _safe_wandb_log(data, *a, **kw):
-            with _wandb_lock:
-                if wandb.run is not None:
-                    wandb.run.log(data, *a, **kw)
+        def _file_backed_wandb_log(data, *a, step=None, **kw):
+            """Log to wandb (best-effort) AND write to metrics JSONL."""
+            # Always write to file (reliable)
+            record = {k: v for k, v in data.items() if not isinstance(v, str)}
+            if step is not None:
+                record["_step"] = step
+            try:
+                with open(_metrics_path, "a") as f:
+                    f.write(_json.dumps(record) + "\n")
+            except Exception:
+                pass
+            # Also try wandb (may silently fail on Vast.ai)
+            try:
+                _original_wandb_log(data, *a, step=step, **kw)
+            except Exception:
+                pass
 
-        wandb.log = _safe_wandb_log
-
-        def _wandb_flush_thread(interval=180):
-            """Periodically finish+reinit to force data upload."""
-            while True:
-                time.sleep(interval)
-                with _wandb_lock:
-                    try:
-                        wandb.finish(quiet=True)
-                        wandb.init(**_wandb_init_kw)
-                        wandb.log = _safe_wandb_log  # re-patch after reinit
-                        print(f"  [wandb] Sync flush completed")
-                    except Exception as e:
-                        print(f"  [wandb] Sync error: {e}")
-
-        threading.Thread(target=_wandb_flush_thread, daemon=True).start()
-        print(f"  [wandb] Periodic flush thread started (every {180}s)")
+        wandb.log = _file_backed_wandb_log
+        print(f"  [wandb] Metrics file: {_metrics_path}")
+        print(f"  [wandb] Run sidecar: python scripts/wandb_sidecar.py --metrics {_metrics_path}")
     else:
         enabled_tasks = sorted(task_config.keys())
 
