@@ -2,20 +2,19 @@
 """
 Probe baselines v2: Eleuther-style attention probes on full CoT token sequences.
 
-Changes from v1:
-  - Configurable stride (default 1 = every CoT token)
+Key features:
+  - Batched activation extraction (token-budget packing, sorted by length)
   - Eleuther's exact attention probe: learned query + ALiBi position bias + multi-head
-  - Probes see full token sequence with padding/masking (no mean-pooling)
+  - Full CoT sequence fed to probes (no truncation, no mean-pooling)
   - Mean-pool and last-pos linear probes as comparison baselines
   - Two-phase: extract all activations first, then free LLM and train probes
-  - Dynamic batch collation (no pre-padded mega-tensors)
 
 Reference: https://blog.eleuther.ai/attention-probes/
            https://github.com/EleutherAI/attention-probes
 
 Usage:
     python scripts/run_probe_baselines.py
-    python scripts/run_probe_baselines.py --stride 1 --max-train 10000
+    python scripts/run_probe_baselines.py --max-batch-tokens 32000  # for 80GB GPU
     python scripts/run_probe_baselines.py --datasets correctness sycophancy
 """
 
@@ -127,19 +126,23 @@ class AttentionProbe(nn.Module):
         return o
 
 
-# ── Activation Extraction ──────────────────────────────────────────────────
+# ── Batched Activation Extraction ──────────────────────────────────────────
 
-def extract_activations(model, input_ids, attn_mask, positions, layers):
-    """Single forward pass → {layer: [K, D]} on CPU float16."""
+def extract_activations_batched(model, input_ids, attn_mask, positions_list, layers):
+    """Batched forward pass → list of {layer: [K_i, D]} on CPU float16.
+
+    positions_list: list of position lists, one per example in the batch.
+    Returns: list of dicts, one per example.
+    """
     submodules = {l: get_hf_submodule(model, l) for l in layers}
     max_layer = max(layers)
-    acts = {}
+    layer_outputs = {}
     mod_to_layer = {id(s): l for l, s in submodules.items()}
 
     def hook_fn(module, _inp, out):
         layer = mod_to_layer[id(module)]
         raw = out[0] if isinstance(out, tuple) else out
-        acts[layer] = raw[0, positions, :].detach().cpu().half()
+        layer_outputs[layer] = raw.detach().cpu().half()
         if layer == max_layer:
             raise EarlyStopException()
 
@@ -152,7 +155,16 @@ def extract_activations(model, input_ids, attn_mask, positions, layers):
     finally:
         for h in handles:
             h.remove()
-    return acts
+
+    # Slice per-example positions from the full batch output
+    results = []
+    for i, positions in enumerate(positions_list):
+        acts = {}
+        for l in layers:
+            acts[l] = layer_outputs[l][i, positions, :]
+        results.append(acts)
+
+    return results
 
 
 def get_cot_positions(prompt_len, total_len, stride=1):
@@ -164,9 +176,139 @@ def get_cot_positions(prompt_len, total_len, stride=1):
     return all_pos
 
 
+def pretokenize_dataset(split, tokenizer, ds_name, split_name, stride):
+    """Pre-tokenize all examples. Returns list of dicts with input_ids, positions, etc."""
+    items = []
+    skipped = 0
+    for row in tqdm(split, desc=f"    Tokenizing {ds_name}/{split_name}", leave=False):
+        cot_text = (row.get("cot_text") or "").strip()
+        prompt = row.get("hinted_prompt") or row.get("question") or ""
+        if not cot_text or not prompt:
+            skipped += 1
+            continue
+
+        messages = [{"role": "user", "content": prompt}]
+        formatted = tokenizer.apply_chat_template(
+            messages, tokenize=False, add_generation_prompt=True,
+            enable_thinking=True,
+        )
+        full_text = formatted + cot_text
+
+        prompt_ids = tokenizer.encode(formatted, add_special_tokens=False)
+        all_ids = tokenizer.encode(full_text, add_special_tokens=False)
+        seq_len = len(all_ids)
+
+        positions = get_cot_positions(len(prompt_ids), seq_len, stride=stride)
+        positions = [p for p in positions if p < seq_len]
+        if len(positions) < 2:
+            skipped += 1
+            continue
+
+        items.append({
+            "row": dict(row),
+            "input_ids": all_ids,
+            "positions": positions,
+            "seq_len": seq_len,
+            "n_cot_pos": len(positions),
+        })
+
+    if skipped:
+        print(f"    {split_name}: {len(items)} tokenized, {skipped} skipped")
+    return items
+
+
+def make_extraction_batches(items, max_batch_tokens):
+    """Group pre-tokenized items into batches respecting a token budget.
+
+    Sorts by sequence length for minimal padding waste, then packs greedily.
+    Token budget = max_seq_in_batch * batch_size.
+    """
+    # Sort by length (shortest first)
+    indexed = sorted(range(len(items)), key=lambda i: items[i]["seq_len"])
+
+    batches = []
+    current = []
+    current_max_len = 0
+
+    for idx in indexed:
+        seq_len = items[idx]["seq_len"]
+        new_max = max(current_max_len, seq_len)
+        new_total = new_max * (len(current) + 1)
+        if new_total > max_batch_tokens and current:
+            batches.append(current)
+            current = [idx]
+            current_max_len = seq_len
+        else:
+            current.append(idx)
+            current_max_len = new_max
+
+    if current:
+        batches.append(current)
+
+    return batches
+
+
+def extract_batched(model, tokenizer, items, batches, device, layers):
+    """Run batched extraction. Returns list of (acts, row, n_positions) in original order."""
+    results = [None] * len(items)
+    total_extracted = 0
+    total_oom = 0
+
+    for batch_indices in tqdm(batches, desc="    Extracting", leave=False):
+        batch_items = [items[i] for i in batch_indices]
+        max_len = max(it["seq_len"] for it in batch_items)
+        B = len(batch_items)
+
+        # Pad and stack input_ids + attention_mask
+        input_ids = torch.zeros(B, max_len, dtype=torch.long)
+        attn_mask = torch.zeros(B, max_len, dtype=torch.long)
+        for i, it in enumerate(batch_items):
+            ids = it["input_ids"]
+            input_ids[i, :len(ids)] = torch.tensor(ids, dtype=torch.long)
+            attn_mask[i, :len(ids)] = 1
+
+        positions_list = [it["positions"] for it in batch_items]
+
+        try:
+            batch_acts = extract_activations_batched(
+                model, input_ids.to(device), attn_mask.to(device),
+                positions_list, layers,
+            )
+        except torch.cuda.OutOfMemoryError:
+            torch.cuda.empty_cache()
+            # Fallback: try one-by-one for this batch
+            batch_acts = []
+            for it in batch_items:
+                ids_t = torch.tensor([it["input_ids"]], dtype=torch.long)
+                mask_t = torch.ones_like(ids_t)
+                try:
+                    single_acts = extract_activations_batched(
+                        model, ids_t.to(device), mask_t.to(device),
+                        [it["positions"]], layers,
+                    )
+                    batch_acts.append(single_acts[0])
+                except torch.cuda.OutOfMemoryError:
+                    torch.cuda.empty_cache()
+                    batch_acts.append(None)
+                    total_oom += 1
+
+        for i, idx in enumerate(batch_indices):
+            acts = batch_acts[i]
+            if acts is not None:
+                it = items[idx]
+                results[idx] = (acts, it["row"], it["n_cot_pos"])
+                total_extracted += 1
+
+    # Filter out None entries (OOM'd or failed)
+    results = [r for r in results if r is not None]
+    if total_oom:
+        print(f"    OOM skipped: {total_oom}")
+    return results, total_extracted
+
+
 def process_dataset(ds_name, hf_repo, model, tokenizer, device,
-                    max_train, max_test, stride):
-    """Load dataset and extract per-token activations (full CoT, no truncation).
+                    max_train, max_test, stride, max_batch_tokens):
+    """Load dataset and extract per-token activations with batched forward passes.
 
     Returns (train_items, test_items) where each item is
     (acts_by_layer: {layer: [n_pos, D]}, row_dict, n_positions).
@@ -191,59 +333,36 @@ def process_dataset(ds_name, hf_repo, model, tokenizer, device,
         return None, None
 
     model.eval()
-    results = {}
+    all_results = {}
     for split_name, split in splits.items():
-        items = []
-        skipped = 0
-        pos_counts = []
-        for row in tqdm(split, desc=f"    {ds_name}/{split_name}", leave=False):
-            cot_text = (row.get("cot_text") or "").strip()
-            prompt = row.get("hinted_prompt") or row.get("question") or ""
-            if not cot_text or not prompt:
-                skipped += 1
-                continue
+        # Phase 1: Pre-tokenize
+        pretok = pretokenize_dataset(split, tokenizer, ds_name, split_name, stride)
 
-            messages = [{"role": "user", "content": prompt}]
-            formatted = tokenizer.apply_chat_template(
-                messages, tokenize=False, add_generation_prompt=True,
-                enable_thinking=True,
-            )
-            full_text = formatted + cot_text
+        if not pretok:
+            all_results[split_name] = []
+            continue
 
-            prompt_ids = tokenizer.encode(formatted, add_special_tokens=False)
-            tok_out = tokenizer(full_text, return_tensors="pt",
-                                add_special_tokens=False)
-            seq_len = tok_out["input_ids"].shape[1]
+        # Phase 2: Batch by token budget
+        batches = make_extraction_batches(pretok, max_batch_tokens)
+        avg_bs = len(pretok) / max(len(batches), 1)
+        lens = [it["seq_len"] for it in pretok]
+        print(f"    {split_name}: {len(pretok)} examples → {len(batches)} batches "
+              f"(avg {avg_bs:.1f}/batch) | "
+              f"seq_len: mean={sum(lens)/len(lens):.0f} "
+              f"p50={sorted(lens)[len(lens)//2]} max={max(lens)}")
 
-            positions = get_cot_positions(
-                len(prompt_ids), seq_len, stride=stride,
-            )
-            positions = [p for p in positions if p < seq_len]
-            if len(positions) < 2:
-                skipped += 1
-                continue
+        # Phase 3: Batched extraction
+        items, n_ok = extract_batched(model, tokenizer, pretok, batches, device, LAYERS)
 
-            try:
-                acts = extract_activations(
-                    model,
-                    tok_out["input_ids"].to(device),
-                    tok_out["attention_mask"].to(device),
-                    positions, LAYERS,
-                )
-            except torch.cuda.OutOfMemoryError:
-                torch.cuda.empty_cache()
-                skipped += 1
-                continue
-            items.append((acts, dict(row), len(positions)))
-            pos_counts.append(len(positions))
-
-        results[split_name] = items
+        pos_counts = [n for _, _, n in items]
         if pos_counts:
-            print(f"    {split_name}: {len(items)} ok, {skipped} skipped | "
-                  f"positions: mean={sum(pos_counts)/len(pos_counts):.0f} "
+            print(f"    {split_name}: {n_ok} extracted | "
+                  f"cot_positions: mean={sum(pos_counts)/len(pos_counts):.0f} "
                   f"min={min(pos_counts)} max={max(pos_counts)}")
 
-    return results.get("train", []), results.get("test", [])
+        all_results[split_name] = items
+
+    return all_results.get("train", []), all_results.get("test", [])
 
 
 def binarize_labels(items, ds_name):
@@ -256,7 +375,7 @@ def binarize_labels(items, ds_name):
     ]
 
 
-# ── Dynamic Batch Collation ────────────────────────────────────────────────
+# ── Dynamic Batch Collation (for probe training) ──────────────────────────
 
 def collate_batch(items, indices, layers):
     """Pad a mini-batch of items for the given layer(s).
@@ -451,6 +570,10 @@ def main():
     parser.add_argument("--max-test", type=int, default=1000)
     parser.add_argument("--stride", type=int, default=1,
                         help="Token stride for extraction (1=every token)")
+    parser.add_argument("--max-batch-tokens", type=int, default=16000,
+                        help="Token budget per extraction batch "
+                             "(higher=faster, needs more VRAM. "
+                             "16K for 40GB, 32K for 80GB)")
     parser.add_argument("--datasets", nargs="+", default=None)
     parser.add_argument("--device", default="cuda")
     parser.add_argument("--output", default="data/probe_baseline_results_v2.json")
@@ -471,7 +594,8 @@ def main():
         "Qwen/Qwen3-8B", torch_dtype=torch.bfloat16, device_map=args.device,
     )
     model.eval()
-    print(f"  Model loaded. Stride={args.stride}, full CoT (no truncation)\n")
+    print(f"  Model loaded. Stride={args.stride}, "
+          f"max_batch_tokens={args.max_batch_tokens}\n")
 
     all_data = {}
     for ds_name in datasets_to_run:
@@ -486,7 +610,7 @@ def main():
         train_items, test_items = process_dataset(
             ds_name, hf_repo, model, tokenizer, args.device,
             max_train=args.max_train, max_test=args.max_test,
-            stride=args.stride,
+            stride=args.stride, max_batch_tokens=args.max_batch_tokens,
         )
         if train_items and test_items:
             train_items = binarize_labels(train_items, ds_name)
