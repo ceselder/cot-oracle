@@ -1,47 +1,48 @@
 #!/usr/bin/env python3
 """
-Run linear + attention probe baselines on all cleaned datasets.
+Probe baselines v2: Eleuther-style attention probes on full CoT token sequences.
 
-For each binary/multiclass dataset:
-  - Linear probe at layer 9 (25%), 18 (50%), 27 (75%), concat all
-  - Attention probe over all 3 layers
+Changes from v1:
+  - Configurable stride (default 1 = every CoT token)
+  - Eleuther's exact attention probe: learned query + ALiBi position bias + multi-head
+  - Probes see full token sequence with padding/masking (no mean-pooling)
+  - Mean-pool and last-pos linear probes as comparison baselines
+  - Two-phase: extract all activations first, then free LLM and train probes
+  - Dynamic batch collation (no pre-padded mega-tensors)
 
-For answer_trajectory:
-  - Regression probe predicting confidence → reports MAE
-
-Requires GPU (Qwen3-8B forward pass for activation extraction).
+Reference: https://blog.eleuther.ai/attention-probes/
+           https://github.com/EleutherAI/attention-probes
 
 Usage:
     python scripts/run_probe_baselines.py
-    python scripts/run_probe_baselines.py --max-train 2000 --max-test 500
+    python scripts/run_probe_baselines.py --stride 1 --max-positions 256
     python scripts/run_probe_baselines.py --datasets correctness sycophancy
 """
 
 import argparse
+import gc
 import json
 import sys
 import time
-from collections import defaultdict
+from collections import Counter
 from pathlib import Path
 
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 from datasets import load_dataset
-from sklearn.model_selection import StratifiedKFold
-from tqdm.auto import tqdm
+from tqdm.auto import tqdm, trange
 
 _SRC = Path(__file__).resolve().parent.parent / "src"
 if str(_SRC) not in sys.path:
     sys.path.insert(0, str(_SRC))
 
 from core.ao import EarlyStopException, get_hf_submodule
-from cot_utils import get_cot_stride_positions
 
 LAYERS = [9, 18, 27]
-STRIDE = 5
 SEED = 42
 
-# All cleaned datasets: (short_name, hf_repo, task_type, label_field_or_regression_target)
+# All cleaned datasets: (hf_repo, task_type, label_field_or_target)
 DATASETS = {
     "hint_admission": (
         "mats-10-sprint-cs-jb/cot-oracle-hint-admission-cleaned",
@@ -81,11 +82,55 @@ DATASETS = {
     ),
 }
 
+# Binarize hint labels: hint_used_correct + hint_used_wrong → hint_used
+HINT_BINARIZE = {
+    "hint_used_correct": "hint_used",
+    "hint_used_wrong": "hint_used",
+    "hint_resisted": "hint_resisted",
+}
 
-# ── Activation extraction ──
+
+# ── Eleuther Attention Probe (exact architecture) ──────────────────────────
+
+class AttentionProbe(nn.Module):
+    """Eleuther AI's attention probe architecture.
+
+    Learned query projection (init zeros) + ALiBi-style position bias.
+    Multi-head: each head independently attends over the sequence, outputs are
+    summed across heads and sequence positions.
+
+    Reference: https://github.com/EleutherAI/attention-probes
+    """
+
+    def __init__(self, d_in: int, n_heads: int, output_dim: int = 1):
+        super().__init__()
+        self.q = nn.Linear(d_in, n_heads, bias=False)
+        self.q.weight.data.zero_()                          # Eleuther init
+        self.v = nn.Linear(d_in, n_heads * output_dim)
+        self.n_heads = n_heads
+        self.output_dim = output_dim
+        self.position_weight = nn.Parameter(torch.zeros(n_heads))
+
+    def forward(self, x, mask, position):
+        """
+        x:        [B, S, D]  hidden states
+        mask:     [B, S]     bool, True = valid
+        position: [B, S]     int, position indices
+        Returns:  [B, output_dim]
+        """
+        k = self.q(x)                                       # [B, S, H]
+        k = k - ((1 - mask.float()).unsqueeze(-1) * 1e9)    # mask invalid → -inf
+        k = k + position.unsqueeze(-1).float() * self.position_weight  # ALiBi
+        p = F.softmax(k, dim=-2)                            # [B, S, H]
+        v = self.v(x).unflatten(-1, (self.n_heads, self.output_dim))  # [B,S,H,O]
+        o = (p.unsqueeze(-1) * v).sum(dim=(-3, -2))         # sum S and H → [B,O]
+        return o
+
+
+# ── Activation Extraction ──────────────────────────────────────────────────
 
 def extract_activations(model, input_ids, attn_mask, positions, layers):
-    """Single forward pass → {layer: [K, D]} on CPU."""
+    """Single forward pass → {layer: [K, D]} on CPU float16."""
     submodules = {l: get_hf_submodule(model, l) for l in layers}
     max_layer = max(layers)
     acts = {}
@@ -94,7 +139,7 @@ def extract_activations(model, input_ids, attn_mask, positions, layers):
     def hook_fn(module, _inp, out):
         layer = mod_to_layer[id(module)]
         raw = out[0] if isinstance(out, tuple) else out
-        acts[layer] = raw[0, positions, :].detach().cpu()
+        acts[layer] = raw[0, positions, :].detach().cpu().half()
         if layer == max_layer:
             raise EarlyStopException()
 
@@ -110,21 +155,24 @@ def extract_activations(model, input_ids, attn_mask, positions, layers):
     return acts
 
 
-def build_full_text(tokenizer, prompt, cot_text):
-    """Build full text: chat-formatted prompt + CoT."""
-    messages = [{"role": "user", "content": prompt}]
-    formatted = tokenizer.apply_chat_template(
-        messages, tokenize=False, add_generation_prompt=True, enable_thinking=True,
-    )
-    return formatted + cot_text
+def get_cot_positions(prompt_len, total_len, stride=1, max_positions=256):
+    """Get CoT token positions. Keep LAST max_positions (closest to answer)."""
+    all_pos = list(range(prompt_len, total_len, stride))
+    # Always include the very last token
+    if all_pos and all_pos[-1] != total_len - 1:
+        all_pos.append(total_len - 1)
+    if len(all_pos) > max_positions:
+        all_pos = all_pos[-max_positions:]
+    return all_pos
 
 
-def process_dataset(
-    ds_name, hf_repo, model, tokenizer, device,
-    max_train=2000, max_test=500,
-):
-    """Load dataset, extract activations. Returns (train_acts, test_acts) where each
-    is list of (acts_by_layer: {layer: [K,D]}, row_dict)."""
+def process_dataset(ds_name, hf_repo, model, tokenizer, device,
+                    max_train, max_test, stride, max_positions):
+    """Load dataset and extract per-token activations.
+
+    Returns (train_items, test_items) where each item is
+    (acts_by_layer: {layer: [n_pos, D]}, row_dict, n_positions).
+    """
     print(f"\n  Loading {ds_name} from {hf_repo}...")
     try:
         ds = load_dataset(hf_repo)
@@ -135,7 +183,6 @@ def process_dataset(
     splits = {}
     for split_name, max_n in [("train", max_train), ("test", max_test)]:
         if split_name not in ds:
-            print(f"    No {split_name} split, skipping")
             continue
         split = ds[split_name]
         if max_n and len(split) > max_n:
@@ -150,6 +197,7 @@ def process_dataset(
     for split_name, split in splits.items():
         items = []
         skipped = 0
+        pos_counts = []
         for row in tqdm(split, desc=f"    {ds_name}/{split_name}", leave=False):
             cot_text = (row.get("cot_text") or "").strip()
             prompt = row.get("hinted_prompt") or row.get("question") or ""
@@ -157,17 +205,22 @@ def process_dataset(
                 skipped += 1
                 continue
 
-            full_text = build_full_text(tokenizer, prompt, cot_text)
             messages = [{"role": "user", "content": prompt}]
             formatted = tokenizer.apply_chat_template(
-                messages, tokenize=False, add_generation_prompt=True, enable_thinking=True,
+                messages, tokenize=False, add_generation_prompt=True,
+                enable_thinking=True,
             )
-            prompt_ids = tokenizer.encode(formatted, add_special_tokens=False)
-            all_ids = tokenizer.encode(full_text, add_special_tokens=False)
-            positions = get_cot_stride_positions(len(prompt_ids), len(all_ids), stride=STRIDE)
+            full_text = formatted + cot_text
 
-            tok_out = tokenizer(full_text, return_tensors="pt", add_special_tokens=False)
+            prompt_ids = tokenizer.encode(formatted, add_special_tokens=False)
+            tok_out = tokenizer(full_text, return_tensors="pt",
+                                add_special_tokens=False)
             seq_len = tok_out["input_ids"].shape[1]
+
+            positions = get_cot_positions(
+                len(prompt_ids), seq_len,
+                stride=stride, max_positions=max_positions,
+            )
             positions = [p for p in positions if p < seq_len]
             if len(positions) < 2:
                 skipped += 1
@@ -179,220 +232,238 @@ def process_dataset(
                 tok_out["attention_mask"].to(device),
                 positions, LAYERS,
             )
-            items.append((acts, dict(row)))
+            items.append((acts, dict(row), len(positions)))
+            pos_counts.append(len(positions))
 
         results[split_name] = items
-        if skipped:
-            print(f"    {split_name}: {len(items)} ok, {skipped} skipped")
+        if pos_counts:
+            print(f"    {split_name}: {len(items)} ok, {skipped} skipped | "
+                  f"positions: mean={sum(pos_counts)/len(pos_counts):.0f} "
+                  f"min={min(pos_counts)} max={max(pos_counts)}")
 
     return results.get("train", []), results.get("test", [])
 
 
-# Binarize hint labels: hint_used_correct + hint_used_wrong → hint_used
-HINT_BINARIZE = {"hint_used_correct": "hint_used", "hint_used_wrong": "hint_used", "hint_resisted": "hint_resisted"}
-
 def binarize_labels(items, ds_name):
-    """Merge hint_used_correct/wrong into hint_used for hint-type datasets."""
+    """Merge hint_used_correct/wrong → hint_used for hint-type datasets."""
     if ds_name not in ("hint_admission", "truthfulqa_verb", "truthfulqa_unverb"):
         return items
-    out = []
-    for acts, row in items:
-        row = dict(row)
-        row["label"] = HINT_BINARIZE.get(row["label"], row["label"])
-        out.append((acts, row))
-    return out
+    return [
+        (acts, {**row, "label": HINT_BINARIZE.get(row["label"], row["label"])}, n)
+        for acts, row, n in items
+    ]
 
 
-# ── Pooling ──
+# ── Dynamic Batch Collation ────────────────────────────────────────────────
 
-def pool_mean(acts_by_layer, layers):
-    """Mean-pool each layer → concat → [D*n_layers]."""
-    return torch.cat([acts_by_layer[l].float().mean(dim=0) for l in layers], dim=-1)
+def collate_batch(items, indices, layers):
+    """Pad a mini-batch of items for the given layer(s).
+
+    Returns x [B, S_max, D], mask [B, S_max], position [B, S_max]
+    where D = d_model * len(layers).
+    """
+    batch = [items[i] for i in indices]
+    max_seq = max(n for _, _, n in batch)
+    d_model = batch[0][0][layers[0]].shape[1]
+    n_layers = len(layers)
+    B = len(batch)
+
+    x = torch.zeros(B, max_seq, d_model * n_layers)
+    mask = torch.zeros(B, max_seq, dtype=torch.bool)
+    position = torch.zeros(B, max_seq, dtype=torch.long)
+
+    for i, (acts, _, n_pos) in enumerate(batch):
+        for j, l in enumerate(layers):
+            x[i, :n_pos, j * d_model:(j + 1) * d_model] = acts[l].float()
+        mask[i, :n_pos] = True
+        position[i, :n_pos] = torch.arange(n_pos)
+
+    return x, mask, position
 
 
-def pool_per_layer(acts_by_layer, layers):
-    """Mean-pool each layer separately → [n_layers, D]."""
-    return torch.stack([acts_by_layer[l].float().mean(dim=0) for l in layers])
+# ── Probe Training ─────────────────────────────────────────────────────────
+
+def train_attn_probe(train_items, y_train, test_items, layers,
+                     n_classes, n_heads=4, lr=1e-3, epochs=300,
+                     batch_size=256, patience=30, device="cuda"):
+    """Train Eleuther attention probe with AdamW + early stopping.
+
+    Returns: predictions tensor on test set.
+    """
+    d_in = train_items[0][0][layers[0]].shape[1] * len(layers)
+    is_regression = (n_classes == 0)
+    output_dim = 1 if (n_classes <= 2 or is_regression) else n_classes
+
+    probe = AttentionProbe(d_in, n_heads, output_dim).to(device)
+    opt = torch.optim.AdamW(probe.parameters(), lr=lr, weight_decay=0.01)
+    N = len(train_items)
+
+    best_loss, best_epoch, best_state = float("inf"), 0, None
+    for ep in range(epochs):
+        probe.train()
+        perm = torch.randperm(N).tolist()
+        epoch_loss = 0.0
+        n_batches = 0
+
+        for start in range(0, N, batch_size):
+            idx = perm[start:start + batch_size]
+            bx, bm, bp = collate_batch(train_items, idx, layers)
+            bx, bm, bp = bx.to(device), bm.to(device), bp.to(device)
+            by = y_train[idx].to(device)
+
+            opt.zero_grad(set_to_none=True)
+            out = probe(bx, bm, bp)
+
+            if is_regression:
+                loss = F.mse_loss(out.squeeze(-1), by.float())
+            elif n_classes <= 2:
+                loss = F.binary_cross_entropy_with_logits(out.squeeze(-1), by.float())
+            else:
+                loss = F.cross_entropy(out, by.long())
+
+            loss.backward()
+            opt.step()
+            epoch_loss += loss.item()
+            n_batches += 1
+
+        avg_loss = epoch_loss / max(n_batches, 1)
+        if avg_loss < best_loss:
+            best_loss = avg_loss
+            best_epoch = ep
+            best_state = {k: v.cpu().clone() for k, v in probe.state_dict().items()}
+        elif ep - best_epoch >= patience:
+            break
+
+    if best_state:
+        probe.load_state_dict({k: v.to(device) for k, v in best_state.items()})
+
+    # Evaluate
+    probe.eval()
+    all_preds = []
+    N_te = len(test_items)
+    with torch.no_grad():
+        for start in range(0, N_te, batch_size):
+            idx = list(range(start, min(start + batch_size, N_te)))
+            bx, bm, bp = collate_batch(test_items, idx, layers)
+            bx, bm, bp = bx.to(device), bm.to(device), bp.to(device)
+            out = probe(bx, bm, bp)
+            all_preds.append(out.cpu())
+    preds = torch.cat(all_preds, dim=0)
+
+    if is_regression:
+        return preds.squeeze(-1)
+    elif n_classes <= 2:
+        return (preds.squeeze(-1) > 0).long()
+    else:
+        return preds.argmax(dim=-1)
 
 
-# ── Probes ──
+def train_linear_probe(X_tr, y_tr, X_te, n_classes,
+                       lr=0.01, epochs=100, wd=1e-4,
+                       batch_size=512, device="cuda"):
+    """Simple linear probe on pooled features (mean-pool or last-pos)."""
+    is_regression = (n_classes == 0)
+    output_dim = 1 if (n_classes <= 2 or is_regression) else n_classes
 
-def standardize(X_tr, X_te):
+    # Standardize
     mu = X_tr.mean(dim=0, keepdim=True)
     std = X_tr.std(dim=0, keepdim=True).clamp_min(1e-6)
-    return (X_tr - mu) / std, (X_te - mu) / std
-
-
-def train_linear_classifier(X_tr, y_tr, X_te, n_classes, *, lr=0.01, epochs=100, wd=1e-4, device="cuda"):
-    X_tr_s, X_te_s = standardize(X_tr.to(device), X_te.to(device))
+    X_tr_s = ((X_tr - mu) / std).to(device)
+    X_te_s = ((X_te - mu) / std).to(device)
     y_tr_d = y_tr.to(device)
-    probe = nn.Linear(X_tr.shape[1], n_classes).to(device)
+
+    probe = nn.Linear(X_tr.shape[1], output_dim).to(device)
     opt = torch.optim.AdamW(probe.parameters(), lr=lr, weight_decay=wd)
-    loss_fn = nn.CrossEntropyLoss()
+
     for _ in range(epochs):
         probe.train()
-        perm = torch.randperm(X_tr_s.shape[0], device=device)
-        for start in range(0, len(perm), 512):
-            idx = perm[start:start+512]
+        perm = torch.randperm(len(X_tr_s), device=device)
+        for start in range(0, len(perm), batch_size):
+            idx = perm[start:start + batch_size]
             opt.zero_grad(set_to_none=True)
-            loss_fn(probe(X_tr_s[idx]), y_tr_d[idx]).backward()
+            out = probe(X_tr_s[idx])
+            if is_regression:
+                loss = F.mse_loss(out.squeeze(-1), y_tr_d[idx].float())
+            elif n_classes <= 2:
+                loss = F.binary_cross_entropy_with_logits(
+                    out.squeeze(-1), y_tr_d[idx].float())
+            else:
+                loss = F.cross_entropy(out, y_tr_d[idx].long())
+            loss.backward()
             opt.step()
+
     probe.eval()
     with torch.no_grad():
-        return probe(X_te_s).argmax(1).cpu()
+        preds = probe(X_te_s)
+    if is_regression:
+        return preds.squeeze(-1).cpu()
+    elif n_classes <= 2:
+        return (preds.squeeze(-1) > 0).long().cpu()
+    else:
+        return preds.argmax(dim=-1).cpu()
 
 
-def train_linear_regressor(X_tr, y_tr, X_te, *, lr=0.01, epochs=200, wd=1e-4, device="cuda"):
-    X_tr_s, X_te_s = standardize(X_tr.to(device), X_te.to(device))
-    y_tr_d = y_tr.to(device).float()
-    probe = nn.Linear(X_tr.shape[1], 1).to(device)
-    opt = torch.optim.AdamW(probe.parameters(), lr=lr, weight_decay=wd)
-    loss_fn = nn.MSELoss()
-    for _ in range(epochs):
-        probe.train()
-        perm = torch.randperm(X_tr_s.shape[0], device=device)
-        for start in range(0, len(perm), 512):
-            idx = perm[start:start+512]
-            opt.zero_grad(set_to_none=True)
-            loss_fn(probe(X_tr_s[idx]).squeeze(-1), y_tr_d[idx]).backward()
-            opt.step()
-    probe.eval()
-    with torch.no_grad():
-        return probe(X_te_s).squeeze(-1).cpu()
+# ── Pooling helpers ────────────────────────────────────────────────────────
+
+def mean_pool_vec(items, layers):
+    """Mean-pool across positions, concat layers → [N, D*n_layers]."""
+    return torch.stack([
+        torch.cat([acts[l].float().mean(dim=0) for l in layers], dim=-1)
+        for acts, _, _ in items
+    ])
 
 
-class AttentionProbe(nn.Module):
-    def __init__(self, d_model, n_layers, n_heads=4, hidden_dim=256, n_outputs=1):
-        super().__init__()
-        self.proj = nn.Linear(d_model, hidden_dim)
-        self.pos_embed = nn.Embedding(n_layers, hidden_dim)
-        self.attn = nn.MultiheadAttention(hidden_dim, n_heads, batch_first=True)
-        self.head = nn.Sequential(nn.LayerNorm(hidden_dim), nn.Linear(hidden_dim, n_outputs))
-
-    def forward(self, x):
-        h = self.proj(x) + self.pos_embed(torch.arange(x.shape[1], device=x.device))
-        h, w = self.attn(h, h, h)
-        return self.head(h.mean(dim=1)), w
+def last_pool_vec(items, layers):
+    """Last position per layer, concat → [N, D*n_layers]."""
+    return torch.stack([
+        torch.cat([acts[l][-1].float() for l in layers], dim=-1)
+        for acts, _, _ in items
+    ])
 
 
-def train_attention_classifier(X_tr, y_tr, X_te, n_classes, *, device="cuda"):
-    """X: [N, n_layers, D]. Returns predictions + layer importance."""
-    X_tr_d, X_te_d = X_tr.to(device), X_te.to(device)
-    y_tr_d = y_tr.to(device)
-    n_layers, d_model = X_tr.shape[1], X_tr.shape[2]
-
-    model = AttentionProbe(d_model, n_layers, n_outputs=n_classes).to(device)
-    opt = torch.optim.AdamW(model.parameters(), lr=1e-3)
-    loss_fn = nn.CrossEntropyLoss()
-
-    best_loss, patience, best_state = float("inf"), 0, None
-    for ep in range(80):
-        model.train()
-        perm = torch.randperm(len(X_tr_d), device=device)
-        for start in range(0, len(perm), 128):
-            idx = perm[start:start+128]
-            opt.zero_grad(set_to_none=True)
-            logits, _ = model(X_tr_d[idx])
-            loss_fn(logits, y_tr_d[idx]).backward()
-            opt.step()
-        model.eval()
-        with torch.no_grad():
-            train_loss = loss_fn(model(X_tr_d)[0], y_tr_d).item()
-        if train_loss < best_loss:
-            best_loss = train_loss
-            patience = 0
-            best_state = {k: v.cpu().clone() for k, v in model.state_dict().items()}
-        else:
-            patience += 1
-            if patience >= 15:
-                break
-
-    if best_state:
-        model.load_state_dict({k: v.to(device) for k, v in best_state.items()})
-    model.eval()
-    with torch.no_grad():
-        preds, attn_w = model(X_te_d)
-        layer_imp = attn_w.mean(dim=0).sum(dim=0).cpu()  # [n_layers]
-    return preds.argmax(1).cpu(), {f"L{LAYERS[i]}": layer_imp[i].item() for i in range(n_layers)}
-
-
-def train_attention_regressor(X_tr, y_tr, X_te, *, device="cuda"):
-    """Regression version of attention probe. Returns predictions + layer importance."""
-    X_tr_d, X_te_d = X_tr.to(device), X_te.to(device)
-    y_tr_d = y_tr.to(device).float()
-    n_layers, d_model = X_tr.shape[1], X_tr.shape[2]
-
-    model = AttentionProbe(d_model, n_layers, n_outputs=1).to(device)
-    opt = torch.optim.AdamW(model.parameters(), lr=1e-3)
-    loss_fn = nn.MSELoss()
-
-    best_loss, patience, best_state = float("inf"), 0, None
-    for ep in range(120):
-        model.train()
-        perm = torch.randperm(len(X_tr_d), device=device)
-        for start in range(0, len(perm), 128):
-            idx = perm[start:start+128]
-            opt.zero_grad(set_to_none=True)
-            out, _ = model(X_tr_d[idx])
-            loss_fn(out.squeeze(-1), y_tr_d[idx]).backward()
-            opt.step()
-        model.eval()
-        with torch.no_grad():
-            train_loss = loss_fn(model(X_tr_d)[0].squeeze(-1), y_tr_d).item()
-        if train_loss < best_loss:
-            best_loss = train_loss
-            patience = 0
-            best_state = {k: v.cpu().clone() for k, v in model.state_dict().items()}
-        else:
-            patience += 1
-            if patience >= 15:
-                break
-
-    if best_state:
-        model.load_state_dict({k: v.to(device) for k, v in best_state.items()})
-    model.eval()
-    with torch.no_grad():
-        preds, attn_w = model(X_te_d)
-        layer_imp = attn_w.mean(dim=0).sum(dim=0).cpu()
-    return preds.squeeze(-1).cpu(), {f"L{LAYERS[i]}": layer_imp[i].item() for i in range(n_layers)}
-
-
-# ── Scoring ──
-
-def accuracy(preds, gt):
-    return sum(p == g for p, g in zip(preds, gt)) / len(gt)
-
+# ── Scoring ────────────────────────────────────────────────────────────────
 
 def balanced_accuracy(preds, gt):
     classes = sorted(set(gt))
     per_class = []
     for c in classes:
         mask = [g == c for g in gt]
-        if sum(mask) == 0:
+        n = sum(mask)
+        if n == 0:
             continue
         correct = sum(p == g for p, g, m in zip(preds, gt, mask) if m)
-        per_class.append(correct / sum(mask))
-    return sum(per_class) / len(per_class)
+        per_class.append(correct / n)
+    return sum(per_class) / len(per_class) if per_class else 0.0
 
 
 def mae(preds, gt):
-    return sum(abs(p - g) for p, g in zip(preds, gt)) / len(gt)
+    return sum(abs(p - g) for p, g in zip(preds, gt)) / max(len(gt), 1)
 
 
-# ── Main ──
+# ── Main ───────────────────────────────────────────────────────────────────
 
 def main():
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(
+        description="Probe baselines v2: Eleuther attention probes")
     parser.add_argument("--max-train", type=int, default=10000)
     parser.add_argument("--max-test", type=int, default=1000)
-    parser.add_argument("--datasets", nargs="+", default=None, help="Subset of datasets to run")
+    parser.add_argument("--stride", type=int, default=1,
+                        help="Token stride for extraction (1=every token)")
+    parser.add_argument("--max-positions", type=int, default=256,
+                        help="Max CoT positions per example (keep last N)")
+    parser.add_argument("--datasets", nargs="+", default=None)
     parser.add_argument("--device", default="cuda")
-    parser.add_argument("--output", default="data/probe_baseline_results.json")
+    parser.add_argument("--output", default="data/probe_baseline_results_v2.json")
+    parser.add_argument("--n-heads", type=int, default=4,
+                        help="Number of attention heads in probe")
+    parser.add_argument("--attn-epochs", type=int, default=300)
+    parser.add_argument("--attn-lr", type=float, default=1e-3)
+    parser.add_argument("--attn-batch-size", type=int, default=256)
     args = parser.parse_args()
 
     datasets_to_run = args.datasets or list(DATASETS.keys())
 
-    # Load model
+    # ── Phase 1: Load model + extract activations ──
     print("Loading Qwen3-8B...")
     from transformers import AutoModelForCausalLM, AutoTokenizer
     tokenizer = AutoTokenizer.from_pretrained("Qwen/Qwen3-8B")
@@ -400,151 +471,187 @@ def main():
         "Qwen/Qwen3-8B", torch_dtype=torch.bfloat16, device_map=args.device,
     )
     model.eval()
-    print("  Model loaded.\n")
+    print(f"  Model loaded. Stride={args.stride}, max_positions={args.max_positions}\n")
 
-    all_results = {}
-    layer_configs = [(f"L{l}", [l]) for l in LAYERS] + [("concat", LAYERS)]
-
+    all_data = {}
     for ds_name in datasets_to_run:
         if ds_name not in DATASETS:
             print(f"Unknown dataset: {ds_name}")
             continue
-
         hf_repo, task_type, target_field = DATASETS[ds_name]
-        print(f"\n{'='*60}")
-        print(f"Dataset: {ds_name} ({task_type})")
-        print(f"{'='*60}")
-
+        print(f"\n{'=' * 60}")
+        print(f"Extracting: {ds_name}")
+        print(f"{'=' * 60}")
         t0 = time.time()
         train_items, test_items = process_dataset(
             ds_name, hf_repo, model, tokenizer, args.device,
             max_train=args.max_train, max_test=args.max_test,
+            stride=args.stride, max_positions=args.max_positions,
         )
-        extract_time = time.time() - t0
+        if train_items and test_items:
+            train_items = binarize_labels(train_items, ds_name)
+            test_items = binarize_labels(test_items, ds_name)
+            all_data[ds_name] = (train_items, test_items)
+            print(f"  Done: {len(train_items)} train, {len(test_items)} test "
+                  f"({time.time() - t0:.0f}s)")
 
-        if not train_items or not test_items:
-            print(f"  Skipping {ds_name}: no data")
+    # ── Phase 2: Free model, train probes ──
+    print("\n\nFreeing model for probe training...")
+    del model
+    torch.cuda.empty_cache()
+    gc.collect()
+
+    all_results = {}
+
+    for ds_name in datasets_to_run:
+        if ds_name not in all_data:
             continue
 
-        train_items = binarize_labels(train_items, ds_name)
-        test_items = binarize_labels(test_items, ds_name)
+        hf_repo, task_type, target_field = DATASETS[ds_name]
+        train_items, test_items = all_data[ds_name]
 
-        print(f"  Extracted: {len(train_items)} train, {len(test_items)} test ({extract_time:.0f}s)")
+        print(f"\n{'=' * 60}")
+        print(f"Training probes: {ds_name} ({task_type})")
+        print(f"{'=' * 60}")
 
         ds_results = {"n_train": len(train_items), "n_test": len(test_items)}
 
+        # Build labels
         if task_type in ("binary", "multiclass"):
-            # Build labels
-            all_labels = sorted(set(row[target_field] for _, row in train_items + test_items))
+            all_labels = sorted(set(
+                row[target_field] for _, row, _ in train_items + test_items
+            ))
             label2idx = {l: i for i, l in enumerate(all_labels)}
             n_classes = len(all_labels)
-            y_train = torch.tensor([label2idx[row[target_field]] for _, row in train_items])
-            y_test_raw = [row[target_field] for _, row in test_items]
+            y_train = torch.tensor(
+                [label2idx[row[target_field]] for _, row, _ in train_items])
+            y_test_raw = [row[target_field] for _, row, _ in test_items]
 
-            from collections import Counter
-            train_dist = Counter(row[target_field] for _, row in train_items)
-            test_dist = Counter(row[target_field] for _, row in test_items)
+            train_dist = Counter(row[target_field] for _, row, _ in train_items)
+            test_dist = Counter(row[target_field] for _, row, _ in test_items)
             print(f"  Classes: {all_labels}")
-            print(f"  Train dist: {dict(train_dist)}")
-            print(f"  Test dist:  {dict(test_dist)}")
+            print(f"  Train: {dict(train_dist)}")
+            print(f"  Test:  {dict(test_dist)}")
+        else:
+            n_classes = 0
+            y_train = torch.tensor(
+                [row[target_field] for _, row, _ in train_items]).float()
+            y_test_raw = [row[target_field] for _, row, _ in test_items]
+            y_test_t = torch.tensor(y_test_raw).float()
+            print(f"  Train: mean={y_train.mean():.3f} std={y_train.std():.3f}")
+            print(f"  Test:  mean={y_test_t.mean():.3f} std={y_test_t.std():.3f}")
+            baseline = mae([y_train.mean().item()] * len(y_test_raw), y_test_raw)
+            ds_results["baseline_mean_mae"] = baseline
+            print(f"  Baseline (predict mean): MAE={baseline:.4f}")
 
-            # Linear probes per layer config
-            for config_name, layer_list in layer_configs:
-                X_train = torch.stack([pool_mean(acts, layer_list) for acts, _ in train_items])
-                X_test = torch.stack([pool_mean(acts, layer_list) for acts, _ in test_items])
+        # Helper to record a probe result
+        def record(name, preds_tensor):
+            if task_type == "regression":
+                m = mae(preds_tensor.tolist(), y_test_raw)
+                ds_results[name] = {"mae": m}
+                print(f"    {name:<28s} MAE={m:.4f}")
+            else:
+                pred_labels = [all_labels[p.item()] for p in preds_tensor]
+                bal = balanced_accuracy(pred_labels, y_test_raw)
+                ds_results[name] = {"balanced_accuracy": bal}
+                print(f"    {name:<28s} bal_acc={bal:.3f}")
 
-                preds_idx = train_linear_classifier(
-                    X_train, y_train, X_test, n_classes, device=args.device,
-                )
-                preds = [all_labels[p.item()] for p in preds_idx]
-                acc = accuracy(preds, y_test_raw)
-                bal_acc = balanced_accuracy(preds, y_test_raw)
-                ds_results[f"linear_{config_name}"] = {"accuracy": acc, "balanced_accuracy": bal_acc}
-                print(f"  Linear {config_name:>7s}: acc={acc:.3f}  bal_acc={bal_acc:.3f}")
+        # ─── Per-layer probes ───
+        for layer in LAYERS:
+            ln = f"L{layer}"
+            print(f"\n  --- {ln} ---")
 
-            # Attention probe
-            X_train_layers = torch.stack([pool_per_layer(acts, LAYERS) for acts, _ in train_items])
-            X_test_layers = torch.stack([pool_per_layer(acts, LAYERS) for acts, _ in test_items])
-            preds_idx, layer_imp = train_attention_classifier(
-                X_train_layers, y_train, X_test_layers, n_classes, device=args.device,
+            # Mean-pool linear
+            X_tr = mean_pool_vec(train_items, [layer])
+            X_te = mean_pool_vec(test_items, [layer])
+            preds = train_linear_probe(X_tr, y_train, X_te, n_classes,
+                                       device=args.device)
+            record(f"mean_linear_{ln}", preds)
+
+            # Last-pos linear
+            X_tr = last_pool_vec(train_items, [layer])
+            X_te = last_pool_vec(test_items, [layer])
+            preds = train_linear_probe(X_tr, y_train, X_te, n_classes,
+                                       device=args.device)
+            record(f"last_linear_{ln}", preds)
+
+            # Attention probe (full sequence)
+            preds = train_attn_probe(
+                train_items, y_train, test_items, [layer],
+                n_classes, n_heads=args.n_heads,
+                lr=args.attn_lr, epochs=args.attn_epochs,
+                batch_size=args.attn_batch_size, device=args.device,
             )
-            preds = [all_labels[p.item()] for p in preds_idx]
-            acc = accuracy(preds, y_test_raw)
-            bal_acc = balanced_accuracy(preds, y_test_raw)
-            ds_results["attention"] = {"accuracy": acc, "balanced_accuracy": bal_acc, "layer_importance": layer_imp}
-            print(f"  Attention      : acc={acc:.3f}  bal_acc={bal_acc:.3f}  imp={layer_imp}")
+            record(f"attn_{ln}", preds)
+            torch.cuda.empty_cache()
 
-        elif task_type == "regression":
-            # Regression: predict confidence
-            y_train = torch.tensor([row[target_field] for _, row in train_items]).float()
-            y_test = torch.tensor([row[target_field] for _, row in test_items]).float()
+        # ─── Concat all layers ───
+        print(f"\n  --- Concat (all layers) ---")
 
-            print(f"  Target stats — train: mean={y_train.mean():.3f} std={y_train.std():.3f}")
-            print(f"                 test:  mean={y_test.mean():.3f} std={y_test.std():.3f}")
+        # Mean-pool concat linear
+        X_tr = mean_pool_vec(train_items, LAYERS)
+        X_te = mean_pool_vec(test_items, LAYERS)
+        preds = train_linear_probe(X_tr, y_train, X_te, n_classes,
+                                   device=args.device)
+        record("mean_linear_concat", preds)
 
-            # Baseline: always predict mean
-            mean_pred = y_train.mean().item()
-            baseline_mae = mae([mean_pred] * len(y_test), y_test.tolist())
-            ds_results["baseline_mean_mae"] = baseline_mae
-            print(f"  Baseline (mean): MAE={baseline_mae:.4f}")
+        # Last-pos concat linear
+        X_tr = last_pool_vec(train_items, LAYERS)
+        X_te = last_pool_vec(test_items, LAYERS)
+        preds = train_linear_probe(X_tr, y_train, X_te, n_classes,
+                                   device=args.device)
+        record("last_linear_concat", preds)
 
-            # Linear probes per layer config
-            for config_name, layer_list in layer_configs:
-                X_train = torch.stack([pool_mean(acts, layer_list) for acts, _ in train_items])
-                X_test = torch.stack([pool_mean(acts, layer_list) for acts, _ in test_items])
-
-                preds = train_linear_regressor(X_train, y_train, X_test, device=args.device)
-                m = mae(preds.tolist(), y_test.tolist())
-                ds_results[f"linear_{config_name}"] = {"mae": m}
-                print(f"  Linear {config_name:>7s}: MAE={m:.4f}")
-
-            # Attention probe (regression)
-            X_train_layers = torch.stack([pool_per_layer(acts, LAYERS) for acts, _ in train_items])
-            X_test_layers = torch.stack([pool_per_layer(acts, LAYERS) for acts, _ in test_items])
-            preds, layer_imp = train_attention_regressor(
-                X_train_layers, y_train, X_test_layers, device=args.device,
-            )
-            m = mae(preds.tolist(), y_test.tolist())
-            ds_results["attention"] = {"mae": m, "layer_importance": layer_imp}
-            print(f"  Attention      : MAE={m:.4f}  imp={layer_imp}")
+        # Attention probe concat
+        preds = train_attn_probe(
+            train_items, y_train, test_items, LAYERS,
+            n_classes, n_heads=args.n_heads,
+            lr=args.attn_lr, epochs=args.attn_epochs,
+            batch_size=args.attn_batch_size, device=args.device,
+        )
+        record("attn_concat", preds)
+        torch.cuda.empty_cache()
 
         all_results[ds_name] = ds_results
 
-    # ── Summary table ──
-    print(f"\n\n{'='*80}")
+    # ── Summary Table ──
+    print(f"\n\n{'=' * 110}")
     print("SUMMARY TABLE")
-    print(f"{'='*80}")
+    print(f"{'=' * 110}")
 
-    # Binary/multiclass table
-    binary_ds = [d for d in datasets_to_run if d in all_results and DATASETS[d][1] != "regression"]
+    binary_ds = [d for d in datasets_to_run
+                 if d in all_results and DATASETS[d][1] != "regression"]
     if binary_ds:
-        header = f"{'Dataset':<25s} {'L9':>7s} {'L18':>7s} {'L27':>7s} {'Concat':>7s} {'Attn':>7s}  N_tr  N_te"
         print(f"\nClassification (balanced accuracy):")
+        cols = ["mean_linear_L9", "mean_linear_L18", "mean_linear_L27",
+                "mean_linear_concat",
+                "last_linear_L9", "last_linear_L18", "last_linear_L27",
+                "attn_L9", "attn_L18", "attn_L27", "attn_concat"]
+        short = ["mL9", "mL18", "mL27", "mAll",
+                 "lL9", "lL18", "lL27",
+                 "aL9", "aL18", "aL27", "aAll"]
+        header = f"{'Dataset':<22s} " + " ".join(f"{s:>5s}" for s in short) + "  N"
         print(header)
         print("-" * len(header))
         for ds_name in binary_ds:
             r = all_results[ds_name]
             vals = []
-            for key in ["linear_L9", "linear_L18", "linear_L27", "linear_concat", "attention"]:
-                v = r.get(key, {}).get("balanced_accuracy", 0)
-                vals.append(f"{v:.3f}")
-            print(f"{ds_name:<25s} {'  '.join(vals)}  {r['n_train']:>5d} {r['n_test']:>5d}")
+            for c in cols:
+                v = r.get(c, {}).get("balanced_accuracy", 0)
+                vals.append(f"{v:.3f}"[1:])  # strip leading 0
+            print(f"{ds_name:<22s} " + " ".join(f"{v:>5s}" for v in vals)
+                  + f"  {r['n_train']}")
 
-    # Regression table
-    reg_ds = [d for d in datasets_to_run if d in all_results and DATASETS[d][1] == "regression"]
+    reg_ds = [d for d in datasets_to_run
+              if d in all_results and DATASETS[d][1] == "regression"]
     if reg_ds:
         print(f"\nRegression (MAE, lower is better):")
-        header = f"{'Dataset':<25s} {'Mean':>7s} {'L9':>7s} {'L18':>7s} {'L27':>7s} {'Concat':>7s} {'Attn':>7s}  N_tr  N_te"
-        print(header)
-        print("-" * len(header))
         for ds_name in reg_ds:
             r = all_results[ds_name]
-            base = f"{r.get('baseline_mean_mae', 0):.4f}"
-            vals = [base]
-            for key in ["linear_L9", "linear_L18", "linear_L27", "linear_concat", "attention"]:
-                v = r.get(key, {}).get("mae", 0)
-                vals.append(f"{v:.4f}")
-            print(f"{ds_name:<25s} {'  '.join(vals)}  {r['n_train']:>5d} {r['n_test']:>5d}")
+            print(f"  {ds_name}: baseline={r.get('baseline_mean_mae', 0):.4f}")
+            for key in sorted(r.keys()):
+                if isinstance(r[key], dict) and "mae" in r[key]:
+                    print(f"    {key}: {r[key]['mae']:.4f}")
 
     # Save
     out_path = Path(args.output)
