@@ -566,7 +566,8 @@ def mae(preds, gt):
 def main():
     parser = argparse.ArgumentParser(
         description="Probe baselines v2: Eleuther attention probes")
-    parser.add_argument("--max-train", type=int, default=10000)
+    parser.add_argument("--max-train", type=int, default=5000,
+                        help="Max training examples (5K keeps RAM < 200GB at stride=1)")
     parser.add_argument("--max-test", type=int, default=1000)
     parser.add_argument("--stride", type=int, default=1,
                         help="Token stride for extraction (1=every token)")
@@ -597,12 +598,15 @@ def main():
     print(f"  Model loaded. Stride={args.stride}, "
           f"max_batch_tokens={args.max_batch_tokens}\n")
 
-    all_data = {}
+    all_results = {}
+
     for ds_name in datasets_to_run:
         if ds_name not in DATASETS:
             print(f"Unknown dataset: {ds_name}")
             continue
         hf_repo, task_type, target_field = DATASETS[ds_name]
+
+        # ── Extract activations for this dataset ──
         print(f"\n{'=' * 60}")
         print(f"Extracting: {ds_name}")
         print(f"{'=' * 60}")
@@ -612,31 +616,18 @@ def main():
             max_train=args.max_train, max_test=args.max_test,
             stride=args.stride, max_batch_tokens=args.max_batch_tokens,
         )
-        if train_items and test_items:
-            train_items = binarize_labels(train_items, ds_name)
-            test_items = binarize_labels(test_items, ds_name)
-            all_data[ds_name] = (train_items, test_items)
-            print(f"  Done: {len(train_items)} train, {len(test_items)} test "
-                  f"({time.time() - t0:.0f}s)")
-
-    # ── Phase 2: Free model, train probes ──
-    print("\n\nFreeing model for probe training...")
-    del model
-    torch.cuda.empty_cache()
-    gc.collect()
-
-    all_results = {}
-
-    for ds_name in datasets_to_run:
-        if ds_name not in all_data:
+        if not train_items or not test_items:
+            print(f"  Skipped (no data)")
             continue
 
-        hf_repo, task_type, target_field = DATASETS[ds_name]
-        train_items, test_items = all_data[ds_name]
+        train_items = binarize_labels(train_items, ds_name)
+        test_items = binarize_labels(test_items, ds_name)
+        print(f"  Extracted: {len(train_items)} train, {len(test_items)} test "
+              f"({time.time() - t0:.0f}s)")
 
-        print(f"\n{'=' * 60}")
-        print(f"Training probes: {ds_name} ({task_type})")
-        print(f"{'=' * 60}")
+        # ── Train probes immediately (model stays on GPU, probes are tiny) ──
+        print(f"\n  Training probes: {ds_name} ({task_type})")
+        print(f"  {'-' * 50}")
 
         ds_results = {"n_train": len(train_items), "n_test": len(test_items)}
 
@@ -737,6 +728,15 @@ def main():
         torch.cuda.empty_cache()
 
         all_results[ds_name] = ds_results
+
+        # Free this dataset's activations before loading the next
+        del train_items, test_items, y_train
+        gc.collect()
+
+    # ── Free model ──
+    del model
+    torch.cuda.empty_cache()
+    gc.collect()
 
     # ── Summary Table ──
     print(f"\n\n{'=' * 110}")
