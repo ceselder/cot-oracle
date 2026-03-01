@@ -28,10 +28,6 @@ tasks:
     n: 7500
     eval: true
 
-  backtrack_prediction:
-    n: 15000
-    eval: true
-
   # --- Eval-only tasks (test split only, n is ignored) ---
   sycophancy:
     eval: true

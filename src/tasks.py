@@ -147,27 +147,7 @@ TASKS: dict[str, TaskDef] = {
         legacy_datapoint_type="cot_correctness",
     ),
 
-    "backtrack_prediction": TaskDef(
-        name="backtrack_prediction",
-        hf_repo=f"{HF_ORG}/cot-oracle-backtrack-prediction",
-        scoring=ScoringMode.BINARY,
-        positive_keywords=(
-            "will backtrack", "will revise", "will reconsider",
-            "about to backtrack", "will_backtrack",
-        ),
-        negative_keywords=(
-            "will continue", "will not backtrack", "will proceed",
-            "no backtracking", "will_continue",
-        ),
-        positive_label="will_backtrack",
-        negative_label="will_continue",
-        trainable=True,
-        default_n=15000,
-        max_new_tokens=64,
-        legacy_datapoint_type="cot_backtrack_pred",
-    ),
-
-    # ─── Eval-only (5 tasks) ───
+    # ─── Eval-only (4 tasks) ───
 
     "rot13_reconstruction": TaskDef(
         name="rot13_reconstruction",

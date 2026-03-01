@@ -75,19 +75,24 @@ def _parse_correctness(text: str) -> dict | None:
     return {"label": m.group(1).lower()}
 
 
-def _parse_backtrack(text: str) -> dict | None:
-    """backtrack_prediction: 'will_backtrack' or 'will_continue_forward'."""
-    t = text.strip().lower()
-    if re.match(r'will_?backtrack', t) or t.startswith("yes"):
-        return {"label": "backtrack"}
-    if re.match(r'will_?continue', t) or t.startswith("no"):
-        return {"label": "continue"}
-    if "backtrack" in t:
-        return {"label": "backtrack"}
-    if "continue" in t:
-        return {"label": "continue"}
-    return None
 
+
+def _parse_trajectory(text: str) -> dict | None:
+    """answer_trajectory: 'A. 200 (confidence: 42%, entropy: 1.36)'
+    Extracts answer text, confidence (int), and entropy (float)."""
+    # Try to extract confidence and entropy from parenthesized suffix
+    conf_m = re.search(r'confidence:\s*(\d+)%', text)
+    ent_m = re.search(r'entropy:\s*(\d+\.?\d*)', text)
+    # Extract answer part (everything before the parenthesized metadata)
+    answer = re.sub(r'\s*\(confidence:.*', '', text).strip()
+    if not answer:
+        return None
+    result: dict = {"label": answer}
+    if conf_m:
+        result["confidence"] = int(conf_m.group(1))
+    if ent_m:
+        result["entropy"] = float(ent_m.group(1))
+    return result
 
 
 def _parse_sycophancy(text: str) -> dict | None:
@@ -108,7 +113,7 @@ TASK_PARSERS: dict[str, Any] = {
     "atypical_answer": _parse_atypical,
     "reasoning_termination": _parse_termination,
     "correctness": _parse_correctness,
-    "backtrack_prediction": _parse_backtrack,
+    "answer_trajectory": _parse_trajectory,
     "sycophancy": _parse_sycophancy,
 }
 
@@ -201,6 +206,56 @@ def _score_token_f1(
     }
 
 
+def _score_trajectory(
+    predictions: list[str],
+    targets: list[str],
+) -> dict[str, float]:
+    """Score answer_trajectory: token F1 on answer text + MAE on confidence/entropy."""
+    if not predictions:
+        return {"token_f1": 0.0, "n": 0}
+
+    parser = _parse_trajectory
+    f1_scores = []
+    conf_errors = []
+    ent_errors = []
+
+    for pred_text, target_text in zip(predictions, targets):
+        gt = parser(target_text)
+        if gt is None:
+            continue
+        pr = parser(pred_text)
+
+        # Token F1 on the answer label
+        gt_tokens = gt["label"].lower().split()
+        pr_tokens = pr["label"].lower().split() if pr else []
+
+        if not gt_tokens:
+            f1_scores.append(1.0 if not pr_tokens else 0.0)
+        elif not pr_tokens:
+            f1_scores.append(0.0)
+        else:
+            common = set(pr_tokens) & set(gt_tokens)
+            prec = len(common) / len(set(pr_tokens))
+            rec = len(common) / len(set(gt_tokens))
+            f1_scores.append(2 * prec * rec / (prec + rec) if (prec + rec) > 0 else 0.0)
+
+        # Numeric MAE for confidence and entropy
+        if pr and "confidence" in gt and "confidence" in pr:
+            conf_errors.append(abs(pr["confidence"] - gt["confidence"]))
+        if pr and "entropy" in gt and "entropy" in pr:
+            ent_errors.append(abs(pr["entropy"] - gt["entropy"]))
+
+    result: dict[str, float] = {
+        "token_f1": sum(f1_scores) / len(f1_scores) if f1_scores else 0.0,
+        "n": len(f1_scores),
+    }
+    if conf_errors:
+        result["confidence_mae"] = sum(conf_errors) / len(conf_errors)
+    if ent_errors:
+        result["entropy_mae"] = sum(ent_errors) / len(ent_errors)
+    return result
+
+
 def _score_step_accuracy(
     predictions: list[str],
     targets: list[str],
@@ -279,6 +334,10 @@ def score_task(
 ) -> dict[str, float]:
     """Score any task. Parser-based tasks get accuracy + numeric side-metrics.
     Remaining tasks fall through to generic scoring."""
+    # answer_trajectory: token F1 on the answer text + MAE on confidence/entropy
+    if task_def.name == "answer_trajectory":
+        return _score_trajectory(predictions, targets)
+
     parser = TASK_PARSERS.get(task_def.name)
     if parser is not None:
         return _score_parsed(parser, predictions, targets)
@@ -295,6 +354,8 @@ def score_task(
 
 def _primary_metric_name(task_name: str, scoring: ScoringMode) -> str:
     """Map task to its primary metric key."""
+    if task_name == "answer_trajectory":
+        return "token_f1"
     if task_name in TASK_PARSERS:
         return "accuracy"
     return {
