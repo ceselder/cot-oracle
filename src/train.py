@@ -1224,7 +1224,7 @@ def train(
         print(f"  Epochs: {args.epochs}")
         print(f"  Steps: {total_steps}")
         print(f"  Warmup: {warmup_steps}")
-        print(f"  Eval limits: max_items={args.max_items_per_eval}, oversample={args.eval_oversample_factor}")
+        print(f"  Eval limits: max_items={args.max_items_per_eval}")
         print(f"  Eval decode caps: detection={args.eval_max_new_tokens}, task={args.task_eval_max_new_tokens}")
 
     model.train()
@@ -1696,9 +1696,7 @@ def main():
     parser.add_argument("--eval-batch-size", type=int, default=2)
     parser.add_argument("--max-items-per-eval", type=int, default=10,
                         help="Maximum items per detection eval")
-    parser.add_argument("--eval-oversample-factor", type=float, default=1.0,
-                        help="Non-classification eval sample multiplier (1.0 = no oversampling)")
-    parser.add_argument("--eval-max-new-tokens", type=int, default=32,
+parser.add_argument("--eval-max-new-tokens", type=int, default=32,
                         help="Default max_new_tokens for detection eval generation")
     parser.add_argument("--task-eval-max-new-tokens", type=int, default=64,
                         help="Default max_new_tokens for task-level eval generation")
