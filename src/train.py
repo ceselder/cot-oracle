@@ -1696,7 +1696,7 @@ def main():
     parser.add_argument("--eval-batch-size", type=int, default=2)
     parser.add_argument("--max-items-per-eval", type=int, default=10,
                         help="Maximum items per detection eval")
-parser.add_argument("--eval-max-new-tokens", type=int, default=32,
+    parser.add_argument("--eval-max-new-tokens", type=int, default=32,
                         help="Default max_new_tokens for detection eval generation")
     parser.add_argument("--task-eval-max-new-tokens", type=int, default=64,
                         help="Default max_new_tokens for task-level eval generation")
