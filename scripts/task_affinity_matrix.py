@@ -69,6 +69,43 @@ class EvalExampleSpec:
     eval_name: str
 
 
+def _apply_context_truncation(rows: list[dict], max_context_tokens: int | None) -> dict[str, int | None]:
+    max_tokens_before = 0
+    max_tokens_after = 0
+    truncated_examples = 0
+    total_dropped_tokens = 0
+    total_dropped_positions = 0
+    for row in rows:
+        ctx = list(row["context_input_ids"])
+        positions = list(row["context_positions"])
+        original_ctx_len = len(ctx)
+        original_position_count = len(positions)
+        max_tokens_before = max(max_tokens_before, original_ctx_len)
+        if max_context_tokens is not None and original_ctx_len > max_context_tokens:
+            window_end = max(positions) + 1
+            window_start = max(0, window_end - max_context_tokens)
+            ctx = ctx[window_start:window_end]
+            positions = [pos - window_start for pos in positions if window_start <= pos < window_end]
+            if not positions:
+                raise ValueError(f"{row['datapoint_type']} lost every activation position under max_context_tokens={max_context_tokens}")
+            row["context_input_ids"] = ctx
+            row["context_positions"] = positions
+            row["num_positions"] = len(positions)
+            truncated_examples += 1
+            total_dropped_tokens += original_ctx_len - len(ctx)
+            total_dropped_positions += original_position_count - len(positions)
+        max_tokens_after = max(max_tokens_after, len(row["context_input_ids"]))
+    return {
+        "max_context_tokens": max_context_tokens,
+        "total_examples": len(rows),
+        "truncated_examples": truncated_examples,
+        "max_tokens_before": max_tokens_before,
+        "max_tokens_after": max_tokens_after,
+        "total_dropped_tokens": total_dropped_tokens,
+        "total_dropped_positions": total_dropped_positions,
+    }
+
+
 def _first_nonempty(meta: dict, keys: list[str]) -> str:
     for key in keys:
         if key in meta and isinstance(meta[key], str) and meta[key].strip():
@@ -182,7 +219,7 @@ def _load_model(args, device: torch.device):
     return model, submodule
 
 
-def _load_task_rows(task_name: str, split: str, n: int, tokenizer, layers: list[int], args, seed: int) -> list[dict]:
+def _load_task_rows(task_name: str, split: str, n: int, tokenizer, layers: list[int], args, seed: int) -> tuple[list[dict], dict[str, int | None]]:
     if task_name == "rot13_reconstruction":
         raise ValueError("rot13_reconstruction needs the dedicated ROT13 adapter and is not supported here")
     if task_name == "futurelens":
@@ -195,7 +232,8 @@ def _load_task_rows(task_name: str, split: str, n: int, tokenizer, layers: list[
             prepare_context_ids(rows, tokenizer, stride=args.stride, layers=layers, n_prompt_positions=args.n_prompt_positions)
     if len(rows) < n:
         raise ValueError(f"Task {task_name} ({split}) only produced {len(rows)} rows, need {n}")
-    return rows
+    truncation_stats = _apply_context_truncation(rows, args.max_context_tokens)
+    return rows, truncation_stats
 
 
 def _sample_rows(rows: list, sample_n: int, rng: random.Random) -> list:
@@ -414,6 +452,7 @@ def _parse_args():
     parser.add_argument("--train-samples-per-task", type=int, default=8)
     parser.add_argument("--train-samples-per-task-grid", type=int, nargs="+", default=None, help="Multiple train support sizes; each size gets its own affinity matrices")
     parser.add_argument("--eval-samples-per-eval", type=int, default=8)
+    parser.add_argument("--max-context-tokens", type=int, default=None, help="Keep at most this many context tokens ending at the latest activation position before extraction")
     parser.add_argument("--virtual-lr", type=float, default=None)
     parser.add_argument("--steering-coefficient", type=float, default=1.0)
     parser.add_argument("--seed", type=int, default=42)
@@ -522,12 +561,15 @@ def main():
     step_lr = args.virtual_lr if args.virtual_lr is not None else args.lr
     rng = random.Random(args.seed)
     train_sizes = {}
+    train_truncation = {}
+    eval_truncation = {}
 
     eval_datapoints = {}
     eval_sizes = {}
     for eval_name in tqdm(eval_names, desc="load-evals"):
-        rows = _load_task_rows(eval_name, "test", args.eval_samples_per_eval, tokenizer, layers, args, seed=args.seed)
+        rows, truncation_stats = _load_task_rows(eval_name, "test", args.eval_samples_per_eval, tokenizer, layers, args, seed=args.seed)
         eval_sizes[eval_name] = len(rows)
+        eval_truncation[eval_name] = truncation_stats
         eval_datapoints[eval_name] = _materialize_train_task(eval_name, rows, tokenizer, model, args.eval_samples_per_eval, args.eval_batch_size, rng)
 
     eval_snaps = {}
@@ -553,8 +595,9 @@ def main():
         for support_size in train_support_sizes
     }
     for task_name in tqdm(train_task_names, desc="train-task-affinity"):
-        raw_rows = _load_task_rows(task_name, "train", max_train_support, tokenizer, layers, args, seed=args.seed)
+        raw_rows, truncation_stats = _load_task_rows(task_name, "train", max_train_support, tokenizer, layers, args, seed=args.seed)
         train_sizes[task_name] = len(raw_rows)
+        train_truncation[task_name] = truncation_stats
         if len(raw_rows) < max_train_support:
             raise ValueError(f"Task {task_name} only has {len(raw_rows)} loaded examples, need at least {max_train_support}")
         support_rng = random.Random(f"{args.seed}:{task_name}:support")
@@ -621,17 +664,22 @@ def main():
                 "evals": eval_names,
                 "train_support_sizes": train_support_sizes,
                 "eval_samples_per_eval": args.eval_samples_per_eval,
+                "max_context_tokens": args.max_context_tokens,
                 "analysis_batch_size": args.analysis_batch_size,
                 "extract_batch_size": args.eval_batch_size,
                 "virtual_lr": step_lr,
                 "train_sizes": train_sizes,
                 "eval_sizes": eval_sizes,
+                "train_truncation": train_truncation,
+                "eval_truncation": eval_truncation,
                 "eval_grad_meta": eval_grad_meta,
                 "results_by_train_support_size": results_by_size,
             },
             f,
             indent=2,
         )
+    with open(run_dir / "truncation_summary.json", "w") as f:
+        json.dump({"max_context_tokens": args.max_context_tokens, "train_truncation": train_truncation, "eval_truncation": eval_truncation}, f, indent=2)
     plot_path = None
     if not args.skip_plot:
         plot_path = _render_affinity_plots(summary_path)
