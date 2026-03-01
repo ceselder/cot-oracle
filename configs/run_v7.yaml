@@ -22,6 +22,10 @@ tasks:
     n: 7500
     eval: true
 
+  decorative_cot:
+    n: 8000
+    eval: true
+
   # Constructed from corpus-v5 at load time
   futurelens:
     n: 30000

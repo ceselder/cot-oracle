@@ -148,6 +148,20 @@ TASKS: dict[str, TaskDef] = {
         legacy_datapoint_type="cot_correctness",
     ),
 
+    "decorative_cot": TaskDef(
+        name="decorative_cot",
+        hf_repo=f"{HF_ORG}/cot-oracle-decorative-cot-cleaned",
+        scoring=ScoringMode.BINARY,
+        positive_keywords=("load_bearing", "load bearing", "essential", "necessary"),
+        negative_keywords=("decorative", "unnecessary", "not needed"),
+        positive_label="load_bearing",
+        negative_label="decorative",
+        trainable=True,
+        default_n=8000,
+        max_new_tokens=64,
+        legacy_datapoint_type="cot_decorative",
+    ),
+
     "chunked_convqa": TaskDef(
         name="chunked_convqa",
         hf_repo=f"{HF_ORG}/cot-oracle-convqa-chunked",
