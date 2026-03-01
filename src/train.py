@@ -1203,8 +1203,9 @@ def train(
             "train/samples_seen": global_step * args.effective_batch_size,
         }, step=global_step)
 
-        # Log task index legend to wandb config
-        wandb.config.update({"task_index_legend": task_to_idx}, allow_val_change=True)
+        # Log task index legend to wandb config (skip if session closed)
+        if wandb.run:
+            wandb.config.update({"task_index_legend": task_to_idx}, allow_val_change=True)
 
     save_dir.mkdir(parents=True, exist_ok=True)
     _run_name = wandb.run.name if wandb.run else (args.wandb_run or "cot-oracle")
@@ -2171,7 +2172,7 @@ def main():
 
         # Close initial session — syncs config, tags, code.
         # All subsequent logging goes through the upload thread.
-        wandb.finish(quiet=True)
+        wandb.finish()
 
         _metric_queue = []  # list of (data_dict, step)
         _metric_lock = threading.Lock()
@@ -2197,7 +2198,7 @@ def main():
                     run = wandb.init(**_wandb_init_kw)
                     for data, step in batch:
                         run.log(data, step=step)
-                    wandb.finish(quiet=True)
+                    wandb.finish()
                     wandb.log = _queued_wandb_log  # re-patch after finish
                     print(f"  [wandb] Uploaded {len(batch)} records")
                 except Exception as e:
