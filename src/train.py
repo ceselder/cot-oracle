@@ -231,12 +231,23 @@ def materialize_multilayer_steering_vectors(
         per_item_layers = [layers] * len(to_fill)
 
     pad_id = tokenizer.pad_token_id
+    MAX_CONTEXT_TOKENS = 4096  # Cap materialization to avoid 15K+ outliers blowing up batch time
     contexts = [list(dp.context_input_ids) for _, dp in to_fill]
     # When pooling, use full positions from meta_info (context_positions was truncated for validator)
     positions_per_item = []
     for _, dp in to_fill:
         full_pos = (dp.meta_info or {}).get("full_context_positions")
         positions_per_item.append(list(full_pos) if full_pos is not None else list(dp.context_positions))
+
+    # Left-truncate long contexts: keep the last MAX_CONTEXT_TOKENS tokens
+    for j in range(len(contexts)):
+        ctx = contexts[j]
+        if len(ctx) > MAX_CONTEXT_TOKENS:
+            trim = len(ctx) - MAX_CONTEXT_TOKENS
+            contexts[j] = ctx[trim:]
+            # Drop positions that fell off the left, adjust remaining
+            positions_per_item[j] = [p - trim for p in positions_per_item[j] if p >= trim]
+
     max_len = max(len(c) for c in contexts)
 
     device = next(model.parameters()).device
