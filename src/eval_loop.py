@@ -342,14 +342,14 @@ def _ensure_ao_imports():
     from core.ao import (
         get_batched_steering_hook,
         _active_adapter_name,
-        SPECIAL_TOKEN,
+        TRAINED_PLACEHOLDER,
     )
     _ao_modules["collect_activations_multiple_layers"] = collect_activations_multiple_layers
     _ao_modules["get_batched_steering_hook"] = get_batched_steering_hook
     _ao_modules["get_hf_submodule"] = get_hf_submodule
     _ao_modules["add_hook"] = add_hook
     _ao_modules["_active_adapter_name"] = _active_adapter_name
-    _ao_modules["SPECIAL_TOKEN"] = SPECIAL_TOKEN
+    _ao_modules["PLACEHOLDER_TOKEN"] = TRAINED_PLACEHOLDER
     _AO_IMPORTS_LOADED = True
 
 
@@ -461,11 +461,11 @@ def _batched_oracle_generate(
     get_hf_submodule = _ao_modules["get_hf_submodule"]
     add_hook = _ao_modules["add_hook"]
     _active_adapter_name = _ao_modules["_active_adapter_name"]
-    SPECIAL_TOKEN = _ao_modules["SPECIAL_TOKEN"]
+    PLACEHOLDER_TOKEN = _ao_modules["PLACEHOLDER_TOKEN"]
 
     eval_batch_size = max(1, int(eval_batch_size))
     dtype = torch.bfloat16
-    ph_token = SPECIAL_TOKEN
+    ph_token = PLACEHOLDER_TOKEN
 
     layer_list = list(layers) if len(layers) > 1 else layers
     ph_id = tokenizer.encode(ph_token, add_special_tokens=False)
