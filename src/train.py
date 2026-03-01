@@ -2169,11 +2169,11 @@ def main():
             config=wandb_config,
             tags=[args.model.split("/")[-1]] + enabled_tasks,
         )
-        _original_wandb_log = wandb.log
 
         def _safe_wandb_log(data, *a, **kw):
             with _wandb_lock:
-                _original_wandb_log(data, *a, **kw)
+                if wandb.run is not None:
+                    wandb.run.log(data, *a, **kw)
 
         wandb.log = _safe_wandb_log
 
@@ -2185,6 +2185,7 @@ def main():
                     try:
                         wandb.finish(quiet=True)
                         wandb.init(**_wandb_init_kw)
+                        wandb.log = _safe_wandb_log  # re-patch after reinit
                         print(f"  [wandb] Sync flush completed")
                     except Exception as e:
                         print(f"  [wandb] Sync error: {e}")
