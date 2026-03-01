@@ -1225,7 +1225,7 @@ class ChatCompareWebApp:
     function setStatus(msg) { statusEl.textContent = msg; }
     function compactText(text) { return (text || '').replace(/\\s+/g, ' ').trim(); }
     function renderRatings(ratings, summary) {
-      document.getElementById('ratingScores').textContent = (ratings || []).map(item => `${item.name}: ${item.score}/5 - ${item.note}`).join('\n') || 'Run a comparison to generate ratings.';
+      document.getElementById('ratingScores').textContent = (ratings || []).map(item => `${item.name}: ${item.score}/5 - ${item.note}`).join('\\n') || 'Run a comparison to generate ratings.';
       document.getElementById('ratingSummary').textContent = compactText(summary);
     }
     function selectedBaselines() { return Object.entries(baselineInputs).filter(([, input]) => input.checked).map(([name]) => name); }
