@@ -13,6 +13,7 @@ from evals.common import compute_binary_metrics
 
 
 EVAL_TYPES = {
+    # Detection evals
     "hinted_mcq": "binary",
     "hinted_mcq_truthfulqa": "binary",
     "sycophancy_v2_riya": "binary",
@@ -21,10 +22,30 @@ EVAL_TYPES = {
     "atypical_answer_riya": "binary",
     "atypical_answer_mcq": "binary",
     "cybercrime_ood": "binary",
+    "sentence_insertion": "binary",
+    "chunked_convqa": "generation",
+    "cot_hint_admission": "generation",
     "rot13_reconstruction": "generation",
     "compqa": "generation",
     "thought_anchors": "ranking",
     "thought_branches": "ranking",
+    # Cleaned datasets
+    "cleaned_correctness": "binary",
+    "cleaned_reasoning_termination": "binary",
+    "cleaned_atypical_answer": "binary",
+    "cleaned_hint_admission": "multiclass",
+    "cleaned_truthfulqa_hint_unverb": "multiclass",
+    "cleaned_truthfulqa_hint_verb": "multiclass",
+    # Classification evals (all binary: yes/no)
+    "cls_sst2": "binary",
+    "cls_snli": "binary",
+    "cls_ag_news": "binary",
+    "cls_ner": "binary",
+    "cls_tense": "binary",
+    "cls_language_id": "binary",
+    "cls_singular_plural": "binary",
+    "cls_geometry_of_truth": "binary",
+    "cls_relations": "binary",
 }
 
 

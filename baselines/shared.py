@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 import torch
+from datasets import load_dataset
 from tqdm.auto import tqdm
 
 _SRC = Path(__file__).resolve().parent.parent / "src"
@@ -106,32 +107,54 @@ def load_baseline_inputs(
     items = load_eval_items_hf(eval_name, eval_dir=eval_dir)
     print(f"  Loaded {len(items)} items for {eval_name}")
 
+    is_cls = eval_name.startswith("cls_")
+
     results = []
     was_training = model.training
     model.eval()
 
     for item in tqdm(items, desc=f"Loading {eval_name}"):
-        # Use precomputed responses if available, otherwise generate
-        precomp_clean = item.metadata.get("qwen3_8b_clean_response")
-        precomp_test = item.metadata.get("qwen3_8b_test_response")
-        if precomp_clean and precomp_test:
-            clean_response, test_response = precomp_clean, precomp_test
-            clean_answer = item.metadata.get("qwen3_8b_clean_answer") or _extract_answer(clean_response, eval_name)
-            test_answer = item.metadata.get("qwen3_8b_test_answer") or _extract_answer(test_response, eval_name)
+        if is_cls:
+            # Classification evals: neutral prompt, text from metadata, ground truth = correct_answer
+            cot_text = item.metadata.get("cot_text", "")
+            if not cot_text:
+                continue
+            clean_response = test_response = cot_text
+            gt = item.correct_answer  # "yes" or "no"
+            extraction_prompt = "Read the following text."
+        elif eval_name == "sentence_insertion":
+            # Use spliced CoT text, binary ground truth
+            cot_text = item.metadata.get("spliced_cot_text", "")
+            if not cot_text:
+                continue
+            clean_response = test_response = cot_text
+            gt = "inserted" if item.metadata.get("is_insertion") else "clean"
+            extraction_prompt = item.test_prompt
         else:
-            clean_response = generate_cot(model, tokenizer, item.clean_prompt, max_new_tokens=512, device=device, adapter_name=generation_adapter_name)
-            test_response = generate_cot(model, tokenizer, item.test_prompt, max_new_tokens=512, device=device, adapter_name=generation_adapter_name)
-            clean_answer = _extract_answer(clean_response, eval_name)
-            test_answer = _extract_answer(test_response, eval_name)
+            # Standard evals: use precomputed responses if available, otherwise generate
+            precomp_clean = item.metadata.get("qwen3_8b_clean_response")
+            precomp_test = item.metadata.get("qwen3_8b_test_response")
+            if precomp_clean and precomp_test:
+                clean_response, test_response = precomp_clean, precomp_test
+                clean_answer = item.metadata.get("qwen3_8b_clean_answer") or _extract_answer(clean_response, eval_name)
+                test_answer = item.metadata.get("qwen3_8b_test_answer") or _extract_answer(test_response, eval_name)
+            else:
+                clean_response = generate_cot(model, tokenizer, item.clean_prompt, max_new_tokens=512, device=device, adapter_name=generation_adapter_name)
+                test_response = generate_cot(model, tokenizer, item.test_prompt, max_new_tokens=512, device=device, adapter_name=generation_adapter_name)
+                clean_answer = _extract_answer(clean_response, eval_name)
+                test_answer = _extract_answer(test_response, eval_name)
 
-        # Determine ground truth
-        gt = determine_ground_truth(item, clean_answer, test_answer)
-        if eval_name == "decorative_cot":
-            gt = item.metadata.get("ground_truth_label") or item.metadata.get("label") or gt
-        elif eval_name in ("thought_anchors", "thought_branches"):
-            gt = "ranking"
-        elif eval_name == "rot13_reconstruction":
-            gt = "generation"
+            # Determine ground truth
+            gt = determine_ground_truth(item, clean_answer, test_answer)
+            if eval_name == "decorative_cot":
+                gt = item.metadata.get("ground_truth_label") or item.metadata.get("label") or gt
+            elif eval_name in ("thought_anchors", "thought_branches"):
+                gt = "ranking"
+            elif eval_name in ("rot13_reconstruction", "chunked_convqa", "cot_hint_admission"):
+                gt = "generation"
+
+            cot_text = test_response.strip()
+            extraction_prompt = item.test_prompt
 
         skip_labels = {"indeterminate", "pending_multi_run", "pending_manual",
                        "pending_reconstruction", "pending_entropy_regression"}
@@ -139,12 +162,12 @@ def load_baseline_inputs(
             continue
 
         # Build full text for activation extraction
-        cot_text = test_response.strip()
+        cot_text = cot_text.strip()
         if not cot_text:
             continue
 
-        full_text = build_full_text_from_prompt_and_cot(tokenizer, item.test_prompt, cot_text)
-        messages = [{"role": "user", "content": item.test_prompt}]
+        full_text = build_full_text_from_prompt_and_cot(tokenizer, extraction_prompt, cot_text)
+        messages = [{"role": "user", "content": extraction_prompt}]
         formatted = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True, enable_thinking=True)
         prompt_ids = tokenizer.encode(formatted, add_special_tokens=False)
         all_ids = tokenizer.encode(full_text, add_special_tokens=False)
@@ -190,6 +213,90 @@ def load_baseline_inputs(
         model.train()
     print(f"  {len(results)} usable items (filtered from {len(items)})")
     return results
+
+
+CLEANED_DATASET_NAMES = {
+    "mats-10-sprint-cs-jb/cot-oracle-correctness-cleaned": "cleaned_correctness",
+    "mats-10-sprint-cs-jb/cot-oracle-reasoning-termination-cleaned": "cleaned_reasoning_termination",
+    "mats-10-sprint-cs-jb/cot-oracle-atypical-answer-cleaned": "cleaned_atypical_answer",
+    "mats-10-sprint-cs-jb/cot-oracle-hint-admission-cleaned": "cleaned_hint_admission",
+    "mats-10-sprint-cs-jb/cot-oracle-truthfulqa-hint-unverbalized-cleaned": "cleaned_truthfulqa_hint_unverb",
+    "mats-10-sprint-cs-jb/cot-oracle-truthfulqa-hint-verbalized-cleaned": "cleaned_truthfulqa_hint_verb",
+}
+
+
+def load_cleaned_baseline_inputs(
+    dataset_id: str, model, tokenizer, *,
+    layers: list[int], stride: int, device: str = "cuda",
+    train_fraction: float = 0.01,
+) -> tuple[list[BaselineInput], list[BaselineInput]]:
+    """Load cleaned HF dataset with train/test splits, extract activations.
+
+    Returns (train_inputs, test_inputs).
+    """
+    eval_name = CLEANED_DATASET_NAMES[dataset_id]
+    ds = load_dataset(dataset_id)
+    train_split = ds["train"]
+    test_split = ds["test"]
+
+    if train_fraction < 1.0:
+        n_total = len(train_split)
+        n_used = max(1, int(n_total * train_fraction))
+        print(f"WARNING: Using {train_fraction*100:.0f}% of training data ({n_used}/{n_total} rows). Set train_fraction=1.0 for full training.")
+        train_split = train_split.shuffle(seed=42).select(range(n_used))
+
+    was_training = model.training
+    model.eval()
+
+    def _process_split(split, split_name):
+        results = []
+        for i, row in enumerate(tqdm(split, desc=f"Loading {eval_name} {split_name}")):
+            cot_text = row["cot_text"].strip()
+            if not cot_text:
+                continue
+            prompt = row.get("hinted_prompt") or row.get("question", "")
+
+            full_text = build_full_text_from_prompt_and_cot(tokenizer, prompt, cot_text)
+            messages = [{"role": "user", "content": prompt}]
+            formatted = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True, enable_thinking=True)
+            prompt_ids = tokenizer.encode(formatted, add_special_tokens=False)
+            all_ids = tokenizer.encode(full_text, add_special_tokens=False)
+            positions = get_cot_stride_positions(len(prompt_ids), len(all_ids), stride=stride)
+
+            if len(positions) < 2:
+                continue
+
+            tok_out = tokenizer(full_text, return_tensors="pt", add_special_tokens=False)
+            input_tensor = tok_out["input_ids"].to(device)
+            attn_mask = tok_out["attention_mask"].to(device)
+            seq_len = input_tensor.shape[1]
+            positions = [p for p in positions if p < seq_len]
+            if len(positions) < 2:
+                continue
+
+            with using_adapter(model, None):
+                acts_by_layer = extract_multilayer_activations(model, input_tensor, attn_mask, positions, layers)
+
+            results.append(BaselineInput(
+                eval_name=eval_name,
+                example_id=row.get("question_id", f"{dataset_id}_{i}"),
+                clean_prompt=prompt, test_prompt=prompt,
+                correct_answer=row.get("correct_answer", ""),
+                nudge_answer=None,
+                ground_truth_label=row["label"],
+                clean_response=cot_text, test_response=cot_text,
+                activations_by_layer=acts_by_layer,
+                metadata={"positions": positions},
+            ))
+        return results
+
+    train_inputs = _process_split(train_split, "train")
+    test_inputs = _process_split(test_split, "test")
+
+    if was_training:
+        model.train()
+    print(f"  {len(train_inputs)} train, {len(test_inputs)} test items for {eval_name}")
+    return train_inputs, test_inputs
 
 
 def pool_activations(acts: torch.Tensor, method: str = "mean") -> torch.Tensor:

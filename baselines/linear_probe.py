@@ -60,11 +60,20 @@ def _train_regressor_fold(X_tr, y_tr, X_te, *, lr, epochs, weight_decay, device)
         return probe(X_te_s).squeeze(-1).cpu()
 
 
+def _build_features(inputs: list[BaselineInput], layer_list: list[int], pooling: str) -> torch.Tensor:
+    """Build [N, D'] feature matrix."""
+    return torch.stack([
+        torch.cat([pool_activations(inp.activations_by_layer[l], pooling) for l in layer_list], dim=-1)
+        for inp in inputs
+    ]).float()
+
+
 def run_linear_probe(
     inputs: list[BaselineInput], *,
     layers: list[int], k_folds: int = 5, lr: float = 0.01,
     epochs: int = 100, weight_decay: float = 0.0001,
     pooling: str = "mean", device: str = "cuda",
+    test_inputs: list[BaselineInput] | None = None,
 ) -> dict:
     eval_name = inputs[0].eval_name
     eval_type = EVAL_TYPES[eval_name]
@@ -77,38 +86,57 @@ def run_linear_probe(
     traces = []
 
     for layer_name, layer_list in tqdm(layer_configs, desc="Linear probe layers"):
-        # Build feature matrix [N, D'] where D' = D * len(layer_list)
-        X_all = torch.stack([
-            torch.cat([pool_activations(inp.activations_by_layer[l], pooling) for l in layer_list], dim=-1)
-            for inp in inputs
-        ]).float()
+        all_inputs = inputs + test_inputs if test_inputs else inputs
+        labels_unique = sorted(set(inp.ground_truth_label for inp in all_inputs))
+        label_to_idx = {l: i for i, l in enumerate(labels_unique)}
+        n_classes = len(labels_unique)
 
-        if eval_type == "binary":
-            labels_unique = sorted(set(inp.ground_truth_label for inp in inputs))
-            label_to_idx = {l: i for i, l in enumerate(labels_unique)}
-            y_all = torch.tensor([label_to_idx[inp.ground_truth_label] for inp in inputs])
-            n_classes = len(labels_unique)
+        if eval_type in ("binary", "multiclass"):
+            if test_inputs is not None:
+                # Train/test split mode — no k-fold
+                X_train = _build_features(inputs, layer_list, pooling)
+                X_test = _build_features(test_inputs, layer_list, pooling)
+                y_train = torch.tensor([label_to_idx[inp.ground_truth_label] for inp in inputs])
 
-            skf = StratifiedKFold(n_splits=k_folds, shuffle=True, random_state=42)
-            all_preds = [None] * len(inputs)
-
-            for train_idx, test_idx in skf.split(X_all.numpy(), y_all.numpy()):
                 preds = _train_classifier_fold(
-                    X_all[train_idx], y_all[train_idx], X_all[test_idx], n_classes,
+                    X_train, y_train, X_test, n_classes,
                     lr=lr, epochs=epochs, weight_decay=weight_decay, device=device,
                 )
-                for i, idx in enumerate(test_idx):
-                    all_preds[idx] = labels_unique[preds[i].item()]
+                all_preds = [labels_unique[p.item()] for p in preds]
+                gt_labels = [inp.ground_truth_label for inp in test_inputs]
+                metrics = score_binary(all_preds, gt_labels)
+                all_results[layer_name] = metrics
 
-            gt_labels = [inp.ground_truth_label for inp in inputs]
-            metrics = score_binary(all_preds, gt_labels)
-            all_results[layer_name] = metrics
+                for i in range(min(10, len(test_inputs))):
+                    traces.append({
+                        "layer": layer_name, "example_id": test_inputs[i].example_id,
+                        "prediction": all_preds[i], "ground_truth": test_inputs[i].ground_truth_label,
+                    })
+            else:
+                # K-fold CV mode (existing behavior)
+                X_all = _build_features(inputs, layer_list, pooling)
+                y_all = torch.tensor([label_to_idx[inp.ground_truth_label] for inp in inputs])
 
-            for i in range(min(10, len(inputs))):
-                traces.append({
-                    "layer": layer_name, "example_id": inputs[i].example_id,
-                    "prediction": all_preds[i], "ground_truth": inputs[i].ground_truth_label,
-                })
+                skf = StratifiedKFold(n_splits=k_folds, shuffle=True, random_state=42)
+                all_preds = [None] * len(inputs)
+
+                for train_idx, test_idx in skf.split(X_all.numpy(), y_all.numpy()):
+                    preds = _train_classifier_fold(
+                        X_all[train_idx], y_all[train_idx], X_all[test_idx], n_classes,
+                        lr=lr, epochs=epochs, weight_decay=weight_decay, device=device,
+                    )
+                    for i, idx in enumerate(test_idx):
+                        all_preds[idx] = labels_unique[preds[i].item()]
+
+                gt_labels = [inp.ground_truth_label for inp in inputs]
+                metrics = score_binary(all_preds, gt_labels)
+                all_results[layer_name] = metrics
+
+                for i in range(min(10, len(inputs))):
+                    traces.append({
+                        "layer": layer_name, "example_id": inputs[i].example_id,
+                        "prediction": all_preds[i], "ground_truth": inputs[i].ground_truth_label,
+                    })
 
         elif eval_type == "ranking":
             # Per-chunk regression: predict importance scores
