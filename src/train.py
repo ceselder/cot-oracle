@@ -1415,7 +1415,7 @@ def train(
                 dominant_task = max(batch_task_counts, key=batch_task_counts.get)
                 log_dict["train/stage_idx"] = task_stage_idx.get(dominant_task, -1)
                 log_dict["train/stage_name"] = dominant_task
-                wandb.run.summary["current_stage"] = dominant_task
+                # current_stage tracked via log_dict["train/stage_name"]
                 log_dict["train/progress"] = global_step / max(total_steps, 1)
                 if dominant_task in stage_step_ranges:
                     s_start, s_end = stage_step_ranges[dominant_task]
@@ -2153,44 +2153,60 @@ def main():
                 if Path(cfg_path).exists():
                     wandb.save(cfg_path)
 
-        # Write metrics to JSONL file for sidecar upload.
-        # wandb file_stream is broken on Vast.ai — sidecar does short-lived
-        # wandb sessions to upload metrics reliably.
-        _metrics_path = Path(args.save_dir) / "metrics.jsonl"
-        _metrics_path.parent.mkdir(parents=True, exist_ok=True)
-        # Write run metadata header so sidecar can auto-configure
-        import json as _json
-        with open(_metrics_path, "w") as _f:
-            _f.write(_json.dumps({
-                "_meta": True,
-                "run_id": wandb.run.id,
-                "project": args.wandb_project,
-                "entity": args.wandb_entity,
-                "run_name": run_name,
-            }) + "\n")
+        # Fix: wandb file_stream is broken on Vast.ai — streaming never
+        # uploads history data. But wandb.finish() reliably syncs everything.
+        # Solution: queue metrics in-memory, upload in batches via short-lived
+        # wandb sessions (init→log→finish) from a background thread.
+        import threading
 
-        _original_wandb_log = wandb.log
+        _wandb_run_id = wandb.run.id
+        _wandb_init_kw = dict(
+            project=args.wandb_project,
+            entity=args.wandb_entity,
+            name=run_name,
+            group=args.wandb_group,
+            id=_wandb_run_id,
+            resume="allow",
+        )
 
-        def _file_backed_wandb_log(data, *a, step=None, **kw):
-            """Log to wandb (best-effort) AND write to metrics JSONL."""
-            # Always write to file (reliable)
+        # Close initial session — syncs config, tags, code.
+        # All subsequent logging goes through the upload thread.
+        wandb.finish(quiet=True)
+
+        _metric_queue = []  # list of (data_dict, step)
+        _metric_lock = threading.Lock()
+
+        def _queued_wandb_log(data, *a, step=None, **kw):
+            """Queue metrics for batch upload instead of broken streaming."""
             record = {k: v for k, v in data.items() if not isinstance(v, str)}
-            if step is not None:
-                record["_step"] = step
-            try:
-                with open(_metrics_path, "a") as f:
-                    f.write(_json.dumps(record) + "\n")
-            except Exception:
-                pass
-            # Also try wandb (may silently fail on Vast.ai)
-            try:
-                _original_wandb_log(data, *a, step=step, **kw)
-            except Exception:
-                pass
+            with _metric_lock:
+                _metric_queue.append((record, step))
 
-        wandb.log = _file_backed_wandb_log
-        print(f"  [wandb] Metrics file: {_metrics_path}")
-        print(f"  [wandb] Run sidecar: python scripts/wandb_sidecar.py --metrics {_metrics_path}")
+        wandb.log = _queued_wandb_log
+
+        def _wandb_upload_thread(interval=300):
+            """Upload queued metrics via short-lived wandb sessions."""
+            while True:
+                time.sleep(interval)
+                with _metric_lock:
+                    if not _metric_queue:
+                        continue
+                    batch = list(_metric_queue)
+                    _metric_queue.clear()
+                try:
+                    run = wandb.init(**_wandb_init_kw)
+                    for data, step in batch:
+                        run.log(data, step=step)
+                    wandb.finish(quiet=True)
+                    wandb.log = _queued_wandb_log  # re-patch after finish
+                    print(f"  [wandb] Uploaded {len(batch)} records")
+                except Exception as e:
+                    print(f"  [wandb] Upload error: {e}")
+                    with _metric_lock:
+                        _metric_queue[:0] = batch  # put back for retry
+
+        threading.Thread(target=_wandb_upload_thread, daemon=True).start()
+        print(f"  [wandb] Batched upload thread started (every 300s)")
     else:
         enabled_tasks = sorted(task_config.keys())
 
@@ -2222,7 +2238,19 @@ def main():
         print(f"TRAINING COMPLETE at step {global_step}")
         print(f"{'#' * 60}")
 
+        # Final flush of queued metrics
         import wandb
+        if _metric_queue:
+            try:
+                run = wandb.init(**_wandb_init_kw)
+                with _metric_lock:
+                    batch = list(_metric_queue)
+                    _metric_queue.clear()
+                for data, step in batch:
+                    run.log(data, step=step)
+                print(f"  [wandb] Final flush: {len(batch)} records")
+            except Exception as e:
+                print(f"  [wandb] Final flush error: {e}")
         wandb.finish()
 
     cleanup_distributed()
