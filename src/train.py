@@ -1738,7 +1738,8 @@ def main():
     parser.add_argument("--answer-trajectory-n", type=int, default=0)
     parser.add_argument("--futurelens-n", type=int, default=0)
     parser.add_argument("--correctness-n", type=int, default=0)
-    parser.add_argument("--backtrack-prediction-n", type=int, default=0)
+    parser.add_argument("--chunked-convqa-n", type=int, default=0)
+    parser.add_argument("--chunked-compqa-n", type=int, default=0)
 
     # Training hyperparams
     parser.add_argument("--lr", type=float, default=1e-5)

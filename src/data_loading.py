@@ -83,6 +83,10 @@ def load_task_data(
             # Inject default prompt if missing (e.g. truthfulqa eval datasets)
             if "prompt" not in item:
                 item["prompt"] = _default_prompt(task_name)
+            # Map cot_field → cot_text for tasks that use a different field
+            # (e.g. chunked_convqa/compqa use cot_prefix for activations)
+            if task_def.cot_field != "cot_text" and task_def.cot_field in item:
+                item["cot_text"] = item[task_def.cot_field]
             data.append(item)
 
     if n is not None and len(data) > n:

@@ -36,6 +36,7 @@ class TaskDef:
     default_n: int = 15000
     max_new_tokens: int = 64
     needs_rot13_adapter: bool = False
+    cot_field: str = "cot_text"         # field to use for activation extraction
     # Maps datapoint_type in existing precomputed data → this task
     legacy_datapoint_type: str = ""
 
@@ -145,6 +146,30 @@ TASKS: dict[str, TaskDef] = {
         default_n=7500,
         max_new_tokens=64,
         legacy_datapoint_type="cot_correctness",
+    ),
+
+    "chunked_convqa": TaskDef(
+        name="chunked_convqa",
+        hf_repo=f"{HF_ORG}/cot-oracle-convqa-chunked",
+        scoring=ScoringMode.TOKEN_F1,
+        positive_keywords=(),
+        negative_keywords=(),
+        trainable=True,
+        default_n=25000,
+        max_new_tokens=128,
+        cot_field="cot_prefix",
+    ),
+
+    "chunked_compqa": TaskDef(
+        name="chunked_compqa",
+        hf_repo=f"{HF_ORG}/cot-oracle-compqa-chunked",
+        scoring=ScoringMode.TOKEN_F1,
+        positive_keywords=(),
+        negative_keywords=(),
+        trainable=True,
+        default_n=30000,
+        max_new_tokens=128,
+        cot_field="cot_prefix",
     ),
 
     # ─── Eval-only (4 tasks) ───

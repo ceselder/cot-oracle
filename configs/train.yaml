@@ -28,6 +28,14 @@ tasks:
     n: 7500
     eval: true
 
+  chunked_convqa:
+    n: 25000
+    eval: true
+
+  chunked_compqa:
+    n: 30000
+    eval: true
+
   # --- Eval-only tasks (test split only, n is ignored) ---
   sycophancy:
     eval: true

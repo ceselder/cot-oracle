@@ -27,6 +27,15 @@ tasks:
     n: 30000
     eval: true
 
+  # Chunked tasks (use cot_prefix for activations)
+  chunked_convqa:
+    n: 25000
+    eval: true
+
+  chunked_compqa:
+    n: 30000
+    eval: true
+
   # Eval-only
   truthfulqa_hint_verbalized:
     eval: true
