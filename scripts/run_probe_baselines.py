@@ -192,12 +192,12 @@ def process_dataset(
 
 def pool_mean(acts_by_layer, layers):
     """Mean-pool each layer → concat → [D*n_layers]."""
-    return torch.cat([acts_by_layer[l].mean(dim=0) for l in layers], dim=-1)
+    return torch.cat([acts_by_layer[l].float().mean(dim=0) for l in layers], dim=-1)
 
 
 def pool_per_layer(acts_by_layer, layers):
     """Mean-pool each layer separately → [n_layers, D]."""
-    return torch.stack([acts_by_layer[l].mean(dim=0) for l in layers])
+    return torch.stack([acts_by_layer[l].float().mean(dim=0) for l in layers])
 
 
 # ── Probes ──
@@ -368,8 +368,8 @@ def mae(preds, gt):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--max-train", type=int, default=2000)
-    parser.add_argument("--max-test", type=int, default=500)
+    parser.add_argument("--max-train", type=int, default=100)
+    parser.add_argument("--max-test", type=int, default=5000)
     parser.add_argument("--datasets", nargs="+", default=None, help="Subset of datasets to run")
     parser.add_argument("--device", default="cuda")
     parser.add_argument("--output", default="data/probe_baseline_results.json")
@@ -423,8 +423,12 @@ def main():
             y_train = torch.tensor([label2idx[row[target_field]] for _, row in train_items])
             y_test_raw = [row[target_field] for _, row in test_items]
 
+            from collections import Counter
+            train_dist = Counter(row[target_field] for _, row in train_items)
+            test_dist = Counter(row[target_field] for _, row in test_items)
             print(f"  Classes: {all_labels}")
-            print(f"  Train dist: {dict(zip(*torch.unique(y_train, return_counts=True)))}")
+            print(f"  Train dist: {dict(train_dist)}")
+            print(f"  Test dist:  {dict(test_dist)}")
 
             # Linear probes per layer config
             for config_name, layer_list in layer_configs:
