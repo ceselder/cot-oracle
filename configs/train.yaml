@@ -61,7 +61,7 @@ tasks:
     eval: true
 
   sentence_insertion:
-    eval: true
+    eval: false
 
   rot13_reconstruction:
     eval: false     # skip for now
