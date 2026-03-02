@@ -275,7 +275,7 @@ def _download_via_datasets_lib(task_def: TaskDef, split: str, local_path: Path) 
 
     # Try requested split, then common alternatives
     split_alternatives = {
-        "train": ["train", "id_train", "ood_train"],
+        "train": ["train"],
         "test": ["test", "eval"],
     }
     alts = split_alternatives.get(split, [split])
@@ -288,7 +288,7 @@ def _download_via_datasets_lib(task_def: TaskDef, split: str, local_path: Path) 
             break
         except (ValueError, KeyError):
             continue
-    # For train, also try combining id_train + ood_train
+    # For train, try combining id_train + ood_train (gives more data than either alone)
     if ds is None and split == "train":
         try:
             ds_id = load_dataset(task_def.hf_repo, split="id_train")
@@ -298,6 +298,15 @@ def _download_via_datasets_lib(task_def: TaskDef, split: str, local_path: Path) 
             print(f"  [data] Combined id_train ({len(ds_id)}) + ood_train ({len(ds_ood)}) = {len(ds)}")
         except Exception:
             pass
+    # Last resort: try id_train or ood_train alone
+    if ds is None and split == "train":
+        for alt_split in ["id_train", "ood_train"]:
+            try:
+                ds = load_dataset(task_def.hf_repo, split=alt_split)
+                print(f"  [data] Using split '{alt_split}' (requested '{split}')")
+                break
+            except (ValueError, KeyError):
+                continue
     if ds is None:
         raise ValueError(f"No suitable split found for {task_def.hf_repo} (tried {alts})")
 
