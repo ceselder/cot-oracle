@@ -47,6 +47,10 @@ DATASETS = {
         "mats-10-sprint-cs-jb/cot-oracle-hint-admission-cleaned",
         "binary", "label",
     ),
+    "truthfulqa_hint": (
+        "mats-10-sprint-cs-jb/cot-oracle-truthfulqa-hint-cleaned",
+        "binary", "label",
+    ),
     "atypical_answer": (
         "mats-10-sprint-cs-jb/cot-oracle-atypical-answer-cleaned",
         "binary", "label",
@@ -67,24 +71,12 @@ DATASETS = {
         "mats-10-sprint-cs-jb/cot-oracle-sycophancy-cleaned",
         "binary", "label",
     ),
-    "truthfulqa_verb": (
-        "mats-10-sprint-cs-jb/cot-oracle-eval-hinted-mcq-truthfulqa-verbalized",
-        "binary", "label",
-    ),
-    "truthfulqa_unverb": (
-        "mats-10-sprint-cs-jb/cot-oracle-eval-hinted-mcq-truthfulqa-unverbalized",
-        "binary", "label",
-    ),
     "answer_trajectory": (
         "mats-10-sprint-cs-jb/cot-oracle-answer-trajectory-cleaned",
         "regression", "confidence",
     ),
     "backtrack_prediction": (
         "mats-10-sprint-cs-jb/cot-oracle-backtrack-prediction-cleaned",
-        "binary", "label",
-    ),
-    "probe_sycophancy": (
-        "mats-10-sprint-cs-jb/cot-oracle-probe-sycophancy-cleaned",
         "binary", "label",
     ),
 }
@@ -130,22 +122,10 @@ def build_generation_prompt(row: dict, ds_name: str, tokenizer) -> str:
     Each dataset used a different prompt format. We replicate the generation
     script logic here so extracted activations match the original context.
     """
-    if ds_name in ("hint_admission",):
+    if ds_name in ("hint_admission", "truthfulqa_hint"):
         # hinted_prompt contains the full user message with hint embedded
         user_msg = row["hinted_prompt"]
         messages = [{"role": "user", "content": user_msg}]
-        return tokenizer.apply_chat_template(
-            messages, tokenize=False, add_generation_prompt=True,
-            enable_thinking=False,
-        )
-
-    if ds_name in ("truthfulqa_verb", "truthfulqa_unverb"):
-        # hinted_prompt + system message
-        user_msg = row["hinted_prompt"]
-        messages = [
-            {"role": "system", "content": TRUTHFULQA_SYSTEM_MSG},
-            {"role": "user", "content": user_msg},
-        ]
         return tokenizer.apply_chat_template(
             messages, tokenize=False, add_generation_prompt=True,
             enable_thinking=False,
@@ -182,7 +162,7 @@ def build_generation_prompt(row: dict, ds_name: str, tokenizer) -> str:
             enable_thinking=False,
         )
 
-    if ds_name in ("answer_trajectory", "backtrack_prediction"):
+    if ds_name in ("answer_trajectory", "backtrack_prediction", "reasoning_termination"):
         # Raw question, enable_thinking=True
         messages = [{"role": "user", "content": row["question"]}]
         return tokenizer.apply_chat_template(
@@ -490,7 +470,7 @@ def process_dataset(ds_name, hf_repo, model, tokenizer, device,
 
 def binarize_labels(items, ds_name):
     """Merge hint_used_correct/wrong → hint_used for hint-type datasets."""
-    if ds_name not in ("hint_admission", "truthfulqa_verb", "truthfulqa_unverb"):
+    if ds_name not in ("hint_admission", "truthfulqa_hint"):
         return items
     return [
         (acts, {**row, "label": HINT_BINARIZE.get(row["label"], row["label"])}, n)
@@ -769,6 +749,8 @@ def main():
                         help="Skip attention probes (linear only, much faster)")
     parser.add_argument("--save-probes", type=str, default=None,
                         help="Directory to save trained probe weights (.pt files)")
+    parser.add_argument("--cross-eval", action="store_true",
+                        help="Cross-evaluate hint_admission ↔ truthfulqa_hint probes")
     args = parser.parse_args()
 
     datasets_to_run = args.datasets or list(DATASETS.keys())
@@ -786,6 +768,8 @@ def main():
           f"max_batch_tokens={args.max_batch_tokens}\n")
 
     all_results = {}
+    # Store extracted data for cross-eval
+    cross_eval_data = {}
 
     for ds_name in datasets_to_run:
         if ds_name not in DATASETS:
@@ -991,8 +975,62 @@ def main():
 
         all_results[ds_name] = ds_results
 
-        # Free this dataset's activations before loading the next
-        del train_items, test_items, y_train
+        # Stash data for cross-eval if needed
+        if args.cross_eval and ds_name in ("hint_admission", "truthfulqa_hint"):
+            cross_eval_data[ds_name] = {
+                "train": train_items, "test": test_items,
+                "y_train": y_train, "y_test_raw": y_test_raw,
+                "all_labels": all_labels, "label2idx": label2idx,
+                "n_classes": n_classes,
+            }
+        else:
+            # Free this dataset's activations before loading the next
+            del train_items, test_items, y_train
+            gc.collect()
+
+    # ── Cross-evaluation: hint_admission ↔ truthfulqa_hint ──
+    if args.cross_eval and len(cross_eval_data) == 2:
+        print(f"\n\n{'=' * 60}")
+        print("CROSS-EVALUATION: hint_admission ↔ truthfulqa_hint")
+        print(f"{'=' * 60}")
+
+        for train_ds, test_ds in [
+            ("hint_admission", "truthfulqa_hint"),
+            ("truthfulqa_hint", "hint_admission"),
+        ]:
+            tr = cross_eval_data[train_ds]
+            te = cross_eval_data[test_ds]
+            print(f"\n  Train on {train_ds} → Test on {test_ds}")
+            print(f"  Train: {len(tr['train'])} examples, Test: {len(te['test'])} examples")
+
+            # Labels must match (both binarized to hint_used/hint_resisted)
+            all_labels_x = tr["all_labels"]
+            label2idx_x = tr["label2idx"]
+            y_test_raw_x = [row["label"] for _, row, _ in te["test"]]
+            n_classes_x = tr["n_classes"]
+
+            cross_key = f"cross_{train_ds}_to_{test_ds}"
+            cross_results = {}
+
+            # Best linear probe: try all layers, mean + last
+            for layer in layers:
+                ln = f"L{layer}"
+                for pool_name, pool_fn in [("mean", mean_pool_vec), ("last", last_pool_vec)]:
+                    X_tr = pool_fn(tr["train"], [layer])
+                    X_te = pool_fn(te["test"], [layer])
+                    preds = train_linear_probe(
+                        X_tr, tr["y_train"], X_te, n_classes_x,
+                        device=args.device)
+                    pred_labels = [all_labels_x[p.item()] for p in preds]
+                    bal = balanced_accuracy(pred_labels, y_test_raw_x)
+                    name = f"{pool_name}_linear_{ln}"
+                    cross_results[name] = {"balanced_accuracy": bal}
+                    print(f"    {name:<28s} bal_acc={bal:.3f}")
+
+            all_results[cross_key] = cross_results
+
+        # Free cross-eval data
+        del cross_eval_data
         gc.collect()
 
     # ── Free model ──
