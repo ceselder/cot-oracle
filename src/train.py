@@ -843,8 +843,8 @@ def train(
     if rank == 0:
         print(f"  Training: {len(final_training)} examples")
 
-    # ── Precompute activation vectors (avoid forward pass per training batch) ──
-    if not args.no_activations and not args.flamingo:
+    # ── Optionally precompute activation vectors (--precompute flag) ──
+    if args.precompute and not args.no_activations and not args.flamingo:
         _PC_MAX_TOKENS = 65536  # max total tokens per precompute batch (batch_size × seq_len)
         _pc_indices = [i for i, dp in enumerate(final_training) if dp.steering_vectors is None and dp.context_input_ids is not None]
         if _pc_indices:
@@ -1519,6 +1519,10 @@ def main():
     # Text-only baseline
     parser.add_argument("--no-activations", action="store_true", default=False,
                         help="Text-only baseline: train without activation steering (same data, no prefix/injection)")
+
+    # Precompute activations upfront (slow for single-epoch, useful for multi-epoch)
+    parser.add_argument("--precompute", action="store_true", default=False,
+                        help="Precompute all activation vectors before training. Slower for epoch=1 but amortizes for multi-epoch.")
 
     # FineWeb context prediction
     parser.add_argument("--fineweb-n", type=int, default=0,
