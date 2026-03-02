@@ -1976,16 +1976,27 @@ def main():
     elif args.fresh_lora:
         if rank == 0:
             print("Starting with FRESH LoRA (random init)")
-        try:
-            # Try loading AO checkpoint structure, then reinit weights
-            model = PeftModel.from_pretrained(
-                base_model, args.ao_checkpoint,
-                is_trainable=True, autocast_adapter_dtype=False,
-            )
-        except RuntimeError:
-            # Checkpoint doesn't match model (e.g. 8B checkpoint on 0.6B model) — create fresh LoRA
+        if args.ao_checkpoint:
+            try:
+                # Try loading AO checkpoint structure, then reinit weights
+                model = PeftModel.from_pretrained(
+                    base_model, args.ao_checkpoint,
+                    is_trainable=True, autocast_adapter_dtype=False,
+                )
+            except RuntimeError:
+                # Checkpoint doesn't match model (e.g. 8B checkpoint on 0.6B model) — create fresh LoRA
+                if rank == 0:
+                    print("  AO checkpoint incompatible, creating LoRA from scratch")
+                from peft import LoraConfig, get_peft_model
+                lora_config = LoraConfig(
+                    r=64, lora_alpha=16, lora_dropout=0.0,
+                    target_modules=["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"],
+                    bias="none", task_type="CAUSAL_LM",
+                )
+                model = get_peft_model(base_model, lora_config)
+        else:
             if rank == 0:
-                print("  AO checkpoint incompatible, creating LoRA from scratch")
+                print("  No AO checkpoint, creating LoRA from scratch")
             from peft import LoraConfig, get_peft_model
             lora_config = LoraConfig(
                 r=64, lora_alpha=16, lora_dropout=0.0,
