@@ -181,11 +181,15 @@ def prepare_context_ids(
 
     prepared = 0
     for item in items:
+        # Items with precomputed context_input_ids (e.g. futurelens, answer_trajectory)
+        # don't need cot_text — skip them.
+        if item.get("context_input_ids"):
+            continue
         cot_text = item.get("cot_text", "")
         if not cot_text:
             raise ValueError(
-                f"Item missing cot_text (task={item.get('task', '?')}). "
-                f"All training items must have cot_text for context_input_ids computation."
+                f"Item missing both context_input_ids and cot_text (task={item.get('task', '?')}). "
+                f"Every training item needs one or the other."
             )
 
         # Build user message: hinted_prompt for hint tasks, question otherwise
