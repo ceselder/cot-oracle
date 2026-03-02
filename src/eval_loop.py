@@ -853,6 +853,7 @@ def run_eval(
         tasks_to_eval = all_tasks
 
     metrics: dict[str, float] = {}
+    all_traces: dict[str, list[dict]] = {}
     # Collect rows for summary table: (task_name, metric_name, score, extras_str, elapsed)
     table_rows: list[tuple[str, str, float, str, float]] = []
 
@@ -878,6 +879,11 @@ def run_eval(
                 no_activations=no_activations,
             )
             elapsed = time.time() - t0
+
+            # Extract traces before computing metrics
+            traces = result.pop("_traces", [])
+            if traces:
+                all_traces[task_name] = traces
 
             primary_metric = _primary_metric_name(task_name, task_def.scoring)
             primary_score = result.get(primary_metric, 0.0)
@@ -915,7 +921,7 @@ def run_eval(
     if table_rows:
         _print_eval_table(table_rows)
 
-    return metrics
+    return metrics, all_traces
 
 
 def _print_eval_table(rows: list[tuple[str, str, float, str, float]]):
@@ -1012,7 +1018,18 @@ def _eval_single_task(
                 print(f"      pred: {pred_short}")
                 print(f"      tgt:  {tgt_short}")
 
-        return score_task(task_def, predictions, targets, tokenizer=tokenizer)
+        result = score_task(task_def, predictions, targets, tokenizer=tokenizer)
+        traces = []
+        for i, (pred, tgt) in enumerate(zip(predictions, targets)):
+            item = test_data[i]
+            traces.append({
+                "prompt": item.get("prompt", ""),
+                "prediction": pred,
+                "target": tgt,
+                "question": item.get("question", item.get("hinted_prompt", "")),
+            })
+        result["_traces"] = traces
+        return result
 
     # ── Standard activation-based path ──
     # Check cache
@@ -1134,4 +1151,18 @@ def _eval_single_task(
             print(f"      pred: {pred_short}")
             print(f"      tgt:  {tgt_short}")
 
-    return score_task(task_def, predictions, targets, tokenizer=tokenizer)
+    result = score_task(task_def, predictions, targets, tokenizer=tokenizer)
+
+    # Attach per-example traces for wandb Tables
+    traces = []
+    for i, (pred, tgt) in enumerate(zip(predictions, targets)):
+        item = test_data[i]
+        traces.append({
+            "prompt": item.get("prompt", ""),
+            "prediction": pred,
+            "target": tgt,
+            "question": item.get("question", item.get("hinted_prompt", "")),
+        })
+    result["_traces"] = traces
+
+    return result

@@ -901,7 +901,7 @@ def _run_unified_eval(model, tokenizer, model_name, global_step, args, log_dir=N
     print(f"\n--- Evals at step {global_step} ---")
     stride_val = int(args.stride) if args.stride and args.stride != "punctuation" else 5
     eval_tasks = getattr(args, "eval_tasks", None)
-    metrics = run_eval(
+    metrics, all_traces = run_eval(
         model=model,
         tokenizer=tokenizer,
         task_names=eval_tasks,
@@ -912,8 +912,25 @@ def _run_unified_eval(model, tokenizer, model_name, global_step, args, log_dir=N
         stride=stride_val,
         no_activations=no_activations,
     )
-    if metrics:
-        wandb.log(metrics, step=global_step)
+
+    # Build wandb Tables for each task's per-example traces
+    log_dict = dict(metrics) if metrics else {}
+    if wandb.run and all_traces:
+        columns = ["question", "prompt", "prediction", "target"]
+        for task_name, traces in all_traces.items():
+            table = wandb.Table(columns=columns)
+            for t in traces:
+                table.add_data(
+                    t.get("question", ""),
+                    t.get("prompt", ""),
+                    t.get("prediction", ""),
+                    t.get("target", ""),
+                )
+            log_dict[f"eval_table/{task_name}"] = table
+
+    if log_dict and wandb.run:
+        wandb.log(log_dict, step=global_step)
+
     elapsed = sum(v for k, v in metrics.items() if k.startswith("eval_time/"))
     return metrics, elapsed
 
