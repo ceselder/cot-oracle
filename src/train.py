@@ -1819,7 +1819,7 @@ def main():
 
     # FineWeb context prediction (PastLens-style, if enabled)
     fineweb_n = getattr(args, "fineweb_n", 0)
-    if fineweb_n > 0:
+    if fineweb_n > 0 and not NO_ACTIVATIONS:
         from data_loading import load_fineweb_data
         if rank == 0:
             print(f"  [data] Generating {fineweb_n} FineWeb context prediction examples...")
@@ -1839,7 +1839,7 @@ def main():
 
     # Classification data (Adam's AO tasks, if enabled)
     cls_n = getattr(args, "classification_n", 0)
-    if cls_n > 0:
+    if cls_n > 0 and not NO_ACTIVATIONS:
         from data_loading import load_classification_data
         cls_stride = int(args.stride) if args.stride and args.stride != "punctuation" else 5
         cls_datasets = getattr(args, "classification_datasets", None)
@@ -1860,7 +1860,7 @@ def main():
 
     # LatentQA / SPQA (Adam's AO task, if enabled)
     lqa_n = getattr(args, "latentqa_n", 0)
-    if lqa_n > 0:
+    if lqa_n > 0 and not NO_ACTIVATIONS:
         from data_loading import load_latentqa_data
         if rank == 0:
             print(f"  [data] Loading {lqa_n} LatentQA examples...")
