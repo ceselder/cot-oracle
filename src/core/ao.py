@@ -103,10 +103,10 @@ def load_extra_adapter(
 
 
 def choose_attn_implementation(model_name: str) -> str:
-    """Choose attention backend — flash_attention_2 is fastest, matching Adam's AO."""
+    """Choose attention backend — sdpa uses flash kernels natively in torch>=2.2."""
     if "gemma" in model_name.lower():
         return "eager"
-    return "flash_attention_2"
+    return "sdpa"
 
 
 def load_model_with_ao(

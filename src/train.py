@@ -1446,9 +1446,9 @@ def main():
     parser.add_argument("--corpus", default="data/cot_corpus_v5/corpus_medium.jsonl",
                         help="Path to corpus.jsonl")
     parser.add_argument("--model", default="Qwen/Qwen3-8B")
-    parser.add_argument("--attn-implementation", default="flash_attention_2",
+    parser.add_argument("--attn-implementation", default="sdpa",
                         choices=["flash_attention_2", "sdpa", "eager"],
-                        help="Transformer attention backend (flash_attention_2 is fastest, requires flash-attn package)")
+                        help="Transformer attention backend (sdpa uses flash kernels natively in torch>=2.2)")
 
     # Checkpoint control
     parser.add_argument("--resume-from", default=None,
