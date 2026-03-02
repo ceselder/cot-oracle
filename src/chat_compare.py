@@ -546,6 +546,7 @@ class ChatCompareWebApp:
             organism_adapters=MODEL_ORGANISMS, device=args.device,
         )
         self._active_cot_adapter = None
+        self._progress_status = ""
         self.model_lock = threading.Lock()
         self.saes = None
         self.sae_labels = None
@@ -706,7 +707,10 @@ class ChatCompareWebApp:
             return self._generate_with_full_model(question, enable_thinking, cot_adapter, organism_info)
 
         # LoRA adapter path (or base model)
+        adapter_label = MODEL_ORGANISMS[cot_adapter]["label"] if cot_adapter and cot_adapter in MODEL_ORGANISMS else "base model"
+        self._progress_status = f"Generating CoT with {adapter_label}..."
         cot_response = generate_cot_base(self.model, self.tokenizer, question, max_new_tokens=4096, device=self.args.device, cot_adapter=cot_adapter, enable_thinking=enable_thinking)
+        self._progress_status = ""
         messages = [{"role": "user", "content": question}]
         formatted = self.tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True, enable_thinking=enable_thinking)
         full_text = formatted + cot_response
@@ -735,9 +739,11 @@ class ChatCompareWebApp:
         dtype = torch.bfloat16
         kwargs = {"device_map": "auto", "torch_dtype": dtype, "attn_implementation": choose_attn_implementation(self.args.model)}
 
+        self._progress_status = f"Downloading & loading {organism_info['label']} model (~16GB)..."
         print(f"Loading full model organism '{adapter_key}' from {model_path}...")
         organism_model = AutoModelForCausalLM.from_pretrained(model_path, **kwargs)
         organism_model.eval()
+        self._progress_status = f"Generating CoT with {organism_info['label']}..."
 
         try:
             # Generate CoT
@@ -749,6 +755,7 @@ class ChatCompareWebApp:
             cot_response = self.tokenizer.decode(output[0][inputs["input_ids"].shape[1]:], skip_special_tokens=False)
             full_text = formatted + cot_response
             cot_text, answer_text = split_cot_answer(cot_response)
+            self._progress_status = f"Extracting activations from {organism_info['label']}..."
 
             # Compute stride positions
             self.state = SessionState(
@@ -775,9 +782,11 @@ class ChatCompareWebApp:
             self._active_cot_adapter = adapter_key
         finally:
             # Free organism model VRAM
+            self._progress_status = f"Unloading {organism_info['label']}, freeing VRAM..."
             del organism_model
             gc.collect()
             torch.cuda.empty_cache()
+            self._progress_status = ""
             print(f"Organism '{adapter_key}' unloaded, VRAM freed.")
 
         return {
@@ -992,6 +1001,10 @@ class ChatCompareWebApp:
                 "no_act_available": Path(self.no_act_checkpoint).exists(),
                 "organisms": [{"key": name, "label": MODEL_ORGANISMS[name]["label"]} for name in self.organism_names],
             }
+
+        @self.app.get("/api/progress")
+        async def progress():
+            return {"status": self._progress_status}
 
         @self.app.post("/api/generate")
         async def generate(payload: dict):
@@ -1634,7 +1647,16 @@ For your final answer, respond with "Answer: Yes" or "Answer: No" after the chai
       const genLabel = cotAdapter ? `CoT (${cotAdapter})` : 'CoT (base)';
       setStatus(`Generating ${genLabel}...`);
       setBusy(true, `Stage 1/2: generating ${genLabel}...`, 20);
+      // Poll /api/progress for live status updates during generation
+      const progressPoller = setInterval(async () => {
+        try {
+          const r = await fetch('/api/progress');
+          const d = await r.json();
+          if (d.status) setBusy(true, d.status, 30);
+        } catch(e) {}
+      }, 1500);
       const cotResponse = await fetch('/api/generate_cot', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ question, enable_thinking: enableThinking, cot_adapter: cotAdapter }) });
+      clearInterval(progressPoller);
       const cotData = await cotResponse.json();
       if (!cotResponse.ok) { setBusy(false); setStatus(cotData.detail || 'CoT generation failed'); return; }
       document.getElementById('cotPreview').textContent = cotData.cot_text || '(no CoT)';
