@@ -1366,8 +1366,8 @@ class ChatCompareWebApp:
     .busy { display: block; margin-top: 12px; padding: 10px; border: 1px solid #334155; border-radius: 10px; background: #0b1220; opacity: 0.55; }
     .busy.active { opacity: 1; border-color: #60a5fa; }
     .busy-row { display: flex; align-items: center; gap: 10px; }
-    .spinner { width: 14px; height: 14px; border: 2px solid #334155; border-top-color: #64748b; border-radius: 999px; animation: spin 0.8s linear infinite; animation-play-state: paused; opacity: 0.45; }
-    .busy.active .spinner { border-top-color: #60a5fa; animation-play-state: running; opacity: 1; }
+    .spinner { width: 14px; height: 14px; border: 2px solid #334155; border-top-color: #64748b; border-radius: 999px; animation: spin 0.8s linear infinite; animation-play-state: paused; opacity: 0; visibility: hidden; }
+    .busy.active .spinner { border-top-color: #60a5fa; animation-play-state: running; opacity: 1; visibility: visible; }
     .progress-track { margin-top: 8px; width: 100%; height: 8px; background: #1e293b; border-radius: 999px; overflow: hidden; }
     .progress-bar { width: 0%; height: 100%; background: linear-gradient(90deg, #2563eb, #60a5fa); border-radius: 999px; transition: width 0.2s ease; }
     .token-wrap { border: 1px solid #334155; border-radius: 12px; background: #020617; padding: 12px; }
@@ -1412,7 +1412,7 @@ class ChatCompareWebApp:
       <div class=\"row\"><button id=\"generateBtn\">Generate CoT + Activations</button></div>
       <div class=\"status\" id=\"status\">__INITIAL_STATUS__</div>
       <div class=\"busy\" id=\"busyWrap\">
-        <div class=\"busy-row\"><div class=\"spinner\"></div><div class=\"small\" id=\"busyLabel\">Working...</div></div>
+        <div class=\"busy-row\"><div class=\"spinner\"></div><div class=\"small\" id=\"busyLabel\">Idle.</div></div>
         <div class=\"progress-track\"><div class=\"progress-bar\"></div></div>
       </div>
       <div class=\"panel\">
@@ -1576,14 +1576,14 @@ class ChatCompareWebApp:
 
     function appendLog(msg) {
       const stamp = new Date().toLocaleTimeString();
-      const lines = (activityLogEl.textContent || '').split('\n').filter(Boolean);
+      const lines = (activityLogEl.textContent || '').split('\\n').filter(Boolean);
       lines.push(`[${stamp}] ${msg}`);
-      activityLogEl.textContent = lines.slice(-30).join('\n');
+      activityLogEl.textContent = lines.slice(-30).join('\\n');
       saveUiCache();
     }
     function renderCheckpointInfo(info) {
       if (!info.is_local) {
-        checkpointInfoEl.textContent = `Checkpoint: ${info.path}\nNot a local path, so file age and training step metadata are unavailable.`;
+        checkpointInfoEl.textContent = `Checkpoint: ${info.path}\\nNot a local path, so file age and training step metadata are unavailable.`;
         return;
       }
       const lines = [`Path: ${info.path}`];
@@ -1597,7 +1597,7 @@ class ChatCompareWebApp:
         lines.push('Training step: unavailable');
       }
       if (info.wandb_run_name) lines.push(`Run: ${info.wandb_run_name}`);
-      checkpointInfoEl.textContent = lines.join('\n');
+      checkpointInfoEl.textContent = lines.join('\\n');
     }
     function renderCheckpointOptions() {
       checkpointSelectEl.innerHTML = '';
@@ -1897,7 +1897,7 @@ class ChatCompareWebApp:
           const mn = Math.min(...vals), mx = Math.max(...vals);
           lines.push(`  L${layer}: mean=${mean.toFixed(3)} min=${mn.toFixed(3)} max=${mx.toFixed(3)}`);
         }
-        return lines.join('\n');
+        return lines.join('\\n');
       }
       curveEl.addEventListener('mousemove', e => {
         if (!nSteps) return;
@@ -2155,6 +2155,7 @@ class ChatCompareWebApp:
       renderEvalTags();
       restoreUiCache();
       cacheReady = true;
+      setBusy(false, 'Idle.', 0);
       setStatus(statusEl.textContent || 'Ready. Generate CoT + Activations to begin.');
     }
     async function loadSelectedCheckpoint() {
