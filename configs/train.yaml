@@ -45,7 +45,7 @@ tasks:
     eval: true
 
   sycophancy:
-    n: 3495
+    n: 7552
     eval: true
 
   probe_sycophancy:
@@ -53,11 +53,11 @@ tasks:
     eval: false
 
   truthfulqa_hint_verbalized:
-    n: 4000
+    n: 148       # dataset only has 148 train examples
     eval: true
 
   truthfulqa_hint_unverbalized:
-    n: 10000
+    n: 3848      # dataset only has 3848 train examples
     eval: true
 
   sentence_insertion:
