@@ -9,7 +9,7 @@ tasks:
     eval: true
 
   atypical_answer:
-    n: 999999
+    n: 15000
     eval: true
 
   reasoning_termination:
@@ -17,15 +17,15 @@ tasks:
     eval: true
 
   answer_trajectory:
-    n: 30000             # capped: very large dataset, diminishing returns
+    n: 15000
     eval: true
 
   futurelens:
-    n: 30000
+    n: 15000
     eval: true
 
   pastlens:
-    n: 30000
+    n: 15000
     eval: true
 
   correctness:
@@ -37,11 +37,11 @@ tasks:
     eval: true
 
   chunked_convqa:
-    n: 999999
+    n: 15000
     eval: true
 
   chunked_compqa:
-    n: 999999
+    n: 15000
     eval: true
 
   backtrack_prediction:
@@ -73,19 +73,19 @@ tasks:
 # FineWeb context prediction (PastLens-style, 50/50 future/past)
 fineweb:
   enabled: true
-  n: 100000
+  n: 15000
   max_context_tokens: 2000
 
 # Classification (matching Adam's AO training)
 classification:
   enabled: true
-  n: 130000
+  n: 15000
   datasets: [sst2, ag_news, snli]
 
 # LatentQA / SPQA (matching Adam's AO training)
 latentqa:
   enabled: true
-  n: 65000
+  n: 30000
 
 # Training
 training:
