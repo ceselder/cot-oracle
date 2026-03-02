@@ -79,6 +79,14 @@ DATASETS = {
         "mats-10-sprint-cs-jb/cot-oracle-backtrack-prediction-cleaned",
         "binary", "label",
     ),
+    "truthfulqa_verb": (
+        "mats-10-sprint-cs-jb/cot-oracle-truthfulqa-hint-verbalized-cleaned",
+        "binary", "label",
+    ),
+    "truthfulqa_unverb": (
+        "mats-10-sprint-cs-jb/cot-oracle-truthfulqa-hint-unverbalized-cleaned",
+        "binary", "label",
+    ),
 }
 
 # Binarize hint labels: hint_used_correct + hint_used_wrong → hint_used
@@ -122,7 +130,7 @@ def build_generation_prompt(row: dict, ds_name: str, tokenizer) -> str:
     Each dataset used a different prompt format. We replicate the generation
     script logic here so extracted activations match the original context.
     """
-    if ds_name in ("hint_admission", "truthfulqa_hint"):
+    if ds_name in ("hint_admission", "truthfulqa_hint", "truthfulqa_verb", "truthfulqa_unverb"):
         # hinted_prompt contains the full user message with hint embedded
         user_msg = row["hinted_prompt"]
         messages = [{"role": "user", "content": user_msg}]
@@ -470,7 +478,7 @@ def process_dataset(ds_name, hf_repo, model, tokenizer, device,
 
 def binarize_labels(items, ds_name):
     """Merge hint_used_correct/wrong → hint_used for hint-type datasets."""
-    if ds_name not in ("hint_admission", "truthfulqa_hint"):
+    if ds_name not in ("hint_admission", "truthfulqa_hint", "truthfulqa_verb", "truthfulqa_unverb"):
         return items
     return [
         (acts, {**row, "label": HINT_BINARIZE.get(row["label"], row["label"])}, n)

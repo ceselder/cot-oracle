@@ -5,15 +5,23 @@ import json
 import matplotlib.pyplot as plt
 import matplotlib
 import numpy as np
+from pathlib import Path
 
 matplotlib.rcParams["font.family"] = "DejaVu Sans"
 
-# ── Load data ──
-with open("data/probe_baseline_results_v2.json") as f:
-    probes_v2 = json.load(f)
-with open("data/probe_baseline_results_quick.json") as f:
-    probes_quick = json.load(f)
-with open("data/llm_monitor_baselines.json") as f:
+DATA = Path("data")
+
+# ── Load all available probe results ──
+all_probes = {}
+for f in sorted(DATA.glob("probe_baseline_results*.json")):
+    with open(f) as fh:
+        d = json.load(fh)
+        # Later files override earlier ones
+        all_probes.update(d)
+    print(f"  Loaded probes: {f.name} ({len(d)} datasets)")
+
+# ── Load LLM monitor results ──
+with open(DATA / "llm_monitor_baselines.json") as f:
     llm = json.load(f)
 
 # ── Datasets (classification only — answer_trajectory is regression/MAE) ──
@@ -22,14 +30,13 @@ datasets = [
     ("atypical_answer",      "Atypical\nAnswer"),
     ("decorative_cot",       "Decorative\nCoT"),
     ("sycophancy",           "Sycophancy"),
+    ("truthfulqa_hint",      "TruthfulQA\n(Combined)"),
     ("truthfulqa_verb",      "TruthfulQA\n(Verbalized)"),
     ("truthfulqa_unverb",    "TruthfulQA\n(Unverbalized)"),
+    ("reasoning_termination","Reasoning\nTermination"),
     ("backtrack_prediction", "Backtrack\nPrediction"),
     ("correctness",          "Correctness"),
 ]
-
-# ── Merge probe dicts ──
-all_probes = {**probes_v2, **probes_quick}
 
 # ── Extract best linear probe per dataset ──
 layers = ["L9", "L14", "L18", "L21", "L23", "L27"]
@@ -44,7 +51,7 @@ def best_linear(d):
         acc = d.get(f"{pfx}concat", {}).get("balanced_accuracy", 0)
         if acc > best_acc:
             best_acc, best_name = acc, f"{pfx}concat"
-    return best_acc, best_name
+    return best_acc if best_acc > 0 else None, best_name
 
 def best_attn(d):
     best_acc, best_name = 0, ""
@@ -63,20 +70,24 @@ llm_scores = {}
 oracle_scores = {}  # TODO: fill in when oracle results exist
 
 for key, label in datasets:
-    d = all_probes[key]
-    lp, ln = best_linear(d)
-    linear_scores[key] = lp
-    linear_labels[key] = ln
-    ap, an = best_attn(d)
-    attn_scores[key] = ap  # None if no attention probe run
+    if key in all_probes:
+        d = all_probes[key]
+        lp, ln = best_linear(d)
+        linear_scores[key] = lp
+        linear_labels[key] = ln
+        ap, an = best_attn(d)
+        attn_scores[key] = ap
+    else:
+        linear_scores[key] = None
+        linear_labels[key] = ""
+        attn_scores[key] = None
     llm_scores[key] = llm[key]["balanced_accuracy"] if key in llm else None
     oracle_scores[key] = None  # placeholder
 
 # ── Plot ──
-fig, ax = plt.subplots(figsize=(14, 6.5))
+fig, ax = plt.subplots(figsize=(16, 6.5))
 
 x = np.arange(len(datasets))
-n_bars = 4
 width = 0.18
 offsets = np.array([-1.5, -0.5, 0.5, 1.5]) * width
 
@@ -87,7 +98,7 @@ colors = {
     "llm":     "#DD8452",   # orange
 }
 
-# Gather bar data (None → 0 height, hatched)
+# Gather bar data
 oracle_vals = [oracle_scores[k] for k, _ in datasets]
 linear_vals = [linear_scores[k] for k, _ in datasets]
 attn_vals   = [attn_scores[k] for k, _ in datasets]
@@ -110,7 +121,7 @@ def draw_bars(positions, values, color, label, zorder=3):
                     color=color, zorder=4)
         else:
             ax.text(bar.get_x() + bar.get_width()/2, val + 0.008, f"{val:.2f}",
-                    ha="center", va="bottom", fontsize=7, fontweight="bold",
+                    ha="center", va="bottom", fontsize=6.5, fontweight="bold",
                     color=color, zorder=4)
     return bars
 
@@ -124,19 +135,23 @@ ax.axhline(y=0.5, color="#888888", linestyle="--", linewidth=1, label="Chance", 
 
 # Probe layer annotation (under the linear probe bars)
 for i, (key, _) in enumerate(datasets):
-    layer = linear_labels[key].replace("last_linear_", "").replace("mean_linear_", "μ")
-    ax.text(x[i] + offsets[1], 0.48, layer,
-            ha="center", va="top", fontsize=5.5, color=colors["linear"], style="italic")
+    if linear_labels.get(key):
+        layer = linear_labels[key].replace("last_linear_", "").replace("mean_linear_", "\u03bc")
+        ax.text(x[i] + offsets[1], 0.48, layer,
+                ha="center", va="top", fontsize=5.5, color=colors["linear"], style="italic")
 
 # Correctness footnote
-ax.annotate("*sees answer", xy=(x[7] + offsets[3], 0.981), xytext=(x[7] + offsets[3] + 0.15, 0.93),
-            fontsize=6, color=colors["llm"], style="italic",
-            arrowprops=dict(arrowstyle="-", color=colors["llm"], lw=0.5))
+corr_idx = next(i for i, (k, _) in enumerate(datasets) if k == "correctness")
+if llm_scores.get("correctness") is not None:
+    ax.annotate("*sees answer", xy=(x[corr_idx] + offsets[3], llm_scores["correctness"] + 0.01),
+                xytext=(x[corr_idx] + offsets[3] + 0.15, 0.93),
+                fontsize=6, color=colors["llm"], style="italic",
+                arrowprops=dict(arrowstyle="-", color=colors["llm"], lw=0.5))
 
 ax.set_ylabel("Balanced Accuracy", fontsize=12)
 ax.set_title("Baseline Comparison Across Datasets", fontsize=14, fontweight="bold")
 ax.set_xticks(x)
-ax.set_xticklabels([label for _, label in datasets], fontsize=8.5)
+ax.set_xticklabels([label for _, label in datasets], fontsize=8)
 ax.set_ylim(0.42, 1.05)
 ax.legend(loc="upper left", fontsize=9, ncol=2)
 ax.grid(axis="y", alpha=0.3, zorder=1)
@@ -148,23 +163,54 @@ plt.savefig("data/baseline_comparison.png", dpi=150, bbox_inches="tight")
 print("Saved to data/baseline_comparison.png")
 
 # ── Print summary table ──
-print("\n" + "=" * 95)
-print(f"{'Dataset':<22} {'CoT Oracle':>11} {'Linear Probe':>13} {'Attn Probe':>11} {'LLM Monitor':>12} {'Winner':>10}")
-print("-" * 95)
+print("\n" + "=" * 110)
+print(f"{'Dataset':<24} {'CoT Oracle':>11} {'Linear Probe':>13} {'Layer':>8} {'Attn Probe':>11} {'LLM Monitor':>12} {'Winner':>10}")
+print("-" * 110)
 for key, label in datasets:
     o = oracle_scores[key]
     l = linear_scores[key]
     a = attn_scores[key]
     m = llm_scores[key]
     os_ = f"{o:.3f}" if o is not None else "?"
-    ls_ = f"{l:.3f}"
+    ls_ = f"{l:.3f}" if l is not None else "?"
     as_ = f"{a:.3f}" if a is not None else "?"
     ms_ = f"{m:.3f}" if m is not None else "?"
+    layer = linear_labels.get(key, "").split("_")[-1] if linear_labels.get(key) else "?"
     # Winner among available scores
-    available = {"Linear": l}
+    available = {}
+    if l is not None: available["Linear"] = l
     if a is not None: available["Attn"] = a
     if m is not None: available["LLM"] = m
     if o is not None: available["Oracle"] = o
-    winner = max(available, key=available.get)
-    print(f"{key:<22} {os_:>11} {ls_:>13} ({linear_labels[key].split('_')[-1]:>6}) {as_:>11} {ms_:>12} {winner:>10}")
-print("=" * 95)
+    winner = max(available, key=available.get) if available else "?"
+    print(f"{key:<24} {os_:>11} {ls_:>13} {layer:>8} {as_:>11} {ms_:>12} {winner:>10}")
+print("=" * 110)
+
+# ── Save as txt ──
+with open("data/baseline_comparison.txt", "w") as f:
+    f.write(f"{'Dataset':<24} {'CoT Oracle':>11} {'Linear Probe':>13} {'Layer':>8} {'Attn Probe':>11} {'LLM Monitor':>12} {'Winner':>10}\n")
+    f.write("-" * 110 + "\n")
+    for key, label in datasets:
+        o = oracle_scores[key]
+        l = linear_scores[key]
+        a = attn_scores[key]
+        m = llm_scores[key]
+        os_ = f"{o:.3f}" if o is not None else "?"
+        ls_ = f"{l:.3f}" if l is not None else "?"
+        as_ = f"{a:.3f}" if a is not None else "?"
+        ms_ = f"{m:.3f}" if m is not None else "?"
+        layer = linear_labels.get(key, "").split("_")[-1] if linear_labels.get(key) else "?"
+        available = {}
+        if l is not None: available["Linear"] = l
+        if a is not None: available["Attn"] = a
+        if m is not None: available["LLM"] = m
+        if o is not None: available["Oracle"] = o
+        winner = max(available, key=available.get) if available else "?"
+        f.write(f"{key:<24} {os_:>11} {ls_:>13} {layer:>8} {as_:>11} {ms_:>12} {winner:>10}\n")
+    f.write("-" * 110 + "\n")
+    # Add answer_trajectory (regression) as footnote
+    if "answer_trajectory" in llm:
+        f.write(f"\nanswer_trajectory (regression, MAE — lower is better):\n")
+        f.write(f"  LLM Monitor: {llm['answer_trajectory']['mae']:.4f}\n")
+        f.write(f"  Baseline (predict mean): {llm['answer_trajectory']['baseline_mean_mae']:.4f}\n")
+print("Saved table to data/baseline_comparison.txt")
