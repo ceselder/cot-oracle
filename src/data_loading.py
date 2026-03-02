@@ -153,12 +153,12 @@ def prepare_context_ids(
     stride: int = 5,
     layers: list[int] | None = None,
 ) -> list[dict]:
-    """Compute context_input_ids and context_positions for items with cot_text.
+    """Compute context_input_ids and context_positions for items that need them.
 
-    Items that already have context_input_ids (e.g. answer_trajectory) are
-    left unchanged. For all others, builds the chat-templated input from
-    cot_text + question/hinted_prompt, tokenizes it, and computes stride
-    positions in the CoT region.
+    Skips items that already have context_input_ids (e.g. futurelens, fineweb
+    which compute them in-memory during generation). For all others, builds
+    the chat-templated input from cot_text + question/hinted_prompt, tokenizes
+    it, and computes stride positions in the CoT region.
 
     Args:
         items: Raw dicts from load_task_data().
@@ -176,12 +176,16 @@ def prepare_context_ids(
         layers = [9, 18, 27]
     n_layers = len(layers)
 
+    # Count how many items need tokenization
+    need_tokenize = [i for i, item in enumerate(items) if not item.get("context_input_ids")]
+    if need_tokenize:
+        print(f"  [data] Tokenizing cot_text for {len(need_tokenize)}/{len(items)} items "
+              f"(stride={stride}, {n_layers} layers)...")
+
     prepared = 0
-    for item in items:
-        # Items with precomputed context_input_ids (e.g. futurelens, answer_trajectory)
-        # don't need cot_text — skip them.
-        if item.get("context_input_ids"):
-            continue
+    _log_interval = max(1, len(need_tokenize) // 20)  # log every 5%
+    for count, idx in enumerate(need_tokenize):
+        item = items[idx]
         cot_text = item.get("cot_text", "")
         if not cot_text:
             raise ValueError(
@@ -224,6 +228,10 @@ def prepare_context_ids(
         item["num_positions"] = len(all_positions)
         item["layer"] = layers[0]
         prepared += 1
+
+        if (count + 1) % _log_interval == 0:
+            print(f"  [data]   tokenized {count + 1}/{len(need_tokenize)} "
+                  f"({100 * (count + 1) / len(need_tokenize):.0f}%)")
 
     if prepared > 0:
         print(f"  [data] Tokenized cot_text → context_input_ids for {prepared} items "
