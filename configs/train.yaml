@@ -54,10 +54,10 @@ tasks:
 
   truthfulqa_hint_verbalized:
     n: 0
-    eval: true
+    eval: false
 
   truthfulqa_hint_unverbalized:
-    n: 0
+    n: 999999
     eval: true
 
   sentence_insertion:
