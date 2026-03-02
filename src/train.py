@@ -845,7 +845,7 @@ def train(
 
     # ── Precompute activation vectors (avoid forward pass per training batch) ──
     if not args.no_activations and not args.flamingo:
-        _PC_MAX_TOKENS = 65536  # max total tokens per precompute batch (batch_size × seq_len)
+        _PC_MAX_TOKENS = 262144  # max total tokens per precompute batch (batch_size × seq_len)
         _pc_indices = [i for i, dp in enumerate(final_training) if dp.steering_vectors is None and dp.context_input_ids is not None]
         if _pc_indices:
             # Sort by context length so similar-length items batch together (minimize padding)
