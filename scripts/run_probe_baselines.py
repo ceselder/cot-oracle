@@ -426,17 +426,31 @@ def process_dataset(ds_name, hf_repo, model, tokenizer, device,
     try:
         ds = load_dataset(hf_repo)
     except Exception as e:
-        print(f"    FAILED: {e}")
-        return None, None
+        # Correctness test split has schema mismatch — load train only and self-split
+        print(f"    Normal load failed ({e}), trying train-only fallback...")
+        try:
+            ds = load_dataset(hf_repo, data_files="data/train-*.parquet")
+        except Exception as e2:
+            print(f"    FAILED: {e2}")
+            return None, None
 
     splits = {}
-    for split_name, max_n in [("train", max_train), ("test", max_test)]:
-        if split_name not in ds:
-            continue
-        split = ds[split_name]
-        if max_n and len(split) > max_n:
-            split = split.shuffle(seed=SEED).select(range(max_n))
-        splits[split_name] = split
+    if "test" in ds:
+        for split_name, max_n in [("train", max_train), ("test", max_test)]:
+            if split_name not in ds:
+                continue
+            split = ds[split_name]
+            if max_n and len(split) > max_n:
+                split = split.shuffle(seed=SEED).select(range(max_n))
+            splits[split_name] = split
+    else:
+        # No test split — carve one from train
+        only_split = ds["train"] if "train" in ds else list(ds.values())[0]
+        only_split = only_split.shuffle(seed=SEED)
+        n_test = min(max_test or 500, len(only_split) // 4)
+        n_train = min(max_train or 3000, len(only_split) - n_test)
+        splits["test"] = only_split.select(range(n_test))
+        splits["train"] = only_split.select(range(n_test, n_test + n_train))
 
     if "test" not in splits:
         return None, None
