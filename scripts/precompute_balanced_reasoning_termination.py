@@ -65,55 +65,74 @@ def main():
     LAYERS = get_injection_layers(args.model)
     print(f"  Injection layers: {LAYERS}")
 
-    # --- Load corpus ---
-    print(f"\nLoading corpus from {args.corpus}...")
-    corpus = []
+    # --- Stream-load + tokenize (memory-optimised) ---
+    # Both pools draw from entries long enough to support BOTH cuts.
+    # terminate needs 25-55 tokens from end, continue needs >= 300 remaining,
+    # so we need cot_len >= 355 to support both. Use 360 for margin.
+    MIN_COT_LEN = 360
+    # We only need ~5K pool entries to generate 15K examples with diversity.
+    # Reservoir-sample to cap RAM usage.
+    MAX_POOL = 5000
+
+    import gc
+
+    print(f"\nStream-tokenizing from {args.corpus} (cot_len >= {MIN_COT_LEN}, max_pool={MAX_POOL})...")
+    shared_pool = []
+    n_total = 0
+    n_short = 0
+    n_seen_valid = 0  # for reservoir sampling
+
     with open(args.corpus) as f:
         for line in f:
-            if line.strip():
-                entry = json.loads(line)
-                cot = entry.get("cot_response", "")
-                if cot.strip():
-                    corpus.append(entry)
+            if not line.strip():
+                continue
+            entry = json.loads(line)
+            cot = entry.get("cot_response", "")
+            if not cot.strip():
+                continue
+            n_total += 1
 
-    if not corpus:
-        raise ValueError(f"No entries with cot_response in corpus")
-    print(f"  {len(corpus)} entries with CoT")
+            if n_total % 5000 == 0:
+                print(f"  {n_total} scanned, {len(shared_pool)} in pool...")
 
-    # --- Pre-tokenize ---
-    print("Pre-tokenizing corpus...")
-    tokenized = []
-    for i, entry in enumerate(corpus):
-        if i % 5000 == 0:
-            print(f"  {i}/{len(corpus)}...")
-        messages = [{"role": "user", "content": entry["question"]}]
-        formatted = tokenizer.apply_chat_template(
-            messages, tokenize=False, add_generation_prompt=True,
-            enable_thinking=True,
-        )
-        cot_text = entry["cot_response"]
-        full_text = formatted + cot_text
-        full_ids = tokenizer(full_text, add_special_tokens=False)["input_ids"]
-        prompt_ids = tokenizer(formatted, add_special_tokens=False)["input_ids"]
-        prompt_len = len(prompt_ids)
-        cot_len = len(full_ids) - prompt_len
+            messages = [{"role": "user", "content": entry["question"]}]
+            formatted = tokenizer.apply_chat_template(
+                messages, tokenize=False, add_generation_prompt=True,
+                enable_thinking=True,
+            )
+            cot_text = entry["cot_response"]
+            full_text = formatted + cot_text
+            full_ids = tokenizer(full_text, add_special_tokens=False)["input_ids"]
+            prompt_ids = tokenizer(formatted, add_special_tokens=False)["input_ids"]
+            prompt_len = len(prompt_ids)
+            cot_len = len(full_ids) - prompt_len
 
-        if cot_len < 60:
-            continue
+            if cot_len < MIN_COT_LEN:
+                n_short += 1
+                continue
 
-        tokenized.append({
-            "entry": entry,
-            "full_ids": full_ids,
-            "prompt_len": prompt_len,
-            "cot_len": cot_len,
-        })
+            item = {
+                "full_ids": full_ids,
+                "prompt_len": prompt_len,
+                "cot_len": cot_len,
+            }
 
-    positive_pool = [t for t in tokenized if t["cot_len"] >= 25]
-    negative_pool = [t for t in tokenized if t["cot_len"] > 300]
+            # Reservoir sampling: keep first MAX_POOL, then replace randomly
+            n_seen_valid += 1
+            if len(shared_pool) < MAX_POOL:
+                shared_pool.append(item)
+            else:
+                j = random.randint(0, n_seen_valid - 1)
+                if j < MAX_POOL:
+                    shared_pool[j] = item
 
-    print(f"  Tokenized: {len(tokenized)} entries")
-    print(f"  Positive pool (cot_len >= 25): {len(positive_pool)}")
-    print(f"  Negative pool (cot_len > 300): {len(negative_pool)}")
+    gc.collect()
+
+    positive_pool = shared_pool
+    negative_pool = shared_pool
+
+    print(f"  Scanned {n_total} entries, {n_short} too short, {n_seen_valid} valid")
+    print(f"  Shared pool: {len(shared_pool)} entries (capped at {MAX_POOL})")
 
     if not positive_pool:
         raise ValueError("No entries long enough for positive examples")
@@ -184,7 +203,7 @@ def main():
         }
 
     # --- Generate overcomplete pools ---
-    pool_size = args.num_examples * 5
+    pool_size = args.num_examples * 3  # 3x oversampling is plenty for bin matching
     print(f"\nGenerating {pool_size} candidates per class...")
 
     pos_candidates = []
@@ -209,6 +228,10 @@ def main():
 
     print(f"  Positive candidates: {len(pos_candidates)}")
     print(f"  Negative candidates: {len(neg_candidates)}")
+
+    # Free the tokenized pool — candidates have their own context_input_ids copies
+    del shared_pool, positive_pool, negative_pool
+    gc.collect()
 
     # --- Report pre-matching stride distributions ---
     pos_strides = [c["n_stride"] for c in pos_candidates]

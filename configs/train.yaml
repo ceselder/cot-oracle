@@ -13,7 +13,7 @@ tasks:
     eval: true
 
   reasoning_termination:
-    n: 15000
+    n: 10000
     eval: true
 
   answer_trajectory:
@@ -29,7 +29,7 @@ tasks:
     eval: true
 
   decorative_cot:
-    n: 8000
+    n: 4000
     eval: true
 
   chunked_convqa:
@@ -41,13 +41,15 @@ tasks:
     eval: true
 
   sycophancy:
-    n: 15000
+    n: 3495
     eval: true
 
   truthfulqa_hint_verbalized:
+    n: 4000
     eval: true
 
   truthfulqa_hint_unverbalized:
+    n: 10000
     eval: true
 
   sentence_insertion:

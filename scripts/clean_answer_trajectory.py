@@ -14,6 +14,7 @@ Outputs:
 """
 
 import json
+import math
 import random
 import re
 from pathlib import Path
@@ -116,14 +117,32 @@ def main():
 
             # Build CoT prefix
             prefix = " ".join(sentences[:sent_idx + 1])
-            predicted = ent_result["predicted_answer"]
             pct = int(100 * (sent_idx + 1) / n_sents)
+
+            # Renormalize answer_probs to valid choices only.
+            # Raw logprobs include A-J tokens, but "I" (pronoun), "F", "G", "H"
+            # get high probability from prose context, not as answer options.
+            raw_probs = ent_result["answer_probs"]
+            if isinstance(raw_probs, str):
+                raw_probs = json.loads(raw_probs)
+            valid_probs = {k: v for k, v in raw_probs.items() if k in choices}
+            if not valid_probs:
+                n_missing_entropy += 1
+                continue
+            # Re-argmax over valid options only
+            predicted = max(valid_probs, key=valid_probs.get)
+            # Renormalize probabilities
+            total_p = sum(valid_probs.values())
+            if total_p > 0:
+                valid_probs = {k: v / total_p for k, v in valid_probs.items()}
+            confidence = valid_probs[predicted]
+            entropy = -sum(p * math.log(p) for p in valid_probs.values() if p > 0)
 
             row = {
                 "task": "answer_trajectory",
                 "datapoint_type": "cot_answer_trajectory",
                 "prompt": ORACLE_PROMPT,
-                "target_response": format_target(predicted, choices, ent_result["confidence"], ent_result["answer_entropy"]),
+                "target_response": format_target(predicted, choices, confidence, entropy),
                 "question": question,
                 "cot_text": prefix,
                 "sent_idx": sent_idx,
@@ -131,9 +150,9 @@ def main():
                 "pct": pct,
                 "final_answer": format_answer(final_answer, choices),
                 "predicted_answer": predicted,
-                "confidence": ent_result["confidence"],
-                "answer_entropy": ent_result["answer_entropy"],
-                "answer_probs": ent_result["answer_probs"],
+                "confidence": confidence,
+                "answer_entropy": entropy,
+                "answer_probs": json.dumps(valid_probs),
             }
             all_rows.append(row)
 

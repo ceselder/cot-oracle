@@ -11,7 +11,7 @@ tasks:
     eval: true
 
   reasoning_termination:
-    n: 15000
+    n: 10000
     eval: true
 
   answer_trajectory:
@@ -23,7 +23,7 @@ tasks:
     eval: true
 
   decorative_cot:
-    n: 8000
+    n: 4000
     eval: true
 
   # Constructed from corpus-v5 at load time
@@ -40,15 +40,17 @@ tasks:
     n: 30000
     eval: true
 
-  # Eval-only
+  # Now trainable (new HF repos)
   truthfulqa_hint_verbalized:
+    n: 4000
     eval: true
 
   truthfulqa_hint_unverbalized:
+    n: 10000
     eval: true
 
   sycophancy:
-    n: 15000
+    n: 3495
     eval: true
 
   sentence_insertion:

@@ -80,8 +80,15 @@ def load_task_data(
             if "layer" not in item:
                 layers = item.get("layers", [9, 18, 27])
                 item["layer"] = layers[0] if layers else 9
+            # Map label → target_response for reasoning_termination new format
+            if "target_response" not in item and "label" in item:
+                label_map = {"terminates": "will_terminate", "continues": "will_continue"}
+                item["target_response"] = label_map.get(item["label"], item["label"])
+            # Map hinted_prompt → question for truthfulqa datasets (used by prepare_context_ids)
+            if "hinted_prompt" in item and "question" not in item:
+                item["question"] = item["hinted_prompt"]
             # Inject default prompt if missing (e.g. truthfulqa eval datasets)
-            if "prompt" not in item:
+            if "prompt" not in item or item["prompt"] is None:
                 item["prompt"] = _default_prompt(task_name)
             # Map cot_field → cot_text for tasks that use a different field
             # (e.g. chunked_convqa/compqa use cot_prefix for activations)
@@ -266,7 +273,34 @@ def _download_via_datasets_lib(task_def: TaskDef, split: str, local_path: Path) 
     """Fallback: use HuggingFace `datasets` library to load and save as JSONL."""
     from datasets import load_dataset
 
-    ds = load_dataset(task_def.hf_repo, split=split)
+    # Try requested split, then common alternatives
+    split_alternatives = {
+        "train": ["train", "id_train", "ood_train"],
+        "test": ["test", "eval"],
+    }
+    alts = split_alternatives.get(split, [split])
+    ds = None
+    for alt_split in alts:
+        try:
+            ds = load_dataset(task_def.hf_repo, split=alt_split)
+            if alt_split != split:
+                print(f"  [data] Using split '{alt_split}' (requested '{split}')")
+            break
+        except (ValueError, KeyError):
+            continue
+    # For train, also try combining id_train + ood_train
+    if ds is None and split == "train":
+        try:
+            ds_id = load_dataset(task_def.hf_repo, split="id_train")
+            ds_ood = load_dataset(task_def.hf_repo, split="ood_train")
+            from datasets import concatenate_datasets
+            ds = concatenate_datasets([ds_id, ds_ood])
+            print(f"  [data] Combined id_train ({len(ds_id)}) + ood_train ({len(ds_ood)}) = {len(ds)}")
+        except Exception:
+            pass
+    if ds is None:
+        raise ValueError(f"No suitable split found for {task_def.hf_repo} (tried {alts})")
+
     local_path.parent.mkdir(parents=True, exist_ok=True)
     with open(local_path, "w") as f:
         for row in ds:
