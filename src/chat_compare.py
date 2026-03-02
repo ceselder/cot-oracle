@@ -57,6 +57,13 @@ from core.ao import (
 )
 from nl_probes.sae import load_dictionary_learning_batch_topk_sae
 from patchscopes import _run_patchscope_single as run_patchscope_single
+from patchscopes import (
+    _build_verbalizer_ids,
+    _compute_injection_positions,
+    _optimize_alpha_single,
+    _generate_with_optimized_alpha,
+    VERBALIZER_PROMPTS as PATCHSCOPES_VERBALIZER_PROMPTS,
+)
 from sae_probe import _encode_and_aggregate as sae_probe_encode_and_aggregate
 from sae_probe import _format_features as sae_probe_format_features
 from sae_probe import GENERATION_PROMPT as SAE_LLM_GENERATION_PROMPT
@@ -438,15 +445,18 @@ def build_sae_feature_description(saes, labels, layer_to_selected_acts, layers, 
     return sae_probe_format_features(aggregated, n_positions)
 
 
-def query_openrouter(prompt, model, api_base=OPENROUTER_API_BASE, max_tokens=300):
+def query_openrouter(prompt, model, api_base=OPENROUTER_API_BASE, max_tokens=300, response_format=None):
     api_key = os.environ["OPENROUTER_API_KEY"]
     client = openai.OpenAI(base_url=api_base, api_key=api_key)
-    response = client.chat.completions.create(
-        model=model,
-        messages=[{"role": "user", "content": prompt}],
-        max_tokens=max_tokens,
-        temperature=0.0,
-    )
+    kwargs = {
+        "model": model,
+        "messages": [{"role": "user", "content": prompt}],
+        "max_tokens": max_tokens,
+        "temperature": 0.0,
+    }
+    if response_format is not None:
+        kwargs["response_format"] = response_format
+    response = client.chat.completions.create(**kwargs)
     return response.choices[0].message.content or ""
 
 
@@ -477,8 +487,15 @@ def build_answer_rating_prompt(question, prompt, answers):
     )
 
 
+def parse_first_json_object(text):
+    start = text.index("{")
+    end = text.rindex("}") + 1
+    return json.loads(text[start:end])
+
+
 def rate_answers_with_gemini(question, prompt, answers, model=OPENROUTER_RATER_MODEL):
-    return json.loads(query_openrouter(build_answer_rating_prompt(question, prompt, answers), model=model, max_tokens=500))
+    raw = query_openrouter(build_answer_rating_prompt(question, prompt, answers), model=model, max_tokens=500, response_format={"type": "json_object"})
+    return parse_first_json_object(raw)
 
 
 def build_black_box_prompt(question, cot_response, prompt):
@@ -581,7 +598,7 @@ class ChatCompareWebApp:
             return
         self.no_act_adapter_name = load_extra_adapter(self.model, self.no_act_checkpoint, adapter_name="no_act")
 
-    def _rate_answers(self, ctx, ao_prompt, ao_response, patchscopes_response, black_box_response, no_act_response, trained_response, sae_response):
+    def _collect_answers_for_rating(self, ctx, ao_prompt, ao_response, patchscopes_response, black_box_response, no_act_response, trained_response, sae_response):
         answers = []
         if ao_response != "(skipped)":
             answers.append({"name": "Original AO", "prompt": ao_prompt, "answer": ao_response})
@@ -595,6 +612,10 @@ class ChatCompareWebApp:
             answers.append({"name": "Trained Oracle", "prompt": ctx["prompt"], "answer": trained_response})
         if sae_response != "(skipped)":
             answers.append({"name": "SAE -> LLM", "prompt": ctx["prompt"], "answer": sae_response})
+        return answers
+
+    def _rate_answers(self, ctx, ao_prompt, ao_response, patchscopes_response, black_box_response, no_act_response, trained_response, sae_response):
+        answers = self._collect_answers_for_rating(ctx, ao_prompt, ao_response, patchscopes_response, black_box_response, no_act_response, trained_response, sae_response)
         return rate_answers_with_gemini(self.state.question, ctx["prompt"], answers)
 
     def _log_event(self, event_type, payload):
@@ -728,7 +749,7 @@ class ChatCompareWebApp:
     def _resolve_run_context(self, task_key, custom_prompt, selected_cells):
         if self.state.multilayer_acts is None:
             raise HTTPException(status_code=400, detail="Generate a CoT first")
-        resolved_key = CLI_ALIASES.get(task_key, task_key)
+        resolved_key = CLI_ALIASES[task_key] if task_key in CLI_ALIASES else task_key
         prompt = custom_prompt.strip() if resolved_key == "custom" else self.prompt_map[resolved_key]
         if resolved_key == "custom" and not prompt:
             raise HTTPException(status_code=400, detail="Custom prompt is empty")
@@ -750,6 +771,13 @@ class ChatCompareWebApp:
             "selected_positions": selected_positions,
             "active_cells": active_cells,
         }
+
+    def _resolve_prompt_only(self, task_key, custom_prompt):
+        resolved_key = CLI_ALIASES[task_key] if task_key in CLI_ALIASES else task_key
+        prompt = custom_prompt.strip() if resolved_key == "custom" else self.prompt_map[resolved_key]
+        if resolved_key == "custom" and not prompt:
+            raise HTTPException(status_code=400, detail="Custom prompt is empty")
+        return {"task_key": resolved_key, "prompt": prompt}
 
     def _selected_acts_by_layer(self, ctx):
         acts_by_layer = self.state.multilayer_acts.view(len(self.layers), len(self.state.stride_positions), self.state.multilayer_acts.shape[1])
@@ -783,25 +811,70 @@ class ChatCompareWebApp:
         raw_strengths = payload["patchscopes_strengths"]
         return {layer: float(raw_strengths[str(layer)]) for layer in self.layers}
 
-    def _run_patchscopes_component(self, ctx, max_tokens, steering_by_layer):
+    def _run_patchscopes_component(self, ctx, max_tokens, steering_by_layer, optimize=False, opt_steps=50, opt_lr=0.1):
         per_layer_acts = self._selected_acts_by_layer(ctx)
-        responses = []
+        device = str(get_model_input_device(self.model))
+
+        if not optimize:
+            # Grid-search mode: per-layer scalar coefficients from sliders
+            responses = []
+            with self.model_lock:
+                for layer in ctx["selected_layers"]:
+                    if layer not in per_layer_acts:
+                        continue
+                    generated = run_patchscope_single(
+                        self.model, self.tokenizer, per_layer_acts[layer], ctx["prompt"],
+                        injection_layer=1, steering_coefficient=steering_by_layer[layer],
+                        max_new_tokens=max_tokens, device=device,
+                    )
+                    responses.append(f"L{layer}: {generated}")
+            return {"patchscopes_prompt": ctx["prompt"], "patchscopes_response": " ".join(responses), "patchscopes_strengths": steering_by_layer}
+
+        # Optimized mode: get bb monitor target, optimize alpha, generate
+        verbalizer = PATCHSCOPES_VERBALIZER_PROMPTS.get("hinted_mcq", ctx["prompt"])
+        # Use the task prompt as verbalizer
+        verbalizer = ctx["prompt"]
+
+        # Get target from bb monitor
+        print("[patchscopes optimize] Calling bb monitor for optimization target...")
+        target_text = query_black_box_monitor(
+            self.state.question, self.state.cot_response, ctx["prompt"], max_tokens=max_tokens,
+        )
+        print(f"[patchscopes optimize] bb monitor target: {target_text[:200]}")
+
+        # Filter to selected layers only
+        acts_by_layer = {l: per_layer_acts[l] for l in ctx["selected_layers"] if l in per_layer_acts}
+
         with self.model_lock:
-            for layer in ctx["selected_layers"]:
-                if layer not in per_layer_acts:
-                    continue
-                generated = run_patchscope_single(
-                    self.model,
-                    self.tokenizer,
-                    per_layer_acts[layer],
-                    ctx["prompt"],
-                    injection_layer=1,
-                    steering_coefficient=steering_by_layer[layer],
-                    max_new_tokens=max_tokens,
-                    device=str(get_model_input_device(self.model)),
-                )
-                responses.append(f"L{layer}: {generated}")
-        return {"patchscopes_prompt": ctx["prompt"], "patchscopes_response": " ".join(responses), "patchscopes_strengths": steering_by_layer}
+            alpha, loss_traj, layer_k_pairs = _optimize_alpha_single(
+                self.model, self.tokenizer, acts_by_layer, verbalizer, target_text,
+                injection_layer=1, n_steps=opt_steps, lr=opt_lr,
+                device=device, example_id="web_ui",
+            )
+            generated = _generate_with_optimized_alpha(
+                self.model, self.tokenizer, acts_by_layer, verbalizer, alpha,
+                injection_layer=1, max_new_tokens=max_tokens, device=device,
+            )
+
+        alpha_data = alpha.detach().cpu()
+        # Build per-layer alpha rows for the frontend matrix
+        alpha_by_layer = {}
+        offset = 0
+        for layer, K_l in layer_k_pairs:
+            alpha_by_layer[layer] = alpha_data[offset:offset + K_l].tolist()
+            offset += K_l
+
+        stats = (f"[optimized {opt_steps} steps, lr={opt_lr}] "
+                 f"loss: {loss_traj[0]:.3f} -> {loss_traj[-1]:.3f} | "
+                 f"alpha: mean={alpha_data.mean():.2f} std={alpha_data.std():.2f}")
+        response_text = f"{stats}\ntarget: {target_text}\ngenerated: {generated}"
+        return {
+            "patchscopes_prompt": ctx["prompt"],
+            "patchscopes_response": response_text,
+            "patchscopes_strengths": {},
+            "patchscopes_alpha_by_layer": alpha_by_layer,
+            "patchscopes_loss_curve": loss_traj,
+        }
 
     def _run_black_box_component(self, ctx, max_tokens):
         black_box_response = query_black_box_monitor(self.state.question, self.state.cot_response, ctx["prompt"], max_tokens=max_tokens)
@@ -821,8 +894,16 @@ class ChatCompareWebApp:
         sae_response = query_sae_llm(sae_prompt)
         return {"sae_feature_desc": sae_feature_desc, "sae_response": sae_response}
 
-    def _finalize_run(self, ctx, eval_tags, selected_baselines, ao_prompt, ao_response, patchscopes_response, black_box_response, no_act_response, trained_response, sae_feature_desc, sae_response):
+    def _rate_answers_from_payload(self, task_key, custom_prompt, ao_prompt, ao_response, patchscopes_response, black_box_response, no_act_response, trained_response, sae_response):
+        ctx = self._resolve_prompt_only(task_key, custom_prompt)
         rating_result = self._rate_answers(ctx, ao_prompt, ao_response, patchscopes_response, black_box_response, no_act_response, trained_response, sae_response)
+        return {"answer_ratings": rating_result["ratings"], "rating_summary": rating_result["summary"]}
+
+    def _finalize_run(self, ctx, eval_tags, selected_baselines, ao_prompt, ao_response, patchscopes_response, black_box_response, no_act_response, trained_response, sae_feature_desc, sae_response, answer_ratings=None, rating_summary=""):
+        if answer_ratings is None:
+            rating_result = self._rate_answers(ctx, ao_prompt, ao_response, patchscopes_response, black_box_response, no_act_response, trained_response, sae_response)
+            answer_ratings = rating_result["ratings"]
+            rating_summary = rating_result["summary"]
         log_payload = {
             "task_key": ctx["task_key"],
             "question": self.state.question,
@@ -839,8 +920,8 @@ class ChatCompareWebApp:
             "trained_response": trained_response,
             "sae_feature_desc": sae_feature_desc,
             "sae_response": sae_response,
-            "answer_ratings": rating_result["ratings"],
-            "rating_summary": rating_result["summary"],
+            "answer_ratings": answer_ratings,
+            "rating_summary": rating_summary,
         }
         md_path = self._write_run_markdown(log_payload)
         self._log_event("run", {**log_payload, "log_path": str(md_path), "selected_cell_count": len(ctx["active_cells"])})
@@ -859,12 +940,12 @@ class ChatCompareWebApp:
             "trained_response": trained_response,
             "sae_feature_desc": sae_feature_desc,
             "sae_response": sae_response,
-            "answer_ratings": rating_result["ratings"],
-            "rating_summary": rating_result["summary"],
+            "answer_ratings": answer_ratings,
+            "rating_summary": rating_summary,
             "log_path": str(md_path),
         }
 
-    def _run_query(self, task_key, custom_prompt, selected_cells, max_tokens, eval_tags, selected_baselines, patchscopes_strengths):
+    def _run_query(self, task_key, custom_prompt, selected_cells, max_tokens, eval_tags, selected_baselines, patchscopes_strengths, patchscopes_optimize=False, patchscopes_opt_steps=50, patchscopes_opt_lr=0.1):
         ctx = self._resolve_run_context(task_key, custom_prompt, selected_cells)
         ao_result = {"ao_prompt": "", "ao_response": "(skipped)"}
         patchscopes_result = {"patchscopes_response": "(skipped)"}
@@ -875,7 +956,7 @@ class ChatCompareWebApp:
         if "ao" in selected_baselines:
             ao_result = self._run_original_ao_component(ctx, max_tokens)
         if "patch" in selected_baselines:
-            patchscopes_result = self._run_patchscopes_component(ctx, max_tokens, patchscopes_strengths)
+            patchscopes_result = self._run_patchscopes_component(ctx, max_tokens, patchscopes_strengths, optimize=patchscopes_optimize, opt_steps=patchscopes_opt_steps, opt_lr=patchscopes_opt_lr)
         if "bb" in selected_baselines:
             black_box_result = self._run_black_box_component(ctx, max_tokens)
         if "noact" in selected_baselines:
@@ -959,7 +1040,10 @@ class ChatCompareWebApp:
             eval_tags = payload.get("eval_tags", [])
             selected_baselines = payload["selected_baselines"]
             patchscopes_strengths = self._parse_patchscopes_strengths(payload)
-            return await asyncio.to_thread(self._run_query, task_key, custom_prompt, selected_cells, max_tokens, eval_tags, selected_baselines, patchscopes_strengths)
+            ps_optimize = bool(payload.get("patchscopes_optimize", False))
+            ps_opt_steps = int(payload.get("patchscopes_opt_steps", 50))
+            ps_opt_lr = float(payload.get("patchscopes_opt_lr", 0.1))
+            return await asyncio.to_thread(self._run_query, task_key, custom_prompt, selected_cells, max_tokens, eval_tags, selected_baselines, patchscopes_strengths, patchscopes_optimize=ps_optimize, patchscopes_opt_steps=ps_opt_steps, patchscopes_opt_lr=ps_opt_lr)
 
         @self.app.post("/api/run_original_ao")
         async def run_original_ao(payload: dict):
@@ -973,7 +1057,12 @@ class ChatCompareWebApp:
             ctx = self._resolve_run_context(payload["task_key"], payload.get("custom_prompt", ""), payload.get("selected_cells", []))
             max_tokens = int(payload.get("max_tokens", self.args.max_tokens))
             patchscopes_strengths = self._parse_patchscopes_strengths(payload)
-            result = await asyncio.to_thread(self._run_patchscopes_component, ctx, max_tokens, patchscopes_strengths)
+            optimize = bool(payload.get("patchscopes_optimize", False))
+            result = await asyncio.to_thread(
+                self._run_patchscopes_component, ctx, max_tokens, patchscopes_strengths,
+                optimize=optimize, opt_steps=int(payload.get("patchscopes_opt_steps", 50)),
+                opt_lr=float(payload.get("patchscopes_opt_lr", 0.1)),
+            )
             return {**result, "task_key": ctx["task_key"], "selected_layers": ctx["selected_layers"], "selected_positions": ctx["selected_positions"]}
 
         @self.app.post("/api/run_trained_oracle")
@@ -1009,10 +1098,27 @@ class ChatCompareWebApp:
             result = await asyncio.to_thread(self._run_sae_component, ctx)
             return {**result, "task_key": ctx["task_key"], "selected_layers": ctx["selected_layers"], "selected_positions": ctx["selected_positions"]}
 
+        @self.app.post("/api/rate_answers")
+        async def rate_answers(payload: dict):
+            return await asyncio.to_thread(
+                self._rate_answers_from_payload,
+                payload["task_key"],
+                payload.get("custom_prompt", ""),
+                payload["ao_prompt"],
+                payload["ao_response"],
+                payload["patchscopes_response"],
+                payload["black_box_response"],
+                payload["no_act_response"],
+                payload["trained_response"],
+                payload["sae_response"],
+            )
+
         @self.app.post("/api/finalize_run")
         async def finalize_run(payload: dict):
             ctx = self._resolve_run_context(payload["task_key"], payload.get("custom_prompt", ""), payload.get("selected_cells", []))
             eval_tags = payload.get("eval_tags", [])
+            answer_ratings = payload["answer_ratings"] if "answer_ratings" in payload else None
+            rating_summary = payload["rating_summary"] if "rating_summary" in payload else ""
             return await asyncio.to_thread(
                 self._finalize_run,
                 ctx,
@@ -1026,6 +1132,8 @@ class ChatCompareWebApp:
                 payload["trained_response"],
                 payload["sae_feature_desc"],
                 payload["sae_response"],
+                answer_ratings,
+                rating_summary,
             )
 
     def _render_html(self, initial_question="", initial_question_source_html="", initial_status=""):
@@ -1063,6 +1171,8 @@ class ChatCompareWebApp:
     .tok.sampled:hover { background: rgba(96, 165, 250, 0.22); }
     .tok.sampled.selected { background: #1d4ed8; color: #eff6ff; }
     .tok.unsampled { color: #64748b; }
+    .alpha-cell { display: inline-block; padding: 2px 4px; margin: 1px; border-radius: 4px; font-size: 11px; font-family: monospace; min-width: 32px; text-align: center; }
+    .loss-bar { position: absolute; bottom: 0; width: 2px; background: #60a5fa; border-radius: 1px 1px 0 0; }
     .outputs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
     .text-block { white-space: normal; word-break: break-word; line-height: 1.5; }
     .selection-box { position: fixed; border: 1px solid #60a5fa; background: rgba(96, 165, 250, 0.14); pointer-events: none; display: none; z-index: 50; }
@@ -1115,8 +1225,15 @@ class ChatCompareWebApp:
           <label class=\"inline-check\"><input id=\"baselineOracle\" type=\"checkbox\" checked>Trained oracle</label>
           <label class=\"inline-check\"><input id=\"baselineSae\" type=\"checkbox\" checked>SAE -> LLM</label>
         </div>
-        <label style=\"display:block;margin-top:10px\">Patchscopes per-layer injection strength</label>
-        <div id=\"patchStrengthRows\" class=\"slider-stack\"></div>
+        <label class=\"inline-check\" style=\"display:flex;margin-top:10px\"><input id=\"patchOptimize\" type=\"checkbox\">Optimize alpha (uses bb monitor as target)</label>
+        <div id=\"patchOptControls\" style=\"display:none;margin-top:6px\">
+          <div class=\"slider-row\"><div>Steps</div><input id=\"patchOptSteps\" type=\"number\" value=\"50\" min=\"5\" max=\"200\" step=\"5\" style=\"width:60px\"><div class=\"small muted\" id=\"patchOptStepsLabel\">50</div></div>
+          <div class=\"slider-row\"><div>LR</div><input id=\"patchOptLr\" type=\"number\" value=\"0.1\" min=\"0.001\" max=\"1.0\" step=\"0.01\" style=\"width:60px\"><div class=\"small muted\" id=\"patchOptLrLabel\">0.1</div></div>
+        </div>
+        <div id=\"patchSliderWrap\">
+          <label style=\"display:block;margin-top:6px\">Per-layer injection strength</label>
+          <div id=\"patchStrengthRows\" class=\"slider-stack\"></div>
+        </div>
         <div class=\"row\">
           <button id=\"runBtn\">Run selected activations</button>
           <button id=\"selectAllBtn\" class=\"secondary\">Select all</button>
@@ -1138,6 +1255,13 @@ class ChatCompareWebApp:
         <h3 style=\"margin-top:0\">Layer-Replicated CoT</h3>
         <div class=\"muted\">The same CoT is repeated once per layer. Drag across highlighted stride tokens to choose exactly which activations to inject.</div>
         <div id=\"tokenRowsWrap\" class=\"token-wrap\" style=\"margin-top:12px\"></div>
+      </div>
+      <div id=\"patchOptPanel\" class=\"panel\" style=\"display:none\">
+        <h3 style=\"margin-top:0\">Patchscopes Optimization Result</h3>
+        <div class=\"muted small\" id=\"patchOptStats\"></div>
+        <div id=\"patchOptLossCurve\" style=\"margin:8px 0;height:60px;position:relative;background:#0b1220;border-radius:8px;border:1px solid #1e293b;cursor:crosshair\" title=\"Loss curve\"></div>
+        <div class=\"muted small\" id=\"patchOptLossTooltip\" style=\"margin-bottom:8px\"></div>
+        <div id=\"patchOptAlphaGrid\" class=\"token-wrap\" style=\"margin-top:8px\"></div>
       </div>
       <div class=\"outputs\">
         <div class=\"panel\">
@@ -1197,6 +1321,8 @@ class ChatCompareWebApp:
     let dragStart = null;
     let patchRefreshTimer = null;
     let patchRefreshNonce = 0;
+    let ratingRefreshNonce = 0;
+    let latestRatings = { answer_ratings: [], rating_summary: '' };
     const statusEl = document.getElementById('status');
     const selectionInfo = document.getElementById('selectionInfo');
     const busyWrap = document.getElementById('busyWrap');
@@ -1267,6 +1393,84 @@ class ChatCompareWebApp:
         wrap.appendChild(row);
       });
     }
+    function renderPatchOptResult(data) {
+      const panel = document.getElementById('patchOptPanel');
+      if (!data || !data.patchscopes_alpha_by_layer) { panel.style.display = 'none'; return; }
+      panel.style.display = '';
+      const alphaByLayer = data.patchscopes_alpha_by_layer;
+      const lossCurve = data.patchscopes_loss_curve || [];
+      // Stats line
+      const statsEl = document.getElementById('patchOptStats');
+      if (lossCurve.length > 1) {
+        statsEl.textContent = `loss: ${lossCurve[0].toFixed(3)} \\u2192 ${lossCurve[lossCurve.length-1].toFixed(3)} (${lossCurve.length} steps)`;
+      }
+      // Loss curve as bar chart
+      const curveEl = document.getElementById('patchOptLossCurve');
+      curveEl.innerHTML = '';
+      if (lossCurve.length > 1) {
+        const maxLoss = Math.max(...lossCurve);
+        const minLoss = Math.min(...lossCurve);
+        const range = maxLoss - minLoss || 1;
+        const h = curveEl.clientHeight || 60;
+        const w = curveEl.clientWidth || 400;
+        const barW = Math.max(1, Math.floor(w / lossCurve.length));
+        lossCurve.forEach((loss, i) => {
+          const bar = document.createElement('div');
+          bar.className = 'loss-bar';
+          const pct = (loss - minLoss) / range;
+          bar.style.height = `${Math.max(2, pct * (h - 4))}px`;
+          bar.style.left = `${i * barW}px`;
+          bar.style.width = `${Math.max(1, barW - 1)}px`;
+          bar.title = `step ${i}: ${loss.toFixed(4)}`;
+          curveEl.appendChild(bar);
+        });
+      }
+      // Tooltip on hover
+      const tooltipEl = document.getElementById('patchOptLossTooltip');
+      curveEl.addEventListener('mousemove', e => {
+        if (!lossCurve.length) return;
+        const rect = curveEl.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const idx = Math.min(lossCurve.length - 1, Math.max(0, Math.floor(x / rect.width * lossCurve.length)));
+        tooltipEl.textContent = `step ${idx}: loss = ${lossCurve[idx].toFixed(4)}`;
+      });
+      curveEl.addEventListener('mouseleave', () => { tooltipEl.textContent = ''; });
+      // Alpha grid: one row per layer, cells colored by alpha value
+      const grid = document.getElementById('patchOptAlphaGrid');
+      grid.innerHTML = '';
+      // Compute global min/max for color scaling
+      let allAlphas = [];
+      for (const vals of Object.values(alphaByLayer)) allAlphas = allAlphas.concat(vals);
+      const aMin = Math.min(...allAlphas);
+      const aMax = Math.max(...allAlphas);
+      const aRange = aMax - aMin || 1;
+      for (const [layer, alphas] of Object.entries(alphaByLayer)) {
+        const block = document.createElement('div');
+        block.className = 'layer-block';
+        const label = document.createElement('div');
+        label.className = 'layer-label';
+        label.textContent = `Layer ${layer}`;
+        block.appendChild(label);
+        const row = document.createElement('div');
+        row.style.lineHeight = '1.8';
+        alphas.forEach((a, i) => {
+          const cell = document.createElement('span');
+          cell.className = 'alpha-cell';
+          cell.textContent = a.toFixed(2);
+          // Color: blue for low, white for ~1, red for high
+          const norm = (a - aMin) / aRange;
+          const r = Math.round(norm > 0.5 ? 255 : norm * 2 * 255);
+          const b = Math.round(norm < 0.5 ? 255 : (1 - norm) * 2 * 255);
+          const g = Math.round(norm > 0.5 ? (1 - norm) * 2 * 100 : norm * 2 * 100);
+          cell.style.background = `rgba(${r},${g},${b},0.5)`;
+          cell.style.color = '#e2e8f0';
+          cell.title = `L${layer} pos ${i}: alpha=${a.toFixed(4)}`;
+          row.appendChild(cell);
+        });
+        block.appendChild(row);
+        grid.appendChild(block);
+      }
+    }
     async function postJson(url, payload) {
       const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
       const data = await response.json();
@@ -1306,6 +1510,9 @@ class ChatCompareWebApp:
         eval_tags: Array.from(document.getElementById('evalTags').selectedOptions).map(opt => opt.value),
         selected_baselines: selectedBaselines(),
         patchscopes_strengths: patchscopesStrengths(),
+        patchscopes_optimize: document.getElementById('patchOptimize').checked,
+        patchscopes_opt_steps: Number(document.getElementById('patchOptSteps').value),
+        patchscopes_opt_lr: Number(document.getElementById('patchOptLr').value),
       };
     }
     function selectedCells() {
@@ -1446,6 +1653,7 @@ class ChatCompareWebApp:
     async function refreshPatchscopesFromSliders() {
       patchRefreshTimer = null;
       if (!session || !baselineInputs.patch.checked || !selected.size) return;
+      if (document.getElementById('patchOptimize').checked) return;
       const nonce = patchRefreshNonce + 1;
       patchRefreshNonce = nonce;
       setPanelLoading('patch', true, 'Refreshing...');
@@ -1478,6 +1686,10 @@ class ChatCompareWebApp:
       baselineInputs.sae.checked = config.sae_available;
       baselineInputs.sae.disabled = !config.sae_available;
       renderPatchStrengthRows();
+      document.getElementById('patchOptimize').addEventListener('change', function() {
+        document.getElementById('patchSliderWrap').style.display = this.checked ? 'none' : '';
+        document.getElementById('patchOptControls').style.display = this.checked ? '' : 'none';
+      });
       renderTaskOptions();
       renderEvalTags();
       setStatus(statusEl.textContent || 'Ready. Generate CoT + Activations to begin.');
@@ -1523,6 +1735,7 @@ class ChatCompareWebApp:
       document.getElementById('oraclePrompt').textContent = '';
       renderRatings([], '');
       document.getElementById('logPath').textContent = '';
+      renderPatchOptResult(null);
       resetPanelStatuses();
       const tagPills = document.getElementById('tagPills');
       tagPills.innerHTML = session.layers.map(layer => `<span class=\"pill\">Layer ${layer}</span>`).join('');
@@ -1538,6 +1751,7 @@ class ChatCompareWebApp:
       setStatus('Running baselines...');
       setBusy(true, 'Running baselines and populating panels...', 25);
       resetPanelStatuses();
+      renderPatchOptResult(null);
       document.getElementById('aoOut').textContent = '';
       document.getElementById('patchOut').textContent = '';
       document.getElementById('bbOut').textContent = '';
@@ -1549,21 +1763,70 @@ class ChatCompareWebApp:
       document.getElementById('bbPrompt').textContent = '';
       document.getElementById('noActPrompt').textContent = '';
       document.getElementById('oraclePrompt').textContent = '';
+      latestRatings = { answer_ratings: [], rating_summary: '' };
       renderRatings([], '');
       document.getElementById('logPath').textContent = '';
       let completed = 0;
+      const results = {
+        ao: { ao_prompt: '', ao_response: '(skipped)' },
+        patch: { patchscopes_response: '(skipped)' },
+        bb: { black_box_response: '(skipped)' },
+        noact: { no_act_response: '(skipped)' },
+        oracle: { trained_response: '(skipped)' },
+        sae: { sae_feature_desc: '(skipped)', sae_response: '(skipped)' },
+      };
       function advanceProgress(msg) {
         completed += 1;
         setBusy(true, msg, 25 + Math.round((completed / baselines.length) * 55));
+      }
+      async function refreshRatingsNow() {
+        const answerCount = [
+          results.ao.ao_response,
+          results.patch.patchscopes_response,
+          results.bb.black_box_response,
+          results.noact.no_act_response,
+          results.oracle.trained_response,
+          results.sae.sae_response,
+        ].filter(text => text !== '(skipped)').length;
+        if (!answerCount) {
+          latestRatings = { answer_ratings: [], rating_summary: '' };
+          renderRatings([], '');
+          return latestRatings;
+        }
+        const nonce = ratingRefreshNonce + 1;
+        ratingRefreshNonce = nonce;
+        document.getElementById('ratingSummary').textContent = 'Updating Gemini ratings...';
+        try {
+          const data = await postJson('/api/rate_answers', {
+            ...payload,
+            ao_prompt: results.ao.ao_prompt,
+            ao_response: results.ao.ao_response,
+            patchscopes_response: results.patch.patchscopes_response,
+            black_box_response: results.bb.black_box_response,
+            no_act_response: results.noact.no_act_response,
+            trained_response: results.oracle.trained_response,
+            sae_response: results.sae.sae_response,
+          });
+          if (nonce !== ratingRefreshNonce) return latestRatings;
+          latestRatings = data;
+          renderRatings(data.answer_ratings, data.rating_summary);
+          return latestRatings;
+        } catch (error) {
+          if (nonce !== ratingRefreshNonce) return latestRatings;
+          document.getElementById('ratingSummary').textContent = `Gemini rating failed: ${error.message}`;
+          return latestRatings;
+        }
       }
       const requests = [];
       if (baselines.includes('ao')) {
         setPanelLoading('ao', true, 'Running...');
         requests.push(postJson('/api/run_original_ao', payload).then(data => {
+        results.ao = data;
         document.getElementById('aoPrompt').textContent = `AO prompt: ${data.ao_prompt}`;
         document.getElementById('aoOut').textContent = compactText(data.ao_response);
         setPanelLoading('ao', false, 'Loaded');
         advanceProgress('Original AO loaded...');
+        void refreshRatingsNow();
         return ['ao', data];
       }).catch(error => {
         setPanelLoading('ao', false, 'Failed');
@@ -1576,10 +1839,13 @@ class ChatCompareWebApp:
       if (baselines.includes('patch')) {
         setPanelLoading('patch', true, 'Running...');
         requests.push(postJson('/api/run_patchscopes', payload).then(data => {
+        results.patch = data;
         document.getElementById('patchPrompt').textContent = `Patchscopes prompt: ${data.patchscopes_prompt}`;
         document.getElementById('patchOut').textContent = compactText(data.patchscopes_response);
+        renderPatchOptResult(data);
         setPanelLoading('patch', false, 'Loaded');
         advanceProgress('Patchscopes loaded...');
+        void refreshRatingsNow();
         return ['patch', data];
       }).catch(error => {
         setPanelLoading('patch', false, 'Failed');
@@ -1588,14 +1854,17 @@ class ChatCompareWebApp:
       } else {
         setPanelLoading('patch', false, 'Skipped');
         document.getElementById('patchOut').textContent = '(skipped)';
+        renderPatchOptResult(null);
       }
       if (baselines.includes('bb')) {
         setPanelLoading('bb', true, 'Running...');
         requests.push(postJson('/api/run_black_box_monitor', payload).then(data => {
+        results.bb = data;
         document.getElementById('bbPrompt').textContent = `Black-box prompt: ${data.black_box_prompt}`;
         document.getElementById('bbOut').textContent = compactText(data.black_box_response);
         setPanelLoading('bb', false, 'Loaded');
         advanceProgress('Black-box monitor loaded...');
+        void refreshRatingsNow();
         return ['bb', data];
       }).catch(error => {
         setPanelLoading('bb', false, 'Failed');
@@ -1608,10 +1877,12 @@ class ChatCompareWebApp:
       if (baselines.includes('noact')) {
         setPanelLoading('noact', true, 'Running...');
         requests.push(postJson('/api/run_no_act_oracle', payload).then(data => {
+        results.noact = data;
         document.getElementById('noActPrompt').textContent = `No-act prompt: ${data.no_act_prompt}`;
         document.getElementById('noActOut').textContent = compactText(data.no_act_response);
         setPanelLoading('noact', false, 'Loaded');
         advanceProgress('No-act oracle loaded...');
+        void refreshRatingsNow();
         return ['noact', data];
       }).catch(error => {
         setPanelLoading('noact', false, 'Failed');
@@ -1624,10 +1895,12 @@ class ChatCompareWebApp:
       if (baselines.includes('oracle')) {
         setPanelLoading('oracle', true, 'Running...');
         requests.push(postJson('/api/run_trained_oracle', payload).then(data => {
+        results.oracle = data;
         document.getElementById('oraclePrompt').textContent = `Oracle prompt: ${data.prompt}`;
         document.getElementById('oracleOut').textContent = compactText(data.trained_response);
         setPanelLoading('oracle', false, 'Loaded');
         advanceProgress('Trained oracle loaded...');
+        void refreshRatingsNow();
         return ['oracle', data];
       }).catch(error => {
         setPanelLoading('oracle', false, 'Failed');
@@ -1640,9 +1913,11 @@ class ChatCompareWebApp:
       if (baselines.includes('sae')) {
         setPanelLoading('sae', true, 'Running...');
         requests.push(postJson('/api/run_sae_partial', payload).then(data => {
+        results.sae = data;
         document.getElementById('saeOut').textContent = compactText(data.sae_response);
         setPanelLoading('sae', false, 'Loaded');
         advanceProgress('SAE baseline loaded...');
+        void refreshRatingsNow();
         return ['sae', data];
       }).catch(error => {
         setPanelLoading('sae', false, 'Failed');
@@ -1659,19 +1934,8 @@ class ChatCompareWebApp:
         setStatus(failed.reason.message);
         return;
       }
-      const results = {
-        ao: { ao_prompt: '', ao_response: '(skipped)' },
-        patch: { patchscopes_response: '(skipped)' },
-        bb: { black_box_response: '(skipped)' },
-        noact: { no_act_response: '(skipped)' },
-        oracle: { trained_response: '(skipped)' },
-        sae: { sae_feature_desc: '(skipped)', sae_response: '(skipped)' },
-      };
-      settled.forEach(result => {
-        const [name, data] = result.value;
-        results[name] = data;
-      });
-      setBusy(true, 'Scoring answers and writing run log...', 90);
+      setBusy(true, 'Writing run log...', 90);
+      const ratingData = await refreshRatingsNow();
       const finalData = await postJson('/api/finalize_run', {
         ...payload,
         ao_prompt: results.ao.ao_prompt,
@@ -1682,6 +1946,8 @@ class ChatCompareWebApp:
         trained_response: results.oracle.trained_response,
         sae_feature_desc: results.sae.sae_feature_desc,
         sae_response: results.sae.sae_response,
+        answer_ratings: ratingData.answer_ratings,
+        rating_summary: ratingData.rating_summary,
       });
       setBusy(false);
       renderRatings(finalData.answer_ratings, finalData.rating_summary);
