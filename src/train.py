@@ -638,21 +638,9 @@ def dicts_to_training_data(
             sampled = sorted(random.sample(MULTI_LAYERS, k))
             n_sampled = len(sampled)
 
-            # 50/50 suffix sampling (same as non-dropout path):
-            #   50% → only the last 1 position per layer (minimal context)
-            #   50% → sample m uniformly from 1..K, take last m positions per layer
+            # Last-position-only: use only the final stride position per layer
             K = len(base_positions)
-            if K > 1:
-                if random.random() < 0.5:
-                    m = 1
-                else:
-                    m = random.randint(1, K)
-                if m < K:
-                    suffix_pos = base_positions[K - m:]
-                else:
-                    suffix_pos = base_positions
-            else:
-                suffix_pos = base_positions
+            suffix_pos = base_positions[K - 1:] if K > 0 else base_positions
 
             ctx_pos = suffix_pos * n_sampled
             num_pos = len(ctx_pos)
