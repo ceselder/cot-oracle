@@ -115,6 +115,36 @@ CLI flags override config values.
 
 All eval datasets published at: [`ceselder/cot-oracle-evals`](https://huggingface.co/collections/ceselder/cot-oracle-evals-699a2d31f652864af01d40dd)
 
+## Eval Trace Schema
+
+W&B tables and JSON artifacts use a naming convention matching the [mats-10-sprint-cs-jb HuggingFace datasets](https://huggingface.co/mats-10-sprint-cs-jb).
+
+**Unified eval tables** (`eval_table/{task}`):
+
+| Column | Description |
+|--------|-------------|
+| `question` | Original problem or hinted prompt shown to the source model |
+| `cot_field` | Decoded text from the field used for activation extraction (e.g. full `cot_text`, or `cot_prefix` / `excerpt` for chunked/futurelens tasks) |
+| `masked_cot_field` | Same as `cot_field` but with activation-sampled positions replaced by placeholder tokens |
+| `oracle_prefix` | The activation placeholder prefix injected into the oracle's context |
+| `prompt` | The task-specific question posed to the oracle |
+| `oracle_prediction` | The oracle's generated response |
+| `target_response` | Ground-truth target the oracle should produce |
+
+**Classification eval tables** (`eval_cls_table/{eval}`):
+
+| Column | Description |
+|--------|-------------|
+| `dataset_name` | Name of the classification eval dataset |
+| `classification_prompt` | The original classification question from the eval |
+| `cot_field` | Source text from which activations were extracted |
+| `prompt` | Full tokenized oracle input (including special tokens) |
+| `oracle_response` | Raw oracle generation before answer parsing |
+| `oracle_prediction` | Parsed answer (e.g. "yes" / "no") |
+| `target_response` | Ground-truth parsed answer |
+| `format_correct` | Whether the oracle's response was parseable |
+| `answer_correct` | Whether the parsed prediction matches the target |
+
 ## Repository Structure
 
 ```

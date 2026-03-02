@@ -6,6 +6,7 @@ This is the project-local AO runtime wrapper used by training/eval scripts.
 from __future__ import annotations
 
 import contextlib
+import math
 import os
 from typing import Any
 
@@ -270,9 +271,43 @@ def add_hook(module, hook):
         handle.remove()
 
 
-def get_steering_hook(vectors, positions, device, dtype, steering_coefficient=1.0):
+def _sinusoidal_position_encoding(positions, total_length, d_model, device, dtype):
+    t = torch.tensor([p / total_length for p in positions], device=device, dtype=torch.float32)
+    half_d = d_model // 2
+    freqs = torch.exp(torch.arange(half_d, device=device, dtype=torch.float32) * -(math.log(10000.0) / half_d))
+    angles = t.unsqueeze(1) * freqs.unsqueeze(0)
+    pe = torch.cat([torch.sin(angles), torch.cos(angles)], dim=-1)
+    return torch.nn.functional.normalize(pe, dim=-1).to(dtype=dtype)
+
+
+def _position_delta(combined_KD, source_positions, source_total_length, alpha):
+    if len(source_positions) != combined_KD.shape[0]:
+        raise ValueError(
+            f"source_positions has length {len(source_positions)} but combined_KD has {combined_KD.shape[0]} rows"
+        )
+    pe = _sinusoidal_position_encoding(
+        source_positions,
+        source_total_length,
+        combined_KD.shape[-1],
+        combined_KD.device,
+        combined_KD.dtype,
+    )
+    return alpha * combined_KD.norm(dim=-1, keepdim=True) * pe
+
+
+def get_steering_hook(
+    vectors,
+    positions,
+    device,
+    dtype,
+    steering_coefficient=1.0,
+    source_positions=None,
+    source_total_length=None,
+    position_encoding_alpha=None,
+):
     """Norm-matched additive steering hook (batch=1 only)."""
     normed = torch.nn.functional.normalize(vectors, dim=-1).detach()
+    use_position_encoding = position_encoding_alpha is not None and position_encoding_alpha != 0.0
 
     def hook_fn(module, _input, output):
         del module, _input
@@ -292,7 +327,12 @@ def get_steering_hook(vectors, positions, device, dtype, steering_coefficient=1.
         orig = resid[0, pos, :]
         norms = orig.norm(dim=-1, keepdim=True)
         steered = (normed.to(device=orig.device, dtype=orig.dtype) * norms.to(orig.dtype) * steering_coefficient).to(orig.dtype).detach()
-        resid[0, pos, :] = steered + orig
+        combined = steered + orig
+        if use_position_encoding:
+            if source_positions is None or source_total_length is None:
+                raise ValueError("source_positions and source_total_length are required when position_encoding_alpha is set")
+            combined = combined + _position_delta(combined, source_positions, source_total_length, position_encoding_alpha)
+        resid[0, pos, :] = combined
 
         return (resid, *rest) if is_tuple else resid
 
@@ -305,6 +345,9 @@ def get_batched_steering_hook(
     device: str | torch.device,
     dtype: torch.dtype,
     steering_coefficient: float = 1.0,
+    source_positions: list[list[int] | None] | None = None,
+    source_lengths: list[int | None] | None = None,
+    position_encoding_alpha: float | None = None,
 ):
     """Batched norm-matched additive steering hook.
 
@@ -321,6 +364,12 @@ def get_batched_steering_hook(
     assert len(vectors) == len(positions)
     B = len(vectors)
     normed_list = [torch.nn.functional.normalize(v, dim=-1).detach() for v in vectors]
+    use_position_encoding = position_encoding_alpha is not None and position_encoding_alpha != 0.0
+    if use_position_encoding:
+        if source_positions is None or source_lengths is None:
+            raise ValueError("source_positions and source_lengths are required when position_encoding_alpha is set")
+        if len(source_positions) != B or len(source_lengths) != B:
+            raise ValueError("source_positions and source_lengths must match batch size")
 
     def hook_fn(module, _input, output):
         del module, _input
@@ -333,16 +382,29 @@ def get_batched_steering_hook(
             is_tuple = False
 
         _b, l, _d = resid.shape
+        if _b != B:
+            raise ValueError(f"Batch mismatch: module B={_b}, provided vectors B={B}")
         # Only inject during prompt processing, not autoregressive steps
         if l <= 1:
             return (resid, *rest) if is_tuple else resid
 
-        for b in range(min(_b, B)):
-            pos_b = torch.tensor(positions[b], dtype=torch.long, device=device)
+        for b in range(B):
+            pos_b = torch.tensor(positions[b], dtype=torch.long, device=resid.device)
+            if pos_b.numel() == 0:
+                continue
+            if pos_b.min() < 0 or pos_b.max() >= l:
+                raise ValueError(f"Position out of bounds for batch item {b}: {positions[b]} with seq_len={l}")
             orig = resid[b, pos_b, :]
             norms = orig.norm(dim=-1, keepdim=True)
-            steered = (normed_list[b].to(device, dtype) * norms * steering_coefficient).detach()
-            resid[b, pos_b, :] = steered + orig
+            steered = (normed_list[b].to(resid.device, resid.dtype) * norms * steering_coefficient).detach()
+            combined = steered + orig
+            if use_position_encoding:
+                src_pos_b = source_positions[b]
+                src_len_b = source_lengths[b]
+                if src_pos_b is None or src_len_b is None:
+                    raise ValueError("source_positions and source_lengths must be set for every batch item")
+                combined = combined + _position_delta(combined, src_pos_b, src_len_b, position_encoding_alpha)
+            resid[b, pos_b, :] = combined
 
         return (resid, *rest) if is_tuple else resid
 

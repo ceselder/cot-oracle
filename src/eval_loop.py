@@ -18,6 +18,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+import numpy as np
 import torch
 
 from tasks import TASKS, TaskDef, ScoringMode, get_eval_tasks
@@ -170,20 +171,20 @@ def _score_parsed(
         target_labels.append(gt["label"])
 
         pr = parser(pred_text)
+        total += 1
         if pr is None:
             unparsed += 1
-            continue
-
-        total += 1
-        if pr["label"] == gt["label"]:
+            # Count as wrong -- don't skip
+        elif pr["label"] == gt["label"]:
             correct += 1
 
         # Numeric side-metrics: compare matching numeric fields
-        for key, gt_val in gt.items():
-            if key == "label":
-                continue
-            if isinstance(gt_val, (int, float)) and key in pr:
-                numeric_errors.setdefault(key, []).append(abs(pr[key] - gt_val))
+        if pr is not None:
+            for key, gt_val in gt.items():
+                if key == "label":
+                    continue
+                if isinstance(gt_val, (int, float)) and key in pr:
+                    numeric_errors.setdefault(key, []).append(abs(pr[key] - gt_val))
 
     result: dict[str, float] = {
         "accuracy": correct / total if total > 0 else 0.0,
@@ -195,6 +196,59 @@ def _score_parsed(
         result[f"{key}_mae"] = sum(errs) / len(errs)
 
     return result
+
+
+def _score_binary(
+    predictions: list[str],
+    targets: list[str],
+    task_def: TaskDef,
+) -> dict[str, float]:
+    """Generic binary classification scoring using TaskDef keywords."""
+    if not predictions:
+        return {"accuracy": 0.0, "n": 0}
+
+    pos_kw = task_def.positive_keywords
+    neg_kw = task_def.negative_keywords
+    pos_label = task_def.positive_label
+    neg_label = task_def.negative_label
+
+    def _classify(text: str) -> str | None:
+        t = text.strip().lower()
+        for kw in sorted(neg_kw, key=len, reverse=True):
+            if kw.lower() in t:
+                return neg_label
+        for kw in sorted(pos_kw, key=len, reverse=True):
+            if kw.lower() in t:
+                return pos_label
+        return None
+
+    def _classify_target(text: str) -> str | None:
+        t = text.strip().lower()
+        if pos_label and pos_label.lower() in t:
+            return pos_label
+        if neg_label and neg_label.lower() in t:
+            return neg_label
+        return _classify(text)
+
+    correct = 0
+    total = 0
+    unparsed = 0
+    for pred_text, target_text in zip(predictions, targets):
+        gt = _classify_target(target_text)
+        if gt is None:
+            continue
+        pr = _classify(pred_text)
+        total += 1
+        if pr is None:
+            unparsed += 1
+        elif pr == gt:
+            correct += 1
+
+    return {
+        "accuracy": correct / total if total > 0 else 0.0,
+        "n": total,
+        "unparsed": unparsed,
+    }
 
 
 def _score_token_f1(
@@ -376,7 +430,9 @@ def score_task(
     if parser is not None:
         return _score_parsed(parser, predictions, targets)
 
-    if task_def.scoring == ScoringMode.TOKEN_F1:
+    if task_def.scoring == ScoringMode.BINARY:
+        return _score_binary(predictions, targets, task_def)
+    elif task_def.scoring == ScoringMode.TOKEN_F1:
         return _score_token_f1(predictions, targets)
     elif task_def.scoring == ScoringMode.STEP_ACCURACY:
         return _score_step_accuracy(predictions, targets)
@@ -384,6 +440,86 @@ def score_task(
         return _score_token_match(predictions, targets, tokenizer)
     else:
         raise ValueError(f"No parser for {task_def.name!r} and unknown scoring {task_def.scoring}")
+
+
+def _per_example_correct(
+    task_name: str,
+    task_def: TaskDef,
+    prediction: str,
+    target: str,
+) -> str:
+    """Determine if a single prediction is correct. Returns 'yes', 'no', or a score string."""
+    parser = TASK_PARSERS.get(task_name)
+    if parser is not None:
+        gt = parser(target)
+        pr = parser(prediction)
+        if gt is None:
+            return "?"
+        if pr is None:
+            return "no (unparsed)"
+        return "yes" if pr["label"] == gt["label"] else "no"
+
+    if task_name == "answer_trajectory":
+        gt = _parse_trajectory(target)
+        pr = _parse_trajectory(prediction)
+        if gt is None:
+            return "?"
+        gt_toks = set(gt["label"].lower().split())
+        pr_toks = set(pr["label"].lower().split()) if pr else set()
+        if not gt_toks:
+            return "yes" if not pr_toks else "no"
+        if not pr_toks:
+            return "F1=0.00"
+        common = gt_toks & pr_toks
+        prec = len(common) / len(pr_toks)
+        rec = len(common) / len(gt_toks)
+        f1 = 2 * prec * rec / (prec + rec) if (prec + rec) > 0 else 0.0
+        return f"F1={f1:.2f}"
+
+    if task_def.scoring == ScoringMode.BINARY:
+        pos_kw, neg_kw = task_def.positive_keywords, task_def.negative_keywords
+        pos_label, neg_label = task_def.positive_label, task_def.negative_label
+        def _classify(text, use_label=False):
+            t = text.strip().lower()
+            if use_label:
+                if pos_label and pos_label.lower() in t: return pos_label
+                if neg_label and neg_label.lower() in t: return neg_label
+            for kw in sorted(neg_kw, key=len, reverse=True):
+                if kw.lower() in t: return neg_label
+            for kw in sorted(pos_kw, key=len, reverse=True):
+                if kw.lower() in t: return pos_label
+            return None
+        gt = _classify(target, use_label=True)
+        pr = _classify(prediction)
+        if gt is None: return "?"
+        if pr is None: return "no (unparsed)"
+        return "yes" if pr == gt else "no"
+
+    if task_def.scoring == ScoringMode.TOKEN_F1:
+        pred_set = set(prediction.lower().split())
+        tgt_set = set(target.lower().split())
+        if not tgt_set:
+            return "yes" if not pred_set else "no"
+        if not pred_set:
+            return "F1=0.00"
+        common = pred_set & tgt_set
+        prec = len(common) / len(pred_set)
+        rec = len(common) / len(tgt_set)
+        f1 = 2 * prec * rec / (prec + rec) if (prec + rec) > 0 else 0.0
+        return f"F1={f1:.2f}"
+
+    if task_def.scoring == ScoringMode.STEP_ACCURACY:
+        target_lower = target.lower().strip()
+        pred_lower = prediction.lower().strip()
+        if target_lower in ("none", "no insertion", "-1"):
+            return "yes" if any(w in pred_lower for w in ("none", "no insertion", "no step", "clean")) else "no"
+        target_nums = re.findall(r'\b(\d+)\b', target_lower)
+        pred_nums = re.findall(r'\b(\d+)\b', pred_lower)
+        if not target_nums: return "?"
+        if pred_nums and abs(int(pred_nums[0]) - int(target_nums[0])) <= 1: return "yes"
+        return "no"
+
+    return "?"
 
 
 def _primary_metric_name(task_name: str, scoring: ScoringMode) -> str:
@@ -408,7 +544,14 @@ def _primary_metric_name(task_name: str, scoring: ScoringMode) -> str:
 @dataclass
 class _CachedEvalData:
     test_data: list[dict]
-    activations: list[torch.Tensor]  # stored on CPU
+    steering_data: list["_SteeringPayload"]  # stored on CPU
+
+
+@dataclass
+class _SteeringPayload:
+    activations: torch.Tensor
+    source_positions: list[int] | None = None
+    source_total_length: int | None = None
 
 
 _eval_cache: dict[tuple[str, tuple[int, ...], int], _CachedEvalData] = {}
@@ -433,14 +576,17 @@ def _ensure_ao_imports():
         collect_activations_multiple_layers,
         get_hf_submodule,
     )
-    from nl_probes.utils.steering_hooks import add_hook
+    from nl_probes.utils.dataset_utils import construct_batch, create_training_datapoint, get_prompt_tokens_only
+    from nl_probes.utils.steering_hooks import add_hook, get_hf_activation_steering_hook
     from core.ao import (
-        get_batched_steering_hook,
         _active_adapter_name,
         TRAINED_PLACEHOLDER,
     )
     _ao_modules["collect_activations_multiple_layers"] = collect_activations_multiple_layers
-    _ao_modules["get_batched_steering_hook"] = get_batched_steering_hook
+    _ao_modules["construct_batch"] = construct_batch
+    _ao_modules["create_training_datapoint"] = create_training_datapoint
+    _ao_modules["get_prompt_tokens_only"] = get_prompt_tokens_only
+    _ao_modules["get_hf_activation_steering_hook"] = get_hf_activation_steering_hook
     _ao_modules["get_hf_submodule"] = get_hf_submodule
     _ao_modules["add_hook"] = add_hook
     _ao_modules["_active_adapter_name"] = _active_adapter_name
@@ -457,10 +603,10 @@ def _materialize_activations(
     items: list[dict],
     layers: list[int],
     device: str = "cuda",
-) -> list[torch.Tensor]:
+) -> list[_SteeringPayload]:
     """Extract activation vectors from context_input_ids at context_positions.
 
-    Returns list of activation tensors [total_positions, D] per item.
+    Returns list of steering payloads [total_positions, D] per item.
     Activations are extracted with adapter disabled (frozen base model).
     """
     _ensure_ao_imports()
@@ -514,6 +660,8 @@ def _materialize_activations(
     N = len(layers)
     for b in range(len(items)):
         positions = all_positions[b]
+        if len(positions) % N != 0:
+            raise ValueError(f"context_positions length {len(positions)} is not divisible by {N} layers")
         K = len(positions) // N
 
         vectors_parts = []
@@ -525,7 +673,7 @@ def _materialize_activations(
             vectors_parts.append(layer_vecs)
 
         vectors = torch.cat(vectors_parts, dim=0).detach().contiguous()
-        result.append(vectors)
+        result.append(_SteeringPayload(vectors, list(positions), len(contexts[b])))
 
     del acts_by_layer, inputs_BL
     torch.cuda.empty_cache()
@@ -539,60 +687,54 @@ def _materialize_activations(
 def _batched_oracle_generate(
     model,
     tokenizer,
-    items: list[tuple[torch.Tensor, str]],
+    items: list[tuple[torch.Tensor | _SteeringPayload, str]],
     layers: list[int],
     device: str = "cuda",
     injection_layer: int = 1,
     max_new_tokens: int = 64,
     eval_batch_size: int = 8,
     oracle_adapter_name: str | None = "default",
+    position_encoding_alpha: float | None = None,
 ) -> list[str]:
     """Batched oracle generation with per-item activation steering."""
     if not items:
         return []
 
     _ensure_ao_imports()
-    get_batched_steering_hook = _ao_modules["get_batched_steering_hook"]
+    construct_batch = _ao_modules["construct_batch"]
+    create_training_datapoint = _ao_modules["create_training_datapoint"]
+    get_prompt_tokens_only = _ao_modules["get_prompt_tokens_only"]
+    get_hf_activation_steering_hook = _ao_modules["get_hf_activation_steering_hook"]
     get_hf_submodule = _ao_modules["get_hf_submodule"]
     add_hook = _ao_modules["add_hook"]
     _active_adapter_name = _ao_modules["_active_adapter_name"]
-    PLACEHOLDER_TOKEN = _ao_modules["PLACEHOLDER_TOKEN"]
 
     eval_batch_size = max(1, int(eval_batch_size))
     dtype = torch.bfloat16
-    ph_token = PLACEHOLDER_TOKEN
-
-    layer_list = list(layers) if len(layers) > 1 else layers
-    ph_id = tokenizer.encode(ph_token, add_special_tokens=False)
-    assert len(ph_id) == 1, f"Expected single token for '{ph_token}', got {len(ph_id)}"
-    ph_id = ph_id[0]
     pad_id = tokenizer.pad_token_id or tokenizer.eos_token_id
 
-    # Tokenize all items
-    all_input_ids: list[list[int]] = []
-    all_ph_positions: list[list[int]] = []
-
-    for activations, oracle_prompt in items:
-        num_positions = activations.shape[0]
+    layer_list = list(layers)
+    prompt_points = []
+    for payload_or_acts, oracle_prompt in items:
+        payload = payload_or_acts if isinstance(payload_or_acts, _SteeringPayload) else _SteeringPayload(payload_or_acts)
+        num_positions = payload.activations.shape[0]
         N = len(layer_list)
         K = num_positions // N
         assert K * N == num_positions, f"num_positions={num_positions} not divisible by {N} layers"
-        prefix = "Activations: " + ph_token * num_positions + "\n"
-        full_prompt = prefix + oracle_prompt
-
-        messages = [{"role": "user", "content": full_prompt}]
-        formatted = tokenizer.apply_chat_template(
-            messages, tokenize=False, add_generation_prompt=True, enable_thinking=False,
+        prompt_point = create_training_datapoint(
+            datapoint_type="eval_oracle_generation",
+            prompt=oracle_prompt,
+            target_response="placeholder",
+            layer=layer_list[0],
+            num_positions=num_positions,
+            tokenizer=tokenizer,
+            acts_BD=payload.activations,
+            feature_idx=-1,
+            source_positions=payload.source_positions,
+            source_total_length=payload.source_total_length,
+            meta_info={"layers": layer_list},
         )
-        input_ids = tokenizer.encode(formatted, add_special_tokens=False)
-
-        positions = [i for i, tid in enumerate(input_ids) if tid == ph_id][:num_positions]
-        assert len(positions) == num_positions, (
-            f"Found {len(positions)} placeholder positions, expected {num_positions}"
-        )
-
-        all_input_ids.append(input_ids)
-        all_ph_positions.append(positions)
+        prompt_points.append(get_prompt_tokens_only(prompt_point))
 
     # Set adapter
     previous_adapter = _active_adapter_name(model)
@@ -604,7 +746,7 @@ def _batched_oracle_generate(
     model.eval()
 
     # Generate in mini-batches with OOM splitting
-    sorted_indices = sorted(range(len(items)), key=lambda i: len(all_input_ids[i]))
+    sorted_indices = sorted(range(len(prompt_points)), key=lambda i: len(prompt_points[i].input_ids))
     all_responses: list[str] = [""] * len(items)
 
     try:
@@ -615,44 +757,31 @@ def _batched_oracle_generate(
             while pending_groups:
                 batch_indices = pending_groups.pop(0)
                 try:
-                    batch_ids = [all_input_ids[i] for i in batch_indices]
-                    batch_pre_pad_pos = [all_ph_positions[i] for i in batch_indices]
-                    batch_acts = [items[i][0] for i in batch_indices]
-
-                    max_len = max(len(ids) for ids in batch_ids)
-                    padded_ids = []
-                    attention_masks = []
-                    batch_padded_positions = []
-
-                    for j, ids in enumerate(batch_ids):
-                        pad_len = max_len - len(ids)
-                        padded_ids.append([pad_id] * pad_len + ids)
-                        attention_masks.append([0] * pad_len + [1] * len(ids))
-                        batch_padded_positions.append(
-                            [p + pad_len for p in batch_pre_pad_pos[j]]
-                        )
-
-                    input_tensor = torch.tensor(padded_ids, device=device)
-                    attn_mask = torch.tensor(attention_masks, device=device)
-
-                    hook_fn = get_batched_steering_hook(
-                        vectors=batch_acts,
-                        positions=batch_padded_positions,
+                    batch_points = [prompt_points[i] for i in batch_indices]
+                    batch = construct_batch(batch_points, tokenizer, torch.device(device))
+                    hook_fn = get_hf_activation_steering_hook(
+                        vectors=batch.steering_vectors,
+                        positions=batch.positions,
+                        steering_coefficient=1.0,
                         device=device,
                         dtype=dtype,
+                        source_positions=batch.source_positions,
+                        source_lengths=batch.source_lengths,
+                        position_encoding_alpha=position_encoding_alpha,
                     )
 
                     with add_hook(injection_submodule, hook_fn):
                         outputs = model.generate(
-                            input_ids=input_tensor,
-                            attention_mask=attn_mask,
+                            input_ids=batch.input_ids,
+                            attention_mask=batch.attention_mask,
                             max_new_tokens=max_new_tokens,
                             do_sample=False,
                             pad_token_id=pad_id,
                         )
 
+                    prompt_len = batch.input_ids.shape[1]
                     for j, item_idx in enumerate(batch_indices):
-                        generated = outputs[j][max_len:]
+                        generated = outputs[j][prompt_len:]
                         all_responses[item_idx] = tokenizer.decode(
                             generated, skip_special_tokens=True,
                         )
@@ -706,6 +835,9 @@ def run_eval(
     stride: int | str = "poisson",
     log_dir: Path | None = None,
     global_step: int | None = None,
+    position_encoding: bool = False,
+    pe_alpha: float = 0.1,
+    no_activations: bool = False,
 ) -> tuple[dict[str, float], dict[str, list[dict]]]:
     """Run eval for all (or specified) tasks.
 
@@ -747,6 +879,9 @@ def run_eval(
                 activation_extract_batch_size=activation_extract_batch_size,
                 max_new_tokens_cap=max_new_tokens_cap,
                 stride=stride,
+                position_encoding=position_encoding,
+                pe_alpha=pe_alpha,
+                no_activations=no_activations,
             )
             elapsed = time.time() - t0
 
@@ -780,7 +915,9 @@ def run_eval(
                     extras.append(f"{short}_mae={val:.1f}")
                     metrics[f"eval/{task_name}_{key}"] = val
 
-            metrics[f"eval_time/{task_name}"] = elapsed
+            if result.get("unparsed", 0) > 0:
+                metrics[f"eval_unparsed/{task_name}"] = result["unparsed"]
+            metrics[f"_eval_time/{task_name}"] = elapsed
             baselines_str = ""
             if "random_baseline" in result:
                 baselines_str = f"rnd={result['random_baseline']:.2f} maj={result['majority_baseline']:.2f}"
@@ -820,6 +957,67 @@ def _print_eval_table(rows: list[tuple[str, str, float, str, str, float]]):
     print(f"  {len(rows)} tasks in {total_time:.1f}s\n")
 
 
+_ACT_PREFIX_RE = re.compile(r'^Activations from \d+ positions[^.]*\.\s*')
+
+
+def _text_baseline_generate(
+    model,
+    tokenizer,
+    items: list[tuple[str, str]],  # (cot_text, oracle_prompt)
+    device: str = "cuda",
+    max_new_tokens: int = 64,
+    eval_batch_size: int = 8,
+    oracle_adapter_name: str | None = "default",
+) -> list[str]:
+    """Batched generation for text-baseline (no activations, no steering hooks)."""
+    if not items:
+        return []
+
+    _ensure_ao_imports()
+    _active_adapter_name = _ao_modules["_active_adapter_name"]
+
+    pad_id = tokenizer.pad_token_id or tokenizer.eos_token_id
+    previous_adapter = _active_adapter_name(model)
+    if oracle_adapter_name is not None:
+        model.set_adapter(oracle_adapter_name)
+
+    was_training = model.training
+    model.eval()
+
+    all_responses: list[str] = [""] * len(items)
+
+    try:
+        for start in range(0, len(items), eval_batch_size):
+            batch_items = items[start:start + eval_batch_size]
+            prompts = []
+            for cot_text, oracle_prompt in batch_items:
+                task_prompt = _ACT_PREFIX_RE.sub("", oracle_prompt)
+                prompt = f"Chain of thought: {cot_text}\n\n{task_prompt}"
+                messages = [{"role": "user", "content": prompt}]
+                text = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True, enable_thinking=False)
+                prompts.append(text)
+
+            encoded = tokenizer(prompts, return_tensors="pt", padding=True, truncation=True, max_length=2048).to(device)
+            with torch.no_grad():
+                outputs = model.generate(
+                    **encoded, max_new_tokens=max_new_tokens,
+                    do_sample=False, pad_token_id=pad_id,
+                )
+            prompt_len = encoded["input_ids"].shape[1]
+            for j, global_idx in enumerate(range(start, start + len(batch_items))):
+                generated = outputs[j][prompt_len:]
+                all_responses[global_idx] = tokenizer.decode(generated, skip_special_tokens=True)
+    finally:
+        if was_training:
+            model.train()
+        if (previous_adapter
+                and previous_adapter in getattr(model, "peft_config", {})
+                and previous_adapter != oracle_adapter_name):
+            model.set_adapter(previous_adapter)
+
+    return all_responses
+
+
 def _eval_single_task(
     model,
     tokenizer,
@@ -834,6 +1032,9 @@ def _eval_single_task(
     activation_extract_batch_size: int,
     max_new_tokens_cap: int | None = None,
     stride: int | str = "poisson",
+    position_encoding: bool = False,
+    pe_alpha: float = 0.1,
+    no_activations: bool = False,
 ) -> dict[str, float]:
     """Eval a single task with activation caching."""
     _ = stride
@@ -842,15 +1043,75 @@ def _eval_single_task(
     eval_layers = list(layers)
     eval_stride = 1
     cache_key = (task_name, tuple(eval_layers), eval_stride)
+    effective_max_new_tokens = min(task_def.max_new_tokens, max_new_tokens_cap) if max_new_tokens_cap is not None else task_def.max_new_tokens
+
+    # ── Text-baseline (no activations) path ──
+    if no_activations:
+        # Load test data (same as activation path)
+        try:
+            test_data = load_task_data(task_name, split="test", n=max_items, shuffle=False)
+        except Exception:
+            test_data = []
+        if not test_data:
+            test_data = load_task_data(task_name, split="train", n=max_items, shuffle=False)
+        if task_def.eval_exclude_types:
+            test_data = [d for d in test_data if d.get("datapoint_type") not in task_def.eval_exclude_types]
+        # Normalize fields
+        for item in test_data:
+            if "meta_spliced_cot_text" in item and "cot_text" not in item:
+                item["cot_text"] = item["meta_spliced_cot_text"]
+            if "test_prompt" in item and "question" not in item:
+                item["question"] = item["test_prompt"]
+            if "target_response" not in item and "meta_oracle_target" in item:
+                item["target_response"] = str(item["meta_oracle_target"])
+        test_data = [d for d in test_data if d.get("cot_text")]
+        if not test_data:
+            return {"n": 0}
+
+        text_items = [(item["cot_text"], item["prompt"]) for item in test_data]
+        predictions = _text_baseline_generate(
+            model, tokenizer, text_items,
+            device=device, max_new_tokens=effective_max_new_tokens,
+            eval_batch_size=eval_batch_size,
+            oracle_adapter_name=oracle_adapter_name,
+        )
+        targets = [item["target_response"] for item in test_data]
+        result = score_task(task_def, predictions, targets, tokenizer=tokenizer)
+
+        # Sample predictions
+        n_samples = min(5, len(predictions))
+        if n_samples > 0:
+            print(f"    [{task_name}] Sample predictions (first {n_samples}):")
+            for i in range(n_samples):
+                print(f"      pred: {predictions[i][:80].replace(chr(10), ' ')}")
+                print(f"      tgt:  {targets[i][:80].replace(chr(10), ' ')}")
+
+        # Traces
+        traces = []
+        for i, (pred, tgt) in enumerate(zip(predictions, targets)):
+            item = test_data[i]
+            traces.append({
+                "question": item.get("question", item.get("hinted_prompt", "")),
+                "expected": tgt,
+                "predicted": pred,
+                "correct": _per_example_correct(task_name, task_def, pred, tgt),
+            })
+        result["_traces"] = traces
+        return result
+
+    # ── Standard activation path ──
 
     # Check cache
     if cache_key in _eval_cache:
         cached = _eval_cache[cache_key]
         test_data = cached.test_data
-        all_activations = [a.to(device) for a in cached.activations]
+        all_steering_data = [
+            _SteeringPayload(payload.activations.to(device), payload.source_positions, payload.source_total_length)
+            for payload in cached.steering_data
+        ]
     else:
         # Load test data
-        if task_name in {"futurelens", "pastlens", "reconstruction"}:
+        if task_name in {"futurelens_cot", "pastlens_cot", "reconstruction_cot"}:
             test_data = load_cot_readout_task_data(
                 task_name=task_name,
                 tokenizer=tokenizer,
@@ -879,6 +1140,16 @@ def _eval_single_task(
                 test_data = []
             if not test_data:
                 test_data = load_task_data(task_name, split="train", n=max_items, shuffle=False)
+
+        # Normalize fields from various dataset formats
+        for item in test_data:
+            if "meta_spliced_cot_text" in item and "cot_text" not in item:
+                item["cot_text"] = item["meta_spliced_cot_text"]
+            if "test_prompt" in item and "question" not in item:
+                item["question"] = item["test_prompt"]
+            if "target_response" not in item and "meta_oracle_target" in item:
+                item["target_response"] = str(item["meta_oracle_target"])
+
         if task_def.eval_exclude_types:
             test_data = [d for d in test_data if d.get("datapoint_type") not in task_def.eval_exclude_types]
         if not test_data:
@@ -889,28 +1160,40 @@ def _eval_single_task(
             test_data, tokenizer, stride=eval_stride, layers=eval_layers,
         )
         test_data = [d for d in test_data if d.get("context_input_ids")]
+
+        # Cap to at most 100 evenly-strided positions per layer
+        n_layers = len(eval_layers)
+        for item in test_data:
+            positions = item["context_positions"]
+            K = len(positions) // n_layers
+            if K > 100:
+                idx = np.round(np.linspace(0, K - 1, 100)).astype(int)
+                item["context_positions"] = [positions[li * K + i] for li in range(n_layers) for i in idx]
         if not test_data:
             return {"n": 0}
 
         # Materialize activations in mini-batches
-        all_activations: list[torch.Tensor] = []
+        all_steering_data: list[_SteeringPayload] = []
         for start in range(0, len(test_data), activation_extract_batch_size):
             chunk = test_data[start:start + activation_extract_batch_size]
             chunk_acts = _materialize_activations(
                 model, tokenizer, chunk, layers=eval_layers, device=device,
             )
-            all_activations.extend(chunk_acts)
+            all_steering_data.extend(chunk_acts)
 
         # Cache on CPU (base model frozen, activations won't change)
         _eval_cache[cache_key] = _CachedEvalData(
             test_data=test_data,
-            activations=[a.cpu() for a in all_activations],
+            steering_data=[
+                _SteeringPayload(payload.activations.cpu(), payload.source_positions, payload.source_total_length)
+                for payload in all_steering_data
+            ],
         )
 
     # Build (activations, prompt) pairs for oracle generation
     oracle_items = [
-        (act, item["prompt"])
-        for act, item in zip(all_activations, test_data)
+        (payload, item["prompt"])
+        for payload, item in zip(all_steering_data, test_data)
     ]
 
     # Generate oracle responses (uses LoRA adapter, NOT cached)
@@ -921,38 +1204,50 @@ def _eval_single_task(
         layers=eval_layers,
         device=device,
         injection_layer=injection_layer,
-        max_new_tokens=min(task_def.max_new_tokens, max_new_tokens_cap) if max_new_tokens_cap is not None else task_def.max_new_tokens,
+        max_new_tokens=effective_max_new_tokens,
         eval_batch_size=eval_batch_size,
         oracle_adapter_name=oracle_adapter_name,
+        position_encoding_alpha=pe_alpha if position_encoding else None,
     )
 
     targets = [item["target_response"] for item in test_data]
     result = score_task(task_def, predictions, targets, tokenizer=tokenizer)
+
+    # Sample predictions
+    n_samples = min(5, len(predictions))
+    if n_samples > 0:
+        print(f"    [{task_name}] Sample predictions (first {n_samples}):")
+        for i in range(n_samples):
+            print(f"      pred: {predictions[i][:80].replace(chr(10), ' ')}")
+            print(f"      tgt:  {targets[i][:80].replace(chr(10), ' ')}")
 
     # Build rich traces for logging
     _ensure_ao_imports()
     ph_token = _ao_modules["PLACEHOLDER_TOKEN"]
     layer_list = eval_layers
     traces = []
-    for item, act, pred, tgt in zip(test_data, all_activations, predictions, targets):
+    for item, payload, pred, tgt in zip(test_data, all_steering_data, predictions, targets):
+        act = payload.activations
         n_pos = act.shape[0]
         K = n_pos // len(layer_list)
-        oracle_prefix = "Activations: " + ph_token * n_pos
-        # Decode the context the activations were extracted from
+        if len(layer_list) > 1:
+            oracle_prefix = "Layers: " + ", ".join(str(layer) for layer in layer_list) + "\n" + ph_token * n_pos + " \n"
+        else:
+            oracle_prefix = f"Layer: {layer_list[0]}\n" + ph_token * n_pos + " \n"
         ctx_ids = item.get("context_input_ids", [])
         context = tokenizer.decode(ctx_ids, skip_special_tokens=True) if ctx_ids else ""
-        # Build masked context: replace activation positions with placeholder
-        positions_set = set(item.get("context_positions", [])[:K])  # first layer's positions
+        positions_set = set(item.get("context_positions", [])[:K])
         masked_ids = [ctx_ids[i] if i not in positions_set else tokenizer.encode(ph_token, add_special_tokens=False)[0] for i in range(len(ctx_ids))] if ctx_ids else []
         masked_context = tokenizer.decode(masked_ids, skip_special_tokens=True) if masked_ids else ""
         traces.append({
             "question": item.get("hinted_prompt") or item.get("question", ""),
-            "context": context,
-            "masked_context": masked_context,
+            "cot_field": context,
+            "masked_cot_field": masked_context,
             "oracle_prefix": oracle_prefix,
-            "oracle_prompt": item["prompt"],
-            "prediction": pred,
-            "target": tgt,
+            "prompt": item["prompt"],
+            "oracle_prediction": pred,
+            "target_response": tgt,
+            "correct": _per_example_correct(task_name, task_def, pred, tgt),
         })
     result["_traces"] = traces
     return result

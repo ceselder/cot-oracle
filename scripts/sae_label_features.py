@@ -9,7 +9,8 @@ Usage:
     python scripts/sae_label_features.py \
         --input-dir $CACHE_DIR/sae_features/ \
         --trainer 2 --min-examples 10 --n-examples 10 \
-        --model google/gemini-2.5-flash-lite --batch-size 5
+        --tokenizer-model Qwen/Qwen3-0.6B \
+        --llm-model google/gemini-2.5-flash-lite --batch-size 5
 """
 
 import argparse
@@ -32,8 +33,17 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 load_dotenv(PROJECT_ROOT / ".env")
 load_dotenv(Path.home() / ".env")
 
-MODEL_NAME = "Qwen/Qwen3-8B"
-SAE_LAYERS = [9, 18, 27]
+DEFAULT_TOKENIZER_MODEL = "Qwen/Qwen3-8B"
+
+
+def default_layers_for_model(model_name: str) -> list[int]:
+    if model_name == "Qwen/Qwen3-0.6B":
+        return [7, 14, 21]
+    if model_name == "Qwen/Qwen3-1.7B":
+        return [7, 14, 21]
+    if model_name == "Qwen/Qwen3-8B":
+        return [9, 18, 27]
+    raise ValueError(f"Specify --layers for unsupported model: {model_name}")
 
 
 def decode_context_highlighted(tokenizer, context_tokens: torch.Tensor) -> str:
@@ -64,12 +74,15 @@ def prepare_feature_examples(tokenizer, top_values, top_contexts, feat_idx, n_ex
     return examples
 
 
-def format_batch_prompt(feature_batch: list[tuple[int, list[tuple[float, str]]]],
-                        layer: int) -> str:
+def format_batch_prompt(
+    feature_batch: list[tuple[int, list[tuple[float, str]]]],
+    layer: int,
+    model_label: str,
+) -> str:
     """Build a prompt that labels multiple features at once."""
     lines = [
         f"Below are top activating examples for {len(feature_batch)} SAE features "
-        f"from layer {layer} of Qwen3-8B.",
+        f"from layer {layer} of {model_label}.",
         "The max-activating token in each example is marked with >>> <<<.",
         "",
     ]
@@ -129,10 +142,10 @@ def parse_batch_response(text: str, expected_features: list[int]) -> dict[int, d
 
 async def label_batch(client: AsyncOpenAI, semaphore: asyncio.Semaphore,
                       model: str, feature_batch: list[tuple[int, list[tuple[float, str]]]],
-                      layer: int, log_dir: Path) -> dict[int, dict]:
+                      layer: int, model_label: str, log_dir: Path) -> dict[int, dict]:
     """Label a batch of features in one API call."""
     async with semaphore:
-        prompt = format_batch_prompt(feature_batch, layer)
+        prompt = format_batch_prompt(feature_batch, layer, model_label)
         feat_ids = [f for f, _ in feature_batch]
         max_tokens = 128 * len(feature_batch)
 
@@ -151,7 +164,7 @@ async def label_batch(client: AsyncOpenAI, semaphore: asyncio.Semaphore,
 
 async def label_layer(client: AsyncOpenAI, model: str, tokenizer,
                       tracker_data: dict, layer: int, n_examples: int,
-                      min_examples: int, log_dir: Path, output_path: Path,
+                      min_examples: int, model_label: str, log_dir: Path, output_path: Path,
                       max_concurrent: int, batch_size: int):
     """Label all alive features for one layer."""
     semaphore = asyncio.Semaphore(max_concurrent)
@@ -196,7 +209,7 @@ async def label_layer(client: AsyncOpenAI, model: str, tokenizer,
                             total=(len(llm_batches) + save_interval - 1) // save_interval):
         chunk = llm_batches[chunk_start : chunk_start + save_interval]
 
-        tasks = [label_batch(client, semaphore, model, batch, layer, layer_log_dir)
+        tasks = [label_batch(client, semaphore, model, batch, layer, model_label, layer_log_dir)
                  for batch in chunk]
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
@@ -223,9 +236,10 @@ async def label_layer(client: AsyncOpenAI, model: str, tokenizer,
 
 
 async def async_main(args):
-    tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
+    tokenizer = AutoTokenizer.from_pretrained(args.tokenizer_model)
     if not tokenizer.pad_token_id:
         tokenizer.pad_token_id = tokenizer.eos_token_id
+    model_label = args.tokenizer_model.split("/")[-1]
 
     client = AsyncOpenAI(
         api_key=os.environ["OPENROUTER_API_KEY"],
@@ -242,7 +256,7 @@ async def async_main(args):
     log_dir = output_dir / "labeling_logs"
     log_dir.mkdir(parents=True, exist_ok=True)
 
-    layers = args.layers or SAE_LAYERS
+    layers = args.layers or default_layers_for_model(args.tokenizer_model)
     for layer in layers:
         pt_path = input_dir / f"topk_layer{layer}.pt"
         print(f"\nLoading {pt_path}...")
@@ -251,8 +265,8 @@ async def async_main(args):
         output_path = output_dir / f"labels_layer{layer}_trainer{args.trainer}.json"
 
         await label_layer(
-            client, args.model, tokenizer, tracker_data, layer,
-            args.n_examples, args.min_examples, log_dir, output_path,
+            client, args.llm_model, tokenizer, tracker_data, layer,
+            args.n_examples, args.min_examples, model_label, log_dir, output_path,
             args.max_concurrent, args.batch_size,
         )
 
@@ -274,7 +288,8 @@ def main():
     parser.add_argument("--trainer", type=int, default=2)
     parser.add_argument("--min-examples", type=int, default=10, help="Min alive count to label a feature")
     parser.add_argument("--n-examples", type=int, default=10, help="Top-N examples per prompt")
-    parser.add_argument("--model", type=str, default="google/gemini-2.5-flash-lite")
+    parser.add_argument("--tokenizer-model", type=str, default=DEFAULT_TOKENIZER_MODEL)
+    parser.add_argument("--llm-model", type=str, default="google/gemini-2.5-flash-lite")
     parser.add_argument("--max-concurrent", type=int, default=50)
     parser.add_argument("--batch-size", type=int, default=5, help="Features per LLM call")
     parser.add_argument("--output-dir", type=str, default=None)

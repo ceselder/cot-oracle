@@ -15,7 +15,7 @@ tasks:
     n: 20000
     eval: false
 
-  futurelens:
+  futurelens_cot:
     n: 30000
     eval: false
 
@@ -23,7 +23,7 @@ tasks:
     n: 30000
     eval: false
 
-  pastlens:
+  pastlens_cot:
     n: 20000
     eval: false
 
@@ -31,7 +31,7 @@ tasks:
     n: 20000
     eval: false
 
-  reconstruction:
+  reconstruction_cot:
     n: 10000
     eval: false
 

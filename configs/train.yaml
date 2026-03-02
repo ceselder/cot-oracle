@@ -3,91 +3,113 @@
 # All data is downloaded from HuggingFace automatically.
 
 tasks:
-  # --- Trainable tasks (have train + test splits on HF) ---
-  hint_admission:
+  # --- Trainable tasks ---
+  hint_admission:          # binary: did the model silently use an injected hint?
     n: 15000
     eval: true
 
-  atypical_answer:
+  atypical_answer:         # binary: majority vs minority answer relative to other models
     n: 20000
     eval: true
 
-  reasoning_termination:
+  reasoning_termination:   # binary: is the CoT about to end (near </think>)?
     n: 15000
     eval: true
 
-  answer_trajectory:
+  answer_trajectory:       # token_f1: sequence of answer candidates during CoT (A→B→A)
     n: 60000
     eval: true
 
-  futurelens:
+  futurelens_cot:          # token_f1: predict next N tokens of CoT after activation region
     n: 30000
     eval: true
 
-  futurelens_fineweb:
+  futurelens_fineweb:      # token_f1: predict next N tokens of FineWeb text
     n: 30000
     eval: true
 
-  pastlens:
+  pastlens_cot:            # token_f1: predict previous N tokens of CoT before activation region
     n: 30000
     eval: true
 
-  pastlens_fineweb:
+  pastlens_fineweb:        # token_f1: predict previous N tokens of FineWeb text
     n: 30000
     eval: true
 
-  reconstruction:
+  reconstruction_cot:      # token_f1: reconstruct exact token span at activation positions (CoT)
     n: 30000
     eval: true
 
-  reconstruction_fineweb:
+  reconstruction_fineweb:  # token_f1: reconstruct exact token span at activation positions (FineWeb)
     n: 30000
     eval: true
 
-  correctness:
+  correctness:             # binary: did the CoT lead to the correct final answer?
     n: 10000
     eval: true
 
-  decorative_cot:
+  decorative_cot:          # binary: is the CoT load-bearing or decorative (post-hoc)?
     n: 10000
     eval: true
 
-  chunked_convqa:
+  chunked_convqa:          # token_f1: predict answer from a CoT prefix (conversational QA)
     n: 25000
     eval: true
 
-  chunked_compqa:
+  chunked_compqa:          # token_f1: predict answer from a CoT prefix (compositional QA)
     n: 30000
     eval: true
 
-  convqa:
+  convqa:                  # token_f1: predict answer from full CoT (conversational QA)
     n: 25000
     eval: true
 
-  fineweb_convqa:
+  fineweb_convqa:          # token_f1: conversational QA over FineWeb-derived conversations
     n: 10000
     eval: true
 
-  sycophancy:
+  sycophancy:              # binary: was the model's moral judgment swayed by the user's wrong opinion?
     n: 15000
     eval: true
 
-  truthfulqa_hint_verbalized:
+  probe_sycophancy:        # binary: probe-based sycophancy detection
+    n: 0                   # dataset not yet on HF
+    eval: false
+
+  backtrack_prediction:    # binary: will the model backtrack/revise its reasoning?
+    n: 12000
     eval: true
 
-  truthfulqa_hint_unverbalized:
+  truthfulqa_hint_verbalized:    # binary: hint detection on TruthfulQA, hint mentioned in CoT
+    n: 4000
     eval: true
 
-  sentence_insertion:
+  truthfulqa_hint_unverbalized:  # binary: hint detection on TruthfulQA, hint NOT mentioned in CoT
+    n: 10000
     eval: true
 
-  rot13_reconstruction:
-    eval: false     # skip for now
+  # --- Eval-only tasks ---
+  sentence_insertion:      # step_accuracy: which CoT step was inserted from a different problem?
+    eval: false
+
+  rot13_reconstruction:    # token_match: decode ROT13-encoded text from activations
+    eval: false
+
+# Classification (matching Adam's AO training)
+classification:
+  enabled: true
+  n: 130000
+  datasets: [sst2, ag_news, snli]
+
+# LatentQA / SPQA (matching Adam's AO training)
+latentqa:
+  enabled: true
+  n: 65000
 
 # Training
 training:
   lr: 0.00001
-  batch_size: 32
+  batch_size: 16
   effective_batch_size: 256
   eval_batch_size: 8
   epochs: 1
@@ -98,6 +120,7 @@ training:
   task_order: shuffled
   interleave_blocks: 50
   max_train_tokens_per_gpu: 32768
+  extraction_batch_size: 512     # lookahead: extract N examples at once, train in batch_size chunks
   seed: 42
 
 # Flamingo cross-attention
@@ -164,11 +187,15 @@ baselines:
   cleaned_datasets:
     train_fraction: 0.01
     datasets:
-      - mats-10-sprint-cs-jb/cot-oracle-correctness-cleaned
-      - mats-10-sprint-cs-jb/cot-oracle-reasoning-termination-cleaned
-      - mats-10-sprint-cs-jb/cot-oracle-atypical-answer-cleaned
       - mats-10-sprint-cs-jb/cot-oracle-hint-admission-cleaned
-      - mats-10-sprint-cs-jb/cot-oracle-truthfulqa-hint-unverbalized-cleaned
+      - mats-10-sprint-cs-jb/cot-oracle-atypical-answer-cleaned
+      - mats-10-sprint-cs-jb/cot-oracle-reasoning-termination-cleaned
+      - mats-10-sprint-cs-jb/cot-oracle-answer-trajectory-cleaned
+      - mats-10-sprint-cs-jb/cot-oracle-correctness-cleaned
+      - mats-10-sprint-cs-jb/cot-oracle-decorative-cot-cleaned
+      - mats-10-sprint-cs-jb/cot-oracle-sycophancy-cleaned
+      - mats-10-sprint-cs-jb/cot-oracle-backtrack-prediction-cleaned
+      - mats-10-sprint-cs-jb/cot-oracle-truthfulqa-hint-cleaned
       - mats-10-sprint-cs-jb/cot-oracle-truthfulqa-hint-verbalized-cleaned
 
   linear_probe:

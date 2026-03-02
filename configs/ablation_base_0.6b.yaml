@@ -18,19 +18,19 @@ tasks:
   answer_trajectory:
     n: 1500
     eval: true
-  futurelens:
+  futurelens_cot:
     n: 2400
     eval: true
   futurelens_fineweb:
     n: 2400
     eval: true
-  pastlens:
+  pastlens_cot:
     n: 1600
     eval: true
   pastlens_fineweb:
     n: 1600
     eval: true
-  reconstruction:
+  reconstruction_cot:
     n: 800
     eval: true
   reconstruction_fineweb:

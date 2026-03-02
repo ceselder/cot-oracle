@@ -70,6 +70,18 @@ def find_sentence_boundary_positions(
 PUNCTUATION_CHARS = frozenset(".,;:?!")
 POISSON_LAST_ONLY_PROB = 0.1
 POISSON_SAMPLE_MAX_POSITIONS: int | None = None
+POISSON_MIN_SPACING: int = 5
+
+
+def _enforce_min_spacing(positions: list[int], min_spacing: int = POISSON_MIN_SPACING) -> list[int]:
+    """Keep first position, then only keep subsequent positions >= min_spacing from last kept."""
+    if len(positions) <= 1 or min_spacing <= 1:
+        return positions
+    kept = [positions[0]]
+    for p in positions[1:]:
+        if p - kept[-1] >= min_spacing:
+            kept.append(p)
+    return kept
 
 
 def sample_position_indices(
@@ -236,7 +248,10 @@ def get_cot_poisson_positions(
     if cot_end < cot_start:
         return []
 
-    return sample_positions_in_span(cot_start, cot_end, max_positions=max_positions)
+    positions = sample_positions_in_span(cot_start, cot_end, max_positions=max_positions)
+    if POISSON_MIN_SPACING > 1:
+        positions = _enforce_min_spacing(positions, POISSON_MIN_SPACING)
+    return positions
 
 
 def get_cot_positions(

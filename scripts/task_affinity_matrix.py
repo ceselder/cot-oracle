@@ -241,7 +241,7 @@ def _normalize_loaded_rows(task_name: str, rows: list[dict]) -> None:
 def _load_task_rows(task_name: str, split: str, n: int, tokenizer, layers: list[int], args, seed: int) -> tuple[list[dict], dict[str, int | None]]:
     if task_name == "rot13_reconstruction":
         raise ValueError("rot13_reconstruction needs the dedicated ROT13 adapter and is not supported here")
-    if task_name == "futurelens":
+    if task_name == "futurelens_cot":
         rows = load_futurelens_data(tokenizer=tokenizer, n=n, split=split, layers=layers, seed=seed)
     else:
         if split == "test" and task_name in ("chunked_compqa", "sentence_insertion"):

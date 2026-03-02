@@ -52,7 +52,7 @@ def get_target_labels(task_name: str, task_def: TaskDef, targets: list[str]) -> 
 def compute_baselines() -> dict[str, dict]:
     """Returns {task_name: {random: float, majority: float, ...}}."""
     max_items = 200
-    skip_tasks = {"futurelens", "rot13_reconstruction"}
+    skip_tasks = {"futurelens_cot", "rot13_reconstruction"}
     results = {}
 
     for task_name, task_def in TASKS.items():
