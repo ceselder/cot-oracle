@@ -843,6 +843,36 @@ def train(
     if rank == 0:
         print(f"  Training: {len(final_training)} examples")
 
+    # ── Precompute activation vectors (avoid forward pass per training batch) ──
+    if not args.no_activations and not args.flamingo:
+        _precompute_batch_size = 64  # larger batch for extraction (no grad needed)
+        _pc_indices = [i for i, dp in enumerate(final_training) if dp.steering_vectors is None and dp.context_input_ids is not None]
+        if _pc_indices:
+            if rank == 0:
+                print(f"\n  Precomputing activation vectors for {len(_pc_indices)} examples ...")
+            model.eval()
+            _precompute_start = time.time()
+            for _pc_start in tqdm(
+                range(0, len(_pc_indices), _precompute_batch_size),
+                desc="Precompute acts",
+                disable=rank != 0,
+            ):
+                _idx_chunk = _pc_indices[_pc_start : _pc_start + _precompute_batch_size]
+                _pc_batch = [final_training[i] for i in _idx_chunk]
+                with torch.no_grad():
+                    _pc_result = materialize_multilayer_steering_vectors(_pc_batch, tokenizer, model)
+                # Move vectors to CPU to save GPU memory; write back to final_training
+                for j, idx in enumerate(_idx_chunk):
+                    dp = _pc_result[j]
+                    if dp.steering_vectors is not None:
+                        dp.steering_vectors = dp.steering_vectors.cpu()
+                    final_training[idx] = dp
+            model.train()
+            if rank == 0:
+                _pc_elapsed = time.time() - _precompute_start
+                print(f"  Precomputed in {_pc_elapsed:.1f}s ({len(_pc_indices) / _pc_elapsed:.0f} examples/s)")
+            torch.cuda.empty_cache()
+
     # Optimizer + scheduler
     num_batches = len(final_training) // args.batch_size
     total_steps = (num_batches // grad_accum) * args.epochs
@@ -1060,16 +1090,11 @@ def train(
                                 )
                                 loss = outputs.loss * loss_weight / grad_accum
                         else:
-                            # Standard steering path
-                            import time as _time
-                            _t0 = _time.monotonic()
+                            # Standard steering path (vectors precomputed or lazy-filled)
                             chunk_list = materialize_multilayer_steering_vectors(
                                 chunk_list, tokenizer, model
                             )
-                            torch.cuda.synchronize()
-                            _t1 = _time.monotonic()
                             batch = construct_batch(chunk_list, tokenizer, device)
-                            _t2 = _time.monotonic()
                             with torch.autocast(device_type="cuda", dtype=dtype):
                                 outputs = train_features_batch(
                                     batch, ddp_model, submodule,
