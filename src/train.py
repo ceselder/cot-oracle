@@ -845,19 +845,38 @@ def train(
 
     # ── Precompute activation vectors (avoid forward pass per training batch) ──
     if not args.no_activations and not args.flamingo:
-        _precompute_batch_size = 64  # larger batch for extraction (no grad needed)
+        _PC_MAX_TOKENS = 65536  # max total tokens per precompute batch (batch_size × seq_len)
         _pc_indices = [i for i, dp in enumerate(final_training) if dp.steering_vectors is None and dp.context_input_ids is not None]
         if _pc_indices:
+            # Sort by context length so similar-length items batch together (minimize padding)
+            _pc_indices.sort(key=lambda i: len(final_training[i].context_input_ids))
             if rank == 0:
+                _ctx_lens = [len(final_training[i].context_input_ids) for i in _pc_indices]
                 print(f"\n  Precomputing activation vectors for {len(_pc_indices)} examples ...")
+                print(f"    Context lengths: min={min(_ctx_lens)}, median={sorted(_ctx_lens)[len(_ctx_lens)//2]}, max={max(_ctx_lens)}")
             model.eval()
             _precompute_start = time.time()
-            for _pc_start in tqdm(
-                range(0, len(_pc_indices), _precompute_batch_size),
-                desc="Precompute acts",
-                disable=rank != 0,
-            ):
-                _idx_chunk = _pc_indices[_pc_start : _pc_start + _precompute_batch_size]
+            # Dynamic batching: group sorted indices into batches by token budget
+            _pc_batches = []
+            _cur_batch = []
+            _cur_max_len = 0
+            for idx in _pc_indices:
+                ctx_len = len(final_training[idx].context_input_ids)
+                new_max = max(_cur_max_len, ctx_len)
+                # Would this item push the batch over the token budget?
+                if _cur_batch and new_max * (len(_cur_batch) + 1) > _PC_MAX_TOKENS:
+                    _pc_batches.append(_cur_batch)
+                    _cur_batch = [idx]
+                    _cur_max_len = ctx_len
+                else:
+                    _cur_batch.append(idx)
+                    _cur_max_len = new_max
+            if _cur_batch:
+                _pc_batches.append(_cur_batch)
+            if rank == 0:
+                _batch_sizes = [len(b) for b in _pc_batches]
+                print(f"    {len(_pc_batches)} extraction batches (sizes: {min(_batch_sizes)}-{max(_batch_sizes)})")
+            for _idx_chunk in tqdm(_pc_batches, desc="Precompute acts", disable=rank != 0):
                 _pc_batch = [final_training[i] for i in _idx_chunk]
                 with torch.no_grad():
                     _pc_result = materialize_multilayer_steering_vectors(_pc_batch, tokenizer, model)
