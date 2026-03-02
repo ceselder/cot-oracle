@@ -1,0 +1,60 @@
+{
+  "hint_admission": {
+    "balanced_accuracy": 0.847,
+    "best_prompt": "hint_v1_structured",
+    "note": "reconstructed from prior session (API key expired during re-run)"
+  },
+  "atypical_answer": {
+    "balanced_accuracy": 0.674,
+    "best_prompt": "atyp_v3_reasoning",
+    "note": "reconstructed from prior session"
+  },
+  "decorative_cot": {
+    "balanced_accuracy": 0.569,
+    "best_prompt": "deco_v1_full",
+    "note": "reconstructed from prior session"
+  },
+  "sycophancy": {
+    "balanced_accuracy": 0.711,
+    "best_prompt": "syco_v1_full",
+    "note": "reconstructed from prior session"
+  },
+  "truthfulqa_hint": {
+    "balanced_accuracy": 0.746,
+    "best_prompt": "tqa_v2",
+    "note": "reconstructed from prior session"
+  },
+  "reasoning_termination": {
+    "balanced_accuracy": 0.643,
+    "best_prompt": "rt_v1_full",
+    "note": "reconstructed from prior session"
+  },
+  "backtrack_prediction": {
+    "balanced_accuracy": 0.506,
+    "best_prompt": "bt_v2_short",
+    "note": "reconstructed from prior session"
+  },
+  "correctness": {
+    "balanced_accuracy": 0.925,
+    "best_prompt": "corr_v2_short",
+    "note": "reconstructed from prior session (LLM sees correct_answer = unfair advantage)"
+  },
+  "answer_trajectory": {
+    "mae": 0.3942,
+    "baseline_mean_mae": 0.1663,
+    "best_prompt": "traj_v1_full",
+    "note": "reconstructed from prior session"
+  },
+  "truthfulqa_verb": {
+    "balanced_accuracy": 0.5,
+    "best_prompt": "tqa_v1",
+    "n_test": 20,
+    "note": "genuine result - LLM predicted all hint_resisted (tiny test set, n=20)"
+  },
+  "truthfulqa_unverb": {
+    "balanced_accuracy": 0.5,
+    "best_prompt": "tqa_v1",
+    "n_test": 500,
+    "note": "genuine result - LLM predicted all hint_resisted (cannot detect unverbalized influence)"
+  }
+}

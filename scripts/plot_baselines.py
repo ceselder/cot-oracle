@@ -30,9 +30,7 @@ datasets = [
     ("atypical_answer",      "Atypical\nAnswer"),
     ("decorative_cot",       "Decorative\nCoT"),
     ("sycophancy",           "Sycophancy"),
-    ("truthfulqa_hint",      "TruthfulQA\n(Combined)"),
-    ("truthfulqa_verb",      "TruthfulQA\n(Verbalized)"),
-    ("truthfulqa_unverb",    "TruthfulQA\n(Unverbalized)"),
+    ("truthfulqa_hint",      "TruthfulQA\nHint"),
     ("reasoning_termination","Reasoning\nTermination"),
     ("backtrack_prediction", "Backtrack\nPrediction"),
     ("correctness",          "Correctness"),
@@ -125,10 +123,39 @@ def draw_bars(positions, values, color, label, zorder=3):
                     color=color, zorder=4)
     return bars
 
-draw_bars(x + offsets[0], oracle_vals, colors["oracle"], "CoT Oracle (Ours)")
-draw_bars(x + offsets[1], linear_vals, colors["linear"], "Linear Probe (best)")
-draw_bars(x + offsets[2], attn_vals,   colors["attn"],   "Attention Probe")
-draw_bars(x + offsets[3], llm_vals,    colors["llm"],    "LLM Monitor (Gemini 3 Flash)")
+# Find winner per dataset
+winners = []  # list of (dataset_idx, method_idx) tuples
+for i, (key, _) in enumerate(datasets):
+    vals = [oracle_vals[i], linear_vals[i], attn_vals[i], llm_vals[i]]
+    real_vals = [(j, v) for j, v in enumerate(vals) if v is not None]
+    if real_vals:
+        best_j, best_v = max(real_vals, key=lambda x: x[1])
+        winners.append((i, best_j))
+    else:
+        winners.append((i, -1))
+
+all_bars = []
+all_bars.append(draw_bars(x + offsets[0], oracle_vals, colors["oracle"], "CoT Oracle (Ours)"))
+all_bars.append(draw_bars(x + offsets[1], linear_vals, colors["linear"], "Linear Probe (best)"))
+all_bars.append(draw_bars(x + offsets[2], attn_vals,   colors["attn"],   "Attention Probe"))
+all_bars.append(draw_bars(x + offsets[3], llm_vals,    colors["llm"],    "LLM Monitor (Gemini 3 Flash)"))
+
+# Fade non-winners, bold highlight winners
+for ds_idx, method_idx in winners:
+    if method_idx < 0:
+        continue
+    for j in range(4):
+        bar = all_bars[j][ds_idx]
+        val = [oracle_vals, linear_vals, attn_vals, llm_vals][j][ds_idx]
+        if val is None:
+            continue
+        if j == method_idx:
+            # Winner: thick black edge
+            bar.set_edgecolor("black")
+            bar.set_linewidth(2.5)
+        else:
+            # Non-winner: fade out
+            bar.set_alpha(0.4)
 
 # Chance line
 ax.axhline(y=0.5, color="#888888", linestyle="--", linewidth=1, label="Chance", zorder=2)
