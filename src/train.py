@@ -93,15 +93,7 @@ _MODEL_N_LAYERS: int = 36  # total layers in the model (set in main())
 
 
 def _patched_get_prefix(sae_layer: int, num_positions: int) -> str:
-    if MULTI_LAYERS:
-        N = len(MULTI_LAYERS)
-        K = num_positions // N
-        assert K * N == num_positions, f"num_positions={num_positions} not divisible by {N} layers"
-        parts = [f"L{layer}:" + PLACEHOLDER_TOKEN * K for layer in MULTI_LAYERS]
-        prefix = " ".join(parts) + "\n"
-    else:
-        prefix = f"L{sae_layer}:" + PLACEHOLDER_TOKEN * num_positions + "\n"
-    return prefix
+    return PLACEHOLDER_TOKEN * num_positions + "\n"
 
 
 du_module.get_introspection_prefix = _patched_get_prefix

@@ -333,18 +333,14 @@ def query_original_ao(model, tokenizer, acts_l50, prompt, model_name, injection_
 
 def query_trained_oracle(model, tokenizer, selected_acts, prompt, selected_layers, layer_counts, injection_layer=1, max_new_tokens=150, device="cuda"):
     dtype = torch.bfloat16
-    parts = [f"L{layer}:" + TRAINED_PLACEHOLDER * count for layer, count in zip(selected_layers, layer_counts)]
-    prefix = " ".join(parts) + "\n"
+    total_count = sum(layer_counts)
+    prefix = TRAINED_PLACEHOLDER * total_count + "\n"
     full_prompt = prefix + prompt
     relative_spans = []
     cursor = 0
-    for idx, (layer, count) in enumerate(zip(selected_layers, layer_counts)):
-        cursor += len(f"L{layer}:")
-        for pos_idx in range(count):
-            start = cursor + pos_idx * len(TRAINED_PLACEHOLDER)
-            relative_spans.append((start, start + len(TRAINED_PLACEHOLDER)))
-        cursor += count * len(TRAINED_PLACEHOLDER)
-        cursor += 1
+    for pos_idx in range(total_count):
+        start = cursor + pos_idx * len(TRAINED_PLACEHOLDER)
+        relative_spans.append((start, start + len(TRAINED_PLACEHOLDER)))
     input_ids, positions = encode_prompt_with_positions(tokenizer, full_prompt, relative_spans)
     input_tensor = torch.tensor([input_ids], device=get_model_input_device(model))
     attn_mask = torch.ones_like(input_tensor)

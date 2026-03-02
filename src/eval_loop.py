@@ -554,11 +554,7 @@ def _batched_oracle_generate(
 
     for activations, oracle_prompt in items:
         num_positions = activations.shape[0]
-        N = len(layer_list)
-        K = num_positions // N
-        assert K * N == num_positions, f"num_positions={num_positions} not divisible by {N} layers"
-        parts = [f"L{l}:" + ph_token * K for l in layer_list]
-        prefix = " ".join(parts) + "\n"
+        prefix = ph_token * num_positions + "\n"
         full_prompt = prefix + oracle_prompt
 
         messages = [{"role": "user", "content": full_prompt}]
