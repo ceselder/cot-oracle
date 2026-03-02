@@ -804,10 +804,21 @@ def _split_batch_for_token_budget(
 
 
 def _window_bucket_training_data(training_data: list[TrainingDataPoint], batch_size: int, window_batches: int) -> None:
-    """Sort by context length inside shuffled windows to reduce padding waste."""
+    """Sort by context length inside shuffled windows to reduce padding waste.
+
+    Within each window: sort by length, then chunk into batch-sized groups
+    and shuffle those groups. This keeps similar lengths together within a batch
+    (good padding efficiency) while randomizing the order of short/long batches
+    (prevents monotonic step-time increase).
+    """
     window = batch_size * window_batches
     for i in range(0, len(training_data), window):
-        training_data[i:i + window] = sorted(training_data[i:i + window], key=_example_context_len)
+        chunk = sorted(training_data[i:i + window], key=_example_context_len)
+        # Chunk into batch-sized groups and shuffle the groups
+        groups = [chunk[j:j + batch_size] for j in range(0, len(chunk), batch_size)]
+        random.shuffle(groups)
+        flat = [item for group in groups for item in group]
+        training_data[i:i + window] = flat
 
 
 def train_features_batch(training_batch, model, submodule, steering_coefficient, device, dtype):
