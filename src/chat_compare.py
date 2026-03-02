@@ -76,6 +76,12 @@ OPENROUTER_BLACKBOX_MODEL = "google/gemini-3-flash-preview"
 TRYCLOUDFLARE_URL_RE = re.compile(r"https://[A-Za-z0-9.-]+\\.trycloudflare\\.com")
 CHAT_COMPARE_LOG_DIR = Path(os.path.expandvars(os.environ.get("FAST_CACHE_DIR", f"/var/tmp/{Path.home().name}/"))) / "cot-oracle" / "chat_compare"
 
+# Model organisms: LoRA adapters that modify Qwen3-8B behavior for bias/safety testing
+MODEL_ORGANISMS = {
+    "heretic": {"path": "ceselder/Qwen3-8B-heretic", "label": "Heretic"},
+    "rot13": {"path": "ceselder/rot13-qwen3-8b-lora", "label": "ROT13"},
+}
+
 BUILTIN_TASK_PROMPTS = {
     "recon": "Reconstruct the original chain-of-thought reasoning from these activations.",
     "next": "Predict the next ~50 tokens of the chain-of-thought reasoning.",
@@ -213,7 +219,7 @@ def load_train_task_config(config_path):
     return prompt_map, task_options, eval_tags, no_act_checkpoint
 
 
-def load_dual_model(model_name, checkpoint_path, cot_adapter=None, device="cuda"):
+def load_dual_model(model_name, checkpoint_path, organism_adapters=None, device="cuda"):
     dtype = torch.bfloat16
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     tokenizer.padding_side = "left"
@@ -234,12 +240,15 @@ def load_dual_model(model_name, checkpoint_path, cot_adapter=None, device="cuda"
     ao_path = AO_CHECKPOINTS[model_name]
     print(f"Loading original AO from {ao_path}...")
     model.load_adapter(ao_path, adapter_name="original_ao", is_trainable=False)
-    if cot_adapter:
-        print(f"Loading model organism LoRA from {cot_adapter}...")
-        model.load_adapter(cot_adapter, adapter_name="organism", is_trainable=False)
+    loaded_organisms = []
+    for adapter_name, adapter_info in (organism_adapters or {}).items():
+        adapter_path = adapter_info["path"]
+        print(f"Loading model organism '{adapter_name}' from {adapter_path}...")
+        model.load_adapter(adapter_path, adapter_name=adapter_name, is_trainable=False)
+        loaded_organisms.append(adapter_name)
     model.eval()
     print(f"  Adapters: {list(model.peft_config.keys())}")
-    return model, tokenizer
+    return model, tokenizer, loaded_organisms
 
 
 def get_model_input_device(model):
@@ -250,12 +259,12 @@ def get_module_device(module):
     return next(module.parameters()).device
 
 
-def generate_cot_base(model, tokenizer, question, max_new_tokens=4096, device="cuda", use_organism=False, enable_thinking=True):
+def generate_cot_base(model, tokenizer, question, max_new_tokens=4096, device="cuda", cot_adapter=None, enable_thinking=True):
     messages = [{"role": "user", "content": question}]
     formatted = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True, enable_thinking=enable_thinking)
     inputs = tokenizer(formatted, return_tensors="pt").to(get_model_input_device(model))
-    if use_organism and "organism" in model.peft_config:
-        model.set_adapter("organism")
+    if cot_adapter and cot_adapter in model.peft_config:
+        model.set_adapter(cot_adapter)
         output = model.generate(**inputs, max_new_tokens=max_new_tokens, do_sample=False)
     else:
         with model.disable_adapter():
@@ -263,12 +272,12 @@ def generate_cot_base(model, tokenizer, question, max_new_tokens=4096, device="c
     return tokenizer.decode(output[0][inputs["input_ids"].shape[1]:], skip_special_tokens=False)
 
 
-def collect_multilayer_activations(model, tokenizer, text, layers, positions, use_organism=False, device="cuda"):
+def collect_multilayer_activations(model, tokenizer, text, layers, positions, cot_adapter=None, device="cuda"):
     all_acts = []
     model.eval()
     input_device = str(get_model_input_device(model))
     for layer in layers:
-        adapter_name = "organism" if use_organism and "organism" in model.peft_config else None
+        adapter_name = cot_adapter if cot_adapter and cot_adapter in model.peft_config else None
         if adapter_name:
             model.set_adapter(adapter_name)
         acts = collect_activations_at_positions(model, tokenizer, text, layer, positions, device=input_device, adapter_name=adapter_name)
@@ -523,8 +532,11 @@ class ChatCompareWebApp:
         self.layers = compute_layers(args.model, n_layers=args.n_layers, layers=args.layers)
         self.layer_50 = layer_percent_to_layer(args.model, 50)
         self.prompt_map, self.task_options, self.eval_tags, self.no_act_checkpoint = load_train_task_config(args.config)
-        self.use_organism = args.cot_adapter is not None
-        self.model, self.tokenizer = load_dual_model(args.model, args.checkpoint, cot_adapter=args.cot_adapter, device=args.device)
+        self.model, self.tokenizer, self.organism_names = load_dual_model(
+            args.model, args.checkpoint,
+            organism_adapters=MODEL_ORGANISMS, device=args.device,
+        )
+        self._active_cot_adapter = None
         self.model_lock = threading.Lock()
         self.saes = None
         self.sae_labels = None
@@ -616,8 +628,8 @@ class ChatCompareWebApp:
         path.write_text("\n".join(lines))
         return path
 
-    def _generate_cot_only(self, question, enable_thinking=True):
-        cot_response = generate_cot_base(self.model, self.tokenizer, question, max_new_tokens=4096, device=self.args.device, use_organism=self.use_organism, enable_thinking=enable_thinking)
+    def _generate_cot_only(self, question, enable_thinking=True, cot_adapter=None):
+        cot_response = generate_cot_base(self.model, self.tokenizer, question, max_new_tokens=4096, device=self.args.device, cot_adapter=cot_adapter, enable_thinking=enable_thinking)
         messages = [{"role": "user", "content": question}]
         formatted = self.tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True, enable_thinking=enable_thinking)
         full_text = formatted + cot_response
@@ -630,11 +642,13 @@ class ChatCompareWebApp:
             full_text=full_text,
             enable_thinking=enable_thinking,
         )
+        self._active_cot_adapter = cot_adapter
         return {
             "question": question,
             "cot_response": cot_response,
             "cot_text": cot_text,
             "answer_text": answer_text,
+            "cot_adapter": cot_adapter or "base",
         }
 
     def _extract_current_session(self):
@@ -656,7 +670,7 @@ class ChatCompareWebApp:
         if len(stride_positions) < 1:
             raise ValueError("CoT is too short for any stride positions")
         input_device = str(get_model_input_device(self.model))
-        multilayer_acts = collect_multilayer_activations(self.model, self.tokenizer, self.state.full_text, self.layers, stride_positions, use_organism=self.use_organism, device=self.args.device)
+        multilayer_acts = collect_multilayer_activations(self.model, self.tokenizer, self.state.full_text, self.layers, stride_positions, cot_adapter=getattr(self, '_active_cot_adapter', None), device=self.args.device)
         ao_acts = collect_activations_at_positions(self.model, self.tokenizer, self.state.full_text, self.layer_50, stride_positions, device=input_device, adapter_name=None)
         stride_token_ids = [all_ids[pos] for pos in stride_positions]
         token_labels = [token_preview(self.tokenizer, token_id) for token_id in stride_token_ids]
@@ -880,6 +894,7 @@ class ChatCompareWebApp:
                 "public_url": self.share_info["public_url"],
                 "no_act_checkpoint": self.no_act_checkpoint,
                 "no_act_available": Path(self.no_act_checkpoint).exists(),
+                "organisms": [{"key": name, "label": MODEL_ORGANISMS[name]["label"]} for name in self.organism_names],
             }
 
         @self.app.post("/api/generate")
@@ -887,7 +902,8 @@ class ChatCompareWebApp:
             question = payload["question"].strip()
             if not question:
                 raise HTTPException(status_code=400, detail="Question is empty")
-            cot_payload = await asyncio.to_thread(self._generate_cot_only, question, bool(payload.get("enable_thinking", True)))
+            cot_adapter = payload.get("cot_adapter") or None
+            cot_payload = await asyncio.to_thread(self._generate_cot_only, question, bool(payload.get("enable_thinking", True)), cot_adapter=cot_adapter)
             extract_payload = await asyncio.to_thread(self._extract_current_session)
             return {**cot_payload, **extract_payload}
 
@@ -896,7 +912,8 @@ class ChatCompareWebApp:
             question = payload["question"].strip()
             if not question:
                 raise HTTPException(status_code=400, detail="Question is empty")
-            return await asyncio.to_thread(self._generate_cot_only, question, bool(payload.get("enable_thinking", True)))
+            cot_adapter = payload.get("cot_adapter") or None
+            return await asyncio.to_thread(self._generate_cot_only, question, bool(payload.get("enable_thinking", True)), cot_adapter=cot_adapter)
 
         @self.app.post("/api/extract_activations")
         async def extract_activations():
@@ -1046,7 +1063,9 @@ class ChatCompareWebApp:
       <div class=\"small muted\" id=\"shareInfo\" style=\"margin-top:8px\"></div>
       <label style=\"display:block;margin-top:16px\">Question</label>
       <textarea id=\"question\" placeholder=\"Ask the base model to think...\"></textarea>
-      <label class=\"small\" style=\"display:flex;align-items:center;gap:8px;margin-top:8px\"><input id=\"thinkingToggle\" type=\"checkbox\" checked style=\"width:auto\">Enable thinking for base-model CoT generation</label>
+      <label class=\"small\" style=\"display:flex;align-items:center;gap:8px;margin-top:8px\"><input id=\"thinkingToggle\" type=\"checkbox\" checked style=\"width:auto\">Enable thinking for CoT generation</label>
+      <label style=\"display:block;margin-top:10px\" class=\"small\">CoT generator</label>
+      <select id=\"cotGenerator\"><option value=\"\">Base model (no adapter)</option></select>
       <label style=\"display:block;margin-top:10px\" class=\"small\">Prompt templates</label>
       <select id=\"promptTemplate\"><option value=\"\">-- select a template --</option></select>
       <div class=\"row\"><button id=\"refreshPromptBtn\" class=\"secondary\">Refresh sample prompt</button></div>
@@ -1458,6 +1477,15 @@ For your final answer, respond with "Answer: Yes" or "Answer: No" after the chai
         setStatus(error.message);
       }
     }
+    function renderOrganismOptions() {
+      const sel = document.getElementById('cotGenerator');
+      (config.organisms || []).forEach(org => {
+        const el = document.createElement('option');
+        el.value = org.key;
+        el.textContent = org.label;
+        sel.appendChild(el);
+      });
+    }
     function renderPromptTemplates() {
       const sel = document.getElementById('promptTemplate');
       PROMPT_TEMPLATES.forEach((tpl, idx) => {
@@ -1490,6 +1518,7 @@ For your final answer, respond with "Answer: Yes" or "Answer: No" after the chai
       renderTaskOptions();
       renderEvalTags();
       renderPromptTemplates();
+      renderOrganismOptions();
       await loadSuggestedQuestion();
     }
     async function loadSuggestedQuestion() {
@@ -1504,10 +1533,12 @@ For your final answer, respond with "Answer: Yes" or "Answer: No" after the chai
     async function generateSession() {
       const question = document.getElementById('question').value.trim();
       const enableThinking = document.getElementById('thinkingToggle').checked;
+      const cotAdapter = document.getElementById('cotGenerator').value || null;
       if (!question) { setStatus('Question is empty'); return; }
-      setStatus('Generating CoT...');
-      setBusy(true, 'Stage 1/2: generating CoT...', 20);
-      const cotResponse = await fetch('/api/generate_cot', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ question, enable_thinking: enableThinking }) });
+      const genLabel = cotAdapter ? `CoT (${cotAdapter})` : 'CoT (base)';
+      setStatus(`Generating ${genLabel}...`);
+      setBusy(true, `Stage 1/2: generating ${genLabel}...`, 20);
+      const cotResponse = await fetch('/api/generate_cot', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ question, enable_thinking: enableThinking, cot_adapter: cotAdapter }) });
       const cotData = await cotResponse.json();
       if (!cotResponse.ok) { setBusy(false); setStatus(cotData.detail || 'CoT generation failed'); return; }
       document.getElementById('cotPreview').textContent = cotData.cot_text || '(no CoT)';
@@ -1519,7 +1550,8 @@ For your final answer, respond with "Answer: Yes" or "Answer: No" after the chai
       setBusy(false);
       if (!extractResponse.ok) { setStatus(extractData.detail || 'Activation extraction failed'); return; }
       session = { ...cotData, ...extractData };
-      document.getElementById('meta').textContent = `Question ready | ${session.n_positions} stride positions x ${session.layers.length} layers = ${session.n_vectors} vectors | AO layer ${session.layer_50}`;
+      const adapterLabel = session.cot_adapter && session.cot_adapter !== 'base' ? session.cot_adapter : 'base model';
+      document.getElementById('meta').textContent = `Generator: ${adapterLabel} | ${session.n_positions} stride positions x ${session.layers.length} layers = ${session.n_vectors} vectors | AO layer ${session.layer_50}`;
       document.getElementById('aoOut').textContent = '';
       document.getElementById('patchOut').textContent = '';
       document.getElementById('bbOut').textContent = '';
@@ -1729,8 +1761,9 @@ def run_cli(args):
     layers = compute_layers(args.model, n_layers=args.n_layers, layers=args.layers)
     layer_50 = layer_percent_to_layer(args.model, 50)
     prompt_map, _, _, _ = load_train_task_config(args.config)
-    model, tokenizer = load_dual_model(args.model, args.checkpoint, cot_adapter=args.cot_adapter, device=args.device)
-    use_organism = args.cot_adapter is not None
+    cli_organisms = {args.cot_adapter: {"path": args.cot_adapter, "label": args.cot_adapter}} if args.cot_adapter else {}
+    model, tokenizer, _ = load_dual_model(args.model, args.checkpoint, organism_adapters=cli_organisms, device=args.device)
+    cot_adapter = args.cot_adapter
     multilayer_acts = None
     ao_acts = None
     n_positions_per_layer = 0
@@ -1751,7 +1784,7 @@ def run_cli(args):
             print("Starting fresh.")
             continue
         if multilayer_acts is None:
-            cot_response = generate_cot_base(model, tokenizer, user_input, max_new_tokens=4096, device=args.device, use_organism=use_organism)
+            cot_response = generate_cot_base(model, tokenizer, user_input, max_new_tokens=4096, device=args.device, cot_adapter=cot_adapter)
             print("\n--- Model CoT ---")
             print(cot_response[:1500])
             if len(cot_response) > 1500:
@@ -1764,7 +1797,7 @@ def run_cli(args):
             stride_positions = get_cot_positions(len(prompt_ids), len(all_ids), stride=args.stride, tokenizer=tokenizer, input_ids=all_ids)
             n_positions_per_layer = len(stride_positions)
             input_device = str(get_model_input_device(model))
-            multilayer_acts = collect_multilayer_activations(model, tokenizer, full_text, layers, stride_positions, use_organism=use_organism, device=args.device)
+            multilayer_acts = collect_multilayer_activations(model, tokenizer, full_text, layers, stride_positions, cot_adapter=cot_adapter, device=args.device)
             ao_acts = collect_activations_at_positions(model, tokenizer, full_text, layer_50, stride_positions, device=input_device, adapter_name=None)
             print(f"Ready: {n_positions_per_layer} positions x {len(layers)} layers.")
             continue
