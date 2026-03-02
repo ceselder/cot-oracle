@@ -103,10 +103,10 @@ def load_extra_adapter(
 
 
 def choose_attn_implementation(model_name: str) -> str:
-    """Choose attention backend with safe defaults."""
+    """Choose attention backend — flash_attention_2 is fastest, matching Adam's AO."""
     if "gemma" in model_name.lower():
         return "eager"
-    return "sdpa"
+    return "flash_attention_2"
 
 
 def load_model_with_ao(

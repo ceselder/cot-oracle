@@ -996,6 +996,10 @@ def run_eval(
                     metrics[f"eval/{task_name}_{key}"] = val
 
             metrics[f"_eval_time/{task_name}"] = elapsed  # prefixed _ to exclude from wandb
+            n_unparsed = result.get("unparsed", 0)
+            n_total = result.get("n", 0)
+            if n_unparsed > 0:
+                extras.append(f"unparsed={n_unparsed}/{n_total}")
             table_rows.append((
                 task_name, primary_metric, primary_score,
                 "  ".join(extras), elapsed,

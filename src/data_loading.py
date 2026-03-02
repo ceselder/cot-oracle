@@ -676,3 +676,284 @@ def load_fineweb_data(
 
     print(f"  [fineweb] Generated {len(datapoints)} examples")
     return datapoints[:n]
+
+
+# ── Classification datasets (matching Adam's AO training) ──
+
+
+# Dataset configs: each entry defines how to load and question a dataset
+_CLS_DATASETS = {
+    "sst2": {
+        "hf_repo": "stanfordnlp/sst2",
+        "split": "train",
+        "text_fn": lambda row: row["sentence"],
+        "questions": [
+            ("Is the sentiment of this text positive?", lambda row: "Yes" if row["label"] == 1 else "No"),
+            ("Is the sentiment of this text negative?", lambda row: "Yes" if row["label"] == 0 else "No"),
+        ],
+    },
+    "ag_news": {
+        "hf_repo": "fancyzhx/ag_news",
+        "split": "train",
+        "text_fn": lambda row: row["text"],
+        "questions": [
+            ("Is this article about world news?", lambda row: "Yes" if row["label"] == 0 else "No"),
+            ("Is this article about sports?", lambda row: "Yes" if row["label"] == 1 else "No"),
+            ("Is this article about business?", lambda row: "Yes" if row["label"] == 2 else "No"),
+            ("Is this article about science or technology?", lambda row: "Yes" if row["label"] == 3 else "No"),
+        ],
+    },
+    "snli": {
+        "hf_repo": "stanfordnlp/snli",
+        "split": "train",
+        "text_fn": lambda row: f"{row['premise']} {row['hypothesis']}",
+        "questions": [
+            ("Does the first statement entail the second?", lambda row: "Yes" if row["label"] == 0 else "No"),
+        ],
+        "filter_fn": lambda row: row["label"] in (0, 2),  # entailment + contradiction only
+    },
+}
+
+
+def load_classification_data(
+    tokenizer,
+    n: int = 100000,
+    datasets: list[str] | None = None,
+    layers: list[int] | None = None,
+    stride: int = 5,
+    seed: int = 42,
+) -> list[dict]:
+    """Load classification training data from standard NLP datasets.
+
+    Generates binary yes/no question-answer pairs, matching Adam's AO
+    classification training. Context activations come from the raw text
+    (no chat template), oracle answers questions about the content.
+
+    Args:
+        tokenizer: HuggingFace tokenizer.
+        n: Total number of examples to generate.
+        datasets: Which classification datasets to use (default: all).
+        layers: Layer indices for activation extraction.
+        stride: Position stride for activation extraction.
+        seed: Random seed.
+
+    Returns:
+        List of dicts compatible with dicts_to_training_data().
+    """
+    from datasets import load_dataset as hf_load_dataset
+
+    if layers is None:
+        layers = [9, 18, 27]
+    if datasets is None:
+        datasets = list(_CLS_DATASETS.keys())
+
+    rng = random.Random(seed)
+    n_layers = len(layers)
+    per_ds = n // len(datasets)
+
+    all_datapoints: list[dict] = []
+
+    for ds_name in datasets:
+        if ds_name not in _CLS_DATASETS:
+            print(f"  [classification] WARNING: unknown dataset {ds_name!r}, skipping")
+            continue
+
+        cfg = _CLS_DATASETS[ds_name]
+        print(f"  [classification] Loading {ds_name} from {cfg['hf_repo']}...")
+
+        ds = hf_load_dataset(cfg["hf_repo"], split=cfg["split"])
+        filter_fn = cfg.get("filter_fn")
+
+        ds_points: list[dict] = []
+        target_n = per_ds if ds_name != datasets[-1] else (n - len(all_datapoints))
+
+        indices = list(range(len(ds)))
+        rng.shuffle(indices)
+
+        for idx in indices:
+            if len(ds_points) >= target_n:
+                break
+
+            row = ds[idx]
+            if filter_fn and not filter_fn(row):
+                continue
+
+            text = cfg["text_fn"](row)
+            if not text or len(text.strip()) < 10:
+                continue
+
+            # Pick a random question template
+            question_text, answer_fn = rng.choice(cfg["questions"])
+            answer = answer_fn(row)
+
+            # Tokenize raw text (no chat template — activations from raw text processing)
+            input_ids = tokenizer.encode(
+                text, add_special_tokens=True, truncation=True, max_length=512,
+            )
+
+            if len(input_ids) < stride * 2:
+                continue
+
+            # Stride positions over the full text
+            positions = list(range(0, len(input_ids), stride))
+            if positions[-1] != len(input_ids) - 1:
+                positions.append(len(input_ids) - 1)
+
+            # Repeat for each layer
+            all_positions = positions * n_layers
+
+            ds_points.append({
+                "datapoint_type": f"classification_{ds_name}",
+                "task": "classification",
+                "prompt": f"Answer with 'Yes' or 'No' only. {question_text}",
+                "target_response": answer,
+                "layer": layers[0],
+                "layers": layers,
+                "num_positions": len(all_positions),
+                "context_input_ids": input_ids,
+                "context_positions": all_positions,
+            })
+
+        print(f"  [classification]   {ds_name}: {len(ds_points)} examples")
+        all_datapoints.extend(ds_points)
+
+    rng.shuffle(all_datapoints)
+    print(f"  [classification] Total: {len(all_datapoints)} examples")
+    return all_datapoints[:n]
+
+
+# ── LatentQA / SPQA (matching Adam's AO training) ──
+
+
+def load_latentqa_data(
+    tokenizer,
+    n: int = 65000,
+    layers: list[int] | None = None,
+    seed: int = 42,
+    data_dir: str | None = None,
+) -> list[dict]:
+    """Load LatentQA training data from Adam's JSON files.
+
+    LatentQA trains the oracle to answer yes/no questions about information
+    encoded in model activations from multi-turn conversations. Context is
+    a chat-templated conversation; oracle answers questions about behavior/info.
+
+    Args:
+        tokenizer: HuggingFace tokenizer.
+        n: Number of examples to generate.
+        layers: Layer indices for activation extraction.
+        seed: Random seed.
+        data_dir: Path to latentqa_datasets/train/ directory.
+            Defaults to ao_reference/datasets/latentqa_datasets/train/.
+
+    Returns:
+        List of dicts compatible with dicts_to_training_data().
+    """
+    import sys
+
+    if layers is None:
+        layers = [9, 18, 27]
+    n_layers = len(layers)
+    rng = random.Random(seed)
+
+    # Find data directory
+    if data_dir is None:
+        candidates = [
+            Path("ao_reference/datasets/latentqa_datasets/train"),
+            Path("/root/cot-oracle/ao_reference/datasets/latentqa_datasets/train"),
+            Path("/root/activation_oracles/datasets/latentqa_datasets/train"),
+        ]
+        for p in candidates:
+            if p.exists():
+                data_dir = str(p)
+                break
+        if data_dir is None:
+            raise FileNotFoundError(
+                f"LatentQA data not found. Searched: {[str(p) for p in candidates]}"
+            )
+
+    data_path = Path(data_dir)
+    print(f"  [latentqa] Loading from {data_path}...")
+
+    # Add ao_reference to path for the loader import
+    ao_ref = data_path.parent.parent.parent
+    if str(ao_ref) not in sys.path:
+        sys.path.insert(0, str(ao_ref))
+
+    from nl_probes.dataset_classes.misc.latentqa_loader import DataPaths, load_latentqa_dataset
+
+    paths = DataPaths(
+        system=None,
+        stimulus_completion=str(data_path / "stimulus_completion.json"),
+        stimulus=str(data_path / "stimulus.json"),
+        control=str(data_path / "control.json"),
+        qa=str(data_path / "qa.json"),
+    )
+    ds = load_latentqa_dataset(
+        paths, filter_prefixes=[], train_percent=1.0,
+        add_thought_tokens=False, seed=seed,
+    )
+    print(f"  [latentqa] Loaded {len(ds)} raw examples")
+
+    # Masked turn counts per source (matching Adam's code)
+    masked_turn_count = {"stimulus_completion": 2, "stimulus": 2, "control": 0, "system": 0}
+
+    datapoints: list[dict] = []
+    indices = list(range(len(ds)))
+    rng.shuffle(indices)
+
+    for idx in indices:
+        if len(datapoints) >= n:
+            break
+
+        item = ds[idx]
+        read_prompt = item["read_prompt"]
+        dialog = item["dialog"]
+        source = item["source"]
+
+        # Tokenize the read_prompt (conversation context) with chat template
+        add_gen_prompt = source != "stimulus_completion"
+        context_str = tokenizer.apply_chat_template(
+            read_prompt, tokenize=False,
+            add_generation_prompt=add_gen_prompt,
+            enable_thinking=False,
+        )
+        context_ids = tokenizer.encode(context_str, add_special_tokens=False)
+
+        if len(context_ids) < 5:
+            continue
+
+        # Compute masked turn length (positions start after masked turns)
+        num_masked = masked_turn_count.get(source, 0)
+        if num_masked > 0:
+            masked_turns = read_prompt[:num_masked]
+            masked_str = tokenizer.apply_chat_template(
+                masked_turns, tokenize=False, enable_thinking=False,
+            )
+            masked_len = len(tokenizer.encode(masked_str, add_special_tokens=False))
+        else:
+            masked_len = 0
+
+        # Positions: all tokens after masked turns
+        positions = list(range(masked_len, len(context_ids)))
+        if not positions:
+            continue
+
+        # Repeat for each layer
+        all_positions = positions * n_layers
+
+        datapoints.append({
+            "datapoint_type": f"latentqa_{source}",
+            "task": "latentqa",
+            "prompt": dialog[0]["content"],  # the question
+            "target_response": dialog[1]["content"],  # the answer
+            "layer": layers[0],
+            "layers": layers,
+            "num_positions": len(all_positions),
+            "context_input_ids": context_ids,
+            "context_positions": all_positions,
+        })
+
+    rng.shuffle(datapoints)
+    print(f"  [latentqa] Generated {len(datapoints)} examples")
+    return datapoints[:n]
