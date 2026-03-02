@@ -88,7 +88,7 @@ MULTI_LAYERS: list[int] = []
 NO_ACTIVATIONS: bool = False
 RANDOM_LAYERS: bool = False
 LAYER_DROPOUT: bool = False
-NOISE_ACTIVATIONS: bool = False
+POSITION_MODE: str = "last_only"  # "last_only", "stochastic", "all"
 _MODEL_N_LAYERS: int = 36  # total layers in the model (set in main())
 
 
@@ -116,59 +116,6 @@ def _patched_find_pattern_in_tokens(token_ids, special_token_str, num_positions,
 du_module.find_pattern_in_tokens = _patched_find_pattern_in_tokens
 
 
-# ── Position encoding config (module-level, set by main()) ──
-_PE_CONFIG = {"enabled": False, "alpha": 0.1}
-# Pooling mode: "none", "windows" (mean-pool token windows), "single", "chunks5"
-_POOLING_MODE = "none"
-# Sparse position sampling: randomly subsample CoT positions per example
-_SPARSE_POSITIONS = False
-# Single position mode: only feed the last CoT position per layer
-_SINGLE_POSITION = False
-
-
-def _pool_vectors(vectors: torch.Tensor, mode: str) -> torch.Tensor:
-    """Pool extracted activation vectors according to mode.
-
-    Args:
-        vectors: [K, D] activations extracted for ONE layer
-        mode: "none", "single", "chunks5"
-    Returns:
-        Pooled tensor: [1, D] for single, [min(5,K), D] for chunks5, [K, D] for none
-    """
-    if mode == "single":
-        return vectors.mean(dim=0, keepdim=True)  # [1, D]
-    elif mode == "chunks5":
-        K = vectors.shape[0]
-        n = min(5, K)
-        chunks = torch.chunk(vectors, n, dim=0)
-        return torch.stack([c.mean(dim=0) for c in chunks])  # [n, D]
-    return vectors
-
-
-def _mean_pool_windows(acts_LD: torch.Tensor, positions: list[int]) -> torch.Tensor:
-    """Mean-pool activation windows between consecutive stride positions.
-
-    Instead of point-sampling at each position, mean-pools all tokens in the
-    window (prev_p+1 .. p] for each stride position. Output has same count K
-    as input positions.
-    """
-    pooled = []
-    prev = 0
-    for p in positions:
-        window = acts_LD[prev:p + 1, :]  # [window_size, D]
-        pooled.append(window.mean(dim=0))
-        prev = p + 1
-    return torch.stack(pooled, dim=0)  # [K, D]
-
-
-def _pooled_count_per_layer(K: int, mode: str) -> int:
-    """How many vectors per layer after pooling."""
-    if mode == "single":
-        return 1
-    elif mode == "chunks5":
-        return min(5, K)
-    return K
-
 
 # ── Distributed helpers ──
 def setup_distributed():
@@ -195,7 +142,7 @@ def materialize_multilayer_steering_vectors(
 ) -> list[TrainingDataPoint]:
     """Materialize steering vectors from MULTI_LAYERS (configurable via --n-layers).
 
-    Supports per-item random layers (RANDOM_LAYERS) and noise replacement (NOISE_ACTIVATIONS).
+    Supports per-item random layers (RANDOM_LAYERS) and layer dropout (LAYER_DROPOUT).
     """
     to_fill = [
         (i, dp) for i, dp in enumerate(batch_points) if dp.steering_vectors is None
@@ -224,11 +171,7 @@ def materialize_multilayer_steering_vectors(
 
     pad_id = tokenizer.pad_token_id
     contexts = [list(dp.context_input_ids) for _, dp in to_fill]
-    # When pooling, use full positions from meta_info (context_positions was truncated for validator)
-    positions_per_item = []
-    for _, dp in to_fill:
-        full_pos = (dp.meta_info or {}).get("full_context_positions")
-        positions_per_item.append(list(full_pos) if full_pos is not None else list(dp.context_positions))
+    positions_per_item = [list(dp.context_positions) for _, dp in to_fill]
 
     max_len = max(len(c) for c in contexts)
 
@@ -290,33 +233,13 @@ def materialize_multilayer_steering_vectors(
                 raise IndexError(
                     f"Activation index out of range for item {b}: {adjusted} with L={L}"
                 )
-            if _POOLING_MODE == "windows":
-                layer_vecs = _mean_pool_windows(acts_BLD[b], adjusted)
-            else:
-                layer_vecs = acts_BLD[b, adjusted, :]  # [K, D]
-                layer_vecs = _pool_vectors(layer_vecs, _POOLING_MODE)
+            layer_vecs = acts_BLD[b, adjusted, :]  # [K, D]
             vectors_parts.append(layer_vecs)
 
         vectors = torch.cat(vectors_parts, dim=0).detach().contiguous()
 
-        # Noise ablation: replace real activations with variance-matched Gaussian noise
-        if NOISE_ACTIVATIONS:
-            var = vectors.var(dim=0, keepdim=True)  # per-dimension variance
-            vectors = torch.randn_like(vectors) * var.sqrt()
-
-        # Apply positional encoding if enabled
-        if _PE_CONFIG["enabled"]:
-            from position_encoding import apply_position_encoding
-            total_length = len(contexts[b])
-            vectors = apply_position_encoding(
-                vectors, positions_per_item[b], total_length,
-                alpha=_PE_CONFIG["alpha"],
-            )
-
         dp_new = dp.model_copy(deep=True)
         dp_new.steering_vectors = vectors
-        # Trim positions to match actual pooled vector count (short CoTs may
-        # produce fewer chunks than the prompt expected)
         if vectors.shape[0] != len(dp_new.positions):
             dp_new.positions = dp_new.positions[:vectors.shape[0]]
         new_batch[idx] = dp_new
@@ -326,141 +249,6 @@ def materialize_multilayer_steering_vectors(
 
 du_module.materialize_missing_steering_vectors = materialize_multilayer_steering_vectors
 eval_module.materialize_missing_steering_vectors = materialize_multilayer_steering_vectors
-
-
-# ── Flamingo activation extraction ──
-def materialize_flamingo_activations(
-    batch_points: list[TrainingDataPoint],
-    tokenizer,
-    model,
-    max_ctx_tokens: int | None = None,
-) -> tuple[dict[int, torch.Tensor], dict[int, torch.Tensor]]:
-    """Extract supervisee residual stream at each xattn layer position.
-
-    Only extracts layers that have cross-attention (matching the wrapper's
-    xattn_layer_indices), not all layers.
-
-    Returns:
-        kvs: {layer_idx: [B, T_max, D]} padded per-layer activations
-        kv_masks: {layer_idx: [B, T_max]} bool masks (True = real, False = pad)
-    """
-    from nl_probes.utils.activation_utils import get_hf_submodule
-
-    # Unwrap FlamingoOracleWrapper to get PeftModel and xattn indices
-    from flamingo_oracle import FlamingoOracleWrapper
-    if isinstance(model, FlamingoOracleWrapper):
-        peft_model = model.base_model
-        xattn_layers = model.xattn_layer_indices
-    else:
-        peft_model = model
-        xattn_layers = list(range(peft_model.config.num_hidden_layers))
-
-    assert isinstance(peft_model, PeftModel), "Expected PeftModel for activation extraction"
-
-    device = next(peft_model.parameters()).device
-    pad_id = tokenizer.pad_token_id
-
-    # Collect context_input_ids (truncate to max_ctx_tokens if set)
-    contexts = []
-    for dp in batch_points:
-        assert dp.context_input_ids is not None, "context_input_ids required for Flamingo"
-        ctx = list(dp.context_input_ids)
-        if max_ctx_tokens and len(ctx) > max_ctx_tokens:
-            ctx = ctx[-max_ctx_tokens:]
-        contexts.append(ctx)
-
-    # Left-pad contexts to same length
-    max_ctx_len = max(len(c) for c in contexts)
-    input_ids_list = []
-    attn_masks_list = []
-    left_offsets = []
-    for c in contexts:
-        pad_len = max_ctx_len - len(c)
-        input_ids_list.append(torch.tensor([pad_id] * pad_len + c, dtype=torch.long, device=device))
-        attn_masks_list.append(torch.tensor([False] * pad_len + [True] * len(c), dtype=torch.bool, device=device))
-        left_offsets.append(pad_len)
-
-    inputs_BL = {
-        "input_ids": torch.stack(input_ids_list),
-        "attention_mask": torch.stack(attn_masks_list),
-    }
-
-    # Only hook the layers we need (xattn positions)
-    submodules = {layer: get_hf_submodule(peft_model, layer, use_lora=True) for layer in xattn_layers}
-
-    was_training = peft_model.training
-    peft_model.eval()
-    with peft_model.disable_adapter():
-        acts_by_layer = collect_activations_multiple_layers(
-            model=peft_model, submodules=submodules, inputs_BL=inputs_BL,
-            min_offset=None, max_offset=None,
-        )
-    if was_training:
-        peft_model.train()
-
-    B = len(batch_points)
-
-    # Build per-layer padded activations and masks
-    # All items share the same T_max (max_ctx_len after left-padding), but we
-    # strip padding per-item and re-pad to batch max
-    max_real_len = max(len(c) for c in contexts)
-    kvs = {}
-    kv_masks = {}
-
-    for layer in xattn_layers:
-        # acts_by_layer[layer] is [B, max_ctx_len, D] (includes left-padding)
-        layer_acts_list = []
-        layer_mask_list = []
-        for b in range(B):
-            ctx_len = len(contexts[b])
-            offset = left_offsets[b]
-            real_acts = acts_by_layer[layer][b, offset:offset + ctx_len, :]  # [T, D]
-            layer_acts_list.append(real_acts)
-            layer_mask_list.append(torch.ones(ctx_len, dtype=torch.bool, device=device))
-
-        # Pad to max_real_len
-        D = layer_acts_list[0].shape[-1]
-        padded = torch.zeros(B, max_real_len, D, dtype=layer_acts_list[0].dtype, device=device)
-        mask = torch.zeros(B, max_real_len, dtype=torch.bool, device=device)
-        for b in range(B):
-            L = layer_acts_list[b].shape[0]
-            padded[b, :L] = layer_acts_list[b]
-            mask[b, :L] = True
-
-        kvs[layer] = padded.detach()
-        kv_masks[layer] = mask
-
-    return kvs, kv_masks
-
-
-def construct_flamingo_batch(
-    batch_list: list[TrainingDataPoint],
-    supervisee_kvs: dict[int, torch.Tensor],
-    supervisee_kv_masks: dict[int, torch.Tensor],
-    tokenizer,
-    device: torch.device,
-) -> dict:
-    """Construct a batch dict for FlamingoOracleWrapper.forward()."""
-    max_length = max(len(dp.input_ids) for dp in batch_list)
-    pad_id = tokenizer.pad_token_id
-
-    all_input_ids = []
-    all_labels = []
-    all_attn_mask = []
-
-    for dp in batch_list:
-        pad_len = max_length - len(dp.input_ids)
-        all_input_ids.append(torch.tensor([pad_id] * pad_len + dp.input_ids, dtype=torch.long))
-        all_labels.append(torch.tensor([-100] * pad_len + dp.labels, dtype=torch.long))
-        all_attn_mask.append(torch.tensor([False] * pad_len + [True] * len(dp.input_ids), dtype=torch.bool))
-
-    return {
-        "input_ids": torch.stack(all_input_ids).to(device),
-        "attention_mask": torch.stack(all_attn_mask).to(device),
-        "labels": torch.stack(all_labels).to(device),
-        "supervisee_kvs": supervisee_kvs,
-        "supervisee_kv_masks": supervisee_kv_masks,
-    }
 
 
 def construct_flamingo_batch(
@@ -588,10 +376,12 @@ def dicts_to_training_data(
             # Per-item random layer sampling (ablation: arbitrary model layers)
             from layer_utils import sample_layers
             sampled = sample_layers(_MODEL_N_LAYERS, mean=3)
-            ctx_pos = base_positions * len(sampled)
+
+            # Apply position mode to base positions
+            sampled_pos = _apply_position_mode(base_positions)
+            ctx_pos = sampled_pos * len(sampled)
             num_pos = len(ctx_pos)
 
-            # Temporarily swap MULTI_LAYERS for prefix generation
             saved_layers = MULTI_LAYERS[:]
             MULTI_LAYERS[:] = sampled
             dp = create_training_datapoint(
@@ -608,17 +398,15 @@ def dicts_to_training_data(
                 meta_info={"prompt": item["prompt"], "layers": sampled},
             )
             MULTI_LAYERS[:] = saved_layers
+
         elif LAYER_DROPOUT:
             # Random non-empty subset of configured layers per item
             k = random.randint(1, len(MULTI_LAYERS))
             sampled = sorted(random.sample(MULTI_LAYERS, k))
-            n_sampled = len(sampled)
 
-            # Last-position-only: use only the final stride position per layer
-            K = len(base_positions)
-            suffix_pos = base_positions[K - 1:] if K > 0 else base_positions
-
-            ctx_pos = suffix_pos * n_sampled
+            # Apply position mode to base positions
+            sampled_pos = _apply_position_mode(base_positions)
+            ctx_pos = sampled_pos * len(sampled)
             num_pos = len(ctx_pos)
 
             saved_layers = MULTI_LAYERS[:]
@@ -637,42 +425,20 @@ def dicts_to_training_data(
                 meta_info={"prompt": item["prompt"], "layers": sampled},
             )
             MULTI_LAYERS[:] = saved_layers
+
         else:
-            # Sparse position sampling: randomly subsample CoT positions per example
-            if _SPARSE_POSITIONS:
-                ctx_pos = sparse_sample_positions(
-                    ctx_pos, n_layers=n_layers_runtime,
-                )
-                num_pos = len(ctx_pos)
+            # Standard: all configured layers, apply position mode
+            sampled_pos = _apply_position_mode(base_positions)
+            ctx_pos = sampled_pos * n_layers_runtime
+            num_pos = len(ctx_pos)
 
-            # Last-position-only: keep only the final stride position per layer
-            if n_layers_runtime >= 1:
-                total = len(ctx_pos)
-                if total % n_layers_runtime == 0:
-                    K = total // n_layers_runtime
-                    if K > 0:
-                        new_ctx_pos = []
-                        for li in range(n_layers_runtime):
-                            chunk = ctx_pos[li * K : (li + 1) * K]
-                            new_ctx_pos.append(chunk[-1])
-                        ctx_pos = new_ctx_pos
-                        num_pos = len(ctx_pos)
-
-            # Re-expand positions if precomputed with fewer layers than runtime config.
+            # Re-expand positions if precomputed with fewer layers than runtime config
             if n_layers_runtime > 1 and len(ctx_pos) % n_layers_runtime != 0:
                 ctx_pos = base_positions * n_layers_runtime
                 num_pos = len(ctx_pos)
                 if not _reexpand_warned:
                     print(f"  [data] Re-expanding positions: -> {n_layers_runtime} layers (K={len(base_positions)})")
                     _reexpand_warned = True
-
-            # Override num_positions for pooling modes
-            full_ctx_pos = ctx_pos
-            if _POOLING_MODE != "none":
-                K_per_layer = num_pos // n_layers_runtime if n_layers_runtime else num_pos
-                pooled_K = _pooled_count_per_layer(K_per_layer, _POOLING_MODE)
-                num_pos = pooled_K * n_layers_runtime
-                ctx_pos = ctx_pos[:num_pos]
 
             dp = create_training_datapoint(
                 datapoint_type=item["datapoint_type"],
@@ -685,36 +451,32 @@ def dicts_to_training_data(
                 feature_idx=-1,
                 context_input_ids=item["context_input_ids"],
                 context_positions=ctx_pos,
-                meta_info={"full_context_positions": full_ctx_pos, "prompt": item["prompt"]} if _POOLING_MODE != "none" else {"prompt": item["prompt"]},
+                meta_info={"prompt": item["prompt"]},
             )
+
         training_data.append(dp)
 
     return training_data
 
 
-# ── Task registry (moved to tasks.py) ──
+def _apply_position_mode(base_positions: list[int]) -> list[int]:
+    """Apply POSITION_MODE to base (single-layer) positions.
 
-# ── Train-on-eval conversion ──
+    Modes:
+        "last_only": only the final stride position (fastest iteration)
+        "stochastic": random subsample via sparse_sample_positions
+        "all": use all stride positions
+    """
+    if not base_positions:
+        return base_positions
+    if POSITION_MODE == "last_only":
+        return base_positions[-1:]
+    elif POSITION_MODE == "stochastic":
+        return sparse_sample_positions(base_positions, n_layers=1)
+    return base_positions  # "all"
+
 
 # ── Training infrastructure ──
-def _wrap_hook_for_grad_ckpt(hook_fn):
-    """Wrap a steering hook so it clones the residual before modifying it.
-
-    Gradient checkpointing with use_reentrant=False tracks saved tensor counts.
-    The original hook creates per-batch autograd tensors via in-place modification,
-    causing a count mismatch during recomputation.  Cloning first makes both
-    passes identical.
-    """
-    def safe_hook(module, _input, output):
-        if isinstance(output, tuple):
-            resid, *rest = output
-            output = (resid.clone(), *rest)
-        else:
-            output = output.clone()
-        return hook_fn(module, _input, output)
-    return safe_hook
-
-
 def _example_context_len(dp: TrainingDataPoint) -> int:
     return len(dp.context_input_ids) if dp.context_input_ids is not None else len(dp.input_ids)
 
@@ -793,8 +555,6 @@ def train_features_batch(training_batch, model, submodule, steering_coefficient,
         device=device,
         dtype=dtype,
     )
-    # NOTE: _wrap_hook_for_grad_ckpt removed — only needed for use_reentrant=False.
-    # With use_reentrant=True the clone is unnecessary and wastes ~20GB on long sequences.
     tokenized_input = {
         "input_ids": training_batch.input_ids,
         "attention_mask": training_batch.attention_mask,
@@ -815,15 +575,6 @@ def _token_f1(prediction: str, reference: str) -> float:
     precision = len(common) / len(pred_tokens)
     recall = len(common) / len(ref_tokens)
     return 2 * precision * recall / (precision + recall)
-
-
-def _save_table_to_disk(log_dir: Path, name: str, global_step: int, columns: list[str], rows: list[list]):
-    """Save a wandb-style table to disk as nicely formatted JSON."""
-    log_dir.mkdir(parents=True, exist_ok=True)
-    records = [dict(zip(columns, row)) for row in rows]
-    path = log_dir / f"{name}_step{global_step}.json"
-    with open(path, "w") as f:
-        json.dump({"step": global_step, "name": name, "n": len(records), "rows": records}, f, indent=2, default=str)
 
 
 def _upload_checkpoint_to_hf(checkpoint_path: Path, args, global_step: int):
@@ -875,25 +626,6 @@ def _save_training_state(save_path: Path, global_step, optimizer, scheduler):
     torch.save(state, save_path / "training_state.pt")
 
 
-def _load_gemini_baselines(path: str = "logs/llm_monitor/results.json") -> dict[str, float]:
-    """Load Gemini LLM-monitor baselines keyed by eval name."""
-    import json
-    p = Path(path)
-    if not p.exists():
-        return {}
-    results = json.load(open(p))
-    baselines = {}
-    for eval_name, data in results.items():
-        m = data.get("metrics", {})
-        if "accuracy" in m:
-            baselines[eval_name] = ("acc", m["accuracy"])
-        elif "mean_token_f1" in m:
-            baselines[eval_name] = ("token_f1", m["mean_token_f1"])
-    return baselines
-
-_GEMINI_BASELINES: dict[str, tuple[str, float]] | None = None
-
-
 def _run_unified_eval(model, tokenizer, model_name, global_step, args, log_dir=None, no_activations=False):
     """Run all evals via unified eval loop."""
     import wandb
@@ -915,16 +647,17 @@ def _run_unified_eval(model, tokenizer, model_name, global_step, args, log_dir=N
 
     # Build wandb Tables for each task's per-example traces
     log_dict = dict(metrics) if metrics else {}
+    # Include samples_seen so wandb can correlate eval metrics with training x-axis
+    log_dict["train/samples_seen"] = global_step * getattr(args, "effective_batch_size", 256)
     if wandb.run and all_traces:
-        columns = ["question", "prompt", "prediction", "target"]
         for task_name, traces in all_traces.items():
-            table = wandb.Table(columns=columns)
+            table = wandb.Table(columns=["question", "expected", "predicted", "correct"])
             for t in traces:
                 table.add_data(
-                    t.get("question", ""),
-                    t.get("prompt", ""),
-                    t.get("prediction", ""),
-                    t.get("target", ""),
+                    t.get("question", "")[:200],
+                    t.get("expected", "")[:200],
+                    t.get("predicted", "")[:200],
+                    t.get("correct", "?"),
                 )
             log_dict[f"eval_table/{task_name}"] = table
 
@@ -1344,12 +1077,6 @@ def train(
                                 )
                                 loss = outputs.loss * loss_weight / grad_accum
                             torch.cuda.synchronize()
-                            _t3 = _time.monotonic()
-                            if global_step < 3:
-                                _ctx_lens = [len(dp.context_input_ids) for dp in chunk_list if dp.context_input_ids]
-                                _n_pos = [len(dp.positions) for dp in chunk_list if dp.positions]
-                                _inp_lens = [len(dp.input_ids) for dp in chunk_list]
-                                print(f"  [PROFILE step={global_step}] mat={_t1-_t0:.2f}s coll={_t2-_t1:.2f}s fwd={_t3-_t2:.2f}s | ctx={max(_ctx_lens) if _ctx_lens else 0} pos={max(_n_pos) if _n_pos else 0} inp={max(_inp_lens)} bs={len(chunk_list)}")
                     except torch.OutOfMemoryError:
                         if world_size > 1 or len(chunk_list) == 1:
                             raise
@@ -1587,13 +1314,9 @@ def apply_config(args, config: dict):
     # Activations
     if "activations" in config:
         a = config["activations"]
-        for key in ["stride", "position_encoding", "pe_alpha", "n_layers", "pooling",
-                    "sparse_positions", "single_position"]:
+        for key in ["stride", "n_layers", "position_mode"]:
             if key in a and not getattr(args, f"_cli_{key}", False):
-                if key == "pooling":
-                    setattr(args, "pooling_mode", a[key])
-                else:
-                    setattr(args, key, a[key])
+                setattr(args, key, a[key])
         if "layers" in a and not getattr(args, "_cli_layers", False):
             args.layers = a["layers"]  # list of ints, e.g. [9, 18, 27]
         if "layer_dropout" in a and not getattr(args, "_cli_layer_dropout", False):
@@ -1632,8 +1355,6 @@ def apply_config(args, config: dict):
         ab = config["ablations"]
         if ab.get("random_layers") and not getattr(args, "_cli_random_layers", False):
             args.random_layers = True
-        if ab.get("noise_activations") and not getattr(args, "_cli_noise_activations", False):
-            args.noise_activations = True
 
     # Model
     if "model" in config:
@@ -1729,10 +1450,9 @@ def main():
     parser.add_argument("--gradient-checkpointing", action="store_true", default=True)
     parser.add_argument("--no-gradient-checkpointing", dest="gradient_checkpointing",
                         action="store_false")
-    parser.add_argument("--position-encoding", action="store_true", default=False,
-                        help="Apply sinusoidal PE to activation vectors")
-    parser.add_argument("--pe-alpha", type=float, default=0.1,
-                        help="PE mixing coefficient (only used if --position-encoding)")
+    parser.add_argument("--position-mode", type=str, default="last_only",
+                        choices=["last_only", "stochastic", "all"],
+                        help="Position sampling: last_only (fastest), stochastic (random subsample), all")
     parser.add_argument("--task-order", choices=["shuffled", "sequential", "interleaved"], default="shuffled",
                         help="'shuffled' mixes all tasks; 'sequential' trains one at a time; 'interleaved' round-robin blocks")
     parser.add_argument("--interleave-blocks", type=int, default=50,
@@ -1781,8 +1501,6 @@ def main():
     # Ablations
     parser.add_argument("--random-layers", action="store_true", default=False,
                         help="Randomize layer count and indices per training sequence")
-    parser.add_argument("--noise-activations", action="store_true", default=False,
-                        help="Replace real activations with variance-matched Gaussian noise")
 
     # Eval / save
     parser.add_argument("--eval-steps", type=int, default=2000,
@@ -1791,16 +1509,6 @@ def main():
                         help="Save checkpoint every N steps (shuffled mode)")
     parser.add_argument("--no-step0-eval", action="store_true", default=False,
                         help="Skip evals at step 0 (for quick ablation launches)")
-    parser.add_argument("--pooling-mode", type=str, default="none",
-                        choices=["none", "windows", "single", "chunks5"],
-                        help="Activation pooling: none, windows (mean-pool token windows), single (1/layer), chunks5 (5/layer)")
-    parser.add_argument("--layer-pool", action="store_true", default=False,
-                        help="Average activations across all MULTI_LAYERS at each position (output=1 effective layer)")
-    parser.add_argument("--sparse-positions", action="store_true", default=False,
-                        help="Randomly subsample CoT positions per example (trains on sparse evidence)")
-    parser.add_argument("--single-position", action="store_true", default=False,
-                        help="Only feed the last CoT position per layer (single activation ablation)")
-    parser.add_argument("--rot13-start-step", type=int, default=2000)
     parser.add_argument("--start-step", type=int, default=None,
                         help="Starting global step (for resuming; 0 = restart data from beginning)")
     parser.add_argument("--eval-dir", default="data/evals")
@@ -1855,11 +1563,11 @@ def main():
     set_seed(args.seed)
 
     # Multi-layer config
-    global MULTI_LAYERS, NO_ACTIVATIONS, RANDOM_LAYERS, LAYER_DROPOUT, NOISE_ACTIVATIONS, _MODEL_N_LAYERS
+    global MULTI_LAYERS, NO_ACTIVATIONS, RANDOM_LAYERS, LAYER_DROPOUT, POSITION_MODE, _MODEL_N_LAYERS
     NO_ACTIVATIONS = getattr(args, "no_activations", False)
     RANDOM_LAYERS = getattr(args, "random_layers", False)
     LAYER_DROPOUT = getattr(args, "layer_dropout", False)
-    NOISE_ACTIVATIONS = getattr(args, "noise_activations", False)
+    POSITION_MODE = getattr(args, "position_mode", "last_only")
     from cot_utils import LAYER_COUNTS
     _MODEL_N_LAYERS = LAYER_COUNTS.get(args.model, 36)
     if hasattr(args, "layers") and args.layers:
@@ -1881,38 +1589,8 @@ def main():
             print(f"Layer dropout: ON (random non-empty subsets of {MULTI_LAYERS} per example)")
         if RANDOM_LAYERS:
             print("Ablation: RANDOM LAYERS (per-item random layer sampling)")
-        if NOISE_ACTIVATIONS:
-            print("Ablation: NOISE ACTIVATIONS (variance-matched Gaussian noise)")
-
-    # Position encoding config
-    global _PE_CONFIG
-    _PE_CONFIG["enabled"] = getattr(args, "position_encoding", False)
-    _PE_CONFIG["alpha"] = getattr(args, "pe_alpha", 0.1)
-    if rank == 0:
-        if _PE_CONFIG["enabled"]:
-            print(f"Position encoding: ON (alpha={_PE_CONFIG['alpha']})")
-        else:
-            print("Position encoding: OFF")
-
-    # Pooling mode
-    global _POOLING_MODE
-    _POOLING_MODE = getattr(args, "pooling_mode", "none")
-    if _POOLING_MODE != "none":
-        import evals.activation_cache as _cache_module
-        _cache_module._POOLING_MODE = _POOLING_MODE
-    # Sparse position sampling
-    global _SPARSE_POSITIONS
-    _SPARSE_POSITIONS = getattr(args, "sparse_positions", False)
-    # Single position mode
-    global _SINGLE_POSITION
-    _SINGLE_POSITION = getattr(args, "single_position", False)
-    if rank == 0:
+        print(f"Position mode: {POSITION_MODE}")
         print(f"Activation stride: {args.stride}")
-        print(f"Activation pooling: {_POOLING_MODE}")
-        if _SPARSE_POSITIONS:
-            print("Sparse position sampling: ON")
-        if _SINGLE_POSITION:
-            print("Single position mode: ON (last CoT position only)")
 
     tokenizer = load_tokenizer(args.model)
 

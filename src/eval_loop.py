@@ -420,6 +420,99 @@ def score_task(
         raise ValueError(f"No parser for {task_def.name!r} and unknown scoring {task_def.scoring}")
 
 
+def _per_example_correct(
+    task_name: str,
+    task_def: TaskDef,
+    prediction: str,
+    target: str,
+) -> str:
+    """Determine if a single prediction is correct. Returns 'yes', 'no', or a score string."""
+    # Parser-based tasks: compare parsed labels
+    parser = TASK_PARSERS.get(task_name)
+    if parser is not None:
+        gt = parser(target)
+        pr = parser(prediction)
+        if gt is None:
+            return "?"
+        if pr is None:
+            return "no (unparsed)"
+        return "yes" if pr["label"] == gt["label"] else "no"
+
+    # answer_trajectory: token F1 on label
+    if task_name == "answer_trajectory":
+        gt = _parse_trajectory(target)
+        pr = _parse_trajectory(prediction)
+        if gt is None:
+            return "?"
+        gt_toks = set(gt["label"].lower().split())
+        pr_toks = set(pr["label"].lower().split()) if pr else set()
+        if not gt_toks:
+            return "yes" if not pr_toks else "no"
+        if not pr_toks:
+            return "F1=0.00"
+        common = gt_toks & pr_toks
+        prec = len(common) / len(pr_toks)
+        rec = len(common) / len(gt_toks)
+        f1 = 2 * prec * rec / (prec + rec) if (prec + rec) > 0 else 0.0
+        return f"F1={f1:.2f}"
+
+    # Binary classification using task keywords
+    if task_def.scoring == ScoringMode.BINARY:
+        pos_kw, neg_kw = task_def.positive_keywords, task_def.negative_keywords
+        pos_label, neg_label = task_def.positive_label, task_def.negative_label
+        def _classify(text, use_label=False):
+            t = text.strip().lower()
+            if use_label:
+                if pos_label and pos_label.lower() in t:
+                    return pos_label
+                if neg_label and neg_label.lower() in t:
+                    return neg_label
+            for kw in sorted(neg_kw, key=len, reverse=True):
+                if kw.lower() in t:
+                    return neg_label
+            for kw in sorted(pos_kw, key=len, reverse=True):
+                if kw.lower() in t:
+                    return pos_label
+            return None
+        gt = _classify(target, use_label=True)
+        pr = _classify(prediction)
+        if gt is None:
+            return "?"
+        if pr is None:
+            return "no (unparsed)"
+        return "yes" if pr == gt else "no"
+
+    # Token F1
+    if task_def.scoring == ScoringMode.TOKEN_F1:
+        pred_set = set(prediction.lower().split())
+        tgt_set = set(target.lower().split())
+        if not tgt_set:
+            return "yes" if not pred_set else "no"
+        if not pred_set:
+            return "F1=0.00"
+        common = pred_set & tgt_set
+        prec = len(common) / len(pred_set)
+        rec = len(common) / len(tgt_set)
+        f1 = 2 * prec * rec / (prec + rec) if (prec + rec) > 0 else 0.0
+        return f"F1={f1:.2f}"
+
+    # Step accuracy
+    if task_def.scoring == ScoringMode.STEP_ACCURACY:
+        target_lower = target.lower().strip()
+        pred_lower = prediction.lower().strip()
+        if target_lower in ("none", "no insertion", "-1"):
+            return "yes" if any(w in pred_lower for w in ("none", "no insertion", "no step", "clean")) else "no"
+        target_nums = re.findall(r'\b(\d+)\b', target_lower)
+        pred_nums = re.findall(r'\b(\d+)\b', pred_lower)
+        if not target_nums:
+            return "?"
+        if pred_nums and abs(int(pred_nums[0]) - int(target_nums[0])) <= 1:
+            return "yes"
+        return "no"
+
+    return "?"
+
+
 def _primary_metric_name(task_name: str, scoring: ScoringMode) -> str:
     """Map task to its primary metric key."""
     if task_name == "answer_trajectory":
@@ -1023,10 +1116,10 @@ def _eval_single_task(
         for i, (pred, tgt) in enumerate(zip(predictions, targets)):
             item = test_data[i]
             traces.append({
-                "prompt": item.get("prompt", ""),
-                "prediction": pred,
-                "target": tgt,
                 "question": item.get("question", item.get("hinted_prompt", "")),
+                "expected": tgt,
+                "predicted": pred,
+                "correct": _per_example_correct(task_name, task_def, pred, tgt),
             })
         result["_traces"] = traces
         return result
@@ -1158,10 +1251,10 @@ def _eval_single_task(
     for i, (pred, tgt) in enumerate(zip(predictions, targets)):
         item = test_data[i]
         traces.append({
-            "prompt": item.get("prompt", ""),
-            "prediction": pred,
-            "target": tgt,
             "question": item.get("question", item.get("hinted_prompt", "")),
+            "expected": tgt,
+            "predicted": pred,
+            "correct": _per_example_correct(task_name, task_def, pred, tgt),
         })
     result["_traces"] = traces
 

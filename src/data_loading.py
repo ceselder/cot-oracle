@@ -95,9 +95,6 @@ def load_task_data(
             # (e.g. chunked_convqa/compqa use cot_prefix for activations)
             if task_def.cot_field != "cot_text" and task_def.cot_field in item:
                 item["cot_text"] = item[task_def.cot_field]
-            # Always recompute context_input_ids from text — never use precomputed
-            item.pop("context_input_ids", None)
-            item.pop("context_positions", None)
             data.append(item)
 
     if n is not None and len(data) > n:
