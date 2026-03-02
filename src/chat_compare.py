@@ -483,7 +483,7 @@ def build_answer_rating_prompt(question, prompt, answers):
         "Candidate answers:\n\n"
         + "\n".join(answer_blocks)
         + "\nReturn valid JSON only with this exact schema:\n"
-        + '{"ratings":[{"name":"system name","score":0,"note":"short justification"}],"summary":"one concise overall comparison"}'
+        + '{"ratings":[{"name":"system name","score":0,"note":"short justification"}],"summary":"2-4 short lines, one comparison point per line"}'
     )
 
 
@@ -1305,7 +1305,7 @@ class ChatCompareWebApp:
         <h3 style=\"margin-top:0\">Gemini Ratings</h3>
         <div class=\"muted small\">Gemini 2.5 Flash Lite scores each visible answer from 0 to 5.</div>
         <div id=\"ratingScores\" class=\"text-block\" style=\"margin-top:8px\">Run a comparison to generate ratings.</div>
-        <div id=\"ratingSummary\" class=\"muted small\" style=\"margin-top:8px\"></div>
+        <div id=\"ratingSummary\" class=\"muted small\" style=\"margin-top:8px;white-space:pre-wrap\"></div>
       </div>
       <div class=\"panel\">
         <div class=\"muted small\" id=\"logPath\"></div>
@@ -1352,7 +1352,7 @@ class ChatCompareWebApp:
     function compactText(text) { return (text || '').replace(/\\s+/g, ' ').trim(); }
     function renderRatings(ratings, summary) {
       document.getElementById('ratingScores').textContent = (ratings || []).map(item => `${item.name}: ${item.score}/5 - ${item.note}`).join('\\n') || 'Run a comparison to generate ratings.';
-      document.getElementById('ratingSummary').textContent = compactText(summary);
+      document.getElementById('ratingSummary').textContent = (summary || '').trim();
     }
     function selectedBaselines() { return Object.entries(baselineInputs).filter(([, input]) => input.checked).map(([name]) => name); }
     function patchscopesStrengths() {
