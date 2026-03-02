@@ -49,8 +49,8 @@ tasks:
     eval: true
 
   probe_sycophancy:
-    n: 15000
-    eval: true
+    n: 0        # dataset not yet on HF
+    eval: false
 
   truthfulqa_hint_verbalized:
     n: 4000
