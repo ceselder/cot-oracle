@@ -1352,16 +1352,28 @@ def train(
                                 loss = outputs.loss * loss_weight / grad_accum
                         else:
                             # Standard steering path
+                            import time as _time
+                            _t0 = _time.monotonic()
                             chunk_list = materialize_multilayer_steering_vectors(
                                 chunk_list, tokenizer, model
                             )
+                            torch.cuda.synchronize()
+                            _t1 = _time.monotonic()
                             batch = construct_batch(chunk_list, tokenizer, device)
+                            _t2 = _time.monotonic()
                             with torch.autocast(device_type="cuda", dtype=dtype):
                                 outputs = train_features_batch(
                                     batch, ddp_model, submodule,
                                     args.steering_coefficient, device, dtype,
                                 )
                                 loss = outputs.loss * loss_weight / grad_accum
+                            torch.cuda.synchronize()
+                            _t3 = _time.monotonic()
+                            if global_step < 3:
+                                _ctx_lens = [len(dp.context_input_ids) for dp in chunk_list if dp.context_input_ids]
+                                _n_pos = [len(dp.positions) for dp in chunk_list if dp.positions]
+                                _inp_lens = [len(dp.input_ids) for dp in chunk_list]
+                                print(f"  [PROFILE step={global_step}] mat={_t1-_t0:.2f}s coll={_t2-_t1:.2f}s fwd={_t3-_t2:.2f}s | ctx={max(_ctx_lens) if _ctx_lens else 0} pos={max(_n_pos) if _n_pos else 0} inp={max(_inp_lens)} bs={len(chunk_list)}")
                     except torch.OutOfMemoryError:
                         if world_size > 1 or len(chunk_list) == 1:
                             raise
