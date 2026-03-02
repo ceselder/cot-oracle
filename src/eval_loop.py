@@ -661,6 +661,115 @@ def _batched_oracle_generate(
     return all_responses
 
 
+# ── Text-baseline generation (no activations) ──
+
+_ACT_PREFIX_RE = re.compile(r'^Activations from \d+ positions[^.]*\.\s*')
+
+
+def _text_baseline_generate(
+    model,
+    tokenizer,
+    items: list[tuple[str, str]],  # (cot_text, oracle_prompt)
+    device: str = "cuda",
+    max_new_tokens: int = 64,
+    eval_batch_size: int = 8,
+    oracle_adapter_name: str | None = "default",
+) -> list[str]:
+    """Batched generation for text-baseline (no activations, no steering hooks).
+
+    Builds prompt: "Chain of thought: {cot_text}\\n\\n{task_prompt}" and generates normally.
+    """
+    if not items:
+        return []
+
+    _ensure_ao_imports()
+    _active_adapter_name = _ao_modules["_active_adapter_name"]
+
+    eval_batch_size = max(1, int(eval_batch_size))
+    pad_id = tokenizer.pad_token_id or tokenizer.eos_token_id
+
+    # Tokenize all items
+    all_input_ids: list[list[int]] = []
+    for cot_text, oracle_prompt in items:
+        task_prompt = _ACT_PREFIX_RE.sub("", oracle_prompt)
+        prompt = f"Chain of thought: {cot_text}\n\n{task_prompt}"
+        messages = [{"role": "user", "content": prompt}]
+        formatted = tokenizer.apply_chat_template(
+            messages, tokenize=False, add_generation_prompt=True, enable_thinking=False,
+        )
+        input_ids = tokenizer.encode(formatted, add_special_tokens=False)
+        all_input_ids.append(input_ids)
+
+    # Set adapter
+    previous_adapter = _active_adapter_name(model)
+    if oracle_adapter_name is not None:
+        model.set_adapter(oracle_adapter_name)
+
+    was_training = model.training
+    model.eval()
+
+    # Generate in mini-batches with OOM splitting
+    sorted_indices = sorted(range(len(items)), key=lambda i: len(all_input_ids[i]))
+    all_responses: list[str] = [""] * len(items)
+
+    try:
+        for group_start in range(0, len(sorted_indices), eval_batch_size):
+            initial_indices = sorted_indices[group_start:group_start + eval_batch_size]
+            pending_groups: list[list[int]] = [initial_indices]
+
+            while pending_groups:
+                batch_indices = pending_groups.pop(0)
+                try:
+                    batch_ids = [all_input_ids[i] for i in batch_indices]
+                    max_len = max(len(ids) for ids in batch_ids)
+                    padded_ids = []
+                    attention_masks = []
+
+                    for ids in batch_ids:
+                        pad_len = max_len - len(ids)
+                        padded_ids.append([pad_id] * pad_len + ids)
+                        attention_masks.append([0] * pad_len + [1] * len(ids))
+
+                    input_tensor = torch.tensor(padded_ids, device=device)
+                    attn_mask = torch.tensor(attention_masks, device=device)
+
+                    outputs = model.generate(
+                        input_ids=input_tensor,
+                        attention_mask=attn_mask,
+                        max_new_tokens=max_new_tokens,
+                        do_sample=False,
+                        pad_token_id=pad_id,
+                    )
+
+                    for j, item_idx in enumerate(batch_indices):
+                        generated = outputs[j][max_len:]
+                        all_responses[item_idx] = tokenizer.decode(
+                            generated, skip_special_tokens=True,
+                        )
+
+                except Exception as e:
+                    msg = str(e).lower()
+                    is_oom = "out of memory" in msg or "cuda oom" in msg
+                    if is_oom and len(batch_indices) > 1:
+                        mid = len(batch_indices) // 2
+                        pending_groups.insert(0, batch_indices[mid:])
+                        pending_groups.insert(0, batch_indices[:mid])
+                        torch.cuda.empty_cache()
+                        continue
+                    print(f"    [eval] Mini-batch of {len(batch_indices)} failed: {e}")
+                    if is_oom:
+                        torch.cuda.empty_cache()
+    finally:
+        if was_training:
+            model.train()
+        if (previous_adapter
+                and previous_adapter in getattr(model, "peft_config", {})
+                and previous_adapter != oracle_adapter_name):
+            model.set_adapter(previous_adapter)
+
+    return all_responses
+
+
 # ── Main eval entry point ──
 
 
@@ -677,6 +786,7 @@ def run_eval(
     skip_rot13: bool = True,
     activation_extract_batch_size: int = 4,
     stride: int = 5,
+    no_activations: bool = False,
 ) -> dict[str, float]:
     """Run eval for all (or specified) tasks.
 
@@ -715,6 +825,7 @@ def run_eval(
                 oracle_adapter_name=oracle_adapter_name,
                 activation_extract_batch_size=activation_extract_batch_size,
                 stride=stride,
+                no_activations=no_activations,
             )
             elapsed = time.time() - t0
 
@@ -785,8 +896,75 @@ def _eval_single_task(
     oracle_adapter_name: str,
     activation_extract_batch_size: int,
     stride: int = 5,
+    no_activations: bool = False,
 ) -> dict[str, float]:
-    """Eval a single task with activation caching."""
+    """Eval a single task with activation caching (or text-baseline mode)."""
+
+    # ── No-activations (text-baseline) path ──
+    if no_activations:
+        cache_key = f"noact:{task_name}"
+        if cache_key in _eval_cache:
+            test_data = _eval_cache[cache_key].test_data
+        else:
+            # Skip FutureLens in text-baseline mode
+            if task_name == "futurelens":
+                return {"n": 0}
+
+            try:
+                test_data = load_task_data(task_name, split="test", n=max_items, shuffle=False)
+            except Exception:
+                test_data = []
+            if not test_data:
+                test_data = load_task_data(task_name, split="train", n=max_items, shuffle=False)
+            if not test_data:
+                return {"n": 0}
+
+            # Normalize field names
+            for item in test_data:
+                if "meta_spliced_cot_text" in item and "cot_text" not in item:
+                    item["cot_text"] = item["meta_spliced_cot_text"]
+                if "test_prompt" in item and "question" not in item:
+                    item["question"] = item["test_prompt"]
+                if "target_response" not in item and "meta_oracle_target" in item:
+                    item["target_response"] = str(item["meta_oracle_target"])
+
+            test_data = [d for d in test_data if d.get("cot_text")]
+            if not test_data:
+                return {"n": 0}
+
+            # Cache test data (no activations to store)
+            _eval_cache[cache_key] = _CachedEvalData(
+                test_data=test_data, activations=[],
+            )
+
+        # Build (cot_text, prompt) pairs
+        text_items = [
+            (item["cot_text"], item["prompt"])
+            for item in test_data
+        ]
+        predictions = _text_baseline_generate(
+            model=model,
+            tokenizer=tokenizer,
+            items=text_items,
+            device=device,
+            max_new_tokens=task_def.max_new_tokens,
+            eval_batch_size=eval_batch_size,
+            oracle_adapter_name=oracle_adapter_name,
+        )
+
+        targets = [item["target_response"] for item in test_data]
+        n_samples = min(5, len(predictions))
+        if n_samples > 0:
+            print(f"    [{task_name}] Sample predictions (first {n_samples}):")
+            for i in range(n_samples):
+                pred_short = predictions[i][:80].replace("\n", " ")
+                tgt_short = targets[i][:80].replace("\n", " ")
+                print(f"      pred: {pred_short}")
+                print(f"      tgt:  {tgt_short}")
+
+        return score_task(task_def, predictions, targets, tokenizer=tokenizer)
+
+    # ── Standard activation-based path ──
     # Check cache
     if task_name in _eval_cache:
         cached = _eval_cache[task_name]

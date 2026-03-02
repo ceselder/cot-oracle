@@ -559,18 +559,13 @@ def dicts_to_training_data(
         _act_prefix_re = re.compile(r'^Activations from \d+ positions[^.]*\.\s*')
         _printed_sample = False
         for item in raw_data:
-            # Decode context_input_ids to recover CoT text
-            raw_text = tokenizer.decode(item["context_input_ids"], skip_special_tokens=False)
-            # Extract user question
-            user_match = re.search(r'<\|im_start\|>user\n(.*?)<\|im_end\|>', raw_text, re.DOTALL)
-            user_question = user_match.group(1).strip() if user_match else ""
-            # Extract CoT (assistant turn — may lack closing tag since context is truncated)
-            assistant_match = re.search(r'<\|im_start\|>assistant\n(.*?)(?:<\|im_end\|>|$)', raw_text, re.DOTALL)
-            cot_text = assistant_match.group(1).strip() if assistant_match else ""
-            # Strip activation metadata to get task question
-            task_question = _act_prefix_re.sub("", item["prompt"])
-            # Build text-only prompt: question + CoT + task
-            prompt = f"Question: {user_question}\nChain of thought: {cot_text}\n\n{task_question}"
+            cot_text = item.get("cot_text", "")
+            if not cot_text:
+                continue
+            # Strip "Activations from N positions..." prefix to get the task prompt
+            task_prompt = _act_prefix_re.sub("", item["prompt"])
+            # No user question — activation oracle only sees CoT activations, not the question
+            prompt = f"Chain of thought: {cot_text}\n\n{task_prompt}"
 
             if not _printed_sample:
                 print(f"  [no-activations] Sample prompt ({item['datapoint_type']}):\n    {prompt[:300]}...")
@@ -585,7 +580,6 @@ def dicts_to_training_data(
             labels = full_ids.copy()
             for i in range(len(prompt_ids)):
                 labels[i] = -100
-            # Use a dummy steering vector so pydantic validator doesn't require context_*
             dp = TrainingDataPoint(
                 input_ids=full_ids, labels=labels, layer=0,
                 steering_vectors=torch.zeros(0, 1), positions=[],
@@ -952,6 +946,7 @@ def _run_unified_eval(model, tokenizer, model_name, global_step, args, log_dir=N
         device="cuda",
         layers=MULTI_LAYERS,
         stride=stride_val,
+        no_activations=no_activations,
     )
     if metrics:
         wandb.log(metrics, step=global_step)
@@ -2093,8 +2088,9 @@ def main():
 
     raw_data = load_all_training_data(task_config)
 
-    # FutureLens (corpus-based, needs tokenizer)
-    if futurelens_n > 0:
+    # FutureLens (corpus-based, needs tokenizer) — skip in no-activations mode
+    # (FutureLens items have no cot_text and the task isn't meaningful for text-baseline)
+    if futurelens_n > 0 and not NO_ACTIVATIONS:
         from data_loading import load_futurelens_data
         if rank == 0:
             print(f"  [data] Generating {futurelens_n} FutureLens examples from corpus...")
@@ -2135,20 +2131,27 @@ def main():
         cleanup_distributed()
         return
 
-    # Tokenize cot_text → context_input_ids for items that don't have them yet
-    from data_loading import prepare_context_ids
     stride_val = int(args.stride) if args.stride and args.stride != "punctuation" else 5
-    prepare_context_ids(
-        raw_data, tokenizer,
-        stride=stride_val,
-        layers=MULTI_LAYERS,
-    )
+    if not NO_ACTIVATIONS:
+        # Tokenize cot_text → context_input_ids for items that don't have them yet
+        from data_loading import prepare_context_ids
+        prepare_context_ids(
+            raw_data, tokenizer,
+            stride=stride_val,
+            layers=MULTI_LAYERS,
+        )
 
-    # Drop items that still lack context_input_ids (e.g. empty cot_text)
-    before = len(raw_data)
-    raw_data = [d for d in raw_data if d.get("context_input_ids")]
-    if len(raw_data) < before and rank == 0:
-        print(f"  [data] Dropped {before - len(raw_data)} items without context_input_ids")
+        # Drop items that still lack context_input_ids (e.g. empty cot_text)
+        before = len(raw_data)
+        raw_data = [d for d in raw_data if d.get("context_input_ids")]
+        if len(raw_data) < before and rank == 0:
+            print(f"  [data] Dropped {before - len(raw_data)} items without context_input_ids")
+    else:
+        # Text-only mode: filter for items with cot_text (no activations needed)
+        before = len(raw_data)
+        raw_data = [d for d in raw_data if d.get("cot_text")]
+        if len(raw_data) < before and rank == 0:
+            print(f"  [data] Dropped {before - len(raw_data)} items without cot_text (no-activations mode)")
 
     random.shuffle(raw_data)
 

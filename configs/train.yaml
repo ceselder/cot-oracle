@@ -88,6 +88,10 @@ training:
   max_train_tokens_per_gpu: 32768
   seed: 42
 
+# Text-baseline (no activations — receives CoT as plain text instead of activation vectors)
+no_activations:
+  enabled: false
+
 # Flamingo cross-attention
 flamingo:
   enabled: false
