@@ -27,8 +27,8 @@ from tqdm.auto import tqdm
 OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY", "")
 MODEL = "google/gemini-3-flash-preview"
 DATASETS = {
-    "unverbalized": "mats-10-sprint-cs-jb/cot-oracle-eval-hinted-mcq-truthfulqa-unverbalized",
-    "verbalized": "mats-10-sprint-cs-jb/cot-oracle-eval-hinted-mcq-truthfulqa-verbalized",
+    "unverbalized": "mats-10-sprint-cs-jb/cot-oracle-truthfulqa-hint-cleaned",
+    "verbalized": "mats-10-sprint-cs-jb/cot-oracle-truthfulqa-hint-verbalized-cleaned",
 }
 LOG_DIR = Path("logs/gemini_monitor")
 
