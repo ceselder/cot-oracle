@@ -754,12 +754,17 @@ async def main():
                 "gt_dist": dict(Counter(gt_labels)),
             }
 
-    # Save
+    # Save (merge with existing results to avoid overwriting)
     out_path = Path(args.output)
-    out_path.mkdir(parents=True, exist_ok=True) if not out_path.parent.exists() else None
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    existing = {}
+    if out_path.exists():
+        with open(out_path) as f:
+            existing = json.load(f)
+    existing.update(all_results)
     with open(out_path, "w") as f:
-        json.dump(all_results, f, indent=2)
-    print(f"\nSaved to {out_path}")
+        json.dump(existing, f, indent=2)
+    print(f"\nSaved to {out_path} ({len(existing)} datasets)")
 
     # Summary
     print(f"\n{'=' * 50}")
