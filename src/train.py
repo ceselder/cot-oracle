@@ -663,36 +663,18 @@ def dicts_to_training_data(
                 )
                 num_pos = len(ctx_pos)
 
-            # Suffix-based position sampling (50/50):
-            #   50% → only the last 1 position per layer (minimal context)
-            #   50% → sample m uniformly from 1..K, take last m positions per layer
-            # Positions are always a contiguous suffix up to the prediction barrier.
-            if not _SINGLE_POSITION and n_layers_runtime >= 1:
+            # Last-position-only: keep only the final stride position per layer
+            if n_layers_runtime >= 1:
                 total = len(ctx_pos)
                 if total % n_layers_runtime == 0:
                     K = total // n_layers_runtime
-                    if K > 1:
-                        if random.random() < 0.5:
-                            # Last-only: single activation at the barrier
-                            m = 1
-                        else:
-                            # Uniform sample: random suffix length from 1..K
-                            m = random.randint(1, K)
-                        if m < K:
-                            # Take last m positions from each layer's chunk
-                            new_ctx_pos = []
-                            for li in range(n_layers_runtime):
-                                chunk = ctx_pos[li * K : (li + 1) * K]
-                                new_ctx_pos.extend(chunk[K - m:])
-                            ctx_pos = new_ctx_pos
-                            num_pos = len(ctx_pos)
-            elif _SINGLE_POSITION and n_layers_runtime >= 1:
-                total = len(ctx_pos)
-                if total % n_layers_runtime == 0:
-                    K = total // n_layers_runtime
-                    last_pos = ctx_pos[K - 1]
-                    ctx_pos = [last_pos] * n_layers_runtime
-                    num_pos = len(ctx_pos)
+                    if K > 0:
+                        new_ctx_pos = []
+                        for li in range(n_layers_runtime):
+                            chunk = ctx_pos[li * K : (li + 1) * K]
+                            new_ctx_pos.append(chunk[-1])
+                        ctx_pos = new_ctx_pos
+                        num_pos = len(ctx_pos)
 
             # Re-expand positions if precomputed with fewer layers than runtime config.
             if n_layers_runtime > 1 and len(ctx_pos) % n_layers_runtime != 0:
