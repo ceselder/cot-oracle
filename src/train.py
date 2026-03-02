@@ -231,7 +231,7 @@ def materialize_multilayer_steering_vectors(
         per_item_layers = [layers] * len(to_fill)
 
     pad_id = tokenizer.pad_token_id
-    MAX_CONTEXT_TOKENS = 4096  # Cap materialization to avoid 15K+ outliers blowing up batch time
+    MAX_CONTEXT_TOKENS = 1024  # Left-truncate materialization context (old precomputed data was ~180 tokens)
     contexts = [list(dp.context_input_ids) for _, dp in to_fill]
     # When pooling, use full positions from meta_info (context_positions was truncated for validator)
     positions_per_item = []
@@ -636,7 +636,25 @@ def dicts_to_training_data(
             # Random non-empty subset of configured layers per item
             k = random.randint(1, len(MULTI_LAYERS))
             sampled = sorted(random.sample(MULTI_LAYERS, k))
-            ctx_pos = base_positions * len(sampled)
+            n_sampled = len(sampled)
+
+            # 50/50 suffix sampling (same as non-dropout path):
+            #   50% → only the last 1 position per layer (minimal context)
+            #   50% → sample m uniformly from 1..K, take last m positions per layer
+            K = len(base_positions)
+            if K > 1:
+                if random.random() < 0.5:
+                    m = 1
+                else:
+                    m = random.randint(1, K)
+                if m < K:
+                    suffix_pos = base_positions[K - m:]
+                else:
+                    suffix_pos = base_positions
+            else:
+                suffix_pos = base_positions
+
+            ctx_pos = suffix_pos * n_sampled
             num_pos = len(ctx_pos)
 
             saved_layers = MULTI_LAYERS[:]
