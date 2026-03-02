@@ -811,10 +811,51 @@ def _eval_single_task(
         if not test_data:
             return {"n": 0}
 
+        # Normalize field names for special eval datasets
+        for item in test_data:
+            # sentence_insertion: map spliced CoT and prompt fields
+            if "meta_spliced_cot_text" in item and "cot_text" not in item:
+                item["cot_text"] = item["meta_spliced_cot_text"]
+            if "test_prompt" in item and "question" not in item:
+                item["question"] = item["test_prompt"]
+            # Build target_response from meta fields if missing
+            if "target_response" not in item and "meta_oracle_target" in item:
+                item["target_response"] = str(item["meta_oracle_target"])
+
         # Prepare context_input_ids for items with cot_text (futurelens already has them)
         prepare_context_ids(
             test_data, tokenizer, stride=stride, layers=layers,
         )
+
+        # Re-stride precomputed items to match training stride
+        from cot_utils import get_cot_stride_positions
+        n_layers = len(layers)
+        re_strided = 0
+        for item in test_data:
+            if not item.get("context_input_ids") or not item.get("context_positions"):
+                continue
+            old_pos = item["context_positions"]
+            old_K = len(old_pos) // n_layers
+            if old_K < 2:
+                continue
+            # Detect old stride from position spacing
+            layer0_pos = old_pos[:old_K]
+            old_stride = layer0_pos[1] - layer0_pos[0] if old_K >= 2 else stride
+            if old_stride == stride:
+                continue
+            # Recompute: stride over the CoT region (first position to last)
+            cot_start = layer0_pos[0]
+            cot_end = layer0_pos[-1]
+            new_layer_pos = list(range(cot_start, cot_end + 1, stride))
+            if new_layer_pos[-1] != cot_end:
+                new_layer_pos.append(cot_end)
+            new_pos = new_layer_pos * n_layers
+            item["context_positions"] = new_pos
+            item["num_positions"] = len(new_pos)
+            re_strided += 1
+        if re_strided > 0:
+            print(f"  [eval] Re-strided {re_strided} precomputed items to stride={stride}")
+
         test_data = [d for d in test_data if d.get("context_input_ids")]
         if not test_data:
             return {"n": 0}
@@ -854,4 +895,15 @@ def _eval_single_task(
     )
 
     targets = [item["target_response"] for item in test_data]
+
+    # Log sample predictions vs targets
+    n_samples = min(5, len(predictions))
+    if n_samples > 0:
+        print(f"    [{task_name}] Sample predictions (first {n_samples}):")
+        for i in range(n_samples):
+            pred_short = predictions[i][:80].replace("\n", " ")
+            tgt_short = targets[i][:80].replace("\n", " ")
+            print(f"      pred: {pred_short}")
+            print(f"      tgt:  {tgt_short}")
+
     return score_task(task_def, predictions, targets, tokenizer=tokenizer)
