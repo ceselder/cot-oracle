@@ -167,6 +167,9 @@ def _score_parsed(
             if isinstance(gt_val, (int, float)) and key in pr:
                 numeric_errors.setdefault(key, []).append(abs(pr[key] - gt_val))
 
+    if unparsed > 0:
+        print(f"  ⚠ PARSE FAILURE: {unparsed}/{total} predictions unparseable (counted as wrong)")
+
     result: dict[str, float] = {
         "accuracy": correct / total if total > 0 else 0.0,
         "n": total,
