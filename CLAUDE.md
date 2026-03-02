@@ -62,7 +62,8 @@ We use Sparse Autoencoders (SAEs) from `adamkarvonen/qwen3-8b-saes` to get inter
 - **Use Docker-based launch** (`scripts/vast_launch_docker.sh`) — pre-baked image skips uv sync + rsync.
 
 ## Workflow
-- **Push after every notable change.** Commit and push to remote after completing any meaningful unit of work (bug fix, feature, refactor). Don't accumulate uncommitted changes.
+- **Push after every notable change.** Commit and push to remote after completing any meaningful unit of work (bug fix, feature, refactor). Don't accumulate uncommitted changes. Hold of pushing if the current user is Jan Bauer. 
+- **After every W&B run, explicitly pull artifacts to local disk.** The local `wandb/run-*` cache is not a substitute for downloading artifacts from W&B. After each run finishes, download the logged artifacts into the matching `eval_logs/<datetime>_<runname>/` directory, using the same datetime-prefixed naming convention as the rest of `eval_logs` and without creating an extra wrapper directory.
 
 ## Critical Lessons
 - **Mini corpus memorization:** 1,064 entries x 15K = 14x repetition → loss=0.01. Use medium corpus (47K+).

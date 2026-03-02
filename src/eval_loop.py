@@ -11,15 +11,17 @@ Activations are cached across eval steps (base model is frozen during LoRA train
 from __future__ import annotations
 
 import gc
+import json
 import re
 import time
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 import torch
 
 from tasks import TASKS, TaskDef, ScoringMode, get_eval_tasks
-from data_loading import load_task_data, load_futurelens_data, prepare_context_ids
+from data_loading import load_task_data, load_cot_readout_task_data, load_fineweb_readout_task_data, prepare_context_ids
 
 
 # ── Per-task response parsers ──
@@ -132,6 +134,20 @@ TASK_PARSERS: dict[str, Any] = {
 # ── Scoring ──
 
 
+def _label_baselines(labels: list[str]) -> dict[str, float]:
+    """Compute random-guess and majority-class accuracy from a list of labels."""
+    if not labels:
+        return {}
+    from collections import Counter
+    counts = Counter(labels)
+    n_classes = len(counts)
+    majority_count = max(counts.values())
+    return {
+        "random_baseline": 1.0 / n_classes,
+        "majority_baseline": majority_count / len(labels),
+    }
+
+
 def _score_parsed(
     parser,
     predictions: list[str],
@@ -145,11 +161,13 @@ def _score_parsed(
     total = 0
     unparsed = 0
     numeric_errors: dict[str, list[float]] = {}
+    target_labels: list[str] = []
 
     for pred_text, target_text in zip(predictions, targets):
         gt = parser(target_text)
         if gt is None:
             continue
+        target_labels.append(gt["label"])
 
         pr = parser(pred_text)
         if pr is None:
@@ -171,6 +189,7 @@ def _score_parsed(
         "accuracy": correct / total if total > 0 else 0.0,
         "n": total,
         "unparsed": unparsed,
+        **_label_baselines(target_labels),
     }
     for key, errs in numeric_errors.items():
         result[f"{key}_mae"] = sum(errs) / len(errs)
@@ -277,6 +296,7 @@ def _score_step_accuracy(
 
     correct = 0
     total = 0
+    target_labels: list[str] = []
 
     for pred_text, target in zip(predictions, targets):
         total += 1
@@ -284,6 +304,7 @@ def _score_step_accuracy(
         target_lower = target.lower().strip()
 
         if target_lower in ("none", "no insertion", "-1"):
+            target_labels.append("none")
             if any(w in pred_lower for w in ("none", "no insertion", "no step", "clean")):
                 correct += 1
             continue
@@ -295,6 +316,7 @@ def _score_step_accuracy(
             continue
 
         target_step = int(target_nums[0])
+        target_labels.append(str(target_step))
         if pred_nums:
             pred_step = int(pred_nums[0])
             if abs(pred_step - target_step) <= 1:
@@ -303,6 +325,7 @@ def _score_step_accuracy(
     return {
         "step_accuracy": correct / total if total > 0 else 0.0,
         "n": total,
+        **_label_baselines(target_labels),
     }
 
 
@@ -554,8 +577,7 @@ def _batched_oracle_generate(
         N = len(layer_list)
         K = num_positions // N
         assert K * N == num_positions, f"num_positions={num_positions} not divisible by {N} layers"
-        parts = [f"L{l}:" + ph_token * K for l in layer_list]
-        prefix = " ".join(parts) + "\n"
+        prefix = "Activations: " + ph_token * num_positions + "\n"
         full_prompt = prefix + oracle_prompt
 
         messages = [{"role": "user", "content": full_prompt}]
@@ -661,6 +683,13 @@ def _batched_oracle_generate(
 # ── Main eval entry point ──
 
 
+def _save_trace_json(path: Path, task_name: str, traces: list[dict], step: int | None):
+    """Save eval traces to a JSON file on disk."""
+    record = {"step": step, "name": f"eval_table_{task_name}", "n": len(traces), "rows": traces}
+    with open(path, "w") as f:
+        json.dump(record, f, indent=2, default=str)
+
+
 def run_eval(
     model,
     tokenizer,
@@ -673,12 +702,16 @@ def run_eval(
     oracle_adapter_name: str = "default",
     skip_rot13: bool = True,
     activation_extract_batch_size: int = 4,
-    stride: int = 5,
-) -> dict[str, float]:
+    max_new_tokens_cap: int | None = None,
+    stride: int | str = "poisson",
+    log_dir: Path | None = None,
+    global_step: int | None = None,
+) -> tuple[dict[str, float], dict[str, list[dict]]]:
     """Run eval for all (or specified) tasks.
 
     Caches activations across calls (base model is frozen during LoRA training).
-    Returns flat metrics dict for wandb.log().
+    Returns (metrics_dict, traces_dict) where traces_dict maps task_name -> list of trace dicts.
+    If log_dir is set, also saves per-task trace JSONs to disk.
     """
     if layers is None:
         layers = [9, 18, 27]
@@ -690,6 +723,7 @@ def run_eval(
         tasks_to_eval = all_tasks
 
     metrics: dict[str, float] = {}
+    all_traces: dict[str, list[dict]] = {}
     # Collect rows for summary table: (task_name, metric_name, score, extras_str, elapsed)
     table_rows: list[tuple[str, str, float, str, float]] = []
 
@@ -711,19 +745,35 @@ def run_eval(
                 injection_layer=injection_layer,
                 oracle_adapter_name=oracle_adapter_name,
                 activation_extract_batch_size=activation_extract_batch_size,
+                max_new_tokens_cap=max_new_tokens_cap,
                 stride=stride,
             )
             elapsed = time.time() - t0
+
+            # Extract per-example traces
+            traces = result.pop("_traces", [])
+            if traces:
+                all_traces[task_name] = traces
+            if log_dir and traces:
+                log_dir.mkdir(parents=True, exist_ok=True)
+                step_tag = f"_step{global_step}" if global_step is not None else ""
+                trace_path = log_dir / f"eval_table_{task_name}{step_tag}.json"
+                _save_trace_json(trace_path, task_name, traces, global_step)
 
             primary_metric = _primary_metric_name(task_name, task_def.scoring)
             primary_score = result.get(primary_metric, 0.0)
             metrics[f"eval/{task_name}"] = primary_score
             metrics[f"eval_n/{task_name}"] = result.get("n", 0)
 
+            # Baselines
+            for bkey in ("random_baseline", "majority_baseline"):
+                if bkey in result:
+                    metrics[f"eval/{task_name}_{bkey}"] = result[bkey]
+
             # Side-metrics
             extras = []
             for key, val in sorted(result.items()):
-                if key in (primary_metric, "n", "unparsed"):
+                if key in (primary_metric, "n", "unparsed", "random_baseline", "majority_baseline"):
                     continue
                 if key.endswith("_mae"):
                     short = key.replace("_mae", "")
@@ -731,16 +781,19 @@ def run_eval(
                     metrics[f"eval/{task_name}_{key}"] = val
 
             metrics[f"eval_time/{task_name}"] = elapsed
+            baselines_str = ""
+            if "random_baseline" in result:
+                baselines_str = f"rnd={result['random_baseline']:.2f} maj={result['majority_baseline']:.2f}"
             table_rows.append((
                 task_name, primary_metric, primary_score,
-                "  ".join(extras), elapsed,
+                baselines_str, "  ".join(extras), elapsed,
             ))
 
         except Exception as e:
             elapsed = time.time() - t0
             print(f"  [eval] {task_name} FAILED: {e}")
             metrics[f"eval/{task_name}_error"] = 1.0
-            table_rows.append((task_name, "ERROR", 0.0, str(e)[:40], elapsed))
+            table_rows.append((task_name, "ERROR", 0.0, "", str(e)[:40], elapsed))
 
         gc.collect()
         torch.cuda.empty_cache()
@@ -749,21 +802,21 @@ def run_eval(
     if table_rows:
         _print_eval_table(table_rows)
 
-    return metrics
+    return metrics, all_traces
 
 
-def _print_eval_table(rows: list[tuple[str, str, float, str, float]]):
+def _print_eval_table(rows: list[tuple[str, str, float, str, str, float]]):
     """Print a formatted eval summary table."""
     name_w = max(len(r[0]) for r in rows) + 2
-    print(f"\n  {'Task':<{name_w}} {'Metric':<12} {'Score':>7}  {'Extra':<30} {'Time':>6}")
-    print(f"  {'─' * (name_w + 60)}")
+    print(f"\n  {'Task':<{name_w}} {'Metric':<12} {'Score':>7}  {'Baselines':<20} {'Extra':<20} {'Time':>6}")
+    print(f"  {'─' * (name_w + 70)}")
     total_time = 0.0
-    for name, metric, score, extras, elapsed in rows:
+    for name, metric, score, baselines, extras, elapsed in rows:
         total_time += elapsed
         score_s = f"{score:.3f}" if metric != "ERROR" else "  -  "
         metric_s = metric[:10]
-        print(f"  {name:<{name_w}} {metric_s:<12} {score_s:>7}  {extras:<30} {elapsed:>5.1f}s")
-    print(f"  {'─' * (name_w + 60)}")
+        print(f"  {name:<{name_w}} {metric_s:<12} {score_s:>7}  {baselines:<20} {extras:<20} {elapsed:>5.1f}s")
+    print(f"  {'─' * (name_w + 70)}")
     print(f"  {len(rows)} tasks in {total_time:.1f}s\n")
 
 
@@ -779,7 +832,8 @@ def _eval_single_task(
     injection_layer: int,
     oracle_adapter_name: str,
     activation_extract_batch_size: int,
-    stride: int = 5,
+    max_new_tokens_cap: int | None = None,
+    stride: int | str = "poisson",
 ) -> dict[str, float]:
     """Eval a single task with activation caching."""
     # Check cache
@@ -789,11 +843,26 @@ def _eval_single_task(
         all_activations = [a.to(device) for a in cached.activations]
     else:
         # Load test data
-        if task_name == "futurelens":
-            # FutureLens constructs examples from corpus (needs tokenizer)
-            test_data = load_futurelens_data(
-                tokenizer=tokenizer, n=max_items, split="test",
-                layers=layers, seed=99,  # different seed from train
+        if task_name in {"futurelens", "pastlens", "reconstruction"}:
+            test_data = load_cot_readout_task_data(
+                task_name=task_name,
+                tokenizer=tokenizer,
+                n=max_items,
+                split="test",
+                stride=stride,
+                layers=layers,
+                seed=99,
+            )
+        elif task_name in {"futurelens_fineweb", "pastlens_fineweb", "reconstruction_fineweb"}:
+            base_model_name = getattr(getattr(model, "base_model", None), "name_or_path", None) or getattr(getattr(model, "config", None), "_name_or_path", None) or "Qwen/Qwen3-0.6B"
+            test_data = load_fineweb_readout_task_data(
+                task_name=task_name,
+                tokenizer=tokenizer,
+                model_name=base_model_name,
+                n=max_items,
+                stride=stride,
+                layers=layers,
+                seed=99,
             )
         else:
             # Try test split first, fall back to tail of train split
@@ -803,6 +872,8 @@ def _eval_single_task(
                 test_data = []
             if not test_data:
                 test_data = load_task_data(task_name, split="train", n=max_items, shuffle=False)
+        if task_def.eval_exclude_types:
+            test_data = [d for d in test_data if d.get("datapoint_type") not in task_def.eval_exclude_types]
         if not test_data:
             return {"n": 0}
 
@@ -843,10 +914,38 @@ def _eval_single_task(
         layers=layers,
         device=device,
         injection_layer=injection_layer,
-        max_new_tokens=task_def.max_new_tokens,
+        max_new_tokens=min(task_def.max_new_tokens, max_new_tokens_cap) if max_new_tokens_cap is not None else task_def.max_new_tokens,
         eval_batch_size=eval_batch_size,
         oracle_adapter_name=oracle_adapter_name,
     )
 
     targets = [item["target_response"] for item in test_data]
-    return score_task(task_def, predictions, targets, tokenizer=tokenizer)
+    result = score_task(task_def, predictions, targets, tokenizer=tokenizer)
+
+    # Build rich traces for logging
+    _ensure_ao_imports()
+    ph_token = _ao_modules["PLACEHOLDER_TOKEN"]
+    layer_list = list(layers)
+    traces = []
+    for item, act, pred, tgt in zip(test_data, all_activations, predictions, targets):
+        n_pos = act.shape[0]
+        K = n_pos // len(layer_list)
+        oracle_prefix = "Activations: " + ph_token * n_pos
+        # Decode the context the activations were extracted from
+        ctx_ids = item.get("context_input_ids", [])
+        context = tokenizer.decode(ctx_ids, skip_special_tokens=True) if ctx_ids else ""
+        # Build masked context: replace activation positions with placeholder
+        positions_set = set(item.get("context_positions", [])[:K])  # first layer's positions
+        masked_ids = [ctx_ids[i] if i not in positions_set else tokenizer.encode(ph_token, add_special_tokens=False)[0] for i in range(len(ctx_ids))] if ctx_ids else []
+        masked_context = tokenizer.decode(masked_ids, skip_special_tokens=True) if masked_ids else ""
+        traces.append({
+            "question": item.get("hinted_prompt") or item.get("question", ""),
+            "context": context,
+            "masked_context": masked_context,
+            "oracle_prefix": oracle_prefix,
+            "oracle_prompt": item["prompt"],
+            "prediction": pred,
+            "target": tgt,
+        })
+    result["_traces"] = traces
+    return result

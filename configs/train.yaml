@@ -24,12 +24,32 @@ tasks:
     n: 30000
     eval: true
 
+  futurelens_fineweb:
+    n: 30000
+    eval: true
+
+  pastlens:
+    n: 30000
+    eval: true
+
+  pastlens_fineweb:
+    n: 30000
+    eval: true
+
+  reconstruction:
+    n: 30000
+    eval: true
+
+  reconstruction_fineweb:
+    n: 30000
+    eval: true
+
   correctness:
-    n: 7500
+    n: 10000
     eval: true
 
   decorative_cot:
-    n: 8000
+    n: 10000
     eval: true
 
   chunked_convqa:
@@ -38,6 +58,14 @@ tasks:
 
   chunked_compqa:
     n: 30000
+    eval: true
+
+  convqa:
+    n: 25000
+    eval: true
+
+  fineweb_convqa:
+    n: 10000
     eval: true
 
   sycophancy:
@@ -55,12 +83,6 @@ tasks:
 
   rot13_reconstruction:
     eval: false     # skip for now
-
-# FineWeb context prediction (PastLens-style auxiliary training)
-fineweb:
-  enabled: false
-  n: 50000
-  max_context_tokens: 2000
 
 # Training
 training:
@@ -86,8 +108,8 @@ flamingo:
 
 # Activation extraction
 activations:
-  stride: 5
-  position_encoding: false
+  stride: poisson
+  position_encoding: true
   pe_alpha: 0.1
   layers: [9, 18, 27]        # injection layers (25%, 50%, 75% of Qwen3-8B's 36 layers)
   layer_dropout:
@@ -103,8 +125,8 @@ eval:
 
 # Model
 model:
-  name: Qwen/Qwen3-8B
-  ao_checkpoint: adamkarvonen/checkpoints_latentqa_cls_past_lens_addition_Qwen3-8B
+  name: Qwen/Qwen3-0.6B
+  ao_checkpoint: null
   fresh_lora: true
 
 # Baselines
@@ -170,6 +192,9 @@ baselines:
     injection_layer: 1
     steering_coefficients: [0.5, 1.0, 2.0]
     max_new_tokens: 100
+    optimize: true
+    opt_steps: 50
+    opt_lr: 0.1
 
   no_act_oracle:
     checkpoint: checkpoints/no_act_oracle
@@ -198,5 +223,5 @@ baselines:
 output:
   save_dir: checkpoints
   wandb_project: cot_oracle
-  wandb_entity: MATS10-CS-JB
+  wandb_entity: japhba-personal
   wandb_run: null

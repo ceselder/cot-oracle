@@ -13,6 +13,7 @@ CLI mode is still available with --cli.
 import argparse
 import atexit
 import asyncio
+import gc
 import html
 import json
 import os
@@ -25,6 +26,7 @@ import time
 import threading
 import urllib.parse
 import urllib.request
+from datetime import datetime
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -252,6 +254,117 @@ def load_dual_model(model_name, checkpoint_path, cot_adapter=None, device="cuda"
     model.eval()
     print(f"  Adapters: {list(model.peft_config.keys())}")
     return model, tokenizer
+
+
+def format_age_delta(seconds):
+    minutes = max(int(seconds // 60), 0)
+    if minutes < 1:
+        return "just now"
+    if minutes < 60:
+        return f"{minutes}m ago"
+    hours = minutes // 60
+    if hours < 48:
+        return f"{hours}h ago"
+    days = hours // 24
+    rem_hours = hours % 24
+    return f"{days}d {rem_hours}h ago" if rem_hours else f"{days}d ago"
+
+
+def load_checkpoint_info(checkpoint_path):
+    path = Path(checkpoint_path)
+    info = {
+        "path": checkpoint_path,
+        "is_local": path.exists(),
+        "is_dir": path.is_dir(),
+        "created_at": None,
+        "created_ago": None,
+        "global_step": None,
+        "wandb_run_id": None,
+        "wandb_run_name": None,
+        "progress_total_steps": None,
+        "progress_fraction": None,
+    }
+    if not path.exists():
+        return info
+    files = [item for item in path.rglob("*") if item.is_file()] if path.is_dir() else [path]
+    if files:
+        created_ts = min(item.stat().st_mtime for item in files)
+        info["created_at"] = datetime.fromtimestamp(created_ts).isoformat(timespec="seconds")
+        info["created_ago"] = format_age_delta(time.time() - created_ts)
+    training_state_path = path / "training_state.pt" if path.is_dir() else None
+    if training_state_path is None or not training_state_path.exists():
+        return info
+    training_state = torch.load(training_state_path, map_location="cpu")
+    info["global_step"] = int(training_state["global_step"])
+    info["wandb_run_id"] = training_state["wandb_run_id"]
+    info["wandb_run_name"] = training_state["wandb_run_name"]
+    final_path = path.parent / "final"
+    final_state_path = final_path / "training_state.pt"
+    if path.name != "final" and final_state_path.exists():
+        final_state = torch.load(final_state_path, map_location="cpu")
+        if final_state["wandb_run_id"] == training_state["wandb_run_id"]:
+            total_steps = int(final_state["global_step"])
+            info["progress_total_steps"] = total_steps
+            info["progress_fraction"] = info["global_step"] / max(total_steps, 1)
+    return info
+
+
+def find_most_recent_checkpoint(checkpoint_path):
+    path = Path(checkpoint_path)
+    if not path.exists() or not path.is_dir():
+        return checkpoint_path
+    parent = path.parent
+    if not parent.exists():
+        return checkpoint_path
+    candidates = []
+    for candidate in parent.iterdir():
+        if not candidate.is_dir():
+            continue
+        files = [item for item in candidate.rglob("*") if item.is_file()]
+        if not files:
+            continue
+        newest_ts = max(item.stat().st_mtime for item in files)
+        candidates.append((newest_ts, candidate))
+    if not candidates:
+        return checkpoint_path
+    candidates.sort(reverse=True)
+    return str(candidates[0][1])
+
+
+def infer_model_from_checkpoint(checkpoint_path, fallback_model):
+    adapter_config_path = Path(checkpoint_path) / "adapter_config.json"
+    if not adapter_config_path.exists():
+        return fallback_model
+    adapter_config = json.loads(adapter_config_path.read_text())
+    return adapter_config["base_model_name_or_path"]
+
+
+def resolve_startup_model_and_checkpoint(model_name, checkpoint_path):
+    resolved_checkpoint = find_most_recent_checkpoint(checkpoint_path)
+    resolved_model = infer_model_from_checkpoint(resolved_checkpoint, model_name)
+    if resolved_checkpoint != checkpoint_path:
+        print(f"Auto-selected latest checkpoint: {resolved_checkpoint} (requested {checkpoint_path})")
+    if resolved_model != model_name:
+        print(f"Auto-selected base model from checkpoint: {resolved_model} (requested {model_name})")
+    return resolved_model, resolved_checkpoint
+
+
+def list_local_checkpoints(checkpoint_path):
+    requested = Path(checkpoint_path)
+    root = requested.parent if requested.parent.exists() else Path("checkpoints")
+    entries = []
+    if not root.exists():
+        return entries
+    for candidate in root.iterdir():
+        if not candidate.is_dir():
+            continue
+        if not (candidate / "adapter_config.json").exists():
+            continue
+        info = load_checkpoint_info(str(candidate))
+        info["model_name"] = infer_model_from_checkpoint(str(candidate), None)
+        entries.append(info)
+    entries.sort(key=lambda item: item["created_at"] or "", reverse=True)
+    return entries
 
 
 def get_model_input_device(model):
@@ -558,6 +671,8 @@ class ChatCompareWebApp:
         self.layers = compute_layers(args.model, n_layers=args.n_layers, layers=args.layers)
         self.layer_50 = layer_percent_to_layer(args.model, 50)
         self.prompt_map, self.task_options, self.eval_tags, self.no_act_checkpoint = load_train_task_config(args.config)
+        self.checkpoint_info = load_checkpoint_info(args.checkpoint)
+        self.available_checkpoints = list_local_checkpoints(args.checkpoint)
         self.use_organism = args.cot_adapter is not None
         self.model, self.tokenizer = load_dual_model(args.model, args.checkpoint, cot_adapter=args.cot_adapter, device=args.device)
         self.model_lock = threading.Lock()
@@ -584,6 +699,30 @@ class ChatCompareWebApp:
             "share_policy": share_info["share_policy"],
             "public_url": share_info["public_url"],
         })
+
+    def _reload_checkpoint(self, checkpoint_path):
+        model_name = infer_model_from_checkpoint(checkpoint_path, self.args.model)
+        with self.model_lock:
+            old_model = self.model
+            old_tokenizer = self.tokenizer
+            self.model = None
+            self.tokenizer = None
+            self.saes = None
+            self.sae_labels = None
+            self.no_act_adapter_name = None
+            self.state = SessionState()
+            del old_model
+            del old_tokenizer
+            gc.collect()
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+            self.args.model = model_name
+            self.args.checkpoint = checkpoint_path
+            self.layers = compute_layers(self.args.model, n_layers=self.args.n_layers, layers=self.args.layers)
+            self.layer_50 = layer_percent_to_layer(self.args.model, 50)
+            self.checkpoint_info = load_checkpoint_info(self.args.checkpoint)
+            self.available_checkpoints = list_local_checkpoints(self.args.checkpoint)
+            self.model, self.tokenizer = load_dual_model(self.args.model, self.args.checkpoint, cot_adapter=self.args.cot_adapter, device=self.args.device)
 
     def _ensure_sae_loaded(self):
         if self.saes is not None:
@@ -622,6 +761,36 @@ class ChatCompareWebApp:
         record = {"ts": time.strftime("%Y-%m-%d %H:%M:%S"), "event": event_type, **payload}
         with self.session_log.open("a") as f:
             f.write(json.dumps(record) + "\n")
+
+    def _checkpoint_info_text(self, info):
+        if not info["is_local"]:
+            return f"Checkpoint: {info['path']}\nNot a local path, so file age and training step metadata are unavailable."
+        lines = [f"Path: {info['path']}"]
+        if info["created_at"]:
+            lines.append(f"Created (approx): {info['created_at']} ({info['created_ago']})")
+        if info["global_step"] is not None:
+            progress_line = f"Training step: {info['global_step']}"
+            if info["progress_total_steps"] is not None:
+                progress_line += f" / {info['progress_total_steps']} ({round(info['progress_fraction'] * 100)}%)"
+            else:
+                progress_line += " (total progress unavailable)"
+            lines.append(progress_line)
+        else:
+            lines.append("Training step: unavailable")
+        if info["wandb_run_name"]:
+            lines.append(f"Run: {info['wandb_run_name']}")
+        return "\n".join(lines)
+
+    def _checkpoint_options_html(self):
+        options = []
+        for item in self.available_checkpoints:
+            model_label = f" | {item['model_name']}" if item["model_name"] else ""
+            age_label = f" | {item['created_ago']}" if item["created_ago"] else ""
+            selected = " selected" if item["path"] == self.args.checkpoint else ""
+            label = html.escape(f"{item['path']}{model_label}{age_label}")
+            value = html.escape(item["path"], quote=True)
+            options.append(f"<option value=\"{value}\"{selected}>{label}</option>")
+        return "".join(options)
 
     def _write_run_markdown(self, payload):
         path = self.log_dir / f"run_{self.session_id}_{int(time.time() * 1000)}.md"
@@ -846,7 +1015,7 @@ class ChatCompareWebApp:
         acts_by_layer = {l: per_layer_acts[l] for l in ctx["selected_layers"] if l in per_layer_acts}
 
         with self.model_lock:
-            alpha, loss_traj, layer_k_pairs = _optimize_alpha_single(
+            alpha, loss_traj, layer_k_pairs, alpha_snapshots, alpha_norms = _optimize_alpha_single(
                 self.model, self.tokenizer, acts_by_layer, verbalizer, target_text,
                 injection_layer=1, n_steps=opt_steps, lr=opt_lr,
                 device=device, example_id="web_ui",
@@ -857,12 +1026,22 @@ class ChatCompareWebApp:
             )
 
         alpha_data = alpha.detach().cpu()
-        # Build per-layer alpha rows for the frontend matrix
+        # Build per-layer alpha rows for the frontend matrix (final state)
         alpha_by_layer = {}
         offset = 0
         for layer, K_l in layer_k_pairs:
             alpha_by_layer[layer] = alpha_data[offset:offset + K_l].tolist()
             offset += K_l
+
+        # Build per-step per-layer snapshots for scrubbing
+        alpha_snapshots_by_layer = []
+        for snap in alpha_snapshots:
+            step_dict = {}
+            off = 0
+            for layer, K_l in layer_k_pairs:
+                step_dict[str(layer)] = snap[off:off + K_l]
+                off += K_l
+            alpha_snapshots_by_layer.append(step_dict)
 
         stats = (f"[optimized {opt_steps} steps, lr={opt_lr}] "
                  f"loss: {loss_traj[0]:.3f} -> {loss_traj[-1]:.3f} | "
@@ -874,6 +1053,8 @@ class ChatCompareWebApp:
             "patchscopes_strengths": {},
             "patchscopes_alpha_by_layer": alpha_by_layer,
             "patchscopes_loss_curve": loss_traj,
+            "patchscopes_alpha_snapshots": alpha_snapshots_by_layer,
+            "patchscopes_alpha_norms": alpha_norms,
         }
 
     def _run_black_box_component(self, ctx, max_tokens):
@@ -984,7 +1165,13 @@ class ChatCompareWebApp:
         async def index():
             suggestion = await asyncio.to_thread(fetch_suggested_question)
             source_html = f'Sample prompt source: <a href="{html.escape(suggestion["source_url"], quote=True)}" target="_blank" rel="noreferrer" style="color:#93c5fd">{html.escape(suggestion["source_label"])}</a>'
-            return HTMLResponse(self._render_html(initial_question=suggestion["question"], initial_question_source_html=source_html, initial_status="Loaded sample prompt. You can refresh it for another one."))
+            return HTMLResponse(self._render_html(
+                initial_question=suggestion["question"],
+                initial_question_source_html=source_html,
+                initial_status="Loaded sample prompt. You can refresh it for another one.",
+                initial_checkpoint_info=self._checkpoint_info_text(self.checkpoint_info),
+                initial_checkpoint_options_html=self._checkpoint_options_html(),
+            ))
 
         @self.app.get("/api/config")
         async def config():
@@ -999,9 +1186,29 @@ class ChatCompareWebApp:
                 "is_ucl_host": self.share_info["is_ucl_host"],
                 "share_policy": self.share_info["share_policy"],
                 "public_url": self.share_info["public_url"],
+                "current_model": self.args.model,
+                "current_checkpoint": self.args.checkpoint,
+                "checkpoint_info": self.checkpoint_info,
+                "available_checkpoints": self.available_checkpoints,
                 "ao_available": "original_ao" in self.model.peft_config,
                 "sae_available": self.args.model == "Qwen/Qwen3-8B",
                 "no_act_checkpoint": self.no_act_checkpoint,
+                "no_act_available": Path(self.no_act_checkpoint).exists(),
+            }
+
+        @self.app.post("/api/load_checkpoint")
+        async def load_checkpoint(payload: dict):
+            checkpoint_path = payload["checkpoint"]
+            await asyncio.to_thread(self._reload_checkpoint, checkpoint_path)
+            return {
+                "layers": self.layers,
+                "layer_50": self.layer_50,
+                "current_model": self.args.model,
+                "current_checkpoint": self.args.checkpoint,
+                "checkpoint_info": self.checkpoint_info,
+                "available_checkpoints": self.available_checkpoints,
+                "ao_available": "original_ao" in self.model.peft_config,
+                "sae_available": self.args.model == "Qwen/Qwen3-8B",
                 "no_act_available": Path(self.no_act_checkpoint).exists(),
             }
 
@@ -1136,7 +1343,7 @@ class ChatCompareWebApp:
                 rating_summary,
             )
 
-    def _render_html(self, initial_question="", initial_question_source_html="", initial_status=""):
+    def _render_html(self, initial_question="", initial_question_source_html="", initial_status="", initial_checkpoint_info="", initial_checkpoint_options_html=""):
         doc = """<!doctype html>
 <html>
 <head>
@@ -1156,10 +1363,11 @@ class ChatCompareWebApp:
     .status { margin-top: 12px; font-size: 14px; color: #93c5fd; min-height: 20px; }
     .muted { color: #94a3b8; font-size: 13px; }
     .panel { background: #111827; border: 1px solid #334155; border-radius: 12px; padding: 12px; margin-bottom: 12px; }
-    .busy { display: none; margin-top: 12px; }
-    .busy.active { display: block; }
+    .busy { display: block; margin-top: 12px; padding: 10px; border: 1px solid #334155; border-radius: 10px; background: #0b1220; opacity: 0.55; }
+    .busy.active { opacity: 1; border-color: #60a5fa; }
     .busy-row { display: flex; align-items: center; gap: 10px; }
-    .spinner { width: 14px; height: 14px; border: 2px solid #334155; border-top-color: #60a5fa; border-radius: 999px; animation: spin 0.8s linear infinite; }
+    .spinner { width: 14px; height: 14px; border: 2px solid #334155; border-top-color: #64748b; border-radius: 999px; animation: spin 0.8s linear infinite; animation-play-state: paused; opacity: 0.45; }
+    .busy.active .spinner { border-top-color: #60a5fa; animation-play-state: running; opacity: 1; }
     .progress-track { margin-top: 8px; width: 100%; height: 8px; background: #1e293b; border-radius: 999px; overflow: hidden; }
     .progress-bar { width: 0%; height: 100%; background: linear-gradient(90deg, #2563eb, #60a5fa); border-radius: 999px; transition: width 0.2s ease; }
     .token-wrap { border: 1px solid #334155; border-radius: 12px; background: #020617; padding: 12px; }
@@ -1206,6 +1414,14 @@ class ChatCompareWebApp:
       <div class=\"busy\" id=\"busyWrap\">
         <div class=\"busy-row\"><div class=\"spinner\"></div><div class=\"small\" id=\"busyLabel\">Working...</div></div>
         <div class=\"progress-track\"><div class=\"progress-bar\"></div></div>
+      </div>
+      <div class=\"panel\">
+        <h3 style=\"margin-top:0\">Loaded Checkpoint</h3>
+        <label class=\"small\" style=\"display:block;margin-bottom:8px\">Select checkpoint to load</label>
+        <select id=\"checkpointSelect\">__INITIAL_CHECKPOINT_OPTIONS__</select>
+        <div class=\"muted small\" style=\"margin-top:8px\">Changing this reloads the model and clears the current session.</div>
+        <div id=\"modelLoadStatus\" class=\"muted small\" style=\"margin-top:8px\">Model load: ready.</div>
+        <div id=\"checkpointInfo\" class=\"text-block small muted\" style=\"white-space:pre-wrap\">__INITIAL_CHECKPOINT_INFO__</div>
       </div>
       <div class=\"panel\">
         <label>Task preset (from built-ins + enabled train.yaml tasks)</label>
@@ -1304,11 +1520,15 @@ class ChatCompareWebApp:
       <div class=\"panel\">
         <h3 style=\"margin-top:0\">Gemini Ratings</h3>
         <div class=\"muted small\">Gemini 2.5 Flash Lite scores each visible answer from 0 to 5.</div>
-        <div id=\"ratingScores\" class=\"text-block\" style=\"margin-top:8px\">Run a comparison to generate ratings.</div>
+        <div id=\"ratingScores\" class=\"text-block\" style=\"margin-top:8px;white-space:pre-wrap\">Run a comparison to generate ratings.</div>
         <div id=\"ratingSummary\" class=\"muted small\" style=\"margin-top:8px;white-space:pre-wrap\"></div>
       </div>
       <div class=\"panel\">
         <div class=\"muted small\" id=\"logPath\"></div>
+      </div>
+      <div class=\"panel\">
+        <h3 style=\"margin-top:0\">Activity Log</h3>
+        <div id=\"activityLog\" class=\"text-block small muted\" style=\"white-space:pre-wrap;font-family:monospace\">Page ready.</div>
       </div>
     </div>
   </div>
@@ -1322,15 +1542,21 @@ class ChatCompareWebApp:
     let patchRefreshTimer = null;
     let patchRefreshNonce = 0;
     let ratingRefreshNonce = 0;
+    let cacheReady = false;
     let latestRatings = { answer_ratings: [], rating_summary: '' };
+    const UI_CACHE_KEY = 'chat_compare_latest_ui_v1';
     const statusEl = document.getElementById('status');
     const selectionInfo = document.getElementById('selectionInfo');
     const busyWrap = document.getElementById('busyWrap');
     const busyLabel = document.getElementById('busyLabel');
     const progressBar = document.querySelector('.progress-bar');
+    const checkpointSelectEl = document.getElementById('checkpointSelect');
+    const modelLoadStatusEl = document.getElementById('modelLoadStatus');
+    const checkpointInfoEl = document.getElementById('checkpointInfo');
     const questionSource = document.getElementById('questionSource');
     const shareInfo = document.getElementById('shareInfo');
     const selectionBox = document.getElementById('selectionBox');
+    const activityLogEl = document.getElementById('activityLog');
     const baselineInputs = {
       ao: document.getElementById('baselineAo'),
       patch: document.getElementById('baselinePatch'),
@@ -1348,11 +1574,152 @@ class ChatCompareWebApp:
       sae: { box: document.getElementById('saeStatus'), text: document.getElementById('saeStatusText') },
     };
 
-    function setStatus(msg) { statusEl.textContent = msg; }
+    function appendLog(msg) {
+      const stamp = new Date().toLocaleTimeString();
+      const lines = (activityLogEl.textContent || '').split('\n').filter(Boolean);
+      lines.push(`[${stamp}] ${msg}`);
+      activityLogEl.textContent = lines.slice(-30).join('\n');
+      saveUiCache();
+    }
+    function renderCheckpointInfo(info) {
+      if (!info.is_local) {
+        checkpointInfoEl.textContent = `Checkpoint: ${info.path}\nNot a local path, so file age and training step metadata are unavailable.`;
+        return;
+      }
+      const lines = [`Path: ${info.path}`];
+      if (info.created_at) lines.push(`Created (approx): ${info.created_at} (${info.created_ago})`);
+      if (info.global_step !== null) {
+        let progressLine = `Training step: ${info.global_step}`;
+        if (info.progress_total_steps !== null) progressLine += ` / ${info.progress_total_steps} (${Math.round(info.progress_fraction * 100)}%)`;
+        else progressLine += ' (total progress unavailable)';
+        lines.push(progressLine);
+      } else {
+        lines.push('Training step: unavailable');
+      }
+      if (info.wandb_run_name) lines.push(`Run: ${info.wandb_run_name}`);
+      checkpointInfoEl.textContent = lines.join('\n');
+    }
+    function renderCheckpointOptions() {
+      checkpointSelectEl.innerHTML = '';
+      for (const item of config.available_checkpoints || []) {
+        const opt = document.createElement('option');
+        opt.value = item.path;
+        const modelLabel = item.model_name ? ` | ${item.model_name}` : '';
+        const ageLabel = item.created_ago ? ` | ${item.created_ago}` : '';
+        opt.textContent = `${item.path}${modelLabel}${ageLabel}`;
+        checkpointSelectEl.appendChild(opt);
+      }
+      checkpointSelectEl.value = config.current_checkpoint;
+    }
+    function setModelLoadStatus(msg, isLoading) {
+      modelLoadStatusEl.textContent = `Model load: ${msg}`;
+      checkpointSelectEl.disabled = !!isLoading;
+      saveUiCache();
+    }
+    function setStatus(msg) { statusEl.textContent = msg; appendLog(`status: ${msg}`); saveUiCache(); }
     function compactText(text) { return (text || '').replace(/\\s+/g, ' ').trim(); }
+    function flushUi() { return new Promise(resolve => requestAnimationFrame(() => resolve())); }
     function renderRatings(ratings, summary) {
       document.getElementById('ratingScores').textContent = (ratings || []).map(item => `${item.name}: ${item.score}/5 - ${item.note}`).join('\\n') || 'Run a comparison to generate ratings.';
       document.getElementById('ratingSummary').textContent = (summary || '').trim();
+      saveUiCache();
+    }
+    function saveUiCache() {
+      if (!cacheReady) return;
+      localStorage.setItem(UI_CACHE_KEY, JSON.stringify({
+        question: document.getElementById('question').value,
+        questionSourceHtml: questionSource.innerHTML,
+        status: statusEl.textContent,
+        meta: document.getElementById('meta').textContent,
+        cotPreview: document.getElementById('cotPreview').textContent,
+        tagPillsHtml: document.getElementById('tagPills').innerHTML,
+        aoOut: document.getElementById('aoOut').textContent,
+        patchOut: document.getElementById('patchOut').textContent,
+        bbOut: document.getElementById('bbOut').textContent,
+        noActOut: document.getElementById('noActOut').textContent,
+        oracleOut: document.getElementById('oracleOut').textContent,
+        saeOut: document.getElementById('saeOut').textContent,
+        aoPrompt: document.getElementById('aoPrompt').textContent,
+        patchPrompt: document.getElementById('patchPrompt').textContent,
+        bbPrompt: document.getElementById('bbPrompt').textContent,
+        noActPrompt: document.getElementById('noActPrompt').textContent,
+        oraclePrompt: document.getElementById('oraclePrompt').textContent,
+        ratingScores: document.getElementById('ratingScores').textContent,
+        ratingSummary: document.getElementById('ratingSummary').textContent,
+        logPath: document.getElementById('logPath').textContent,
+        activityLog: activityLogEl.textContent,
+        thinking: document.getElementById('thinkingToggle').checked,
+        taskKey: document.getElementById('taskSelect').value,
+        customPrompt: document.getElementById('customPrompt').value,
+        maxTokens: document.getElementById('maxTokens').value,
+        evalTags: Array.from(document.getElementById('evalTags').selectedOptions).map(opt => opt.value),
+        baselines: selectedBaselines(),
+        patchOptimize: document.getElementById('patchOptimize').checked,
+        patchOptSteps: document.getElementById('patchOptSteps').value,
+        patchOptLr: document.getElementById('patchOptLr').value,
+        patchStrengths: patchscopesStrengths(),
+        patchOptPanelDisplay: document.getElementById('patchOptPanel').style.display,
+        patchOptStats: document.getElementById('patchOptStats').textContent,
+        patchOptLossCurveHtml: document.getElementById('patchOptLossCurve').innerHTML,
+        patchOptLossTooltip: document.getElementById('patchOptLossTooltip').textContent,
+        patchOptAlphaGridHtml: document.getElementById('patchOptAlphaGrid').innerHTML,
+        sessionData: session,
+        selectedCells: selectedCells(),
+      }));
+    }
+    function restoreUiCache() {
+      const raw = localStorage.getItem(UI_CACHE_KEY);
+      if (!raw) return;
+      const cached = JSON.parse(raw);
+      document.getElementById('question').value = cached.question || document.getElementById('question').value;
+      questionSource.innerHTML = cached.questionSourceHtml || questionSource.innerHTML;
+      document.getElementById('thinkingToggle').checked = !!cached.thinking;
+      if (cached.taskKey) document.getElementById('taskSelect').value = cached.taskKey;
+      document.getElementById('customPrompt').value = cached.customPrompt || '';
+      if (cached.maxTokens) document.getElementById('maxTokens').value = cached.maxTokens;
+      for (const option of document.getElementById('evalTags').options) option.selected = (cached.evalTags || []).includes(option.value);
+      for (const [name, input] of Object.entries(baselineInputs)) input.checked = (cached.baselines || []).includes(name) && !input.disabled;
+      const patchOptimize = document.getElementById('patchOptimize');
+      patchOptimize.checked = !!cached.patchOptimize;
+      document.getElementById('patchSliderWrap').style.display = patchOptimize.checked ? 'none' : '';
+      document.getElementById('patchOptControls').style.display = patchOptimize.checked ? '' : 'none';
+      if (cached.patchOptSteps) document.getElementById('patchOptSteps').value = cached.patchOptSteps;
+      if (cached.patchOptLr) document.getElementById('patchOptLr').value = cached.patchOptLr;
+      for (const [layer, value] of Object.entries(cached.patchStrengths || {})) {
+        const input = document.querySelector(`.patch-layer-strength[data-layer="${layer}"]`);
+        if (!input) continue;
+        input.value = String(value);
+        setPatchStrengthLabel(layer, value);
+      }
+      session = cached.sessionData || null;
+      selected = new Set((cached.selectedCells || []).map(item => keyFor(item.layer, item.position)));
+      renderTokenRows();
+      document.getElementById('meta').textContent = cached.meta || document.getElementById('meta').textContent;
+      document.getElementById('cotPreview').textContent = cached.cotPreview || '';
+      document.getElementById('tagPills').innerHTML = cached.tagPillsHtml || '';
+      document.getElementById('aoOut').textContent = cached.aoOut || '';
+      document.getElementById('patchOut').textContent = cached.patchOut || '';
+      document.getElementById('bbOut').textContent = cached.bbOut || '';
+      document.getElementById('noActOut').textContent = cached.noActOut || '';
+      document.getElementById('oracleOut').textContent = cached.oracleOut || '';
+      document.getElementById('saeOut').textContent = cached.saeOut || '';
+      document.getElementById('aoPrompt').textContent = cached.aoPrompt || '';
+      document.getElementById('patchPrompt').textContent = cached.patchPrompt || '';
+      document.getElementById('bbPrompt').textContent = cached.bbPrompt || '';
+      document.getElementById('noActPrompt').textContent = cached.noActPrompt || '';
+      document.getElementById('oraclePrompt').textContent = cached.oraclePrompt || '';
+      document.getElementById('ratingScores').textContent = cached.ratingScores || 'Run a comparison to generate ratings.';
+      document.getElementById('ratingSummary').textContent = cached.ratingSummary || '';
+      document.getElementById('logPath').textContent = cached.logPath || '';
+      activityLogEl.textContent = cached.activityLog || 'Page ready.';
+      const patchOptPanel = document.getElementById('patchOptPanel');
+      patchOptPanel.style.display = cached.patchOptPanelDisplay || 'none';
+      document.getElementById('patchOptStats').textContent = cached.patchOptStats || '';
+      document.getElementById('patchOptLossCurve').innerHTML = cached.patchOptLossCurveHtml || '';
+      document.getElementById('patchOptLossTooltip').textContent = cached.patchOptLossTooltip || '';
+      document.getElementById('patchOptAlphaGrid').innerHTML = cached.patchOptAlphaGridHtml || '';
+      if (cached.status) statusEl.textContent = cached.status;
+      saveUiCache();
     }
     function selectedBaselines() { return Object.entries(baselineInputs).filter(([, input]) => input.checked).map(([name]) => name); }
     function patchscopesStrengths() {
@@ -1382,6 +1749,7 @@ class ChatCompareWebApp:
         input.addEventListener('input', () => {
           setPatchStrengthLabel(layer, input.value);
           queuePatchscopesRefresh();
+          saveUiCache();
         });
         const value = document.createElement('div');
         value.id = `patchStrengthValue_${layer}`;
@@ -1399,52 +1767,87 @@ class ChatCompareWebApp:
       panel.style.display = '';
       const alphaByLayer = data.patchscopes_alpha_by_layer;
       const lossCurve = data.patchscopes_loss_curve || [];
+      const alphaNorms = data.patchscopes_alpha_norms || [];
+      const alphaSnapshots = data.patchscopes_alpha_snapshots || [];
       // Stats line
       const statsEl = document.getElementById('patchOptStats');
       if (lossCurve.length > 1) {
-        statsEl.textContent = `loss: ${lossCurve[0].toFixed(3)} \\u2192 ${lossCurve[lossCurve.length-1].toFixed(3)} (${lossCurve.length} steps)`;
+        const normStr = alphaNorms.length ? `  ||\\u0394\\u03b1||: ${alphaNorms[alphaNorms.length-1].toFixed(3)}` : '';
+        statsEl.textContent = `loss: ${lossCurve[0].toFixed(3)} \\u2192 ${lossCurve[lossCurve.length-1].toFixed(3)} (${lossCurve.length} steps)${normStr}`;
       }
-      // Loss curve as bar chart
+      // Chart: loss bars + overlaid alpha-norm SVG line, shared x, independent y
       const curveEl = document.getElementById('patchOptLossCurve');
       curveEl.innerHTML = '';
-      if (lossCurve.length > 1) {
-        const maxLoss = Math.max(...lossCurve);
-        const minLoss = Math.min(...lossCurve);
-        const range = maxLoss - minLoss || 1;
+      let barW = 2;
+      const nSteps = lossCurve.length;
+      if (nSteps > 1) {
+        const maxLoss = Math.max(...lossCurve), minLoss = Math.min(...lossCurve);
+        const lossRange = maxLoss - minLoss || 1;
         const h = curveEl.clientHeight || 60;
         const w = curveEl.clientWidth || 400;
-        const barW = Math.max(1, Math.floor(w / lossCurve.length));
+        barW = Math.max(1, Math.floor(w / nSteps));
+        // Loss bars (blue)
         lossCurve.forEach((loss, i) => {
           const bar = document.createElement('div');
           bar.className = 'loss-bar';
-          const pct = (loss - minLoss) / range;
+          const pct = (loss - minLoss) / lossRange;
           bar.style.height = `${Math.max(2, pct * (h - 4))}px`;
           bar.style.left = `${i * barW}px`;
           bar.style.width = `${Math.max(1, barW - 1)}px`;
-          bar.title = `step ${i}: ${loss.toFixed(4)}`;
           curveEl.appendChild(bar);
         });
+        // Overlaid alpha-norm curve (SVG polyline, orange, independent y-axis)
+        if (alphaNorms.length === nSteps) {
+          const maxNorm = Math.max(...alphaNorms) || 1;
+          const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+          svg.setAttribute('width', w); svg.setAttribute('height', h);
+          svg.style.cssText = 'position:absolute;top:0;left:0;pointer-events:none';
+          const pts = alphaNorms.map((n, i) => {
+            const x = i * barW + Math.floor(barW / 2);
+            const y = h - 2 - (n / maxNorm) * (h - 4);
+            return `${x},${y}`;
+          }).join(' ');
+          const line = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+          line.setAttribute('points', pts);
+          line.setAttribute('fill', 'none');
+          line.setAttribute('stroke', '#f59e0b');
+          line.setAttribute('stroke-width', '1.5');
+          line.setAttribute('stroke-opacity', '0.9');
+          svg.appendChild(line);
+          curveEl.appendChild(svg);
+        }
+        // Vertical cursor line
+        const cursor = document.createElement('div');
+        cursor.id = 'patchOptCursor';
+        cursor.style.cssText = 'position:absolute;top:0;bottom:0;width:1px;background:#f59e0b;pointer-events:none;display:none';
+        curveEl.appendChild(cursor);
       }
-      // Tooltip on hover
-      const tooltipEl = document.getElementById('patchOptLossTooltip');
-      curveEl.addEventListener('mousemove', e => {
-        if (!lossCurve.length) return;
-        const rect = curveEl.getBoundingClientRect();
-        const x = e.clientX - rect.left;
-        const idx = Math.min(lossCurve.length - 1, Math.max(0, Math.floor(x / rect.width * lossCurve.length)));
-        tooltipEl.textContent = `step ${idx}: loss = ${lossCurve[idx].toFixed(4)}`;
-      });
-      curveEl.addEventListener('mouseleave', () => { tooltipEl.textContent = ''; });
-      // Alpha grid: one row per layer, cells colored by alpha value
+      // Collect all alpha cells for scrubbing updates
+      const allCells = [];
+      // Alpha grid: one row per layer
       const grid = document.getElementById('patchOptAlphaGrid');
       grid.innerHTML = '';
-      // Compute global min/max for color scaling
-      let allAlphas = [];
-      for (const vals of Object.values(alphaByLayer)) allAlphas = allAlphas.concat(vals);
-      const aMin = Math.min(...allAlphas);
-      const aMax = Math.max(...allAlphas);
-      const aRange = aMax - aMin || 1;
-      for (const [layer, alphas] of Object.entries(alphaByLayer)) {
+      // Compute global min/max for color scaling across all snapshots
+      let globalMin = Infinity, globalMax = -Infinity;
+      for (const vals of Object.values(alphaByLayer)) {
+        for (const v of vals) { if (v < globalMin) globalMin = v; if (v > globalMax) globalMax = v; }
+      }
+      for (const snap of alphaSnapshots) {
+        for (const vals of Object.values(snap)) {
+          for (const v of vals) { if (v < globalMin) globalMin = v; if (v > globalMax) globalMax = v; }
+        }
+      }
+      const layers = Object.keys(alphaByLayer);
+      function alphaColor(a) {
+        const aRange = globalMax - globalMin || 1;
+        const norm = (a - globalMin) / aRange;
+        const r = Math.round(norm > 0.5 ? 255 : norm * 2 * 255);
+        const b = Math.round(norm < 0.5 ? 255 : (1 - norm) * 2 * 255);
+        const g = Math.round(norm > 0.5 ? (1 - norm) * 2 * 100 : norm * 2 * 100);
+        return `rgba(${r},${g},${b},0.5)`;
+      }
+      for (const layer of layers) {
+        const alphas = alphaByLayer[layer];
         const block = document.createElement('div');
         block.className = 'layer-block';
         const label = document.createElement('div');
@@ -1456,20 +1859,68 @@ class ChatCompareWebApp:
         alphas.forEach((a, i) => {
           const cell = document.createElement('span');
           cell.className = 'alpha-cell';
+          cell.dataset.layer = layer;
+          cell.dataset.idx = i;
           cell.textContent = a.toFixed(2);
-          // Color: blue for low, white for ~1, red for high
-          const norm = (a - aMin) / aRange;
-          const r = Math.round(norm > 0.5 ? 255 : norm * 2 * 255);
-          const b = Math.round(norm < 0.5 ? 255 : (1 - norm) * 2 * 255);
-          const g = Math.round(norm > 0.5 ? (1 - norm) * 2 * 100 : norm * 2 * 100);
-          cell.style.background = `rgba(${r},${g},${b},0.5)`;
+          cell.style.background = alphaColor(a);
           cell.style.color = '#e2e8f0';
           cell.title = `L${layer} pos ${i}: alpha=${a.toFixed(4)}`;
           row.appendChild(cell);
+          allCells.push(cell);
         });
         block.appendChild(row);
         grid.appendChild(block);
       }
+      // Scrubbing: hover over loss/norm chart to show alpha snapshot at that step
+      const tooltipEl = document.getElementById('patchOptLossTooltip');
+      const patchOutEl = document.getElementById('patchOut');
+      const originalPatchText = patchOutEl.textContent;
+      function updateAlphaGrid(snapshot) {
+        for (const cell of allCells) {
+          const layer = cell.dataset.layer;
+          const idx = parseInt(cell.dataset.idx);
+          const vals = snapshot[layer];
+          if (!vals || idx >= vals.length) continue;
+          const a = vals[idx];
+          cell.textContent = a.toFixed(2);
+          cell.style.background = alphaColor(a);
+          cell.title = `L${layer} pos ${idx}: alpha=${a.toFixed(4)}`;
+        }
+      }
+      function stepSummaryText(idx, snapshot) {
+        let lines = [`step ${idx}/${nSteps-1}  loss=${lossCurve[idx].toFixed(4)}`];
+        if (alphaNorms.length > idx) lines[0] += `  ||\u0394\u03b1||=${alphaNorms[idx].toFixed(4)}`;
+        for (const layer of layers) {
+          const vals = snapshot[layer];
+          if (!vals) continue;
+          const mean = vals.reduce((a,b) => a+b, 0) / vals.length;
+          const mn = Math.min(...vals), mx = Math.max(...vals);
+          lines.push(`  L${layer}: mean=${mean.toFixed(3)} min=${mn.toFixed(3)} max=${mx.toFixed(3)}`);
+        }
+        return lines.join('\n');
+      }
+      curveEl.addEventListener('mousemove', e => {
+        if (!nSteps) return;
+        const rect = curveEl.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const idx = Math.min(nSteps - 1, Math.max(0, Math.floor(x / rect.width * nSteps)));
+        const normStr = (alphaNorms.length > idx) ? `  ||\u0394\u03b1||=${alphaNorms[idx].toFixed(4)}` : '';
+        tooltipEl.textContent = `step ${idx}/${nSteps-1}: loss=${lossCurve[idx].toFixed(4)}${normStr}`;
+        const cursor = document.getElementById('patchOptCursor');
+        if (cursor) { cursor.style.display = ''; cursor.style.left = `${idx * barW + Math.floor(barW/2)}px`; }
+        if (alphaSnapshots.length > idx) {
+          updateAlphaGrid(alphaSnapshots[idx]);
+          patchOutEl.textContent = stepSummaryText(idx, alphaSnapshots[idx]);
+        }
+      });
+      curveEl.addEventListener('mouseleave', () => {
+        tooltipEl.textContent = '';
+        const cursor = document.getElementById('patchOptCursor');
+        if (cursor) cursor.style.display = 'none';
+        updateAlphaGrid(alphaByLayer);
+        patchOutEl.textContent = originalPatchText;
+      });
+      saveUiCache();
     }
     async function postJson(url, payload) {
       const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
@@ -1481,6 +1932,7 @@ class ChatCompareWebApp:
       const panel = panelStatus[name];
       panel.box.classList.toggle('loading', isLoading);
       panel.text.textContent = msg || '';
+      if (msg) appendLog(`${name}: ${msg}`);
     }
     function resetPanelStatuses() {
       setPanelLoading('ao', false, '');
@@ -1492,13 +1944,14 @@ class ChatCompareWebApp:
     }
     function setBusy(isBusy, msg, progress) {
       busyWrap.classList.toggle('active', isBusy);
-      busyLabel.textContent = msg || 'Working...';
+      busyLabel.textContent = msg || (isBusy ? 'Working...' : 'Idle');
       progressBar.style.width = isBusy ? `${progress || 0}%` : '0%';
       document.getElementById('generateBtn').disabled = isBusy;
       document.getElementById('runBtn').disabled = isBusy;
       document.getElementById('selectAllBtn').disabled = isBusy;
       document.getElementById('clearBtn').disabled = isBusy;
       document.getElementById('refreshPromptBtn').disabled = isBusy;
+      appendLog(`busy: ${busyLabel.textContent}${isBusy ? ` (${progress || 0}%)` : ''}`);
     }
     function keyFor(layer, position) { return `${layer}:${position}`; }
     function currentRunPayload() {
@@ -1541,6 +1994,7 @@ class ChatCompareWebApp:
       taskSelect.addEventListener('change', () => {
         const item = config.task_options.find(opt => opt.key === taskSelect.value);
         document.getElementById('customPrompt').value = item && item.key !== 'custom' ? item.prompt : '';
+        saveUiCache();
       });
       taskSelect.dispatchEvent(new Event('change'));
     }
@@ -1638,14 +2092,16 @@ class ChatCompareWebApp:
       selectionBox.style.display = 'none';
       selectionBox.style.width = '0px';
       selectionBox.style.height = '0px';
+      saveUiCache();
     }
     function selectAll() {
       if (!session) return;
       selected = new Set();
       for (const layer of session.layers) for (let pos = 0; pos < session.n_positions; pos += 1) selected.add(keyFor(layer, pos));
       refreshCells();
+      saveUiCache();
     }
-    function clearSelection() { selected = new Set(); refreshCells(); }
+    function clearSelection() { selected = new Set(); refreshCells(); saveUiCache(); }
     function queuePatchscopesRefresh() {
       if (patchRefreshTimer) clearTimeout(patchRefreshTimer);
       patchRefreshTimer = setTimeout(refreshPatchscopesFromSliders, 150);
@@ -1663,6 +2119,7 @@ class ChatCompareWebApp:
         document.getElementById('patchPrompt').textContent = `Patchscopes prompt: ${data.patchscopes_prompt}`;
         document.getElementById('patchOut').textContent = compactText(data.patchscopes_response);
         setPanelLoading('patch', false, 'Updated');
+        saveUiCache();
       } catch (error) {
         if (nonce !== patchRefreshNonce) return;
         setPanelLoading('patch', false, 'Failed');
@@ -1679,6 +2136,9 @@ class ChatCompareWebApp:
       } else {
         shareInfo.textContent = `Host: ${config.host_fqdn} | share policy: ${config.share_policy}`;
       }
+      renderCheckpointOptions();
+      renderCheckpointInfo(config.checkpoint_info);
+      setModelLoadStatus('ready.', false);
       baselineInputs.noact.checked = config.no_act_available;
       baselineInputs.noact.disabled = !config.no_act_available;
       baselineInputs.ao.checked = config.ao_available;
@@ -1689,10 +2149,54 @@ class ChatCompareWebApp:
       document.getElementById('patchOptimize').addEventListener('change', function() {
         document.getElementById('patchSliderWrap').style.display = this.checked ? 'none' : '';
         document.getElementById('patchOptControls').style.display = this.checked ? '' : 'none';
+        saveUiCache();
       });
       renderTaskOptions();
       renderEvalTags();
+      restoreUiCache();
+      cacheReady = true;
       setStatus(statusEl.textContent || 'Ready. Generate CoT + Activations to begin.');
+    }
+    async function loadSelectedCheckpoint() {
+      const checkpoint = checkpointSelectEl.value;
+      if (!checkpoint || checkpoint === config.current_checkpoint) return;
+      setModelLoadStatus(`loading ${checkpoint}...`, true);
+      setStatus(`Loading checkpoint ${checkpoint}...`);
+      setBusy(true, 'Reloading model for selected checkpoint...', 5);
+      await flushUi();
+      const data = await postJson('/api/load_checkpoint', { checkpoint });
+      config = { ...config, ...data };
+      setBusy(false);
+      selected = new Set();
+      session = null;
+      document.getElementById('meta').textContent = 'Generate a CoT to populate the selectable activation text.';
+      document.getElementById('cotPreview').textContent = '';
+      document.getElementById('tagPills').innerHTML = '';
+      document.getElementById('tokenRowsWrap').innerHTML = '';
+      document.getElementById('aoOut').textContent = '';
+      document.getElementById('patchOut').textContent = '';
+      document.getElementById('bbOut').textContent = '';
+      document.getElementById('noActOut').textContent = '';
+      document.getElementById('oracleOut').textContent = '';
+      document.getElementById('saeOut').textContent = '';
+      document.getElementById('aoPrompt').textContent = '';
+      document.getElementById('patchPrompt').textContent = '';
+      document.getElementById('bbPrompt').textContent = '';
+      document.getElementById('noActPrompt').textContent = '';
+      document.getElementById('oraclePrompt').textContent = '';
+      document.getElementById('logPath').textContent = '';
+      renderRatings([], '');
+      renderPatchStrengthRows();
+      renderCheckpointOptions();
+      renderCheckpointInfo(config.checkpoint_info);
+      baselineInputs.noact.checked = config.no_act_available;
+      baselineInputs.noact.disabled = !config.no_act_available;
+      baselineInputs.ao.checked = config.ao_available;
+      baselineInputs.ao.disabled = !config.ao_available;
+      baselineInputs.sae.checked = config.sae_available;
+      baselineInputs.sae.disabled = !config.sae_available;
+      setModelLoadStatus(`ready (${config.current_checkpoint}).`, false);
+      setStatus(`Loaded ${config.current_checkpoint} on ${config.current_model}.`);
     }
     async function loadSuggestedQuestion() {
       setStatus('Fetching a sample prompt from Hugging Face...');
@@ -1709,12 +2213,14 @@ class ChatCompareWebApp:
       if (!question) { setStatus('Question is empty'); return; }
       setStatus('Generating CoT...');
       setBusy(true, 'Stage 1/2: generating CoT...', 20);
+      await flushUi();
       const cotResponse = await fetch('/api/generate_cot', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ question, enable_thinking: enableThinking }) });
       const cotData = await cotResponse.json();
       if (!cotResponse.ok) { setBusy(false); setStatus(cotData.detail || 'CoT generation failed'); return; }
       document.getElementById('cotPreview').textContent = compactText(cotData.cot_preview);
       setStatus('Extracting activations...');
       setBusy(true, 'Stage 2/2: extracting activations...', 70);
+      await flushUi();
       const extractResponse = await fetch('/api/extract_activations', { method: 'POST' });
       const extractData = await extractResponse.json();
       setBusy(false);
@@ -1814,6 +2320,7 @@ class ChatCompareWebApp:
         } catch (error) {
           if (nonce !== ratingRefreshNonce) return latestRatings;
           document.getElementById('ratingSummary').textContent = `Gemini rating failed: ${error.message}`;
+          saveUiCache();
           return latestRatings;
         }
       }
@@ -1826,6 +2333,7 @@ class ChatCompareWebApp:
         document.getElementById('aoOut').textContent = compactText(data.ao_response);
         setPanelLoading('ao', false, 'Loaded');
         advanceProgress('Original AO loaded...');
+        saveUiCache();
         void refreshRatingsNow();
         return ['ao', data];
       }).catch(error => {
@@ -1845,6 +2353,7 @@ class ChatCompareWebApp:
         renderPatchOptResult(data);
         setPanelLoading('patch', false, 'Loaded');
         advanceProgress('Patchscopes loaded...');
+        saveUiCache();
         void refreshRatingsNow();
         return ['patch', data];
       }).catch(error => {
@@ -1864,6 +2373,7 @@ class ChatCompareWebApp:
         document.getElementById('bbOut').textContent = compactText(data.black_box_response);
         setPanelLoading('bb', false, 'Loaded');
         advanceProgress('Black-box monitor loaded...');
+        saveUiCache();
         void refreshRatingsNow();
         return ['bb', data];
       }).catch(error => {
@@ -1882,6 +2392,7 @@ class ChatCompareWebApp:
         document.getElementById('noActOut').textContent = compactText(data.no_act_response);
         setPanelLoading('noact', false, 'Loaded');
         advanceProgress('No-act oracle loaded...');
+        saveUiCache();
         void refreshRatingsNow();
         return ['noact', data];
       }).catch(error => {
@@ -1900,6 +2411,7 @@ class ChatCompareWebApp:
         document.getElementById('oracleOut').textContent = compactText(data.trained_response);
         setPanelLoading('oracle', false, 'Loaded');
         advanceProgress('Trained oracle loaded...');
+        saveUiCache();
         void refreshRatingsNow();
         return ['oracle', data];
       }).catch(error => {
@@ -1917,6 +2429,7 @@ class ChatCompareWebApp:
         document.getElementById('saeOut').textContent = compactText(data.sae_response);
         setPanelLoading('sae', false, 'Loaded');
         advanceProgress('SAE baseline loaded...');
+        saveUiCache();
         void refreshRatingsNow();
         return ['sae', data];
       }).catch(error => {
@@ -1959,6 +2472,14 @@ class ChatCompareWebApp:
     document.getElementById('runBtn').addEventListener('click', runSelection);
     document.getElementById('selectAllBtn').addEventListener('click', selectAll);
     document.getElementById('clearBtn').addEventListener('click', clearSelection);
+    checkpointSelectEl.addEventListener('change', loadSelectedCheckpoint);
+    document.getElementById('question').addEventListener('input', saveUiCache);
+    document.getElementById('customPrompt').addEventListener('input', saveUiCache);
+    document.getElementById('maxTokens').addEventListener('change', saveUiCache);
+    document.getElementById('thinkingToggle').addEventListener('change', saveUiCache);
+    document.getElementById('evalTags').addEventListener('change', saveUiCache);
+    document.getElementById('patchOptSteps').addEventListener('change', saveUiCache);
+    document.getElementById('patchOptLr').addEventListener('change', saveUiCache);
     window.addEventListener('mousemove', event => {
       if (!dragMode || !dragStart) return;
       updateSelectionBox(event.clientX, event.clientY);
@@ -1969,7 +2490,7 @@ class ChatCompareWebApp:
   </script>
 </body>
 </html>"""
-        return doc.replace("__INITIAL_QUESTION__", html.escape(initial_question)).replace("__INITIAL_QUESTION_SOURCE__", initial_question_source_html).replace("__INITIAL_STATUS__", html.escape(initial_status))
+        return doc.replace("__INITIAL_QUESTION__", html.escape(initial_question)).replace("__INITIAL_QUESTION_SOURCE__", initial_question_source_html).replace("__INITIAL_STATUS__", html.escape(initial_status)).replace("__INITIAL_CHECKPOINT_INFO__", html.escape(initial_checkpoint_info)).replace("__INITIAL_CHECKPOINT_OPTIONS__", initial_checkpoint_options_html)
 
 
 def run_web(args):

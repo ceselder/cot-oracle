@@ -349,6 +349,74 @@ def get_batched_steering_hook(
     return hook_fn
 
 
+def get_differentiable_steering_hook(
+    layer_specs: list[tuple[torch.Tensor, list[int], torch.Tensor]],
+    alpha: torch.nn.Parameter,
+):
+    """Differentiable norm-matched additive steering hook for per-query alpha optimization.
+
+    Supports ragged K across layers — different source layers may contribute
+    different numbers of positions. Alpha is a flat 1D Parameter sliced per layer.
+
+    Args:
+        layer_specs: List of (normed_l, positions_l, _unused) per source layer.
+            normed_l: [K_l, D] unit-normed activation vectors.
+            positions_l: list of int token positions in the injection-layer residual stream.
+        alpha: Flat 1D Parameter of length sum(K_l), sliced per layer.
+
+    Returns:
+        Hook function for register_forward_hook on the injection layer.
+    """
+    def hook_fn(module, _input, output):
+        del module, _input
+
+        if isinstance(output, tuple):
+            resid, *rest = output
+            is_tuple = True
+        else:
+            resid = output
+            is_tuple = False
+
+        _b, seq_len, d = resid.shape
+        if seq_len <= 1:
+            return (resid, *rest) if is_tuple else resid
+
+        # Collect per-position steering vectors (all depend on alpha → differentiable)
+        steer_positions = []
+        steer_vectors = []
+        orig_norms_cache = {}
+        offset = 0
+        for normed_l, positions_l in [(s[0], s[1]) for s in layer_specs]:
+            K_l = normed_l.shape[0]
+            alpha_l = alpha[offset:offset + K_l]
+            offset += K_l
+            for k, p in enumerate(positions_l):
+                if p >= seq_len:
+                    continue
+                if p not in orig_norms_cache:
+                    orig_norms_cache[p] = resid[0, p, :].detach().norm()
+                norm_p = orig_norms_cache[p]
+                vec = alpha_l[k] * normed_l[k].to(device=resid.device, dtype=resid.dtype) * norm_p
+                steer_positions.append(p)
+                steer_vectors.append(vec)
+
+        if not steer_vectors:
+            return (resid, *rest) if is_tuple else resid
+
+        # Build delta via out-of-place index_put so gradient flows through vecs → alpha
+        # (in-place slice assignment on a non-grad tensor silently breaks autograd)
+        vecs = torch.stack(steer_vectors)  # [N, D]
+        pos_idx = torch.tensor(steer_positions, device=resid.device, dtype=torch.long)
+        batch_idx = torch.zeros_like(pos_idx)
+        delta = torch.zeros_like(resid)
+        delta = delta.index_put((batch_idx, pos_idx), vecs, accumulate=True)
+        resid = resid + delta
+
+        return (resid, *rest) if is_tuple else resid
+
+    return hook_fn
+
+
 @dynamo.disable
 @torch.no_grad()
 def run_oracle_on_activations(

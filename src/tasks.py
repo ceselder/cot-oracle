@@ -39,6 +39,7 @@ class TaskDef:
     cot_field: str = "cot_text"         # field to use for activation extraction
     # Maps datapoint_type in existing precomputed data → this task
     legacy_datapoint_type: str = ""
+    eval_exclude_types: tuple[str, ...] = ()  # datapoint_types to filter out at eval time
 
 
 # ── HF org prefix ──
@@ -125,8 +126,66 @@ TASKS: dict[str, TaskDef] = {
         negative_keywords=(),
         trainable=True,
         default_n=30000,
-        max_new_tokens=80,
+        max_new_tokens=1000,
         legacy_datapoint_type="cot_next_step",
+    ),
+
+    "futurelens_fineweb": TaskDef(
+        name="futurelens_fineweb",
+        hf_repo=f"{HF_ORG}/fineweb-futurelens",
+        scoring=ScoringMode.TOKEN_F1,
+        positive_keywords=(),
+        negative_keywords=(),
+        trainable=True,
+        default_n=30000,
+        max_new_tokens=1000,
+        cot_field="excerpt",
+    ),
+
+    "pastlens": TaskDef(
+        name="pastlens",
+        hf_repo=f"{HF_ORG}/cot-oracle-pastlens",
+        scoring=ScoringMode.TOKEN_F1,
+        positive_keywords=(),
+        negative_keywords=(),
+        trainable=True,
+        default_n=30000,
+        max_new_tokens=1000,
+    ),
+
+    "pastlens_fineweb": TaskDef(
+        name="pastlens_fineweb",
+        hf_repo=f"{HF_ORG}/fineweb-pastlens",
+        scoring=ScoringMode.TOKEN_F1,
+        positive_keywords=(),
+        negative_keywords=(),
+        trainable=True,
+        default_n=30000,
+        max_new_tokens=1000,
+        cot_field="excerpt",
+    ),
+
+    "reconstruction": TaskDef(
+        name="reconstruction",
+        hf_repo=f"{HF_ORG}/cot-oracle-reconstruction",
+        scoring=ScoringMode.TOKEN_F1,
+        positive_keywords=(),
+        negative_keywords=(),
+        trainable=True,
+        default_n=30000,
+        max_new_tokens=1000,
+    ),
+
+    "reconstruction_fineweb": TaskDef(
+        name="reconstruction_fineweb",
+        hf_repo=f"{HF_ORG}/fineweb-reconstruction",
+        scoring=ScoringMode.TOKEN_F1,
+        positive_keywords=(),
+        negative_keywords=(),
+        trainable=True,
+        default_n=30000,
+        max_new_tokens=1000,
+        cot_field="excerpt",
     ),
 
     "correctness": TaskDef(
@@ -184,6 +243,30 @@ TASKS: dict[str, TaskDef] = {
         default_n=30000,
         max_new_tokens=128,
         cot_field="cot_prefix",
+        eval_exclude_types=("cot_remaining_strategy",),
+    ),
+
+    "convqa": TaskDef(
+        name="convqa",
+        hf_repo=f"{HF_ORG}/cot-oracle-convqa",
+        scoring=ScoringMode.TOKEN_F1,
+        positive_keywords=(),
+        negative_keywords=(),
+        trainable=True,
+        default_n=25000,
+        max_new_tokens=128,
+    ),
+
+    "fineweb_convqa": TaskDef(
+        name="fineweb_convqa",
+        hf_repo=f"{HF_ORG}/fineweb-convqa",
+        scoring=ScoringMode.TOKEN_F1,
+        positive_keywords=(),
+        negative_keywords=(),
+        trainable=True,
+        default_n=8000,
+        max_new_tokens=128,
+        cot_field="excerpt",
     ),
 
     # ─── Eval-only (4 tasks) ───

@@ -90,18 +90,21 @@ RANDOM_LAYERS: bool = False
 LAYER_DROPOUT: bool = False
 NOISE_ACTIVATIONS: bool = False
 _MODEL_N_LAYERS: int = 36  # total layers in the model (set in main())
+_ADAM_LIGHT_CLASSIFICATION_QUESTIONS = {
+    "cls_sst2": "Does this text express positive sentiment?",
+    "cls_snli": "Does the second sentence follow from the first?",
+    "cls_ag_news": "Is this article about the stated topic?",
+    "cls_ner": "Does this text mention the stated entity?",
+    "cls_tense": "Is this sentence in the stated tense?",
+    "cls_language_id": "Is this text written in the stated language?",
+    "cls_singular_plural": "Does this sentence have a single subject?",
+    "cls_geometry_of_truth": "Is this statement true?",
+    "cls_relations": "Is this statement true?",
+}
 
 
 def _patched_get_prefix(sae_layer: int, num_positions: int) -> str:
-    if MULTI_LAYERS:
-        N = len(MULTI_LAYERS)
-        K = num_positions // N
-        assert K * N == num_positions, f"num_positions={num_positions} not divisible by {N} layers"
-        parts = [f"L{layer}:" + PLACEHOLDER_TOKEN * K for layer in MULTI_LAYERS]
-        prefix = " ".join(parts) + "\n"
-    else:
-        prefix = f"L{sae_layer}:" + PLACEHOLDER_TOKEN * num_positions + "\n"
-    return prefix
+    return "Activations: " + PLACEHOLDER_TOKEN * num_positions + "\n"
 
 
 du_module.get_introspection_prefix = _patched_get_prefix
@@ -128,6 +131,8 @@ du_module.find_pattern_in_tokens = _patched_find_pattern_in_tokens
 _PE_CONFIG = {"enabled": False, "alpha": 0.1}
 # Pooling mode: "none", "windows" (mean-pool token windows), "single", "chunks5"
 _POOLING_MODE = "none"
+# Position selection mode: int stride, "poisson", or "punctuation"
+_POSITION_MODE: int | str | None = None
 # Sparse position sampling: randomly subsample CoT positions per example
 _SPARSE_POSITIONS = False
 # Single position mode: only feed the last CoT position per layer
@@ -652,11 +657,9 @@ def dicts_to_training_data(
                 )
                 num_pos = len(ctx_pos)
 
-            # Suffix-based position sampling (50/50):
-            #   50% → only the last 1 position per layer (minimal context)
-            #   50% → sample m uniformly from 1..K, take last m positions per layer
-            # Positions are always a contiguous suffix up to the prediction barrier.
-            if not _SINGLE_POSITION and n_layers_runtime >= 1:
+            # Legacy suffix-based sampling is only used for deterministic stride modes.
+            # In poisson mode, positions are already sampled stochastically upstream.
+            if _POSITION_MODE != "poisson" and not _SINGLE_POSITION and n_layers_runtime >= 1:
                 total = len(ctx_pos)
                 if total % n_layers_runtime == 0:
                     K = total // n_layers_runtime
@@ -831,15 +834,6 @@ def _token_f1(prediction: str, reference: str) -> float:
     return 2 * precision * recall / (precision + recall)
 
 
-def _save_table_to_disk(log_dir: Path, name: str, global_step: int, columns: list[str], rows: list[list]):
-    """Save a wandb-style table to disk as nicely formatted JSON."""
-    log_dir.mkdir(parents=True, exist_ok=True)
-    records = [dict(zip(columns, row)) for row in rows]
-    path = log_dir / f"{name}_step{global_step}.json"
-    with open(path, "w") as f:
-        json.dump({"step": global_step, "name": name, "n": len(records), "rows": records}, f, indent=2, default=str)
-
-
 def _upload_checkpoint_to_hf(checkpoint_path: Path, args, global_step: int):
     """Upload a LoRA checkpoint to HuggingFace after training completes."""
     try:
@@ -908,26 +902,146 @@ def _load_gemini_baselines(path: str = "logs/llm_monitor/results.json") -> dict[
 _GEMINI_BASELINES: dict[str, tuple[str, float]] | None = None
 
 
+def _save_adam_light_trace_json(path: Path, eval_name: str, traces: list[dict], global_step: int) -> None:
+    payload = {"eval_name": eval_name, "step": global_step, "traces": traces}
+    path.write_text(json.dumps(payload, indent=2))
+
+
+def _run_adam_lightweight_classification_evals(model, tokenizer, model_name, global_step, args, log_dir=None):
+    eval_names = getattr(args, "adam_light_evals", [])
+    if not eval_names:
+        return {}, {}
+
+    project_root = Path(__file__).resolve().parent.parent
+    if str(project_root) not in sys.path:
+        sys.path.insert(0, str(project_root))
+
+    from baselines.shared import load_baseline_inputs
+    from core.ao import run_oracle_on_activations
+    from evals.common import compute_binary_metrics, parse_oracle_binary
+
+    print("\n  Adam Lightweight Classification Evals")
+    act_layer = layer_percent_to_layer(model_name, 50)
+    max_new_tokens = min(args.eval_max_new_tokens, 8)
+    metrics = {}
+    traces_by_eval = {}
+    rows = []
+
+    for eval_name in eval_names:
+        assert eval_name in _ADAM_LIGHT_CLASSIFICATION_QUESTIONS, f"Unsupported Adam lightweight eval: {eval_name}"
+        t0 = time.time()
+        inputs = load_baseline_inputs(
+            eval_name, model, tokenizer,
+            layers=[act_layer],
+            stride=getattr(args, "adam_light_stride", 5),
+            device="cuda",
+            max_items=args.max_items_per_eval,
+        )
+        assert inputs, f"No usable Adam lightweight eval inputs for {eval_name}"
+
+        prompt_text = _ADAM_LIGHT_CLASSIFICATION_QUESTIONS[eval_name] + " Answer with ONLY one word: yes or no."
+        predictions = []
+        traces = []
+
+        for inp in tqdm(inputs, desc=f"Adam {eval_name}", leave=False):
+            response = run_oracle_on_activations(
+                model, tokenizer, inp.activations_by_layer[act_layer].to("cuda"), prompt_text,
+                model_name=model_name, injection_layer=1, act_layer=act_layer,
+                max_new_tokens=max_new_tokens, device="cuda",
+                placeholder_token=PLACEHOLDER_TOKEN, oracle_adapter_name="default",
+            )
+            parsed = parse_oracle_binary(response, ["yes"], ["no"])
+            prediction = "yes" if parsed == "positive" else "no"
+            predictions.append(prediction)
+            traces.append({
+                "eval_name": eval_name,
+                "instruction": _ADAM_LIGHT_CLASSIFICATION_QUESTIONS[eval_name],
+                "oracle_prompt": prompt_text,
+                "oracle_response": response,
+                "prediction": prediction,
+                "target": inp.ground_truth_label,
+                "example_id": inp.example_id,
+            })
+
+        result = compute_binary_metrics(predictions, [inp.ground_truth_label for inp in inputs])
+        elapsed = time.time() - t0
+        metrics[f"eval_cls/{eval_name}"] = result["accuracy"]
+        metrics[f"eval_cls_n/{eval_name}"] = result["n_items"]
+        metrics[f"eval_cls_time/{eval_name}"] = elapsed
+        traces_by_eval[eval_name] = traces
+        rows.append((eval_name, result["accuracy"], elapsed))
+
+        if log_dir:
+            trace_path = log_dir / f"eval_cls_{eval_name}_step{global_step}.json"
+            _save_adam_light_trace_json(trace_path, eval_name, traces, global_step)
+
+    metrics["eval_cls/mean_acc"] = sum(score for _, score, _ in rows) / len(rows)
+
+    name_w = max(len(name) for name, _, _ in rows)
+    print("\n  Eval" + " " * (name_w - 4) + "  Metric         Score   Time")
+    print("  " + "─" * (name_w + 30))
+    for name, score, elapsed in rows:
+        print(f"  {name:<{name_w}}  accuracy      {score:>5.3f}  {elapsed:>5.1f}s")
+
+    return metrics, traces_by_eval
+
+
 def _run_unified_eval(model, tokenizer, model_name, global_step, args, log_dir=None, no_activations=False):
     """Run all evals via unified eval loop."""
     import wandb
 
     print(f"\n--- Evals at step {global_step} ---")
-    stride_val = int(args.stride) if args.stride and args.stride != "punctuation" else 5
     eval_tasks = getattr(args, "eval_tasks", None)
-    metrics = run_eval(
+    metrics, all_traces = run_eval(
         model=model,
         tokenizer=tokenizer,
         task_names=eval_tasks,
         max_items=args.max_items_per_eval,
         eval_batch_size=args.eval_batch_size,
+        max_new_tokens_cap=min(args.eval_max_new_tokens, args.task_eval_max_new_tokens),
         device="cuda",
         layers=MULTI_LAYERS,
-        stride=stride_val,
+        stride=args.stride,
+        log_dir=log_dir,
+        global_step=global_step,
     )
-    if metrics:
-        wandb.log(metrics, step=global_step)
-    elapsed = sum(v for k, v in metrics.items() if k.startswith("eval_time/"))
+    adam_metrics = {}
+    adam_traces = {}
+    if not no_activations:
+        adam_metrics, adam_traces = _run_adam_lightweight_classification_evals(
+            model, tokenizer, model_name, global_step, args, log_dir=log_dir,
+        )
+        metrics.update(adam_metrics)
+
+    # Log metrics + per-task wandb Tables
+    if wandb.run:
+        log_dict = dict(metrics) if metrics else {}
+        columns = ["question", "context", "masked_context", "oracle_prefix", "oracle_prompt", "prediction", "target"]
+        for task_name, traces in all_traces.items():
+            table = wandb.Table(columns=columns)
+            for t in traces:
+                table.add_data(*[t.get(c, "") for c in columns])
+            log_dict[f"eval_table/{task_name}"] = table
+        adam_columns = ["eval_name", "instruction", "oracle_prompt", "oracle_response", "prediction", "target"]
+        for eval_name, traces in adam_traces.items():
+            table = wandb.Table(columns=adam_columns)
+            for t in traces:
+                table.add_data(*[t.get(c, "") for c in adam_columns])
+            log_dict[f"eval_cls_table/{eval_name}"] = table
+        if log_dict:
+            wandb.log(log_dict, step=global_step)
+
+    # Upload untruncated trace JSONs as wandb artifact
+    if log_dir and log_dir.exists() and wandb.run:
+        step_files = list(log_dir.glob(f"*_step{global_step}.json"))
+        if step_files:
+            run_name = wandb.run.name or wandb.run.id
+            art = wandb.Artifact(f"eval_traces_{run_name}_step{global_step}", type="eval_traces", metadata={"step": global_step})
+            for f in step_files:
+                art.add_file(str(f))
+            wandb.log_artifact(art)
+
+    elapsed = sum(v for k, v in metrics.items() if k.startswith("eval_time/") or k.startswith("eval_cls_time/"))
     return metrics, elapsed
 
 
@@ -1590,9 +1704,14 @@ def apply_config(args, config: dict):
     # Eval
     if "eval" in config:
         e = config["eval"]
-        for key in ["eval_steps", "save_steps", "max_items_per_eval"]:
+        for key in ["eval_steps", "save_steps", "max_items_per_eval", "eval_batch_size", "eval_max_new_tokens", "task_eval_max_new_tokens"]:
             if key in e and not getattr(args, f"_cli_{key}", False):
                 setattr(args, key, int(e[key]))
+
+    if "baselines" in config:
+        b = config["baselines"]
+        args.adam_light_evals = list(b.get("classification_evals", []))
+        args.adam_light_stride = int(b.get("stride", 5))
 
     # Data paths (unified: all data from HuggingFace, no local corpus/precomputed paths needed)
 
@@ -1661,7 +1780,7 @@ def main():
                         help="YAML config file(s). Multiple configs are merged left-to-right (later overrides earlier)")
     parser.add_argument("--corpus", default="data/cot_corpus_v5/corpus_medium.jsonl",
                         help="Path to corpus.jsonl")
-    parser.add_argument("--model", default="Qwen/Qwen3-8B")
+    parser.add_argument("--model", default="Qwen/Qwen3-0.6B")
     parser.add_argument("--attn-implementation", default="sdpa",
                         choices=["sdpa", "eager"],
                         help="Transformer attention backend")
@@ -1670,8 +1789,8 @@ def main():
     parser.add_argument("--resume-from", default=None,
                         help="Resume from a LoRA checkpoint dir")
     parser.add_argument("--ao-checkpoint",
-                        default="adamkarvonen/checkpoints_latentqa_cls_past_lens_addition_Qwen3-8B",
-                        help="Adam's pretrained AO checkpoint to start from")
+                        default=None,
+                        help="Adam's pretrained AO checkpoint to start from (required with --no-fresh-lora)")
     parser.add_argument("--fresh-lora", action="store_true", default=True,
                         help="Start with fresh LoRA (default). Use --no-fresh-lora to load Adam's checkpoint")
     parser.add_argument("--no-fresh-lora", dest="fresh_lora", action="store_false",
@@ -1696,12 +1815,12 @@ def main():
     parser.add_argument("--eval-batch-size", type=int, default=2)
     parser.add_argument("--max-items-per-eval", type=int, default=10,
                         help="Maximum items per detection eval")
-parser.add_argument("--eval-max-new-tokens", type=int, default=32,
+    parser.add_argument("--eval-max-new-tokens", type=int, default=32,
                         help="Default max_new_tokens for detection eval generation")
     parser.add_argument("--task-eval-max-new-tokens", type=int, default=64,
                         help="Default max_new_tokens for task-level eval generation")
     parser.add_argument("--epochs", type=int, default=1)
-    parser.add_argument("--stride", type=str, default=None, help="Stride for position extraction (int or 'punctuation'). Must be set via config or CLI.")
+    parser.add_argument("--stride", type=str, default=None, help="Position mode for activation extraction (int, 'poisson', or 'punctuation'). Must be set via config or CLI.")
     parser.add_argument("--n-layers", type=int, default=3,
                         help="Number of activation layers (evenly spaced through model depth)")
     parser.add_argument("--layers", type=int, nargs="+", default=None,
@@ -1803,6 +1922,8 @@ parser.add_argument("--eval-max-new-tokens", type=int, default=32,
     # Data loading (unified: all data from HuggingFace, cached locally)
 
     args = parser.parse_args()
+    args.adam_light_evals = []
+    args.adam_light_stride = 5
 
     # Mark which args were explicitly provided on CLI so config doesn't override them
     _mark_cli_overrides(args, parser, sys.argv[1:])
@@ -1833,17 +1954,19 @@ parser.add_argument("--eval-max-new-tokens", type=int, default=32,
     if args.stride is None:
         raise ValueError(
             "stride must be set via config (activations.stride) or CLI (--stride). "
-            "Use an integer for fixed-stride or 'punctuation' for punctuation-based extraction."
+            "Use an integer for fixed-stride, 'poisson' for random sampling, or "
+            "'punctuation' for punctuation-based extraction."
         )
 
     set_seed(args.seed)
 
     # Multi-layer config
-    global MULTI_LAYERS, NO_ACTIVATIONS, RANDOM_LAYERS, LAYER_DROPOUT, NOISE_ACTIVATIONS, _MODEL_N_LAYERS
+    global MULTI_LAYERS, NO_ACTIVATIONS, RANDOM_LAYERS, LAYER_DROPOUT, NOISE_ACTIVATIONS, _MODEL_N_LAYERS, _POSITION_MODE
     NO_ACTIVATIONS = getattr(args, "no_activations", False)
     RANDOM_LAYERS = getattr(args, "random_layers", False)
     LAYER_DROPOUT = getattr(args, "layer_dropout", False)
     NOISE_ACTIVATIONS = getattr(args, "noise_activations", False)
+    _POSITION_MODE = args.stride
     from cot_utils import LAYER_COUNTS
     _MODEL_N_LAYERS = LAYER_COUNTS.get(args.model, 36)
     if hasattr(args, "layers") and args.layers:
@@ -1891,8 +2014,10 @@ parser.add_argument("--eval-max-new-tokens", type=int, default=32,
     global _SINGLE_POSITION
     _SINGLE_POSITION = getattr(args, "single_position", False)
     if rank == 0:
-        print(f"Activation stride: {args.stride}")
+        print(f"Activation position mode: {args.stride}")
         print(f"Activation pooling: {_POOLING_MODE}")
+        if _POSITION_MODE == "poisson":
+            print("Random position sampling: ON (Poisson-process style)")
         if _SPARSE_POSITIONS:
             print("Sparse position sampling: ON")
         if _SINGLE_POSITION:
@@ -1977,16 +2102,9 @@ parser.add_argument("--eval-max-new-tokens", type=int, default=32,
     elif args.fresh_lora:
         if rank == 0:
             print("Starting with FRESH LoRA (random init)")
-        try:
-            # Try loading AO checkpoint structure, then reinit weights
-            model = PeftModel.from_pretrained(
-                base_model, args.ao_checkpoint,
-                is_trainable=True, autocast_adapter_dtype=False,
-            )
-        except RuntimeError:
-            # Checkpoint doesn't match model (e.g. 8B checkpoint on 0.6B model) — create fresh LoRA
+        if args.ao_checkpoint is None:
             if rank == 0:
-                print("  AO checkpoint incompatible, creating LoRA from scratch")
+                print("  No AO checkpoint configured, creating LoRA from scratch")
             from peft import LoraConfig, get_peft_model
             lora_config = LoraConfig(
                 r=64, lora_alpha=16, lora_dropout=0.0,
@@ -1994,12 +2112,32 @@ parser.add_argument("--eval-max-new-tokens", type=int, default=32,
                 bias="none", task_type="CAUSAL_LM",
             )
             model = get_peft_model(base_model, lora_config)
+        else:
+            try:
+                # Try loading AO checkpoint structure, then reinit weights
+                model = PeftModel.from_pretrained(
+                    base_model, args.ao_checkpoint,
+                    is_trainable=True, autocast_adapter_dtype=False,
+                )
+            except RuntimeError:
+                # Checkpoint doesn't match model (e.g. 8B checkpoint on 0.6B model) — create fresh LoRA
+                if rank == 0:
+                    print("  AO checkpoint incompatible, creating LoRA from scratch")
+                from peft import LoraConfig, get_peft_model
+                lora_config = LoraConfig(
+                    r=64, lora_alpha=16, lora_dropout=0.0,
+                    target_modules=["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"],
+                    bias="none", task_type="CAUSAL_LM",
+                )
+                model = get_peft_model(base_model, lora_config)
         for name, param in model.named_parameters():
             if "lora_A" in name:
                 torch.nn.init.kaiming_uniform_(param, a=5**0.5)
             elif "lora_B" in name:
                 torch.nn.init.zeros_(param)
     else:
+        if args.ao_checkpoint is None:
+            raise ValueError("--no-fresh-lora requires --ao-checkpoint or model.ao_checkpoint in config")
         if rank == 0:
             print(f"Loading Adam's AO checkpoint: {args.ao_checkpoint}")
         model = PeftModel.from_pretrained(
@@ -2048,26 +2186,49 @@ parser.add_argument("--eval-max-new-tokens", type=int, default=32,
         if n > 0:
             task_config[task_name] = {"n": n}
 
-    # FutureLens uses corpus-v5 + tokenizer — handle separately (like FineWeb)
-    futurelens_n = task_config.pop("futurelens", {}).get("n", 0)
+    cot_readout_counts = {name: task_config.pop(name, {}).get("n", 0) for name in ["futurelens", "pastlens", "reconstruction"]}
+    fineweb_readout_counts = {name: task_config.pop(name, {}).get("n", 0) for name in ["futurelens_fineweb", "pastlens_fineweb", "reconstruction_fineweb"]}
 
     raw_data = load_all_training_data(task_config)
 
-    # FutureLens (corpus-based, needs tokenizer)
-    if futurelens_n > 0:
-        from data_loading import load_futurelens_data
+    for task_name, n_items in cot_readout_counts.items():
+        if n_items <= 0:
+            continue
+        from data_loading import load_cot_readout_task_data
         if rank == 0:
-            print(f"  [data] Generating {futurelens_n} FutureLens examples from corpus...")
-        futurelens_data = load_futurelens_data(
+            print(f"  [data] Generating {n_items} {task_name} examples from corpus...")
+        task_items = load_cot_readout_task_data(
+            task_name=task_name,
             tokenizer=tokenizer,
-            n=futurelens_n,
+            n=n_items,
             split="train",
+            stride=args.stride,
             layers=MULTI_LAYERS,
             seed=args.seed,
         )
-        raw_data.extend(futurelens_data)
+        raw_data.extend(task_items)
         if rank == 0:
-            print(f"  [data]   -> {len(futurelens_data)} FutureLens examples added (total: {len(raw_data)})")
+            print(f"  [data]   -> {len(task_items)} {task_name} examples added (total: {len(raw_data)})")
+
+    for task_name, n_items in fineweb_readout_counts.items():
+        if n_items <= 0:
+            continue
+        from data_loading import load_fineweb_readout_task_data
+        if rank == 0:
+            print(f"  [data] Generating {n_items} {task_name} examples from FineWeb...")
+        task_items = load_fineweb_readout_task_data(
+            task_name=task_name,
+            tokenizer=tokenizer,
+            model_name=args.model,
+            n=n_items,
+            max_context_tokens=getattr(args, "fineweb_max_context_tokens", 2000),
+            stride=args.stride,
+            layers=MULTI_LAYERS,
+            seed=args.seed,
+        )
+        raw_data.extend(task_items)
+        if rank == 0:
+            print(f"  [data]   -> {len(task_items)} {task_name} examples added (total: {len(raw_data)})")
 
     # FineWeb context prediction (PastLens-style, if enabled)
     fineweb_n = getattr(args, "fineweb_n", 0)
@@ -2075,13 +2236,12 @@ parser.add_argument("--eval-max-new-tokens", type=int, default=32,
         from data_loading import load_fineweb_data
         if rank == 0:
             print(f"  [data] Generating {fineweb_n} FineWeb context prediction examples...")
-        fw_stride = int(args.stride) if args.stride and args.stride != "punctuation" else 5
         fineweb_data = load_fineweb_data(
             tokenizer=tokenizer,
             model_name=args.model,
             n=fineweb_n,
             max_context_tokens=getattr(args, "fineweb_max_context_tokens", 2000),
-            stride=fw_stride,
+            stride=args.stride,
             layers=MULTI_LAYERS,
             seed=args.seed,
         )
@@ -2097,10 +2257,9 @@ parser.add_argument("--eval-max-new-tokens", type=int, default=32,
 
     # Tokenize cot_text → context_input_ids for items that don't have them yet
     from data_loading import prepare_context_ids
-    stride_val = int(args.stride) if args.stride and args.stride != "punctuation" else 5
     prepare_context_ids(
         raw_data, tokenizer,
-        stride=stride_val,
+        stride=args.stride,
         layers=MULTI_LAYERS,
     )
 

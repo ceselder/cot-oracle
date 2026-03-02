@@ -211,13 +211,24 @@ def main():
 
             elif baseline_name == "patchscopes":
                 ps_cfg = bcfg["patchscopes"]
+                ps_optimize = ps_cfg.get("optimize", False)
+                llm_cfg = None
+                if ps_optimize:
+                    lm_cfg = bcfg["llm_monitor"]
+                    llm_cfg = {"model": lm_cfg["model"], "api_base": lm_cfg["api_base"],
+                               "api_key": os.environ["OPENROUTER_API_KEY"],
+                               "max_tokens": lm_cfg["max_tokens"], "temperature": lm_cfg["temperature"]}
                 results = run_patchscopes(
                     inputs, model, tokenizer,
                     source_layers=ps_cfg["source_layers"],
                     injection_layer=ps_cfg["injection_layer"],
-                    steering_coefficients=ps_cfg["steering_coefficients"],
+                    steering_coefficients=ps_cfg.get("steering_coefficients", [1.0]),
                     max_new_tokens=ps_cfg["max_new_tokens"],
                     device=args.device,
+                    optimize=ps_optimize,
+                    opt_steps=ps_cfg.get("opt_steps", 50),
+                    opt_lr=ps_cfg.get("opt_lr", 0.1),
+                    llm_cfg=llm_cfg,
                 )
 
             elif baseline_name == "no_act_oracle":
@@ -343,13 +354,24 @@ def main():
                     )
                 elif baseline_name == "patchscopes":
                     ps_cfg = bcfg["patchscopes"]
+                    ps_optimize = ps_cfg.get("optimize", False)
+                    llm_cfg = None
+                    if ps_optimize:
+                        lm_cfg = bcfg["llm_monitor"]
+                        llm_cfg = {"model": lm_cfg["model"], "api_base": lm_cfg["api_base"],
+                                   "api_key": os.environ["OPENROUTER_API_KEY"],
+                                   "max_tokens": lm_cfg["max_tokens"], "temperature": lm_cfg["temperature"]}
                     results = run_patchscopes(
                         test_inputs, model, tokenizer,
                         source_layers=ps_cfg["source_layers"],
                         injection_layer=ps_cfg["injection_layer"],
-                        steering_coefficients=ps_cfg["steering_coefficients"],
+                        steering_coefficients=ps_cfg.get("steering_coefficients", [1.0]),
                         max_new_tokens=ps_cfg["max_new_tokens"],
                         device=args.device,
+                        optimize=ps_optimize,
+                        opt_steps=ps_cfg.get("opt_steps", 50),
+                        opt_lr=ps_cfg.get("opt_lr", 0.1),
+                        llm_cfg=llm_cfg,
                     )
                 elif baseline_name == "no_act_oracle":
                     na_cfg = bcfg["no_act_oracle"]

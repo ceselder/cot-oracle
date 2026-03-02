@@ -68,6 +68,54 @@ def find_sentence_boundary_positions(
 
 
 PUNCTUATION_CHARS = frozenset(".,;:?!")
+POISSON_SAMPLE_MAX_POSITIONS = 1000
+
+
+def sample_position_count(
+    available: int,
+    max_positions: int = POISSON_SAMPLE_MAX_POSITIONS,
+    rng: random.Random | None = None,
+) -> int:
+    """Sample how many activation positions to keep.
+
+    Distribution:
+    - 50% mass exactly at 1
+    - 50% mass from a half-normal-like tail, truncated to [2, max_positions]
+    """
+    if available <= 0:
+        return 0
+
+    cap = min(available, max_positions)
+    if cap <= 1:
+        return 1
+
+    sampler = rng or random
+    if sampler.random() < 0.5:
+        return 1
+
+    spread = max(1.0, cap / 3.0)
+    tail = 1 + int(round(abs(sampler.gauss(0.0, spread))))
+    return min(cap, max(2, tail))
+
+
+def sample_positions_in_span(
+    start: int,
+    end: int,
+    max_positions: int = POISSON_SAMPLE_MAX_POSITIONS,
+    rng: random.Random | None = None,
+) -> list[int]:
+    """Sample sorted token positions over [start, end] in Poisson-process style."""
+    if end < start:
+        return []
+
+    sampler = rng or random
+    available = end - start + 1
+    k = sample_position_count(available, max_positions=max_positions, rng=sampler)
+    if k >= available:
+        return list(range(start, end + 1))
+
+    positions = sorted(sampler.sample(range(start, end + 1), k))
+    return positions
 
 
 def get_cot_punctuation_positions(
@@ -161,6 +209,28 @@ def get_cot_stride_positions(
     return positions
 
 
+def get_cot_poisson_positions(
+    prompt_token_count: int,
+    total_token_count: int,
+    max_positions: int = POISSON_SAMPLE_MAX_POSITIONS,
+    include_last: bool = True,
+) -> list[int]:
+    """Sample random CoT positions over the token region.
+
+    This replaces fixed striding with a homogeneous Poisson-process-style
+    sampler: conditional on the sampled count k, positions are uniform over
+    the CoT span. `include_last` is accepted for API compatibility but does
+    not pin the final token in this mode.
+    """
+    cot_start = max(0, prompt_token_count)
+    cot_end = total_token_count - 1
+
+    if cot_end - cot_start + 1 < 2:
+        return []
+
+    return sample_positions_in_span(cot_start, cot_end, max_positions=max_positions)
+
+
 def get_cot_positions(
     prompt_token_count: int,
     total_token_count: int,
@@ -169,18 +239,24 @@ def get_cot_positions(
     input_ids: list[int] | None = None,
     include_last: bool = True,
 ) -> list[int]:
-    """Unified position dispatcher: stride-based or punctuation-based.
+    """Unified position dispatcher: fixed-stride, Poisson-style, or punctuation-based.
 
     Args:
-        stride: int for fixed-stride, or "punctuation" for punctuation boundaries.
-                No default — must be explicitly provided.
+        stride: int for fixed-stride, "poisson" for random position sampling,
+                or "punctuation" for punctuation boundaries. No default — must
+                be explicitly provided.
         tokenizer: Required when stride="punctuation".
         input_ids: Required when stride="punctuation".
     """
     if stride is None:
         raise ValueError(
-            "stride must be explicitly set (int or 'punctuation'). "
+            "stride must be explicitly set (int, 'poisson', or 'punctuation'). "
             "Check config activations.stride or --stride CLI flag."
+        )
+    if stride == "poisson":
+        return get_cot_poisson_positions(
+            prompt_token_count, total_token_count,
+            include_last=include_last,
         )
     if stride == "punctuation":
         assert tokenizer is not None and input_ids is not None, (
@@ -201,17 +277,9 @@ def sparse_sample_positions(
     positions: list[int],
     n_layers: int = 3,
 ) -> list[int]:
-    """Randomly subsample CoT positions.
+    """Randomly subsample CoT positions with the default stochastic count prior.
 
     Positions are stored as [base_positions] * n_layers.
-
-    For each example we:
-      1. Extract base positions (first 1/n_layers of the list)
-      2. Sample a random count n_feed ~ Uniform(1, K) with 1 double-weighted
-      3. Always include the last CoT position
-      4. Re-expand to n_layers
-
-    This forces the oracle to work with sparse, incomplete activation evidence.
     """
     if not positions:
         return positions
@@ -230,19 +298,12 @@ def sparse_sample_positions(
     if n_cot <= 2:
         return positions
 
-    # Sample how many positions to keep: uniform over [1, n_cot]
-    # with 1 double-weighted (oracle sometimes sees minimal evidence)
-    pool = [1] + list(range(1, n_cot + 1))
-    n_feed = random.choice(pool)
+    n_feed = sample_position_count(n_cot)
 
     if n_feed >= n_cot:
         sampled = base
     else:
-        # Always include the last position, sample rest randomly
-        last = base[-1]
-        rest = base[:-1]
-        picked = sorted(random.sample(rest, min(n_feed - 1, len(rest))))
-        sampled = picked + [last]
+        sampled = sorted(random.sample(base, n_feed))
 
     return sampled * n_layers
 

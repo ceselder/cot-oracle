@@ -1,4 +1,4 @@
-# Base config for Qwen3-0.6B ablation runs (1/5 scale)
+# Base config for Qwen3-0.6B ablation runs
 # Use as first overlay: --config configs/train.yaml configs/ablation_base_0.6b.yaml configs/ablation_<name>.yaml
 
 model:
@@ -6,34 +6,60 @@ model:
   fresh_lora: true  # no pretrained AO checkpoint for 0.6B
 
 tasks:
-  full_recon:
-    n: 8000
-  next_step:
-    n: 6000
-  conv_qa:
-    n: 2000
-  cotqa:
-    n: 2000
-  compqa:
-    n: 1600
-  answer_pred:
-    n: 4000
-  answer_trajectory:
-    n: 4000
-  correctness:
-    n: 3000
-  decorative:
-    n: 5000
-  reasoning_term:
-    n: 3000
-  atypical_answer:
-    n: 4000
   hint_admission:
-    n: 3000
-  hinted_answer_pred:
-    n: 2000
+    n: 1500
+    eval: true
+  atypical_answer:
+    n: 1000
+    eval: true
+  reasoning_termination:
+    n: 1500
+    eval: true
+  answer_trajectory:
+    n: 1500
+    eval: true
+  futurelens:
+    n: 2400
+    eval: true
+  futurelens_fineweb:
+    n: 2400
+    eval: true
+  pastlens:
+    n: 1600
+    eval: true
+  pastlens_fineweb:
+    n: 1600
+    eval: true
+  reconstruction:
+    n: 800
+    eval: true
+  reconstruction_fineweb:
+    n: 800
+    eval: true
+  correctness:
+    n: 1500
+    eval: true
+  decorative_cot:
+    n: 1200
+    eval: true
+  chunked_convqa:
+    n: 1000
+    eval: true
+  chunked_compqa:
+    n: 1200
+    eval: true
+  convqa:
+    n: 800
+    eval: true
+  fineweb_convqa:
+    n: 500
+    eval: true
+  sycophancy:
+    n: 800
+    eval: true
 
 training:
   batch_size: 4
   effective_batch_size: 256
   eval_batch_size: 4
+  task_order: shuffled

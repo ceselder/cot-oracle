@@ -99,6 +99,7 @@ def load_baseline_inputs(
     device: str = "cuda",
     eval_dir: Path | None = None,
     generation_adapter_name: str | None = None,
+    max_items: int | None = None,
 ) -> list[BaselineInput]:
     """Load eval items, run model for responses, extract multi-layer activations.
 
@@ -208,6 +209,8 @@ def load_baseline_inputs(
             ground_truth_label=gt, clean_response=clean_response, test_response=test_response,
             activations_by_layer=acts_by_layer, metadata=meta,
         ))
+        if max_items is not None and len(results) >= max_items:
+            break
 
     if was_training:
         model.train()
