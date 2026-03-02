@@ -231,7 +231,7 @@ def materialize_multilayer_steering_vectors(
         per_item_layers = [layers] * len(to_fill)
 
     pad_id = tokenizer.pad_token_id
-    MAX_CONTEXT_TOKENS = 1024  # Left-truncate materialization context (old precomputed data was ~180 tokens)
+    MAX_CONTEXT_TOKENS = 384  # Left-truncate materialization context (old precomputed data was ~187 avg)
     contexts = [list(dp.context_input_ids) for _, dp in to_fill]
     # When pooling, use full positions from meta_info (context_positions was truncated for validator)
     positions_per_item = []
