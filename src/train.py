@@ -74,13 +74,13 @@ from nl_probes.utils.activation_utils import (
 )
 from nl_probes.utils.common import load_tokenizer, set_seed
 
-from cot_utils import layer_percent_to_layer, sparse_sample_positions
+from cot_utils import layer_percent_to_layer, sample_position_indices, sparse_sample_positions
 from tasks import TASKS, get_trainable_tasks
 from data_loading import load_all_training_data
 from eval_loop import run_eval
 
 # ── Override placeholder token ──
-PLACEHOLDER_TOKEN = " \u00b6"
+PLACEHOLDER_TOKEN = " ?"
 du_module.SPECIAL_TOKEN = PLACEHOLDER_TOKEN
 
 # ── Multi-layer config ──
@@ -90,17 +90,34 @@ RANDOM_LAYERS: bool = False
 LAYER_DROPOUT: bool = False
 NOISE_ACTIVATIONS: bool = False
 _MODEL_N_LAYERS: int = 36  # total layers in the model (set in main())
-_ADAM_LIGHT_CLASSIFICATION_QUESTIONS = {
-    "cls_sst2": "Does this text express positive sentiment?",
-    "cls_snli": "Does the second sentence follow from the first?",
-    "cls_ag_news": "Is this article about the stated topic?",
-    "cls_ner": "Does this text mention the stated entity?",
-    "cls_tense": "Is this sentence in the stated tense?",
-    "cls_language_id": "Is this text written in the stated language?",
-    "cls_singular_plural": "Does this sentence have a single subject?",
-    "cls_geometry_of_truth": "Is this statement true?",
-    "cls_relations": "Is this statement true?",
-}
+_AO_REFERENCE_CLASSIFICATION_ALIASES = {"language_id": "language_identification"}
+_AO_REFERENCE_CLASSIFICATION_CACHE = {}
+
+
+def _sample_layer_dropout(layers: list[int]) -> list[int]:
+    """Sample a non-empty subset of layers with bias toward middle-only and all-layers.
+
+    For N layers, generates all 2^N - 1 non-empty subsets. The middle layer alone
+    and all-layers-together each get focal weight, all other subsets get weight 1.
+    Focal weight is set so the two focal subsets get exactly 50% combined probability.
+    Generalizes to any number of layers.
+    """
+    from itertools import combinations
+    N = len(layers)
+    mid_idx = (N - 1) // 2  # lower-middle for even N
+    n_other = 2 ** N - 3  # non-focal non-empty subsets
+    focal_weight = max(n_other / 2, 1)  # ensures 50% focal
+    subsets = []
+    weights = []
+    for k in range(1, N + 1):
+        for combo in combinations(range(N), k):
+            subset = [layers[i] for i in combo]
+            if combo == (mid_idx,) or k == N:
+                weights.append(focal_weight)
+            else:
+                weights.append(1)
+            subsets.append(subset)
+    return random.choices(subsets, weights=weights, k=1)[0]
 
 
 def _patched_get_prefix(sae_layer: int, num_positions: int) -> str:
@@ -627,9 +644,9 @@ def dicts_to_training_data(
             )
             MULTI_LAYERS[:] = saved_layers
         elif LAYER_DROPOUT:
-            # Random non-empty subset of configured layers per item
-            k = random.randint(1, len(MULTI_LAYERS))
-            sampled = sorted(random.sample(MULTI_LAYERS, k))
+            # Weighted layer dropout: bias toward middle layer alone and all layers,
+            # while keeping all non-empty subsets represented.
+            sampled = _sample_layer_dropout(MULTI_LAYERS)
             ctx_pos = base_positions * len(sampled)
             num_pos = len(ctx_pos)
 
@@ -657,25 +674,20 @@ def dicts_to_training_data(
                 )
                 num_pos = len(ctx_pos)
 
-            # Legacy suffix-based sampling is only used for deterministic stride modes.
             # In poisson mode, positions are already sampled stochastically upstream.
+            # For deterministic stride modes, resample from the full extracted set
+            # with the same prior instead of taking a suffix chunk.
             if _POSITION_MODE != "poisson" and not _SINGLE_POSITION and n_layers_runtime >= 1:
                 total = len(ctx_pos)
                 if total % n_layers_runtime == 0:
                     K = total // n_layers_runtime
-                    if K > 1:
-                        if random.random() < 0.5:
-                            # Last-only: single activation at the barrier
-                            m = 1
-                        else:
-                            # Uniform sample: random suffix length from 1..K
-                            m = random.randint(1, K)
-                        if m < K:
-                            # Take last m positions from each layer's chunk
+                    if K >= 1:
+                        sampled_indices = sample_position_indices(K)
+                        if len(sampled_indices) < K:
                             new_ctx_pos = []
                             for li in range(n_layers_runtime):
                                 chunk = ctx_pos[li * K : (li + 1) * K]
-                                new_ctx_pos.extend(chunk[K - m:])
+                                new_ctx_pos.extend(chunk[i] for i in sampled_indices)
                             ctx_pos = new_ctx_pos
                             num_pos = len(ctx_pos)
             elif _SINGLE_POSITION and n_layers_runtime >= 1:
@@ -912,76 +924,124 @@ def _run_adam_lightweight_classification_evals(model, tokenizer, model_name, glo
     if not eval_names:
         return {}, {}
 
-    project_root = Path(__file__).resolve().parent.parent
-    if str(project_root) not in sys.path:
-        sys.path.insert(0, str(project_root))
+    import nl_probes.dataset_classes.classification as ao_classification
+    import nl_probes.dataset_classes.classification_dataset_manager as ao_classification_manager
 
-    from baselines.shared import load_baseline_inputs
-    from core.ao import run_oracle_on_activations
-    from evals.common import compute_binary_metrics, parse_oracle_binary
-
-    print("\n  Adam Lightweight Classification Evals")
+    ao_root = Path(ao_classification_manager.__file__).resolve().parents[2]
+    ao_classification_manager.DEFAULT_DATA_DIR = str(ao_root / "datasets" / "classification_datasets")
+    supported_groups = set(ao_classification_manager.DatasetManager.list_datasets_by_group())
     act_layer = layer_percent_to_layer(model_name, 50)
+    injection_layer = 1
+    submodule = get_hf_submodule(model, injection_layer, use_lora=True)
+    device = next(model.parameters()).device
+    dtype = next(model.parameters()).dtype
     max_new_tokens = min(args.eval_max_new_tokens, 8)
     metrics = {}
     traces_by_eval = {}
     rows = []
+    print("\n  AO Reference Classification Evals")
 
     for eval_name in eval_names:
-        assert eval_name in _ADAM_LIGHT_CLASSIFICATION_QUESTIONS, f"Unsupported Adam lightweight eval: {eval_name}"
+        dataset_name = eval_name[4:] if eval_name.startswith("cls_") else eval_name
+        if dataset_name in _AO_REFERENCE_CLASSIFICATION_ALIASES:
+            dataset_name = _AO_REFERENCE_CLASSIFICATION_ALIASES[dataset_name]
+        assert dataset_name in supported_groups, f"Unsupported AO reference classification eval: {dataset_name}"
         t0 = time.time()
-        inputs = load_baseline_inputs(
-            eval_name, model, tokenizer,
-            layers=[act_layer],
-            stride=getattr(args, "adam_light_stride", 5),
-            device="cuda",
-            max_items=args.max_items_per_eval,
-        )
-        assert inputs, f"No usable Adam lightweight eval inputs for {eval_name}"
-
-        prompt_text = _ADAM_LIGHT_CLASSIFICATION_QUESTIONS[eval_name] + " Answer with ONLY one word: yes or no."
-        predictions = []
-        traces = []
-
-        for inp in tqdm(inputs, desc=f"Adam {eval_name}", leave=False):
-            response = run_oracle_on_activations(
-                model, tokenizer, inp.activations_by_layer[act_layer].to("cuda"), prompt_text,
-                model_name=model_name, injection_layer=1, act_layer=act_layer,
-                max_new_tokens=max_new_tokens, device="cuda",
-                placeholder_token=PLACEHOLDER_TOKEN, oracle_adapter_name="default",
+        cache_key = (model_name, act_layer, args.max_items_per_eval, args.seed, dataset_name)
+        if cache_key not in _AO_REFERENCE_CLASSIFICATION_CACHE:
+            _, source_datapoints = ao_classification.get_classification_datapoints(
+                dataset_name=dataset_name,
+                num_qa_per_sample=1,
+                train_examples=0,
+                test_examples=args.max_items_per_eval,
+                random_seed=args.seed,
             )
-            parsed = parse_oracle_binary(response, ["yes"], ["no"])
-            prediction = "yes" if parsed == "positive" else "no"
-            predictions.append(prediction)
+            eval_data = ao_classification.create_vector_dataset(
+                datapoints=source_datapoints,
+                tokenizer=tokenizer,
+                model_name=model_name,
+                batch_size=args.eval_batch_size,
+                act_layers=[act_layer],
+                min_end_offset=-3,
+                max_end_offset=-3,
+                max_window_size=1,
+                min_window_size=1,
+                save_acts=False,
+                datapoint_type=f"classification_{dataset_name}",
+            )
+            _AO_REFERENCE_CLASSIFICATION_CACHE[cache_key] = (source_datapoints, eval_data)
+        source_datapoints, eval_data = _AO_REFERENCE_CLASSIFICATION_CACHE[cache_key]
+        eval_responses = eval_module.run_evaluation(
+            eval_data=eval_data,
+            model=model,
+            tokenizer=tokenizer,
+            submodule=submodule,
+            device=device,
+            dtype=dtype,
+            global_step=global_step,
+            lora_path=None,
+            eval_batch_size=args.eval_batch_size,
+            steering_coefficient=1.0,
+            generation_kwargs={"do_sample": False, "temperature": 0.0, "max_new_tokens": max_new_tokens},
+        )
+        assert len(source_datapoints) == len(eval_data), (
+            f"Mismatched AO classification eval sizes for {dataset_name}: "
+            f"{len(source_datapoints)} source vs {len(eval_data)} eval"
+        )
+        assert len(eval_responses) == len(eval_data), (
+            f"Mismatched AO classification responses for {dataset_name}: "
+            f"{len(eval_responses)} responses vs {len(eval_data)} eval"
+        )
+        n_format_correct = 0
+        n_answer_correct = 0
+        traces = []
+        for source_datapoint, eval_datapoint, eval_response in zip(source_datapoints, eval_data, eval_responses, strict=True):
+            prediction = eval_module.parse_answer(eval_response.api_response)
+            target = eval_module.parse_answer(eval_datapoint.target_output)
+            format_correct = prediction in ("yes", "no")
+            answer_correct = prediction == target
+            prompt_only = du_module.get_prompt_tokens_only(eval_datapoint)
+            if format_correct:
+                n_format_correct += 1
+            if answer_correct:
+                n_answer_correct += 1
             traces.append({
-                "eval_name": eval_name,
-                "instruction": _ADAM_LIGHT_CLASSIFICATION_QUESTIONS[eval_name],
-                "oracle_prompt": prompt_text,
-                "oracle_response": response,
+                "eval_name": dataset_name,
+                "dataset_name": dataset_name,
+                "classification_prompt": source_datapoint.classification_prompt,
+                "context": source_datapoint.activation_prompt,
+                "oracle_prompt": tokenizer.decode(prompt_only.input_ids, skip_special_tokens=False),
+                "oracle_response": eval_response.api_response,
                 "prediction": prediction,
-                "target": inp.ground_truth_label,
-                "example_id": inp.example_id,
+                "target": eval_datapoint.target_output,
+                "format_correct": format_correct,
+                "answer_correct": answer_correct,
+                "layer": eval_datapoint.layer,
+                "num_positions": len(eval_datapoint.positions),
+                "ds_label": eval_datapoint.ds_label,
             })
 
-        result = compute_binary_metrics(predictions, [inp.ground_truth_label for inp in inputs])
         elapsed = time.time() - t0
-        metrics[f"eval_cls/{eval_name}"] = result["accuracy"]
-        metrics[f"eval_cls_n/{eval_name}"] = result["n_items"]
-        metrics[f"eval_cls_time/{eval_name}"] = elapsed
-        traces_by_eval[eval_name] = traces
-        rows.append((eval_name, result["accuracy"], elapsed))
+        answer_accuracy = n_answer_correct / len(traces)
+        format_accuracy = n_format_correct / len(traces)
+        metrics[f"eval_cls/{dataset_name}"] = answer_accuracy
+        metrics[f"eval_cls_format/{dataset_name}"] = format_accuracy
+        metrics[f"eval_cls_n/{dataset_name}"] = len(traces)
+        metrics[f"eval_cls_time/{dataset_name}"] = elapsed
+        traces_by_eval[dataset_name] = traces
+        rows.append((dataset_name, answer_accuracy, format_accuracy, elapsed))
 
         if log_dir:
-            trace_path = log_dir / f"eval_cls_{eval_name}_step{global_step}.json"
-            _save_adam_light_trace_json(trace_path, eval_name, traces, global_step)
+            trace_path = log_dir / f"eval_cls_{dataset_name}_step{global_step}.json"
+            _save_adam_light_trace_json(trace_path, dataset_name, traces, global_step)
 
-    metrics["eval_cls/mean_acc"] = sum(score for _, score, _ in rows) / len(rows)
+    metrics["eval_cls/mean_acc"] = sum(answer_accuracy for _, answer_accuracy, _, _ in rows) / len(rows)
 
-    name_w = max(len(name) for name, _, _ in rows)
-    print("\n  Eval" + " " * (name_w - 4) + "  Metric         Score   Time")
-    print("  " + "─" * (name_w + 30))
-    for name, score, elapsed in rows:
-        print(f"  {name:<{name_w}}  accuracy      {score:>5.3f}  {elapsed:>5.1f}s")
+    name_w = max(len(name) for name, _, _, _ in rows)
+    print("\n  Eval" + " " * (name_w - 4) + "  AnsAcc  FmtAcc   N   Time")
+    print("  " + "─" * (name_w + 28))
+    for name, answer_accuracy, format_accuracy, elapsed in rows:
+        print(f"  {name:<{name_w}}  {answer_accuracy:>6.3f}  {format_accuracy:>6.3f}  {len(traces_by_eval[name]):>3d}  {elapsed:>5.1f}s")
 
     return metrics, traces_by_eval
 
@@ -1022,7 +1082,17 @@ def _run_unified_eval(model, tokenizer, model_name, global_step, args, log_dir=N
             for t in traces:
                 table.add_data(*[t.get(c, "") for c in columns])
             log_dict[f"eval_table/{task_name}"] = table
-        adam_columns = ["eval_name", "instruction", "oracle_prompt", "oracle_response", "prediction", "target"]
+        adam_columns = [
+            "dataset_name",
+            "classification_prompt",
+            "context",
+            "oracle_prompt",
+            "oracle_response",
+            "prediction",
+            "target",
+            "format_correct",
+            "answer_correct",
+        ]
         for eval_name, traces in adam_traces.items():
             table = wandb.Table(columns=adam_columns)
             for t in traces:

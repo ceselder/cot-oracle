@@ -35,7 +35,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 from cot_utils import get_cot_stride_positions
 
 
-PLACEHOLDER_TOKEN = " ¶"
+PLACEHOLDER_TOKEN = " ?"
 STRIDE = 5
 CANNOT_DETERMINE = "Cannot determine from these activations."
 

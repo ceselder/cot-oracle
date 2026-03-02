@@ -111,7 +111,7 @@ activations:
   stride: poisson
   position_encoding: true
   pe_alpha: 0.1
-  layers: [9, 18, 27]        # injection layers (25%, 50%, 75% of Qwen3-8B's 36 layers)
+  layers: [7, 14, 21]        # injection layers (25%, 50%, 75% of Qwen3-0.6B's 28 layers)
   layer_dropout:
     train: true              # random non-empty subsets of layers per training example
     eval: false              # always feed all configured layers during eval
@@ -149,15 +149,15 @@ baselines:
     - thought_branches
 
   classification_evals:
-    - cls_sst2
-    - cls_snli
-    - cls_ag_news
-    - cls_ner
-    - cls_tense
-    - cls_language_id
-    - cls_singular_plural
-    - cls_geometry_of_truth
-    - cls_relations
+    - sst2
+    - snli
+    - ag_news
+    - ner
+    - tense
+    - language_identification
+    - singular_plural
+    - geometry_of_truth
+    - relations
 
   stride: 5
 

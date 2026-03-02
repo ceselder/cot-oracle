@@ -68,54 +68,66 @@ def find_sentence_boundary_positions(
 
 
 PUNCTUATION_CHARS = frozenset(".,;:?!")
-POISSON_SAMPLE_MAX_POSITIONS = 1000
+POISSON_LAST_ONLY_PROB = 0.1
+POISSON_SAMPLE_MAX_POSITIONS: int | None = None
+
+
+def sample_position_indices(
+    available: int,
+    max_positions: int | None = POISSON_SAMPLE_MAX_POSITIONS,
+    rng: random.Random | None = None,
+) -> list[int]:
+    """Sample sorted indices in `[0, available)`.
+
+    Distribution:
+    - 10%: exactly one index, pinned to the last available position
+    - 90%: sample `k` uniformly from `1..cap`, then choose `k` indices uniformly
+      without replacement
+    """
+    if available <= 0:
+        return []
+
+    cap = available if max_positions is None else min(available, max_positions)
+    if cap <= 0:
+        return []
+
+    sampler = rng or random
+    if cap == 1 or sampler.random() < POISSON_LAST_ONLY_PROB:
+        return [available - 1]
+
+    k = sampler.randint(1, cap)
+    if k >= available:
+        return list(range(available))
+    if k == 1:
+        return [sampler.randrange(available)]
+    return sorted(sampler.sample(range(available), k))
 
 
 def sample_position_count(
     available: int,
-    max_positions: int = POISSON_SAMPLE_MAX_POSITIONS,
+    max_positions: int | None = POISSON_SAMPLE_MAX_POSITIONS,
     rng: random.Random | None = None,
 ) -> int:
     """Sample how many activation positions to keep.
 
-    Distribution:
-    - 50% mass exactly at 1
-    - 50% mass from a half-normal-like tail, truncated to [2, max_positions]
+    This keeps the count prior aligned with `sample_position_indices()`.
     """
-    if available <= 0:
-        return 0
-
-    cap = min(available, max_positions)
-    if cap <= 1:
-        return 1
-
-    sampler = rng or random
-    if sampler.random() < 0.5:
-        return 1
-
-    spread = max(1.0, cap / 3.0)
-    tail = 1 + int(round(abs(sampler.gauss(0.0, spread))))
-    return min(cap, max(2, tail))
+    return len(sample_position_indices(available, max_positions=max_positions, rng=rng))
 
 
 def sample_positions_in_span(
     start: int,
     end: int,
-    max_positions: int = POISSON_SAMPLE_MAX_POSITIONS,
+    max_positions: int | None = POISSON_SAMPLE_MAX_POSITIONS,
     rng: random.Random | None = None,
 ) -> list[int]:
-    """Sample sorted token positions over [start, end] in Poisson-process style."""
+    """Sample sorted token positions over [start, end] with the default random prior."""
     if end < start:
         return []
 
-    sampler = rng or random
     available = end - start + 1
-    k = sample_position_count(available, max_positions=max_positions, rng=sampler)
-    if k >= available:
-        return list(range(start, end + 1))
-
-    positions = sorted(sampler.sample(range(start, end + 1), k))
-    return positions
+    offsets = sample_position_indices(available, max_positions=max_positions, rng=rng)
+    return [start + offset for offset in offsets]
 
 
 def get_cot_punctuation_positions(
@@ -187,7 +199,7 @@ def get_cot_stride_positions(
     cot_start = max(0, prompt_token_count)
     cot_end = total_token_count - 1
 
-    if cot_end - cot_start + 1 < 2:
+    if cot_end < cot_start:
         return []
 
     positions = list(range(cot_start, cot_end + 1, max(1, stride)))
@@ -201,31 +213,27 @@ def get_cot_stride_positions(
         if pos not in seen:
             deduped.append(pos)
             seen.add(pos)
-    positions = deduped
-
-    if len(positions) < 2:
-        return [cot_start, cot_end]
-
-    return positions
+    return deduped
 
 
 def get_cot_poisson_positions(
     prompt_token_count: int,
     total_token_count: int,
-    max_positions: int = POISSON_SAMPLE_MAX_POSITIONS,
+    max_positions: int | None = POISSON_SAMPLE_MAX_POSITIONS,
     include_last: bool = True,
 ) -> list[int]:
     """Sample random CoT positions over the token region.
 
-    This replaces fixed striding with a homogeneous Poisson-process-style
-    sampler: conditional on the sampled count k, positions are uniform over
-    the CoT span. `include_last` is accepted for API compatibility but does
-    not pin the final token in this mode.
+    `stride="poisson"` uses the default random subset prior from
+    `sample_position_indices()`: 10% last-token singleton, otherwise a
+    uniform-count subset over the full CoT span. `include_last` is accepted
+    for API compatibility but does not force the final token outside the
+    dedicated last-only branch.
     """
     cot_start = max(0, prompt_token_count)
     cot_end = total_token_count - 1
 
-    if cot_end - cot_start + 1 < 2:
+    if cot_end < cot_start:
         return []
 
     return sample_positions_in_span(cot_start, cot_end, max_positions=max_positions)
@@ -277,7 +285,7 @@ def sparse_sample_positions(
     positions: list[int],
     n_layers: int = 3,
 ) -> list[int]:
-    """Randomly subsample CoT positions with the default stochastic count prior.
+    """Randomly subsample CoT positions with the default stochastic prior.
 
     Positions are stored as [base_positions] * n_layers.
     """
@@ -295,16 +303,7 @@ def sparse_sample_positions(
         n_layers = 1
 
     n_cot = len(base)
-    if n_cot <= 2:
-        return positions
-
-    n_feed = sample_position_count(n_cot)
-
-    if n_feed >= n_cot:
-        sampled = base
-    else:
-        sampled = sorted(random.sample(base, n_feed))
-
+    sampled = [base[i] for i in sample_position_indices(n_cot)]
     return sampled * n_layers
 
 

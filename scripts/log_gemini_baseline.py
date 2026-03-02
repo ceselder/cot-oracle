@@ -1,51 +1,61 @@
-"""Log Gemini LLM-monitor baselines as a constant wandb run for visual comparison.
+"""Log Gemini baselines as a constant wandb run for visual comparison.
 
-Metric names are mapped to match the current eval/{task_name} convention
-so they overlay on the same wandb charts as training runs.
+Reads logs/gemini_baseline/results.json (produced by run_gemini_eval_all_tasks.py),
+maps each task to its primary metric via the task system, and logs as horizontal
+lines at eval/{task_name} across the full x-axis.
+
+Deletes any existing gemini-flash-baseline run before creating a new one.
 """
-import json, wandb
 
-MAX_SAMPLES = 200_000
+import json
+import sys
+from pathlib import Path
 
-# Map old LLM monitor eval names → current task system metric names
-NAME_MAP = {
-    "hinted_mcq": ("eval/hint_admission", "accuracy"),
-    "hinted_mcq_truthfulqa": ("eval/truthfulqa_hint_verbalized", "accuracy"),
-    "sycophancy_v2_riya": ("eval/sycophancy", "accuracy"),
-    "decorative_cot": ("eval/decorative_cot", "accuracy"),
-    "reasoning_termination_riya": ("eval/reasoning_termination", "accuracy"),
-    "atypical_answer_riya": ("eval/atypical_answer", "accuracy"),
-    "compqa": ("eval/chunked_compqa", "mean_token_f1"),
-    "rot13_reconstruction": ("eval/rot13_reconstruction", "mean_token_f1"),
-    # No current task equivalent — skip these:
-    # "atypical_answer_mcq", "cybercrime_ood"
-}
+import wandb
 
-results = json.load(open("logs/llm_monitor/results.json"))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
+from tasks import TASKS
+from eval_loop import _primary_metric_name
+
+MAX_SAMPLES = 1_000_000
+PROJECT = "cot_oracle"
+ENTITY = "japhba-personal"
+RUN_NAME = "gemini-flash-baseline"
+
+# ── Delete old run ──
+
+api = wandb.Api()
+try:
+    runs = api.runs(f"{ENTITY}/{PROJECT}", filters={"display_name": RUN_NAME})
+    for run in runs:
+        print(f"  Deleting old run: {run.id} ({run.name})")
+        run.delete()
+except Exception as e:
+    print(f"  No old run to delete (or error): {e}")
+
+# ── Load new results ──
+
+results = json.load(open("logs/gemini_baseline/results.json"))
 
 baselines = {}
-for eval_name, data in results.items():
-    m = data["metrics"]
-    mapping = NAME_MAP.get(eval_name)
-    if not mapping:
-        print(f"  Skipping unmapped eval: {eval_name}")
-        continue
-    metric_name, metric_key = mapping
-    if metric_key in m:
-        baselines[metric_name] = m[metric_key]
-        print(f"  {eval_name} → {metric_name} = {m[metric_key]:.3f}")
+for task_name, data in results.items():
+    task_def = TASKS[task_name]
+    primary_metric = _primary_metric_name(task_name, task_def.scoring)
+    score = data["metrics"][primary_metric]
+    metric_key = f"eval/{task_name}"
+    baselines[metric_key] = score
+    print(f"  {task_name} → {metric_key} = {score:.3f}")
+
+# ── Log to wandb ──
 
 wandb.init(
-    project="cot_oracle",
-    entity="japhba-personal",
-    name="gemini-flash-baseline",
+    project=PROJECT, entity=ENTITY, name=RUN_NAME,
     tags=["baseline", "gemini"],
-    config={"model": "gemini-3-flash-preview", "type": "llm_monitor_baseline"},
+    config={"model": "gemini-3-flash-preview", "type": "gemini_baseline"},
 )
 wandb.define_metric("train/samples_seen")
 wandb.define_metric("*", step_metric="train/samples_seen")
 
-# Log at two steps so it renders as a horizontal line across the full chart
 for step in [0, MAX_SAMPLES]:
     wandb.log({**baselines, "train/samples_seen": step}, step=step)
 

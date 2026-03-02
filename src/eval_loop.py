@@ -411,7 +411,7 @@ class _CachedEvalData:
     activations: list[torch.Tensor]  # stored on CPU
 
 
-_eval_cache: dict[str, _CachedEvalData] = {}
+_eval_cache: dict[tuple[str, tuple[int, ...], int], _CachedEvalData] = {}
 
 
 def clear_eval_cache():
@@ -836,9 +836,16 @@ def _eval_single_task(
     stride: int | str = "poisson",
 ) -> dict[str, float]:
     """Eval a single task with activation caching."""
+    _ = stride
+    # Eval is deterministic: feed every available activation position while
+    # keeping all configured layers active.
+    eval_layers = list(layers)
+    eval_stride = 1
+    cache_key = (task_name, tuple(eval_layers), eval_stride)
+
     # Check cache
-    if task_name in _eval_cache:
-        cached = _eval_cache[task_name]
+    if cache_key in _eval_cache:
+        cached = _eval_cache[cache_key]
         test_data = cached.test_data
         all_activations = [a.to(device) for a in cached.activations]
     else:
@@ -849,8 +856,8 @@ def _eval_single_task(
                 tokenizer=tokenizer,
                 n=max_items,
                 split="test",
-                stride=stride,
-                layers=layers,
+                stride=eval_stride,
+                layers=eval_layers,
                 seed=99,
             )
         elif task_name in {"futurelens_fineweb", "pastlens_fineweb", "reconstruction_fineweb"}:
@@ -860,8 +867,8 @@ def _eval_single_task(
                 tokenizer=tokenizer,
                 model_name=base_model_name,
                 n=max_items,
-                stride=stride,
-                layers=layers,
+                stride=eval_stride,
+                layers=eval_layers,
                 seed=99,
             )
         else:
@@ -879,7 +886,7 @@ def _eval_single_task(
 
         # Prepare context_input_ids for items with cot_text (futurelens already has them)
         prepare_context_ids(
-            test_data, tokenizer, stride=stride, layers=layers,
+            test_data, tokenizer, stride=eval_stride, layers=eval_layers,
         )
         test_data = [d for d in test_data if d.get("context_input_ids")]
         if not test_data:
@@ -890,12 +897,12 @@ def _eval_single_task(
         for start in range(0, len(test_data), activation_extract_batch_size):
             chunk = test_data[start:start + activation_extract_batch_size]
             chunk_acts = _materialize_activations(
-                model, tokenizer, chunk, layers=layers, device=device,
+                model, tokenizer, chunk, layers=eval_layers, device=device,
             )
             all_activations.extend(chunk_acts)
 
         # Cache on CPU (base model frozen, activations won't change)
-        _eval_cache[task_name] = _CachedEvalData(
+        _eval_cache[cache_key] = _CachedEvalData(
             test_data=test_data,
             activations=[a.cpu() for a in all_activations],
         )
@@ -911,7 +918,7 @@ def _eval_single_task(
         model=model,
         tokenizer=tokenizer,
         items=oracle_items,
-        layers=layers,
+        layers=eval_layers,
         device=device,
         injection_layer=injection_layer,
         max_new_tokens=min(task_def.max_new_tokens, max_new_tokens_cap) if max_new_tokens_cap is not None else task_def.max_new_tokens,
@@ -925,7 +932,7 @@ def _eval_single_task(
     # Build rich traces for logging
     _ensure_ao_imports()
     ph_token = _ao_modules["PLACEHOLDER_TOKEN"]
-    layer_list = list(layers)
+    layer_list = eval_layers
     traces = []
     for item, act, pred, tgt in zip(test_data, all_activations, predictions, targets):
         n_pos = act.shape[0]

@@ -1,0 +1,80 @@
+tasks:
+  hint_admission:
+    n: 20000
+    eval: true
+
+  atypical_answer:
+    n: 15000
+    eval: true
+
+  reasoning_termination:
+    n: 20000
+    eval: true
+
+  answer_trajectory:
+    n: 20000
+    eval: false
+
+  futurelens:
+    n: 30000
+    eval: false
+
+  futurelens_fineweb:
+    n: 30000
+    eval: false
+
+  pastlens:
+    n: 20000
+    eval: false
+
+  pastlens_fineweb:
+    n: 20000
+    eval: false
+
+  reconstruction:
+    n: 10000
+    eval: false
+
+  reconstruction_fineweb:
+    n: 10000
+    eval: false
+
+  correctness:
+    n: 20000
+    eval: true
+
+  decorative_cot:
+    n: 15000
+    eval: true
+
+  chunked_convqa:
+    n: 15000
+    eval: false
+
+  chunked_compqa:
+    n: 20000
+    eval: false
+
+  convqa:
+    n: 12000
+    eval: false
+
+  fineweb_convqa:
+    n: 8000
+    eval: false
+
+  sycophancy:
+    n: 10000
+    eval: true
+
+  truthfulqa_hint_verbalized:
+    eval: true
+
+  truthfulqa_hint_unverbalized:
+    eval: true
+
+  sentence_insertion:
+    eval: true
+
+  rot13_reconstruction:
+    eval: false

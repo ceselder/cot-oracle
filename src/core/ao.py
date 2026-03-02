@@ -31,7 +31,7 @@ AO_CHECKPOINTS = {
 }
 
 SPECIAL_TOKEN = " ?"
-TRAINED_PLACEHOLDER = " ¶"
+TRAINED_PLACEHOLDER = " ?"
 
 
 class EarlyStopException(Exception):
