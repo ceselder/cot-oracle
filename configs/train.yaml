@@ -108,7 +108,7 @@ no_activations:
 activations:
   stride: 5
   layers: [9, 18, 27]        # injection layers (25%, 50%, 75% of Qwen3-8B's 36 layers)
-  position_mode: last_only   # "last_only" (fastest), "stochastic" (random subsample), "all"
+  position_mode: stochastic  # "last_only" (fastest), "stochastic" (chi-squared random), "all"
   layer_dropout:
     train: true              # random non-empty subsets of layers per training example
     eval: false              # always feed all configured layers during eval
@@ -116,7 +116,7 @@ activations:
 # Eval
 eval:
   eval_steps: 2000
-  save_steps: 10000
+  save_steps: 1000
   max_items_per_eval: 25
   eval_batch_size: 4
 

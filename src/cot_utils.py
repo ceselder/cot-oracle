@@ -197,6 +197,30 @@ def get_cot_positions(
     )
 
 
+def sample_chi_squared_positions(
+    base_positions: list[int],
+    rng: random.Random | None = None,
+) -> list[int]:
+    """50% last-only, 50% chi-squared(df=4) random positions.
+
+    Chi-squared(df=4) = gamma(alpha=2, beta=2). Gives a right-skewed
+    distribution favouring small counts (1-3 positions) but with a long
+    tail that occasionally includes many positions.
+    """
+    sampler = rng or random
+    K = len(base_positions)
+    if K <= 1:
+        return base_positions[-1:]
+    if sampler.random() < 0.5:
+        return [base_positions[-1]]
+    # chi-squared(df=4) = gamma(alpha=2, beta=2)
+    x = int(sampler.gammavariate(2.0, 2.0)) + 1
+    x = min(x, K)
+    picked = set(sampler.sample(base_positions, x))
+    picked.add(base_positions[-1])  # always include last position
+    return sorted(picked)
+
+
 def sparse_sample_positions(
     positions: list[int],
     n_layers: int = 3,

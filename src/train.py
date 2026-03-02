@@ -74,13 +74,13 @@ from nl_probes.utils.activation_utils import (
 )
 from nl_probes.utils.common import load_tokenizer, set_seed
 
-from cot_utils import layer_percent_to_layer, sparse_sample_positions
+from cot_utils import layer_percent_to_layer, sparse_sample_positions, sample_chi_squared_positions
 from tasks import TASKS, get_trainable_tasks
 from data_loading import load_all_training_data
 from eval_loop import run_eval
 
 # ── Override placeholder token ──
-PLACEHOLDER_TOKEN = " \u00b6"
+PLACEHOLDER_TOKEN = " ?"
 du_module.SPECIAL_TOKEN = PLACEHOLDER_TOKEN
 
 # ── Multi-layer config ──
@@ -93,7 +93,7 @@ _MODEL_N_LAYERS: int = 36  # total layers in the model (set in main())
 
 
 def _patched_get_prefix(sae_layer: int, num_positions: int) -> str:
-    return PLACEHOLDER_TOKEN * num_positions + "\n"
+    return "Activations: " + PLACEHOLDER_TOKEN * num_positions + "\n"
 
 
 du_module.get_introspection_prefix = _patched_get_prefix
@@ -410,7 +410,7 @@ def _apply_position_mode(base_positions: list[int]) -> list[int]:
 
     Modes:
         "last_only": only the final stride position (fastest iteration)
-        "stochastic": random subsample via sparse_sample_positions
+        "stochastic": chi-squared(df=4) random positions (50% last-only, 50% gamma-sampled)
         "all": use all stride positions
     """
     if not base_positions:
@@ -418,7 +418,7 @@ def _apply_position_mode(base_positions: list[int]) -> list[int]:
     if POSITION_MODE == "last_only":
         return base_positions[-1:]
     elif POSITION_MODE == "stochastic":
-        return sparse_sample_positions(base_positions, n_layers=1)
+        return sample_chi_squared_positions(base_positions)
     return base_positions  # "all"
 
 

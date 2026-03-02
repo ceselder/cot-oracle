@@ -63,7 +63,7 @@ from sae_probe import GENERATION_PROMPT as SAE_LLM_GENERATION_PROMPT
 load_dotenv(PROJECT_ROOT / ".env")
 load_dotenv(Path.home() / ".env")
 
-TRAINED_PLACEHOLDER = " ¶"
+TRAINED_PLACEHOLDER = " ?"
 AUTO_8BIT_MEMORY_THRESHOLD = 30 * 1024 ** 3
 SUGGESTED_QUESTION_DATASET = "ScaleFrontierData/gsm8k"
 SUGGESTED_QUESTION_DATASET_URL = "https://huggingface.co/datasets/ScaleFrontierData/gsm8k"
@@ -334,12 +334,12 @@ def query_original_ao(model, tokenizer, acts_l50, prompt, model_name, injection_
 def query_trained_oracle(model, tokenizer, selected_acts, prompt, selected_layers, layer_counts, injection_layer=1, max_new_tokens=150, device="cuda"):
     dtype = torch.bfloat16
     total_count = sum(layer_counts)
-    prefix = TRAINED_PLACEHOLDER * total_count + "\n"
+    prefix = "Activations: " + TRAINED_PLACEHOLDER * total_count + "\n"
     full_prompt = prefix + prompt
     relative_spans = []
-    cursor = 0
+    label_len = len("Activations: ")
     for pos_idx in range(total_count):
-        start = cursor + pos_idx * len(TRAINED_PLACEHOLDER)
+        start = label_len + pos_idx * len(TRAINED_PLACEHOLDER)
         relative_spans.append((start, start + len(TRAINED_PLACEHOLDER)))
     input_ids, positions = encode_prompt_with_positions(tokenizer, full_prompt, relative_spans)
     input_tensor = torch.tensor([input_ids], device=get_model_input_device(model))
