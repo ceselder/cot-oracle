@@ -2105,11 +2105,15 @@ def main():
             layers=MULTI_LAYERS,
         )
 
-        # Drop items that still lack context_input_ids (e.g. empty cot_text)
-        before = len(raw_data)
-        raw_data = [d for d in raw_data if d.get("context_input_ids")]
-        if len(raw_data) < before and rank == 0:
-            print(f"  [data] Dropped {before - len(raw_data)} items without context_input_ids")
+        # Verify ALL items have context_input_ids after prepare_context_ids
+        missing = [d.get("task", "?") for d in raw_data if not d.get("context_input_ids")]
+        if missing:
+            from collections import Counter
+            counts = Counter(missing)
+            raise RuntimeError(
+                f"Items missing context_input_ids after prepare_context_ids "
+                f"(likely missing cot_text): {dict(counts)}"
+            )
     else:
         # Text-only mode: filter for items with cot_text (no activations needed)
         before = len(raw_data)

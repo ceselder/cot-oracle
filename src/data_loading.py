@@ -183,7 +183,10 @@ def prepare_context_ids(
     for item in items:
         cot_text = item.get("cot_text", "")
         if not cot_text:
-            continue
+            raise ValueError(
+                f"Item missing cot_text (task={item.get('task', '?')}). "
+                f"All training items must have cot_text for context_input_ids computation."
+            )
 
         # Build user message: hinted_prompt for hint tasks, question otherwise
         user_msg = item.get("hinted_prompt") or item.get("question", "")

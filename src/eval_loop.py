@@ -151,12 +151,12 @@ def _score_parsed(
         if gt is None:
             continue
 
-        total += 1
         pr = parser(pred_text)
         if pr is None:
             unparsed += 1
-            continue  # counts toward total but not correct
+            continue
 
+        total += 1
         if pr["label"] == gt["label"]:
             correct += 1
 
@@ -166,9 +166,6 @@ def _score_parsed(
                 continue
             if isinstance(gt_val, (int, float)) and key in pr:
                 numeric_errors.setdefault(key, []).append(abs(pr[key] - gt_val))
-
-    if unparsed > 0:
-        print(f"  ⚠ PARSE FAILURE: {unparsed}/{total} predictions unparseable (counted as wrong)")
 
     result: dict[str, float] = {
         "accuracy": correct / total if total > 0 else 0.0,
@@ -349,16 +346,13 @@ def _score_binary(
         gt = _classify_target(target_text)
         if gt is None:
             continue
-        total += 1
         pr = _classify(pred_text)
         if pr is None:
             unparsed += 1
             continue
+        total += 1
         if pr == gt:
             correct += 1
-
-    if unparsed > 0:
-        print(f"  ⚠ PARSE FAILURE: {unparsed}/{total} predictions unparseable (counted as wrong)")
 
     return {
         "accuracy": correct / total if total > 0 else 0.0,
