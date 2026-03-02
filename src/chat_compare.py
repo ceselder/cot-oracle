@@ -73,7 +73,7 @@ from sae_probe import GENERATION_PROMPT as SAE_LLM_GENERATION_PROMPT
 load_dotenv(PROJECT_ROOT / ".env")
 load_dotenv(Path.home() / ".env")
 
-TRAINED_PLACEHOLDER = " ¶"
+TRAINED_PLACEHOLDER = " ?"
 AUTO_8BIT_MEMORY_THRESHOLD = 30 * 1024 ** 3
 SUGGESTED_QUESTION_DATASET = "ScaleFrontierData/gsm8k"
 SUGGESTED_QUESTION_DATASET_URL = "https://huggingface.co/datasets/ScaleFrontierData/gsm8k"
@@ -442,8 +442,7 @@ def query_original_ao(model, tokenizer, acts_l50, prompt, model_name, injection_
 
 def query_trained_oracle(model, tokenizer, selected_acts, prompt, selected_layers, layer_counts, injection_layer=1, max_new_tokens=150, device="cuda"):
     dtype = torch.bfloat16
-    parts = [f"L{layer}:" + TRAINED_PLACEHOLDER * count for layer, count in zip(selected_layers, layer_counts)]
-    prefix = " ".join(parts) + "\n"
+    prefix = build_trained_oracle_prefix(selected_layers, layer_counts)
     full_prompt = prefix + prompt
     relative_spans = []
     cursor = 0
@@ -463,6 +462,11 @@ def query_trained_oracle(model, tokenizer, selected_acts, prompt, selected_layer
     with torch.no_grad(), add_hook(injection_submodule, hook_fn):
         output = model.generate(input_ids=input_tensor, attention_mask=attn_mask, max_new_tokens=max_new_tokens, do_sample=False)
     return tokenizer.decode(output[0][len(input_ids):], skip_special_tokens=True)
+
+
+def build_trained_oracle_prefix(selected_layers, layer_counts):
+    parts = [f"L{layer}:" + TRAINED_PLACEHOLDER * count for layer, count in zip(selected_layers, layer_counts)]
+    return " ".join(parts) + "\n"
 
 
 def query_no_act_oracle(model, tokenizer, question, cot_response, prompt, no_act_adapter_name, max_new_tokens=150):
@@ -963,6 +967,7 @@ class ChatCompareWebApp:
         return {"ao_prompt": ao_prompt, "ao_response": ao_response}
 
     def _run_trained_oracle_component(self, ctx, max_tokens):
+        oracle_prefix = build_trained_oracle_prefix(ctx["selected_layers"], ctx["layer_counts"])
         with self.model_lock:
             trained_response = query_trained_oracle(
                 self.model,
@@ -974,7 +979,7 @@ class ChatCompareWebApp:
                 max_new_tokens=max_tokens,
                 device=self.args.device,
             )
-        return {"prompt": ctx["prompt"], "trained_response": trained_response}
+        return {"oracle_prefix": oracle_prefix, "oracle_prompt": ctx["prompt"], "trained_response": trained_response}
 
     def _parse_patchscopes_strengths(self, payload):
         raw_strengths = payload["patchscopes_strengths"]
@@ -1020,6 +1025,14 @@ class ChatCompareWebApp:
                 injection_layer=1, n_steps=opt_steps, lr=opt_lr,
                 device=device, example_id="web_ui",
             )
+            snapshot_generations = [
+                _generate_with_optimized_alpha(
+                    self.model, self.tokenizer, acts_by_layer, verbalizer,
+                    torch.tensor(snapshot, device=device, dtype=torch.float32),
+                    injection_layer=1, max_new_tokens=max_tokens, device=device,
+                )
+                for snapshot in alpha_snapshots
+            ]
             generated = _generate_with_optimized_alpha(
                 self.model, self.tokenizer, acts_by_layer, verbalizer, alpha,
                 injection_layer=1, max_new_tokens=max_tokens, device=device,
@@ -1055,6 +1068,7 @@ class ChatCompareWebApp:
             "patchscopes_loss_curve": loss_traj,
             "patchscopes_alpha_snapshots": alpha_snapshots_by_layer,
             "patchscopes_alpha_norms": alpha_norms,
+            "patchscopes_snapshot_generations": snapshot_generations,
         }
 
     def _run_black_box_component(self, ctx, max_tokens):
@@ -1507,6 +1521,7 @@ class ChatCompareWebApp:
         <div class=\"panel\">
           <h3 style=\"margin-top:0\">Trained Oracle</h3>
           <div class=\"mini-status\" id=\"oracleStatus\"><span class=\"mini-dot\"></span><span id=\"oracleStatusText\"></span></div>
+          <div class=\"muted small\" id=\"oraclePrefix\"></div>
           <div class=\"muted small\" id=\"oraclePrompt\"></div>
           <div id=\"oracleOut\" class=\"text-block\"></div>
         </div>
@@ -1643,6 +1658,7 @@ class ChatCompareWebApp:
         patchPrompt: document.getElementById('patchPrompt').textContent,
         bbPrompt: document.getElementById('bbPrompt').textContent,
         noActPrompt: document.getElementById('noActPrompt').textContent,
+        oraclePrefix: document.getElementById('oraclePrefix').textContent,
         oraclePrompt: document.getElementById('oraclePrompt').textContent,
         ratingScores: document.getElementById('ratingScores').textContent,
         ratingSummary: document.getElementById('ratingSummary').textContent,
@@ -1707,6 +1723,7 @@ class ChatCompareWebApp:
       document.getElementById('patchPrompt').textContent = cached.patchPrompt || '';
       document.getElementById('bbPrompt').textContent = cached.bbPrompt || '';
       document.getElementById('noActPrompt').textContent = cached.noActPrompt || '';
+      document.getElementById('oraclePrefix').textContent = cached.oraclePrefix || '';
       document.getElementById('oraclePrompt').textContent = cached.oraclePrompt || '';
       document.getElementById('ratingScores').textContent = cached.ratingScores || 'Run a comparison to generate ratings.';
       document.getElementById('ratingSummary').textContent = cached.ratingSummary || '';
@@ -1769,6 +1786,7 @@ class ChatCompareWebApp:
       const lossCurve = data.patchscopes_loss_curve || [];
       const alphaNorms = data.patchscopes_alpha_norms || [];
       const alphaSnapshots = data.patchscopes_alpha_snapshots || [];
+      const snapshotGenerations = data.patchscopes_snapshot_generations || [];
       // Stats line
       const statsEl = document.getElementById('patchOptStats');
       if (lossCurve.length > 1) {
@@ -1910,7 +1928,7 @@ class ChatCompareWebApp:
         if (cursor) { cursor.style.display = ''; cursor.style.left = `${idx * barW + Math.floor(barW/2)}px`; }
         if (alphaSnapshots.length > idx) {
           updateAlphaGrid(alphaSnapshots[idx]);
-          patchOutEl.textContent = stepSummaryText(idx, alphaSnapshots[idx]);
+          patchOutEl.textContent = snapshotGenerations[idx] || stepSummaryText(idx, alphaSnapshots[idx]);
         }
       });
       curveEl.addEventListener('mouseleave', () => {
@@ -2184,6 +2202,7 @@ class ChatCompareWebApp:
       document.getElementById('patchPrompt').textContent = '';
       document.getElementById('bbPrompt').textContent = '';
       document.getElementById('noActPrompt').textContent = '';
+      document.getElementById('oraclePrefix').textContent = '';
       document.getElementById('oraclePrompt').textContent = '';
       document.getElementById('logPath').textContent = '';
       renderRatings([], '');
@@ -2239,6 +2258,7 @@ class ChatCompareWebApp:
       document.getElementById('patchPrompt').textContent = '';
       document.getElementById('bbPrompt').textContent = '';
       document.getElementById('noActPrompt').textContent = '';
+      document.getElementById('oraclePrefix').textContent = '';
       document.getElementById('oraclePrompt').textContent = '';
       renderRatings([], '');
       document.getElementById('logPath').textContent = '';
@@ -2269,6 +2289,7 @@ class ChatCompareWebApp:
       document.getElementById('patchPrompt').textContent = '';
       document.getElementById('bbPrompt').textContent = '';
       document.getElementById('noActPrompt').textContent = '';
+      document.getElementById('oraclePrefix').textContent = '';
       document.getElementById('oraclePrompt').textContent = '';
       latestRatings = { answer_ratings: [], rating_summary: '' };
       renderRatings([], '');
@@ -2408,7 +2429,8 @@ class ChatCompareWebApp:
         setPanelLoading('oracle', true, 'Running...');
         requests.push(postJson('/api/run_trained_oracle', payload).then(data => {
         results.oracle = data;
-        document.getElementById('oraclePrompt').textContent = `Oracle prompt: ${data.prompt}`;
+        document.getElementById('oraclePrefix').textContent = `Oracle prefix: ${data.oracle_prefix}`;
+        document.getElementById('oraclePrompt').textContent = `Oracle prompt: ${data.oracle_prompt}`;
         document.getElementById('oracleOut').textContent = compactText(data.trained_response);
         setPanelLoading('oracle', false, 'Loaded');
         advanceProgress('Trained oracle loaded...');
