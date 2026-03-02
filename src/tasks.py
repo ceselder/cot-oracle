@@ -288,7 +288,7 @@ TASKS: dict[str, TaskDef] = {
         cot_field="excerpt",
     ),
 
-    # ─── Eval-only (4 tasks) ───
+    # ─── Eval-only (2 tasks) ───
 
     "rot13_reconstruction": TaskDef(
         name="rot13_reconstruction",

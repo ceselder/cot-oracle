@@ -55,6 +55,10 @@ def using_adapter(model: PeftModel, adapter_name: str | None):
     """Temporarily run with a specific adapter, or with adapters disabled."""
     previous_adapter = _active_adapter_name(model)
     if adapter_name is None:
+        # If model has no PEFT adapters at all, just yield directly
+        if not getattr(model, "peft_config", None):
+            yield
+            return
         # peft API varies: disable_adapter() (context mgr) vs disable_adapters()
         if hasattr(model, "disable_adapter"):
             with model.disable_adapter():
@@ -100,7 +104,7 @@ def load_extra_adapter(
 
 
 def choose_attn_implementation(model_name: str) -> str:
-    """Choose attention backend with safe defaults."""
+    """Choose attention backend — sdpa uses flash kernels natively in torch>=2.2."""
     if "gemma" in model_name.lower():
         return "eager"
     return "sdpa"

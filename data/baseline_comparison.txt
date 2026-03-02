@@ -1,0 +1,15 @@
+Dataset                   CoT Oracle  Linear Probe    Layer  Attn Probe  LLM Monitor     Winner
+--------------------------------------------------------------------------------------------------------------
+hint_admission                     ?         0.817      L18       0.674        0.847        LLM
+atypical_answer                    ?         0.671   concat       0.577        0.674        LLM
+decorative_cot                     ?         0.764       L9       0.651        0.569     Linear
+sycophancy                         ?         0.816      L27       0.820        0.711       Attn
+truthfulqa_hint                    ?         0.932      L18       0.854        0.746     Linear
+reasoning_termination              ?         0.884   concat       0.902        0.643       Attn
+backtrack_prediction               ?         0.741      L27       0.670        0.506     Linear
+correctness                        ?         0.687      L27       0.708        0.925        LLM
+--------------------------------------------------------------------------------------------------------------
+
+answer_trajectory (regression, MAE — lower is better):
+  LLM Monitor: 0.3942
+  Baseline (predict mean): 0.1663

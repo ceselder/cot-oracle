@@ -1,0 +1,64 @@
+{
+  "truthfulqa_verb": {
+    "n_train": 148,
+    "n_test": 20,
+    "mean_linear_L9": {
+      "balanced_accuracy": 0.5
+    },
+    "last_linear_L9": {
+      "balanced_accuracy": 0.6
+    },
+    "mean_linear_L18": {
+      "balanced_accuracy": 0.8500000000000001
+    },
+    "last_linear_L18": {
+      "balanced_accuracy": 0.9
+    },
+    "mean_linear_L27": {
+      "balanced_accuracy": 0.6
+    },
+    "last_linear_L27": {
+      "balanced_accuracy": 0.9
+    },
+    "mean_linear_concat": {
+      "balanced_accuracy": 0.6000000000000001
+    },
+    "last_linear_concat": {
+      "balanced_accuracy": 0.8
+    },
+    "attn_L18": {
+      "balanced_accuracy": 0.8
+    }
+  },
+  "truthfulqa_unverb": {
+    "n_train": 3000,
+    "n_test": 500,
+    "mean_linear_L9": {
+      "balanced_accuracy": 0.6107114694475289
+    },
+    "last_linear_L9": {
+      "balanced_accuracy": 0.7765573955165033
+    },
+    "mean_linear_L18": {
+      "balanced_accuracy": 0.66329519303497
+    },
+    "last_linear_L18": {
+      "balanced_accuracy": 0.8202256231996009
+    },
+    "mean_linear_L27": {
+      "balanced_accuracy": 0.695199472151145
+    },
+    "last_linear_L27": {
+      "balanced_accuracy": 0.8007451037190814
+    },
+    "mean_linear_concat": {
+      "balanced_accuracy": 0.6989169442701042
+    },
+    "last_linear_concat": {
+      "balanced_accuracy": 0.8366243422005504
+    },
+    "attn_L18": {
+      "balanced_accuracy": 0.6596742786333865
+    }
+  }
+}

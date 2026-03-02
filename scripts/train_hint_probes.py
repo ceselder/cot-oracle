@@ -105,7 +105,11 @@ def _load_truthfulqa_split(repo_suffix: str) -> tuple[list[dict], list[dict]]:
                            "example_id": f"{row['question_id']}_r{row['rollout_idx']}"})
         return items
 
-    repo = f"{HF_ORG}/cot-oracle-eval-hinted-mcq-truthfulqa-{repo_suffix}"
+    _repo_map = {
+        "unverbalized": f"{HF_ORG}/cot-oracle-truthfulqa-hint-cleaned",
+        "verbalized": f"{HF_ORG}/cot-oracle-truthfulqa-hint-verbalized-cleaned",
+    }
+    repo = _repo_map[repo_suffix]
     ds_tr = load_dataset(repo, split="train")
     ds_te = load_dataset(repo, split="test")
     train_items, test_items = _parse(ds_tr, "train"), _parse(ds_te, "test")

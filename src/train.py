@@ -23,7 +23,6 @@ Usage:
 
 import argparse
 import gc
-import hashlib
 import json
 import logging
 import math
@@ -75,7 +74,7 @@ from nl_probes.utils.activation_utils import (
 )
 from nl_probes.utils.common import load_tokenizer, set_seed
 
-from cot_utils import layer_percent_to_layer, sample_position_indices, sparse_sample_positions
+from cot_utils import layer_percent_to_layer, sparse_sample_positions, sample_chi_squared_positions
 from tasks import TASKS, get_trainable_tasks
 from data_loading import load_all_training_data
 from eval_loop import run_eval
@@ -89,112 +88,33 @@ MULTI_LAYERS: list[int] = []
 NO_ACTIVATIONS: bool = False
 RANDOM_LAYERS: bool = False
 LAYER_DROPOUT: bool = False
-NOISE_ACTIVATIONS: bool = False
+POSITION_MODE: str = "last_only"  # "last_only", "stochastic", "all"
 _MODEL_N_LAYERS: int = 36  # total layers in the model (set in main())
-_AO_REFERENCE_CLASSIFICATION_ALIASES = {"language_id": "language_identification"}
-_AO_REFERENCE_CLASSIFICATION_CACHE = {}
 
 
-def _sample_layer_dropout(layers: list[int]) -> list[int]:
-    """Sample a non-empty subset of layers with bias toward middle-only and all-layers.
-
-    For N layers, generates all 2^N - 1 non-empty subsets. The middle layer alone
-    and all-layers-together each get focal weight, all other subsets get weight 1.
-    Focal weight is set so the two focal subsets get exactly 50% combined probability.
-    Generalizes to any number of layers.
-    """
-    from itertools import combinations
-    N = len(layers)
-    mid_idx = (N - 1) // 2  # lower-middle for even N
-    n_other = 2 ** N - 3  # non-focal non-empty subsets
-    focal_weight = max(n_other / 2, 1)  # ensures 50% focal
-    subsets = []
-    weights = []
-    for k in range(1, N + 1):
-        for combo in combinations(range(N), k):
-            subset = [layers[i] for i in combo]
-            if combo == (mid_idx,) or k == N:
-                weights.append(focal_weight)
-            else:
-                weights.append(1)
-            subsets.append(subset)
-    return random.choices(subsets, weights=weights, k=1)[0]
-
-
-def _patched_get_prefix(sae_layer: int, num_positions: int, layers: list[int] | None = None) -> str:
-    if layers is not None and len(layers) > 1:
-        return "Layers: " + ", ".join(str(layer) for layer in layers) + "\n" + PLACEHOLDER_TOKEN * num_positions + " \n"
-    return f"Layer: {sae_layer}\n" + PLACEHOLDER_TOKEN * num_positions + " \n"
+def _patched_get_prefix(sae_layer: int, num_positions: int) -> str:
+    return "Activations:" + PLACEHOLDER_TOKEN * num_positions + ".\n"
 
 
 du_module.get_introspection_prefix = _patched_get_prefix
 
 
-
-# ── Position encoding config (module-level, set by main()) ──
-_PE_CONFIG = {"enabled": False, "alpha": 0.1}
-# Pooling mode: "none", "windows" (mean-pool token windows), "single", "chunks5"
-_POOLING_MODE = "none"
-# Position selection mode: int stride, "poisson", or "punctuation"
-_POSITION_MODE: int | str | None = None
-# Sparse position sampling: randomly subsample CoT positions per example
-_SPARSE_POSITIONS = False
-# Single position mode: only feed the last CoT position per layer
-_SINGLE_POSITION = False
-
-
-def _pool_vectors(vectors: torch.Tensor, mode: str) -> torch.Tensor:
-    """Pool extracted activation vectors according to mode.
-
-    Args:
-        vectors: [K, D] activations extracted for ONE layer
-        mode: "none", "single", "chunks5"
-    Returns:
-        Pooled tensor: [1, D] for single, [min(5,K), D] for chunks5, [K, D] for none
-    """
-    if mode == "single":
-        return vectors.mean(dim=0, keepdim=True)  # [1, D]
-    elif mode == "chunks5":
-        K = vectors.shape[0]
-        n = min(5, K)
-        chunks = torch.chunk(vectors, n, dim=0)
-        return torch.stack([c.mean(dim=0) for c in chunks])  # [n, D]
-    return vectors
-
-
-def _pool_positions(positions: list[int], mode: str) -> list[int]:
-    """Pool source positions so they stay aligned with pooled activation vectors."""
-    if mode == "single":
-        return [positions[-1]]
-    elif mode == "chunks5":
-        n = min(5, len(positions))
-        return [chunk[-1].item() for chunk in torch.chunk(torch.tensor(positions, dtype=torch.long), n)]
+def _patched_find_pattern_in_tokens(token_ids, special_token_str, num_positions, tokenizer):
+    special_token_id = tokenizer.encode(special_token_str, add_special_tokens=False)
+    assert len(special_token_id) == 1, f"Expected single token, got {len(special_token_id)}"
+    special_token_id = special_token_id[0]
+    positions = []
+    for i in range(len(token_ids)):
+        if len(positions) == num_positions:
+            break
+        if token_ids[i] == special_token_id:
+            positions.append(i)
+    assert len(positions) == num_positions, f"Expected {num_positions} positions, got {len(positions)}"
     return positions
 
 
-def _mean_pool_windows(acts_LD: torch.Tensor, positions: list[int]) -> torch.Tensor:
-    """Mean-pool activation windows between consecutive stride positions.
+du_module.find_pattern_in_tokens = _patched_find_pattern_in_tokens
 
-    Instead of point-sampling at each position, mean-pools all tokens in the
-    window (prev_p+1 .. p] for each stride position. Output has same count K
-    as input positions.
-    """
-    pooled = []
-    prev = 0
-    for p in positions:
-        window = acts_LD[prev:p + 1, :]  # [window_size, D]
-        pooled.append(window.mean(dim=0))
-        prev = p + 1
-    return torch.stack(pooled, dim=0)  # [K, D]
-
-
-def _pooled_count_per_layer(K: int, mode: str) -> int:
-    """How many vectors per layer after pooling."""
-    if mode == "single":
-        return 1
-    elif mode == "chunks5":
-        return min(5, K)
-    return K
 
 
 # ── Distributed helpers ──
@@ -222,7 +142,7 @@ def materialize_multilayer_steering_vectors(
 ) -> list[TrainingDataPoint]:
     """Materialize steering vectors from MULTI_LAYERS (configurable via --n-layers).
 
-    Supports per-item random layers (RANDOM_LAYERS) and noise replacement (NOISE_ACTIVATIONS).
+    Supports per-item random layers (RANDOM_LAYERS) and layer dropout (LAYER_DROPOUT).
     """
     to_fill = [
         (i, dp) for i, dp in enumerate(batch_points) if dp.steering_vectors is None
@@ -241,7 +161,7 @@ def materialize_multilayer_steering_vectors(
         per_item_layers = []
         all_layers_set = set()
         for _, dp in to_fill:
-            item_layers = (dp.meta_info or {}).get("layers", list(MULTI_LAYERS))
+            item_layers = dp.meta_info["layers"]
             per_item_layers.append(item_layers)
             all_layers_set.update(item_layers)
         layers = sorted(all_layers_set)
@@ -251,11 +171,8 @@ def materialize_multilayer_steering_vectors(
 
     pad_id = tokenizer.pad_token_id
     contexts = [list(dp.context_input_ids) for _, dp in to_fill]
-    # When pooling, use full positions from meta_info (context_positions was truncated for validator)
-    positions_per_item = []
-    for _, dp in to_fill:
-        full_pos = (dp.meta_info or {}).get("full_context_positions")
-        positions_per_item.append(list(full_pos) if full_pos is not None else list(dp.context_positions))
+    positions_per_item = [list(dp.context_positions) for _, dp in to_fill]
+
     max_len = max(len(c) for c in contexts)
 
     device = next(model.parameters()).device
@@ -306,7 +223,6 @@ def materialize_multilayer_steering_vectors(
         K = total_positions // N_item
 
         vectors_parts = []
-        source_pos_parts = []
         for li, layer in enumerate(item_layers):
             acts_BLD = acts_by_layer[layer]
             chunk_positions = positions_per_item[b][li * K : (li + 1) * K]
@@ -317,32 +233,13 @@ def materialize_multilayer_steering_vectors(
                 raise IndexError(
                     f"Activation index out of range for item {b}: {adjusted} with L={L}"
                 )
-            if _POOLING_MODE == "windows":
-                layer_vecs = _mean_pool_windows(acts_BLD[b], adjusted)
-                pooled_source_positions = chunk_positions
-            else:
-                layer_vecs = acts_BLD[b, adjusted, :]  # [K, D]
-                layer_vecs = _pool_vectors(layer_vecs, _POOLING_MODE)
-                pooled_source_positions = _pool_positions(chunk_positions, _POOLING_MODE)
+            layer_vecs = acts_BLD[b, adjusted, :]  # [K, D]
             vectors_parts.append(layer_vecs)
-            source_pos_parts.extend(pooled_source_positions)
 
         vectors = torch.cat(vectors_parts, dim=0).detach().contiguous()
-        assert len(source_pos_parts) == vectors.shape[0], (
-            f"source_pos_parts has {len(source_pos_parts)} entries but vectors has {vectors.shape[0]} rows"
-        )
 
-        # Noise ablation: replace real activations with variance-matched Gaussian noise
-        if NOISE_ACTIVATIONS:
-            var = vectors.var(dim=0, keepdim=True)  # per-dimension variance
-            vectors = torch.randn_like(vectors) * var.sqrt()
-
-        dp_new = dp.model_copy(deep=True)
+        dp_new = dp.model_copy(deep=False)
         dp_new.steering_vectors = vectors
-        dp_new.source_positions = source_pos_parts
-        dp_new.source_total_length = len(contexts[b])
-        # Trim positions to match actual pooled vector count (short CoTs may
-        # produce fewer chunks than the prompt expected)
         if vectors.shape[0] != len(dp_new.positions):
             dp_new.positions = dp_new.positions[:vectors.shape[0]]
         new_batch[idx] = dp_new
@@ -352,261 +249,6 @@ def materialize_multilayer_steering_vectors(
 
 du_module.materialize_missing_steering_vectors = materialize_multilayer_steering_vectors
 eval_module.materialize_missing_steering_vectors = materialize_multilayer_steering_vectors
-
-
-# ── Flamingo activation extraction ──
-def materialize_flamingo_activations(
-    batch_points: list[TrainingDataPoint],
-    tokenizer,
-    model,
-    max_ctx_tokens: int | None = None,
-) -> tuple[dict[int, torch.Tensor], dict[int, torch.Tensor]]:
-    """Extract supervisee residual stream at each xattn layer position.
-
-    Only extracts layers that have cross-attention (matching the wrapper's
-    xattn_layer_indices), not all layers.
-
-    Returns:
-        kvs: {layer_idx: [B, T_max, D]} padded per-layer activations
-        kv_masks: {layer_idx: [B, T_max]} bool masks (True = real, False = pad)
-    """
-    from nl_probes.utils.activation_utils import get_hf_submodule
-
-    # Unwrap FlamingoOracleWrapper to get PeftModel and xattn indices
-    from flamingo_oracle import FlamingoOracleWrapper
-    if isinstance(model, FlamingoOracleWrapper):
-        peft_model = model.base_model
-        xattn_layers = model.xattn_layer_indices
-    else:
-        peft_model = model
-        xattn_layers = list(range(peft_model.config.num_hidden_layers))
-
-    assert isinstance(peft_model, PeftModel), "Expected PeftModel for activation extraction"
-
-    device = next(peft_model.parameters()).device
-    pad_id = tokenizer.pad_token_id
-
-    # Collect context_input_ids (truncate to max_ctx_tokens if set)
-    contexts = []
-    for dp in batch_points:
-        assert dp.context_input_ids is not None, "context_input_ids required for Flamingo"
-        ctx = list(dp.context_input_ids)
-        if max_ctx_tokens and len(ctx) > max_ctx_tokens:
-            ctx = ctx[-max_ctx_tokens:]
-        contexts.append(ctx)
-
-    # Left-pad contexts to same length
-    max_ctx_len = max(len(c) for c in contexts)
-    input_ids_list = []
-    attn_masks_list = []
-    left_offsets = []
-    for c in contexts:
-        pad_len = max_ctx_len - len(c)
-        input_ids_list.append(torch.tensor([pad_id] * pad_len + c, dtype=torch.long, device=device))
-        attn_masks_list.append(torch.tensor([False] * pad_len + [True] * len(c), dtype=torch.bool, device=device))
-        left_offsets.append(pad_len)
-
-    inputs_BL = {
-        "input_ids": torch.stack(input_ids_list),
-        "attention_mask": torch.stack(attn_masks_list),
-    }
-
-    # Only hook the layers we need (xattn positions)
-    submodules = {layer: get_hf_submodule(peft_model, layer, use_lora=True) for layer in xattn_layers}
-
-    was_training = peft_model.training
-    peft_model.eval()
-    with peft_model.disable_adapter():
-        acts_by_layer = collect_activations_multiple_layers(
-            model=peft_model, submodules=submodules, inputs_BL=inputs_BL,
-            min_offset=None, max_offset=None,
-        )
-    if was_training:
-        peft_model.train()
-
-    B = len(batch_points)
-
-    # Build per-layer padded activations and masks
-    # All items share the same T_max (max_ctx_len after left-padding), but we
-    # strip padding per-item and re-pad to batch max
-    max_real_len = max(len(c) for c in contexts)
-    kvs = {}
-    kv_masks = {}
-
-    for layer in xattn_layers:
-        # acts_by_layer[layer] is [B, max_ctx_len, D] (includes left-padding)
-        layer_acts_list = []
-        layer_mask_list = []
-        for b in range(B):
-            ctx_len = len(contexts[b])
-            offset = left_offsets[b]
-            real_acts = acts_by_layer[layer][b, offset:offset + ctx_len, :]  # [T, D]
-            layer_acts_list.append(real_acts)
-            layer_mask_list.append(torch.ones(ctx_len, dtype=torch.bool, device=device))
-
-        # Pad to max_real_len
-        D = layer_acts_list[0].shape[-1]
-        padded = torch.zeros(B, max_real_len, D, dtype=layer_acts_list[0].dtype, device=device)
-        mask = torch.zeros(B, max_real_len, dtype=torch.bool, device=device)
-        for b in range(B):
-            L = layer_acts_list[b].shape[0]
-            padded[b, :L] = layer_acts_list[b]
-            mask[b, :L] = True
-
-        kvs[layer] = padded.detach()
-        kv_masks[layer] = mask
-
-    return kvs, kv_masks
-
-
-def construct_flamingo_batch(
-    batch_list: list[TrainingDataPoint],
-    supervisee_kvs: dict[int, torch.Tensor],
-    supervisee_kv_masks: dict[int, torch.Tensor],
-    tokenizer,
-    device: torch.device,
-) -> dict:
-    """Construct a batch dict for FlamingoOracleWrapper.forward()."""
-    max_length = max(len(dp.input_ids) for dp in batch_list)
-    pad_id = tokenizer.pad_token_id
-
-    all_input_ids = []
-    all_labels = []
-    all_attn_mask = []
-
-    for dp in batch_list:
-        pad_len = max_length - len(dp.input_ids)
-        all_input_ids.append(torch.tensor([pad_id] * pad_len + dp.input_ids, dtype=torch.long))
-        all_labels.append(torch.tensor([-100] * pad_len + dp.labels, dtype=torch.long))
-        all_attn_mask.append(torch.tensor([False] * pad_len + [True] * len(dp.input_ids), dtype=torch.bool))
-
-    return {
-        "input_ids": torch.stack(all_input_ids).to(device),
-        "attention_mask": torch.stack(all_attn_mask).to(device),
-        "labels": torch.stack(all_labels).to(device),
-        "supervisee_kvs": supervisee_kvs,
-        "supervisee_kv_masks": supervisee_kv_masks,
-    }
-
-
-def construct_flamingo_batch(
-    batch_list: list[TrainingDataPoint],
-    tokenizer,
-    device: torch.device,
-    max_ctx_tokens: int | None = None,
-) -> tuple[dict, dict]:
-    """Construct separate CoT and oracle batches for two-pass Flamingo.
-
-    CoT and oracle are padded independently to their own max lengths.
-    No shared L_max — this is the whole point of the two-pass approach.
-
-    Returns:
-        cot_batch: {input_ids: [B, L_cot], attention_mask: [B, L_cot]}
-        oracle_batch: {input_ids: [B, L_oracle], attention_mask: [B, L_oracle], labels: [B, L_oracle]}
-    """
-    pad_id = tokenizer.pad_token_id
-
-    # CoT tokens (truncated if needed)
-    cots = []
-    for dp in batch_list:
-        assert dp.context_input_ids is not None
-        ctx = list(dp.context_input_ids)
-        if max_ctx_tokens and len(ctx) > max_ctx_tokens:
-            ctx = ctx[-max_ctx_tokens:]
-        cots.append(ctx)
-
-    max_cot_len = max(len(c) for c in cots)
-    cot_ids, cot_masks = [], []
-    for c in cots:
-        pad = max_cot_len - len(c)
-        cot_ids.append(torch.tensor([pad_id] * pad + c, dtype=torch.long))
-        cot_masks.append(torch.tensor([False] * pad + [True] * len(c), dtype=torch.bool))
-
-    # Oracle tokens
-    max_oracle_len = max(len(dp.input_ids) for dp in batch_list)
-    oracle_ids, oracle_masks, oracle_labels = [], [], []
-    for dp in batch_list:
-        pad = max_oracle_len - len(dp.input_ids)
-        oracle_ids.append(torch.tensor([pad_id] * pad + dp.input_ids, dtype=torch.long))
-        oracle_masks.append(torch.tensor([False] * pad + [True] * len(dp.input_ids), dtype=torch.bool))
-        oracle_labels.append(torch.tensor([-100] * pad + dp.labels, dtype=torch.long))
-
-    cot_batch = {
-        "input_ids": torch.stack(cot_ids).to(device),
-        "attention_mask": torch.stack(cot_masks).to(device),
-    }
-    oracle_batch = {
-        "input_ids": torch.stack(oracle_ids).to(device),
-        "attention_mask": torch.stack(oracle_masks).to(device),
-        "labels": torch.stack(oracle_labels).to(device),
-    }
-    return cot_batch, oracle_batch
-
-
-def _training_data_cache_path(task_name: str, n_items: int) -> Path:
-    """Return $CACHE_DIR/training_data_cache/{task_name}_n{n}_{config_hash}.pt"""
-    from cot_utils import POISSON_MIN_SPACING
-    config_key = (
-        f"layers={'_'.join(map(str, MULTI_LAYERS))}"
-        f"_stride={_POSITION_MODE}"
-        f"_ldrop={LAYER_DROPOUT}"
-        f"_sparse={_SPARSE_POSITIONS}"
-        f"_single={_SINGLE_POSITION}"
-        f"_pool={_POOLING_MODE}"
-        f"_noact={NO_ACTIVATIONS}"
-        f"_rlayers={RANDOM_LAYERS}"
-        f"_ms={POISSON_MIN_SPACING}"
-    )
-    config_hash = hashlib.sha256(config_key.encode()).hexdigest()[:12]
-    cache_dir = Path(os.environ["CACHE_DIR"]) / "training_data_cache"
-    return cache_dir / f"{task_name}_n{n_items}_{config_hash}.pt"
-
-
-def _cached_dicts_to_training_data(
-    raw_data: list[dict], tokenizer, seed: int, rank: int,
-) -> list[TrainingDataPoint]:
-    """Cache-aware wrapper around dicts_to_training_data(), keyed per task."""
-    from collections import defaultdict
-
-    by_task = defaultdict(list)
-    for item in raw_data:
-        by_task[item["datapoint_type"]].append(item)
-
-    all_results: list[TrainingDataPoint] = []
-    for task_name, items in sorted(by_task.items()):
-        cache_path = _training_data_cache_path(task_name, len(items))
-
-        if cache_path.exists():
-            cached = torch.load(cache_path, weights_only=False)
-            points = [TrainingDataPoint(**d) for d in cached]
-            if rank == 0:
-                print(f"  [cache] {task_name}: loaded {len(points)} from {cache_path.name}")
-            all_results.extend(points)
-            continue
-
-        # Seed deterministically per task so ordering doesn't matter
-        task_seed = int(hashlib.sha256(f"{seed}_{task_name}".encode()).hexdigest()[:8], 16)
-        saved_state = random.getstate()
-        random.seed(task_seed)
-
-        points = dicts_to_training_data(items, tokenizer)
-
-        random.setstate(saved_state)
-
-        # Rank 0 writes cache
-        if rank == 0:
-            cache_path.parent.mkdir(parents=True, exist_ok=True)
-            serialized = []
-            for dp in points:
-                d = dp.model_dump()
-                d["steering_vectors"] = None
-                serialized.append(d)
-            torch.save(serialized, cache_path)
-            print(f"  [cache] {task_name}: saved {len(points)} to {cache_path.name}")
-
-        all_results.extend(points)
-
-    return all_results
 
 
 def _extract_base_positions(ctx_pos: list[int], n_layers_runtime: int) -> list[int]:
@@ -636,7 +278,9 @@ def dicts_to_training_data(
             cot_text = item.get("cot_text", "")
             if not cot_text:
                 continue
+            # Strip "Activations from N positions..." prefix to get the task prompt
             task_prompt = _act_prefix_re.sub("", item["prompt"])
+            # No user question — activation oracle only sees CoT activations, not the question
             prompt = f"Chain of thought: {cot_text}\n\n{task_prompt}"
 
             if not _printed_sample:
@@ -652,14 +296,12 @@ def dicts_to_training_data(
             labels = full_ids.copy()
             for i in range(len(prompt_ids)):
                 labels[i] = -100
-            # Use a dummy steering vector so pydantic validator doesn't require context_*
             dp = TrainingDataPoint(
                 input_ids=full_ids, labels=labels, layer=0,
                 steering_vectors=torch.zeros(0, 1), positions=[],
                 feature_idx=-1, target_output=item["target_response"],
                 datapoint_type=item["datapoint_type"],
                 context_input_ids=None, context_positions=None,
-                source_positions=None, source_total_length=None,
                 ds_label=None,
                 meta_info={"prompt": prompt},
             )
@@ -680,10 +322,12 @@ def dicts_to_training_data(
             # Per-item random layer sampling (ablation: arbitrary model layers)
             from layer_utils import sample_layers
             sampled = sample_layers(_MODEL_N_LAYERS, mean=3)
-            ctx_pos = base_positions * len(sampled)
+
+            # Apply position mode to base positions
+            sampled_pos = _apply_position_mode(base_positions)
+            ctx_pos = sampled_pos * len(sampled)
             num_pos = len(ctx_pos)
 
-            # Temporarily swap MULTI_LAYERS for prefix generation
             saved_layers = MULTI_LAYERS[:]
             MULTI_LAYERS[:] = sampled
             dp = create_training_datapoint(
@@ -697,16 +341,18 @@ def dicts_to_training_data(
                 feature_idx=-1,
                 context_input_ids=item["context_input_ids"],
                 context_positions=ctx_pos,
-                source_positions=ctx_pos,
-                source_total_length=len(item["context_input_ids"]),
                 meta_info={"prompt": item["prompt"], "layers": sampled},
             )
             MULTI_LAYERS[:] = saved_layers
+
         elif LAYER_DROPOUT:
-            # Weighted layer dropout: bias toward middle layer alone and all layers,
-            # while keeping all non-empty subsets represented.
-            sampled = _sample_layer_dropout(MULTI_LAYERS)
-            ctx_pos = base_positions * len(sampled)
+            # Random non-empty subset of configured layers per item
+            k = random.randint(1, len(MULTI_LAYERS))
+            sampled = sorted(random.sample(MULTI_LAYERS, k))
+
+            # Apply position mode to base positions
+            sampled_pos = _apply_position_mode(base_positions)
+            ctx_pos = sampled_pos * len(sampled)
             num_pos = len(ctx_pos)
 
             saved_layers = MULTI_LAYERS[:]
@@ -722,58 +368,23 @@ def dicts_to_training_data(
                 feature_idx=-1,
                 context_input_ids=item["context_input_ids"],
                 context_positions=ctx_pos,
-                source_positions=ctx_pos,
-                source_total_length=len(item["context_input_ids"]),
                 meta_info={"prompt": item["prompt"], "layers": sampled},
             )
             MULTI_LAYERS[:] = saved_layers
+
         else:
-            # Sparse position sampling: randomly subsample CoT positions per example
-            if _SPARSE_POSITIONS:
-                ctx_pos = sparse_sample_positions(
-                    ctx_pos, n_layers=n_layers_runtime,
-                )
-                num_pos = len(ctx_pos)
+            # Standard: all configured layers, apply position mode
+            sampled_pos = _apply_position_mode(base_positions)
+            ctx_pos = sampled_pos * n_layers_runtime
+            num_pos = len(ctx_pos)
 
-            # In poisson mode, positions are already sampled stochastically upstream.
-            # For deterministic stride modes, resample from the full extracted set
-            # with the same prior instead of taking a suffix chunk.
-            if _POSITION_MODE != "poisson" and not _SINGLE_POSITION and n_layers_runtime >= 1:
-                total = len(ctx_pos)
-                if total % n_layers_runtime == 0:
-                    K = total // n_layers_runtime
-                    if K >= 1:
-                        sampled_indices = sample_position_indices(K)
-                        if len(sampled_indices) < K:
-                            new_ctx_pos = []
-                            for li in range(n_layers_runtime):
-                                chunk = ctx_pos[li * K : (li + 1) * K]
-                                new_ctx_pos.extend(chunk[i] for i in sampled_indices)
-                            ctx_pos = new_ctx_pos
-                            num_pos = len(ctx_pos)
-            elif _SINGLE_POSITION and n_layers_runtime >= 1:
-                total = len(ctx_pos)
-                if total % n_layers_runtime == 0:
-                    K = total // n_layers_runtime
-                    last_pos = ctx_pos[K - 1]
-                    ctx_pos = [last_pos] * n_layers_runtime
-                    num_pos = len(ctx_pos)
-
-            # Re-expand positions if precomputed with fewer layers than runtime config.
+            # Re-expand positions if precomputed with fewer layers than runtime config
             if n_layers_runtime > 1 and len(ctx_pos) % n_layers_runtime != 0:
                 ctx_pos = base_positions * n_layers_runtime
                 num_pos = len(ctx_pos)
                 if not _reexpand_warned:
                     print(f"  [data] Re-expanding positions: -> {n_layers_runtime} layers (K={len(base_positions)})")
                     _reexpand_warned = True
-
-            # Override num_positions for pooling modes
-            full_ctx_pos = ctx_pos
-            if _POOLING_MODE != "none":
-                K_per_layer = num_pos // n_layers_runtime if n_layers_runtime else num_pos
-                pooled_K = _pooled_count_per_layer(K_per_layer, _POOLING_MODE)
-                num_pos = pooled_K * n_layers_runtime
-                ctx_pos = ctx_pos[:num_pos]
 
             dp = create_training_datapoint(
                 datapoint_type=item["datapoint_type"],
@@ -786,64 +397,34 @@ def dicts_to_training_data(
                 feature_idx=-1,
                 context_input_ids=item["context_input_ids"],
                 context_positions=ctx_pos,
-                source_positions=ctx_pos,
-                source_total_length=len(item["context_input_ids"]),
-                meta_info={"full_context_positions": full_ctx_pos, "prompt": item["prompt"], "layers": list(MULTI_LAYERS)} if _POOLING_MODE != "none" else {"prompt": item["prompt"], "layers": list(MULTI_LAYERS)},
+                meta_info={"prompt": item["prompt"]},
             )
+
         training_data.append(dp)
 
     return training_data
 
 
-# ── Task registry (moved to tasks.py) ──
+def _apply_position_mode(base_positions: list[int]) -> list[int]:
+    """Apply POSITION_MODE to base (single-layer) positions.
 
-# ── Train-on-eval conversion ──
+    Modes:
+        "last_only": only the final stride position (fastest iteration)
+        "stochastic": chi-squared(df=4) random positions (50% last-only, 50% gamma-sampled)
+        "all": use all stride positions
+    """
+    if not base_positions:
+        return base_positions
+    if POSITION_MODE == "last_only":
+        return base_positions[-1:]
+    elif POSITION_MODE == "stochastic":
+        return sample_chi_squared_positions(base_positions)
+    return base_positions  # "all"
+
 
 # ── Training infrastructure ──
-def _wrap_hook_for_grad_ckpt(hook_fn):
-    """Wrap a steering hook so it clones the residual before modifying it.
-
-    Gradient checkpointing with use_reentrant=False tracks saved tensor counts.
-    The original hook creates per-batch autograd tensors via in-place modification,
-    causing a count mismatch during recomputation.  Cloning first makes both
-    passes identical.
-    """
-    def safe_hook(module, _input, output):
-        if isinstance(output, tuple):
-            resid, *rest = output
-            output = (resid.clone(), *rest)
-        else:
-            output = output.clone()
-        return hook_fn(module, _input, output)
-    return safe_hook
-
-
 def _example_context_len(dp: TrainingDataPoint) -> int:
     return len(dp.context_input_ids) if dp.context_input_ids is not None else len(dp.input_ids)
-
-
-def _effective_context_len(dp: TrainingDataPoint, flamingo: bool, flamingo_max_ctx_tokens: int) -> int:
-    context_len = _example_context_len(dp)
-    if flamingo and flamingo_max_ctx_tokens > 0 and dp.context_input_ids is not None:
-        return min(context_len, flamingo_max_ctx_tokens)
-    return context_len
-
-
-def _example_train_length_key(
-    dp: TrainingDataPoint,
-    no_activations: bool,
-    flamingo: bool,
-    flamingo_max_ctx_tokens: int,
-) -> tuple[int, int, int, int]:
-    oracle_len = len(dp.input_ids)
-    oracle_peak = 2 * oracle_len
-    if no_activations:
-        context_len = 0
-        peak_proxy = oracle_peak
-    else:
-        context_len = _effective_context_len(dp, flamingo, flamingo_max_ctx_tokens)
-        peak_proxy = max(context_len, oracle_peak)
-    return peak_proxy, context_len, oracle_peak, oracle_len
 
 
 def _label_token_count(dp: TrainingDataPoint) -> int:
@@ -853,17 +434,12 @@ def _label_token_count(dp: TrainingDataPoint) -> int:
 def _estimate_train_batch_peak_tokens(
     batch_points: list[TrainingDataPoint],
     no_activations: bool,
-    flamingo: bool,
-    flamingo_max_ctx_tokens: int,
 ) -> int:
     batch_size = len(batch_points)
     oracle_peak_tokens = 2 * batch_size * max(len(dp.input_ids) for dp in batch_points)
     if no_activations:
         return oracle_peak_tokens
-    if flamingo:
-        context_peak_tokens = batch_size * max(min(_example_context_len(dp), flamingo_max_ctx_tokens) for dp in batch_points)
-    else:
-        context_peak_tokens = batch_size * max(_example_context_len(dp) for dp in batch_points)
+    context_peak_tokens = batch_size * max(_example_context_len(dp) for dp in batch_points)
     return max(context_peak_tokens, oracle_peak_tokens)
 
 
@@ -872,23 +448,17 @@ def _split_batch_for_token_budget(
     max_batch_size: int,
     max_train_tokens_per_gpu: int,
     no_activations: bool,
-    flamingo: bool,
-    flamingo_max_ctx_tokens: int,
 ) -> list[list[TrainingDataPoint]]:
     if max_train_tokens_per_gpu <= 0:
         return [batch_points]
 
     chunks = []
     current_chunk = []
-    ordered = sorted(
-        batch_points,
-        key=lambda dp: _example_train_length_key(dp, no_activations, flamingo, flamingo_max_ctx_tokens),
-    )
-    for dp in ordered:
+    for dp in batch_points:
         candidate = current_chunk + [dp]
         if current_chunk and (
             len(candidate) > max_batch_size
-            or _estimate_train_batch_peak_tokens(candidate, no_activations, flamingo, flamingo_max_ctx_tokens) > max_train_tokens_per_gpu
+            or _estimate_train_batch_peak_tokens(candidate, no_activations) > max_train_tokens_per_gpu
         ):
             chunks.append(current_chunk)
             current_chunk = [dp]
@@ -899,7 +469,6 @@ def _split_batch_for_token_budget(
 
 
 def _estimate_extract_batch_peak_tokens(batch_points: list[TrainingDataPoint]) -> int:
-    """Estimate peak tokens for activation extraction (simpler: B * max_len)."""
     batch_size = len(batch_points)
     return batch_size * max(_example_context_len(dp) for dp in batch_points)
 
@@ -909,14 +478,12 @@ def _split_batch_for_extract_budget(
     max_batch_size: int,
     max_extract_tokens_per_gpu: int,
 ) -> list[list[TrainingDataPoint]]:
-    """Split extraction batch into chunks that fit within the extraction token budget."""
     if max_extract_tokens_per_gpu <= 0:
         return [batch_points]
 
     chunks: list[list[TrainingDataPoint]] = []
     current_chunk: list[TrainingDataPoint] = []
-    ordered = sorted(batch_points, key=_example_context_len)
-    for dp in ordered:
+    for dp in batch_points:
         candidate = current_chunk + [dp]
         if current_chunk and (
             len(candidate) > max_batch_size
@@ -941,7 +508,8 @@ def _materialize_batch_for_training_step(
 ) -> tuple[list[TrainingDataPoint], int]:
     """Materialize steering vectors with extraction batching and OOM fallback.
 
-    Returns (materialized_batch_points, split_count).
+    Returns:
+        materialized_batch_points, split_count
     """
     if not any(dp.steering_vectors is None for dp in batch_points):
         return batch_points, 0
@@ -978,37 +546,21 @@ def _materialize_batch_for_training_step(
     return materialized, split_count
 
 
-def _window_bucket_training_data(
-    training_data: list[TrainingDataPoint],
-    batch_size: int,
-    window_batches: int,
-    no_activations: bool,
-    flamingo: bool,
-    flamingo_max_ctx_tokens: int,
-    extraction_batch_size: int,
-) -> None:
-    """Bucket by train footprint while preserving homogeneous extraction lookahead chunks.
+def _window_bucket_training_data(training_data: list[TrainingDataPoint], batch_size: int, window_batches: int) -> None:
+    """Sort by context length inside shuffled windows to reduce padding waste.
 
-    We sort by a proxy for the actual padded train footprint (not just raw context
-    length), then preserve those local length bands at the extraction-lookahead
-    granularity. That keeps both activation extraction and train batches tighter.
+    Within each window: sort by length, then chunk into batch-sized groups
+    and shuffle those groups. This keeps similar lengths together within a batch
+    (good padding efficiency) while randomizing the order of short/long batches
+    (prevents monotonic step-time increase).
     """
-    lookahead = extraction_batch_size if extraction_batch_size > 0 else batch_size
-    bucket_span = math.lcm(batch_size, lookahead)
-    window = max(batch_size * window_batches, bucket_span)
-    window = math.ceil(window / bucket_span) * bucket_span
+    window = batch_size * window_batches
     for i in range(0, len(training_data), window):
-        chunk = sorted(
-            training_data[i:i + window],
-            key=lambda dp: _example_train_length_key(dp, no_activations, flamingo, flamingo_max_ctx_tokens),
-        )
-        lookahead_groups = [chunk[j:j + lookahead] for j in range(0, len(chunk), lookahead)]
-        random.shuffle(lookahead_groups)
-        flat = []
-        for lookahead_group in lookahead_groups:
-            batch_groups = [lookahead_group[j:j + batch_size] for j in range(0, len(lookahead_group), batch_size)]
-            random.shuffle(batch_groups)
-            flat.extend(item for group in batch_groups for item in group)
+        chunk = sorted(training_data[i:i + window], key=_example_context_len)
+        # Chunk into batch-sized groups and shuffle the groups
+        groups = [chunk[j:j + batch_size] for j in range(0, len(chunk), batch_size)]
+        random.shuffle(groups)
+        flat = [item for group in groups for item in group]
         training_data[i:i + window] = flat
 
 
@@ -1019,12 +571,7 @@ def train_features_batch(training_batch, model, submodule, steering_coefficient,
         steering_coefficient=steering_coefficient,
         device=device,
         dtype=dtype,
-        source_positions=training_batch.source_positions,
-        source_lengths=training_batch.source_lengths,
-        position_encoding_alpha=_PE_CONFIG["alpha"] if _PE_CONFIG["enabled"] else None,
     )
-    # NOTE: _wrap_hook_for_grad_ckpt removed — only needed for use_reentrant=False.
-    # With use_reentrant=True the clone is unnecessary and wastes ~20GB on long sequences.
     tokenized_input = {
         "input_ids": training_batch.input_ids,
         "attention_mask": training_batch.attention_mask,
@@ -1096,162 +643,12 @@ def _save_training_state(save_path: Path, global_step, optimizer, scheduler):
     torch.save(state, save_path / "training_state.pt")
 
 
-def _load_gemini_baselines(path: str = "logs/llm_monitor/results.json") -> dict[str, float]:
-    """Load Gemini LLM-monitor baselines keyed by eval name."""
-    import json
-    p = Path(path)
-    if not p.exists():
-        return {}
-    results = json.load(open(p))
-    baselines = {}
-    for eval_name, data in results.items():
-        m = data.get("metrics", {})
-        if "accuracy" in m:
-            baselines[eval_name] = ("acc", m["accuracy"])
-        elif "mean_token_f1" in m:
-            baselines[eval_name] = ("token_f1", m["mean_token_f1"])
-    return baselines
-
-_GEMINI_BASELINES: dict[str, tuple[str, float]] | None = None
-
-
-def _save_adam_light_trace_json(path: Path, eval_name: str, traces: list[dict], global_step: int) -> None:
-    payload = {"eval_name": eval_name, "step": global_step, "traces": traces}
-    path.write_text(json.dumps(payload, indent=2))
-
-
-def _run_adam_lightweight_classification_evals(model, tokenizer, model_name, global_step, args, log_dir=None):
-    eval_names = getattr(args, "adam_light_evals", [])
-    if not eval_names:
-        return {}, {}
-
-    import nl_probes.dataset_classes.classification as ao_classification
-    import nl_probes.dataset_classes.classification_dataset_manager as ao_classification_manager
-
-    ao_root = Path(ao_classification_manager.__file__).resolve().parents[2]
-    ao_classification_manager.DEFAULT_DATA_DIR = str(ao_root / "datasets" / "classification_datasets")
-    supported_groups = set(ao_classification_manager.DatasetManager.list_datasets_by_group())
-    act_layer = layer_percent_to_layer(model_name, 50)
-    injection_layer = 1
-    submodule = get_hf_submodule(model, injection_layer, use_lora=True)
-    device = next(model.parameters()).device
-    dtype = next(model.parameters()).dtype
-    max_new_tokens = min(args.eval_max_new_tokens, 8)
-    metrics = {}
-    traces_by_eval = {}
-    rows = []
-    print("\n  AO Reference Classification Evals")
-
-    for eval_name in eval_names:
-        dataset_name = eval_name[4:] if eval_name.startswith("cls_") else eval_name
-        if dataset_name in _AO_REFERENCE_CLASSIFICATION_ALIASES:
-            dataset_name = _AO_REFERENCE_CLASSIFICATION_ALIASES[dataset_name]
-        assert dataset_name in supported_groups, f"Unsupported AO reference classification eval: {dataset_name}"
-        t0 = time.time()
-        cache_key = (model_name, act_layer, args.max_items_per_eval, args.seed, dataset_name)
-        if cache_key not in _AO_REFERENCE_CLASSIFICATION_CACHE:
-            _, source_datapoints = ao_classification.get_classification_datapoints(
-                dataset_name=dataset_name,
-                num_qa_per_sample=1,
-                train_examples=0,
-                test_examples=args.max_items_per_eval,
-                random_seed=args.seed,
-            )
-            eval_data = ao_classification.create_vector_dataset(
-                datapoints=source_datapoints,
-                tokenizer=tokenizer,
-                model_name=model_name,
-                batch_size=args.eval_batch_size,
-                act_layers=[act_layer],
-                min_end_offset=-3,
-                max_end_offset=-3,
-                max_window_size=1,
-                min_window_size=1,
-                save_acts=False,
-                datapoint_type=f"classification_{dataset_name}",
-            )
-            _AO_REFERENCE_CLASSIFICATION_CACHE[cache_key] = (source_datapoints, eval_data)
-        source_datapoints, eval_data = _AO_REFERENCE_CLASSIFICATION_CACHE[cache_key]
-        eval_responses = eval_module.run_evaluation(
-            eval_data=eval_data,
-            model=model,
-            tokenizer=tokenizer,
-            submodule=submodule,
-            device=device,
-            dtype=dtype,
-            global_step=global_step,
-            lora_path=None,
-            eval_batch_size=args.eval_batch_size,
-            steering_coefficient=1.0,
-            generation_kwargs={"do_sample": False, "temperature": 0.0, "max_new_tokens": max_new_tokens},
-        )
-        assert len(source_datapoints) == len(eval_data), (
-            f"Mismatched AO classification eval sizes for {dataset_name}: "
-            f"{len(source_datapoints)} source vs {len(eval_data)} eval"
-        )
-        assert len(eval_responses) == len(eval_data), (
-            f"Mismatched AO classification responses for {dataset_name}: "
-            f"{len(eval_responses)} responses vs {len(eval_data)} eval"
-        )
-        n_format_correct = 0
-        n_answer_correct = 0
-        traces = []
-        for source_datapoint, eval_datapoint, eval_response in zip(source_datapoints, eval_data, eval_responses, strict=True):
-            prediction = eval_module.parse_answer(eval_response.api_response)
-            target = eval_module.parse_answer(eval_datapoint.target_output)
-            format_correct = prediction in ("yes", "no")
-            answer_correct = prediction == target
-            prompt_only = du_module.get_prompt_tokens_only(eval_datapoint)
-            if format_correct:
-                n_format_correct += 1
-            if answer_correct:
-                n_answer_correct += 1
-            traces.append({
-                "eval_name": dataset_name,
-                "dataset_name": dataset_name,
-                "classification_prompt": source_datapoint.classification_prompt,
-                "cot_field": source_datapoint.activation_prompt,
-                "prompt": tokenizer.decode(prompt_only.input_ids, skip_special_tokens=False),
-                "oracle_response": eval_response.api_response,
-                "oracle_prediction": prediction,
-                "target_response": eval_datapoint.target_output,
-                "format_correct": format_correct,
-                "answer_correct": answer_correct,
-                "layer": eval_datapoint.layer,
-                "num_positions": len(eval_datapoint.positions),
-                "ds_label": eval_datapoint.ds_label,
-            })
-
-        elapsed = time.time() - t0
-        answer_accuracy = n_answer_correct / len(traces)
-        format_accuracy = n_format_correct / len(traces)
-        metrics[f"eval_cls/{dataset_name}"] = answer_accuracy
-        metrics[f"eval_cls_format/{dataset_name}"] = format_accuracy
-        metrics[f"eval_cls_n/{dataset_name}"] = len(traces)
-        metrics[f"eval_cls_time/{dataset_name}"] = elapsed
-        traces_by_eval[dataset_name] = traces
-        rows.append((dataset_name, answer_accuracy, format_accuracy, elapsed))
-
-        if log_dir:
-            trace_path = log_dir / f"eval_cls_{dataset_name}_step{global_step}.json"
-            _save_adam_light_trace_json(trace_path, dataset_name, traces, global_step)
-
-    metrics["eval_cls/mean_acc"] = sum(answer_accuracy for _, answer_accuracy, _, _ in rows) / len(rows)
-
-    name_w = max(len(name) for name, _, _, _ in rows)
-    print("\n  Eval" + " " * (name_w - 4) + "  AnsAcc  FmtAcc   N   Time")
-    print("  " + "─" * (name_w + 28))
-    for name, answer_accuracy, format_accuracy, elapsed in rows:
-        print(f"  {name:<{name_w}}  {answer_accuracy:>6.3f}  {format_accuracy:>6.3f}  {len(traces_by_eval[name]):>3d}  {elapsed:>5.1f}s")
-
-    return metrics, traces_by_eval
-
-
 def _run_unified_eval(model, tokenizer, model_name, global_step, args, log_dir=None, no_activations=False):
     """Run all evals via unified eval loop."""
     import wandb
 
     print(f"\n--- Evals at step {global_step} ---")
+    stride_val = int(args.stride) if args.stride and args.stride != "punctuation" else 5
     eval_tasks = getattr(args, "eval_tasks", None)
     metrics, all_traces = run_eval(
         model=model,
@@ -1259,64 +656,32 @@ def _run_unified_eval(model, tokenizer, model_name, global_step, args, log_dir=N
         task_names=eval_tasks,
         max_items=args.max_items_per_eval,
         eval_batch_size=args.eval_batch_size,
-        max_new_tokens_cap=min(args.eval_max_new_tokens, args.task_eval_max_new_tokens),
         device="cuda",
         layers=MULTI_LAYERS,
-        stride=args.stride,
-        log_dir=log_dir,
-        global_step=global_step,
-        position_encoding=getattr(args, "position_encoding", False),
-        pe_alpha=getattr(args, "pe_alpha", 0.1),
+        stride=stride_val,
         no_activations=no_activations,
     )
-    adam_metrics = {}
-    adam_traces = {}
-    if not no_activations:
-        adam_metrics, adam_traces = _run_adam_lightweight_classification_evals(
-            model, tokenizer, model_name, global_step, args, log_dir=log_dir,
-        )
-        metrics.update(adam_metrics)
 
-    # Log metrics + per-task wandb Tables
-    if wandb.run:
-        log_dict = {k: v for k, v in metrics.items() if not k.startswith("_")}
-        log_dict["train/samples_seen"] = global_step * getattr(args, "effective_batch_size", 256)
-        columns = ["question", "cot_field", "masked_cot_field", "oracle_prefix", "prompt", "oracle_prediction", "target_response", "correct"]
+    # Build wandb Tables for each task's per-example traces
+    log_dict = dict(metrics)
+    # Include samples_seen so wandb can correlate eval metrics with training x-axis
+    log_dict["train/samples_seen"] = global_step * getattr(args, "effective_batch_size", 256)
+    if wandb.run and all_traces:
         for task_name, traces in all_traces.items():
-            table = wandb.Table(columns=columns)
+            table = wandb.Table(columns=["question", "expected", "predicted", "correct"])
             for t in traces:
-                table.add_data(*[t.get(c, "") for c in columns])
+                table.add_data(
+                    t.get("question", "")[:200],
+                    t.get("expected", "")[:200],
+                    t.get("predicted", "")[:200],
+                    t.get("correct", "?"),
+                )
             log_dict[f"eval_table/{task_name}"] = table
-        adam_columns = [
-            "dataset_name",
-            "classification_prompt",
-            "cot_field",
-            "prompt",
-            "oracle_response",
-            "oracle_prediction",
-            "target_response",
-            "format_correct",
-            "answer_correct",
-        ]
-        for eval_name, traces in adam_traces.items():
-            table = wandb.Table(columns=adam_columns)
-            for t in traces:
-                table.add_data(*[t.get(c, "") for c in adam_columns])
-            log_dict[f"eval_cls_table/{eval_name}"] = table
-        if log_dict:
-            wandb.log(log_dict, step=global_step)
 
-    # Upload untruncated trace JSONs as wandb artifact
-    if log_dir and log_dir.exists() and wandb.run:
-        step_files = list(log_dir.glob(f"*_step{global_step}.json"))
-        if step_files:
-            run_name = wandb.run.name or wandb.run.id
-            art = wandb.Artifact(f"eval_traces_{run_name}_step{global_step}", type="eval_traces", metadata={"step": global_step})
-            for f in step_files:
-                art.add_file(str(f))
-            wandb.log_artifact(art)
+    if log_dict and wandb.run:
+        wandb.log(log_dict, step=global_step)
 
-    elapsed = sum(v for k, v in metrics.items() if k.startswith("_eval_time/") or k.startswith("eval_cls_time/"))
+    elapsed = sum(v for k, v in metrics.items() if k.startswith("eval_time/"))
     return metrics, elapsed
 
 
@@ -1335,30 +700,21 @@ def train(
 ) -> int:
     """Train on all tasks. Returns the final global_step.
 
-    model: unwrapped PeftModel or FlamingoOracleWrapper (for materialization, eval, checkpoint saving)
+    model: unwrapped PeftModel (for materialization, eval, checkpoint saving)
     ddp_model: DDP-wrapped model (for forward/backward) or same as model if single-GPU
     """
     import wandb
-    from flamingo_oracle import FlamingoOracleWrapper
 
     device = torch.device(f"cuda:{rank}" if world_size > 1 else "cuda")
     dtype = torch.bfloat16
-
-    # For evals, use the underlying PeftModel (evals use steering-based inference)
-    eval_model = model.base_model if isinstance(model, FlamingoOracleWrapper) else model
 
     assert args.effective_batch_size % (args.batch_size * world_size) == 0, \
         f"effective_batch_size ({args.effective_batch_size}) must be divisible by " \
         f"batch_size * world_size ({args.batch_size} * {world_size} = {args.batch_size * world_size})"
     grad_accum = args.effective_batch_size // (args.batch_size * world_size)
 
-    # Convert to TrainingDataPoints (with per-task disk caching)
-    if rank == 0:
-        training_data = _cached_dicts_to_training_data(raw_data, tokenizer, args.seed, rank=0)
-    if world_size > 1:
-        dist.barrier()
-    if rank != 0:
-        training_data = _cached_dicts_to_training_data(raw_data, tokenizer, args.seed, rank=rank)
+    # Convert to TrainingDataPoints
+    training_data = dicts_to_training_data(raw_data, tokenizer)
     if rank == 0:
         print(f"  Converted {len(training_data)} training examples")
 
@@ -1500,6 +856,55 @@ def train(
     if rank == 0:
         print(f"  Training: {len(final_training)} examples")
 
+    # ── Optionally precompute activation vectors (--precompute flag) ──
+    if args.precompute and not args.no_activations:
+        _PC_MAX_TOKENS = 65536  # max total tokens per precompute batch (batch_size × seq_len)
+        _pc_indices = [i for i, dp in enumerate(final_training) if dp.steering_vectors is None and dp.context_input_ids is not None]
+        if _pc_indices:
+            # Sort by context length so similar-length items batch together (minimize padding)
+            _pc_indices.sort(key=lambda i: len(final_training[i].context_input_ids))
+            if rank == 0:
+                _ctx_lens = [len(final_training[i].context_input_ids) for i in _pc_indices]
+                print(f"\n  Precomputing activation vectors for {len(_pc_indices)} examples ...")
+                print(f"    Context lengths: min={min(_ctx_lens)}, median={sorted(_ctx_lens)[len(_ctx_lens)//2]}, max={max(_ctx_lens)}")
+            model.eval()
+            _precompute_start = time.time()
+            # Dynamic batching: group sorted indices into batches by token budget
+            _pc_batches = []
+            _cur_batch = []
+            _cur_max_len = 0
+            for idx in _pc_indices:
+                ctx_len = len(final_training[idx].context_input_ids)
+                new_max = max(_cur_max_len, ctx_len)
+                # Would this item push the batch over the token budget?
+                if _cur_batch and new_max * (len(_cur_batch) + 1) > _PC_MAX_TOKENS:
+                    _pc_batches.append(_cur_batch)
+                    _cur_batch = [idx]
+                    _cur_max_len = ctx_len
+                else:
+                    _cur_batch.append(idx)
+                    _cur_max_len = new_max
+            if _cur_batch:
+                _pc_batches.append(_cur_batch)
+            if rank == 0:
+                _batch_sizes = [len(b) for b in _pc_batches]
+                print(f"    {len(_pc_batches)} extraction batches (sizes: {min(_batch_sizes)}-{max(_batch_sizes)})")
+            for _idx_chunk in tqdm(_pc_batches, desc="Precompute acts", disable=rank != 0):
+                _pc_batch = [final_training[i] for i in _idx_chunk]
+                with torch.no_grad():
+                    _pc_result = materialize_multilayer_steering_vectors(_pc_batch, tokenizer, model)
+                # Move vectors to CPU to save GPU memory; write back to final_training
+                for j, idx in enumerate(_idx_chunk):
+                    dp = _pc_result[j]
+                    if dp.steering_vectors is not None:
+                        dp.steering_vectors = dp.steering_vectors.cpu()
+                    final_training[idx] = dp
+            model.train()
+            if rank == 0:
+                _pc_elapsed = time.time() - _precompute_start
+                print(f"  Precomputed in {_pc_elapsed:.1f}s ({len(_pc_indices) / _pc_elapsed:.0f} examples/s)")
+            torch.cuda.empty_cache()
+
     # Optimizer + scheduler
     num_batches = len(final_training) // args.batch_size
     total_steps = (num_batches // grad_accum) * args.epochs
@@ -1554,40 +959,6 @@ def train(
             print(f"\n  Dynamic cadence (reference = {reference_steps} steps):")
             print(f"    eval_steps: {args.eval_steps} (~{reference_steps // max(args.eval_steps, 1)}x)")
             print(f"    save_steps: {args.save_steps}")
-
-    # ── Optional: precompute all activation vectors ──
-    if getattr(args, "precompute", False) and not args.no_activations:
-        if rank == 0:
-            print(f"\n  Precomputing activations for {len(final_training)} examples...")
-        # Sort by context length for batching efficiency
-        sorted_indices = sorted(range(len(final_training)), key=lambda i: _example_context_len(final_training[i]))
-        _precompute_budget = 65536
-        _precompute_done = 0
-        from tqdm.auto import tqdm as _tqdm
-        _pbar = _tqdm(total=len(final_training), desc="Precompute", disable=(rank != 0))
-        i = 0
-        while i < len(sorted_indices):
-            # Dynamic batch: fit within token budget
-            chunk_indices = [sorted_indices[i]]
-            i += 1
-            while i < len(sorted_indices):
-                candidate = chunk_indices + [sorted_indices[i]]
-                peak = len(candidate) * max(_example_context_len(final_training[j]) for j in candidate)
-                if peak > _precompute_budget:
-                    break
-                chunk_indices.append(sorted_indices[i])
-                i += 1
-            chunk = [final_training[j] for j in chunk_indices]
-            materialized = materialize_multilayer_steering_vectors(chunk, tokenizer, model)
-            for j, mat_dp in zip(chunk_indices, materialized):
-                # Move to CPU to save GPU memory
-                mat_dp_cpu = mat_dp.model_copy(deep=False)
-                mat_dp_cpu.steering_vectors = mat_dp.steering_vectors.cpu()
-                final_training[j] = mat_dp_cpu
-            _pbar.update(len(chunk_indices))
-        _pbar.close()
-        if rank == 0:
-            print(f"  Precompute done: {len(final_training)} examples")
 
     optimizer = torch.optim.AdamW(ddp_model.parameters(), lr=args.lr)
     scheduler = get_linear_schedule_with_warmup(
@@ -1648,7 +1019,11 @@ def train(
         print(f"  Gradient accumulation: {grad_accum}")
         print(f"  Effective batch size: {args.batch_size * grad_accum * world_size}")
         print(f"  Train token budget: {args.max_train_tokens_per_gpu or 'disabled'}")
-        effective_extract_budget = (args.max_extract_tokens_per_gpu if args.max_extract_tokens_per_gpu > 0 else args.max_train_tokens_per_gpu)
+        effective_extract_budget = (
+            args.max_extract_tokens_per_gpu
+            if args.max_extract_tokens_per_gpu > 0
+            else args.max_train_tokens_per_gpu
+        )
         print(f"  Extract token budget: {effective_extract_budget or 'disabled'}")
         ext_bs = args.extraction_batch_size or args.batch_size
         print(f"  Extraction batch size: {ext_bs} (lookahead={ext_bs // args.batch_size}x)")
@@ -1662,10 +1037,9 @@ def train(
     model.train()
 
     # Step-0 eval (baseline before any training)
-    # Skip all evals in Flamingo mode — evals use steering injection, not cross-attention
     skip_step0 = getattr(args, "no_step0_eval", False)
-    if global_step == 0 and rank == 0 and not skip_step0 and not args.flamingo:
-        _run_unified_eval(eval_model, tokenizer, args.model, 0, args, log_dir=log_dir, no_activations=args.no_activations)
+    if global_step == 0 and rank == 0 and not skip_step0:
+        _run_unified_eval(model, tokenizer, args.model, 0, args, log_dir=log_dir, no_activations=args.no_activations)
         model.train()
     if world_size > 1:
         dist.barrier()
@@ -1685,15 +1059,7 @@ def train(
         if task_order not in ("sequential", "interleaved"):
             random.shuffle(final_training)
             if args.length_bucketing:
-                _window_bucket_training_data(
-                    final_training,
-                    args.batch_size,
-                    args.length_bucket_window_batches,
-                    args.no_activations,
-                    args.flamingo,
-                    args.flamingo_max_ctx_tokens,
-                    args.extraction_batch_size,
-                )
+                _window_bucket_training_data(final_training, args.batch_size, args.length_bucket_window_batches)
         optimizer.zero_grad()
 
         pbar = tqdm(
@@ -1710,30 +1076,45 @@ def train(
         accum_batch_splits = 0
         accum_context_lengths = []
 
+        # Lookahead extraction: prefetch activations for multiple training batches at once
         ext_bs = args.extraction_batch_size if args.extraction_batch_size > 0 else args.batch_size
         _prefetch_cache: list[TrainingDataPoint] = []
+        _prefetch_end: int = 0  # index into final_training up to which we've prefetched
 
         for start in pbar:
-            # ── Lookahead extraction prefetch ──
-            extract_split_count = 0
-            if not args.no_activations and not args.flamingo:
-                extract_budget = (args.max_extract_tokens_per_gpu if args.max_extract_tokens_per_gpu > 0
-                                  else args.max_train_tokens_per_gpu)
-                if not _prefetch_cache:
-                    lookahead_end = min(start + ext_bs, len(final_training))
-                    lookahead = final_training[start:lookahead_end]
-                    _prefetch_cache, extract_split_count = _materialize_batch_for_training_step(
-                        lookahead, tokenizer, model,
-                        max_batch_size=ext_bs, max_extract_tokens_per_gpu=extract_budget,
-                        rank=rank, train_batch_start=start,
-                    )
-                batch_list = _prefetch_cache[:args.batch_size]
-                _prefetch_cache = _prefetch_cache[args.batch_size:]
-            else:
-                batch_list = final_training[start : start + args.batch_size]
-
+            batch_list = final_training[start : start + args.batch_size]
             if len(batch_list) < args.batch_size:
                 break
+
+            extract_split_count = 0
+            if not args.no_activations:
+                extract_budget = (
+                    args.max_extract_tokens_per_gpu
+                    if args.max_extract_tokens_per_gpu > 0
+                    else args.max_train_tokens_per_gpu
+                )
+
+                # Check if we need to prefetch a new batch of activations
+                if not _prefetch_cache:
+                    # Grab up to ext_bs examples for lookahead extraction
+                    lookahead_end = min(start + ext_bs, len(final_training))
+                    lookahead = final_training[start:lookahead_end]
+                    _prefetch_end = lookahead_end
+
+                    prefetched, extract_split_count = _materialize_batch_for_training_step(
+                        lookahead,
+                        tokenizer,
+                        model,
+                        max_batch_size=ext_bs,
+                        max_extract_tokens_per_gpu=extract_budget,
+                        rank=rank,
+                        train_batch_start=start,
+                    )
+                    _prefetch_cache = prefetched
+
+                # Consume batch_size items from the prefetch cache
+                batch_list = _prefetch_cache[:args.batch_size]
+                _prefetch_cache = _prefetch_cache[args.batch_size:]
 
             base_label_tokens = sum(_label_token_count(dp) for dp in batch_list)
             pending_chunks = _split_batch_for_token_budget(
@@ -1741,8 +1122,6 @@ def train(
                 args.batch_size,
                 args.max_train_tokens_per_gpu,
                 args.no_activations,
-                args.flamingo,
-                args.flamingo_max_ctx_tokens,
             )
             batch_split_count = extract_split_count + len(pending_chunks) - 1
 
@@ -1761,29 +1140,8 @@ def train(
                             with torch.autocast(device_type="cuda", dtype=dtype):
                                 outputs = ddp_model(**tokenized_input, labels=batch.labels)
                                 loss = outputs.loss * loss_weight / grad_accum
-                        elif args.flamingo:
-                            # Two-pass: collect CoT hidden states, then oracle forward with xattn
-                            flamingo_wrapper = ddp_model.module if isinstance(ddp_model, torch.nn.parallel.DistributedDataParallel) else ddp_model
-                            cot_batch, oracle_batch = construct_flamingo_batch(
-                                chunk_list, tokenizer, device,
-                                max_ctx_tokens=args.flamingo_max_ctx_tokens,
-                            )
-                            # Pass 1: CoT through frozen base model (no grad)
-                            with torch.autocast(device_type="cuda", dtype=dtype):
-                                cot_hs = flamingo_wrapper.collect_cot_hidden_states(
-                                    cot_batch["input_ids"], cot_batch["attention_mask"],
-                                )
-                            # Pass 2: Oracle forward with cross-attention to CoT
-                            batch = oracle_batch  # for per-task loss logging below
-                            with torch.autocast(device_type="cuda", dtype=dtype):
-                                outputs = ddp_model(
-                                    **oracle_batch,
-                                    supervisee_kvs=cot_hs,
-                                    cot_attention_mask=cot_batch["attention_mask"],
-                                )
-                                loss = outputs.loss * loss_weight / grad_accum
                         else:
-                            # Standard steering path (vectors already materialized via prefetch)
+                            # Standard steering path (vectors already materialized for this train batch)
                             batch = construct_batch(chunk_list, tokenizer, device)
                             with torch.autocast(device_type="cuda", dtype=dtype):
                                 outputs = train_features_batch(
@@ -1892,16 +1250,6 @@ def train(
                     else:
                         log_dict["train/block_idx"] = len(task_blocks) - 1
 
-                # Log Flamingo gate values
-                if args.flamingo:
-                    from flamingo_oracle import FlamingoOracleWrapper
-                    wrapper = model.module if isinstance(model, torch.nn.parallel.DistributedDataParallel) else model
-                    if isinstance(wrapper, FlamingoOracleWrapper):
-                        for idx in wrapper.xattn_layer_indices:
-                            gate_val = wrapper.xattn_layers[str(idx)].gate.item()
-                            log_dict[f"flamingo/gate_{idx}"] = gate_val
-                            log_dict[f"flamingo/tanh_gate_{idx}"] = math.tanh(gate_val)
-
                 wandb.log(log_dict, step=global_step)
 
             pbar.set_postfix(loss=f"{accum_loss_sum / grad_accum:.4f}")
@@ -1926,9 +1274,9 @@ def train(
 
             # Unified eval (task + detection, rank 0 only)
             should_eval = (global_step > 0 and global_step % args.eval_steps == 0) or global_step in block_eval_steps
-            if should_eval and not args.flamingo:
+            if should_eval:
                 if rank == 0:
-                    _, elapsed = _run_unified_eval(eval_model, tokenizer, args.model, global_step, args, log_dir=log_dir, no_activations=args.no_activations)
+                    _, elapsed = _run_unified_eval(model, tokenizer, args.model, global_step, args, log_dir=log_dir, no_activations=args.no_activations)
                     eval_time_total += elapsed
                     model.train()
                 if world_size > 1:
@@ -1956,8 +1304,8 @@ def train(
             global_step += 1
 
     # Final eval (rank 0 only)
-    if rank == 0 and not args.flamingo:
-        _run_unified_eval(eval_model, tokenizer, args.model, global_step, args, log_dir=log_dir, no_activations=args.no_activations)
+    if rank == 0:
+        _run_unified_eval(model, tokenizer, args.model, global_step, args, log_dir=log_dir, no_activations=args.no_activations)
 
         # Save final
         final_path = save_dir / "final"
@@ -2015,9 +1363,9 @@ def apply_config(args, config: dict):
         for key in ["lr", "batch_size", "eval_batch_size", "epochs",
                      "warmup_fraction", "max_grad_norm", "steering_coefficient",
                      "gradient_checkpointing", "task_order", "seed",
-                     "effective_batch_size", "interleave_blocks", "max_train_tokens_per_gpu",
-                     "max_extract_tokens_per_gpu", "extraction_batch_size",
-                     "length_bucketing", "length_bucket_window_batches", "auto_batch_sizing",
+                     "effective_batch_size", "interleave_blocks", "max_train_tokens_per_gpu", "max_extract_tokens_per_gpu",
+                     "extraction_batch_size",
+                     "length_bucketing", "length_bucket_window_batches",
                      "torch_compile", "torch_compile_mode"]:
             if key in t and not getattr(args, f"_cli_{key}", False):
                 val = t[key]
@@ -2030,13 +1378,9 @@ def apply_config(args, config: dict):
     # Activations
     if "activations" in config:
         a = config["activations"]
-        for key in ["stride", "position_encoding", "pe_alpha", "n_layers", "pooling",
-                    "sparse_positions", "single_position"]:
+        for key in ["stride", "n_layers", "position_mode"]:
             if key in a and not getattr(args, f"_cli_{key}", False):
-                if key == "pooling":
-                    setattr(args, "pooling_mode", a[key])
-                else:
-                    setattr(args, key, a[key])
+                setattr(args, key, a[key])
         if "layers" in a and not getattr(args, "_cli_layers", False):
             args.layers = a["layers"]  # list of ints, e.g. [9, 18, 27]
         if "layer_dropout" in a and not getattr(args, "_cli_layer_dropout", False):
@@ -2049,40 +1393,11 @@ def apply_config(args, config: dict):
     # Eval
     if "eval" in config:
         e = config["eval"]
-        for key in ["eval_steps", "save_steps", "max_items_per_eval", "eval_batch_size", "eval_max_new_tokens", "task_eval_max_new_tokens"]:
+        for key in ["eval_steps", "save_steps", "max_items_per_eval"]:
             if key in e and not getattr(args, f"_cli_{key}", False):
                 setattr(args, key, int(e[key]))
 
-    if "baselines" in config:
-        b = config["baselines"]
-        args.adam_light_evals = list(b.get("classification_evals", []))
-        args.adam_light_stride = int(b.get("stride", 5))
-
     # Data paths (unified: all data from HuggingFace, no local corpus/precomputed paths needed)
-
-    # Flamingo
-    if "flamingo" in config:
-        f = config["flamingo"]
-        if f.get("enabled") and not getattr(args, "_cli_flamingo", False):
-            args.flamingo = True
-        if "xattn_interval" in f and not getattr(args, "_cli_flamingo_xattn_interval", False):
-            args.flamingo_xattn_interval = int(f["xattn_interval"])
-        if "xattn_lora_r" in f and not getattr(args, "_cli_flamingo_xattn_lora_r", False):
-            args.flamingo_xattn_lora_r = int(f["xattn_lora_r"])
-
-    # Classification (matching Adam's AO training)
-    if "classification" in config:
-        cls = config["classification"]
-        if cls.get("enabled", False) and not getattr(args, "_cli_classification_n", False):
-            args.classification_n = cls.get("n", 100000)
-        if "datasets" in cls and not getattr(args, "_cli_classification_datasets", False):
-            args.classification_datasets = cls["datasets"]
-
-    # LatentQA / SPQA
-    if "latentqa" in config:
-        lqa = config["latentqa"]
-        if lqa.get("enabled", False) and not getattr(args, "_cli_latentqa_n", False):
-            args.latentqa_n = lqa.get("n", 65000)
 
     # No-activations baseline
     if "no_activations" in config:
@@ -2094,8 +1409,6 @@ def apply_config(args, config: dict):
         ab = config["ablations"]
         if ab.get("random_layers") and not getattr(args, "_cli_random_layers", False):
             args.random_layers = True
-        if ab.get("noise_activations") and not getattr(args, "_cli_noise_activations", False):
-            args.noise_activations = True
 
     # Model
     if "model" in config:
@@ -2117,6 +1430,20 @@ def apply_config(args, config: dict):
         if "max_context_tokens" in fw and not getattr(args, "_cli_fineweb_max_context_tokens", False):
             args.fineweb_max_context_tokens = fw["max_context_tokens"]
 
+    # Classification
+    if "classification" in config:
+        cls = config["classification"]
+        if cls.get("enabled", False) and not getattr(args, "_cli_classification_n", False):
+            args.classification_n = cls.get("n", 100000)
+        if "datasets" in cls and not getattr(args, "_cli_classification_datasets", False):
+            args.classification_datasets = cls["datasets"]
+
+    # LatentQA
+    if "latentqa" in config:
+        lqa = config["latentqa"]
+        if lqa.get("enabled", False) and not getattr(args, "_cli_latentqa_n", False):
+            args.latentqa_n = lqa.get("n", 65000)
+
     # Output
     if "output" in config:
         o = config["output"]
@@ -2130,119 +1457,6 @@ def apply_config(args, config: dict):
             args.wandb_run = o["wandb_run"]
 
 
-def _detect_active_gpu_inventory(local_rank: int, world_size: int) -> dict | None:
-    if not torch.cuda.is_available():
-        return None
-
-    device_idx = min(local_rank, max(torch.cuda.device_count() - 1, 0))
-    props = torch.cuda.get_device_properties(device_idx)
-    local_name = props.name
-    local_mem_gb = props.total_memory / 1024 ** 3
-
-    min_mem_gb = local_mem_gb
-    max_mem_gb = local_mem_gb
-    gpu_names = [local_name]
-
-    if world_size > 1 and dist.is_initialized():
-        device = torch.device(f"cuda:{device_idx}")
-        min_t = torch.tensor(local_mem_gb, device=device)
-        max_t = torch.tensor(local_mem_gb, device=device)
-        dist.all_reduce(min_t, op=dist.ReduceOp.MIN)
-        dist.all_reduce(max_t, op=dist.ReduceOp.MAX)
-        min_mem_gb = float(min_t.item())
-        max_mem_gb = float(max_t.item())
-        gathered_names = [None] * world_size
-        dist.all_gather_object(gathered_names, local_name)
-        gpu_names = sorted({name for name in gathered_names if name})
-
-    return {
-        "active_gpus": world_size,
-        "gpu_names": gpu_names,
-        "min_mem_gb": min_mem_gb,
-        "max_mem_gb": max_mem_gb,
-    }
-
-
-def _round_to_multiple(value: float, multiple: int, minimum: int) -> int:
-    rounded = int(round(value / multiple)) * multiple
-    return max(minimum, rounded)
-
-
-def _maybe_apply_auto_batch_sizing(args, local_rank: int, world_size: int, rank: int) -> None:
-    if not getattr(args, "auto_batch_sizing", True):
-        return
-
-    gpu_info = _detect_active_gpu_inventory(local_rank, world_size)
-    if gpu_info is None:
-        return
-
-    reference_mem_gb = 80.0
-    memory_scale = min(1.0, max((gpu_info["min_mem_gb"] / reference_mem_gb) ** 1.5, 0.125))
-    token_scale = min(1.0, max(gpu_info["min_mem_gb"] / reference_mem_gb, 0.25))
-
-    original = {
-        "batch_size": args.batch_size,
-        "eval_batch_size": args.eval_batch_size,
-        "extraction_batch_size": args.extraction_batch_size,
-        "effective_batch_size": args.effective_batch_size,
-        "max_train_tokens_per_gpu": args.max_train_tokens_per_gpu,
-        "max_extract_tokens_per_gpu": args.max_extract_tokens_per_gpu,
-    }
-
-    if not getattr(args, "_cli_batch_size", False):
-        args.batch_size = max(1, int(math.floor(max(args.batch_size, 1) * memory_scale)))
-
-    if not getattr(args, "_cli_eval_batch_size", False):
-        args.eval_batch_size = max(1, int(math.floor(max(args.eval_batch_size, 1) * memory_scale)))
-
-    if not getattr(args, "_cli_extraction_batch_size", False):
-        base_extract = args.extraction_batch_size if args.extraction_batch_size > 0 else original["batch_size"]
-        scaled_extract = max(args.batch_size, int(math.floor(max(base_extract, args.batch_size) * memory_scale)))
-        extract_multiple = max(1, scaled_extract // args.batch_size)
-        args.extraction_batch_size = extract_multiple * args.batch_size
-
-    if not getattr(args, "_cli_max_train_tokens_per_gpu", False):
-        base_train_budget = args.max_train_tokens_per_gpu if args.max_train_tokens_per_gpu > 0 else 32768
-        args.max_train_tokens_per_gpu = _round_to_multiple(base_train_budget * token_scale, 2048, 4096)
-
-    if not getattr(args, "_cli_max_extract_tokens_per_gpu", False):
-        if original["max_extract_tokens_per_gpu"] > 0:
-            base_extract_budget = original["max_extract_tokens_per_gpu"]
-        elif getattr(args, "_cli_max_train_tokens_per_gpu", False):
-            base_extract_budget = args.max_train_tokens_per_gpu
-        else:
-            base_extract_budget = max(args.max_train_tokens_per_gpu, 65536)
-        args.max_extract_tokens_per_gpu = _round_to_multiple(base_extract_budget * token_scale, 2048, args.max_train_tokens_per_gpu)
-
-    if not getattr(args, "_cli_effective_batch_size", False):
-        per_step_batch = max(args.batch_size * world_size, 1)
-        base_effective = max(args.effective_batch_size, per_step_batch)
-        max_reasonable = per_step_batch * 16
-        target_effective = max(per_step_batch, min(base_effective, max_reasonable))
-        args.effective_batch_size = math.ceil(target_effective / per_step_batch) * per_step_batch
-
-    if rank == 0:
-        gpu_label = ", ".join(gpu_info["gpu_names"])
-        hetero = gpu_info["max_mem_gb"] - gpu_info["min_mem_gb"] > 0.5 or len(gpu_info["gpu_names"]) > 1
-        print("\nAuto Batch Sizing")
-        print(f"  Active GPUs: {gpu_info['active_gpus']} | GPUs: {gpu_label}")
-        if hetero:
-            print(f"  Using conservative floor across ranks: {gpu_info['min_mem_gb']:.1f}GB .. {gpu_info['max_mem_gb']:.1f}GB")
-        else:
-            print(f"  Per-GPU memory basis: {gpu_info['min_mem_gb']:.1f}GB")
-
-        changed = []
-        for key, old_val in original.items():
-            new_val = getattr(args, key)
-            if new_val != old_val:
-                changed.append((key, old_val, new_val))
-        if changed:
-            for key, old_val, new_val in changed:
-                print(f"  {key}: {old_val} -> {new_val}")
-        else:
-            print("  Batch settings unchanged")
-
-
 # ── Main ──
 def main():
     local_rank, rank, world_size = setup_distributed()
@@ -2252,17 +1466,17 @@ def main():
                         help="YAML config file(s). Multiple configs are merged left-to-right (later overrides earlier)")
     parser.add_argument("--corpus", default="data/cot_corpus_v5/corpus_medium.jsonl",
                         help="Path to corpus.jsonl")
-    parser.add_argument("--model", default="Qwen/Qwen3-0.6B")
+    parser.add_argument("--model", default="Qwen/Qwen3-8B")
     parser.add_argument("--attn-implementation", default="sdpa",
-                        choices=["sdpa", "eager", "flash_attention_2"],
-                        help="Transformer attention backend")
+                        choices=["flash_attention_2", "sdpa", "eager"],
+                        help="Transformer attention backend (sdpa uses flash kernels natively in torch>=2.2)")
 
     # Checkpoint control
     parser.add_argument("--resume-from", default=None,
                         help="Resume from a LoRA checkpoint dir")
     parser.add_argument("--ao-checkpoint",
-                        default=None,
-                        help="Adam's pretrained AO checkpoint to start from (required with --no-fresh-lora)")
+                        default="adamkarvonen/checkpoints_latentqa_cls_past_lens_addition_Qwen3-8B",
+                        help="Adam's pretrained AO checkpoint to start from")
     parser.add_argument("--fresh-lora", action="store_true", default=True,
                         help="Start with fresh LoRA (default). Use --no-fresh-lora to load Adam's checkpoint")
     parser.add_argument("--no-fresh-lora", dest="fresh_lora", action="store_false",
@@ -2274,7 +1488,7 @@ def main():
     parser.add_argument("--atypical-answer-n", type=int, default=0)
     parser.add_argument("--reasoning-termination-n", type=int, default=0)
     parser.add_argument("--answer-trajectory-n", type=int, default=0)
-    parser.add_argument("--futurelens-cot-n", type=int, default=0)
+    parser.add_argument("--futurelens-n", type=int, default=0)
     parser.add_argument("--correctness-n", type=int, default=0)
     parser.add_argument("--decorative-cot-n", type=int, default=0)
     parser.add_argument("--chunked-convqa-n", type=int, default=0)
@@ -2292,7 +1506,7 @@ def main():
     parser.add_argument("--task-eval-max-new-tokens", type=int, default=64,
                         help="Default max_new_tokens for task-level eval generation")
     parser.add_argument("--epochs", type=int, default=1)
-    parser.add_argument("--stride", type=str, default=None, help="Position mode for activation extraction (int, 'poisson', or 'punctuation'). Must be set via config or CLI.")
+    parser.add_argument("--stride", type=str, default=None, help="Stride for position extraction (int or 'punctuation'). Must be set via config or CLI.")
     parser.add_argument("--n-layers", type=int, default=3,
                         help="Number of activation layers (evenly spaced through model depth)")
     parser.add_argument("--layers", type=int, nargs="+", default=None,
@@ -2304,10 +1518,9 @@ def main():
     parser.add_argument("--gradient-checkpointing", action="store_true", default=True)
     parser.add_argument("--no-gradient-checkpointing", dest="gradient_checkpointing",
                         action="store_false")
-    parser.add_argument("--position-encoding", action="store_true", default=False,
-                        help="Apply sinusoidal PE to activation vectors")
-    parser.add_argument("--pe-alpha", type=float, default=0.1,
-                        help="PE mixing coefficient (only used if --position-encoding)")
+    parser.add_argument("--position-mode", type=str, default="last_only",
+                        choices=["last_only", "stochastic", "all"],
+                        help="Position sampling: last_only (fastest), stochastic (random subsample), all")
     parser.add_argument("--task-order", choices=["shuffled", "sequential", "interleaved"], default="shuffled",
                         help="'shuffled' mixes all tasks; 'sequential' trains one at a time; 'interleaved' round-robin blocks")
     parser.add_argument("--interleave-blocks", type=int, default=50,
@@ -2317,9 +1530,6 @@ def main():
     parser.add_argument("--no-length-bucketing", dest="length_bucketing", action="store_false")
     parser.add_argument("--length-bucket-window-batches", type=int, default=32,
                         help="Window size for length bucketing, in units of train batches")
-    parser.add_argument("--auto-batch-sizing", action="store_true", default=True,
-                        help="Automatically downshift train/eval/extraction batch settings for smaller GPUs")
-    parser.add_argument("--no-auto-batch-sizing", dest="auto_batch_sizing", action="store_false")
     parser.add_argument("--effective-batch-size", type=int, default=32,
                         help="Total effective batch size (invariant to GPU count). "
                              "gradient_accumulation_steps = effective_batch_size / (batch_size * world_size)")
@@ -2329,9 +1539,7 @@ def main():
                         help="Approximate per-GPU token budget for activation extraction batches (0 = use --max-train-tokens-per-gpu)")
     parser.add_argument("--extraction-batch-size", type=int, default=0,
                         help="Lookahead extraction: extract this many examples at once, then train in batch_size chunks. "
-                             "0 = same as batch_size (no lookahead). Set to 64-512 for significant speedup.")
-    parser.add_argument("--precompute", action="store_true", default=False,
-                        help="Precompute all activation vectors before training. Slower for epoch=1 but amortizes for multi-epoch.")
+                             "0 = same as batch_size (no lookahead). Set to 64-128 for significant speedup.")
     parser.add_argument("--torch-compile", action="store_true", default=False,
                         help="Compile the training forward path with torch.compile")
     parser.add_argument("--torch-compile-mode", choices=["default", "reduce-overhead", "max-autotune", "max-autotune-no-cudagraphs"], default="default",
@@ -2341,31 +1549,25 @@ def main():
     parser.add_argument("--no-activations", action="store_true", default=False,
                         help="Text-only baseline: train without activation steering (same data, no prefix/injection)")
 
+    # Precompute activations upfront (slow for single-epoch, useful for multi-epoch)
+    parser.add_argument("--precompute", action="store_true", default=False,
+                        help="Precompute all activation vectors before training. Slower for epoch=1 but amortizes for multi-epoch.")
+
     # FineWeb context prediction
     parser.add_argument("--fineweb-n", type=int, default=0,
                         help="Number of FineWeb context prediction examples (0 = disabled, set via config)")
     parser.add_argument("--fineweb-max-context-tokens", type=int, default=2000,
                         help="Max context tokens for FineWeb activation extraction")
 
-    # Classification (matching Adam's AO training)
+    # Classification (Adam's AO tasks)
     parser.add_argument("--classification-n", type=int, default=0,
                         help="Number of classification examples (0 = disabled, set via config)")
     parser.add_argument("--classification-datasets", nargs="+", default=None,
                         help="Classification datasets to use (default: sst2, ag_news, snli)")
 
-    # LatentQA / SPQA
+    # LatentQA (Adam's SPQA task)
     parser.add_argument("--latentqa-n", type=int, default=0,
                         help="Number of LatentQA examples (0 = disabled, set via config)")
-
-    # Flamingo cross-attention
-    parser.add_argument("--flamingo", action="store_true", default=False,
-                        help="Use Flamingo-style gated cross-attention instead of additive steering")
-    parser.add_argument("--flamingo-xattn-interval", type=int, default=4,
-                        help="Insert cross-attention every N transformer blocks")
-    parser.add_argument("--flamingo-xattn-lora-r", type=int, default=64,
-                        help="LoRA rank for cross-attention projections")
-    parser.add_argument("--flamingo-max-ctx-tokens", type=int, default=2048,
-                        help="Max context tokens for flamingo activation extraction (truncates from left)")
 
     # Layer dropout
     parser.add_argument("--layer-dropout", action="store_true", default=False,
@@ -2376,8 +1578,6 @@ def main():
     # Ablations
     parser.add_argument("--random-layers", action="store_true", default=False,
                         help="Randomize layer count and indices per training sequence")
-    parser.add_argument("--noise-activations", action="store_true", default=False,
-                        help="Replace real activations with variance-matched Gaussian noise")
 
     # Eval / save
     parser.add_argument("--eval-steps", type=int, default=2000,
@@ -2386,16 +1586,6 @@ def main():
                         help="Save checkpoint every N steps (shuffled mode)")
     parser.add_argument("--no-step0-eval", action="store_true", default=False,
                         help="Skip evals at step 0 (for quick ablation launches)")
-    parser.add_argument("--pooling-mode", type=str, default="none",
-                        choices=["none", "windows", "single", "chunks5"],
-                        help="Activation pooling: none, windows (mean-pool token windows), single (1/layer), chunks5 (5/layer)")
-    parser.add_argument("--layer-pool", action="store_true", default=False,
-                        help="Average activations across all MULTI_LAYERS at each position (output=1 effective layer)")
-    parser.add_argument("--sparse-positions", action="store_true", default=False,
-                        help="Randomly subsample CoT positions per example (trains on sparse evidence)")
-    parser.add_argument("--single-position", action="store_true", default=False,
-                        help="Only feed the last CoT position per layer (single activation ablation)")
-    parser.add_argument("--rot13-start-step", type=int, default=2000)
     parser.add_argument("--start-step", type=int, default=None,
                         help="Starting global step (for resuming; 0 = restart data from beginning)")
     parser.add_argument("--eval-dir", default="data/evals")
@@ -2414,8 +1604,6 @@ def main():
     # Data loading (unified: all data from HuggingFace, cached locally)
 
     args = parser.parse_args()
-    args.adam_light_evals = []
-    args.adam_light_stride = 5
 
     # Mark which args were explicitly provided on CLI so config doesn't override them
     _mark_cli_overrides(args, parser, sys.argv[1:])
@@ -2436,9 +1624,7 @@ def main():
             print(yaml.dump(config, default_flow_style=False, sort_keys=False).rstrip())
             print(f"{'=' * 60}\n")
 
-    # Mutual exclusion and no-activations setup
-    assert not (getattr(args, "flamingo", False) and getattr(args, "no_activations", False)), \
-        "--flamingo and --no-activations are mutually exclusive"
+    # No-activations setup
     if getattr(args, "no_activations", False):
         args.fresh_lora = True
 
@@ -2446,21 +1632,17 @@ def main():
     if args.stride is None:
         raise ValueError(
             "stride must be set via config (activations.stride) or CLI (--stride). "
-            "Use an integer for fixed-stride, 'poisson' for random sampling, or "
-            "'punctuation' for punctuation-based extraction."
+            "Use an integer for fixed-stride or 'punctuation' for punctuation-based extraction."
         )
-
-    _maybe_apply_auto_batch_sizing(args, local_rank, world_size, rank)
 
     set_seed(args.seed)
 
     # Multi-layer config
-    global MULTI_LAYERS, NO_ACTIVATIONS, RANDOM_LAYERS, LAYER_DROPOUT, NOISE_ACTIVATIONS, _MODEL_N_LAYERS, _POSITION_MODE
+    global MULTI_LAYERS, NO_ACTIVATIONS, RANDOM_LAYERS, LAYER_DROPOUT, POSITION_MODE, _MODEL_N_LAYERS
     NO_ACTIVATIONS = getattr(args, "no_activations", False)
     RANDOM_LAYERS = getattr(args, "random_layers", False)
     LAYER_DROPOUT = getattr(args, "layer_dropout", False)
-    NOISE_ACTIVATIONS = getattr(args, "noise_activations", False)
-    _POSITION_MODE = args.stride
+    POSITION_MODE = getattr(args, "position_mode", "last_only")
     from cot_utils import LAYER_COUNTS
     _MODEL_N_LAYERS = LAYER_COUNTS.get(args.model, 36)
     if hasattr(args, "layers") and args.layers:
@@ -2482,40 +1664,8 @@ def main():
             print(f"Layer dropout: ON (random non-empty subsets of {MULTI_LAYERS} per example)")
         if RANDOM_LAYERS:
             print("Ablation: RANDOM LAYERS (per-item random layer sampling)")
-        if NOISE_ACTIVATIONS:
-            print("Ablation: NOISE ACTIVATIONS (variance-matched Gaussian noise)")
-
-    # Position encoding config
-    global _PE_CONFIG
-    _PE_CONFIG["enabled"] = getattr(args, "position_encoding", False)
-    _PE_CONFIG["alpha"] = getattr(args, "pe_alpha", 0.1)
-    if rank == 0:
-        if _PE_CONFIG["enabled"]:
-            print(f"Position encoding: ON (alpha={_PE_CONFIG['alpha']})")
-        else:
-            print("Position encoding: OFF")
-
-    # Pooling mode
-    global _POOLING_MODE
-    _POOLING_MODE = getattr(args, "pooling_mode", "none")
-    if _POOLING_MODE != "none":
-        import evals.activation_cache as _cache_module
-        _cache_module._POOLING_MODE = _POOLING_MODE
-    # Sparse position sampling
-    global _SPARSE_POSITIONS
-    _SPARSE_POSITIONS = getattr(args, "sparse_positions", False)
-    # Single position mode
-    global _SINGLE_POSITION
-    _SINGLE_POSITION = getattr(args, "single_position", False)
-    if rank == 0:
-        print(f"Activation position mode: {args.stride}")
-        print(f"Activation pooling: {_POOLING_MODE}")
-        if _POSITION_MODE == "poisson":
-            print("Random position sampling: ON (Poisson-process style)")
-        if _SPARSE_POSITIONS:
-            print("Sparse position sampling: ON")
-        if _SINGLE_POSITION:
-            print("Single position mode: ON (last CoT position only)")
+        print(f"Position mode: {POSITION_MODE}")
+        print(f"Activation stride: {args.stride}")
 
     tokenizer = load_tokenizer(args.model)
 
@@ -2551,35 +1701,7 @@ def main():
 
     # Resume state (loaded before wandb init so we can reuse the run ID)
     _resume_state = None
-    if args.flamingo:
-        # Flamingo: frozen base model + cross-attention LoRA only (no self-attn LoRA)
-        from flamingo_oracle import FlamingoOracleWrapper
-        if rank == 0:
-            print("Flamingo mode: freezing base model (no self-attention LoRA)")
-        for p in base_model.parameters():
-            p.requires_grad = False
-        xattn_lora_r = args.flamingo_xattn_lora_r
-        if rank == 0:
-            print(f"Wrapping with Flamingo cross-attention (interval={args.flamingo_xattn_interval}, lora_r={xattn_lora_r})")
-        model = FlamingoOracleWrapper(
-            base_model, base_model.config,
-            xattn_interval=args.flamingo_xattn_interval,
-            lora_r=xattn_lora_r, lora_alpha=xattn_lora_r * 2,
-        )
-        if args.resume_from:
-            flamingo_path = Path(args.resume_from) / "flamingo_modules.pt"
-            if flamingo_path.exists():
-                model.load_flamingo_modules(str(args.resume_from))
-                if rank == 0:
-                    print(f"  Loaded Flamingo modules from {args.resume_from}")
-            state_path = Path(args.resume_from) / "training_state.pt"
-            if state_path.exists():
-                _resume_state = torch.load(state_path, map_location="cpu", weights_only=False)
-                if not getattr(args, "_cli_start_step", False):
-                    args.start_step = _resume_state["global_step"]
-                if rank == 0:
-                    print(f"  Loaded training_state.pt: step={_resume_state['global_step']}, wandb_id={_resume_state.get('wandb_run_id')}")
-    elif args.resume_from:
+    if args.resume_from:
         if rank == 0:
             print(f"Resuming from checkpoint: {args.resume_from}")
         model = PeftModel.from_pretrained(
@@ -2596,17 +1718,7 @@ def main():
     elif args.fresh_lora:
         if rank == 0:
             print("Starting with FRESH LoRA (random init)")
-        if args.ao_checkpoint is None:
-            if rank == 0:
-                print("  No AO checkpoint configured, creating LoRA from scratch")
-            from peft import LoraConfig, get_peft_model
-            lora_config = LoraConfig(
-                r=64, lora_alpha=16, lora_dropout=0.0,
-                target_modules=["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"],
-                bias="none", task_type="CAUSAL_LM",
-            )
-            model = get_peft_model(base_model, lora_config)
-        else:
+        if args.ao_checkpoint:
             try:
                 # Try loading AO checkpoint structure, then reinit weights
                 model = PeftModel.from_pretrained(
@@ -2624,14 +1736,22 @@ def main():
                     bias="none", task_type="CAUSAL_LM",
                 )
                 model = get_peft_model(base_model, lora_config)
+        else:
+            if rank == 0:
+                print("  No AO checkpoint, creating LoRA from scratch")
+            from peft import LoraConfig, get_peft_model
+            lora_config = LoraConfig(
+                r=64, lora_alpha=16, lora_dropout=0.0,
+                target_modules=["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"],
+                bias="none", task_type="CAUSAL_LM",
+            )
+            model = get_peft_model(base_model, lora_config)
         for name, param in model.named_parameters():
             if "lora_A" in name:
                 torch.nn.init.kaiming_uniform_(param, a=5**0.5)
             elif "lora_B" in name:
                 torch.nn.init.zeros_(param)
     else:
-        if args.ao_checkpoint is None:
-            raise ValueError("--no-fresh-lora requires --ao-checkpoint or model.ao_checkpoint in config")
         if rank == 0:
             print(f"Loading Adam's AO checkpoint: {args.ao_checkpoint}")
         model = PeftModel.from_pretrained(
@@ -2649,14 +1769,9 @@ def main():
 
     if args.torch_compile:
         compile_mode = None if args.torch_compile_mode == "default" else args.torch_compile_mode
-        if args.flamingo:
-            if rank == 0:
-                print(f"Compiling Flamingo base model with torch.compile (mode={args.torch_compile_mode})")
-            model.base_model = torch.compile(model.base_model, fullgraph=False, mode=compile_mode)
-        else:
-            if rank == 0:
-                print(f"Compiling model with torch.compile (mode={args.torch_compile_mode})")
-            model = torch.compile(model, fullgraph=False, mode=compile_mode)
+        if rank == 0:
+            print(f"Compiling model with torch.compile (mode={args.torch_compile_mode})")
+        model = torch.compile(model, fullgraph=False, mode=compile_mode)
 
     # DDP wrapping
     if world_size > 1:
@@ -2680,16 +1795,18 @@ def main():
         if n > 0:
             task_config[task_name] = {"n": n}
 
+    # Load all training data (readout tasks like futurelens_cot/fineweb need tokenizer)
+    stride_val = int(args.stride) if args.stride and args.stride != "punctuation" else 5
     raw_data = load_all_training_data(
         task_config,
         tokenizer=tokenizer,
-        stride=args.stride,
+        stride=stride_val,
         layers=MULTI_LAYERS,
         model_name=args.model,
         seed=args.seed,
     )
 
-    # FineWeb context prediction (PastLens-style, if enabled)
+    # FineWeb context prediction (PastLens-style, if enabled via config section)
     fineweb_n = getattr(args, "fineweb_n", 0)
     if fineweb_n > 0 and not NO_ACTIVATIONS:
         from data_loading import load_fineweb_data
@@ -2700,7 +1817,7 @@ def main():
             model_name=args.model,
             n=fineweb_n,
             max_context_tokens=getattr(args, "fineweb_max_context_tokens", 2000),
-            stride=args.stride,
+            stride=stride_val,
             layers=MULTI_LAYERS,
             seed=args.seed,
         )
@@ -2708,26 +1825,38 @@ def main():
         if rank == 0:
             print(f"  [data]   -> {len(fineweb_data)} FineWeb examples added (total: {len(raw_data)})")
 
-    # Classification data (matching Adam's AO training)
+    # Classification data (Adam's AO tasks, if enabled)
     cls_n = getattr(args, "classification_n", 0)
     if cls_n > 0 and not NO_ACTIVATIONS:
         from data_loading import load_classification_data
-        cls_stride = int(args.stride) if isinstance(args.stride, int) or (isinstance(args.stride, str) and args.stride.isdigit()) else 5
+        cls_stride = int(args.stride) if args.stride and args.stride != "punctuation" else 5
         cls_datasets = getattr(args, "classification_datasets", None)
+        if rank == 0:
+            ds_str = ", ".join(cls_datasets) if cls_datasets else "all"
+            print(f"  [data] Generating {cls_n} classification examples ({ds_str})...")
         cls_data = load_classification_data(
-            tokenizer=tokenizer, n=cls_n, datasets=cls_datasets,
-            layers=MULTI_LAYERS, stride=cls_stride, seed=args.seed,
+            tokenizer=tokenizer,
+            n=cls_n,
+            datasets=cls_datasets,
+            layers=MULTI_LAYERS,
+            stride=cls_stride,
+            seed=args.seed,
         )
         raw_data.extend(cls_data)
         if rank == 0:
             print(f"  [data]   -> {len(cls_data)} classification examples added (total: {len(raw_data)})")
 
-    # LatentQA / SPQA data
+    # LatentQA / SPQA (Adam's AO task, if enabled)
     lqa_n = getattr(args, "latentqa_n", 0)
     if lqa_n > 0 and not NO_ACTIVATIONS:
         from data_loading import load_latentqa_data
+        if rank == 0:
+            print(f"  [data] Loading {lqa_n} LatentQA examples...")
         lqa_data = load_latentqa_data(
-            tokenizer=tokenizer, n=lqa_n, layers=MULTI_LAYERS, seed=args.seed,
+            tokenizer=tokenizer,
+            n=lqa_n,
+            layers=MULTI_LAYERS,
+            seed=args.seed,
         )
         raw_data.extend(lqa_data)
         if rank == 0:
@@ -2739,22 +1868,31 @@ def main():
         cleanup_distributed()
         return
 
-    # Tokenize cot_text → context_input_ids for items that don't have them yet
-    from data_loading import prepare_context_ids
+    stride_val = int(args.stride) if args.stride and args.stride != "punctuation" else 5
     if not NO_ACTIVATIONS:
+        # Tokenize cot_text → context_input_ids for items that don't have them yet
+        from data_loading import prepare_context_ids
         prepare_context_ids(
             raw_data, tokenizer,
-            stride=args.stride,
+            stride=stride_val,
             layers=MULTI_LAYERS,
         )
-        # Hard fail if any items still missing context_input_ids
-        from collections import Counter
+
+        # Verify ALL items have context_input_ids after prepare_context_ids
         missing = [d.get("task", "?") for d in raw_data if not d.get("context_input_ids")]
         if missing:
-            raise RuntimeError(f"Items missing context_input_ids after prepare_context_ids: {dict(Counter(missing))}")
+            from collections import Counter
+            counts = Counter(missing)
+            raise RuntimeError(
+                f"Items missing context_input_ids after prepare_context_ids "
+                f"(likely missing cot_text): {dict(counts)}"
+            )
     else:
-        # Text-only mode: filter for items with cot_text
+        # Text-only mode: filter for items with cot_text (no activations needed)
+        before = len(raw_data)
         raw_data = [d for d in raw_data if d.get("cot_text")]
+        if len(raw_data) < before and rank == 0:
+            print(f"  [data] Dropped {before - len(raw_data)} items without cot_text (no-activations mode)")
 
     random.shuffle(raw_data)
 

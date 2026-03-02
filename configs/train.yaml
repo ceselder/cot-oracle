@@ -3,21 +3,21 @@
 # All data is downloaded from HuggingFace automatically.
 
 tasks:
-  # --- Trainable tasks ---
+  # --- Trainable tasks (n=999999 means "load all available") ---
   hint_admission:          # binary: did the model silently use an injected hint?
-    n: 15000
+    n: 999999
     eval: true
 
   atypical_answer:         # binary: majority vs minority answer relative to other models
-    n: 20000
+    n: 999999
     eval: true
 
   reasoning_termination:   # binary: is the CoT about to end (near </think>)?
-    n: 15000
+    n: 999999
     eval: true
 
   answer_trajectory:       # token_f1: sequence of answer candidates during CoT (A→B→A)
-    n: 60000
+    n: 30000               # capped: very large dataset, diminishing returns
     eval: true
 
   futurelens_cot:          # token_f1: predict next N tokens of CoT after activation region
@@ -45,19 +45,19 @@ tasks:
     eval: true
 
   correctness:             # binary: did the CoT lead to the correct final answer?
-    n: 10000
+    n: 999999
     eval: true
 
   decorative_cot:          # binary: is the CoT load-bearing or decorative (post-hoc)?
-    n: 10000
+    n: 999999
     eval: true
 
   chunked_convqa:          # token_f1: predict answer from a CoT prefix (conversational QA)
-    n: 25000
+    n: 999999
     eval: true
 
   chunked_compqa:          # token_f1: predict answer from a CoT prefix (compositional QA)
-    n: 30000
+    n: 999999
     eval: true
 
   convqa:                  # token_f1: predict answer from full CoT (conversational QA)
@@ -68,24 +68,24 @@ tasks:
     n: 10000
     eval: true
 
+  backtrack_prediction:    # binary: will the model backtrack/revise its reasoning?
+    n: 999999
+    eval: true
+
   sycophancy:              # binary: was the model's moral judgment swayed by the user's wrong opinion?
-    n: 15000
+    n: 999999
     eval: true
 
   probe_sycophancy:        # binary: probe-based sycophancy detection
     n: 0                   # dataset not yet on HF
     eval: false
 
-  backtrack_prediction:    # binary: will the model backtrack/revise its reasoning?
-    n: 12000
-    eval: true
-
   truthfulqa_hint_verbalized:    # binary: hint detection on TruthfulQA, hint mentioned in CoT
-    n: 4000
-    eval: true
+    n: 0
+    eval: false
 
   truthfulqa_hint_unverbalized:  # binary: hint detection on TruthfulQA, hint NOT mentioned in CoT
-    n: 10000
+    n: 999999
     eval: true
 
   # --- Eval-only tasks ---
@@ -110,7 +110,7 @@ latentqa:
 training:
   lr: 0.00001
   batch_size: 16
-  effective_batch_size: 256
+  effective_batch_size: 16       # grad_accum=1, matching Adam's AO training
   eval_batch_size: 8
   epochs: 1
   warmup_fraction: 0.1
@@ -119,22 +119,19 @@ training:
   gradient_checkpointing: true
   task_order: shuffled
   interleave_blocks: 50
-  max_train_tokens_per_gpu: 32768
-  extraction_batch_size: 512     # lookahead: extract N examples at once, train in batch_size chunks
+  max_train_tokens_per_gpu: 65536
+  extraction_batch_size: 128     # lookahead: extract 128 examples at once, train in batch_size=16 chunks
   seed: 42
 
-# Flamingo cross-attention
-flamingo:
+# Text-baseline (no activations — receives CoT as plain text instead of activation vectors)
+no_activations:
   enabled: false
-  xattn_interval: 4
-  xattn_lora_r: 64
 
 # Activation extraction
 activations:
-  stride: poisson
-  position_encoding: true
-  pe_alpha: 0.1
-  layers: [7, 14, 21]        # injection layers (25%, 50%, 75% of Qwen3-0.6B's 28 layers)
+  stride: 5
+  layers: [9, 18, 27]        # injection layers (25%, 50%, 75% of Qwen3-8B's 36 layers)
+  position_mode: stochastic   # "last_only" (fastest), "stochastic" (chi-squared random), "all"
   layer_dropout:
     train: true              # random non-empty subsets of layers per training example
     eval: false              # always feed all configured layers during eval
@@ -142,14 +139,14 @@ activations:
 # Eval
 eval:
   eval_steps: 2000
-  save_steps: 10000
+  save_steps: 1000
   max_items_per_eval: 25
   eval_batch_size: 4
 
 # Model
 model:
-  name: Qwen/Qwen3-0.6B
-  ao_checkpoint: null
+  name: Qwen/Qwen3-8B
+  ao_checkpoint: adamkarvonen/checkpoints_latentqa_cls_past_lens_addition_Qwen3-8B
   fresh_lora: true
 
 # Baselines
@@ -172,15 +169,15 @@ baselines:
     - thought_branches
 
   classification_evals:
-    - sst2
-    - snli
-    - ag_news
-    - ner
-    - tense
-    - language_identification
-    - singular_plural
-    - geometry_of_truth
-    - relations
+    - cls_sst2
+    - cls_snli
+    - cls_ag_news
+    - cls_ner
+    - cls_tense
+    - cls_language_id
+    - cls_singular_plural
+    - cls_geometry_of_truth
+    - cls_relations
 
   stride: 5
 
@@ -250,5 +247,5 @@ baselines:
 output:
   save_dir: checkpoints
   wandb_project: cot_oracle
-  wandb_entity: japhba-personal
+  wandb_entity: MATS10-CS-JB
   wandb_run: null

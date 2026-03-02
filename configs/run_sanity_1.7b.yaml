@@ -1,60 +1,57 @@
-# CoT Oracle v7 — unified task system, first full run
-# Only tasks with available HF data enabled
+# Sanity check run — Qwen3-1.7B, small n, fast iteration
+# Verify pipeline is not bugged before overnight 8B run
 
 tasks:
   hint_admission:
-    n: 15000
+    n: 500
     eval: true
 
   atypical_answer:
-    n: 20000
+    n: 500
     eval: true
 
   reasoning_termination:
-    n: 10000
+    n: 500
     eval: true
 
   answer_trajectory:
-    n: 60000
+    n: 500
     eval: true
 
   correctness:
-    n: 7500
+    n: 500
     eval: true
 
   decorative_cot:
-    n: 4000
+    n: 500
     eval: true
 
-  # Constructed from corpus-v5 at load time
-  futurelens_cot:
-    n: 30000
+  futurelens:
+    n: 500
     eval: true
 
-  # Chunked tasks (use cot_prefix for activations)
   chunked_convqa:
-    n: 25000
+    n: 500
     eval: true
 
   chunked_compqa:
-    n: 30000
+    n: 500
     eval: true
 
   backtrack_prediction:
-    n: 12000
+    n: 500
     eval: true
 
-  # Now trainable (new HF repos)
   truthfulqa_hint_verbalized:
-    n: 4000
+    n: 500
     eval: true
 
   truthfulqa_hint_unverbalized:
-    n: 10000
+    n: 500
     eval: true
 
   sycophancy:
-    n: 3495
+    n: 500
     eval: true
 
   sentence_insertion:
@@ -70,7 +67,7 @@ training:
   lr: 0.00001
   batch_size: 32
   effective_batch_size: 256
-  eval_batch_size: 4
+  eval_batch_size: 8
   epochs: 1
   warmup_fraction: 0.1
   max_grad_norm: 1.0
@@ -85,23 +82,26 @@ flamingo:
   enabled: false
 
 activations:
-  stride: 10
-  position_encoding: false
-  pe_alpha: 0.1
+  stride: 5
+  layers: [7, 14, 21]
+  position_mode: last_only
+  layer_dropout:
+    train: true
+    eval: false
 
 eval:
-  eval_steps: 999999
-  save_steps: 380
-  max_items_per_eval: 25
-  eval_batch_size: 2
+  eval_steps: 10
+  save_steps: 999999
+  max_items_per_eval: 15
+  eval_batch_size: 4
 
 model:
-  name: Qwen/Qwen3-8B
-  ao_checkpoint: adamkarvonen/checkpoints_latentqa_cls_past_lens_addition_Qwen3-8B
+  name: Qwen/Qwen3-1.7B
+  ao_checkpoint: null
   fresh_lora: true
 
 output:
   save_dir: /root/checkpoints
   wandb_project: cot_oracle
   wandb_entity: MATS10-CS-JB
-  wandb_run: v7-all-tasks-s10
+  wandb_run: sanity-1.7b

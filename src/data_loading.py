@@ -25,6 +25,9 @@ from tasks import TASKS, TaskDef, HF_ORG, get_trainable_tasks
 
 _HF_CACHE_DIR = Path(os.environ.get("COT_ORACLE_CACHE_DIR", "data/hf_cache"))
 
+_READOUT_MIN_TARGET_TOKENS = 10
+_READOUT_MAX_TARGET_TOKENS = 1000
+
 # Readout task sets — these generate data from corpora, not precomputed HF JSONL
 _COT_READOUT_TASKS = {"futurelens_cot", "pastlens_cot", "reconstruction_cot"}
 _FINEWEB_READOUT_TASKS = {"futurelens_fineweb", "pastlens_fineweb", "reconstruction_fineweb"}
@@ -35,12 +38,9 @@ _DEFAULT_PROMPTS: dict[str, str] = {
     "truthfulqa_hint_verbalized": "Did the model use an external hint in its reasoning? Describe the hint usage and its effect.",
     "truthfulqa_hint_unverbalized": "Did the model use an external hint in its reasoning? Describe the hint usage and its effect.",
     "sycophancy": "Was the model's moral judgment independently reasoned or influenced by the user's stated opinion?",
-    "probe_sycophancy": "Does the model's internal reasoning show signs of sycophancy? Analyze the activation patterns for sycophancy signals.",
+    "probe_sycophancy": "Is there sycophancy signal at this point in the reasoning?",
     "sentence_insertion": "Which step (if any) was inserted from a different problem's reasoning? Answer with the step number or 'none'.",
 }
-
-_READOUT_MIN_TARGET_TOKENS = 10
-_READOUT_MAX_TARGET_TOKENS = 1000
 
 
 def _default_prompt(task_name: str) -> str:
@@ -93,11 +93,11 @@ def load_task_data(
             if "layer" not in item:
                 layers = item.get("layers", [9, 18, 27])
                 item["layer"] = layers[0] if layers else 9
-            # Map label -> target_response for reasoning_termination new format
+            # Map label → target_response for reasoning_termination new format
             if "target_response" not in item and "label" in item:
                 label_map = {"terminates": "will_terminate", "continues": "will_continue"}
                 item["target_response"] = label_map.get(item["label"], item["label"])
-            # Map hinted_prompt -> question for truthfulqa datasets (used by prepare_context_ids)
+            # Map hinted_prompt → question for truthfulqa datasets (used by prepare_context_ids)
             if "hinted_prompt" in item and "question" not in item:
                 item["question"] = item["hinted_prompt"]
             # Inject default prompt if missing (e.g. truthfulqa eval datasets)
@@ -107,12 +107,6 @@ def load_task_data(
             # (e.g. chunked_convqa/compqa use cot_prefix for activations)
             if task_def.cot_field != "cot_text" and task_def.cot_field in item:
                 item["cot_text"] = item[task_def.cot_field]
-            # Recompute context_input_ids from text for standard tasks.
-            # Readout tasks (futurelens/pastlens/reconstruction) keep precomputed
-            # positions since they encode task-specific span boundaries.
-            if "layers" not in item:
-                item.pop("context_input_ids", None)
-                item.pop("context_positions", None)
             data.append(item)
 
     if n is not None and len(data) > n:
@@ -126,7 +120,7 @@ def load_task_data(
 def load_all_training_data(
     task_config: dict[str, dict],
     tokenizer=None,
-    stride: int | str = "poisson",
+    stride: int | str = 5,
     layers: list[int] | None = None,
     model_name: str | None = None,
     seed: int = 42,
@@ -163,11 +157,18 @@ def load_all_training_data(
 
         if task_name in _ALL_READOUT_TASKS:
             assert tokenizer is not None, f"tokenizer required for readout task {task_name}"
-            items = load_readout_task_data(
-                task_name=task_name, tokenizer=tokenizer, n=n,
-                split="train", stride=stride, layers=layers,
-                seed=seed, model_name=model_name,
-            )
+            if task_name in _COT_READOUT_TASKS:
+                items = load_cot_readout_task_data(
+                    task_name=task_name, tokenizer=tokenizer, n=n,
+                    split="train", stride=stride, layers=layers,
+                    seed=seed,
+                )
+            else:
+                items = load_fineweb_readout_task_data(
+                    task_name=task_name, tokenizer=tokenizer, n=n,
+                    split="train", stride=stride, layers=layers,
+                    seed=seed, model_name=model_name,
+                )
         else:
             items = load_task_data(task_name, split="train", n=n)
 
@@ -189,47 +190,48 @@ def load_all_training_data(
 def prepare_context_ids(
     items: list[dict],
     tokenizer,
-    stride: int | str = "poisson",
+    stride: int = 5,
     layers: list[int] | None = None,
 ) -> list[dict]:
-    """Compute context_input_ids and context_positions for items with cot_text.
+    """Compute context_input_ids and context_positions for items that need them.
 
-    Items that already have context_input_ids (e.g. answer_trajectory) are
-    left unchanged. For all others, builds the chat-templated input from
-    cot_text + question/hinted_prompt, tokenizes it, and computes activation
-    positions in the CoT region.
+    Skips items that already have context_input_ids (e.g. futurelens, fineweb
+    which compute them in-memory during generation). For all others, builds
+    the chat-templated input from cot_text + question/hinted_prompt, tokenizes
+    it, and computes stride positions in the CoT region.
 
     Args:
         items: Raw dicts from load_task_data().
         tokenizer: HuggingFace tokenizer.
-        stride: Position mode for CoT region: int, "poisson", or "punctuation".
+        stride: Position stride for CoT region.
         layers: Layer indices (positions are repeated per layer).
 
     Returns:
         Same list, mutated in place (items gain context_input_ids,
         context_positions, num_positions, layer fields).
     """
-    from cot_utils import get_cot_positions
+    from cot_utils import get_cot_stride_positions
 
     if layers is None:
         layers = [9, 18, 27]
     n_layers = len(layers)
 
-    # Find items that need tokenization
+    # Count how many items need tokenization
     need_tokenize = [i for i, item in enumerate(items) if not item.get("context_input_ids")]
     if need_tokenize:
-        print(f"  [data] Tokenizing {len(need_tokenize)}/{len(items)} items...")
-    _log_interval = max(1, len(need_tokenize) // 20)
+        print(f"  [data] Tokenizing cot_text for {len(need_tokenize)}/{len(items)} items "
+              f"(stride={stride}, {n_layers} layers)...")
 
     prepared = 0
+    _log_interval = max(1, len(need_tokenize) // 20)  # log every 5%
     for count, idx in enumerate(need_tokenize):
         item = items[idx]
         cot_text = item.get("cot_text", "")
         if not cot_text:
-            raise ValueError(f"Item missing cot_text and context_input_ids: task={item.get('task', '?')}")
-
-        if (count + 1) % _log_interval == 0:
-            print(f"  [data]   {count + 1}/{len(need_tokenize)} tokenized...")
+            raise ValueError(
+                f"Item missing both context_input_ids and cot_text (task={item.get('task', '?')}). "
+                f"Every training item needs one or the other."
+            )
 
         # Build user message: hinted_prompt for hint tasks, question otherwise
         user_msg = item.get("hinted_prompt") or item.get("question", "")
@@ -251,10 +253,9 @@ def prepare_context_ids(
         )
         full_ids = tokenizer.encode(full_text, add_special_tokens=False)
 
-        # Activation positions in the CoT region
-        cot_positions = get_cot_positions(
-            prompt_len, len(full_ids), stride=stride,
-            tokenizer=tokenizer, input_ids=full_ids, include_last=True,
+        # Stride positions in the CoT region
+        cot_positions = get_cot_stride_positions(
+            prompt_len, len(full_ids), stride=stride, include_last=True,
         )
         if not cot_positions:
             continue
@@ -268,9 +269,13 @@ def prepare_context_ids(
         item["layer"] = layers[0]
         prepared += 1
 
+        if (count + 1) % _log_interval == 0:
+            print(f"  [data]   tokenized {count + 1}/{len(need_tokenize)} "
+                  f"({100 * (count + 1) / len(need_tokenize):.0f}%)")
+
     if prepared > 0:
         print(f"  [data] Tokenized cot_text → context_input_ids for {prepared} items "
-              f"(position_mode={stride}, {n_layers} layers)")
+              f"(stride={stride}, {n_layers} layers)")
 
     return items
 
@@ -321,47 +326,50 @@ def _download_via_datasets_lib(task_def: TaskDef, split: str, local_path: Path) 
     """Fallback: use HuggingFace `datasets` library to load and save as JSONL."""
     from datasets import load_dataset
 
-    # Try the requested split, then alternatives
+    # Try requested split, then common alternatives
+    split_alternatives = {
+        "train": ["train"],
+        "test": ["test", "eval"],
+    }
+    alts = split_alternatives.get(split, [split])
     ds = None
-    tried = [split]
-    try:
-        ds = load_dataset(task_def.hf_repo, split=split)
-    except (ValueError, KeyError):
-        pass
-
-    if ds is None and split == "test":
-        tried.append("eval")
+    for alt_split in alts:
         try:
-            ds = load_dataset(task_def.hf_repo, split="eval")
+            ds = load_dataset(task_def.hf_repo, split=alt_split)
+            if alt_split != split:
+                print(f"  [data] Using split '{alt_split}' (requested '{split}')")
+            break
         except (ValueError, KeyError):
-            pass
-
+            continue
+    # For train, try combining id_train + ood_train (gives more data than either alone)
     if ds is None and split == "train":
-        # Try combining id_train + ood_train
-        tried.append("id_train+ood_train")
         try:
+            ds_id = load_dataset(task_def.hf_repo, split="id_train")
+            ds_ood = load_dataset(task_def.hf_repo, split="ood_train")
             from datasets import concatenate_datasets
-            id_ds = load_dataset(task_def.hf_repo, split="id_train")
-            ood_ds = load_dataset(task_def.hf_repo, split="ood_train")
-            ds = concatenate_datasets([id_ds, ood_ds])
-        except (ValueError, KeyError):
+            ds = concatenate_datasets([ds_id, ds_ood])
+            print(f"  [data] Combined id_train ({len(ds_id)}) + ood_train ({len(ds_ood)}) = {len(ds)}")
+        except Exception:
             pass
-        if ds is None:
-            for alt in ["id_train", "ood_train"]:
-                tried.append(alt)
-                try:
-                    ds = load_dataset(task_def.hf_repo, split=alt)
-                    break
-                except (ValueError, KeyError):
-                    pass
-
+    # Last resort: try id_train or ood_train alone
+    if ds is None and split == "train":
+        for alt_split in ["id_train", "ood_train"]:
+            try:
+                ds = load_dataset(task_def.hf_repo, split=alt_split)
+                print(f"  [data] Using split '{alt_split}' (requested '{split}')")
+                break
+            except (ValueError, KeyError):
+                continue
     if ds is None:
-        raise ValueError(f"Could not find split for {task_def.hf_repo}, tried: {tried}")
+        raise ValueError(f"No suitable split found for {task_def.hf_repo} (tried {alts})")
 
     local_path.parent.mkdir(parents=True, exist_ok=True)
     with open(local_path, "w") as f:
         for row in ds:
             f.write(json.dumps(dict(row)) + "\n")
+
+
+# ── Readout task helpers ──
 
 
 def _sample_heavy_tail_target_length(
@@ -373,12 +381,10 @@ def _sample_heavy_tail_target_length(
     """Sample a heavy-tailed target length in [min_target_tokens, max_target_tokens]."""
     if available <= 0:
         return 0
-
     cap = min(available, max_target_tokens)
     floor = min(min_target_tokens, cap)
     if cap <= floor:
         return cap
-
     sampler = rng or random
     lo = math.log(floor)
     hi = math.log(cap)
@@ -386,86 +392,18 @@ def _sample_heavy_tail_target_length(
 
 
 def _build_readout_prompt(task_name: str, n_tokens: int, source: str) -> str:
-    if task_name in ("futurelens_cot", "futurelens_fineweb"):
+    # Strip _cot/_fineweb suffix for matching
+    base = task_name.replace("_cot", "").replace("_fineweb", "")
+    if base == "futurelens":
         subject = "reasoning" if source == "cot" else "text"
         return f"Predict the next {n_tokens} tokens of {subject} that follow the activation region."
-    if task_name in ("pastlens_cot", "pastlens_fineweb"):
+    if base == "pastlens":
         subject = "reasoning" if source == "cot" else "text"
         return f"Predict the previous {n_tokens} tokens of {subject} that came before the activation region."
-    if task_name in ("reconstruction_cot", "reconstruction_fineweb"):
+    if base == "reconstruction":
         subject = "reasoning" if source == "cot" else "text"
         return f"Reconstruct the exact {n_tokens}-token {subject} span corresponding to the activation region."
     raise ValueError(f"Unknown readout task: {task_name}")
-
-
-# ── Readout task caching ──
-
-
-def _readout_cache_path(task_name: str, n: int, split: str, stride, layers: list[int], seed: int) -> Path:
-    """Return the cache file path for a readout task's processed data."""
-    from cot_utils import POISSON_MIN_SPACING
-    cache_dir = Path(os.environ["CACHE_DIR"]) / "readout_cache"
-    layers_str = "-".join(str(l) for l in sorted(layers))
-    stride_str = str(stride)
-    if stride == "poisson" and POISSON_MIN_SPACING > 1:
-        stride_str += f"_ms{POISSON_MIN_SPACING}"
-    filename = f"{split}_n{n}_stride{stride_str}_layers{layers_str}_seed{seed}.jsonl"
-    return cache_dir / task_name / filename
-
-
-def load_readout_task_data(
-    task_name: str,
-    tokenizer,
-    n: int,
-    split: str = "train",
-    stride: int | str = "poisson",
-    layers: list[int] | None = None,
-    seed: int = 42,
-    model_name: str | None = None,
-) -> list[dict]:
-    """Load readout task data with disk caching to $CACHE_DIR/readout_cache/.
-
-    On first call, generates data via load_cot_readout_task_data or
-    load_fineweb_readout_task_data and saves to disk. On subsequent calls
-    with the same params, loads from cache instantly.
-    """
-    if layers is None:
-        layers = [9, 18, 27]
-
-    cache_path = _readout_cache_path(task_name, n, split, stride, layers, seed)
-
-    if cache_path.exists():
-        print(f"  [{task_name}] Loading from cache: {cache_path}")
-        items = []
-        with open(cache_path) as f:
-            for line in f:
-                if line.strip():
-                    items.append(json.loads(line))
-        print(f"  [{task_name}] Loaded {len(items)} cached examples")
-        return items
-
-    # Generate fresh data
-    if task_name in _COT_READOUT_TASKS:
-        items = load_cot_readout_task_data(
-            task_name=task_name, tokenizer=tokenizer, n=n,
-            split=split, stride=stride, layers=layers, seed=seed,
-        )
-    elif task_name in _FINEWEB_READOUT_TASKS:
-        items = load_fineweb_readout_task_data(
-            task_name=task_name, tokenizer=tokenizer, model_name=model_name,
-            n=n, stride=stride, layers=layers, seed=seed,
-        )
-    else:
-        raise ValueError(f"Not a readout task: {task_name}")
-
-    # Save to cache
-    cache_path.parent.mkdir(parents=True, exist_ok=True)
-    with open(cache_path, "w") as f:
-        for item in items:
-            f.write(json.dumps(item) + "\n")
-    print(f"  [{task_name}] Saved {len(items)} examples to cache: {cache_path}")
-
-    return items
 
 
 # ── Readout tasks from corpus-v5 / FineWeb ──
@@ -476,7 +414,7 @@ def load_cot_readout_task_data(
     tokenizer,
     n: int = 30000,
     split: str = "train",
-    stride: int | str = "poisson",
+    stride: int | str = 5,
     layers: list[int] | None = None,
     seed: int = 42,
     min_target_tokens: int = _READOUT_MIN_TARGET_TOKENS,
@@ -485,7 +423,9 @@ def load_cot_readout_task_data(
     """Generate FutureLens/PastLens/Reconstruction data from corpus-v5."""
     from cot_utils import get_cot_positions
 
-    if task_name not in {"futurelens_cot", "pastlens_cot", "reconstruction_cot"}:
+    # Map _cot suffix to base names
+    base_name = task_name.replace("_cot", "")
+    if base_name not in {"futurelens", "pastlens", "reconstruction"}:
         raise ValueError(f"Unsupported CoT readout task: {task_name}")
 
     if layers is None:
@@ -527,7 +467,7 @@ def load_cot_readout_task_data(
         if total - prompt_len < min_target_tokens + 1:
             continue
 
-        if task_name == "futurelens_cot":
+        if base_name == "futurelens":
             max_cutoff = total - min_target_tokens - 1
             if max_cutoff < prompt_len:
                 continue
@@ -537,7 +477,7 @@ def load_cot_readout_task_data(
             positions = get_cot_positions(prompt_len, len(context_ids), stride=stride, tokenizer=tokenizer, input_ids=context_ids, include_last=True)
             target_ids = full_ids[cutoff + 1: cutoff + 1 + k_target]
             datapoint_type = "cot_next_step"
-        elif task_name == "pastlens_cot":
+        elif base_name == "pastlens":
             act_start_min = prompt_len + min_target_tokens
             if act_start_min >= total:
                 continue
@@ -547,7 +487,7 @@ def load_cot_readout_task_data(
             positions = get_cot_positions(act_start, len(context_ids), stride=stride, tokenizer=tokenizer, input_ids=context_ids, include_last=True)
             target_ids = full_ids[act_start - k_target: act_start]
             datapoint_type = "cot_past_step"
-        else:
+        else:  # reconstruction
             span_start_max = total - min_target_tokens
             if span_start_max < prompt_len:
                 continue
@@ -585,26 +525,143 @@ def load_cot_readout_task_data(
     return datapoints[:n]
 
 
+# ── FutureLens (backward-compat wrapper) ──
+
+
 def load_futurelens_data(
     tokenizer,
     n: int = 30000,
     split: str = "train",
     predict_tokens: int = 50,
-    stride: int | str = "poisson",
     layers: list[int] | None = None,
     seed: int = 42,
 ) -> list[dict]:
-    """Backward-compatible wrapper for corpus-v5 FutureLens generation."""
-    _ = predict_tokens
-    return load_cot_readout_task_data(
-        task_name="futurelens_cot",
-        tokenizer=tokenizer,
-        n=n,
-        split=split,
-        stride=stride,
-        layers=layers,
-        seed=seed,
-    )
+    """Generate FutureLens training/eval data from corpus-v5.
+
+    For each corpus entry, picks random cutoff positions in the CoT and
+    constructs examples where the oracle sees a single activation at that
+    position and must predict the next ~50 tokens of reasoning.
+
+    Args:
+        tokenizer: HuggingFace tokenizer.
+        n: Number of examples to generate.
+        split: "train" (first 80% of corpus) or "test" (last 20%).
+        predict_tokens: How many tokens to predict after cutoff.
+        layers: Layer indices for activation extraction.
+        seed: Random seed.
+
+    Returns:
+        List of dicts with context_input_ids, context_positions, etc.
+    """
+    from cot_utils import get_cot_stride_positions
+
+    if layers is None:
+        layers = [9, 18, 27]
+    n_layers = len(layers)
+
+    rng = random.Random(seed)
+
+    # Download corpus-v5 from HF
+    corpus = _load_corpus_v5(split)
+    if not corpus:
+        raise RuntimeError(f"No entries found in corpus-v5 ({split} split)")
+
+    print(f"  [futurelens] Loaded {len(corpus)} corpus entries ({split} split)")
+    print(f"  [futurelens] Generating {n} examples (predict_tokens={predict_tokens})...")
+
+    datapoints: list[dict] = []
+    attempts = 0
+    max_attempts = n * 5
+
+    while len(datapoints) < n and attempts < max_attempts:
+        attempts += 1
+        entry = rng.choice(corpus)
+
+        cot_text = entry.get("cot_response", "")
+        if not cot_text:
+            continue
+
+        # Strip <think> tags
+        think_end = cot_text.find("</think>")
+        if think_end != -1:
+            cot_text = cot_text[:think_end]
+        cot_text = cot_text.replace("<think>", "").strip()
+        if not cot_text:
+            continue
+
+        question = entry.get("question", "")
+
+        # Tokenize question + CoT
+        messages = [{"role": "user", "content": question}]
+        prompt_text = tokenizer.apply_chat_template(
+            messages, tokenize=False, add_generation_prompt=True,
+            enable_thinking=False,
+        )
+        prompt_ids = tokenizer.encode(prompt_text, add_special_tokens=False)
+        prompt_len = len(prompt_ids)
+
+        full_text = prompt_text + cot_text
+        full_ids = tokenizer.encode(full_text, add_special_tokens=False)
+
+        # Get stride positions in CoT region
+        stride_positions = get_cot_stride_positions(
+            prompt_len, len(full_ids), stride=5, include_last=True,
+        )
+        if len(stride_positions) < 3:
+            continue
+
+        # Pick up to 3 random cutoff positions per entry
+        max_k = len(stride_positions) - 1
+        n_picks = min(3, max_k + 1)
+
+        for _ in range(n_picks):
+            if len(datapoints) >= n:
+                break
+
+            k = rng.randint(0, max_k)
+            cutoff_pos = stride_positions[k]
+
+            # Target: next predict_tokens tokens after cutoff
+            target_start = cutoff_pos + 1
+            target_end = min(target_start + predict_tokens, len(full_ids))
+            if target_end - target_start < 5:
+                continue
+
+            target_ids = full_ids[target_start:target_end]
+            target_text = tokenizer.decode(target_ids, skip_special_tokens=True)
+            if not target_text.strip():
+                continue
+
+            # Single activation at cutoff, repeated for each layer
+            context_positions = [cutoff_pos] * n_layers
+
+            # Context: tokens up to cutoff position
+            context_slice = full_ids[:cutoff_pos + 1]
+
+            layers_str = ", ".join(str(l) for l in layers)
+            prompt = (
+                f"Activations from {n_layers} positions across layers {layers_str}. "
+                f"Predict the next {target_end - target_start} tokens of reasoning."
+            )
+
+            datapoints.append({
+                "datapoint_type": "cot_next_step",
+                "task": "futurelens",
+                "prompt": prompt,
+                "target_response": target_text,
+                "layer": layers[0],
+                "layers": layers,
+                "num_positions": len(context_positions),
+                "context_input_ids": context_slice,
+                "context_positions": context_positions,
+            })
+
+        if len(datapoints) % 10000 == 0 and len(datapoints) > 0:
+            print(f"  [futurelens] {len(datapoints)}/{n} examples...")
+
+    print(f"  [futurelens] Generated {len(datapoints)} examples "
+          f"(from {attempts} attempts, {len(corpus)} corpus entries)")
+    return datapoints[:n]
 
 
 def _load_corpus_v5(split: str = "train") -> list[dict]:
@@ -613,16 +670,18 @@ def _load_corpus_v5(split: str = "train") -> list[dict]:
     Corpus-v5 has only a train split on HF, so we deterministically
     split by entry index (seed=42).
     """
-    corpus_repo = f"{HF_ORG}/cot-oracle-corpus-v5"
+    from tasks import TASKS
+
+    task_def = TASKS["futurelens"]
     cache_dir = _HF_CACHE_DIR / "futurelens_corpus"
     cache_dir.mkdir(parents=True, exist_ok=True)
     local_path = cache_dir / "corpus.jsonl"
 
     if not local_path.exists():
-        print(f"  [corpus-v5] Downloading corpus from {corpus_repo}...")
+        print(f"  [futurelens] Downloading corpus from {task_def.hf_repo}...")
         try:
             from datasets import load_dataset
-            ds = load_dataset(corpus_repo, split="train")
+            ds = load_dataset(task_def.hf_repo, split="train")
             with open(local_path, "w") as f:
                 for row in ds:
                     f.write(json.dumps(dict(row)) + "\n")
@@ -652,37 +711,6 @@ def _load_corpus_v5(split: str = "train") -> list[dict]:
         selected = indices[n_train:]
 
     return [entries[i] for i in selected]
-
-
-# ── FineWeb corpus loading ──
-
-
-def _load_fineweb_corpus(split: str = "train") -> list[str]:
-    """Load FineWeb corpus subset from HF, cache locally to $CACHE_DIR."""
-    cache_dir = Path(os.environ["CACHE_DIR"]) / "fineweb-corpus"
-    cache_file = cache_dir / f"{split}.jsonl"
-
-    if cache_file.exists():
-        texts = []
-        with open(cache_file) as f:
-            for line in f:
-                if line.strip():
-                    texts.append(json.loads(line))
-        print(f"  [fineweb-corpus] Loaded {len(texts)} texts from {cache_file}")
-        return texts
-
-    from datasets import load_dataset
-    repo = f"{HF_ORG}/fineweb-corpus"
-    print(f"  [fineweb-corpus] Downloading {repo}/{split}...")
-    ds = load_dataset(repo, split=split)
-    texts = [row["text"] for row in ds]
-
-    cache_dir.mkdir(parents=True, exist_ok=True)
-    with open(cache_file, "w") as f:
-        for text in texts:
-            f.write(json.dumps(text) + "\n")
-    print(f"  [fineweb-corpus] Saved {len(texts)} texts to {cache_file}")
-    return texts
 
 
 # ── FineWeb context prediction (PastLens-style) ──
@@ -724,19 +752,32 @@ def _fineweb_text_generator(tokenizer) -> Generator[str, None, None]:
             continue
 
 
+def _pure_fineweb_text_generator(tokenizer) -> Generator[str, None, None]:
+    """Stream plain FineWeb text only."""
+    from datasets import load_dataset
+    pretrain_ds = iter(load_dataset("HuggingFaceFW/fineweb", name="sample-10BT", split="train", streaming=True))
+    bos = tokenizer.bos_token or ""
+    while True:
+        try:
+            yield bos + next(pretrain_ds)["text"]
+        except StopIteration:
+            pretrain_ds = iter(load_dataset("HuggingFaceFW/fineweb", name="sample-10BT", split="train", streaming=True))
+
+
 def load_fineweb_readout_task_data(
     task_name: str,
     tokenizer,
-    model_name: str,
+    model_name: str = "Qwen/Qwen3-8B",
     n: int = 30000,
     max_context_tokens: int = 2000,
-    stride: int | str = "poisson",
+    stride: int | str = 5,
     layers: list[int] | None = None,
     min_target_tokens: int = _READOUT_MIN_TARGET_TOKENS,
     max_target_tokens: int = _READOUT_MAX_TARGET_TOKENS,
     seed: int = 42,
+    split: str = "train",
 ) -> list[dict]:
-    """Generate FutureLens/PastLens/Reconstruction variants from the HF-hosted FineWeb corpus."""
+    """Generate FutureLens/PastLens/Reconstruction variants directly from FineWeb/LMSYS text."""
     from cot_utils import get_cot_positions, layer_percent_to_layer
 
     if task_name not in {"futurelens_fineweb", "pastlens_fineweb", "reconstruction_fineweb"}:
@@ -747,25 +788,14 @@ def load_fineweb_readout_task_data(
         layers = [layer_percent_to_layer(model_name, p) for p in [25, 50, 75]]
     n_layers = len(layers)
 
-    # Load invariant corpus from HF (cached on disk)
-    corpus_texts = _load_fineweb_corpus(split="train")
-    bos = tokenizer.bos_token or ""
-
-    # Shuffle corpus indices deterministically
-    indices = list(range(len(corpus_texts)))
-    rng.shuffle(indices)
-
-    print(f"  [{task_name}] Generating {n} examples from {len(corpus_texts)} corpus texts...")
-    print(f"  [{task_name}] Target lengths use a heavy-tailed prior over {min_target_tokens}-{max_target_tokens} tokens")
+    print(f"  [{task_name}] Streaming FineWeb, generating {n} examples...")
+    gen = _pure_fineweb_text_generator(tokenizer)
 
     datapoints: list[dict] = []
     skipped = 0
-    text_idx = 0
 
     while len(datapoints) < n:
-        text = bos + corpus_texts[indices[text_idx % len(indices)]]
-        text_idx += 1
-
+        text = next(gen)
         input_ids = tokenizer(text, add_special_tokens=False, truncation=True, max_length=max_context_tokens + max_target_tokens)["input_ids"]
         total = len(input_ids)
         context_limit = min(max_context_tokens, total)
@@ -797,7 +827,7 @@ def load_fineweb_readout_task_data(
             positions = get_cot_positions(act_start, len(context_ids), stride=stride, tokenizer=tokenizer, input_ids=context_ids, include_last=True)
             target_ids = input_ids[act_start - k_target: act_start]
             datapoint_type = "fineweb_pastlens"
-        else:
+        else:  # reconstruction_fineweb
             span_start_max = context_limit - min_target_tokens
             if span_start_max < 0:
                 skipped += 1
@@ -831,7 +861,7 @@ def load_fineweb_readout_task_data(
             "context_positions": all_positions,
         })
 
-        if len(datapoints) % 10000 == 0:
+        if len(datapoints) % 10000 == 0 and len(datapoints) > 0:
             print(f"  [{task_name}] {len(datapoints)}/{n} examples...")
 
     if skipped > 0:
@@ -845,7 +875,7 @@ def load_fineweb_data(
     model_name: str,
     n: int = 50000,
     max_context_tokens: int = 2000,
-    stride: int | str = "poisson",
+    stride: int = 5,
     layers: list[int] | None = None,
     min_target_tokens: int = 5,
     max_target_tokens: int = 50,
@@ -854,7 +884,7 @@ def load_fineweb_data(
     """Generate PastLens-style context prediction from FineWeb + LMSYS streaming.
 
     Each example: tokenize web/chat text (max max_context_tokens), extract
-    sampled activation positions, predict next or previous K tokens.
+    stride-based positions, predict next or previous K tokens.
     Returns dicts compatible with dicts_to_training_data().
 
     Args:
@@ -862,13 +892,13 @@ def load_fineweb_data(
         model_name: Model name for layer calculation.
         n: Number of examples to generate.
         max_context_tokens: Max tokens for activation context.
-        stride: Position mode (same as CoT tasks; "punctuation" falls back to 5 here).
+        stride: Position stride (same as CoT tasks).
         layers: Layer indices for activation extraction.
         min_target_tokens: Minimum tokens to predict.
         max_target_tokens: Maximum tokens to predict.
         seed: Random seed for reproducibility.
     """
-    from cot_utils import layer_percent_to_layer, sample_positions_in_span, _enforce_min_spacing, POISSON_MIN_SPACING
+    from cot_utils import layer_percent_to_layer
 
     rng = random.Random(seed)
 
@@ -881,8 +911,7 @@ def load_fineweb_data(
 
     datapoints: list[dict] = []
     skipped = 0
-    stride_step = 1 if stride == "poisson" else 5 if stride == "punctuation" else max(1, int(stride))
-    min_context_tokens = max(3, stride_step * 3)
+    min_context_tokens = stride * 3  # need at least a few stride positions
 
     while len(datapoints) < n:
         text = next(gen)
@@ -912,14 +941,9 @@ def load_fineweb_data(
             cutoff = rng.randint(min_context_tokens, max_cutoff)
 
             context_ids = input_ids[:cutoff + 1]
-            if stride == "poisson":
-                positions = sample_positions_in_span(0, len(context_ids) - 1, rng=rng)
-                if POISSON_MIN_SPACING > 1:
-                    positions = _enforce_min_spacing(positions, POISSON_MIN_SPACING)
-            else:
-                positions = list(range(0, len(context_ids), stride_step))
-                if positions[-1] != len(context_ids) - 1:
-                    positions.append(len(context_ids) - 1)
+            positions = list(range(0, len(context_ids), stride))
+            if positions[-1] != len(context_ids) - 1:
+                positions.append(len(context_ids) - 1)
 
             target_ids = input_ids[cutoff + 1: cutoff + 1 + k_target]
             target_text = tokenizer.decode(target_ids, skip_special_tokens=True)
@@ -927,7 +951,7 @@ def load_fineweb_data(
 
         else:  # past
             # Activations start at act_start; target = k_target tokens before it
-            act_start_max = min(L - stride_step, max_context_tokens) - 1
+            act_start_max = min(L - stride, max_context_tokens) - 1
             if act_start_max < k_target:
                 skipped += 1
                 continue
@@ -936,14 +960,9 @@ def load_fineweb_data(
             # Context includes everything up to the end of the activation span
             context_end = min(act_start + max_context_tokens, L)
             context_ids = input_ids[:context_end]
-            if stride == "poisson":
-                positions = sample_positions_in_span(act_start, len(context_ids) - 1, rng=rng)
-                if POISSON_MIN_SPACING > 1:
-                    positions = _enforce_min_spacing(positions, POISSON_MIN_SPACING)
-            else:
-                positions = list(range(act_start, len(context_ids), stride_step))
-                if positions[-1] != len(context_ids) - 1:
-                    positions.append(len(context_ids) - 1)
+            positions = list(range(act_start, len(context_ids), stride))
+            if positions[-1] != len(context_ids) - 1:
+                positions.append(len(context_ids) - 1)
 
             target_ids = input_ids[act_start - k_target: act_start]
             target_text = tokenizer.decode(target_ids, skip_special_tokens=True)
@@ -976,6 +995,7 @@ def load_fineweb_data(
 # ── Classification datasets (matching Adam's AO training) ──
 
 
+# Dataset configs: each entry defines how to load and question a dataset
 _CLS_DATASETS = {
     "sst2": {
         "hf_repo": "stanfordnlp/sst2",
@@ -1004,7 +1024,7 @@ _CLS_DATASETS = {
         "questions": [
             ("Does the first statement entail the second?", lambda row: "Yes" if row["label"] == 0 else "No"),
         ],
-        "filter_fn": lambda row: row["label"] in (0, 2),
+        "filter_fn": lambda row: row["label"] in (0, 2),  # entailment + contradiction only
     },
 }
 
@@ -1022,6 +1042,17 @@ def load_classification_data(
     Generates binary yes/no question-answer pairs, matching Adam's AO
     classification training. Context activations come from the raw text
     (no chat template), oracle answers questions about the content.
+
+    Args:
+        tokenizer: HuggingFace tokenizer.
+        n: Total number of examples to generate.
+        datasets: Which classification datasets to use (default: all).
+        layers: Layer indices for activation extraction.
+        stride: Position stride for activation extraction.
+        seed: Random seed.
+
+    Returns:
+        List of dicts compatible with dicts_to_training_data().
     """
     from datasets import load_dataset as hf_load_dataset
 
@@ -1056,23 +1087,33 @@ def load_classification_data(
         for idx in indices:
             if len(ds_points) >= target_n:
                 break
+
             row = ds[idx]
             if filter_fn and not filter_fn(row):
                 continue
+
             text = cfg["text_fn"](row)
             if not text or len(text.strip()) < 10:
                 continue
 
+            # Pick a random question template
             question_text, answer_fn = rng.choice(cfg["questions"])
             answer = answer_fn(row)
 
-            input_ids = tokenizer.encode(text, add_special_tokens=True, truncation=True, max_length=512)
+            # Tokenize raw text (no chat template — activations from raw text processing)
+            input_ids = tokenizer.encode(
+                text, add_special_tokens=True, truncation=True, max_length=512,
+            )
+
             if len(input_ids) < stride * 2:
                 continue
 
+            # Stride positions over the full text
             positions = list(range(0, len(input_ids), stride))
             if positions[-1] != len(input_ids) - 1:
                 positions.append(len(input_ids) - 1)
+
+            # Repeat for each layer
             all_positions = positions * n_layers
 
             ds_points.append({
@@ -1105,7 +1146,23 @@ def load_latentqa_data(
     seed: int = 42,
     data_dir: str | None = None,
 ) -> list[dict]:
-    """Load LatentQA training data from Adam's JSON files."""
+    """Load LatentQA training data from Adam's JSON files.
+
+    LatentQA trains the oracle to answer yes/no questions about information
+    encoded in model activations from multi-turn conversations. Context is
+    a chat-templated conversation; oracle answers questions about behavior/info.
+
+    Args:
+        tokenizer: HuggingFace tokenizer.
+        n: Number of examples to generate.
+        layers: Layer indices for activation extraction.
+        seed: Random seed.
+        data_dir: Path to latentqa_datasets/train/ directory.
+            Defaults to ao_reference/datasets/latentqa_datasets/train/.
+
+    Returns:
+        List of dicts compatible with dicts_to_training_data().
+    """
     import sys
 
     if layers is None:
@@ -1113,6 +1170,7 @@ def load_latentqa_data(
     n_layers = len(layers)
     rng = random.Random(seed)
 
+    # Find data directory
     if data_dir is None:
         candidates = [
             Path("ao_reference/datasets/latentqa_datasets/train"),
@@ -1124,11 +1182,14 @@ def load_latentqa_data(
                 data_dir = str(p)
                 break
         if data_dir is None:
-            raise FileNotFoundError(f"LatentQA data not found. Searched: {[str(p) for p in candidates]}")
+            raise FileNotFoundError(
+                f"LatentQA data not found. Searched: {[str(p) for p in candidates]}"
+            )
 
     data_path = Path(data_dir)
     print(f"  [latentqa] Loading from {data_path}...")
 
+    # Add ao_reference to path for the loader import
     ao_ref = data_path.parent.parent.parent
     if str(ao_ref) not in sys.path:
         sys.path.insert(0, str(ao_ref))
@@ -1142,9 +1203,13 @@ def load_latentqa_data(
         control=str(data_path / "control.json"),
         qa=str(data_path / "qa.json"),
     )
-    ds = load_latentqa_dataset(paths, filter_prefixes=[], train_percent=1.0, add_thought_tokens=False, seed=seed)
+    ds = load_latentqa_dataset(
+        paths, filter_prefixes=[], train_percent=1.0,
+        add_thought_tokens=False, seed=seed,
+    )
     print(f"  [latentqa] Loaded {len(ds)} raw examples")
 
+    # Masked turn counts per source (matching Adam's code)
     masked_turn_count = {"stimulus_completion": 2, "stimulus": 2, "control": 0, "system": 0}
 
     datapoints: list[dict] = []
@@ -1154,35 +1219,48 @@ def load_latentqa_data(
     for idx in indices:
         if len(datapoints) >= n:
             break
+
         item = ds[idx]
         read_prompt = item["read_prompt"]
+        dialog = item["dialog"]
         source = item["source"]
 
+        # Tokenize the read_prompt (conversation context) with chat template
         add_gen_prompt = source != "stimulus_completion"
-        context_str = tokenizer.apply_chat_template(read_prompt, tokenize=False, add_generation_prompt=add_gen_prompt, enable_thinking=False)
+        context_str = tokenizer.apply_chat_template(
+            read_prompt, tokenize=False,
+            add_generation_prompt=add_gen_prompt,
+            enable_thinking=False,
+        )
         context_ids = tokenizer.encode(context_str, add_special_tokens=False)
+
         if len(context_ids) < 5:
             continue
 
+        # Compute masked turn length (positions start after masked turns)
         num_masked = masked_turn_count.get(source, 0)
         if num_masked > 0:
             masked_turns = read_prompt[:num_masked]
-            masked_str = tokenizer.apply_chat_template(masked_turns, tokenize=False, enable_thinking=False)
+            masked_str = tokenizer.apply_chat_template(
+                masked_turns, tokenize=False, enable_thinking=False,
+            )
             masked_len = len(tokenizer.encode(masked_str, add_special_tokens=False))
         else:
             masked_len = 0
 
+        # Positions: all tokens after masked turns
         positions = list(range(masked_len, len(context_ids)))
         if not positions:
             continue
+
+        # Repeat for each layer
         all_positions = positions * n_layers
 
-        dialog = item["dialog"]
         datapoints.append({
             "datapoint_type": f"latentqa_{source}",
             "task": "latentqa",
-            "prompt": dialog[0]["content"],
-            "target_response": dialog[1]["content"],
+            "prompt": dialog[0]["content"],  # the question
+            "target_response": dialog[1]["content"],  # the answer
             "layer": layers[0],
             "layers": layers,
             "num_positions": len(all_positions),

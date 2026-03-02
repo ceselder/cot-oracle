@@ -21,7 +21,7 @@ load_dotenv(Path.home() / ".env")
 import datasets
 from huggingface_hub import HfApi
 
-REPO_ID = "mats-10-sprint-cs-jb/cot-oracle-eval-reasoning-termination"
+REPO_ID = "mats-10-sprint-cs-jb/cot-oracle-reasoning-termination-cleaned"
 COLLECTION_SLUG = "mats-10-sprint-cs-jb/cot-oracle-evals-699cc73090a6aa05b01302b1"
 DATA_DIR = Path("five-CoT-faith/answer_emission")
 SUBJECT_MODEL = "Qwen/Qwen3-32B"
