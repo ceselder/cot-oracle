@@ -76,11 +76,12 @@ OPENROUTER_BLACKBOX_MODEL = "google/gemini-3-flash-preview"
 TRYCLOUDFLARE_URL_RE = re.compile(r"https://[A-Za-z0-9.-]+\\.trycloudflare\\.com")
 CHAT_COMPARE_LOG_DIR = Path(os.path.expandvars(os.environ.get("FAST_CACHE_DIR", f"/var/tmp/{Path.home().name}/"))) / "cot-oracle" / "chat_compare"
 
-# Model organisms: LoRA adapters that modify Qwen3-8B behavior for bias/safety testing
-# Note: ceselder/Qwen3-8B-heretic is a full merge (not a LoRA), so it can't be loaded
-# as a PEFT adapter. To use it, extract a LoRA diff first.
+# Model organisms for CoT generation.
+# type="lora": loaded as PEFT adapter at startup (fast switching, shared base weights)
+# type="full_model": loaded on-demand as a separate model, activations extracted, then unloaded
 MODEL_ORGANISMS = {
-    "rot13": {"path": "ceselder/rot13-qwen3-8b-lora", "label": "ROT13"},
+    "heretic": {"path": "ceselder/Qwen3-8B-heretic", "label": "Heretic", "type": "full_model"},
+    "rot13": {"path": "ceselder/rot13-qwen3-8b-lora", "label": "ROT13", "type": "lora"},
 }
 
 BUILTIN_TASK_PROMPTS = {
@@ -243,6 +244,10 @@ def load_dual_model(model_name, checkpoint_path, organism_adapters=None, device=
     model.load_adapter(ao_path, adapter_name="original_ao", is_trainable=False)
     loaded_organisms = []
     for adapter_name, adapter_info in (organism_adapters or {}).items():
+        if adapter_info.get("type") == "full_model":
+            print(f"  Organism '{adapter_name}' is a full model — will load on-demand.")
+            loaded_organisms.append(adapter_name)
+            continue
         adapter_path = adapter_info["path"]
         print(f"Loading model organism '{adapter_name}' from {adapter_path}...")
         try:
@@ -250,7 +255,6 @@ def load_dual_model(model_name, checkpoint_path, organism_adapters=None, device=
             loaded_organisms.append(adapter_name)
         except (ValueError, OSError) as e:
             print(f"  WARNING: Could not load organism '{adapter_name}': {e}")
-            print(f"  (This adapter may be a full model merge, not a LoRA. Skipping.)")
     model.eval()
     print(f"  Adapters: {list(model.peft_config.keys())}")
     return model, tokenizer, loaded_organisms
@@ -633,7 +637,75 @@ class ChatCompareWebApp:
         path.write_text("\n".join(lines))
         return path
 
+    def _compute_stride_info(self, full_text, enable_thinking):
+        """Compute stride positions, token texts, and mapping from full_text. Shared by both paths."""
+        messages = [{"role": "user", "content": self.state.question}]
+        formatted = self.tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True, enable_thinking=enable_thinking)
+        prompt_ids = self.tokenizer.encode(formatted, add_special_tokens=False)
+        all_ids = self.tokenizer.encode(full_text, add_special_tokens=False)
+        prompt_len = len(prompt_ids)
+        # Find the </think> boundary so activations only come from CoT
+        think_end_token = self.tokenizer.encode("</think>", add_special_tokens=False)
+        cot_end = len(all_ids)
+        for i in range(prompt_len, len(all_ids) - len(think_end_token) + 1):
+            if all_ids[i:i + len(think_end_token)] == think_end_token:
+                cot_end = i
+                break
+        stride_positions = get_cot_positions(prompt_len, cot_end, stride=self.args.stride, tokenizer=self.tokenizer, input_ids=all_ids[:cot_end])
+        if len(stride_positions) < 1:
+            raise ValueError("CoT is too short for any stride positions")
+        stride_token_ids = [all_ids[pos] for pos in stride_positions]
+        token_labels = [token_preview(self.tokenizer, token_id) for token_id in stride_token_ids]
+        cot_token_ids = all_ids[prompt_len:cot_end]
+        cot_token_texts = [decode_token_text(self.tokenizer, token_id) for token_id in cot_token_ids]
+        sampled_token_to_stride_index = [None] * len(cot_token_ids)
+        for stride_idx, full_pos in enumerate(stride_positions):
+            cot_relative = full_pos - prompt_len
+            if 0 <= cot_relative < len(sampled_token_to_stride_index):
+                sampled_token_to_stride_index[cot_relative] = stride_idx
+        return stride_positions, stride_token_ids, token_labels, cot_token_texts, sampled_token_to_stride_index
+
+    def _populate_state_activations(self, stride_positions, stride_token_ids, token_labels, cot_token_texts, sampled_token_to_stride_index, multilayer_acts, ao_acts):
+        """Write stride/activation data into self.state."""
+        self.state.stride_positions = list(stride_positions)
+        self.state.stride_token_ids = stride_token_ids
+        self.state.token_labels = token_labels
+        self.state.cot_token_texts = cot_token_texts
+        self.state.sampled_token_to_stride_index = sampled_token_to_stride_index
+        self.state.multilayer_acts = multilayer_acts
+        self.state.ao_acts = ao_acts
+        self._log_event("generate", {
+            "question": self.state.question,
+            "cot_chars": len(self.state.cot_response),
+            "stride_positions": list(stride_positions),
+            "token_labels": token_labels,
+        })
+
+    def _activation_result(self):
+        """Build the JSON result dict for activation data already in state."""
+        return {
+            "stride_positions": self.state.stride_positions,
+            "token_labels": self.state.token_labels,
+            "cot_token_texts": self.state.cot_token_texts,
+            "sampled_token_to_stride_index": self.state.sampled_token_to_stride_index,
+            "layers": self.layers,
+            "layer_50": self.layer_50,
+            "n_positions": len(self.state.stride_positions),
+            "n_vectors": int(self.state.multilayer_acts.shape[0]),
+        }
+
+    def _is_full_model_organism(self, cot_adapter):
+        return cot_adapter and MODEL_ORGANISMS.get(cot_adapter, {}).get("type") == "full_model"
+
     def _generate_cot_only(self, question, enable_thinking=True, cot_adapter=None):
+        organism_info = MODEL_ORGANISMS.get(cot_adapter) if cot_adapter else None
+        is_full_model = organism_info and organism_info.get("type") == "full_model"
+
+        if is_full_model:
+            # Load the full organism model, generate CoT + extract activations, then unload
+            return self._generate_with_full_model(question, enable_thinking, cot_adapter, organism_info)
+
+        # LoRA adapter path (or base model)
         cot_response = generate_cot_base(self.model, self.tokenizer, question, max_new_tokens=4096, device=self.args.device, cot_adapter=cot_adapter, enable_thinking=enable_thinking)
         messages = [{"role": "user", "content": question}]
         formatted = self.tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True, enable_thinking=enable_thinking)
@@ -656,60 +728,79 @@ class ChatCompareWebApp:
             "cot_adapter": cot_adapter or "base",
         }
 
+    def _generate_with_full_model(self, question, enable_thinking, adapter_key, organism_info):
+        """Load a full model organism, generate CoT, extract activations, then free it."""
+        import gc
+        model_path = organism_info["path"]
+        dtype = torch.bfloat16
+        kwargs = {"device_map": "auto", "torch_dtype": dtype, "attn_implementation": choose_attn_implementation(self.args.model)}
+
+        print(f"Loading full model organism '{adapter_key}' from {model_path}...")
+        organism_model = AutoModelForCausalLM.from_pretrained(model_path, **kwargs)
+        organism_model.eval()
+
+        try:
+            # Generate CoT
+            messages = [{"role": "user", "content": question}]
+            formatted = self.tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True, enable_thinking=enable_thinking)
+            inputs = self.tokenizer(formatted, return_tensors="pt").to(get_model_input_device(organism_model))
+            with torch.no_grad():
+                output = organism_model.generate(**inputs, max_new_tokens=4096, do_sample=False)
+            cot_response = self.tokenizer.decode(output[0][inputs["input_ids"].shape[1]:], skip_special_tokens=False)
+            full_text = formatted + cot_response
+            cot_text, answer_text = split_cot_answer(cot_response)
+
+            # Compute stride positions
+            self.state = SessionState(
+                question=question,
+                cot_response=cot_response,
+                cot_text=cot_text,
+                answer_text=answer_text,
+                full_text=full_text,
+                enable_thinking=enable_thinking,
+            )
+            stride_positions, stride_token_ids, token_labels, cot_token_texts, sampled_map = self._compute_stride_info(full_text, enable_thinking)
+
+            # Extract activations from the organism model (no adapter needed, plain model)
+            input_device = str(get_model_input_device(organism_model))
+            all_acts = []
+            for layer in self.layers:
+                acts = collect_activations_at_positions(organism_model, self.tokenizer, full_text, layer, stride_positions, device=input_device, adapter_name=None)
+                all_acts.append(acts)
+            multilayer_acts = torch.cat(all_acts, dim=0)
+            ao_acts = collect_activations_at_positions(organism_model, self.tokenizer, full_text, self.layer_50, stride_positions, device=input_device, adapter_name=None)
+
+            # Store everything
+            self._populate_state_activations(stride_positions, stride_token_ids, token_labels, cot_token_texts, sampled_map, multilayer_acts, ao_acts)
+            self._active_cot_adapter = adapter_key
+        finally:
+            # Free organism model VRAM
+            del organism_model
+            gc.collect()
+            torch.cuda.empty_cache()
+            print(f"Organism '{adapter_key}' unloaded, VRAM freed.")
+
+        return {
+            "question": question,
+            "cot_response": cot_response,
+            "cot_text": cot_text,
+            "answer_text": answer_text,
+            "cot_adapter": adapter_key,
+            "_activations_precomputed": True,
+        }
+
     def _extract_current_session(self):
         if not self.state.full_text:
             raise HTTPException(status_code=400, detail="Generate a CoT first")
-        messages = [{"role": "user", "content": self.state.question}]
-        formatted = self.tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True, enable_thinking=self.state.enable_thinking)
-        prompt_ids = self.tokenizer.encode(formatted, add_special_tokens=False)
-        all_ids = self.tokenizer.encode(self.state.full_text, add_special_tokens=False)
-        prompt_len = len(prompt_ids)
-        # Find the </think> boundary so activations only come from CoT
-        think_end_token = self.tokenizer.encode("</think>", add_special_tokens=False)
-        cot_end = len(all_ids)  # fallback: entire response
-        for i in range(prompt_len, len(all_ids) - len(think_end_token) + 1):
-            if all_ids[i:i + len(think_end_token)] == think_end_token:
-                cot_end = i  # stop before </think>
-                break
-        stride_positions = get_cot_positions(prompt_len, cot_end, stride=self.args.stride, tokenizer=self.tokenizer, input_ids=all_ids[:cot_end])
-        if len(stride_positions) < 1:
-            raise ValueError("CoT is too short for any stride positions")
+        # If activations were already extracted (full-model organism path), return cached
+        if self.state.multilayer_acts is not None:
+            return self._activation_result()
+        stride_positions, stride_token_ids, token_labels, cot_token_texts, sampled_map = self._compute_stride_info(self.state.full_text, self.state.enable_thinking)
         input_device = str(get_model_input_device(self.model))
         multilayer_acts = collect_multilayer_activations(self.model, self.tokenizer, self.state.full_text, self.layers, stride_positions, cot_adapter=getattr(self, '_active_cot_adapter', None), device=self.args.device)
         ao_acts = collect_activations_at_positions(self.model, self.tokenizer, self.state.full_text, self.layer_50, stride_positions, device=input_device, adapter_name=None)
-        stride_token_ids = [all_ids[pos] for pos in stride_positions]
-        token_labels = [token_preview(self.tokenizer, token_id) for token_id in stride_token_ids]
-        # Only show CoT tokens (up to </think>) in the token row
-        cot_token_ids = all_ids[prompt_len:cot_end]
-        cot_token_texts = [decode_token_text(self.tokenizer, token_id) for token_id in cot_token_ids]
-        sampled_token_to_stride_index = [None] * len(cot_token_ids)
-        for stride_idx, full_pos in enumerate(stride_positions):
-            cot_relative = full_pos - prompt_len
-            if 0 <= cot_relative < len(sampled_token_to_stride_index):
-                sampled_token_to_stride_index[cot_relative] = stride_idx
-        self.state.stride_positions = list(stride_positions)
-        self.state.stride_token_ids = stride_token_ids
-        self.state.token_labels = token_labels
-        self.state.cot_token_texts = cot_token_texts
-        self.state.sampled_token_to_stride_index = sampled_token_to_stride_index
-        self.state.multilayer_acts = multilayer_acts
-        self.state.ao_acts = ao_acts
-        self._log_event("generate", {
-            "question": self.state.question,
-            "cot_chars": len(self.state.cot_response),
-            "stride_positions": list(stride_positions),
-            "token_labels": token_labels,
-        })
-        return {
-            "stride_positions": list(stride_positions),
-            "token_labels": token_labels,
-            "cot_token_texts": cot_token_texts,
-            "sampled_token_to_stride_index": sampled_token_to_stride_index,
-            "layers": self.layers,
-            "layer_50": self.layer_50,
-            "n_positions": len(stride_positions),
-            "n_vectors": int(multilayer_acts.shape[0]),
-        }
+        self._populate_state_activations(stride_positions, stride_token_ids, token_labels, cot_token_texts, sampled_map, multilayer_acts, ao_acts)
+        return self._activation_result()
 
     def _resolve_run_context(self, task_key, custom_prompt, selected_cells):
         if self.state.multilayer_acts is None:
@@ -1548,8 +1639,13 @@ For your final answer, respond with "Answer: Yes" or "Answer: No" after the chai
       if (!cotResponse.ok) { setBusy(false); setStatus(cotData.detail || 'CoT generation failed'); return; }
       document.getElementById('cotPreview').textContent = cotData.cot_text || '(no CoT)';
       document.getElementById('answerPreview').textContent = cotData.answer_text || '(no answer yet)';
-      setStatus('Extracting activations...');
-      setBusy(true, 'Stage 2/2: extracting activations...', 70);
+      if (cotData._activations_precomputed) {
+        setStatus('Activations were extracted with organism model.');
+        setBusy(true, 'Fetching cached activations...', 70);
+      } else {
+        setStatus('Extracting activations...');
+        setBusy(true, 'Stage 2/2: extracting activations...', 70);
+      }
       const extractResponse = await fetch('/api/extract_activations', { method: 'POST' });
       const extractData = await extractResponse.json();
       setBusy(false);
