@@ -151,12 +151,12 @@ def _score_parsed(
         if gt is None:
             continue
 
+        total += 1
         pr = parser(pred_text)
         if pr is None:
             unparsed += 1
-            continue
+            continue  # counts toward total but not correct
 
-        total += 1
         if pr["label"] == gt["label"]:
             correct += 1
 
@@ -719,6 +719,8 @@ def run_eval(
             primary_score = result.get(primary_metric, 0.0)
             metrics[f"eval/{task_name}"] = primary_score
             metrics[f"eval_n/{task_name}"] = result.get("n", 0)
+            if result.get("unparsed", 0) > 0:
+                metrics[f"eval_unparsed/{task_name}"] = result["unparsed"]
 
             # Side-metrics
             extras = []
