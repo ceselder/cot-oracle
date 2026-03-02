@@ -1,0 +1,111 @@
+# CoT Oracle — Qwen3-1.7B full training run
+# Same data as 8B, adapted layers for 1.7B (24 layers total)
+
+tasks:
+  hint_admission:
+    n: 15000
+    eval: true
+
+  atypical_answer:
+    n: 20000
+    eval: true
+
+  reasoning_termination:
+    n: 10000
+    eval: true
+
+  answer_trajectory:
+    n: 60000
+    eval: true
+
+  futurelens:
+    n: 30000
+    eval: true
+
+  correctness:
+    n: 7500
+    eval: true
+
+  decorative_cot:
+    n: 4000
+    eval: true
+
+  chunked_convqa:
+    n: 25000
+    eval: true
+
+  chunked_compqa:
+    n: 30000
+    eval: true
+
+  backtrack_prediction:
+    n: 12000
+    eval: true
+
+  sycophancy:
+    n: 7552
+    eval: true
+
+  probe_sycophancy:
+    n: 0
+    eval: false
+
+  truthfulqa_hint_verbalized:
+    n: 148
+    eval: true
+
+  truthfulqa_hint_unverbalized:
+    n: 3848
+    eval: true
+
+  sentence_insertion:
+    eval: true
+
+  rot13_reconstruction:
+    eval: false
+
+fineweb:
+  enabled: false
+
+training:
+  lr: 0.00001
+  batch_size: 32
+  effective_batch_size: 256
+  eval_batch_size: 8
+  epochs: 1
+  warmup_fraction: 0.1
+  max_grad_norm: 1.0
+  steering_coefficient: 1.0
+  gradient_checkpointing: true
+  task_order: shuffled
+  interleave_blocks: 50
+  max_train_tokens_per_gpu: 32768
+  seed: 42
+
+flamingo:
+  enabled: false
+
+activations:
+  stride: 5
+  layers: [6, 12, 18]        # 25%, 50%, 75% of Qwen3-1.7B's 24 layers
+  position_mode: last_only
+  layer_dropout:
+    train: true
+    eval: false
+
+eval:
+  eval_steps: 200
+  save_steps: 10000
+  max_items_per_eval: 25
+  eval_batch_size: 4
+
+model:
+  name: Qwen/Qwen3-1.7B
+  ao_checkpoint: null
+  fresh_lora: true
+
+output:
+  save_dir: /root/checkpoints
+  wandb_project: cot_oracle
+  wandb_entity: MATS10-CS-JB
+  wandb_run: null
