@@ -958,8 +958,7 @@ def main():
 
         # ─── Attention probes (per-iteration collation, no pre-caching) ───
         if not args.skip_attn:
-            attn_layers_to_try = [21]  # compromise layer; paper-inspired
-            attn_layers_to_try = [l for l in attn_layers_to_try if l in layers]
+            attn_layers_to_try = [l for l in [18] if l in layers] or [layers[-1]]
             print(f"\n  Attention probes on layers {attn_layers_to_try}:")
             for layer in attn_layers_to_try:
                 ln = f"L{layer}"
