@@ -1025,6 +1025,8 @@ def train(
             else args.max_train_tokens_per_gpu
         )
         print(f"  Extract token budget: {effective_extract_budget or 'disabled'}")
+        ext_bs = args.extraction_batch_size or args.batch_size
+        print(f"  Extraction batch size: {ext_bs} (lookahead={ext_bs // args.batch_size}x)")
         print(f"  Length bucketing: {args.length_bucketing} (window_batches={args.length_bucket_window_batches})")
         print(f"  Epochs: {args.epochs}")
         print(f"  Steps: {total_steps}")
@@ -1074,6 +1076,11 @@ def train(
         accum_batch_splits = 0
         accum_context_lengths = []
 
+        # Lookahead extraction: prefetch activations for multiple training batches at once
+        ext_bs = args.extraction_batch_size if args.extraction_batch_size > 0 else args.batch_size
+        _prefetch_cache: list[TrainingDataPoint] = []
+        _prefetch_end: int = 0  # index into final_training up to which we've prefetched
+
         for start in pbar:
             batch_list = final_training[start : start + args.batch_size]
             if len(batch_list) < args.batch_size:
@@ -1086,15 +1093,28 @@ def train(
                     if args.max_extract_tokens_per_gpu > 0
                     else args.max_train_tokens_per_gpu
                 )
-                batch_list, extract_split_count = _materialize_batch_for_training_step(
-                    batch_list,
-                    tokenizer,
-                    model,
-                    max_batch_size=args.batch_size,
-                    max_extract_tokens_per_gpu=extract_budget,
-                    rank=rank,
-                    train_batch_start=start,
-                )
+
+                # Check if we need to prefetch a new batch of activations
+                if not _prefetch_cache:
+                    # Grab up to ext_bs examples for lookahead extraction
+                    lookahead_end = min(start + ext_bs, len(final_training))
+                    lookahead = final_training[start:lookahead_end]
+                    _prefetch_end = lookahead_end
+
+                    prefetched, extract_split_count = _materialize_batch_for_training_step(
+                        lookahead,
+                        tokenizer,
+                        model,
+                        max_batch_size=ext_bs,
+                        max_extract_tokens_per_gpu=extract_budget,
+                        rank=rank,
+                        train_batch_start=start,
+                    )
+                    _prefetch_cache = prefetched
+
+                # Consume batch_size items from the prefetch cache
+                batch_list = _prefetch_cache[:args.batch_size]
+                _prefetch_cache = _prefetch_cache[args.batch_size:]
 
             base_label_tokens = sum(_label_token_count(dp) for dp in batch_list)
             pending_chunks = _split_batch_for_token_budget(
@@ -1339,11 +1359,12 @@ def apply_config(args, config: dict):
     if "training" in config:
         t = config["training"]
         _float_keys = {"lr", "warmup_fraction", "max_grad_norm", "steering_coefficient"}
-        _int_keys = {"batch_size", "eval_batch_size", "epochs", "seed", "effective_batch_size", "interleave_blocks", "length_bucket_window_batches", "max_train_tokens_per_gpu", "max_extract_tokens_per_gpu"}
+        _int_keys = {"batch_size", "eval_batch_size", "epochs", "seed", "effective_batch_size", "interleave_blocks", "length_bucket_window_batches", "max_train_tokens_per_gpu", "max_extract_tokens_per_gpu", "extraction_batch_size"}
         for key in ["lr", "batch_size", "eval_batch_size", "epochs",
                      "warmup_fraction", "max_grad_norm", "steering_coefficient",
                      "gradient_checkpointing", "task_order", "seed",
                      "effective_batch_size", "interleave_blocks", "max_train_tokens_per_gpu", "max_extract_tokens_per_gpu",
+                     "extraction_batch_size",
                      "length_bucketing", "length_bucket_window_batches",
                      "torch_compile", "torch_compile_mode"]:
             if key in t and not getattr(args, f"_cli_{key}", False):
@@ -1516,6 +1537,9 @@ def main():
                         help="Approximate per-GPU peak token budget for splitting long train batches (0 disables)")
     parser.add_argument("--max-extract-tokens-per-gpu", type=int, default=0,
                         help="Approximate per-GPU token budget for activation extraction batches (0 = use --max-train-tokens-per-gpu)")
+    parser.add_argument("--extraction-batch-size", type=int, default=0,
+                        help="Lookahead extraction: extract this many examples at once, then train in batch_size chunks. "
+                             "0 = same as batch_size (no lookahead). Set to 64-128 for significant speedup.")
     parser.add_argument("--torch-compile", action="store_true", default=False,
                         help="Compile the training forward path with torch.compile")
     parser.add_argument("--torch-compile-mode", choices=["default", "reduce-overhead", "max-autotune", "max-autotune-no-cudagraphs"], default="default",

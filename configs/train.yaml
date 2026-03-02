@@ -97,6 +97,7 @@ training:
   task_order: shuffled
   interleave_blocks: 50
   max_train_tokens_per_gpu: 32768
+  extraction_batch_size: 128     # lookahead: extract 128 examples at once, train in batch_size=16 chunks
   seed: 42
 
 # Text-baseline (no activations — receives CoT as plain text instead of activation vectors)
