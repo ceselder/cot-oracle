@@ -152,20 +152,20 @@ def _score_parsed(
             continue
 
         pr = parser(pred_text)
+        total += 1
         if pr is None:
             unparsed += 1
-            continue
-
-        total += 1
-        if pr["label"] == gt["label"]:
+            # Count as wrong — don't skip
+        elif pr["label"] == gt["label"]:
             correct += 1
 
         # Numeric side-metrics: compare matching numeric fields
-        for key, gt_val in gt.items():
-            if key == "label":
-                continue
-            if isinstance(gt_val, (int, float)) and key in pr:
-                numeric_errors.setdefault(key, []).append(abs(pr[key] - gt_val))
+        if pr is not None:
+            for key, gt_val in gt.items():
+                if key == "label":
+                    continue
+                if isinstance(gt_val, (int, float)) and key in pr:
+                    numeric_errors.setdefault(key, []).append(abs(pr[key] - gt_val))
 
     result: dict[str, float] = {
         "accuracy": correct / total if total > 0 else 0.0,
@@ -347,11 +347,11 @@ def _score_binary(
         if gt is None:
             continue
         pr = _classify(pred_text)
+        total += 1
         if pr is None:
             unparsed += 1
-            continue
-        total += 1
-        if pr == gt:
+            # Count as wrong — don't skip
+        elif pr == gt:
             correct += 1
 
     return {
@@ -995,7 +995,7 @@ def run_eval(
                     extras.append(f"{short}_mae={val:.1f}")
                     metrics[f"eval/{task_name}_{key}"] = val
 
-            metrics[f"eval_time/{task_name}"] = elapsed
+            metrics[f"_eval_time/{task_name}"] = elapsed  # prefixed _ to exclude from wandb
             table_rows.append((
                 task_name, primary_metric, primary_score,
                 "  ".join(extras), elapsed,

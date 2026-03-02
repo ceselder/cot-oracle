@@ -646,7 +646,7 @@ def _run_unified_eval(model, tokenizer, model_name, global_step, args, log_dir=N
     )
 
     # Build wandb Tables for each task's per-example traces
-    log_dict = dict(metrics) if metrics else {}
+    log_dict = {k: v for k, v in metrics.items() if not k.startswith("_")}
     # Include samples_seen so wandb can correlate eval metrics with training x-axis
     log_dict["train/samples_seen"] = global_step * getattr(args, "effective_batch_size", 256)
     if wandb.run and all_traces:
@@ -664,7 +664,7 @@ def _run_unified_eval(model, tokenizer, model_name, global_step, args, log_dir=N
     if log_dict and wandb.run:
         wandb.log(log_dict, step=global_step)
 
-    elapsed = sum(v for k, v in metrics.items() if k.startswith("eval_time/"))
+    elapsed = sum(v for k, v in metrics.items() if k.startswith("_eval_time/"))
     return metrics, elapsed
 
 
