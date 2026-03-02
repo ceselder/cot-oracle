@@ -309,6 +309,64 @@ def _score_step_accuracy(
     }
 
 
+def _score_binary(
+    predictions: list[str],
+    targets: list[str],
+    task_def: TaskDef,
+) -> dict[str, float]:
+    """Generic binary classification scoring using TaskDef keywords."""
+    if not predictions:
+        return {"accuracy": 0.0, "n": 0}
+
+    pos_kw = task_def.positive_keywords
+    neg_kw = task_def.negative_keywords
+    pos_label = task_def.positive_label
+    neg_label = task_def.negative_label
+
+    def _classify(text: str) -> str | None:
+        t = text.strip().lower()
+        # Check longer keywords first to avoid substring issues
+        for kw in sorted(neg_kw, key=len, reverse=True):
+            if kw.lower() in t:
+                return neg_label
+        for kw in sorted(pos_kw, key=len, reverse=True):
+            if kw.lower() in t:
+                return pos_label
+        return None
+
+    def _classify_target(text: str) -> str | None:
+        t = text.strip().lower()
+        if pos_label and pos_label.lower() in t:
+            return pos_label
+        if neg_label and neg_label.lower() in t:
+            return neg_label
+        return _classify(text)
+
+    correct = 0
+    total = 0
+    unparsed = 0
+    for pred_text, target_text in zip(predictions, targets):
+        gt = _classify_target(target_text)
+        if gt is None:
+            continue
+        total += 1
+        pr = _classify(pred_text)
+        if pr is None:
+            unparsed += 1
+            continue
+        if pr == gt:
+            correct += 1
+
+    if unparsed > 0:
+        print(f"  ⚠ PARSE FAILURE: {unparsed}/{total} predictions unparseable (counted as wrong)")
+
+    return {
+        "accuracy": correct / total if total > 0 else 0.0,
+        "n": total,
+        "unparsed": unparsed,
+    }
+
+
 def _score_token_match(
     predictions: list[str],
     targets: list[str],
@@ -356,7 +414,9 @@ def score_task(
     if parser is not None:
         return _score_parsed(parser, predictions, targets)
 
-    if task_def.scoring == ScoringMode.TOKEN_F1:
+    if task_def.scoring == ScoringMode.BINARY:
+        return _score_binary(predictions, targets, task_def)
+    elif task_def.scoring == ScoringMode.TOKEN_F1:
         return _score_token_f1(predictions, targets)
     elif task_def.scoring == ScoringMode.STEP_ACCURACY:
         return _score_step_accuracy(predictions, targets)
