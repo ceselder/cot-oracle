@@ -405,13 +405,13 @@ def collate_batch(items, indices, layers):
 # ── Probe Training ─────────────────────────────────────────────────────────
 
 def train_attn_probe(train_items, y_train, test_items, layers,
-                     n_classes, n_heads=4, lr=1e-3, epochs=300,
-                     batch_size=32, patience=30,
+                     n_classes, n_heads=4, lr=1e-3, epochs=20,
+                     batch_size=32, patience=5, val_frac=0.15,
                      device="cuda"):
-    """Train Eleuther attention probe with AdamW + early stopping.
+    """Train Eleuther attention probe with AdamW + val-based early stopping.
 
-    Uses length-sorted batching with per-iteration collation (pre-collation
-    OOMs on 252GB RAM when raw activations + collated batches both in memory).
+    Holds out val_frac of training data for early stopping on val loss
+    (not train loss, which just memorizes). patience=5 on val loss.
     Returns: predictions tensor on test set.
     """
     d_in = train_items[0][0][layers[0]].shape[1] * len(layers)
@@ -422,20 +422,31 @@ def train_attn_probe(train_items, y_train, test_items, layers,
     opt = torch.optim.AdamW(probe.parameters(), lr=lr, weight_decay=0.01)
     N = len(train_items)
 
-    # Pre-build length-sorted batches to minimize padding waste
-    sorted_indices = sorted(range(N), key=lambda i: train_items[i][2])
+    # Split off validation set
+    n_val = max(1, int(N * val_frac))
+    perm = torch.randperm(N, generator=torch.Generator().manual_seed(SEED))
+    val_indices = perm[:n_val].tolist()
+    trn_indices = perm[n_val:].tolist()
+
+    # Pre-build length-sorted batches for train split
+    trn_sorted = sorted(trn_indices, key=lambda i: train_items[i][2])
     fixed_batches = []
-    for start in range(0, N, batch_size):
-        fixed_batches.append(sorted_indices[start:start + batch_size])
+    for start in range(0, len(trn_sorted), batch_size):
+        fixed_batches.append(trn_sorted[start:start + batch_size])
+
+    # Pre-build val batches
+    val_sorted = sorted(val_indices, key=lambda i: train_items[i][2])
+    val_batches = []
+    for start in range(0, len(val_sorted), batch_size):
+        val_batches.append(val_sorted[start:start + batch_size])
 
     n_batches = len(fixed_batches)
-    best_loss, best_epoch, best_state = float("inf"), 0, None
+    best_val_loss, best_epoch, best_state = float("inf"), 0, None
 
     pbar = trange(epochs, desc="      attn_probe", leave=False)
     for ep in pbar:
         probe.train()
         batch_order = torch.randperm(n_batches).tolist()
-        epoch_loss = 0.0
 
         for bi in batch_order:
             idx = fixed_batches[bi]
@@ -455,12 +466,28 @@ def train_attn_probe(train_items, y_train, test_items, layers,
 
             loss.backward()
             opt.step()
-            epoch_loss += loss.item()
 
-        avg_loss = epoch_loss / max(n_batches, 1)
-        pbar.set_postfix(loss=f"{avg_loss:.4f}", best_ep=best_epoch)
-        if avg_loss < best_loss:
-            best_loss = avg_loss
+        # Compute val loss
+        probe.eval()
+        val_loss = 0.0
+        with torch.no_grad():
+            for vi in val_batches:
+                bx, bm, bp = collate_batch(train_items, vi, layers)
+                bx, bm, bp = bx.to(device), bm.to(device), bp.to(device)
+                by = y_train[vi].to(device)
+                out = probe(bx, bm, bp)
+                if is_regression:
+                    loss = F.mse_loss(out.squeeze(-1), by.float())
+                elif n_classes <= 2:
+                    loss = F.binary_cross_entropy_with_logits(out.squeeze(-1), by.float())
+                else:
+                    loss = F.cross_entropy(out, by.long())
+                val_loss += loss.item()
+        avg_val = val_loss / max(len(val_batches), 1)
+
+        pbar.set_postfix(val_loss=f"{avg_val:.4f}", best_ep=best_epoch)
+        if avg_val < best_val_loss:
+            best_val_loss = avg_val
             best_epoch = ep
             best_state = {k: v.cpu().clone() for k, v in probe.state_dict().items()}
         elif ep - best_epoch >= patience:
@@ -492,8 +519,13 @@ def train_attn_probe(train_items, y_train, test_items, layers,
 
 def train_linear_probe(X_tr, y_tr, X_te, n_classes,
                        lr=0.01, epochs=100, wd=1e-4,
-                       batch_size=512, device="cuda"):
-    """Simple linear probe on pooled features (mean-pool or last-pos)."""
+                       batch_size=512, device="cuda",
+                       return_probe=False):
+    """Simple linear probe on pooled features (mean-pool or last-pos).
+
+    If return_probe=True, returns (preds, probe_info) where probe_info is a
+    dict with keys: weight, bias, mu, std (all on CPU).
+    """
     is_regression = (n_classes == 0)
     output_dim = 1 if (n_classes <= 2 or is_regression) else n_classes
 
@@ -528,11 +560,21 @@ def train_linear_probe(X_tr, y_tr, X_te, n_classes,
     with torch.no_grad():
         preds = probe(X_te_s)
     if is_regression:
-        return preds.squeeze(-1).cpu()
+        result = preds.squeeze(-1).cpu()
     elif n_classes <= 2:
-        return (preds.squeeze(-1) > 0).long().cpu()
+        result = (preds.squeeze(-1) > 0).long().cpu()
     else:
-        return preds.argmax(dim=-1).cpu()
+        result = preds.argmax(dim=-1).cpu()
+
+    if return_probe:
+        probe_info = {
+            "weight": probe.weight.detach().cpu(),
+            "bias": probe.bias.detach().cpu(),
+            "mu": mu.detach().cpu(),
+            "std": std.detach().cpu(),
+        }
+        return result, probe_info
+    return result
 
 
 # ── Pooling helpers ────────────────────────────────────────────────────────
@@ -593,14 +635,15 @@ def main():
                         help="Layers to extract (default: 9 18 27)")
     parser.add_argument("--n-heads", type=int, default=4,
                         help="Number of attention heads in probe")
-    parser.add_argument("--attn-epochs", type=int, default=100,
-                        help="100 epochs × 63 mini-batches = 6300 steps "
-                             "(Gemini paper: 1000 full-batch steps)")
+    parser.add_argument("--attn-epochs", type=int, default=20,
+                        help="Max epochs for attention probe (val-based early stopping)")
     parser.add_argument("--attn-lr", type=float, default=1e-3)
     parser.add_argument("--attn-batch-size", type=int, default=32,
                         help="Batch size for attention probe training")
     parser.add_argument("--skip-attn", action="store_true",
                         help="Skip attention probes (linear only, much faster)")
+    parser.add_argument("--save-probes", type=str, default=None,
+                        help="Directory to save trained probe weights (.pt files)")
     args = parser.parse_args()
 
     datasets_to_run = args.datasets or list(DATASETS.keys())
@@ -692,6 +735,11 @@ def main():
                 print(f"    {name:<28s} bal_acc={bal:.3f}")
 
         # ─── Linear probes on ALL layers (fast) ───
+        # Track best probe per dataset for --save-probes
+        best_probe_info = None
+        best_probe_acc = -1.0
+        best_probe_meta = {}
+
         print(f"\n  Linear probes (mean-pool & last-pos) on {len(layers)} layers:")
         for layer in layers:
             ln = f"L{layer}"
@@ -699,30 +747,105 @@ def main():
             # Mean-pool linear
             X_tr = mean_pool_vec(train_items, [layer])
             X_te = mean_pool_vec(test_items, [layer])
-            preds = train_linear_probe(X_tr, y_train, X_te, n_classes,
-                                       device=args.device)
+            ret = train_linear_probe(X_tr, y_train, X_te, n_classes,
+                                     device=args.device,
+                                     return_probe=bool(args.save_probes))
+            if args.save_probes:
+                preds, probe_info = ret
+            else:
+                preds = ret
             record(f"mean_linear_{ln}", preds)
+
+            # Track best probe
+            if args.save_probes and task_type != "regression":
+                acc = ds_results.get(f"mean_linear_{ln}", {}).get("balanced_accuracy", 0)
+                if acc > best_probe_acc:
+                    best_probe_acc = acc
+                    best_probe_info = probe_info
+                    best_probe_meta = {"pooling": "mean", "layers": [layer],
+                                       "probe_name": f"mean_linear_{ln}",
+                                       "balanced_accuracy": acc}
 
             # Last-pos linear
             X_tr = last_pool_vec(train_items, [layer])
             X_te = last_pool_vec(test_items, [layer])
-            preds = train_linear_probe(X_tr, y_train, X_te, n_classes,
-                                       device=args.device)
+            ret = train_linear_probe(X_tr, y_train, X_te, n_classes,
+                                     device=args.device,
+                                     return_probe=bool(args.save_probes))
+            if args.save_probes:
+                preds, probe_info = ret
+            else:
+                preds = ret
             record(f"last_linear_{ln}", preds)
+
+            if args.save_probes and task_type != "regression":
+                acc = ds_results.get(f"last_linear_{ln}", {}).get("balanced_accuracy", 0)
+                if acc > best_probe_acc:
+                    best_probe_acc = acc
+                    best_probe_info = probe_info
+                    best_probe_meta = {"pooling": "last", "layers": [layer],
+                                       "probe_name": f"last_linear_{ln}",
+                                       "balanced_accuracy": acc}
 
         # Concat all layers — linear
         print(f"\n  Linear probes (concat all {len(layers)} layers):")
         X_tr = mean_pool_vec(train_items, layers)
         X_te = mean_pool_vec(test_items, layers)
-        preds = train_linear_probe(X_tr, y_train, X_te, n_classes,
-                                   device=args.device)
+        ret = train_linear_probe(X_tr, y_train, X_te, n_classes,
+                                 device=args.device,
+                                 return_probe=bool(args.save_probes))
+        if args.save_probes:
+            preds, probe_info = ret
+        else:
+            preds = ret
         record("mean_linear_concat", preds)
+
+        if args.save_probes and task_type != "regression":
+            acc = ds_results.get("mean_linear_concat", {}).get("balanced_accuracy", 0)
+            if acc > best_probe_acc:
+                best_probe_acc = acc
+                best_probe_info = probe_info
+                best_probe_meta = {"pooling": "mean", "layers": list(layers),
+                                   "probe_name": "mean_linear_concat",
+                                   "balanced_accuracy": acc}
 
         X_tr = last_pool_vec(train_items, layers)
         X_te = last_pool_vec(test_items, layers)
-        preds = train_linear_probe(X_tr, y_train, X_te, n_classes,
-                                   device=args.device)
+        ret = train_linear_probe(X_tr, y_train, X_te, n_classes,
+                                 device=args.device,
+                                 return_probe=bool(args.save_probes))
+        if args.save_probes:
+            preds, probe_info = ret
+        else:
+            preds = ret
         record("last_linear_concat", preds)
+
+        if args.save_probes and task_type != "regression":
+            acc = ds_results.get("last_linear_concat", {}).get("balanced_accuracy", 0)
+            if acc > best_probe_acc:
+                best_probe_acc = acc
+                best_probe_info = probe_info
+                best_probe_meta = {"pooling": "last", "layers": list(layers),
+                                   "probe_name": "last_linear_concat",
+                                   "balanced_accuracy": acc}
+
+        # Save best probe weights if requested
+        if args.save_probes and best_probe_info is not None:
+            save_dir = Path(args.save_probes)
+            save_dir.mkdir(parents=True, exist_ok=True)
+            save_path = save_dir / f"{ds_name}_probe.pt"
+            save_data = {
+                **best_probe_info,
+                "labels": all_labels if task_type != "regression" else None,
+                "n_classes": n_classes,
+                **best_probe_meta,
+            }
+            torch.save(save_data, save_path)
+            print(f"\n  Saved best probe to {save_path}")
+            print(f"    {best_probe_meta['probe_name']}: "
+                  f"bal_acc={best_probe_acc:.3f}, "
+                  f"layers={best_probe_meta['layers']}, "
+                  f"pooling={best_probe_meta['pooling']}")
 
         # ─── Attention probes (per-iteration collation, no pre-caching) ───
         if not args.skip_attn:
