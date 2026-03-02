@@ -40,6 +40,10 @@ tasks:
     n: 30000
     eval: true
 
+  backtrack_prediction:
+    n: 12000
+    eval: true
+
   # Now trainable (new HF repos)
   truthfulqa_hint_verbalized:
     n: 4000

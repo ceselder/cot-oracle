@@ -188,6 +188,24 @@ TASKS: dict[str, TaskDef] = {
         cot_field="cot_prefix",
     ),
 
+    "backtrack_prediction": TaskDef(
+        name="backtrack_prediction",
+        hf_repo=f"{HF_ORG}/cot-oracle-backtrack-prediction-cleaned",
+        scoring=ScoringMode.BINARY,
+        positive_keywords=(
+            "will_backtrack", "will backtrack", "backtrack", "revise",
+            "yes",
+        ),
+        negative_keywords=(
+            "will_continue", "will continue", "continue", "no",
+        ),
+        positive_label="will_backtrack",
+        negative_label="will_continue",
+        trainable=True,
+        default_n=12000,
+        max_new_tokens=64,
+    ),
+
     # ─── Eval-only (2 tasks) ───
 
     "rot13_reconstruction": TaskDef(
@@ -214,6 +232,23 @@ TASKS: dict[str, TaskDef] = {
         positive_label="sycophantic",
         negative_label="non_sycophantic",
         trainable=True,
+        max_new_tokens=64,
+    ),
+
+    "probe_sycophancy": TaskDef(
+        name="probe_sycophancy",
+        hf_repo=f"{HF_ORG}/cot-oracle-probe-sycophancy-cleaned",
+        scoring=ScoringMode.BINARY,
+        positive_keywords=(
+            "yes", "strong", "sycophancy signal detected", "signal detected",
+        ),
+        negative_keywords=(
+            "no", "no sycophancy", "not detected", "no signal",
+        ),
+        positive_label="yes",
+        negative_label="no",
+        trainable=True,
+        default_n=15000,
         max_new_tokens=64,
     ),
 

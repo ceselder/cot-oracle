@@ -40,8 +40,16 @@ tasks:
     n: 30000
     eval: true
 
+  backtrack_prediction:
+    n: 12000
+    eval: true
+
   sycophancy:
     n: 3495
+    eval: true
+
+  probe_sycophancy:
+    n: 15000
     eval: true
 
   truthfulqa_hint_verbalized:
