@@ -101,7 +101,8 @@ class AttentionProbe(nn.Module):
     Reference: https://github.com/EleutherAI/attention-probes
     """
 
-    def __init__(self, d_in: int, n_heads: int, output_dim: int = 1):
+    def __init__(self, d_in: int, n_heads: int, output_dim: int = 1,
+                 dropout: float = 0.15):
         super().__init__()
         self.q = nn.Linear(d_in, n_heads, bias=False)
         self.q.weight.data.zero_()                          # Eleuther init
@@ -109,6 +110,7 @@ class AttentionProbe(nn.Module):
         self.n_heads = n_heads
         self.output_dim = output_dim
         self.position_weight = nn.Parameter(torch.zeros(n_heads))
+        self.dropout = nn.Dropout(dropout)
 
     def forward(self, x, mask, position):
         """
@@ -122,6 +124,7 @@ class AttentionProbe(nn.Module):
         k = k + position.unsqueeze(-1).float() * self.position_weight  # ALiBi
         p = F.softmax(k, dim=-2)                            # [B, S, H]
         v = self.v(x).unflatten(-1, (self.n_heads, self.output_dim))  # [B,S,H,O]
+        v = self.dropout(v)                                  # dropout on values
         o = (p.unsqueeze(-1) * v).sum(dim=(-3, -2))         # sum S and H → [B,O]
         return o
 
@@ -405,9 +408,9 @@ def collate_batch(items, indices, layers):
 # ── Probe Training ─────────────────────────────────────────────────────────
 
 def train_attn_probe(train_items, y_train, test_items, layers,
-                     n_classes, n_heads=4, lr=1e-3, epochs=20,
-                     batch_size=32, patience=5, val_frac=0.15,
-                     device="cuda"):
+                     n_classes, n_heads=4, lr=1e-3, epochs=150,
+                     batch_size=128, patience=15, val_frac=0.15,
+                     dropout=0.15, device="cuda"):
     """Train Eleuther attention probe with AdamW + val-based early stopping.
 
     Holds out val_frac of training data for early stopping on val loss
@@ -418,7 +421,7 @@ def train_attn_probe(train_items, y_train, test_items, layers,
     is_regression = (n_classes == 0)
     output_dim = 1 if (n_classes <= 2 or is_regression) else n_classes
 
-    probe = AttentionProbe(d_in, n_heads, output_dim).to(device)
+    probe = AttentionProbe(d_in, n_heads, output_dim, dropout=dropout).to(device)
     opt = torch.optim.AdamW(probe.parameters(), lr=lr, weight_decay=0.01)
     N = len(train_items)
 
@@ -635,11 +638,13 @@ def main():
                         help="Layers to extract (default: 9 18 27)")
     parser.add_argument("--n-heads", type=int, default=4,
                         help="Number of attention heads in probe")
-    parser.add_argument("--attn-epochs", type=int, default=20,
+    parser.add_argument("--attn-epochs", type=int, default=150,
                         help="Max epochs for attention probe (val-based early stopping)")
     parser.add_argument("--attn-lr", type=float, default=1e-3)
-    parser.add_argument("--attn-batch-size", type=int, default=32,
+    parser.add_argument("--attn-batch-size", type=int, default=128,
                         help="Batch size for attention probe training")
+    parser.add_argument("--attn-dropout", type=float, default=0.15,
+                        help="Dropout rate for attention probe value vectors")
     parser.add_argument("--skip-attn", action="store_true",
                         help="Skip attention probes (linear only, much faster)")
     parser.add_argument("--save-probes", type=str, default=None,
@@ -849,7 +854,7 @@ def main():
 
         # ─── Attention probes (per-iteration collation, no pre-caching) ───
         if not args.skip_attn:
-            attn_layers_to_try = [18]  # single-layer only; concat too slow
+            attn_layers_to_try = [21]  # compromise layer; paper-inspired
             attn_layers_to_try = [l for l in attn_layers_to_try if l in layers]
             print(f"\n  Attention probes on layers {attn_layers_to_try}:")
             for layer in attn_layers_to_try:
@@ -858,7 +863,8 @@ def main():
                     train_items, y_train, test_items, [layer],
                     n_classes, n_heads=args.n_heads,
                     lr=args.attn_lr, epochs=args.attn_epochs,
-                    batch_size=args.attn_batch_size, device=args.device,
+                    batch_size=args.attn_batch_size,
+                    dropout=args.attn_dropout, device=args.device,
                 )
                 record(f"attn_{ln}", preds)
                 torch.cuda.empty_cache()
@@ -896,7 +902,7 @@ def main():
             short.append(f"lL{l}")
         cols.append("last_linear_concat")
         short.append("lAll")
-        for l in [18]:
+        for l in [21]:
             if l in layers:
                 cols.append(f"attn_L{l}")
                 short.append(f"aL{l}")
