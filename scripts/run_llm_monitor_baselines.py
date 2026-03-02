@@ -704,7 +704,10 @@ async def main():
     print("SUMMARY")
     print(f"{'=' * 50}")
     for ds_name, r in all_results.items():
-        print(f"  {ds_name:<22s} {r['balanced_accuracy']:.3f}  (prompt: {r['best_prompt']})")
+        if "balanced_accuracy" in r:
+            print(f"  {ds_name:<22s} bal_acc={r['balanced_accuracy']:.3f}  (prompt: {r['best_prompt']})")
+        elif "mae" in r:
+            print(f"  {ds_name:<22s} MAE={r['mae']:.4f}  (prompt: {r['best_prompt']})")
 
 
 if __name__ == "__main__":
