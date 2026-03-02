@@ -468,6 +468,139 @@ def load_futurelens_data(
     return datapoints[:n]
 
 
+def load_pastlens_data(
+    tokenizer,
+    n: int = 30000,
+    split: str = "train",
+    predict_tokens: int = 50,
+    layers: list[int] | None = None,
+    seed: int = 42,
+) -> list[dict]:
+    """Generate PastLens training/eval data from corpus-v5.
+
+    Like FutureLens but reversed: from a cutoff position, predict the
+    preceding ~50 tokens of reasoning. Uses the last stride position
+    as the activation observation point.
+
+    Args:
+        tokenizer: HuggingFace tokenizer.
+        n: Number of examples to generate.
+        split: "train" (first 80% of corpus) or "test" (last 20%).
+        predict_tokens: How many tokens to predict before cutoff.
+        layers: Layer indices for activation extraction.
+        seed: Random seed.
+
+    Returns:
+        List of dicts with context_input_ids, context_positions, etc.
+    """
+    from cot_utils import get_cot_stride_positions
+
+    if layers is None:
+        layers = [9, 18, 27]
+    n_layers = len(layers)
+
+    rng = random.Random(seed)
+
+    corpus = _load_corpus_v5(split)
+    if not corpus:
+        raise RuntimeError(f"No entries found in corpus-v5 ({split} split)")
+
+    print(f"  [pastlens] Loaded {len(corpus)} corpus entries ({split} split)")
+    print(f"  [pastlens] Generating {n} examples (predict_tokens={predict_tokens})...")
+
+    datapoints: list[dict] = []
+    attempts = 0
+    max_attempts = n * 5
+
+    while len(datapoints) < n and attempts < max_attempts:
+        attempts += 1
+        entry = rng.choice(corpus)
+
+        cot_text = entry.get("cot_response", "")
+        if not cot_text:
+            continue
+
+        # Strip <think> tags
+        think_end = cot_text.find("</think>")
+        if think_end != -1:
+            cot_text = cot_text[:think_end]
+        cot_text = cot_text.replace("<think>", "").strip()
+        if not cot_text:
+            continue
+
+        question = entry.get("question", "")
+
+        # Tokenize question + CoT
+        messages = [{"role": "user", "content": question}]
+        prompt_text = tokenizer.apply_chat_template(
+            messages, tokenize=False, add_generation_prompt=True,
+            enable_thinking=False,
+        )
+        prompt_ids = tokenizer.encode(prompt_text, add_special_tokens=False)
+        prompt_len = len(prompt_ids)
+
+        full_text = prompt_text + cot_text
+        full_ids = tokenizer.encode(full_text, add_special_tokens=False)
+
+        # Get stride positions in CoT region
+        stride_positions = get_cot_stride_positions(
+            prompt_len, len(full_ids), stride=5, include_last=True,
+        )
+        if len(stride_positions) < 3:
+            continue
+
+        # Pick up to 3 random cutoff positions per entry
+        # Need enough tokens before cutoff to predict
+        for _ in range(min(3, len(stride_positions))):
+            if len(datapoints) >= n:
+                break
+
+            k = rng.randint(1, len(stride_positions) - 1)  # skip first pos
+            cutoff_pos = stride_positions[k]
+
+            # Target: preceding predict_tokens tokens before cutoff
+            target_end = cutoff_pos  # exclusive — don't include cutoff itself
+            target_start = max(prompt_len, target_end - predict_tokens)
+            if target_end - target_start < 5:
+                continue
+
+            target_ids = full_ids[target_start:target_end]
+            target_text = tokenizer.decode(target_ids, skip_special_tokens=True)
+            if not target_text.strip():
+                continue
+
+            # Single activation at cutoff, repeated for each layer
+            context_positions = [cutoff_pos] * n_layers
+
+            # Context: tokens up to cutoff position (oracle sees where we are)
+            context_slice = full_ids[:cutoff_pos + 1]
+
+            layers_str = ", ".join(str(l) for l in layers)
+            prompt = (
+                f"Activations from {n_layers} positions across layers {layers_str}. "
+                f"Reconstruct the preceding {target_end - target_start} tokens of reasoning."
+            )
+
+            datapoints.append({
+                "datapoint_type": "cot_prev_step",
+                "task": "pastlens",
+                "prompt": prompt,
+                "target_response": target_text,
+                "layer": layers[0],
+                "layers": layers,
+                "num_positions": len(context_positions),
+                "context_input_ids": context_slice,
+                "context_positions": context_positions,
+            })
+
+        if len(datapoints) % 10000 == 0 and len(datapoints) > 0:
+            print(f"  [pastlens] {len(datapoints)}/{n} examples...")
+
+    print(f"  [pastlens] Generated {len(datapoints)} examples "
+          f"(from {attempts} attempts, {len(corpus)} corpus entries)")
+    return datapoints[:n]
+
+
 def _load_corpus_v5(split: str = "train") -> list[dict]:
     """Load corpus-v5 from HF and split 80/20 for train/test.
 

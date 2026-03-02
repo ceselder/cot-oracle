@@ -24,6 +24,10 @@ tasks:
     n: 30000
     eval: true
 
+  pastlens:
+    n: 30000
+    eval: true
+
   correctness:
     n: 999999
     eval: true

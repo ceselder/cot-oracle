@@ -19,7 +19,7 @@ from typing import Any
 import torch
 
 from tasks import TASKS, TaskDef, ScoringMode, get_eval_tasks
-from data_loading import load_task_data, load_futurelens_data, prepare_context_ids
+from data_loading import load_task_data, load_futurelens_data, load_pastlens_data, prepare_context_ids
 
 
 # ── Per-task response parsers ──
@@ -1059,8 +1059,8 @@ def _eval_single_task(
         if cache_key in _eval_cache:
             test_data = _eval_cache[cache_key].test_data
         else:
-            # Skip FutureLens in text-baseline mode
-            if task_name == "futurelens":
+            # Skip FutureLens/PastLens in text-baseline mode
+            if task_name in ("futurelens", "pastlens"):
                 return {"n": 0}
 
             try:
@@ -1141,6 +1141,12 @@ def _eval_single_task(
             test_data = load_futurelens_data(
                 tokenizer=tokenizer, n=max_items, split="test",
                 layers=layers, seed=99,  # different seed from train
+            )
+        elif task_name == "pastlens":
+            # PastLens constructs examples from corpus (needs tokenizer)
+            test_data = load_pastlens_data(
+                tokenizer=tokenizer, n=max_items, split="test",
+                layers=layers, seed=98,  # different seed from train and futurelens
             )
         else:
             # Try test split first, fall back to tail of train split

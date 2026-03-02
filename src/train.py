@@ -1795,13 +1795,13 @@ def main():
         if n > 0:
             task_config[task_name] = {"n": n}
 
-    # FutureLens uses corpus-v5 + tokenizer — handle separately (like FineWeb)
+    # FutureLens/PastLens use corpus-v5 + tokenizer — handle separately (like FineWeb)
     futurelens_n = task_config.pop("futurelens", {}).get("n", 0)
+    pastlens_n = task_config.pop("pastlens", {}).get("n", 0)
 
     raw_data = load_all_training_data(task_config)
 
     # FutureLens (corpus-based, needs tokenizer) — skip in no-activations mode
-    # (FutureLens items have no cot_text and the task isn't meaningful for text-baseline)
     if futurelens_n > 0 and not NO_ACTIVATIONS:
         from data_loading import load_futurelens_data
         if rank == 0:
@@ -1816,6 +1816,22 @@ def main():
         raw_data.extend(futurelens_data)
         if rank == 0:
             print(f"  [data]   -> {len(futurelens_data)} FutureLens examples added (total: {len(raw_data)})")
+
+    # PastLens (corpus-based, reverse of FutureLens) — skip in no-activations mode
+    if pastlens_n > 0 and not NO_ACTIVATIONS:
+        from data_loading import load_pastlens_data
+        if rank == 0:
+            print(f"  [data] Generating {pastlens_n} PastLens examples from corpus...")
+        pastlens_data = load_pastlens_data(
+            tokenizer=tokenizer,
+            n=pastlens_n,
+            split="train",
+            layers=MULTI_LAYERS,
+            seed=args.seed + 1,  # different seed from futurelens
+        )
+        raw_data.extend(pastlens_data)
+        if rank == 0:
+            print(f"  [data]   -> {len(pastlens_data)} PastLens examples added (total: {len(raw_data)})")
 
     # FineWeb context prediction (PastLens-style, if enabled)
     fineweb_n = getattr(args, "fineweb_n", 0)
