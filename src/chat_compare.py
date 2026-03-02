@@ -77,8 +77,9 @@ TRYCLOUDFLARE_URL_RE = re.compile(r"https://[A-Za-z0-9.-]+\\.trycloudflare\\.com
 CHAT_COMPARE_LOG_DIR = Path(os.path.expandvars(os.environ.get("FAST_CACHE_DIR", f"/var/tmp/{Path.home().name}/"))) / "cot-oracle" / "chat_compare"
 
 # Model organisms: LoRA adapters that modify Qwen3-8B behavior for bias/safety testing
+# Note: ceselder/Qwen3-8B-heretic is a full merge (not a LoRA), so it can't be loaded
+# as a PEFT adapter. To use it, extract a LoRA diff first.
 MODEL_ORGANISMS = {
-    "heretic": {"path": "ceselder/Qwen3-8B-heretic", "label": "Heretic"},
     "rot13": {"path": "ceselder/rot13-qwen3-8b-lora", "label": "ROT13"},
 }
 
@@ -244,8 +245,12 @@ def load_dual_model(model_name, checkpoint_path, organism_adapters=None, device=
     for adapter_name, adapter_info in (organism_adapters or {}).items():
         adapter_path = adapter_info["path"]
         print(f"Loading model organism '{adapter_name}' from {adapter_path}...")
-        model.load_adapter(adapter_path, adapter_name=adapter_name, is_trainable=False)
-        loaded_organisms.append(adapter_name)
+        try:
+            model.load_adapter(adapter_path, adapter_name=adapter_name, is_trainable=False)
+            loaded_organisms.append(adapter_name)
+        except (ValueError, OSError) as e:
+            print(f"  WARNING: Could not load organism '{adapter_name}': {e}")
+            print(f"  (This adapter may be a full model merge, not a LoRA. Skipping.)")
     model.eval()
     print(f"  Adapters: {list(model.peft_config.keys())}")
     return model, tokenizer, loaded_organisms
