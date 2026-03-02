@@ -334,10 +334,10 @@ def query_original_ao(model, tokenizer, acts_l50, prompt, model_name, injection_
 def query_trained_oracle(model, tokenizer, selected_acts, prompt, selected_layers, layer_counts, injection_layer=1, max_new_tokens=150, device="cuda"):
     dtype = torch.bfloat16
     total_count = sum(layer_counts)
-    prefix = "Activations: " + TRAINED_PLACEHOLDER * total_count + "\n"
+    prefix = "Activations:" + TRAINED_PLACEHOLDER * total_count + ".\n"
     full_prompt = prefix + prompt
     relative_spans = []
-    label_len = len("Activations: ")
+    label_len = len("Activations:")
     for pos_idx in range(total_count):
         start = label_len + pos_idx * len(TRAINED_PLACEHOLDER)
         relative_spans.append((start, start + len(TRAINED_PLACEHOLDER)))

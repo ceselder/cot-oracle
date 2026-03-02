@@ -701,7 +701,7 @@ def _batched_oracle_generate(
 
     for activations, oracle_prompt in items:
         num_positions = activations.shape[0]
-        prefix = "Activations: " + ph_token * num_positions + "\n"
+        prefix = "Activations:" + ph_token * num_positions + ".\n"
         full_prompt = prefix + oracle_prompt
 
         messages = [{"role": "user", "content": full_prompt}]

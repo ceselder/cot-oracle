@@ -93,7 +93,7 @@ _MODEL_N_LAYERS: int = 36  # total layers in the model (set in main())
 
 
 def _patched_get_prefix(sae_layer: int, num_positions: int) -> str:
-    return "Activations: " + PLACEHOLDER_TOKEN * num_positions + "\n"
+    return "Activations:" + PLACEHOLDER_TOKEN * num_positions + ".\n"
 
 
 du_module.get_introspection_prefix = _patched_get_prefix
