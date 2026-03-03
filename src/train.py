@@ -1429,6 +1429,10 @@ def apply_config(args, config: dict):
             args.fineweb_n = fw.get("n", 50000)
         if "max_context_tokens" in fw and not getattr(args, "_cli_fineweb_max_context_tokens", False):
             args.fineweb_max_context_tokens = fw["max_context_tokens"]
+        if "min_target_tokens" in fw:
+            args.fineweb_min_target_tokens = fw["min_target_tokens"]
+        if "max_target_tokens" in fw:
+            args.fineweb_max_target_tokens = fw["max_target_tokens"]
 
     # Classification
     if "classification" in config:
@@ -1795,9 +1799,11 @@ def main():
         if n > 0:
             task_config[task_name] = {"n": n}
 
-    # FutureLens/PastLens use corpus-v5 + tokenizer — handle separately (like FineWeb)
+    # FutureLens uses corpus-v5 + tokenizer — handle separately (like FineWeb)
     futurelens_n = task_config.pop("futurelens", {}).get("n", 0)
-    pastlens_n = task_config.pop("pastlens", {}).get("n", 0)
+    # FineWeb readout tasks use streaming generation, not HF download — pop them too
+    for _fw_task in ("futurelens_fineweb", "pastlens_fineweb", "reconstruction_fineweb"):
+        task_config.pop(_fw_task, None)
 
     raw_data = load_all_training_data(task_config)
 
@@ -1817,41 +1823,30 @@ def main():
         if rank == 0:
             print(f"  [data]   -> {len(futurelens_data)} FutureLens examples added (total: {len(raw_data)})")
 
-    # PastLens (corpus-based, reverse of FutureLens) — skip in no-activations mode
-    if pastlens_n > 0 and not NO_ACTIVATIONS:
-        from data_loading import load_pastlens_data
-        if rank == 0:
-            print(f"  [data] Generating {pastlens_n} PastLens examples from corpus...")
-        pastlens_data = load_pastlens_data(
-            tokenizer=tokenizer,
-            n=pastlens_n,
-            split="train",
-            layers=MULTI_LAYERS,
-            seed=args.seed + 1,  # different seed from futurelens
-        )
-        raw_data.extend(pastlens_data)
-        if rank == 0:
-            print(f"  [data]   -> {len(pastlens_data)} PastLens examples added (total: {len(raw_data)})")
-
-    # FineWeb context prediction (PastLens-style, if enabled)
+    # FineWeb readout tasks (futurelens/pastlens/reconstruction on web text, if enabled)
     fineweb_n = getattr(args, "fineweb_n", 0)
     if fineweb_n > 0 and not NO_ACTIVATIONS:
-        from data_loading import load_fineweb_data
-        if rank == 0:
-            print(f"  [data] Generating {fineweb_n} FineWeb context prediction examples...")
+        from data_loading import load_fineweb_readout_data
         fw_stride = int(args.stride) if args.stride and args.stride != "punctuation" else 5
-        fineweb_data = load_fineweb_data(
+        fw_max_ctx = getattr(args, "fineweb_max_context_tokens", 2000)
+        fw_min_tgt = getattr(args, "fineweb_min_target_tokens", 5)
+        fw_max_tgt = getattr(args, "fineweb_max_target_tokens", 25)
+        if rank == 0:
+            print(f"  [data] Generating {fineweb_n} FineWeb readout examples "
+                  f"(3 variants, target {fw_min_tgt}-{fw_max_tgt} tokens)...")
+        fineweb_data = load_fineweb_readout_data(
             tokenizer=tokenizer,
-            model_name=args.model,
             n=fineweb_n,
-            max_context_tokens=getattr(args, "fineweb_max_context_tokens", 2000),
+            max_context_tokens=fw_max_ctx,
             stride=fw_stride,
             layers=MULTI_LAYERS,
+            min_target_tokens=fw_min_tgt,
+            max_target_tokens=fw_max_tgt,
             seed=args.seed,
         )
         raw_data.extend(fineweb_data)
         if rank == 0:
-            print(f"  [data]   -> {len(fineweb_data)} FineWeb examples added (total: {len(raw_data)})")
+            print(f"  [data]   -> {len(fineweb_data)} FineWeb readout examples added (total: {len(raw_data)})")
 
     # Classification data (Adam's AO tasks, if enabled)
     cls_n = getattr(args, "classification_n", 0)

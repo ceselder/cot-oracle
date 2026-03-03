@@ -4,8 +4,8 @@ Unified data loading for the CoT Oracle.
 Downloads precomputed JSONL from HuggingFace, caches locally, and returns
 lists of dicts in the standard format expected by dicts_to_training_data().
 
-Also provides load_fineweb_data() for PastLens-style context prediction
-from FineWeb + LMSYS streaming (togglable auxiliary training data).
+Also provides load_fineweb_readout_data() for FineWeb readout tasks
+(futurelens/pastlens/reconstruction on streaming web text).
 """
 
 from __future__ import annotations
@@ -468,139 +468,6 @@ def load_futurelens_data(
     return datapoints[:n]
 
 
-def load_pastlens_data(
-    tokenizer,
-    n: int = 30000,
-    split: str = "train",
-    predict_tokens: int = 50,
-    layers: list[int] | None = None,
-    seed: int = 42,
-) -> list[dict]:
-    """Generate PastLens training/eval data from corpus-v5.
-
-    Like FutureLens but reversed: from a cutoff position, predict the
-    preceding ~50 tokens of reasoning. Uses the last stride position
-    as the activation observation point.
-
-    Args:
-        tokenizer: HuggingFace tokenizer.
-        n: Number of examples to generate.
-        split: "train" (first 80% of corpus) or "test" (last 20%).
-        predict_tokens: How many tokens to predict before cutoff.
-        layers: Layer indices for activation extraction.
-        seed: Random seed.
-
-    Returns:
-        List of dicts with context_input_ids, context_positions, etc.
-    """
-    from cot_utils import get_cot_stride_positions
-
-    if layers is None:
-        layers = [9, 18, 27]
-    n_layers = len(layers)
-
-    rng = random.Random(seed)
-
-    corpus = _load_corpus_v5(split)
-    if not corpus:
-        raise RuntimeError(f"No entries found in corpus-v5 ({split} split)")
-
-    print(f"  [pastlens] Loaded {len(corpus)} corpus entries ({split} split)")
-    print(f"  [pastlens] Generating {n} examples (predict_tokens={predict_tokens})...")
-
-    datapoints: list[dict] = []
-    attempts = 0
-    max_attempts = n * 5
-
-    while len(datapoints) < n and attempts < max_attempts:
-        attempts += 1
-        entry = rng.choice(corpus)
-
-        cot_text = entry.get("cot_response", "")
-        if not cot_text:
-            continue
-
-        # Strip <think> tags
-        think_end = cot_text.find("</think>")
-        if think_end != -1:
-            cot_text = cot_text[:think_end]
-        cot_text = cot_text.replace("<think>", "").strip()
-        if not cot_text:
-            continue
-
-        question = entry.get("question", "")
-
-        # Tokenize question + CoT
-        messages = [{"role": "user", "content": question}]
-        prompt_text = tokenizer.apply_chat_template(
-            messages, tokenize=False, add_generation_prompt=True,
-            enable_thinking=False,
-        )
-        prompt_ids = tokenizer.encode(prompt_text, add_special_tokens=False)
-        prompt_len = len(prompt_ids)
-
-        full_text = prompt_text + cot_text
-        full_ids = tokenizer.encode(full_text, add_special_tokens=False)
-
-        # Get stride positions in CoT region
-        stride_positions = get_cot_stride_positions(
-            prompt_len, len(full_ids), stride=5, include_last=True,
-        )
-        if len(stride_positions) < 3:
-            continue
-
-        # Pick up to 3 random cutoff positions per entry
-        # Need enough tokens before cutoff to predict
-        for _ in range(min(3, len(stride_positions))):
-            if len(datapoints) >= n:
-                break
-
-            k = rng.randint(1, len(stride_positions) - 1)  # skip first pos
-            cutoff_pos = stride_positions[k]
-
-            # Target: preceding predict_tokens tokens before cutoff
-            target_end = cutoff_pos  # exclusive — don't include cutoff itself
-            target_start = max(prompt_len, target_end - predict_tokens)
-            if target_end - target_start < 5:
-                continue
-
-            target_ids = full_ids[target_start:target_end]
-            target_text = tokenizer.decode(target_ids, skip_special_tokens=True)
-            if not target_text.strip():
-                continue
-
-            # Single activation at cutoff, repeated for each layer
-            context_positions = [cutoff_pos] * n_layers
-
-            # Context: tokens up to cutoff position (oracle sees where we are)
-            context_slice = full_ids[:cutoff_pos + 1]
-
-            layers_str = ", ".join(str(l) for l in layers)
-            prompt = (
-                f"Activations from {n_layers} positions across layers {layers_str}. "
-                f"Reconstruct the preceding {target_end - target_start} tokens of reasoning."
-            )
-
-            datapoints.append({
-                "datapoint_type": "cot_prev_step",
-                "task": "pastlens",
-                "prompt": prompt,
-                "target_response": target_text,
-                "layer": layers[0],
-                "layers": layers,
-                "num_positions": len(context_positions),
-                "context_input_ids": context_slice,
-                "context_positions": context_positions,
-            })
-
-        if len(datapoints) % 10000 == 0 and len(datapoints) > 0:
-            print(f"  [pastlens] {len(datapoints)}/{n} examples...")
-
-    print(f"  [pastlens] Generated {len(datapoints)} examples "
-          f"(from {attempts} attempts, {len(corpus)} corpus entries)")
-    return datapoints[:n]
-
-
 def _load_corpus_v5(split: str = "train") -> list[dict]:
     """Load corpus-v5 from HF and split 80/20 for train/test.
 
@@ -650,7 +517,7 @@ def _load_corpus_v5(split: str = "train") -> list[dict]:
     return [entries[i] for i in selected]
 
 
-# ── FineWeb context prediction (PastLens-style) ──
+# ── FineWeb readout tasks (futurelens/pastlens/reconstruction) ──
 
 
 def _fineweb_text_generator(tokenizer) -> Generator[str, None, None]:
@@ -689,53 +556,84 @@ def _fineweb_text_generator(tokenizer) -> Generator[str, None, None]:
             continue
 
 
-def load_fineweb_data(
+def _sample_heavy_tail_target_length(
+    available: int, min_len: int = 5, max_len: int = 25,
+) -> int:
+    """Log-uniform sampling biased toward shorter targets.
+
+    Produces lengths in [min_len, min(max_len, available)] with a heavy
+    tail — most examples are short (5-10 tokens) but some reach 25.
+    """
+    import math as _math
+    upper = min(max_len, available)
+    if upper <= min_len:
+        return min_len
+    # log-uniform: exp(uniform(log(min), log(upper)))
+    log_min = _math.log(min_len)
+    log_max = _math.log(upper)
+    return int(_math.exp(random.uniform(log_min, log_max)))
+
+
+_FINEWEB_READOUT_PROMPTS: dict[str, str] = {
+    "futurelens_fineweb": "Predict the next {n} tokens of this text.",
+    "pastlens_fineweb": "Predict the {n} tokens that came before the activation region.",
+    "reconstruction_fineweb": "Reconstruct the {n} tokens at the activation positions.",
+}
+
+
+def load_fineweb_readout_data(
     tokenizer,
-    model_name: str,
-    n: int = 50000,
+    n: int = 15000,
     max_context_tokens: int = 2000,
     stride: int = 5,
     layers: list[int] | None = None,
     min_target_tokens: int = 5,
-    max_target_tokens: int = 50,
+    max_target_tokens: int = 25,
     seed: int = 42,
+    variant: str | None = None,
 ) -> list[dict]:
-    """Generate PastLens-style context prediction from FineWeb + LMSYS streaming.
+    """Generate FineWeb readout data with 3 task variants.
 
-    Each example: tokenize web/chat text (max max_context_tokens), extract
-    stride-based positions, predict next or previous K tokens.
-    Returns dicts compatible with dicts_to_training_data().
+    For each streamed FineWeb/LMSYS text, randomly assigns one of:
+      - futurelens_fineweb: activations [0, cutoff], target = next K tokens
+      - pastlens_fineweb: activations [act_start, end], target = previous K tokens
+      - reconstruction_fineweb: activations within span, target = reconstruct span
 
     Args:
         tokenizer: HuggingFace tokenizer.
-        model_name: Model name for layer calculation.
-        n: Number of examples to generate.
+        n: Total number of examples (split ~equally across 3 variants, or all
+           one variant if `variant` is specified).
         max_context_tokens: Max tokens for activation context.
-        stride: Position stride (same as CoT tasks).
+        stride: Position stride for activation extraction.
         layers: Layer indices for activation extraction.
-        min_target_tokens: Minimum tokens to predict.
-        max_target_tokens: Maximum tokens to predict.
-        seed: Random seed for reproducibility.
+        min_target_tokens: Minimum target length.
+        max_target_tokens: Maximum target length.
+        seed: Random seed.
+        variant: If set, only generate this variant (for eval). One of
+            "futurelens_fineweb", "pastlens_fineweb", "reconstruction_fineweb".
     """
-    from cot_utils import layer_percent_to_layer
+    if layers is None:
+        layers = [9, 18, 27]
+    n_layers = len(layers)
 
     rng = random.Random(seed)
 
-    if layers is None:
-        layers = [layer_percent_to_layer(model_name, p) for p in [25, 50, 75]]
-    n_layers = len(layers)
+    variants = ["futurelens_fineweb", "pastlens_fineweb", "reconstruction_fineweb"]
+    if variant is not None:
+        assert variant in variants, f"Unknown variant: {variant}"
+        variants = [variant]
 
-    print(f"  [fineweb] Streaming FineWeb + LMSYS, generating {n} examples...")
+    print(f"  [fineweb-readout] Streaming FineWeb + LMSYS, generating {n} examples "
+          f"({', '.join(variants)})...")
     gen = _fineweb_text_generator(tokenizer)
 
     datapoints: list[dict] = []
     skipped = 0
-    min_context_tokens = stride * 3  # need at least a few stride positions
+    min_context_tokens = stride * 3
 
     while len(datapoints) < n:
         text = next(gen)
 
-        # Tokenize with headroom for target tokens
         input_ids = tokenizer(
             text, add_special_tokens=False, truncation=True,
             max_length=max_context_tokens + max_target_tokens,
@@ -746,13 +644,12 @@ def load_fineweb_data(
             skipped += 1
             continue
 
-        k_target = rng.randint(
-            min_target_tokens, min(max_target_tokens, max(min_target_tokens, L // 4)),
-        )
-        direction = rng.choice(["future", "past"])
+        task_variant = rng.choice(variants)
+        available = max(min_target_tokens, L // 4)
+        k_target = _sample_heavy_tail_target_length(available, min_target_tokens, max_target_tokens)
 
-        if direction == "future":
-            # Context = tokens[:cutoff+1], target = tokens after cutoff
+        if task_variant == "futurelens_fineweb":
+            # Activations from [0, cutoff], target = next k_target tokens
             max_cutoff = min(L - k_target - 1, max_context_tokens - 1)
             if max_cutoff < min_context_tokens:
                 skipped += 1
@@ -766,17 +663,16 @@ def load_fineweb_data(
 
             target_ids = input_ids[cutoff + 1: cutoff + 1 + k_target]
             target_text = tokenizer.decode(target_ids, skip_special_tokens=True)
-            prompt = f"Predict the next {k_target} tokens of this text."
+            prompt = _FINEWEB_READOUT_PROMPTS[task_variant].format(n=len(target_ids))
 
-        else:  # past
-            # Activations start at act_start; target = k_target tokens before it
+        elif task_variant == "pastlens_fineweb":
+            # Activations from [act_start, end], target = previous k_target tokens
             act_start_max = min(L - stride, max_context_tokens) - 1
             if act_start_max < k_target:
                 skipped += 1
                 continue
             act_start = rng.randint(k_target, act_start_max)
 
-            # Context includes everything up to the end of the activation span
             context_end = min(act_start + max_context_tokens, L)
             context_ids = input_ids[:context_end]
             positions = list(range(act_start, len(context_ids), stride))
@@ -785,29 +681,53 @@ def load_fineweb_data(
 
             target_ids = input_ids[act_start - k_target: act_start]
             target_text = tokenizer.decode(target_ids, skip_special_tokens=True)
-            prompt = f"Predict the {k_target} tokens that came before the activation region."
+            prompt = _FINEWEB_READOUT_PROMPTS[task_variant].format(n=len(target_ids))
 
-        # Repeat positions for each layer (same format as CoT tasks)
+        else:  # reconstruction_fineweb
+            # Pick span [start, end], activations from within span, target = span tokens
+            max_span_start = L - k_target - 1
+            if max_span_start < min_context_tokens:
+                skipped += 1
+                continue
+            span_start = rng.randint(0, max_span_start)
+            span_end = span_start + k_target
+
+            # Context: full text up to span_end (so the activations cover the span)
+            context_ids = input_ids[:span_end]
+            # Positions within the span
+            positions = list(range(span_start, span_end, stride))
+            if positions[-1] != span_end - 1:
+                positions.append(span_end - 1)
+
+            target_ids = input_ids[span_start:span_end]
+            target_text = tokenizer.decode(target_ids, skip_special_tokens=True)
+            prompt = _FINEWEB_READOUT_PROMPTS[task_variant].format(n=len(target_ids))
+
+        if not target_text.strip():
+            skipped += 1
+            continue
+
         all_positions = positions * n_layers
 
         datapoints.append({
-            "datapoint_type": "fineweb_context_prediction",
-            "task": "fineweb",
+            "datapoint_type": f"fineweb_{task_variant}",
+            "task": task_variant,
             "prompt": prompt,
             "target_response": target_text,
             "layer": layers[0],
+            "layers": layers,
             "num_positions": len(all_positions),
             "context_input_ids": context_ids,
             "context_positions": all_positions,
         })
 
-        if len(datapoints) % 10000 == 0:
-            print(f"  [fineweb] {len(datapoints)}/{n} examples...")
+        if len(datapoints) % 5000 == 0 and len(datapoints) > 0:
+            print(f"  [fineweb-readout] {len(datapoints)}/{n} examples...")
 
     if skipped > 0:
-        print(f"  [fineweb] Skipped {skipped} short texts")
+        print(f"  [fineweb-readout] Skipped {skipped} short/empty texts")
 
-    print(f"  [fineweb] Generated {len(datapoints)} examples")
+    print(f"  [fineweb-readout] Generated {len(datapoints)} examples")
     return datapoints[:n]
 
 

@@ -19,7 +19,7 @@ from typing import Any
 import torch
 
 from tasks import TASKS, TaskDef, ScoringMode, get_eval_tasks
-from data_loading import load_task_data, load_futurelens_data, load_pastlens_data, prepare_context_ids
+from data_loading import load_task_data, load_futurelens_data, prepare_context_ids
 
 
 # ── Per-task response parsers ──
@@ -1060,7 +1060,7 @@ def _eval_single_task(
             test_data = _eval_cache[cache_key].test_data
         else:
             # Skip FutureLens/PastLens in text-baseline mode
-            if task_name in ("futurelens", "pastlens"):
+            if task_name in ("futurelens", "futurelens_fineweb", "pastlens_fineweb", "reconstruction_fineweb"):
                 return {"n": 0}
 
             try:
@@ -1142,11 +1142,15 @@ def _eval_single_task(
                 tokenizer=tokenizer, n=max_items, split="test",
                 layers=layers, seed=99,  # different seed from train
             )
-        elif task_name == "pastlens":
-            # PastLens constructs examples from corpus (needs tokenizer)
-            test_data = load_pastlens_data(
-                tokenizer=tokenizer, n=max_items, split="test",
-                layers=layers, seed=98,  # different seed from train and futurelens
+        elif task_name in ("futurelens_fineweb", "pastlens_fineweb", "reconstruction_fineweb"):
+            # FineWeb readout tasks: generate small test sets from streaming data
+            from data_loading import load_fineweb_readout_data
+            test_data = load_fineweb_readout_data(
+                tokenizer=tokenizer,
+                n=max_items,
+                layers=layers,
+                seed=97,
+                variant=task_name,
             )
         else:
             # Try test split first, fall back to tail of train split
