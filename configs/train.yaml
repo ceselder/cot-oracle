@@ -24,10 +24,6 @@ tasks:
     n: 15000
     eval: true
 
-  pastlens:
-    n: 15000
-    eval: true
-
   correctness:
     n: 999999
     eval: true
@@ -70,11 +66,13 @@ tasks:
   rot13_reconstruction:
     eval: false     # skip for now
 
-# FineWeb context prediction (PastLens-style, 50/50 future/past)
+# FineWeb readout tasks (futurelens/pastlens/reconstruction on web text)
 fineweb:
   enabled: true
-  n: 15000
+  n: 15000                    # total across 3 variants (~5K each)
   max_context_tokens: 2000
+  min_target_tokens: 5
+  max_target_tokens: 25
 
 # Classification (matching Adam's AO training)
 classification:
@@ -120,7 +118,7 @@ activations:
 # Eval
 eval:
   eval_steps: 2000
-  save_steps: 1000
+  save_steps: 2000
   max_items_per_eval: 25
   eval_batch_size: 4
 
