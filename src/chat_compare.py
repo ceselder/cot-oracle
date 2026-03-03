@@ -156,30 +156,26 @@ ADAM_CHECKPOINTS = {
 }
 
 BUILTIN_TASK_PROMPTS = {
+    # --- Prompts matching the cleaned HF training datasets ---
+    "hint_admission": "Did the model use an external hint in its reasoning? Describe the hint usage and its effect.",
+    "atypical_answer": "Will the model give the typical or atypical answer? Describe the answer typicality.",
+    "reasoning_termination": "Will the model terminate reasoning (emit </think>) soon? If yes, estimate how many tokens remain.",
+    "correctness": "Did the model's chain-of-thought reasoning lead to the correct answer?",
+    "decorative_cot": "Is this chain of thought load-bearing or decorative? Would the model get the right answer without it?",
+    "sycophancy": "Was the model's reasoning influenced by the user's stated opinion? If yes, describe how.",
+    "backtrack_prediction": "Will the model backtrack or revise its reasoning in the next few tokens?",
+    "truthfulqa_hint": "Did the model use an external hint in its reasoning? Describe the hint usage and its effect.",
+    "answer_trajectory": "What does the model currently think the answer is? Also estimate the model's confidence (0-100%) and answer entropy.",
+    # --- Quick / utility prompts ---
     "recon": "Reconstruct the original chain-of-thought reasoning from these activations.",
     "next": "Predict the next ~50 tokens of the chain-of-thought reasoning.",
+    "answer": "What is the model's final answer? Give the answer only.",
     "prompt_inversion": "Reconstruct the original question or prompt that produced this reasoning.",
     "cotqa": "Answer the user's question about this chain-of-thought reasoning.",
     "position_qa": "What reasoning function is the model performing at the selected positions?",
     "compqa": "Answer the user's question about the quality of this reasoning.",
-    "answer_pred": "What is the model's final answer? Give the answer only.",
-    "answer_trajectory": "What does the model currently think the answer is at the selected positions?",
-    "domain": "What domain is this reasoning about? Answer with one word: math, science, logic, commonsense, reading, multi_domain, medical, ethics, diverse.",
-    "correctness": "Is the model's final answer correct? Answer: correct or incorrect.",
-    "decorative": "Is this chain-of-thought reasoning load-bearing or decorative? Answer: load_bearing or decorative.",
-    "reasoning_term": "Will the model emit </think> within the next 100 tokens? Answer: will_terminate or will_continue.",
-    "atypical_answer": "Is the model's answer a majority or minority answer? Answer: majority or minority.",
-    "hint_admission": "Did the model use an external hint? If so, what was it?",
-    "hinted_answer_pred": "What is the model's final answer after using the hint? Give the answer only.",
-    "backtrack_pred": "Will the model revise or backtrack in the next ~150 tokens? Answer: yes or no.",
-    "self_correction": "Will the model fix its own error? Answer: yes or no.",
-    "verification": "Will the model double-check its work? Answer: yes or no.",
-    "remaining_strategy": "Describe the reasoning approach for the remaining steps.",
-    "branch_pred": "Which strategy branch will the model take next?",
-    "completion_pred": "Which continuation is the real one?",
     "chunked_convqa": "Answer the user's question about the later part of the chain-of-thought.",
     "chunked_compqa": "Answer the user's question about the later part of the chain-of-thought.",
-    "answer": "What is the model's final answer? Give the answer only.",
 }
 
 CHUNKED_TASK_HF_REPOS = {
@@ -861,6 +857,36 @@ class ChatCompareWebApp:
             )
         self._progress_status = ""
         return {"scores": result}
+
+    def _compute_readout(self, prompt, max_tokens=100):
+        """Run trained oracle at each stride position individually, return per-position text."""
+        if self.state.multilayer_acts is None:
+            raise HTTPException(status_code=400, detail="Generate a CoT first")
+        n_layers = len(self.layers)
+        K = len(self.state.stride_positions)
+        D = self.state.multilayer_acts.shape[1]
+        acts_by_layer = self.state.multilayer_acts.view(n_layers, K, D)
+        results = []
+        self._progress_status = f"Running readout (0/{K})..."
+        with self.model_lock:
+            for pos_idx in range(K):
+                self._progress_status = f"Running readout ({pos_idx + 1}/{K})..."
+                # Build acts for just this single position: [n_layers, D]
+                pos_acts = acts_by_layer[:, pos_idx, :]  # [n_layers, D]
+                # layer_counts = [1] per layer (one position each)
+                # selected_acts = [n_layers, D] — one row per layer
+                response = query_trained_oracle(
+                    self.model, self.tokenizer,
+                    pos_acts, prompt,
+                    selected_layers=self.layers,
+                    layer_counts=[1] * n_layers,
+                    max_new_tokens=max_tokens,
+                    device=self.args.device,
+                    adapter_name=self._active_trained_adapter,
+                )
+                results.append(response.strip())
+        self._progress_status = ""
+        return {"readouts": results, "n_positions": K}
 
     def _switch_checkpoint(self, role, key):
         """Switch the trained or AO adapter to a different checkpoint."""
@@ -1551,6 +1577,12 @@ class ChatCompareWebApp:
             adapter = payload.get("adapter", "trained")
             return await asyncio.to_thread(self._compute_ao_logprobs, prompt, answer_tokens, adapter)
 
+        @self.app.post("/api/heatmap/readout")
+        async def heatmap_readout(payload: dict):
+            prompt = payload["prompt"]
+            max_tokens = int(payload.get("max_tokens", 100))
+            return await asyncio.to_thread(self._compute_readout, prompt, max_tokens)
+
         @self.app.post("/api/rate_answers")
         async def rate_answers(payload: dict):
             return await asyncio.to_thread(
@@ -1656,6 +1688,7 @@ class ChatCompareWebApp:
     .heatmap-tok { border-radius: 4px; padding: 1px 3px; cursor: default; position: relative; }
     .heatmap-tok:hover .heatmap-tip { display: block; }
     .heatmap-tip { display: none; position: absolute; bottom: 110%; left: 50%; transform: translateX(-50%); background: #1e293b; border: 1px solid #475569; border-radius: 6px; padding: 3px 7px; font-size: 11px; white-space: nowrap; z-index: 20; pointer-events: none; color: #e2e8f0; }
+    .heatmap-tip.readout-tip { white-space: pre-wrap; max-width: 400px; min-width: 200px; font-size: 12px; padding: 6px 10px; }
     .heatmap-legend { display: flex; align-items: center; gap: 8px; margin-top: 8px; font-size: 11px; color: #94a3b8; }
     .heatmap-legend-bar { width: 200px; height: 12px; border-radius: 4px; border: 1px solid #334155; }
   </style>
@@ -1769,6 +1802,7 @@ class ChatCompareWebApp:
             <select id=\"heatmapSignal\">
               <option value=\"probe\">Linear Probe</option>
               <option value=\"ao\">AO Logprob</option>
+              <option value=\"readout\">Trained Oracle Readout</option>
             </select>
           </div>
           <div id=\"heatmapProbeControls\">
@@ -1793,6 +1827,24 @@ class ChatCompareWebApp:
               <option value=\"trained\">Trained Oracle</option>
               <option value=\"adam\">Original AO (Adam)</option>
             </select>
+          </div>
+          <div id=\"heatmapReadoutControls\" style=\"display:none\">
+            <label>Task</label>
+            <select id=\"heatmapReadoutTask\">
+              <option value=\"hint_admission\">hint admission</option>
+              <option value=\"atypical_answer\">atypical answer</option>
+              <option value=\"reasoning_termination\">reasoning termination</option>
+              <option value=\"correctness\">correctness</option>
+              <option value=\"decorative_cot\">decorative cot</option>
+              <option value=\"sycophancy\">sycophancy</option>
+              <option value=\"backtrack_prediction\">backtrack prediction</option>
+              <option value=\"answer_trajectory\">answer trajectory</option>
+              <option value=\"custom\">custom prompt</option>
+            </select>
+          </div>
+          <div id=\"heatmapReadoutPromptDiv\" style=\"display:none\">
+            <label>Prompt</label>
+            <textarea id=\"heatmapReadoutPrompt\" rows=\"2\"></textarea>
           </div>
           <button id=\"heatmapComputeBtn\">Compute</button>
         </div>
@@ -1867,6 +1919,8 @@ class ChatCompareWebApp:
     let selected = new Set();
     let dragMode = null;
     let dragStart = null;
+    let isDragging = false;
+    const DRAG_THRESHOLD = 5;
     let patchRefreshTimer = null;
     let patchRefreshNonce = 0;
     const statusEl = document.getElementById('status');
@@ -2087,8 +2141,7 @@ For your final answer, respond with "Answer: Yes" or "Answer: No" after the chai
             const key = keyFor(null, strideIndex);
             dragMode = selected.has(key) ? 'remove' : 'add';
             dragStart = { x: event.clientX, y: event.clientY };
-            updateSelectionBox(event.clientX, event.clientY);
-            applyRectSelection();
+            isDragging = false;
           });
         } else {
           // Unsampled token — click to add as extra position
@@ -2157,6 +2210,7 @@ For your final answer, respond with "Answer: Yes" or "Answer: No" after the chai
     function endRectSelection() {
       dragMode = null;
       dragStart = null;
+      isDragging = false;
       selectionBox.style.display = 'none';
       selectionBox.style.width = '0px';
       selectionBox.style.height = '0px';
@@ -2542,10 +2596,26 @@ For your final answer, respond with "Answer: Yes" or "Answer: No" after the chai
     document.getElementById('clearBtn').addEventListener('click', clearSelection);
     window.addEventListener('mousemove', event => {
       if (!dragMode || !dragStart) return;
+      const dx = event.clientX - dragStart.x;
+      const dy = event.clientY - dragStart.y;
+      if (!isDragging && Math.sqrt(dx * dx + dy * dy) < DRAG_THRESHOLD) return;
+      isDragging = true;
       updateSelectionBox(event.clientX, event.clientY);
       applyRectSelection();
     });
-    window.addEventListener('mouseup', endRectSelection);
+    window.addEventListener('mouseup', event => {
+      if (dragMode && dragStart && !isDragging) {
+        // Simple click — toggle the single cell under the cursor
+        const el = document.elementFromPoint(dragStart.x, dragStart.y);
+        if (el && el.classList.contains('sampled') && el.dataset.position != null) {
+          const pos = Number(el.dataset.position);
+          const key = keyFor(null, pos);
+          if (dragMode === 'add') selected.add(key); else selected.delete(key);
+          refreshCells();
+        }
+      }
+      endRectSelection();
+    });
     document.getElementById('saeViewToggle').addEventListener('change', function() {
       document.getElementById('saeOut').style.display = this.checked ? 'none' : 'block';
       document.getElementById('saeRawOut').style.display = this.checked ? 'block' : 'none';
@@ -2588,14 +2658,39 @@ For your final answer, respond with "Answer: Yes" or "Answer: No" after the chai
     const heatmapAoAdapterDiv = document.getElementById('heatmapAoAdapterDiv');
     const heatmapPanel = document.getElementById('heatmapPanel');
 
+    const heatmapReadoutControls = document.getElementById('heatmapReadoutControls');
+    const heatmapReadoutPromptDiv = document.getElementById('heatmapReadoutPromptDiv');
+    const READOUT_PROMPTS = {
+      hint_admission: "Did the model use an external hint in its reasoning? Describe the hint usage and its effect.",
+      atypical_answer: "Will the model give the typical or atypical answer? Describe the answer typicality.",
+      reasoning_termination: "Will the model terminate reasoning (emit </think>) soon? If yes, estimate how many tokens remain.",
+      correctness: "Did the model's chain-of-thought reasoning lead to the correct answer?",
+      decorative_cot: "Is this chain of thought load-bearing or decorative? Would the model get the right answer without it?",
+      sycophancy: "Was the model's reasoning influenced by the user's stated opinion? If yes, describe how.",
+      backtrack_prediction: "Will the model backtrack or revise its reasoning in the next few tokens?",
+      answer_trajectory: "What does the model currently think the answer is? Also estimate the model's confidence (0-100%) and answer entropy.",
+    };
+    document.getElementById('heatmapReadoutTask').addEventListener('change', function() {
+      const prompt = READOUT_PROMPTS[this.value] || '';
+      document.getElementById('heatmapReadoutPrompt').value = prompt;
+      heatmapReadoutPromptDiv.style.display = this.value === 'custom' ? '' : 'none';
+    });
+    // Init readout prompt
+    document.getElementById('heatmapReadoutPrompt').value = READOUT_PROMPTS.hint_admission;
+
     function toggleHeatmapControls() {
       heatmapMode = heatmapSignalSel.value;
       const isProbe = heatmapMode === 'probe';
+      const isAo = heatmapMode === 'ao';
+      const isReadout = heatmapMode === 'readout';
       heatmapProbeControls.style.display = isProbe ? '' : 'none';
-      heatmapAoControls.style.display = isProbe ? 'none' : '';
-      heatmapAoTokensDiv.style.display = isProbe ? 'none' : '';
-      heatmapAoDisplayDiv.style.display = isProbe ? 'none' : '';
-      heatmapAoAdapterDiv.style.display = isProbe ? 'none' : '';
+      heatmapAoControls.style.display = isAo ? '' : 'none';
+      heatmapAoTokensDiv.style.display = isAo ? '' : 'none';
+      heatmapAoDisplayDiv.style.display = isAo ? '' : 'none';
+      heatmapAoAdapterDiv.style.display = isAo ? '' : 'none';
+      heatmapReadoutControls.style.display = isReadout ? '' : 'none';
+      const readoutTask = document.getElementById('heatmapReadoutTask').value;
+      heatmapReadoutPromptDiv.style.display = (isReadout && readoutTask === 'custom') ? '' : 'none';
     }
     heatmapSignalSel.addEventListener('change', toggleHeatmapControls);
 
@@ -2692,6 +2787,32 @@ For your final answer, respond with "Answer: Yes" or "Answer: No" after the chai
       bar.style.background = gradient;
     }
 
+    function renderReadoutTokens(readouts) {
+      if (!session) return;
+      const wrap = document.getElementById('heatmapTokenWrap');
+      wrap.innerHTML = '';
+      const paragraph = document.createElement('div');
+      paragraph.className = 'token-paragraph';
+      session.cot_token_texts.forEach((text, i) => {
+        const span = document.createElement('span');
+        span.className = 'heatmap-tok';
+        span.textContent = text;
+        const strideIdx = session.sampled_token_to_stride_index[i];
+        if (strideIdx !== null && strideIdx < readouts.length) {
+          span.style.background = 'rgba(96, 165, 250, 0.25)';
+          span.style.cursor = 'pointer';
+          const tip = document.createElement('span');
+          tip.className = 'heatmap-tip readout-tip';
+          tip.textContent = readouts[strideIdx];
+          span.appendChild(tip);
+        } else {
+          span.style.color = '#64748b';
+        }
+        paragraph.appendChild(span);
+      });
+      wrap.appendChild(paragraph);
+    }
+
     function setHeatmapStatus(loading, msg) {
       const box = document.getElementById('heatmapStatus');
       box.classList.toggle('loading', loading);
@@ -2714,7 +2835,7 @@ For your final answer, respond with "Answer: Yes" or "Answer: No" after the chai
         } catch(e) {
           setHeatmapStatus(false, 'Error: ' + e.message);
         }
-      } else {
+      } else if (heatmapMode === 'ao') {
         const prompt = document.getElementById('heatmapAoPrompt').value.trim();
         const tokens = document.getElementById('heatmapAoTokens').value.trim();
         const adapter = document.getElementById('heatmapAoAdapter').value;
@@ -2724,7 +2845,6 @@ For your final answer, respond with "Answer: Yes" or "Answer: No" after the chai
         try {
           const data = await postJson('/api/heatmap/ao_logprobs', { prompt, answer_tokens: tokens, adapter });
           heatmapScores = data;
-          // Populate display token dropdown
           const displaySel = document.getElementById('heatmapAoDisplay');
           displaySel.innerHTML = '';
           const tokenNames = Object.keys(data.scores);
@@ -2737,6 +2857,25 @@ For your final answer, respond with "Answer: Yes" or "Answer: No" after the chai
           heatmapAoDisplayDiv.style.display = '';
           displayAoHeatmap(tokenNames[0], data);
           setHeatmapStatus(false, `AO logprobs computed (${tokenNames.length} tokens x ${(data.scores[tokenNames[0]] || []).length} positions)`);
+        } catch(e) {
+          setHeatmapStatus(false, 'Error: ' + e.message);
+        }
+      } else if (heatmapMode === 'readout') {
+        const taskSel = document.getElementById('heatmapReadoutTask');
+        let prompt;
+        if (taskSel.value === 'custom') {
+          prompt = document.getElementById('heatmapReadoutPrompt').value.trim();
+        } else {
+          prompt = READOUT_PROMPTS[taskSel.value] || '';
+        }
+        if (!prompt) { setHeatmapStatus(false, 'Enter a prompt'); return; }
+        setHeatmapStatus(true, 'Running oracle readout at each position...');
+        try {
+          const data = await postJson('/api/heatmap/readout', { prompt });
+          heatmapScores = data;
+          renderReadoutTokens(data.readouts);
+          document.getElementById('heatmapLegend').style.display = 'none';
+          setHeatmapStatus(false, `Readout complete (${data.n_positions} positions)`);
         } catch(e) {
           setHeatmapStatus(false, 'Error: ' + e.message);
         }
