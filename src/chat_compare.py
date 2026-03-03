@@ -2746,7 +2746,8 @@ For your final answer, respond with "Answer: Yes" or "Answer: No" after the chai
           opt.value = p.filename;
           const acc = p.balanced_accuracy ? ` (${(p.balanced_accuracy * 100).toFixed(1)}%)` : '';
           // e.g. "sycophancy_last_linear_concat.pt" -> "sycophancy"
-          const displayName = p.filename.replace('.pt', '').replace(/_last_linear_concat$/, '').replaceAll('_', ' ');
+          const pooling = p.pooling === 'mean' ? ' [mean]' : ' [last]';
+          const displayName = p.filename.replace('.pt', '').replace(/_(last|mean)_linear_concat$/, '').replaceAll('_', ' ') + pooling;
           opt.textContent = displayName + acc;
           probeSel.appendChild(opt);
         });
