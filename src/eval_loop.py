@@ -935,7 +935,6 @@ def run_eval(
     oracle_adapter_name: str = "default",
     skip_rot13: bool = True,
     activation_extract_batch_size: int = 4,
-    stride: int | str = 5,
     no_activations: bool = False,
 ) -> dict[str, float]:
     """Run eval for all (or specified) tasks.
@@ -975,7 +974,6 @@ def run_eval(
                 injection_layer=injection_layer,
                 oracle_adapter_name=oracle_adapter_name,
                 activation_extract_batch_size=activation_extract_batch_size,
-                stride=stride,
                 no_activations=no_activations,
             )
             elapsed = time.time() - t0
@@ -1055,7 +1053,6 @@ def _eval_single_task(
     injection_layer: int,
     oracle_adapter_name: str,
     activation_extract_batch_size: int,
-    stride: int = 5,
     no_activations: bool = False,
 ) -> dict[str, float]:
     """Eval a single task with activation caching (or text-baseline mode)."""
@@ -1149,7 +1146,6 @@ def _eval_single_task(
             # FutureLens constructs examples from corpus (needs tokenizer)
             test_data = load_futurelens_data(
                 tokenizer=tokenizer, n=max_items, split="test",
-                stride=stride,
                 layers=layers, seed=99,  # different seed from train
             )
         elif task_name in ("futurelens_fineweb", "pastlens_fineweb", "reconstruction_fineweb"):
@@ -1158,7 +1154,6 @@ def _eval_single_task(
             test_data = load_fineweb_readout_data(
                 tokenizer=tokenizer,
                 n=max_items,
-                stride=stride,
                 layers=layers,
                 seed=97,
                 variant=task_name,
@@ -1187,37 +1182,9 @@ def _eval_single_task(
 
         # Prepare context_input_ids for items with cot_text (futurelens already has them)
         prepare_context_ids(
-            test_data, tokenizer, stride=stride, layers=layers,
+            test_data, tokenizer, layers=layers,
         )
-
-        # Re-stride precomputed items to match training stride
-        from cot_utils import get_cot_positions
         n_layers = len(layers)
-        re_strided = 0
-        for item in test_data:
-            if not item.get("context_input_ids") or not item.get("context_positions"):
-                continue
-            old_pos = item["context_positions"]
-            old_K = len(old_pos) // n_layers
-            if old_K < 2:
-                continue
-            # Detect old stride from position spacing
-            layer0_pos = old_pos[:old_K]
-            old_stride = layer0_pos[1] - layer0_pos[0] if old_K >= 2 else stride
-            if old_stride == stride:
-                continue
-            # Recompute: stride over the CoT region (first position to last)
-            cot_start = layer0_pos[0]
-            cot_end = layer0_pos[-1]
-            new_layer_pos = get_cot_positions(
-                cot_start, cot_end + 1, stride=stride, tokenizer=tokenizer, input_ids=item["context_input_ids"], include_last=True,
-            )
-            new_pos = new_layer_pos * n_layers
-            item["context_positions"] = new_pos
-            item["num_positions"] = len(new_pos)
-            re_strided += 1
-        if re_strided > 0:
-            print(f"  [eval] Re-strided {re_strided} precomputed items to stride={stride}")
 
         test_data = [d for d in test_data if d.get("context_input_ids")]
         if not test_data:

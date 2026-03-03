@@ -3,7 +3,7 @@ Train CoT Oracle: Flat Task-Based Training
 
 All tasks mixed together in one training run. Enable/disable tasks via --*-n flags (0 = skip).
 Continues from Adam's pretrained AO checkpoint (or fresh LoRA / custom checkpoint).
-All tasks use stride=5, 3 layers (25%, 50%, 75%), paragraph token.
+All tasks use 3 layers (25%, 50%, 75%), paragraph token.
 
 Supports single-GPU and multi-GPU (via torchrun) training.
 
@@ -409,9 +409,9 @@ def _apply_position_mode(base_positions: list[int]) -> list[int]:
     """Apply POSITION_MODE to base (single-layer) positions.
 
     Modes:
-        "last_only": only the final stride position (fastest iteration)
-        "stochastic": 20% last-only, 80% Poisson-process sampled positions
-        "all": use all stride positions
+        "last_only": only the final position (fastest iteration)
+        "stochastic": 40% last-only, 60% Poisson-process sampled positions
+        "all": use all positions
     """
     if not base_positions:
         return base_positions
@@ -689,7 +689,6 @@ def _run_unified_eval(model, tokenizer, model_name, global_step, args, log_dir=N
         eval_batch_size=args.eval_batch_size,
         device="cuda",
         layers=MULTI_LAYERS,
-        stride=args.stride,
         no_activations=no_activations,
     )
 
@@ -1419,7 +1418,7 @@ def apply_config(args, config: dict):
     # Activations
     if "activations" in config:
         a = config["activations"]
-        for key in ["stride", "n_layers", "position_mode"]:
+        for key in ["n_layers", "position_mode"]:
             if key in a and not getattr(args, f"_cli_{key}", False):
                 setattr(args, key, a[key])
         if "layers" in a and not getattr(args, "_cli_layers", False):
@@ -1547,7 +1546,6 @@ def main():
     parser.add_argument("--task-eval-max-new-tokens", type=int, default=64,
                         help="Default max_new_tokens for task-level eval generation")
     parser.add_argument("--epochs", type=int, default=1)
-    parser.add_argument("--stride", type=str, default=None, help="Stride for position extraction (int or 'punctuation'). Must be set via config or CLI.")
     parser.add_argument("--n-layers", type=int, default=3,
                         help="Number of activation layers (evenly spaced through model depth)")
     parser.add_argument("--layers", type=int, nargs="+", default=None,
@@ -1670,13 +1668,6 @@ def main():
     if getattr(args, "no_activations", False):
         args.fresh_lora = True
 
-    # Validate stride is set
-    if args.stride is None:
-        raise ValueError(
-            "stride must be set via config (activations.stride) or CLI (--stride). "
-            "Use an integer for fixed-stride or 'punctuation' for punctuation-based extraction."
-        )
-
     set_seed(args.seed)
 
     # Multi-layer config
@@ -1707,7 +1698,6 @@ def main():
         if RANDOM_LAYERS:
             print("Ablation: RANDOM LAYERS (per-item random layer sampling)")
         print(f"Position mode: {POSITION_MODE}")
-        print(f"Activation stride: {args.stride}")
 
     tokenizer = load_tokenizer(args.model)
 
@@ -1854,7 +1844,6 @@ def main():
             tokenizer=tokenizer,
             n=futurelens_n,
             split="train",
-            stride=args.stride,
             layers=MULTI_LAYERS,
             seed=args.seed,
         )
@@ -1898,7 +1887,6 @@ def main():
             n=cls_n,
             datasets=cls_datasets,
             layers=MULTI_LAYERS,
-            stride=args.stride,
             seed=args.seed,
         )
         raw_data.extend(cls_data)
@@ -1916,7 +1904,6 @@ def main():
         from data_loading import prepare_context_ids
         prepare_context_ids(
             raw_data, tokenizer,
-            stride=args.stride,
             layers=MULTI_LAYERS,
         )
 

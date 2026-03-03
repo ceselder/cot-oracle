@@ -157,28 +157,26 @@ def load_all_training_data(task_config: dict[str, dict]) -> list[dict]:
 def prepare_context_ids(
     items: list[dict],
     tokenizer,
-    stride: int | str = 5,
     layers: list[int] | None = None,
+    **_kwargs,
 ) -> list[dict]:
     """Compute context_input_ids and context_positions for items that need them.
 
     Skips items that already have context_input_ids (e.g. futurelens, fineweb
     which compute them in-memory during generation). For all others, builds
     the chat-templated input from cot_text + question/hinted_prompt, tokenizes
-    it, and computes stride positions in the CoT region.
+    it, and stores ALL token positions in the CoT region (stochastic sampler
+    handles subsampling at training time).
 
     Args:
         items: Raw dicts from load_task_data().
         tokenizer: HuggingFace tokenizer.
-        stride: Position stride for CoT region.
         layers: Layer indices (positions are repeated per layer).
 
     Returns:
         Same list, mutated in place (items gain context_input_ids,
         context_positions, num_positions, layer fields).
     """
-    from cot_utils import get_cot_positions
-
     if layers is None:
         layers = [9, 18, 27]
     n_layers = len(layers)
@@ -187,7 +185,7 @@ def prepare_context_ids(
     need_tokenize = [i for i, item in enumerate(items) if not item.get("context_input_ids")]
     if need_tokenize:
         print(f"  [data] Tokenizing cot_text for {len(need_tokenize)}/{len(items)} items "
-              f"(stride={stride}, {n_layers} layers)...")
+              f"(all positions, {n_layers} layers)...")
 
     prepared = 0
     _log_interval = max(1, len(need_tokenize) // 20)  # log every 5%
@@ -220,10 +218,8 @@ def prepare_context_ids(
         )
         full_ids = tokenizer.encode(full_text, add_special_tokens=False)
 
-        # Stride positions in the CoT region
-        cot_positions = get_cot_positions(
-            prompt_len, len(full_ids), stride=stride, tokenizer=tokenizer, input_ids=full_ids, include_last=True,
-        )
+        # All positions in the CoT region
+        cot_positions = list(range(prompt_len, len(full_ids)))
         if not cot_positions:
             continue
 
@@ -242,7 +238,7 @@ def prepare_context_ids(
 
     if prepared > 0:
         print(f"  [data] Tokenized cot_text → context_input_ids for {prepared} items "
-              f"(stride={stride}, {n_layers} layers)")
+              f"(all positions, {n_layers} layers)")
 
     return items
 
@@ -364,9 +360,9 @@ def load_futurelens_data(
     n: int = 30000,
     split: str = "train",
     predict_tokens: int = 50,
-    stride: int | str = 5,
     layers: list[int] | None = None,
     seed: int = 42,
+    **_kwargs,
 ) -> list[dict]:
     """Generate FutureLens training/eval data from corpus-v5.
 
@@ -385,8 +381,6 @@ def load_futurelens_data(
     Returns:
         List of dicts with context_input_ids, context_positions, etc.
     """
-    from cot_utils import get_cot_positions
-
     if layers is None:
         layers = [9, 18, 27]
     n_layers = len(layers)
@@ -435,15 +429,13 @@ def load_futurelens_data(
         full_text = prompt_text + cot_text
         full_ids = tokenizer.encode(full_text, add_special_tokens=False)
 
-        # Get stride positions in CoT region
-        stride_positions = get_cot_positions(
-            prompt_len, len(full_ids), stride=stride, tokenizer=tokenizer, input_ids=full_ids, include_last=True,
-        )
-        if len(stride_positions) < 3:
+        # All positions in CoT region
+        cot_positions = list(range(prompt_len, len(full_ids)))
+        if len(cot_positions) < 3:
             continue
 
         # Pick up to 3 random cutoff positions per entry
-        max_k = len(stride_positions) - 1
+        max_k = len(cot_positions) - 1
         n_picks = min(3, max_k + 1)
 
         for _ in range(n_picks):
@@ -451,7 +443,7 @@ def load_futurelens_data(
                 break
 
             k = rng.randint(0, max_k)
-            cutoff_pos = stride_positions[k]
+            cutoff_pos = cot_positions[k]
 
             # Target: next predict_tokens tokens after cutoff
             target_start = cutoff_pos + 1
@@ -785,8 +777,8 @@ def load_classification_data(
     n: int = 100000,
     datasets: list[str] | None = None,
     layers: list[int] | None = None,
-    stride: int | str = 5,
     seed: int = 42,
+    **_kwargs,
 ) -> list[dict]:
     """Load classification training data from standard NLP datasets.
 
@@ -799,14 +791,12 @@ def load_classification_data(
         n: Total number of examples to generate.
         datasets: Which classification datasets to use (default: all).
         layers: Layer indices for activation extraction.
-        stride: Position stride for activation extraction.
         seed: Random seed.
 
     Returns:
         List of dicts compatible with dicts_to_training_data().
     """
     from datasets import load_dataset as hf_load_dataset
-    from cot_utils import get_cot_positions
 
     if layers is None:
         layers = [9, 18, 27]
@@ -814,7 +804,6 @@ def load_classification_data(
         datasets = list(_CLS_DATASETS.keys())
 
     rng = random.Random(seed)
-    stride_floor = 5 if stride == "punctuation" else int(stride)
     n_layers = len(layers)
     per_ds = n // len(datasets)
 
@@ -858,13 +847,11 @@ def load_classification_data(
                 text, add_special_tokens=True, truncation=True, max_length=512,
             )
 
-            if len(input_ids) < stride_floor * 2:
+            if len(input_ids) < 5:
                 continue
 
-            # Activation positions over the full text
-            positions = get_cot_positions(
-                0, len(input_ids), stride=stride, tokenizer=tokenizer, input_ids=input_ids, include_last=True,
-            )
+            # All token positions
+            positions = list(range(len(input_ids)))
 
             # Repeat for each layer
             all_positions = positions * n_layers
