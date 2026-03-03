@@ -698,6 +698,8 @@ def _run_unified_eval(model, tokenizer, model_name, global_step, args, log_dir=N
         device="cuda",
         layers=MULTI_LAYERS,
         no_activations=no_activations,
+        position_mode=args.position_mode,
+        stochastic_max_k=args.stochastic_max_k,
     )
 
     # Build wandb Tables for each task's per-example traces

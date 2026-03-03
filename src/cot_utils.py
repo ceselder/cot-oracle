@@ -203,18 +203,22 @@ def sample_poisson_positions(
     rng: random.Random | None = None,
     max_k: int = 100,
     p_last_only: float = 0.4,
+    include_boundaries: bool = False,
 ) -> list[int]:
-    """20% last-only, 80% Poisson-process sampled positions.
+    """40% last-only, 60% Poisson-process sampled positions.
 
-    In the 80% case, sample k from a log-uniform (heavy-tailed) distribution
+    In the 60% case, sample k from a log-uniform (heavy-tailed) distribution
     between 2 and min(max_k, len(base_positions)), then place k positions via
     a Poisson process (uniform iid draws from available positions, deduplicated).
+    Optionally keep both boundary positions.
     """
     sampler = rng or random
     K = len(base_positions)
     if K <= 1:
         return base_positions[-1:]
     if sampler.random() < p_last_only:
+        if include_boundaries:
+            return sorted({base_positions[0], base_positions[-1]})
         return [base_positions[-1]]
     # Log-uniform between 2 and min(max_k, K) for heavy tail
     lo, hi = 2, min(max_k, K)
@@ -222,6 +226,8 @@ def sample_poisson_positions(
     k = max(2, min(k, K))
     # Poisson process: uniform iid draws, deduplicated
     picked = set(sampler.sample(base_positions, k))
+    if include_boundaries:
+        picked.add(base_positions[0])
     picked.add(base_positions[-1])  # always include last position
     return sorted(picked)
 

@@ -11,6 +11,7 @@ Activations are cached across eval steps (base model is frozen during LoRA train
 from __future__ import annotations
 
 import gc
+import random
 import re
 import time
 from dataclasses import dataclass
@@ -20,6 +21,7 @@ import torch
 
 from tasks import TASKS, TaskDef, ScoringMode, get_eval_tasks
 from data_loading import load_task_data, load_futurelens_data, prepare_context_ids
+from cot_utils import sample_poisson_positions
 
 
 # ── Per-task response parsers ──
@@ -578,6 +580,49 @@ def _ensure_ao_imports():
 # ── Activation extraction ──
 
 
+def _extract_base_positions(ctx_pos: list[int], n_layers_runtime: int) -> list[int]:
+    """Extract single-layer base positions from multi-layer context_positions."""
+    if not ctx_pos:
+        return ctx_pos
+    if len(ctx_pos) % n_layers_runtime == 0:
+        return ctx_pos[:len(ctx_pos) // n_layers_runtime]
+    for old_n in [3, 1, 2, 4, 5, 6]:
+        if len(ctx_pos) % old_n == 0:
+            return ctx_pos[:len(ctx_pos) // old_n]
+    return ctx_pos
+
+
+def _resample_eval_positions(
+    test_data: list[dict],
+    task_name: str,
+    layers: list[int],
+    position_mode: str,
+    stochastic_max_k: int,
+    eval_position_seed: int,
+) -> None:
+    """Match training-time position selection for eval, but keep it deterministic across eval steps."""
+    n_layers = len(layers)
+    for item_idx, item in enumerate(test_data):
+        ctx_pos = item.get("context_positions", [])
+        if not ctx_pos:
+            continue
+        base_positions = _extract_base_positions(ctx_pos, n_layers)
+        if not base_positions:
+            continue
+        if position_mode == "last_only":
+            sampled = base_positions[-1:]
+        elif position_mode == "stochastic":
+            rng = random.Random(f"{eval_position_seed}:{task_name}:{item_idx}")
+            sampled = sample_poisson_positions(base_positions, rng=rng, max_k=stochastic_max_k, include_boundaries=True)
+        elif position_mode == "all":
+            sampled = base_positions
+        else:
+            raise ValueError(f"Unknown eval position_mode: {position_mode!r}")
+        item["context_positions"] = sampled * n_layers
+        item["num_positions"] = len(item["context_positions"])
+        item["layer"] = layers[0]
+
+
 def _materialize_activations(
     model,
     tokenizer,
@@ -988,11 +1033,14 @@ def run_eval(
     skip_rot13: bool = True,
     activation_extract_batch_size: int = 4,
     no_activations: bool = False,
-) -> dict[str, float]:
+    position_mode: str = "stochastic",
+    stochastic_max_k: int = 100,
+    eval_position_seed: int = 0,
+) -> tuple[dict[str, float], dict[str, list[dict]]]:
     """Run eval for all (or specified) tasks.
 
     Caches activations across calls (base model is frozen during LoRA training).
-    Returns flat metrics dict for wandb.log().
+    Returns `(metrics, all_traces)` for wandb logging and disk trace dumps.
     """
     if layers is None:
         layers = [9, 18, 27]
@@ -1027,6 +1075,9 @@ def run_eval(
                 oracle_adapter_name=oracle_adapter_name,
                 activation_extract_batch_size=activation_extract_batch_size,
                 no_activations=no_activations,
+                position_mode=position_mode,
+                stochastic_max_k=stochastic_max_k,
+                eval_position_seed=eval_position_seed,
             )
             elapsed = time.time() - t0
 
@@ -1106,6 +1157,9 @@ def _eval_single_task(
     oracle_adapter_name: str,
     activation_extract_batch_size: int,
     no_activations: bool = False,
+    position_mode: str = "stochastic",
+    stochastic_max_k: int = 100,
+    eval_position_seed: int = 0,
 ) -> dict[str, float]:
     """Eval a single task with activation caching (or text-baseline mode)."""
 
@@ -1191,8 +1245,12 @@ def _eval_single_task(
 
     # ── Standard activation-based path ──
     # Check cache
-    if task_name in _eval_cache:
-        cached = _eval_cache[task_name]
+    cache_key = (
+        f"{task_name}:max={max_items}:layers={','.join(map(str, layers))}:"
+        f"mode={position_mode}:k={stochastic_max_k}:seed={eval_position_seed}"
+    )
+    if cache_key in _eval_cache:
+        cached = _eval_cache[cache_key]
         test_data = cached.test_data
         all_activations = [a.to(device) for a in cached.activations]
     else:
@@ -1257,6 +1315,14 @@ def _eval_single_task(
         test_data = [d for d in test_data if d.get("context_input_ids")]
         if not test_data:
             return {"n": 0}
+        _resample_eval_positions(
+            test_data=test_data,
+            task_name=task_name,
+            layers=layers,
+            position_mode=position_mode,
+            stochastic_max_k=stochastic_max_k,
+            eval_position_seed=eval_position_seed,
+        )
 
         # Materialize activations in mini-batches
         all_activations: list[torch.Tensor] = []
@@ -1268,7 +1334,7 @@ def _eval_single_task(
             all_activations.extend(chunk_acts)
 
         # Cache on CPU (base model frozen, activations won't change)
-        _eval_cache[task_name] = _CachedEvalData(
+        _eval_cache[cache_key] = _CachedEvalData(
             test_data=test_data,
             activations=[a.cpu() for a in all_activations],
         )
