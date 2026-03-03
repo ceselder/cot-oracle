@@ -751,7 +751,21 @@ def _run_unified_eval(model, tokenizer, model_name, global_step, args, log_dir=N
             log_dict[f"eval_table/{task_name}"] = table
 
     if log_dict and wandb.run:
-        wandb.log(log_dict, step=global_step)
+        # Log scalar metrics immediately; upload tables as a separate artifact
+        # to avoid clogging the wandb file_stream (which blocks all history sync).
+        scalar_dict = {k: v for k, v in log_dict.items() if not isinstance(v, wandb.Table)}
+        table_dict = {k: v for k, v in log_dict.items() if isinstance(v, wandb.Table)}
+        if scalar_dict:
+            wandb.log(scalar_dict, step=global_step)
+        if table_dict:
+            try:
+                _run_name = wandb.run.name or wandb.run.id
+                art = wandb.Artifact(f"eval_tables_{_run_name}_step{global_step}", type="eval_tables")
+                for tname, tbl in table_dict.items():
+                    art.add(tbl, tname.replace("/", "_"))
+                wandb.run.log_artifact(art)
+            except Exception as e:
+                print(f"  [wandb] Failed to upload eval tables artifact: {e}")
 
     elapsed = sum(v for k, v in metrics.items() if k.startswith("_eval_time/"))
     return metrics, elapsed
@@ -1364,10 +1378,7 @@ def train(
                         log_dict["train/block_idx"] = len(task_blocks) - 1
 
                 if global_step % SCATTER_LOG_INTERVAL == 0 and scatter_npos_loss:
-                    npos_table = wandb.Table(data=scatter_npos_loss, columns=["num_positions", "loss"])
-                    log_dict["train/loss_vs_npos"] = wandb.plot.scatter(npos_table, "num_positions", "loss", title="Loss vs Num Positions")
-                    nlayers_table = wandb.Table(data=scatter_nlayers_loss, columns=["num_layers", "loss"])
-                    log_dict["train/loss_vs_nlayers"] = wandb.plot.scatter(nlayers_table, "num_layers", "loss", title="Loss vs Num Layers")
+                    # Skip scatter plot tables in wandb.log — they clog the file_stream
                     scatter_npos_loss = []
                     scatter_nlayers_loss = []
 
