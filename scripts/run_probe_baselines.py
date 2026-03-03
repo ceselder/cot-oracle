@@ -860,6 +860,7 @@ def main():
         best_probe_info = None
         best_probe_acc = -1.0
         best_probe_meta = {}
+        all_saved_probes = {}  # name → (probe_info, meta) for saving all probes
 
         print(f"\n  Linear probes (mean-pool & last-pos) on {len(layers)} layers:")
         for layer in layers:
@@ -907,6 +908,12 @@ def main():
                     best_probe_meta = {"pooling": "last", "layers": [layer],
                                        "probe_name": f"last_linear_{ln}",
                                        "balanced_accuracy": acc}
+                # Save every last-position probe
+                all_saved_probes[f"last_linear_{ln}"] = (probe_info, {
+                    "pooling": "last", "layers": [layer],
+                    "probe_name": f"last_linear_{ln}",
+                    "balanced_accuracy": acc,
+                })
 
         # Concat all layers — linear
         print(f"\n  Linear probes (concat all {len(layers)} layers):")
@@ -949,24 +956,26 @@ def main():
                 best_probe_meta = {"pooling": "last", "layers": list(layers),
                                    "probe_name": "last_linear_concat",
                                    "balanced_accuracy": acc}
+            all_saved_probes["last_linear_concat"] = (probe_info, {
+                "pooling": "last", "layers": list(layers),
+                "probe_name": "last_linear_concat",
+                "balanced_accuracy": acc,
+            })
 
-        # Save best probe weights if requested
-        if args.save_probes and best_probe_info is not None:
+        # Save ALL last-position probe weights if requested
+        if args.save_probes and all_saved_probes:
             save_dir = Path(args.save_probes)
             save_dir.mkdir(parents=True, exist_ok=True)
-            save_path = save_dir / f"{ds_name}_probe.pt"
-            save_data = {
-                **best_probe_info,
-                "labels": all_labels if task_type != "regression" else None,
-                "n_classes": n_classes,
-                **best_probe_meta,
-            }
-            torch.save(save_data, save_path)
-            print(f"\n  Saved best probe to {save_path}")
-            print(f"    {best_probe_meta['probe_name']}: "
-                  f"bal_acc={best_probe_acc:.3f}, "
-                  f"layers={best_probe_meta['layers']}, "
-                  f"pooling={best_probe_meta['pooling']}")
+            for probe_name, (pinfo, pmeta) in all_saved_probes.items():
+                save_path = save_dir / f"{ds_name}_{probe_name}.pt"
+                save_data = {
+                    **pinfo,
+                    "labels": all_labels if task_type != "regression" else None,
+                    "n_classes": n_classes,
+                    **pmeta,
+                }
+                torch.save(save_data, save_path)
+                print(f"  Saved {save_path.name}: bal_acc={pmeta['balanced_accuracy']:.3f}")
 
         # ─── Attention probes (per-iteration collation, no pre-caching) ───
         if not args.skip_attn:
@@ -1183,6 +1192,41 @@ def main():
     with open(out_path, "w") as f:
         json.dump(all_results, f, indent=2, default=str)
     print(f"\nSaved results to {out_path}")
+
+    # Upload saved probes to HuggingFace
+    if args.save_probes:
+        save_dir = Path(args.save_probes)
+        probe_files = sorted(save_dir.glob("*.pt"))
+        if probe_files:
+            import os
+            hf_token = os.environ.get("HF_TOKEN")
+            if hf_token:
+                try:
+                    from huggingface_hub import HfApi
+                    hf_repo = "ceselder/qwen3-8b-linear-probes"
+                    api = HfApi(token=hf_token)
+                    api.create_repo(hf_repo, repo_type="model", exist_ok=True)
+                    for pf in probe_files:
+                        api.upload_file(
+                            path_or_fileobj=str(pf),
+                            path_in_repo=pf.name,
+                            repo_id=hf_repo,
+                            repo_type="model",
+                        )
+                        print(f"  Uploaded {pf.name}")
+                    # Also upload results JSON
+                    api.upload_file(
+                        path_or_fileobj=str(out_path),
+                        path_in_repo="probe_results.json",
+                        repo_id=hf_repo,
+                        repo_type="model",
+                    )
+                    print(f"  Uploaded probe_results.json")
+                    print(f"  HuggingFace: https://huggingface.co/{hf_repo}")
+                except Exception as e:
+                    print(f"  WARNING: HF upload failed: {e}")
+            else:
+                print("  Skipping HF upload (no HF_TOKEN set)")
 
 
 if __name__ == "__main__":
