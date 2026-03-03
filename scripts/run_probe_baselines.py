@@ -878,7 +878,7 @@ def main():
                 preds = ret
             record(f"mean_linear_{ln}", preds)
 
-            # Track best probe
+            # Track best probe + save mean-pool probe
             if args.save_probes and task_type != "regression":
                 acc = ds_results.get(f"mean_linear_{ln}", {}).get("balanced_accuracy", 0)
                 if acc > best_probe_acc:
@@ -887,6 +887,11 @@ def main():
                     best_probe_meta = {"pooling": "mean", "layers": [layer],
                                        "probe_name": f"mean_linear_{ln}",
                                        "balanced_accuracy": acc}
+                all_saved_probes[f"mean_linear_{ln}"] = (probe_info, {
+                    "pooling": "mean", "layers": [layer],
+                    "probe_name": f"mean_linear_{ln}",
+                    "balanced_accuracy": acc,
+                })
 
             # Last-pos linear
             X_tr = last_pool_vec(train_items, [layer])
@@ -936,6 +941,11 @@ def main():
                 best_probe_meta = {"pooling": "mean", "layers": list(layers),
                                    "probe_name": "mean_linear_concat",
                                    "balanced_accuracy": acc}
+            all_saved_probes["mean_linear_concat"] = (probe_info, {
+                "pooling": "mean", "layers": list(layers),
+                "probe_name": "mean_linear_concat",
+                "balanced_accuracy": acc,
+            })
 
         X_tr = last_pool_vec(train_items, layers)
         X_te = last_pool_vec(test_items, layers)
