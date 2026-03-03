@@ -3,15 +3,15 @@
 
 tasks:
   hint_admission:
-    n: 999999
+    n: -1
     eval: true
 
   atypical_answer:
-    n: 999999
+    n: -1
     eval: true
 
   reasoning_termination:
-    n: 999999
+    n: -1
     eval: true
 
   answer_trajectory:
@@ -23,27 +23,27 @@ tasks:
     eval: true
 
   correctness:
-    n: 999999
+    n: -1
     eval: true
 
   decorative_cot:
-    n: 999999
+    n: -1
     eval: true
 
   chunked_convqa:
-    n: 999999
+    n: -1
     eval: true
 
   chunked_compqa:
-    n: 999999
+    n: -1
     eval: true
 
   backtrack_prediction:
-    n: 999999
+    n: -1
     eval: true
 
   sycophancy:
-    n: 999999
+    n: -1
     eval: true
 
   probe_sycophancy:
@@ -55,7 +55,7 @@ tasks:
     eval: false
 
   truthfulqa_hint:
-    n: 999999
+    n: -1
     eval: true
 
   sentence_insertion:
@@ -110,7 +110,6 @@ activations:
 
 eval:
   eval_steps: 200
-  save_steps: 10000
   max_items_per_eval: 25
   eval_batch_size: 4
 

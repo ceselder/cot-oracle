@@ -3,9 +3,9 @@
 # All data is downloaded from HuggingFace automatically.
 
 tasks:
-  # --- Trainable tasks (n=999999 means "load all available") ---
+  # --- Trainable tasks (n=-1 means "load all available") ---
   hint_admission:
-    n: 999999
+    n: -1
     eval: true
 
   atypical_answer:
@@ -13,7 +13,7 @@ tasks:
     eval: true
 
   reasoning_termination:
-    n: 999999
+    n: -1
     eval: true
 
   answer_trajectory:
@@ -25,11 +25,11 @@ tasks:
     eval: true
 
   correctness:
-    n: 999999
+    n: -1
     eval: true
 
   decorative_cot:
-    n: 999999
+    n: -1
     eval: true
 
   chunked_convqa:
@@ -41,11 +41,11 @@ tasks:
     eval: true
 
   backtrack_prediction:
-    n: 999999
+    n: -1
     eval: true
 
   sycophancy:
-    n: 999999
+    n: -1
     eval: true
 
   probe_sycophancy:
@@ -57,11 +57,11 @@ tasks:
     eval: false
 
   sqa:
-    n: 999999
+    n: -1
     eval: true
 
   truthfulqa_hint:
-    n: 999999
+    n: -1
     eval: true
 
   sentence_insertion:
@@ -113,7 +113,6 @@ activations:
 # Eval
 eval:
   eval_steps: 2000
-  save_steps: 2000              # checkpoint every eval
   max_items_per_eval: 25
 
 # Model

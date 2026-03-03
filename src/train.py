@@ -989,7 +989,7 @@ def train(
             block_eval_steps.add(cursor)  # end of block
         block_eval_steps.discard(0)  # step-0 eval handled separately
         sorted_evals = sorted(block_eval_steps)
-        block_save_steps = set(sorted_evals[i] for i in range(4, len(sorted_evals), 5))
+        block_save_steps = set(sorted_evals[i] for i in range(1, len(sorted_evals), 2))
 
     # Dynamic eval/save cadence: ~10 evals over the relevant span
     if task_order == "interleaved":
@@ -1001,7 +1001,7 @@ def train(
     elif task_order == "sequential":
         reference_steps = max(len(items) // (args.batch_size * grad_accum) for items in train_per_type.values() if len(items) >= args.batch_size)
         args.eval_steps = max(-(-reference_steps // 10), 1)
-        args.save_steps = args.eval_steps * 5
+        args.save_steps = args.eval_steps * 2
         if rank == 0:
             print(f"\n  Dynamic cadence (reference = {reference_steps} steps):")
             print(f"    eval_steps: {args.eval_steps} (~{reference_steps // max(args.eval_steps, 1)}x)")
@@ -1009,7 +1009,7 @@ def train(
     else:
         reference_steps = total_steps
         args.eval_steps = max(-(-reference_steps // 10), 1)
-        args.save_steps = args.eval_steps * 5
+        args.save_steps = args.eval_steps * 2
         if rank == 0:
             print(f"\n  Dynamic cadence (reference = {reference_steps} steps):")
             print(f"    eval_steps: {args.eval_steps} (~{reference_steps // max(args.eval_steps, 1)}x)")

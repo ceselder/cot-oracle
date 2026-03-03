@@ -91,7 +91,6 @@ activations:
 
 eval:
   eval_steps: 10
-  save_steps: 999999
   max_items_per_eval: 15
   eval_batch_size: 4
 
