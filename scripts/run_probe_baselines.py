@@ -1203,7 +1203,8 @@ def main():
             if hf_token:
                 try:
                     from huggingface_hub import HfApi
-                    hf_repo = "ceselder/qwen3-8b-linear-probes"
+                    hf_repo = "mats-10-sprint-cs-jb/qwen3-8b-linear-probes"
+                    collection_slug = "mats-10-sprint-cs-jb/cleaned-datasets-69a365228a41b50e0e1e9af4"
                     api = HfApi(token=hf_token)
                     api.create_repo(hf_repo, repo_type="model", exist_ok=True)
                     for pf in probe_files:
@@ -1223,6 +1224,16 @@ def main():
                     )
                     print(f"  Uploaded probe_results.json")
                     print(f"  HuggingFace: https://huggingface.co/{hf_repo}")
+                    # Add to collection
+                    try:
+                        api.add_collection_item(
+                            collection_slug=collection_slug,
+                            item_id=hf_repo,
+                            item_type="model",
+                        )
+                        print(f"  Added to collection: {collection_slug}")
+                    except Exception as e:
+                        print(f"  Collection add: {e}")
                 except Exception as e:
                     print(f"  WARNING: HF upload failed: {e}")
             else:
