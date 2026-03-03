@@ -1,0 +1,84 @@
+{
+  "hint_admission": {
+    "n_train": 3000,
+    "n_test": 432,
+    "mean_linear_L9": {
+      "balanced_accuracy": 0.6018518518518519
+    },
+    "last_linear_L9": {
+      "balanced_accuracy": 0.7638888888888888
+    },
+    "mean_linear_L18": {
+      "balanced_accuracy": 0.6712962962962963
+    },
+    "last_linear_L18": {
+      "balanced_accuracy": 0.8240740740740741
+    },
+    "mean_linear_L27": {
+      "balanced_accuracy": 0.6388888888888888
+    },
+    "last_linear_L27": {
+      "balanced_accuracy": 0.7800925925925926
+    },
+    "mean_linear_concat": {
+      "balanced_accuracy": 0.6342592592592593
+    },
+    "last_linear_concat": {
+      "balanced_accuracy": 0.8148148148148149
+    }
+  },
+  "sycophancy": {
+    "n_train": 3000,
+    "n_test": 500,
+    "mean_linear_L9": {
+      "balanced_accuracy": 0.7275815217391304
+    },
+    "last_linear_L9": {
+      "balanced_accuracy": 0.7502911490683231
+    },
+    "mean_linear_L18": {
+      "balanced_accuracy": 0.7609019151138716
+    },
+    "last_linear_L18": {
+      "balanced_accuracy": 0.7971337991718427
+    },
+    "mean_linear_L27": {
+      "balanced_accuracy": 0.7604813664596273
+    },
+    "last_linear_L27": {
+      "balanced_accuracy": 0.807032867494824
+    },
+    "mean_linear_concat": {
+      "balanced_accuracy": 0.7692805383022774
+    },
+    "last_linear_concat": {
+      "balanced_accuracy": 0.8109472049689441
+    }
+  },
+  "xmech_hint_admission_to_sycophancy": {
+    "mean_linear_L9": {
+      "balanced_accuracy": 0.5281120600414079
+    },
+    "last_linear_L9": {
+      "balanced_accuracy": 0.572366718426501
+    },
+    "mean_linear_L18": {
+      "balanced_accuracy": 0.49890010351966874
+    },
+    "last_linear_L18": {
+      "balanced_accuracy": 0.5748253105590062
+    },
+    "mean_linear_L27": {
+      "balanced_accuracy": 0.5072140269151139
+    },
+    "last_linear_L27": {
+      "balanced_accuracy": 0.4696557971014493
+    },
+    "mean_linear_concat": {
+      "balanced_accuracy": 0.5480395962732919
+    },
+    "last_linear_concat": {
+      "balanced_accuracy": 0.5818452380952381
+    }
+  }
+}
