@@ -119,7 +119,7 @@ def _parse_sycophancy(text: str) -> dict | None:
 TASK_PARSERS: dict[str, Any] = {
     "hint_admission": _parse_hint,
     "truthfulqa_hint_verbalized": _parse_hint,
-    "truthfulqa_hint_unverbalized": _parse_hint,
+    "truthfulqa_hint": _parse_hint,
     "atypical_answer": _parse_atypical,
     "reasoning_termination": _parse_termination,
     "correctness": _parse_correctness,

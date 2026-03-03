@@ -318,8 +318,8 @@ TASKS: dict[str, TaskDef] = {
         max_new_tokens=64,
     ),
 
-    "truthfulqa_hint_unverbalized": TaskDef(
-        name="truthfulqa_hint_unverbalized",
+    "truthfulqa_hint": TaskDef(
+        name="truthfulqa_hint",
         hf_repo=f"{HF_ORG}/cot-oracle-truthfulqa-hint-cleaned",
         scoring=ScoringMode.BINARY,
         positive_keywords=(

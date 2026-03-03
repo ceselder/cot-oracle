@@ -60,7 +60,7 @@ tasks:
     n: 999999
     eval: true
 
-  truthfulqa_hint_unverbalized:
+  truthfulqa_hint:
     n: 999999
     eval: true
 
@@ -94,8 +94,8 @@ training:
   gradient_checkpointing: true
   task_order: shuffled
   interleave_blocks: 50
-  max_train_tokens_per_gpu: 131072
-  extraction_batch_size: 256     # lookahead extraction; actual micro-batches split further on token budget / OOM
+  max_train_tokens_per_gpu: 65536
+  extraction_batch_size: 128     # lookahead extraction; actual micro-batches split further on token budget / OOM
   seed: 42
 
 # Text-baseline (no activations — receives CoT as plain text instead of activation vectors)
