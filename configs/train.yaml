@@ -37,11 +37,11 @@ tasks:
     eval: true
 
   chunked_convqa:
-    n: -1
+    n: 30000
     eval: true
 
   chunked_compqa:
-    n: -1
+    n: 30000
     eval: true
 
   backtrack_prediction:
