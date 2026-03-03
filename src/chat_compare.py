@@ -1459,6 +1459,7 @@ class ChatCompareWebApp:
                 "question": row["question"],
                 "prompt": row["prompt"],
                 "target_response": row["target_response"],
+                "cot_text": row.get("cot_text", ""),
                 "cot_prefix": row.get("cot_prefix", ""),
                 "cot_suffix": row.get("cot_suffix", ""),
                 "source": row.get("source", ""),
@@ -1730,9 +1731,27 @@ class ChatCompareWebApp:
           <div id=\"answerPreview\" class=\"text-block\" style=\"max-height:400px;overflow-y:auto\"></div>
         </div>
       </div>
-      <div id=\"targetResponsePanel\" class=\"panel\" style=\"display:none\">
-        <h3 style=\"margin-top:0\">Target Response <span class=\"muted small\">(ground truth from chunked task)</span></h3>
-        <div id=\"targetResponseText\" class=\"text-block\" style=\"max-height:200px;overflow-y:auto\"></div>
+      <div id=\"chunkedPanel\" style=\"display:none\">
+        <div style=\"display:grid;grid-template-columns:1fr 1fr;gap:12px\">
+          <div class=\"panel\">
+            <h3 style=\"margin-top:0\">CoT Prefix <span class=\"muted small\">(activations extracted from this)</span></h3>
+            <div id=\"chunkedPrefix\" class=\"text-block\" style=\"max-height:300px;overflow-y:auto\"></div>
+          </div>
+          <div class=\"panel\">
+            <h3 style=\"margin-top:0\">CoT Suffix <span class=\"muted small\">(oracle must predict about this)</span></h3>
+            <div id=\"chunkedSuffix\" class=\"text-block\" style=\"max-height:300px;overflow-y:auto\"></div>
+          </div>
+        </div>
+        <div style=\"display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:0\">
+          <div class=\"panel\">
+            <h3 style=\"margin-top:0\">Full CoT</h3>
+            <div id=\"chunkedFullCot\" class=\"text-block\" style=\"max-height:200px;overflow-y:auto\"></div>
+          </div>
+          <div class=\"panel\">
+            <h3 style=\"margin-top:0\">Target Response <span class=\"muted small\">(ground truth)</span></h3>
+            <div id=\"targetResponseText\" class=\"text-block\" style=\"max-height:200px;overflow-y:auto\"></div>
+          </div>
+        </div>
       </div>
       <div class=\"panel\">
         <h3 style=\"margin-top:0\">Activation Positions (CoT only)</h3>
@@ -2547,8 +2566,11 @@ For your final answer, respond with "Answer: Yes" or "Answer: No" after the chai
       document.getElementById('question').value = data.question;
       document.getElementById('customPrompt').value = data.prompt;
       currentChunkedTarget = data;
+      document.getElementById('chunkedPrefix').textContent = data.cot_prefix;
+      document.getElementById('chunkedSuffix').textContent = data.cot_suffix;
+      document.getElementById('chunkedFullCot').textContent = data.cot_text;
       document.getElementById('targetResponseText').textContent = data.target_response;
-      document.getElementById('targetResponsePanel').style.display = 'block';
+      document.getElementById('chunkedPanel').style.display = 'block';
       document.getElementById('chunkedInfo').style.display = 'block';
       document.getElementById('chunkedInfo').textContent = `Source: ${data.source} | prefix: ${data.cot_prefix.length} chars | suffix: ${data.cot_suffix.length} chars`;
       setStatus(`Loaded ${taskKey} sample. The question and prompt are pre-filled. Generate a CoT to proceed.`);
