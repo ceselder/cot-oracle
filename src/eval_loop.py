@@ -1210,17 +1210,6 @@ def _eval_single_task(
         if re_strided > 0:
             print(f"  [eval] Re-strided {re_strided} precomputed items to stride={stride}")
 
-        # Trim to last position per layer for eval (oracle sees minimal context at barrier)
-        for item in test_data:
-            pos = item.get("context_positions", [])
-            if not pos:
-                continue
-            K = len(pos) // n_layers
-            if K > 0:
-                last_pos = pos[K - 1]  # last position in first layer's chunk
-                item["context_positions"] = [last_pos] * n_layers
-                item["num_positions"] = n_layers
-
         test_data = [d for d in test_data if d.get("context_input_ids")]
         if not test_data:
             return {"n": 0}

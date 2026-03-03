@@ -21,12 +21,12 @@ Key files:
 
 All data uses the same schema: `{task, prompt, target_response, context_input_ids, context_positions, layers}`
 
-### 50/50 suffix-based stride sampling
-During training, positions are always a contiguous suffix up to the prediction barrier:
-- **50%** of examples: only the **last 1 position** per layer (minimal context at the barrier)
-- **50%** of examples: sample `m` uniformly from `1..K`, take the **last `m` positions** per layer
+### Stochastic position sampling (training)
+Base positions are computed at stride=5 over the CoT region. During training, stochastic subsampling (default):
+- **40%** of examples: only the **last position** per layer (minimal context)
+- **60%** of examples: sample `k` from a log-uniform distribution over `[2, min(100, K)]`, then draw `k` Poisson-process positions (uniform iid, deduplicated), always including the last position
 
-This trains the oracle to work with varying amounts of trailing activation context, from a single activation to the full CoT.
+At **eval time**, all stride-5 positions are used (no subsampling).
 
 ## Training
 
@@ -62,7 +62,7 @@ We use Sparse Autoencoders (SAEs) from `adamkarvonen/qwen3-8b-saes` to get inter
 - **Use Docker-based launch** (`scripts/vast_launch_docker.sh`) — pre-baked image skips uv sync + rsync.
 
 ## Workflow
-- **Push after every notable change.** Commit and push to remote after completing any meaningful unit of work (bug fix, feature, refactor). Don't accumulate uncommitted changes.
+- **Push after every notable change.** If and only if you are Celeste (not Jan), Commit and push to remote after completing any meaningful unit of work, but only if you are Celeste (bug fix, feature, refactor).
 
 ## Critical Lessons
 - **Mini corpus memorization:** 1,064 entries x 15K = 14x repetition → loss=0.01. Use medium corpus (47K+).

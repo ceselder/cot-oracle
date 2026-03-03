@@ -5,6 +5,7 @@ Extracted from ao_lib.py for use in CPU-only scripts like corpus generation.
 """
 
 import bisect
+import math
 import random
 import re
 
@@ -197,26 +198,30 @@ def get_cot_positions(
     )
 
 
-def sample_chi_squared_positions(
+def sample_poisson_positions(
     base_positions: list[int],
     rng: random.Random | None = None,
+    max_k: int = 100,
+    p_last_only: float = 0.4,
 ) -> list[int]:
-    """50% last-only, 50% chi-squared(df=4) random positions.
+    """20% last-only, 80% Poisson-process sampled positions.
 
-    Chi-squared(df=4) = gamma(alpha=2, beta=2). Gives a right-skewed
-    distribution favouring small counts (1-3 positions) but with a long
-    tail that occasionally includes many positions.
+    In the 80% case, sample k from a log-uniform (heavy-tailed) distribution
+    between 2 and min(max_k, len(base_positions)), then place k positions via
+    a Poisson process (uniform iid draws from available positions, deduplicated).
     """
     sampler = rng or random
     K = len(base_positions)
     if K <= 1:
         return base_positions[-1:]
-    if sampler.random() < 0.5:
+    if sampler.random() < p_last_only:
         return [base_positions[-1]]
-    # chi-squared(df=4) = gamma(alpha=2, beta=2)
-    x = int(sampler.gammavariate(2.0, 2.0)) + 1
-    x = min(x, K)
-    picked = set(sampler.sample(base_positions, x))
+    # Log-uniform between 2 and min(max_k, K) for heavy tail
+    lo, hi = 2, min(max_k, K)
+    k = int(round(math.exp(sampler.uniform(math.log(lo), math.log(hi)))))
+    k = max(2, min(k, K))
+    # Poisson process: uniform iid draws, deduplicated
+    picked = set(sampler.sample(base_positions, k))
     picked.add(base_positions[-1])  # always include last position
     return sorted(picked)
 
