@@ -1636,58 +1636,37 @@ def main():
     parser.add_argument("--chunked-compqa-n", type=int, default=0)
     parser.add_argument("--sycophancy-n", type=int, default=0)
 
-    # Training hyperparams
-    parser.add_argument("--lr", type=float, default=1e-5)
-    parser.add_argument("--batch-size", type=int, default=16)
+    # Training hyperparams (defaults are None; sourced from YAML config, with hardcoded
+    # fallbacks in _FALLBACK_DEFAULTS for when no config is provided)
+    parser.add_argument("--lr", type=float, default=None)
+    parser.add_argument("--batch-size", type=int, default=None)
     parser.add_argument("--eval-batch-size", type=int, default=8)
-    parser.add_argument("--max-items-per-eval", type=int, default=10,
-                        help="Maximum items per detection eval")
-    parser.add_argument("--eval-max-new-tokens", type=int, default=32,
-                        help="Default max_new_tokens for detection eval generation")
-    parser.add_argument("--task-eval-max-new-tokens", type=int, default=64,
-                        help="Default max_new_tokens for task-level eval generation")
-    parser.add_argument("--epochs", type=int, default=1)
-    parser.add_argument("--n-layers", type=int, default=3,
-                        help="Number of activation layers (evenly spaced through model depth)")
-    parser.add_argument("--layers", type=int, nargs="+", default=None,
-                        help="Explicit layer indices (overrides --n-layers). E.g. --layers 9 18 27")
-    parser.add_argument("--steering-coefficient", type=float, default=1.0)
-    parser.add_argument("--max-grad-norm", type=float, default=1.0)
-    parser.add_argument("--warmup-fraction", type=float, default=0.1)
-    parser.add_argument("--seed", type=int, default=42)
-    parser.add_argument("--gradient-checkpointing", action="store_true", default=True)
-    parser.add_argument("--no-gradient-checkpointing", dest="gradient_checkpointing",
-                        action="store_false")
-    parser.add_argument("--position-mode", type=str, default="last_only",
-                        choices=["last_only", "stochastic", "all"],
-                        help="Position sampling: last_only (fastest), stochastic (random subsample), all")
-    parser.add_argument("--stochastic-max-k", type=int, default=100,
-                        help="Upper bound for Poisson position sampling (default 100)")
-    parser.add_argument("--max-context-length", type=int, default=0,
-                        help="Drop training samples with context_input_ids longer than this (0 = no filter)")
-    parser.add_argument("--task-order", choices=["shuffled", "sequential", "interleaved"], default="shuffled",
-                        help="'shuffled' mixes all tasks; 'sequential' trains one at a time; 'interleaved' round-robin blocks")
-    parser.add_argument("--interleave-blocks", type=int, default=50,
-                        help="Number of blocks for interleaved mode (default 50)")
-    parser.add_argument("--length-bucketing", action="store_true", default=True,
-                        help="Enable windowed context-length bucketing in shuffled mode")
+    parser.add_argument("--max-items-per-eval", type=int, default=None, help="Maximum items per detection eval")
+    parser.add_argument("--eval-max-new-tokens", type=int, default=32, help="Default max_new_tokens for detection eval generation")
+    parser.add_argument("--task-eval-max-new-tokens", type=int, default=64, help="Default max_new_tokens for task-level eval generation")
+    parser.add_argument("--epochs", type=int, default=None)
+    parser.add_argument("--n-layers", type=int, default=None, help="Number of activation layers (evenly spaced through model depth)")
+    parser.add_argument("--layers", type=int, nargs="+", default=None, help="Explicit layer indices (overrides --n-layers). E.g. --layers 9 18 27")
+    parser.add_argument("--steering-coefficient", type=float, default=None)
+    parser.add_argument("--max-grad-norm", type=float, default=None)
+    parser.add_argument("--warmup-fraction", type=float, default=None)
+    parser.add_argument("--seed", type=int, default=None)
+    parser.add_argument("--gradient-checkpointing", action="store_true", default=None)
+    parser.add_argument("--no-gradient-checkpointing", dest="gradient_checkpointing", action="store_false")
+    parser.add_argument("--position-mode", type=str, default=None, choices=["last_only", "stochastic", "all"], help="Position sampling: last_only (fastest), stochastic (random subsample), all")
+    parser.add_argument("--stochastic-max-k", type=int, default=None, help="Upper bound for Poisson position sampling")
+    parser.add_argument("--max-context-length", type=int, default=None, help="Drop training samples with context_input_ids longer than this (0 = no filter)")
+    parser.add_argument("--task-order", choices=["shuffled", "sequential", "interleaved"], default=None, help="'shuffled' mixes all tasks; 'sequential' trains one at a time; 'interleaved' round-robin blocks")
+    parser.add_argument("--interleave-blocks", type=int, default=None, help="Number of blocks for interleaved mode")
+    parser.add_argument("--length-bucketing", action="store_true", default=None, help="Enable windowed context-length bucketing in shuffled mode")
     parser.add_argument("--no-length-bucketing", dest="length_bucketing", action="store_false")
-    parser.add_argument("--length-bucket-window-batches", type=int, default=32,
-                        help="Window size for length bucketing, in units of train batches")
-    parser.add_argument("--effective-batch-size", type=int, default=16,
-                        help="Total effective batch size (invariant to GPU count). "
-                             "gradient_accumulation_steps = effective_batch_size / (batch_size * world_size)")
-    parser.add_argument("--max-train-tokens-per-gpu", type=int, default=0,
-                        help="Approximate per-GPU peak token budget for splitting long train batches (0 disables)")
-    parser.add_argument("--max-extract-tokens-per-gpu", type=int, default=0,
-                        help="Approximate per-GPU token budget for activation extraction batches (0 = use --max-train-tokens-per-gpu)")
-    parser.add_argument("--extraction-batch-size", type=int, default=0,
-                        help="Lookahead extraction: extract this many examples at once, then train in batch_size chunks. "
-                             "0 = same as batch_size (no lookahead). Set to 64-128 for significant speedup.")
-    parser.add_argument("--torch-compile", action="store_true", default=False,
-                        help="Compile the training forward path with torch.compile")
-    parser.add_argument("--torch-compile-mode", choices=["default", "reduce-overhead", "max-autotune", "max-autotune-no-cudagraphs"], default="default",
-                        help="torch.compile mode")
+    parser.add_argument("--length-bucket-window-batches", type=int, default=None, help="Window size for length bucketing, in units of train batches")
+    parser.add_argument("--effective-batch-size", type=int, default=None, help="Total effective batch size (invariant to GPU count). gradient_accumulation_steps = effective_batch_size / (batch_size * world_size)")
+    parser.add_argument("--max-train-tokens-per-gpu", type=int, default=None, help="Approximate per-GPU peak token budget for splitting long train batches (0 disables)")
+    parser.add_argument("--max-extract-tokens-per-gpu", type=int, default=None, help="Approximate per-GPU token budget for activation extraction batches (0 = use --max-train-tokens-per-gpu)")
+    parser.add_argument("--extraction-batch-size", type=int, default=None, help="Lookahead extraction: extract this many examples at once, then train in batch_size chunks. 0 = same as batch_size (no lookahead). Set to 64-128 for significant speedup.")
+    parser.add_argument("--torch-compile", action="store_true", default=None, help="Compile the training forward path with torch.compile")
+    parser.add_argument("--torch-compile-mode", choices=["default", "reduce-overhead", "max-autotune", "max-autotune-no-cudagraphs"], default=None, help="torch.compile mode")
 
     # Text-only baseline
     parser.add_argument("--no-activations", action="store_true", default=False,
@@ -1715,24 +1694,19 @@ def main():
                         help="Number of LatentQA examples (0 = disabled, set via config)")
 
     # Layer dropout
-    parser.add_argument("--layer-dropout", action="store_true", default=False,
-                        help="Random non-empty subsets of configured layers per training example")
-    parser.add_argument("--no-layer-dropout", dest="layer_dropout", action="store_false",
-                        help="Disable layer dropout (override config)")
-    parser.add_argument("--position-encoding", action="store_true", default=False,
-                        help="Add sinusoidal position encoding to activations")
+    parser.add_argument("--layer-dropout", action="store_true", default=None, help="Random non-empty subsets of configured layers per training example")
+    parser.add_argument("--no-layer-dropout", dest="layer_dropout", action="store_false")
+    parser.add_argument("--position-encoding", action="store_true", default=None, help="Add sinusoidal position encoding to activations")
     parser.add_argument("--no-position-encoding", dest="position_encoding", action="store_false")
-    parser.add_argument("--pe-alpha", type=float, default=0.1, help="Position encoding strength")
+    parser.add_argument("--pe-alpha", type=float, default=None, help="Position encoding strength")
 
     # Ablations
     parser.add_argument("--random-layers", action="store_true", default=False,
                         help="Randomize layer count and indices per training sequence")
 
     # Eval / save
-    parser.add_argument("--eval-steps", type=int, default=2000,
-                        help="Run evals every N steps (shuffled mode)")
-    parser.add_argument("--save-steps", type=int, default=10000,
-                        help="Save checkpoint every N steps (shuffled mode)")
+    parser.add_argument("--eval-steps", type=int, default=None, help="Run evals every N steps (shuffled mode)")
+    parser.add_argument("--save-steps", type=int, default=None, help="Save checkpoint every N steps (shuffled mode)")
     parser.add_argument("--no-step0-eval", action="store_true", default=False,
                         help="Skip evals at step 0 (for quick ablation launches)")
     parser.add_argument("--start-step", type=int, default=None,
@@ -1773,6 +1747,24 @@ def main():
             print(yaml.dump(config, default_flow_style=False, sort_keys=False).rstrip())
             print(f"{'=' * 60}\n")
 
+    # Fallback defaults for when no config is provided (YAML is the single source of
+    # truth; these only kick in for args still None after config application)
+    _FALLBACKS = dict(
+        lr=1e-5, batch_size=16, epochs=1, max_items_per_eval=10,
+        steering_coefficient=1.0, max_grad_norm=1.0, warmup_fraction=0.1, seed=42,
+        gradient_checkpointing=True, position_mode="last_only", stochastic_max_k=100,
+        max_context_length=0, task_order="shuffled", interleave_blocks=50,
+        length_bucketing=True, length_bucket_window_batches=32,
+        effective_batch_size=16, max_train_tokens_per_gpu=0,
+        max_extract_tokens_per_gpu=0, extraction_batch_size=0,
+        torch_compile=False, torch_compile_mode="default",
+        layer_dropout=False, position_encoding=False, pe_alpha=0.1,
+        n_layers=3, eval_steps=2000, save_steps=10000,
+    )
+    for key, fallback in _FALLBACKS.items():
+        if getattr(args, key, None) is None:
+            setattr(args, key, fallback)
+
     # Auto-scale batch sizes for multi-GPU (unless explicitly set via CLI)
     if world_size > 1:
         if not getattr(args, "_cli_batch_size", False):
@@ -1792,12 +1784,12 @@ def main():
     global MULTI_LAYERS, NO_ACTIVATIONS, RANDOM_LAYERS, LAYER_DROPOUT, POSITION_MODE, STOCHASTIC_MAX_K, MAX_CONTEXT_LENGTH, POSITION_ENCODING, PE_ALPHA, _MODEL_N_LAYERS
     NO_ACTIVATIONS = getattr(args, "no_activations", False)
     RANDOM_LAYERS = getattr(args, "random_layers", False)
-    LAYER_DROPOUT = getattr(args, "layer_dropout", False)
-    POSITION_MODE = getattr(args, "position_mode", "last_only")
-    STOCHASTIC_MAX_K = getattr(args, "stochastic_max_k", 100)
-    MAX_CONTEXT_LENGTH = getattr(args, "max_context_length", 0)
-    POSITION_ENCODING = getattr(args, "position_encoding", False)
-    PE_ALPHA = getattr(args, "pe_alpha", 0.1)
+    LAYER_DROPOUT = args.layer_dropout
+    POSITION_MODE = args.position_mode
+    STOCHASTIC_MAX_K = args.stochastic_max_k
+    MAX_CONTEXT_LENGTH = args.max_context_length
+    POSITION_ENCODING = args.position_encoding
+    PE_ALPHA = args.pe_alpha
     from cot_utils import LAYER_COUNTS
     _MODEL_N_LAYERS = LAYER_COUNTS.get(args.model, 36)
     if hasattr(args, "layers") and args.layers:
