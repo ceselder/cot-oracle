@@ -1345,10 +1345,13 @@ class ChatCompareWebApp:
           <div id=\"oracleOut\" class=\"text-block\"></div>
         </div>
         <div class=\"panel\">
-          <h3 style=\"margin-top:0\">SAE -> LLM Baseline</h3>
+          <h3 style=\"margin-top:0;display:inline\">SAE -> LLM Baseline</h3>
+          <label style=\"float:right;font-size:12px;color:#94a3b8;cursor:pointer;user-select:none\"><input id=\"saeViewToggle\" type=\"checkbox\" style=\"width:auto;margin-right:4px\">Show raw features</label>
+          <div style=\"clear:both\"></div>
           <div class=\"mini-status\" id=\"saeStatus\"><span class=\"mini-dot\"></span><span id=\"saeStatusText\"></span></div>
           <div class=\"muted small\">Gemini via OpenRouter answers the oracle prompt using only SAE feature descriptions</div>
           <div id=\"saeOut\" class=\"text-block\"></div>
+          <div id=\"saeRawOut\" class=\"text-block\" style=\"display:none;white-space:pre-wrap;font-family:monospace;font-size:11px;color:#94a3b8\"></div>
         </div>
       </div>
       <div class=\"panel\">
@@ -1887,6 +1890,7 @@ For your final answer, respond with "Answer: Yes" or "Answer: No" after the chai
         setPanelLoading('sae', true, 'Running...');
         requests.push(postJson('/api/run_sae_partial', payload).then(data => {
         document.getElementById('saeOut').textContent = compactText(data.sae_response);
+        document.getElementById('saeRawOut').textContent = data.sae_feature_desc || '';
         setPanelLoading('sae', false, 'Loaded');
         advanceProgress('SAE baseline loaded...');
         return ['sae', data];
@@ -1897,6 +1901,7 @@ For your final answer, respond with "Answer: Yes" or "Answer: No" after the chai
       } else {
         setPanelLoading('sae', false, 'Skipped');
         document.getElementById('saeOut').textContent = '(skipped)';
+        document.getElementById('saeRawOut').textContent = '';
       }
       const settled = await Promise.allSettled(requests);
       const failed = settled.find(result => result.status === 'rejected');
