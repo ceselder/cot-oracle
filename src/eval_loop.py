@@ -701,7 +701,7 @@ def _batched_oracle_generate(
 
     for activations, oracle_prompt in items:
         num_positions = activations.shape[0]
-        prefix = "Activations:" + ph_token * num_positions + ".\n"
+        prefix = _build_oracle_prefix(num_positions, ph_token)
         full_prompt = prefix + oracle_prompt
 
         messages = [{"role": "user", "content": full_prompt}]
@@ -807,6 +807,13 @@ def _batched_oracle_generate(
 # ── Text-baseline generation (no activations) ──
 
 _ACT_PREFIX_RE = re.compile(r'^Activations from \d+ positions[^.]*\.\s*')
+
+
+def _build_oracle_prefix(num_positions: int, placeholder_token: str | None = None) -> str:
+    if placeholder_token is None:
+        _ensure_ao_imports()
+        placeholder_token = _ao_modules["PLACEHOLDER_TOKEN"]
+    return "Activations:" + placeholder_token * num_positions + ".\n"
 
 
 def _text_baseline_generate(
@@ -1121,6 +1128,8 @@ def _eval_single_task(
             item = test_data[i]
             traces.append({
                 "question": item.get("question", item.get("hinted_prompt", "")),
+                "oracle_prefix": "",
+                "oracle_prompt": item["prompt"],
                 "expected": tgt,
                 "predicted": pred,
                 "correct": _per_example_correct(task_name, task_def, pred, tgt),
@@ -1263,11 +1272,16 @@ def _eval_single_task(
     result = score_task(task_def, predictions, targets, tokenizer=tokenizer)
 
     # Attach per-example traces for wandb Tables
+    _ensure_ao_imports()
+    ph_token = _ao_modules["PLACEHOLDER_TOKEN"]
     traces = []
     for i, (pred, tgt) in enumerate(zip(predictions, targets)):
         item = test_data[i]
+        oracle_prefix = _build_oracle_prefix(all_activations[i].shape[0], ph_token)
         traces.append({
             "question": item.get("question", item.get("hinted_prompt", "")),
+            "oracle_prefix": oracle_prefix,
+            "oracle_prompt": item["prompt"],
             "expected": tgt,
             "predicted": pred,
             "correct": _per_example_correct(task_name, task_def, pred, tgt),

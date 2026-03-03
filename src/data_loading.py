@@ -61,10 +61,12 @@ def load_task_data(
 
     data = []
     with open(local_path) as f:
-        for line in f:
+        for i, line in enumerate(f):
             line = line.strip()
             if not line:
                 continue
+            if line[0] != '{':
+                raise ValueError(f"Corrupt JSONL at {local_path}:{i+1} — starts with {repr(line[:20])}")
             item = json.loads(line)
             # Normalize: ensure 'task' field exists
             if "task" not in item and "datapoint_type" in item:
@@ -241,43 +243,61 @@ def prepare_context_ids(
 
 
 def _download_from_hf(task_def: TaskDef, split: str) -> Path:
-    """Download a split from the task's HF repo, cache locally. Return local path."""
+    """Download a split from the task's HF repo, cache locally. Return local path.
+
+    Uses a filelock to prevent multi-rank races on NFS where concurrent
+    downloads corrupt the file (null bytes from overlapping writes).
+    """
+    from filelock import FileLock
+
     cache_dir = _HF_CACHE_DIR / task_def.name
     cache_dir.mkdir(parents=True, exist_ok=True)
     local_path = cache_dir / f"{split}.jsonl"
+    lock_path = cache_dir / f"{split}.jsonl.lock"
 
-    if local_path.exists():
-        return local_path
+    # Fast path: file exists and starts with '{' (not corrupted)
+    if local_path.exists() and local_path.stat().st_size > 0:
+        with open(local_path, "rb") as f:
+            if f.read(1) == b"{":
+                return local_path
+        # Corrupted (e.g. null bytes from NFS race) — will re-download under lock
+        print(f"  [data] Corrupt cache detected for {task_def.name}/{split}, re-downloading...")
+        local_path.unlink()
 
-    print(f"  [data] Downloading {task_def.hf_repo}/{split}.jsonl ...")
+    with FileLock(lock_path, timeout=600):
+        # Re-check after acquiring lock (another rank may have downloaded)
+        if local_path.exists() and local_path.stat().st_size > 0:
+            return local_path
 
-    try:
-        from huggingface_hub import hf_hub_download
-        downloaded = hf_hub_download(
-            repo_id=task_def.hf_repo,
-            filename=f"{split}.jsonl",
-            repo_type="dataset",
-            local_dir=str(cache_dir),
-        )
-        # hf_hub_download may place it in a subdirectory — symlink if needed
-        downloaded_path = Path(downloaded)
-        if downloaded_path != local_path and downloaded_path.exists():
-            if not local_path.exists():
-                local_path.symlink_to(downloaded_path)
-    except Exception as e:
-        # Try loading via HuggingFace datasets library as fallback
+        print(f"  [data] Downloading {task_def.hf_repo}/{split}.jsonl ...")
+
         try:
-            _download_via_datasets_lib(task_def, split, local_path)
-        except Exception as e2:
-            raise RuntimeError(
-                f"Failed to download {task_def.hf_repo}/{split}.jsonl: {e}\n"
-                f"Fallback also failed: {e2}"
-            ) from e2
+            from huggingface_hub import hf_hub_download
+            downloaded = hf_hub_download(
+                repo_id=task_def.hf_repo,
+                filename=f"{split}.jsonl",
+                repo_type="dataset",
+                local_dir=str(cache_dir),
+            )
+            # hf_hub_download may place it in a subdirectory — symlink if needed
+            downloaded_path = Path(downloaded)
+            if downloaded_path != local_path and downloaded_path.exists():
+                if not local_path.exists():
+                    local_path.symlink_to(downloaded_path)
+        except Exception as e:
+            # Try loading via HuggingFace datasets library as fallback
+            try:
+                _download_via_datasets_lib(task_def, split, local_path)
+            except Exception as e2:
+                raise RuntimeError(
+                    f"Failed to download {task_def.hf_repo}/{split}.jsonl: {e}\n"
+                    f"Fallback also failed: {e2}"
+                ) from e2
 
-    if not local_path.exists():
-        raise FileNotFoundError(
-            f"Download completed but file not found at {local_path}"
-        )
+        if not local_path.exists():
+            raise FileNotFoundError(
+                f"Download completed but file not found at {local_path}"
+            )
 
     return local_path
 
@@ -324,9 +344,11 @@ def _download_via_datasets_lib(task_def: TaskDef, split: str, local_path: Path) 
         raise ValueError(f"No suitable split found for {task_def.hf_repo} (tried {alts})")
 
     local_path.parent.mkdir(parents=True, exist_ok=True)
-    with open(local_path, "w") as f:
+    tmp_path = local_path.with_suffix(".jsonl.tmp")
+    with open(tmp_path, "w") as f:
         for row in ds:
             f.write(json.dumps(dict(row)) + "\n")
+    tmp_path.rename(local_path)
 
 
 # ── FutureLens (next-token prediction from corpus) ──
@@ -879,3 +901,145 @@ def load_classification_data(
     rng.shuffle(all_datapoints)
     print(f"  [classification] Total: {len(all_datapoints)} examples")
     return all_datapoints[:n]
+
+
+# ── LatentQA / SPQA (matching Adam's AO training) ──
+
+
+def load_latentqa_data(
+    tokenizer,
+    n: int = 65000,
+    layers: list[int] | None = None,
+    seed: int = 42,
+    data_dir: str | None = None,
+) -> list[dict]:
+    """Load LatentQA training data from Adam's JSON files.
+
+    LatentQA trains the oracle to answer yes/no questions about information
+    encoded in model activations from multi-turn conversations. Context is
+    a chat-templated conversation; oracle answers questions about behavior/info.
+
+    Args:
+        tokenizer: HuggingFace tokenizer.
+        n: Number of examples to generate.
+        layers: Layer indices for activation extraction.
+        seed: Random seed.
+        data_dir: Path to latentqa_datasets/train/ directory.
+            Defaults to ao_reference/datasets/latentqa_datasets/train/.
+
+    Returns:
+        List of dicts compatible with dicts_to_training_data().
+    """
+    import sys
+
+    if layers is None:
+        layers = [9, 18, 27]
+    n_layers = len(layers)
+    rng = random.Random(seed)
+
+    # Find data directory
+    if data_dir is None:
+        _project_root = Path(__file__).resolve().parent.parent
+        candidates = [
+            _project_root / "ao_reference/datasets/latentqa_datasets/train",
+            Path("ao_reference/datasets/latentqa_datasets/train"),
+            Path("/root/cot-oracle/ao_reference/datasets/latentqa_datasets/train"),
+            Path("/root/activation_oracles/datasets/latentqa_datasets/train"),
+        ]
+        for p in candidates:
+            try:
+                if p.exists():
+                    data_dir = str(p)
+                    break
+            except PermissionError:
+                continue
+        if data_dir is None:
+            raise FileNotFoundError(
+                f"LatentQA data not found. Searched: {[str(p) for p in candidates]}"
+            )
+
+    data_path = Path(data_dir)
+    print(f"  [latentqa] Loading from {data_path}...")
+
+    # Add ao_reference to path for the loader import
+    ao_ref = data_path.parent.parent.parent
+    if str(ao_ref) not in sys.path:
+        sys.path.insert(0, str(ao_ref))
+
+    from nl_probes.dataset_classes.misc.latentqa_loader import DataPaths, load_latentqa_dataset
+
+    paths = DataPaths(
+        system=None,
+        stimulus_completion=str(data_path / "stimulus_completion.json"),
+        stimulus=str(data_path / "stimulus.json"),
+        control=str(data_path / "control.json"),
+        qa=str(data_path / "qa.json"),
+    )
+    ds = load_latentqa_dataset(
+        paths, filter_prefixes=[], train_percent=1.0,
+        add_thought_tokens=False, seed=seed,
+    )
+    print(f"  [latentqa] Loaded {len(ds)} raw examples")
+
+    # Masked turn counts per source (matching Adam's code)
+    masked_turn_count = {"stimulus_completion": 2, "stimulus": 2, "control": 0, "system": 0}
+
+    datapoints: list[dict] = []
+    indices = list(range(len(ds)))
+    rng.shuffle(indices)
+
+    for idx in indices:
+        if len(datapoints) >= n:
+            break
+
+        item = ds[idx]
+        read_prompt = item["read_prompt"]
+        dialog = item["dialog"]
+        source = item["source"]
+
+        # Tokenize the read_prompt (conversation context) with chat template
+        add_gen_prompt = source != "stimulus_completion"
+        context_str = tokenizer.apply_chat_template(
+            read_prompt, tokenize=False,
+            add_generation_prompt=add_gen_prompt,
+            enable_thinking=False,
+        )
+        context_ids = tokenizer.encode(context_str, add_special_tokens=False)
+
+        if len(context_ids) < 5:
+            continue
+
+        # Compute masked turn length (positions start after masked turns)
+        num_masked = masked_turn_count.get(source, 0)
+        if num_masked > 0:
+            masked_turns = read_prompt[:num_masked]
+            masked_str = tokenizer.apply_chat_template(
+                masked_turns, tokenize=False, enable_thinking=False,
+            )
+            masked_len = len(tokenizer.encode(masked_str, add_special_tokens=False))
+        else:
+            masked_len = 0
+
+        # Positions: all tokens after masked turns
+        positions = list(range(masked_len, len(context_ids)))
+        if not positions:
+            continue
+
+        # Repeat for each layer
+        all_positions = positions * n_layers
+
+        datapoints.append({
+            "datapoint_type": f"latentqa_{source}",
+            "task": "latentqa",
+            "prompt": dialog[0]["content"],  # the question
+            "target_response": dialog[1]["content"],  # the answer
+            "layer": layers[0],
+            "layers": layers,
+            "num_positions": len(all_positions),
+            "context_input_ids": context_ids,
+            "context_positions": all_positions,
+        })
+
+    rng.shuffle(datapoints)
+    print(f"  [latentqa] Generated {len(datapoints)} examples")
+    return datapoints[:n]

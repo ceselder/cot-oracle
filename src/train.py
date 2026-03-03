@@ -707,10 +707,12 @@ def _run_unified_eval(model, tokenizer, model_name, global_step, args, log_dir=N
 
     if wandb.run and all_traces:
         for task_name, traces in all_traces.items():
-            table = wandb.Table(columns=["question", "expected", "predicted", "correct"])
+            table = wandb.Table(columns=["question", "oracle_prompt", "oracle_prefix", "expected", "predicted", "correct"])
             for t in traces:
                 table.add_data(
                     t.get("question", "")[:200],
+                    t.get("oracle_prompt", "")[:300],
+                    t.get("oracle_prefix", "")[:300],
                     t.get("expected", "")[:200],
                     t.get("predicted", "")[:200],
                     t.get("correct", "?"),

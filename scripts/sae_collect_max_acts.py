@@ -1,9 +1,8 @@
 #!/usr/bin/env python
-"""Collect top-K max-activating examples per SAE feature across the CoT corpus.
+"""Collect top-K max-activating examples per SAE feature across mixed text corpora.
 
-Runs Qwen3-8B forward on the full corpus, encodes residual stream activations
-with SAEs at layers 9/18/27 (trainer 2, 65K features), and tracks the top-K
-activating token contexts per feature.
+Runs a Qwen3 model forward on a corpus mix, encodes residual stream activations
+with SAEs, and tracks the top-K activating token contexts per feature.
 
 Usage:
     python scripts/sae_collect_max_acts.py \
@@ -35,10 +34,28 @@ from nl_probes.sae import load_dictionary_learning_batch_topk_sae
 load_dotenv(PROJECT_ROOT / ".env")
 load_dotenv(Path.home() / ".env")
 
-MODEL_NAME = "Qwen/Qwen3-8B"
-SAE_REPO = "adamkarvonen/qwen3-8b-saes"
-CORPUS_REPO = "mats-10-sprint-cs-jb/cot-oracle-corpus-v5"
-SAE_LAYERS = [9, 18, 27]
+DEFAULT_MODEL_NAME = "Qwen/Qwen3-8B"
+DEFAULT_SAE_REPO = "adamkarvonen/qwen3-8b-saes"
+DEFAULT_COT_CORPUS_REPO = "mats-10-sprint-cs-jb/cot-oracle-corpus-v5"
+DEFAULT_FINEWEB_REPO = "HuggingFaceFW/fineweb"
+
+
+def sanitize_model_name(model_name: str) -> str:
+    return model_name.replace("/", "_")
+
+
+def default_layers_for_model(model_name: str) -> list[int]:
+    if model_name == "Qwen/Qwen3-0.6B":
+        return [7, 14, 21]
+    if model_name == "Qwen/Qwen3-1.7B":
+        return [7, 14, 21]
+    if model_name == "Qwen/Qwen3-8B":
+        return [9, 18, 27]
+    raise ValueError(f"Specify --layers for unsupported model: {model_name}")
+
+
+def sae_subdir_for_model(model_name: str) -> str:
+    return f"saes_{sanitize_model_name(model_name)}_batch_top_k"
 
 
 class TopKTracker:
@@ -139,7 +156,7 @@ def build_context_windows(input_ids: torch.Tensor, context_window: int,
     return padded.unfold(1, context_window, 1).int()  # [B, L, W]
 
 
-def format_entry(question: str, cot: str, tokenizer) -> str:
+def format_cot_entry(question: str, cot: str, tokenizer) -> str:
     """Chat-format a corpus entry for model input."""
     # Strip existing think tags, re-wrap consistently
     cot = cot.replace("<think>", "").replace("</think>", "").strip()
@@ -152,23 +169,36 @@ def format_entry(question: str, cot: str, tokenizer) -> str:
     )
 
 
+def format_fineweb_entry(text: str, tokenizer) -> str:
+    bos_token = tokenizer.bos_token if tokenizer.bos_token else tokenizer.eos_token
+    return bos_token + text
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--model-name", type=str, default=DEFAULT_MODEL_NAME)
+    parser.add_argument("--sae-repo", type=str, default=DEFAULT_SAE_REPO)
+    parser.add_argument("--cot-corpus-repo", type=str, default=DEFAULT_COT_CORPUS_REPO)
+    parser.add_argument("--fineweb-repo", type=str, default=DEFAULT_FINEWEB_REPO)
+    parser.add_argument("--layers", type=int, nargs="+", default=None)
     parser.add_argument("--trainer", type=int, default=2, help="SAE trainer variant (0/1/2)")
     parser.add_argument("--k", type=int, default=30, help="Top-K examples per feature")
     parser.add_argument("--context-window", type=int, default=41, help="Token context window (odd)")
     parser.add_argument("--batch-size", type=int, default=8)
     parser.add_argument("--max-length", type=int, default=2048, help="Max tokens per entry")
+    parser.add_argument("--include-fineweb-equal", action="store_true", help="Append an equal number of FineWeb examples to the CoT corpus")
     parser.add_argument("--output-dir", type=str, default=None)
     parser.add_argument("--resume", action="store_true", help="Resume from checkpoint")
     args = parser.parse_args()
+
+    layers = args.layers or default_layers_for_model(args.model_name)
 
     # Output directory
     if args.output_dir:
         output_dir = Path(os.path.expandvars(args.output_dir))
     else:
         base = os.environ.get("FAST_CACHE_DIR", os.environ["CACHE_DIR"])
-        output_dir = Path(os.path.expandvars(base)) / "sae_features"
+        output_dir = Path(os.path.expandvars(base)) / "sae_features" / sanitize_model_name(args.model_name)
     trainer_dir = output_dir / f"trainer_{args.trainer}"
     trainer_dir.mkdir(parents=True, exist_ok=True)
     print(f"Output: {trainer_dir}")
@@ -177,48 +207,59 @@ def main():
     dtype = torch.bfloat16
 
     # --- Load model ---
-    print(f"Loading {MODEL_NAME}...")
-    tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
+    print(f"Loading {args.model_name}...")
+    tokenizer = AutoTokenizer.from_pretrained(args.model_name)
     tokenizer.padding_side = "left"
     if not tokenizer.pad_token_id:
         tokenizer.pad_token_id = tokenizer.eos_token_id
 
     attn_impl = "sdpa"
     model = AutoModelForCausalLM.from_pretrained(
-        MODEL_NAME, device_map="auto", dtype=dtype, attn_implementation=attn_impl,
+        args.model_name, device_map="auto", dtype=dtype, attn_implementation=attn_impl,
     )
     model.eval()
 
     # --- Load SAEs ---
     saes = {}
     sae_local_dir = str(output_dir / "downloaded_saes")
-    for layer in SAE_LAYERS:
-        filename = f"saes_Qwen_Qwen3-8B_batch_top_k/resid_post_layer_{layer}/trainer_{args.trainer}/ae.pt"
+    sae_subdir = sae_subdir_for_model(args.model_name)
+    for layer in layers:
+        filename = f"{sae_subdir}/resid_post_layer_{layer}/trainer_{args.trainer}/ae.pt"
         print(f"Loading SAE layer {layer}...")
         saes[layer] = load_dictionary_learning_batch_topk_sae(
-            repo_id=SAE_REPO, filename=filename, model_name=MODEL_NAME,
+            repo_id=args.sae_repo, filename=filename, model_name=args.model_name,
             device=torch.device(device), dtype=dtype, layer=layer, local_dir=sae_local_dir,
         )
-    n_features = saes[SAE_LAYERS[0]].b_enc.shape[0]
+    n_features = saes[layers[0]].b_enc.shape[0]
     print(f"SAE features: {n_features}")
 
     # --- Load corpus ---
-    print(f"Loading corpus from {CORPUS_REPO}...")
-    ds = load_dataset(CORPUS_REPO, split="train")
-    print(f"Corpus: {len(ds)} entries")
+    print(f"Loading CoT corpus from {args.cot_corpus_repo}...")
+    cot_ds = load_dataset(args.cot_corpus_repo, split="train")
+    print(f"CoT corpus: {len(cot_ds)} entries")
 
-    # Format all entries
-    print("Formatting corpus entries...")
-    texts = [format_entry(e["question"], e["cot_response"], tokenizer) for e in tqdm(ds)]
+    print("Formatting CoT corpus entries...")
+    texts = [format_cot_entry(e["question"], e["cot_response"], tokenizer) for e in tqdm(cot_ds, desc="CoT")]
+    meta = [{"idx": i, "source": "cot_corpus", "preview": cot_ds[i]["question"][:200]} for i in range(len(cot_ds))]
+
+    if args.include_fineweb_equal:
+        target_fineweb = len(cot_ds)
+        print(f"Loading {target_fineweb} FineWeb entries from {args.fineweb_repo}...")
+        fineweb_iter = iter(load_dataset(args.fineweb_repo, split="train", streaming=True))
+        for i in tqdm(range(target_fineweb), desc="FineWeb"):
+            row = next(fineweb_iter)
+            text = format_fineweb_entry(row["text"], tokenizer)
+            texts.append(text)
+            meta.append({"idx": len(cot_ds) + i, "source": "fineweb", "preview": row["text"][:200]})
+        print(f"Combined corpus: {len(texts)} entries")
 
     # Save corpus metadata for later lookup
-    meta = [{"idx": i, "question": ds[i]["question"][:200]} for i in range(len(ds))]
     meta_path = trainer_dir / "corpus_meta.json"
     meta_path.write_text(json.dumps(meta))
     print(f"Saved corpus metadata: {meta_path}")
 
     # --- Create trackers ---
-    trackers = {layer: TopKTracker(n_features, args.k, args.context_window) for layer in SAE_LAYERS}
+    trackers = {layer: TopKTracker(n_features, args.k, args.context_window) for layer in layers}
 
     # --- Register forward hooks ---
     activation_cache: dict[int, torch.Tensor] = {}
@@ -231,7 +272,7 @@ def main():
         return hook_fn
 
     handles = []
-    for layer_idx in SAE_LAYERS:
+    for layer_idx in layers:
         submodule = model.model.layers[layer_idx]
         handles.append(submodule.register_forward_hook(make_hook(layer_idx)))
 
@@ -241,7 +282,7 @@ def main():
     if args.resume and ckpt_path.exists():
         ckpt = json.loads(ckpt_path.read_text())
         start_entry = ckpt["next_entry"]
-        for layer_idx in SAE_LAYERS:
+        for layer_idx in layers:
             pt = trainer_dir / f"topk_layer{layer_idx}_ckpt.pt"
             data = torch.load(pt, map_location="cpu", weights_only=True)
             t = trackers[layer_idx]
@@ -280,7 +321,7 @@ def main():
             model(input_ids=input_ids, attention_mask=attention_mask)
 
         # Process each layer sequentially to limit GPU memory
-        for layer_idx in SAE_LAYERS:
+        for layer_idx in layers:
             acts = activation_cache[layer_idx]  # [B, L, D]
 
             # Outlier filtering: zero tokens with residual norm > 10× median
@@ -304,7 +345,7 @@ def main():
 
         # Checkpoint every 500 batches
         if batch_idx % 500 == 0:
-            for layer_idx in SAE_LAYERS:
+            for layer_idx in layers:
                 trackers[layer_idx].save(trainer_dir / f"topk_layer{layer_idx}_ckpt.pt")
             ckpt_path.write_text(json.dumps({"next_entry": batch_start + args.batch_size}))
             print(f"\nCheckpoint at entry {batch_start + args.batch_size}")
@@ -314,7 +355,7 @@ def main():
         h.remove()
 
     # --- Save results ---
-    for layer_idx in SAE_LAYERS:
+    for layer_idx in layers:
         path = trainer_dir / f"topk_layer{layer_idx}.pt"
         trackers[layer_idx].save(path)
         alive = (trackers[layer_idx].alive_count > 0).sum().item()
