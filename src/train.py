@@ -709,7 +709,8 @@ def _run_unified_eval(model, tokenizer, model_name, global_step, args, log_dir=N
     trace_files = _write_eval_traces(log_dir, all_traces, global_step)
 
     if wandb.run and trace_files:
-        artifact = wandb.Artifact(f"eval_traces_{run_name}_{wandb.run.id}_step{global_step}", type="eval_traces", metadata={"step": global_step, "run_id": wandb.run.id, "run_name": run_name})
+        _run_name = wandb.run.name or wandb.run.id
+        artifact = wandb.Artifact(f"eval_traces_{_run_name}_{wandb.run.id}_step{global_step}", type="eval_traces", metadata={"step": global_step, "run_id": wandb.run.id, "run_name": _run_name})
         for path in trace_files:
             artifact.add_file(str(path), name=path.name)
         wandb.run.log_artifact(artifact)
@@ -1367,6 +1368,13 @@ def train(
                     _save_training_state(ckpt_path, global_step, optimizer, scheduler)
                 if world_size > 1:
                     dist.barrier()
+
+            # Upload latest checkpoint to HF at every eval step
+            if should_eval and rank == 0:
+                latest_path = save_dir / "latest"
+                latest_path.mkdir(parents=True, exist_ok=True)
+                model.save_pretrained(str(latest_path))
+                _upload_checkpoint_to_hf(latest_path, args, global_step)
 
             # Reset accumulators for next grad_accum window
             accum_task_losses = defaultdict(list)
