@@ -646,6 +646,8 @@ class SessionState:
     sampled_token_to_stride_index: list[int | None] = field(default_factory=list)
     multilayer_acts: torch.Tensor | None = None
     ao_acts: torch.Tensor | None = None
+    full_layer_acts: dict = field(default_factory=dict)  # layer -> [cot_len, D] for heatmap
+    cot_start_pos: int = 0  # token index where CoT starts in full_text
 
 
 class ChatCompareWebApp:
@@ -762,19 +764,38 @@ class ChatCompareWebApp:
                 probes.append({"filename": pt_file.name, "probe_name": pt_file.stem, "layers": [], "labels": [], "pooling": "unknown", "balanced_accuracy": None})
         return probes
 
+    def _ensure_full_layer_acts(self, layer):
+        """Lazily extract activations at ALL CoT positions for a single layer."""
+        if layer in self.state.full_layer_acts:
+            return self.state.full_layer_acts[layer]
+        if not self.state.full_text:
+            raise HTTPException(status_code=400, detail="Generate a CoT first")
+        prompt_len = getattr(self, '_prompt_len', None)
+        cot_end = getattr(self, '_cot_end', None)
+        if prompt_len is None or cot_end is None:
+            raise HTTPException(status_code=400, detail="Extract activations first")
+        all_positions = list(range(prompt_len, cot_end))
+        if not all_positions:
+            raise HTTPException(status_code=400, detail="No CoT tokens found")
+        self._progress_status = f"Extracting full-position activations at layer {layer}..."
+        input_device = str(get_model_input_device(self.model))
+        with self.model_lock:
+            acts = collect_activations_at_positions(
+                self.model, self.tokenizer, self.state.full_text,
+                layer, all_positions, device=input_device, adapter_name=None,
+            )
+        self.state.full_layer_acts[layer] = acts.to("cpu")
+        self._progress_status = ""
+        return self.state.full_layer_acts[layer]
+
     def _compute_probe_scores(self, probe_filename, layer):
-        """Score all stride positions using a linear probe at the given layer."""
+        """Score ALL CoT token positions using a linear probe at the given layer."""
         if self.state.multilayer_acts is None:
             raise HTTPException(status_code=400, detail="Generate a CoT first")
         probe = self._load_probe(probe_filename)
-        n_layers = len(self.layers)
-        K = len(self.state.stride_positions)
-        D = self.state.multilayer_acts.shape[1]
-        acts_by_layer = self.state.multilayer_acts.view(n_layers, K, D)
-        if layer not in self.layers:
-            raise HTTPException(status_code=400, detail=f"Layer {layer} not in session layers {self.layers}")
-        layer_idx = self.layers.index(layer)
-        acts = acts_by_layer[layer_idx]  # [K, D]
+        # Get full-position activations (lazy extraction)
+        acts = self._ensure_full_layer_acts(layer)  # [cot_len, D]
+        D = acts.shape[1]
         w, b, mu, std = probe["w"], probe["b"], probe["mu"], probe["std"]
         # Handle concat probes: if w is larger than D, slice the correct layer portion
         probe_layers = probe["layers"]
@@ -788,7 +809,7 @@ class ChatCompareWebApp:
             b = b / len(probe_layers)
         acts_normed = (acts.float() - mu.unsqueeze(0)) / std.unsqueeze(0)
         scores = (acts_normed @ w + b).tolist()
-        return {"scores": scores, "min_score": min(scores), "max_score": max(scores)}
+        return {"scores": scores, "min_score": min(scores), "max_score": max(scores), "all_positions": True}
 
     def _compute_ao_logprobs(self, prompt, answer_tokens_str, adapter_key):
         """Run batched AO logprobs over all stride positions."""
@@ -1003,6 +1024,7 @@ class ChatCompareWebApp:
             if 0 <= cot_relative < len(sampled_token_to_stride_index):
                 sampled_token_to_stride_index[cot_relative] = stride_idx
         self._prompt_len = prompt_len  # cache for token index → absolute position mapping
+        self._cot_end = cot_end
         return stride_positions, stride_token_ids, token_labels, cot_token_texts, sampled_token_to_stride_index
 
     def _populate_state_activations(self, stride_positions, stride_token_ids, token_labels, cot_token_texts, sampled_token_to_stride_index, multilayer_acts, ao_acts):
@@ -2615,19 +2637,26 @@ For your final answer, respond with "Answer: Yes" or "Answer: No" after the chai
       return `rgba(${r}, ${g}, ${b}, ${0.15 + norm * 0.75})`;
     }
 
-    function renderHeatmapTokens(scores, colorFn, label) {
+    function renderHeatmapTokens(scores, colorFn, label, allPositions) {
       if (!session) return;
       const wrap = document.getElementById('heatmapTokenWrap');
       wrap.innerHTML = '';
       const paragraph = document.createElement('div');
       paragraph.className = 'token-paragraph';
       session.cot_token_texts.forEach((text, i) => {
-        const strideIdx = session.sampled_token_to_stride_index[i];
         const span = document.createElement('span');
         span.className = 'heatmap-tok';
         span.textContent = text;
-        if (strideIdx !== null && strideIdx < scores.length) {
-          const score = scores[strideIdx];
+        let score = null;
+        if (allPositions) {
+          // scores array has one entry per CoT token
+          if (i < scores.length) score = scores[i];
+        } else {
+          // scores array has one entry per stride position
+          const strideIdx = session.sampled_token_to_stride_index[i];
+          if (strideIdx !== null && strideIdx < scores.length) score = scores[strideIdx];
+        }
+        if (score !== null) {
           span.style.background = colorFn(score);
           const tip = document.createElement('span');
           tip.className = 'heatmap-tip';
@@ -2675,7 +2704,7 @@ For your final answer, respond with "Answer: Yes" or "Answer: No" after the chai
           const data = await postJson('/api/heatmap/probe_scores', { probe_filename: probeFile, layer });
           heatmapScores = data;
           const colorFn = s => heatmapColorProbe(s, data.min_score, data.max_score);
-          renderHeatmapTokens(data.scores, colorFn, 'probe score');
+          renderHeatmapTokens(data.scores, colorFn, 'probe score', !!data.all_positions);
           renderHeatmapLegend(data.min_score, data.max_score, colorFn);
           setHeatmapStatus(false, `Probe scores computed (${data.scores.length} positions)`);
         } catch(e) {
@@ -2716,7 +2745,7 @@ For your final answer, respond with "Answer: Yes" or "Answer: No" after the chai
       const minLp = Math.min(...scores);
       const maxLp = Math.max(...scores);
       const colorFn = s => heatmapColorLogprob(s, minLp, maxLp);
-      renderHeatmapTokens(scores, colorFn, tokenStr + ' logprob');
+      renderHeatmapTokens(scores, colorFn, tokenStr + ' logprob', false);
       renderHeatmapLegend(minLp, maxLp, colorFn);
     }
 

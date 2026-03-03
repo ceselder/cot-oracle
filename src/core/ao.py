@@ -630,35 +630,62 @@ def run_batched_ao_logprobs(
     if act_layer is None:
         act_layer = layer_percent_to_layer(model_name, 50)
 
-    # Build the oracle prompt template (same for every batch item)
+    # Build the oracle prompt template with character-offset tracking
+    # (token-ID matching fails for TRAINED_PLACEHOLDER in context due to BPE)
     sample_acts = per_position_acts[0]
     num_positions = sample_acts.shape[0]  # n_layers (or K positions per item)
 
+    prefix = ""
+    char_spans = []  # (start, end) character offsets within full_prompt
     if isinstance(act_layer, (list, tuple)):
         N = len(act_layer)
         K = num_positions // N
         assert K * N == num_positions
-        parts = [f"L{l}:" + ph_token * K for l in act_layer]
-        prefix = " ".join(parts) + "\n"
+        for i, l in enumerate(act_layer):
+            if i > 0:
+                prefix += " "
+            prefix += f"L{l}:"
+            for _ in range(K):
+                start = len(prefix)
+                prefix += ph_token
+                char_spans.append((start, len(prefix)))
     else:
-        prefix = f"L{act_layer}:" + ph_token * num_positions + "\n"
+        prefix = f"L{act_layer}:"
+        for _ in range(num_positions):
+            start = len(prefix)
+            prefix += ph_token
+            char_spans.append((start, len(prefix)))
+    prefix += "\n"
     full_prompt = prefix + oracle_prompt
 
     messages = [{"role": "user", "content": full_prompt}]
     formatted = tokenizer.apply_chat_template(
         messages, tokenize=False, add_generation_prompt=True, enable_thinking=False,
     )
-    input_ids = tokenizer.encode(formatted, add_special_tokens=False)
 
-    ph_id = tokenizer.encode(ph_token, add_special_tokens=False)
-    assert len(ph_id) == 1, f"Expected single token for '{ph_token}', got {len(ph_id)}"
-    ph_id = ph_id[0]
+    # Use offset_mapping to find placeholder token positions reliably
+    content_start = formatted.index(full_prompt)
+    encoded = tokenizer(formatted, add_special_tokens=False, return_offsets_mapping=True)
+    input_ids = encoded["input_ids"]
+    offsets = encoded["offset_mapping"]
 
     positions = []
-    for i, tid in enumerate(input_ids):
-        if tid == ph_id and len(positions) < num_positions:
-            positions.append(i)
-    assert len(positions) == num_positions
+    for rel_start, rel_end in char_spans:
+        abs_start = content_start + rel_start
+        abs_end = content_start + rel_end
+        token_positions = [
+            i for i, (ts, te) in enumerate(offsets)
+            if ts < abs_end and te > abs_start
+        ]
+        if not token_positions:
+            raise ValueError(
+                f"No token found for placeholder span ({rel_start}, {rel_end}) "
+                f"in '{full_prompt[rel_start:rel_end]}'"
+            )
+        positions.append(token_positions[0])
+    assert len(positions) == num_positions, (
+        f"Expected {num_positions} positions, got {len(positions)}"
+    )
 
     # Resolve answer token IDs
     answer_token_ids = {}
