@@ -961,7 +961,7 @@ def _build_manual_prefix_token_ids(
         prefix_ids.extend(tokenizer.encode(label, add_special_tokens=False))
         positions.extend(range(len(prefix_ids), len(prefix_ids) + block_size))
         prefix_ids.extend([ph_id] * block_size)
-    prefix_ids.extend(tokenizer.encode("\n", add_special_tokens=False))
+    prefix_ids.extend(tokenizer.encode(".\n", add_special_tokens=False))
     return prefix_ids, positions
 
 
@@ -977,11 +977,11 @@ def _build_oracle_prefix(
     if not prefix_layers:
         raise ValueError("layers must be provided for oracle prefix construction")
     if len(prefix_layers) == 1:
-        return f"L{prefix_layers[0]}:" + placeholder_token * num_positions + "\n"
+        return f"L{prefix_layers[0]}:" + placeholder_token * num_positions + ".\n"
     k, rem = divmod(num_positions, len(prefix_layers))
     if rem:
         raise ValueError(f"num_positions={num_positions} not divisible by layers={prefix_layers}")
-    return " ".join(f"L{layer}:" + placeholder_token * k for layer in prefix_layers) + "\n"
+    return " ".join(f"L{layer}:" + placeholder_token * k for layer in prefix_layers) + ".\n"
 
 
 def _text_baseline_generate(

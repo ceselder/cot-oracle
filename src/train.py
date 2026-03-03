@@ -100,11 +100,11 @@ def _build_labeled_layer_prefix(num_positions: int, layers: list[int], placehold
     if not layers:
         raise ValueError("layers must be non-empty")
     if len(layers) == 1:
-        return f"L{layers[0]}:" + placeholder_token * num_positions + "\n"
+        return f"L{layers[0]}:" + placeholder_token * num_positions + ".\n"
     k, rem = divmod(num_positions, len(layers))
     if rem:
         raise ValueError(f"num_positions={num_positions} not divisible by layers={layers}")
-    return " ".join(f"L{layer}:" + placeholder_token * k for layer in layers) + "\n"
+    return " ".join(f"L{layer}:" + placeholder_token * k for layer in layers) + ".\n"
 
 
 def _patched_get_prefix(sae_layer: int, num_positions: int, layers: list[int] | None = None) -> str:
