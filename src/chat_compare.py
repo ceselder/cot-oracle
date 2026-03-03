@@ -810,8 +810,8 @@ class ChatCompareWebApp:
         """Score CoT positions using an attention probe. Returns attention-based per-position scores.
 
         Runs the probe once with ALL positions, extracts the joint attention weights
-        [1, T, T] where T = n_layers * K, then aggregates to per-CoT-position importance
-        by averaging the attention each position receives across layers.
+        [1, T, T] where T = n_layers * K_sub (K_sub = min(K, max_positions_per_layer)),
+        then maps back to all K positions.
         """
         if self.state.multilayer_acts is None:
             raise HTTPException(status_code=400, detail="Generate a CoT first")
@@ -820,26 +820,50 @@ class ChatCompareWebApp:
         K = len(self.state.stride_positions)
         D = self.state.multilayer_acts.shape[1]
         acts_by_layer = self.state.multilayer_acts.view(n_layers, K, D)
-        # Build single input with all K positions per layer
+        max_k = probe.max_positions_per_layer
+        # Compute the subsample indices (same logic as the probe's forward)
+        if K > max_k:
+            sub_idx = torch.linspace(0, K - 2, max_k - 1).long()
+            sub_idx = torch.cat([sub_idx, torch.tensor([K - 1])])
+            K_sub = max_k
+        else:
+            sub_idx = None
+            K_sub = K
+        # Build single input with all positions per layer
         inp = {layer: acts_by_layer[li, :, :] for li, layer in enumerate(self.layers)}  # {layer: [K, D]}
         device = "cuda" if torch.cuda.is_available() else "cpu"
         probe = probe.to(device)
         with torch.no_grad():
-            logits, attn_w, valid = probe([inp])  # attn_w: [1, T, T], T = n_layers * K
-        # attn_w[0] is [T, T] — attention from query pos i to key pos j
-        # T = n_layers * K, laid out as [layer0_pos0..K-1, layer1_pos0..K-1, layer2_pos0..K-1]
+            logits, attn_w, valid = probe([inp])  # attn_w: [1, T, T], T = n_layers * K_sub
+        # attn_w[0] is [T, T], laid out as [layer0_pos0..K_sub-1, layer1_pos0..K_sub-1, ...]
         attn = attn_w[0].cpu().float()  # [T, T]
-        # Mean attention received by each token = column mean (how much others attend to it)
+        T = attn.shape[0]
+        # Mean attention received by each token = column mean
         attn_received = attn.mean(dim=0)  # [T]
-        # Aggregate across layers: for each CoT position, average its score across 3 layers
-        scores_per_pos = torch.zeros(K)
+        # Aggregate across layers: average each subsampled position's score across layers
+        scores_sub = torch.zeros(K_sub)
         for li in range(n_layers):
-            scores_per_pos += attn_received[li * K : (li + 1) * K]
-        scores_per_pos /= n_layers
-        # Also get the classification result
+            scores_sub += attn_received[li * K_sub : (li + 1) * K_sub]
+        scores_sub /= n_layers
+        # Map back to all K positions (interpolate for non-subsampled positions)
+        if sub_idx is not None:
+            scores_all = torch.zeros(K)
+            scores_all[sub_idx] = scores_sub
+            # Linear interpolation for gaps
+            sub_idx_list = sub_idx.tolist()
+            for i in range(len(sub_idx_list) - 1):
+                start, end = sub_idx_list[i], sub_idx_list[i + 1]
+                if end - start > 1:
+                    s0, s1 = scores_sub[i].item(), scores_sub[i + 1].item()
+                    for j in range(start + 1, end):
+                        t = (j - start) / (end - start)
+                        scores_all[j] = s0 + t * (s1 - s0)
+            scores = scores_all.tolist()
+        else:
+            scores = scores_sub.tolist()
+        # Classification result
         logit_diff = (logits[0, 1] - logits[0, 0]).cpu().item()
         probe_info = ATTENTION_PROBES[probe_key]
-        scores = scores_per_pos.tolist()
         probe = probe.cpu()
         return {
             "scores": scores,
