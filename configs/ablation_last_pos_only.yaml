@@ -98,7 +98,7 @@ training:
   gradient_checkpointing: true
   task_order: shuffled
   interleave_blocks: 50
-  max_train_tokens_per_gpu: 65536
+  max_train_tokens_per_gpu: 32768
   batch_size: 16                  # per-GPU micro-batch size
   effective_batch_size: 128       # total effective batch size (invariant to GPU count); grad_accum = effective / (batch * world_size)
   extraction_batch_size: 128      # lookahead extraction; actual micro-batches split further on token budget / OOM
