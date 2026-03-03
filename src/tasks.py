@@ -163,6 +163,17 @@ TASKS: dict[str, TaskDef] = {
         legacy_datapoint_type="cot_decorative",
     ),
 
+    "resampling_importance": TaskDef(
+        name="resampling_importance",
+        hf_repo=f"{HF_ORG}/cot-oracle-resampling-importancepp",
+        scoring=ScoringMode.TOKEN_F1,
+        positive_keywords=(),
+        negative_keywords=(),
+        trainable=True,
+        default_n=468,
+        max_new_tokens=256,
+    ),
+
     "chunked_convqa": TaskDef(
         name="chunked_convqa",
         hf_repo=f"{HF_ORG}/cot-oracle-convqa-chunked",

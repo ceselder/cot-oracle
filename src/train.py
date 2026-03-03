@@ -666,7 +666,7 @@ def _write_eval_traces(log_dir: Path | None, all_traces: dict[str, list[dict]], 
     run_name = wandb.run.name if wandb.run else None
 
     for task_name, traces in all_traces.items():
-        out_path = log_dir / f"eval_table_{task_name}_step{global_step}.json"
+        out_path = log_dir / f"eval_table_{task_name}_step{global_step}_run{run_id}.json"
         payload = {
             "step": global_step,
             "name": f"eval_table_{task_name}",
@@ -709,7 +709,7 @@ def _run_unified_eval(model, tokenizer, model_name, global_step, args, log_dir=N
     trace_files = _write_eval_traces(log_dir, all_traces, global_step)
 
     if wandb.run and trace_files:
-        artifact = wandb.Artifact(f"eval_traces_step{global_step}", type="eval_traces", metadata={"step": global_step})
+        artifact = wandb.Artifact(f"eval_traces_{run_name}_{wandb.run.id}_step{global_step}", type="eval_traces", metadata={"step": global_step, "run_id": wandb.run.id, "run_name": run_name})
         for path in trace_files:
             artifact.add_file(str(path), name=path.name)
         wandb.run.log_artifact(artifact)
@@ -769,6 +769,12 @@ def train(
     training_data = dicts_to_training_data(raw_data, tokenizer)
     if rank == 0:
         print(f"  Converted {len(training_data)} training examples")
+
+    # Build mapping: datapoint_type → parent task (for subtask grouping in wandb)
+    subtype_to_task = {}
+    for item in raw_data:
+        dt = item.get("datapoint_type", item.get("task", "unknown"))
+        subtype_to_task[dt] = item.get("task", dt)
 
     if not training_data:
         if rank == 0:
@@ -1282,8 +1288,17 @@ def train(
                     "train/samples_seen": global_step * args.effective_batch_size,
                 }
                 last_step_time = now
-                for task, ema_val in task_loss_ema.items():
-                    log_dict[f"train/loss_{task}"] = ema_val
+                parent_task_emas = defaultdict(list)
+                for subtype, ema_val in task_loss_ema.items():
+                    parent = subtype_to_task.get(subtype, subtype)
+                    if parent != subtype:
+                        log_dict[f"train/loss_{parent}/{subtype}"] = ema_val
+                    else:
+                        log_dict[f"train/loss_{subtype}"] = ema_val
+                    parent_task_emas[parent].append(ema_val)
+                for parent, vals in parent_task_emas.items():
+                    if len(vals) > 1:
+                        log_dict[f"train/loss_{parent}"] = sum(vals) / len(vals)
 
                 # Track dominant task for sequential mode phase transitions
                 batch_task_counts = defaultdict(int)

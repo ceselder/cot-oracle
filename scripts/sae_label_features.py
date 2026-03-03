@@ -174,7 +174,9 @@ async def label_layer(client: AsyncOpenAI, model: str, tokenizer,
     labels: dict[str, dict] = {}
     if output_path.exists():
         labels = json.loads(output_path.read_text())
-        print(f"  Resuming: {len(labels)} existing labels")
+        total_existing = len(labels)
+        labels = {k: v for k, v in labels.items() if v.get("label") != "ERROR"}
+        print(f"  Resuming: {len(labels)} successful labels, dropped {total_existing - len(labels)} prior errors")
 
     alive_features = (alive_count >= min_examples).nonzero(as_tuple=True)[0].tolist()
     to_label = [f for f in alive_features if str(f) not in labels]

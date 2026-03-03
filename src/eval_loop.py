@@ -11,16 +11,27 @@ Activations are cached across eval steps (base model is frozen during LoRA train
 from __future__ import annotations
 
 import gc
+import os
 import random
 import re
 import time
 from dataclasses import dataclass
 from typing import Any
 
+import httpx
 import torch
 
 from tasks import TASKS, TaskDef, ScoringMode, get_eval_tasks
 from data_loading import load_task_data, load_futurelens_data, prepare_context_ids
+from qa_judge import (
+    QA_GEMINI_SCORE_MODEL,
+    QA_GEMINI_SCORE_MAX_TOKENS,
+    OPENROUTER_CHAT_COMPLETIONS_URL,
+    QA_GEMINI_SCORE_SYSTEM,
+    build_qa_gemini_score_prompt,
+    extract_judge_json,
+    is_gemini_qa_task,
+)
 from cot_utils import sample_poisson_positions
 
 
@@ -132,6 +143,57 @@ TASK_PARSERS: dict[str, Any] = {
 
 
 # ── Scoring ──
+
+def _score_qa_gemini(
+    task_name: str,
+    eval_items: list[dict],
+    predictions: list[str],
+    targets: list[str],
+) -> dict[str, Any]:
+    if not predictions:
+        return {"gemini_score": 0.0, "n": 0, "_qa_judge_scores": [], "_qa_judge_reasons": [], "_qa_judge_raw": [], "_qa_judge_model": QA_GEMINI_SCORE_MODEL}
+    if len(eval_items) != len(predictions) or len(predictions) != len(targets):
+        raise ValueError(f"QA judge length mismatch for {task_name}: items={len(eval_items)}, predictions={len(predictions)}, targets={len(targets)}")
+
+    print(f"    [{task_name}] Scoring {len(predictions)} QA answers with {QA_GEMINI_SCORE_MODEL}...")
+    api_key = os.environ["OPENROUTER_API_KEY"]
+    headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+    scores = []
+    reasons = []
+    raw_responses = []
+
+    with httpx.Client(timeout=90.0) as client:
+        for item, prediction, target in zip(eval_items, predictions, targets):
+            body = {
+                "model": QA_GEMINI_SCORE_MODEL,
+                "messages": [
+                    {"role": "system", "content": QA_GEMINI_SCORE_SYSTEM},
+                    {"role": "user", "content": build_qa_gemini_score_prompt(task_name, item["prompt"], target, prediction)},
+                ],
+                "temperature": 0.0,
+                "max_tokens": QA_GEMINI_SCORE_MAX_TOKENS,
+            }
+            response = client.post(OPENROUTER_CHAT_COMPLETIONS_URL, json=body, headers=headers)
+            response.raise_for_status()
+            response_json = response.json()
+            raw_text = response_json["choices"][0]["message"]["content"]
+            raw_text = re.sub(r"<think>.*?</think>", "", raw_text, flags=re.DOTALL).strip()
+            parsed = extract_judge_json(raw_text)
+            score = float(parsed["score"])
+            if score < 0.0 or score > 1.0:
+                raise ValueError(f"Judge score out of range for {task_name}: {score}")
+            scores.append(score)
+            reasons.append(str(parsed["reason"]).strip())
+            raw_responses.append(raw_text)
+
+    return {
+        "gemini_score": sum(scores) / len(scores),
+        "n": len(scores),
+        "_qa_judge_scores": scores,
+        "_qa_judge_reasons": reasons,
+        "_qa_judge_raw": raw_responses,
+        "_qa_judge_model": QA_GEMINI_SCORE_MODEL,
+    }
 
 
 def _score_parsed(
@@ -399,9 +461,15 @@ def score_task(
     predictions: list[str],
     targets: list[str],
     tokenizer=None,
-) -> dict[str, float]:
+    eval_items: list[dict] | None = None,
+) -> dict[str, Any]:
     """Score any task. Parser-based tasks get accuracy + numeric side-metrics.
     Remaining tasks fall through to generic scoring."""
+    if is_gemini_qa_task(task_def.name):
+        if eval_items is None:
+            raise ValueError(f"Gemini QA scoring needs eval_items for {task_def.name}")
+        return _score_qa_gemini(task_def.name, eval_items, predictions, targets)
+
     # answer_trajectory: token F1 on the answer text + MAE on confidence/entropy
     if task_def.name == "answer_trajectory":
         return _score_trajectory(predictions, targets)
@@ -517,6 +585,8 @@ def _per_example_correct(
 
 def _primary_metric_name(task_name: str, scoring: ScoringMode) -> str:
     """Map task to its primary metric key."""
+    if is_gemini_qa_task(task_name):
+        return "gemini_score"
     if task_name == "answer_trajectory":
         return "token_f1"
     if task_name in TASK_PARSERS:
@@ -612,6 +682,7 @@ def _resample_eval_positions(
         if position_mode == "last_only":
             sampled = base_positions[-1:]
         elif position_mode == "stochastic":
+            # Derive a stable per-item RNG from one shared eval seed so repeats match across eval steps.
             rng = random.Random(f"{eval_position_seed}:{task_name}:{item_idx}")
             sampled = sample_poisson_positions(base_positions, rng=rng, max_k=stochastic_max_k, include_boundaries=True)
         elif position_mode == "all":
@@ -1225,7 +1296,11 @@ def _eval_single_task(
                 print(f"      pred: {pred_short}")
                 print(f"      tgt:  {tgt_short}")
 
-        result = score_task(task_def, predictions, targets, tokenizer=tokenizer)
+        result = score_task(task_def, predictions, targets, tokenizer=tokenizer, eval_items=test_data)
+        qa_judge_scores = result["_qa_judge_scores"] if is_gemini_qa_task(task_name) else None
+        qa_judge_reasons = result["_qa_judge_reasons"] if is_gemini_qa_task(task_name) else None
+        qa_judge_raw = result["_qa_judge_raw"] if is_gemini_qa_task(task_name) else None
+        qa_judge_model = result["_qa_judge_model"] if is_gemini_qa_task(task_name) else None
         traces = []
         for i, (pred, tgt) in enumerate(zip(predictions, targets)):
             item = test_data[i]
@@ -1237,8 +1312,13 @@ def _eval_single_task(
                 "oracle_prompt": item["prompt"],
                 "expected": tgt,
                 "predicted": pred,
-                "correct": _per_example_correct(task_name, task_def, pred, tgt),
+                "correct": f"Gemini={qa_judge_scores[i]:.2f}" if qa_judge_scores is not None else _per_example_correct(task_name, task_def, pred, tgt),
             }
+            if qa_judge_scores is not None:
+                trace["judge_model"] = qa_judge_model
+                trace["judge_score"] = qa_judge_scores[i]
+                trace["judge_reason"] = qa_judge_reasons[i]
+                trace["judge_raw"] = qa_judge_raw[i]
             traces.append(trace)
         result["_traces"] = traces
         return result
@@ -1370,7 +1450,11 @@ def _eval_single_task(
             print(f"      pred: {pred_short}")
             print(f"      tgt:  {tgt_short}")
 
-    result = score_task(task_def, predictions, targets, tokenizer=tokenizer)
+    result = score_task(task_def, predictions, targets, tokenizer=tokenizer, eval_items=test_data)
+    qa_judge_scores = result["_qa_judge_scores"] if is_gemini_qa_task(task_name) else None
+    qa_judge_reasons = result["_qa_judge_reasons"] if is_gemini_qa_task(task_name) else None
+    qa_judge_raw = result["_qa_judge_raw"] if is_gemini_qa_task(task_name) else None
+    qa_judge_model = result["_qa_judge_model"] if is_gemini_qa_task(task_name) else None
 
     # Attach per-example traces for wandb Tables
     _ensure_ao_imports()
@@ -1400,8 +1484,13 @@ def _eval_single_task(
             "oracle_prefix": oracle_prefix,
             "expected": tgt,
             "predicted": pred,
-            "correct": _per_example_correct(task_name, task_def, pred, tgt),
+            "correct": f"Gemini={qa_judge_scores[i]:.2f}" if qa_judge_scores is not None else _per_example_correct(task_name, task_def, pred, tgt),
         }
+        if qa_judge_scores is not None:
+            trace["judge_model"] = qa_judge_model
+            trace["judge_score"] = qa_judge_scores[i]
+            trace["judge_reason"] = qa_judge_reasons[i]
+            trace["judge_raw"] = qa_judge_raw[i]
         traces.append(trace)
     result["_traces"] = traces
 

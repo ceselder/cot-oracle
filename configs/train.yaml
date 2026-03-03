@@ -32,6 +32,10 @@ tasks:
     n: -1
     eval: true
 
+  resampling_importance:
+    n: -1
+    eval: true
+
   chunked_convqa:
     n: 15000
     eval: true

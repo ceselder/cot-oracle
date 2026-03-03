@@ -1,7 +1,11 @@
-"""Baseline: Qwen-architecture attention probe over raw position sequences.
+"""Qwen-architecture attention probe: joint attention over positions AND layers.
 
-Operates on the raw per-layer position sequences using Qwen3-8B dimensions:
-32 attention heads, head_dim=128, hidden_size=4096, SwiGLU MLP (4096→12288→4096).
+Per-layer SwiGLU MLPs + learned layer embeddings → concatenate all layers into a
+single sequence → joint multi-head self-attention (32 heads) → masked mean-pool →
+LayerNorm + Linear classification head.
+
+Input: list of B dicts {layer_idx: [K_i, D]} (variable positions per example per layer).
+Output: logits [B, n_outputs].
 """
 
 import torch
@@ -27,64 +31,85 @@ class QwenSwiGLU(nn.Module):
         return self.down_proj(F.silu(self.gate_proj(x)) * self.up_proj(x))
 
 
-class QwenAttentionProbeLayer(nn.Module):
-    """One per-layer module: SwiGLU MLP → multi-head self-attention over positions → mean-pool."""
-
-    def __init__(self, hidden_size: int = 4096, intermediate_size: int = 12288, n_heads: int = 32):
-        super().__init__()
-        self.mlp = QwenSwiGLU(hidden_size, intermediate_size)
-        self.attn = nn.MultiheadAttention(hidden_size, n_heads, batch_first=True)
-
-    def forward(self, x: torch.Tensor, key_padding_mask: torch.Tensor | None = None) -> torch.Tensor:
-        """x: [B, K, D] → [B, D]. key_padding_mask: [B, K], True = padding."""
-        h = self.mlp(x)
-        h, _ = self.attn(h, h, h, key_padding_mask=key_padding_mask)
-        if key_padding_mask is not None:
-            valid = ~key_padding_mask  # True for real positions
-            h = (h * valid.unsqueeze(-1)).sum(dim=1) / valid.sum(dim=1, keepdim=True).clamp(min=1)
-        else:
-            h = h.mean(dim=1)
-        return h
+def _subsample_positions(acts: torch.Tensor, max_k: int) -> torch.Tensor:
+    """Subsample [K, D] → [max_k, D] uniformly, always keeping the last position."""
+    K = acts.shape[0]
+    if K <= max_k:
+        return acts
+    # Uniform subsample of max_k-1 from first K-1, plus last position
+    idx = torch.linspace(0, K - 2, max_k - 1).long()
+    idx = torch.cat([idx, torch.tensor([K - 1])])
+    return acts[idx]
 
 
 class QwenAttentionProbe(nn.Module):
-    """Full probe: L independent QwenAttentionProbeLayer + learned layer readout + classification head."""
+    """Joint position-layer probe: SwiGLU per layer → concat → joint self-attention → pool → classify.
+
+    max_positions_per_layer caps positions per layer to avoid OOM on very long CoTs.
+    With 3 layers × 200 positions × 32 heads, attention matrix is ~3.5GB in bf16.
+    """
 
     def __init__(self, layers: list[int], hidden_size: int = 4096, intermediate_size: int = 12288,
-                 n_heads: int = 32, n_outputs: int = 2):
+                 n_heads: int = 32, n_outputs: int = 2, max_positions_per_layer: int = 200):
         super().__init__()
         self.layers = layers
-        self.layer_modules = nn.ModuleList([
-            QwenAttentionProbeLayer(hidden_size, intermediate_size, n_heads)
-            for _ in layers
-        ])
-        self.layer_weights = nn.Parameter(torch.ones(len(layers)) / len(layers))
+        self.max_positions_per_layer = max_positions_per_layer
+        self.layer_mlps = nn.ModuleList([QwenSwiGLU(hidden_size, intermediate_size) for _ in layers])
+        self.layer_embedding = nn.Embedding(len(layers), hidden_size)
+        self.joint_attn = nn.MultiheadAttention(hidden_size, n_heads, batch_first=True)
         self.head = nn.Sequential(nn.LayerNorm(hidden_size), nn.Linear(hidden_size, n_outputs))
 
-    def forward(self, inputs: list[dict[int, torch.Tensor]]) -> torch.Tensor:
-        """inputs: list of B dicts {layer_idx: [K_i, D]}. Returns logits [B, n_outputs]."""
-        device = self.layer_weights.device
+    def forward(self, inputs: list[dict[int, torch.Tensor]], return_attention: bool = False) -> torch.Tensor:
+        """inputs: list of B dicts {layer_idx: [K_i, D]}. Returns logits [B, n_outputs].
+
+        If return_attention=True, also returns (logits, attn_weights [B, T, T], valid_mask [B, T]).
+        """
+        device = self.layer_embedding.weight.device
+        dtype = self.layer_embedding.weight.dtype
         B = len(inputs)
-        layer_outputs = []
+
+        # Step 1: per-layer pad + SwiGLU + layer embedding
+        all_seqs = []   # L tensors of [B, K_max_l, D]
+        all_masks = []  # L tensors of [B, K_max_l]
 
         for li, layer_idx in enumerate(self.layers):
-            acts_list = [inp[layer_idx] for inp in inputs]
+            acts_list = [_subsample_positions(inp[layer_idx], self.max_positions_per_layer) for inp in inputs]
             K_max = max(a.shape[0] for a in acts_list)
             D = acts_list[0].shape[1]
 
-            padded = torch.zeros(B, K_max, D, device=device)
-            mask = torch.ones(B, K_max, dtype=torch.bool, device=device)
+            padded = torch.zeros(B, K_max, D, device=device, dtype=dtype)
+            mask = torch.ones(B, K_max, dtype=torch.bool, device=device)  # True = padding
             for i, a in enumerate(acts_list):
                 K_i = a.shape[0]
-                padded[i, :K_i] = a.to(device)
+                padded[i, :K_i] = a.to(device=device, dtype=dtype)
                 mask[i, :K_i] = False
 
-            layer_outputs.append(self.layer_modules[li](padded, key_padding_mask=mask))
+            h = self.layer_mlps[li](padded)           # [B, K_max, D]
+            h = h + self.layer_embedding(torch.tensor(li, device=device))  # broadcast layer embed
+            all_seqs.append(h)
+            all_masks.append(mask)
 
-        stacked = torch.stack(layer_outputs, dim=1)  # [B, L, D]
-        weights = torch.softmax(self.layer_weights, dim=0)
-        aggregated = (stacked * weights[None, :, None]).sum(dim=1)  # [B, D]
-        return self.head(aggregated)
+        # Step 2: cat all layers → [B, L*K_max_total, D]
+        joint_seq = torch.cat(all_seqs, dim=1)
+        joint_mask = torch.cat(all_masks, dim=1)
+
+        # Step 3: joint self-attention
+        if return_attention:
+            joint_seq, attn_w = self.joint_attn(
+                joint_seq, joint_seq, joint_seq, key_padding_mask=joint_mask,
+                need_weights=True, average_attn_weights=True)
+        else:
+            joint_seq, _ = self.joint_attn(joint_seq, joint_seq, joint_seq, key_padding_mask=joint_mask)
+
+        # Step 4: masked mean-pool → [B, D]
+        valid = ~joint_mask  # True for real positions
+        pooled = (joint_seq * valid.unsqueeze(-1)).sum(dim=1) / valid.sum(dim=1, keepdim=True).clamp(min=1)
+
+        # Step 5: classify
+        logits = self.head(pooled)
+        if return_attention:
+            return logits, attn_w, valid
+        return logits
 
 
 def _train_qwen_probe_fold(
@@ -246,7 +271,6 @@ def run_qwen_attention_probe(
         all_gt_scores = [inp.metadata["importance_scores"] for inp in items_with_chunks]
 
         for train_idx, test_idx in kf.split(range(len(items_with_chunks))):
-            # Flatten training chunks: each chunk → single-position activation dict
             train_acts, y_tr_list = [], []
             for i in train_idx:
                 inp = items_with_chunks[i]

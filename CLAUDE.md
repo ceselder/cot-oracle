@@ -69,3 +69,4 @@ We use Sparse Autoencoders (SAEs) from `adamkarvonen/qwen3-8b-saes` to get inter
 - **Generation evals need fuzzy scoring:** Token F1, not exact match.
 - **`model.eval()` before generation:** Otherwise gradient checkpointing disables KV caching → 20x slower.
 - **Qwen3-8B `enable_thinking=True` is unusable for bounded generation** — generates 4K-8K+ `<think>` tokens. Use `enable_thinking=False` with prompt-based CoT.
+- Probes should never use token-subsampling

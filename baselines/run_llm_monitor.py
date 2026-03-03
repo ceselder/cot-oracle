@@ -164,13 +164,13 @@ def main():
 
     lm_cfg = cfg["baselines"]["llm_monitor"]
     api_key = os.environ["OPENROUTER_API_KEY"]
-    eval_dir = Path(cfg["eval"]["eval_dir"]) if "eval" in cfg else None
+    eval_dir = Path(cfg["eval"]["eval_dir"]) if "eval" in cfg and "eval_dir" in cfg["eval"] else (Path("data/evals") if Path("data/evals").exists() else None)
 
     # Determine evals to run
     if args.evals:
         eval_names = args.evals
     else:
-        raw = cfg["eval"]["evals"]
+        raw = cfg["baselines"]["evals"] if "baselines" in cfg and "evals" in cfg["baselines"] else cfg["eval"]["evals"]
         eval_names = []
         for entry in raw:
             name = list(entry.keys())[0] if isinstance(entry, dict) else entry
@@ -275,6 +275,8 @@ def main():
 
         if "accuracy" in metrics:
             score = f"{metrics['accuracy']:.3f}"
+        elif "mean_gemini_score" in metrics:
+            score = f"{metrics['mean_gemini_score']:.3f}"
         elif "mean_token_f1" in metrics:
             score = f"{metrics['mean_token_f1']:.3f}"
         else:

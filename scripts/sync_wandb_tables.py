@@ -68,7 +68,7 @@ def parse_table_file(name: str) -> tuple[str, int] | None:
 
 def download_and_convert(run, file_obj, eval_name: str, step: int, out_dir: Path):
     """Download a wandb table file and save in our local JSON format."""
-    out_path = out_dir / f"eval_table_{eval_name}_step{step}.json"
+    out_path = out_dir / f"eval_table_{eval_name}_step{step}_run{run.id}.json"
     if out_path.exists():
         return False  # already synced
 
@@ -158,7 +158,7 @@ def sync_run(run, dry_run: bool = False, artifacts_only: bool = False) -> int:
     # Skip already-synced files (including those just pulled from artifacts)
     to_download = []
     for f, (eval_name, step) in table_files:
-        out_path = run_dir / f"eval_table_{eval_name}_step{step}.json"
+        out_path = run_dir / f"eval_table_{eval_name}_step{step}_run{run.id}.json"
         if not out_path.exists():
             to_download.append((f, eval_name, step))
 
@@ -167,7 +167,7 @@ def sync_run(run, dry_run: bool = False, artifacts_only: bool = False) -> int:
 
     if dry_run:
         for _, eval_name, step in to_download:
-            print(f"    would download table: eval_table_{eval_name}_step{step}.json")
+            print(f"    would download table: eval_table_{eval_name}_step{step}_run{run.id}.json")
         return new + len(to_download)
 
     for f, eval_name, step in tqdm(to_download, desc=f"  {run.name} tables", leave=False):
