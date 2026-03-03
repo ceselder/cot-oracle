@@ -698,10 +698,13 @@ class _QwenAttentionProbe(torch.nn.Module):
             all_masks.append(mask)
         joint_seq = torch.cat(all_seqs, dim=1)
         joint_mask = torch.cat(all_masks, dim=1)
-        joint_seq, _ = self.joint_attn(joint_seq, joint_seq, joint_seq, key_padding_mask=joint_mask)
+        joint_seq, attn_w = self.joint_attn(
+            joint_seq, joint_seq, joint_seq, key_padding_mask=joint_mask,
+            need_weights=True, average_attn_weights=True)
         valid = ~joint_mask
         pooled = (joint_seq * valid.unsqueeze(-1)).sum(dim=1) / valid.sum(dim=1, keepdim=True).clamp(min=1)
-        return self.head(pooled)
+        logits = self.head(pooled)
+        return logits, attn_w, valid
 
 
 @dataclass
@@ -804,7 +807,12 @@ class ChatCompareWebApp:
         return probe
 
     def _compute_attn_probe_scores(self, probe_key):
-        """Score CoT positions using an attention probe. Returns per-stride-position logit diff."""
+        """Score CoT positions using an attention probe. Returns attention-based per-position scores.
+
+        Runs the probe once with ALL positions, extracts the joint attention weights
+        [1, T, T] where T = n_layers * K, then aggregates to per-CoT-position importance
+        by averaging the attention each position receives across layers.
+        """
         if self.state.multilayer_acts is None:
             raise HTTPException(status_code=400, detail="Generate a CoT first")
         probe = self._load_attention_probe(probe_key)
@@ -812,24 +820,38 @@ class ChatCompareWebApp:
         K = len(self.state.stride_positions)
         D = self.state.multilayer_acts.shape[1]
         acts_by_layer = self.state.multilayer_acts.view(n_layers, K, D)
-        # Build per-position inputs: each is a dict {layer_idx: [1, D]}
+        # Build single input with all K positions per layer
+        inp = {layer: acts_by_layer[li, :, :] for li, layer in enumerate(self.layers)}  # {layer: [K, D]}
         device = "cuda" if torch.cuda.is_available() else "cpu"
         probe = probe.to(device)
-        scores = []
-        batch_size = 32
-        for start in range(0, K, batch_size):
-            end = min(start + batch_size, K)
-            batch_inputs = []
-            for pos_idx in range(start, end):
-                inp = {layer: acts_by_layer[li, pos_idx:pos_idx + 1, :] for li, layer in enumerate(self.layers)}
-                batch_inputs.append(inp)
-            with torch.no_grad():
-                logits = probe(batch_inputs)  # [batch, 2]
-                # Score = logit[1] - logit[0] (positive = class 1)
-                diff = (logits[:, 1] - logits[:, 0]).cpu().tolist()
-                scores.extend(diff)
+        with torch.no_grad():
+            logits, attn_w, valid = probe([inp])  # attn_w: [1, T, T], T = n_layers * K
+        # attn_w[0] is [T, T] — attention from query pos i to key pos j
+        # T = n_layers * K, laid out as [layer0_pos0..K-1, layer1_pos0..K-1, layer2_pos0..K-1]
+        attn = attn_w[0].cpu().float()  # [T, T]
+        # Mean attention received by each token = column mean (how much others attend to it)
+        attn_received = attn.mean(dim=0)  # [T]
+        # Aggregate across layers: for each CoT position, average its score across 3 layers
+        scores_per_pos = torch.zeros(K)
+        for li in range(n_layers):
+            scores_per_pos += attn_received[li * K : (li + 1) * K]
+        scores_per_pos /= n_layers
+        # Also get the classification result
+        logit_diff = (logits[0, 1] - logits[0, 0]).cpu().item()
+        probe_info = ATTENTION_PROBES[probe_key]
+        scores = scores_per_pos.tolist()
         probe = probe.cpu()
-        return {"scores": scores, "min_score": min(scores), "max_score": max(scores), "all_positions": False}
+        return {
+            "scores": scores,
+            "min_score": min(scores),
+            "max_score": max(scores),
+            "all_positions": False,
+            "classification": {
+                "logit_diff": logit_diff,
+                "prediction": "positive" if logit_diff > 0 else "negative",
+                "task": probe_info.get("task", ""),
+            },
+        }
 
     # --- Linear probe loading for heatmap ---
 
@@ -3000,10 +3022,20 @@ For your final answer, respond with "Answer: Yes" or "Answer: No" after the chai
             data = await postJson('/api/heatmap/probe_scores', { probe_filename: probeId });
           }
           heatmapScores = data;
-          const colorFn = s => heatmapColorProbe(s, data.min_score, data.max_score);
-          renderHeatmapTokens(data.scores, colorFn, 'probe score', !!data.all_positions);
-          renderHeatmapLegend(data.min_score, data.max_score, colorFn);
-          setHeatmapStatus(false, `Probe scores computed (${data.scores.length} positions)`);
+          if (isAttn) {
+            // Attention probes: use sequential colormap (attention weights are all positive)
+            const colorFn = s => heatmapColorLogprob(s, data.min_score, data.max_score);
+            renderHeatmapTokens(data.scores, colorFn, 'attention weight', !!data.all_positions);
+            renderHeatmapLegend(data.min_score, data.max_score, colorFn);
+            const cls = data.classification || {};
+            const clsInfo = cls.task ? ` | Classification: ${cls.prediction} (logit diff: ${cls.logit_diff.toFixed(3)})` : '';
+            setHeatmapStatus(false, `Attention heatmap (${data.scores.length} positions)${clsInfo}`);
+          } else {
+            const colorFn = s => heatmapColorProbe(s, data.min_score, data.max_score);
+            renderHeatmapTokens(data.scores, colorFn, 'probe score', !!data.all_positions);
+            renderHeatmapLegend(data.min_score, data.max_score, colorFn);
+            setHeatmapStatus(false, `Probe scores computed (${data.scores.length} positions)`);
+          }
         } catch(e) {
           setHeatmapStatus(false, 'Error: ' + e.message);
         }
