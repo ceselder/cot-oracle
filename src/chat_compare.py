@@ -751,14 +751,16 @@ class ChatCompareWebApp:
         return result
 
     def _list_probes(self):
-        """Scan probes_dir and return list of available probe files."""
+        """Scan probes_dir and return list of available concat probe files only."""
         probes_dir = Path(self.args.probes_dir)
         if not probes_dir.exists():
             return []
         probes = []
-        for pt_file in sorted(probes_dir.glob("*.pt")):
+        for pt_file in sorted(probes_dir.glob("*_concat.pt")):
             try:
                 data = self._load_probe(pt_file.name)
+                if len(data["layers"]) < 2:
+                    continue  # skip non-concat probes
                 probes.append({
                     "filename": pt_file.name,
                     "probe_name": data["probe_name"],
@@ -768,7 +770,7 @@ class ChatCompareWebApp:
                     "balanced_accuracy": data["balanced_accuracy"],
                 })
             except Exception:
-                probes.append({"filename": pt_file.name, "probe_name": pt_file.stem, "layers": [], "labels": [], "pooling": "unknown", "balanced_accuracy": None})
+                pass
         return probes
 
     def _ensure_full_layer_acts(self, layer):
@@ -795,38 +797,19 @@ class ChatCompareWebApp:
         self._progress_status = ""
         return self.state.full_layer_acts[layer]
 
-    def _compute_probe_scores(self, probe_filename, layer):
-        """Score ALL CoT token positions using a linear probe.
-
-        For single-layer probes: extracts activations at `layer`.
-        For concat probes (layer="concat"): extracts and concatenates all probe layers.
-        """
+    def _compute_probe_scores(self, probe_filename):
+        """Score ALL CoT token positions using a concat linear probe (all layers)."""
         if self.state.multilayer_acts is None:
             raise HTTPException(status_code=400, detail="Generate a CoT first")
         probe = self._load_probe(probe_filename)
         w, b, mu, std = probe["w"], probe["b"], probe["mu"], probe["std"]
         probe_layers = probe["layers"]
 
-        if layer == "concat" and len(probe_layers) > 1:
-            # Concat probe: extract all layers and concatenate
-            layer_acts = []
-            for pl in probe_layers:
-                layer_acts.append(self._ensure_full_layer_acts(pl))  # [cot_len, D]
-            acts = torch.cat(layer_acts, dim=1)  # [cot_len, n_layers * D]
-        else:
-            # Single-layer probe or user picked one layer from a concat probe
-            actual_layer = int(layer)
-            acts = self._ensure_full_layer_acts(actual_layer)  # [cot_len, D]
-            D = acts.shape[1]
-            # If this is a concat probe but user picked a single layer, slice w
-            if w.shape[0] > D and len(probe_layers) > 1:
-                if actual_layer not in probe_layers:
-                    raise HTTPException(status_code=400, detail=f"Layer {actual_layer} not in probe layers {probe_layers}")
-                li = probe_layers.index(actual_layer)
-                w = w[li * D:(li + 1) * D]
-                mu = mu[li * D:(li + 1) * D]
-                std = std[li * D:(li + 1) * D]
-                b = b / len(probe_layers)
+        # Always concat all layers
+        layer_acts = []
+        for pl in probe_layers:
+            layer_acts.append(self._ensure_full_layer_acts(pl))  # [cot_len, D]
+        acts = torch.cat(layer_acts, dim=1)  # [cot_len, n_layers * D]
 
         acts_normed = (acts.float() - mu.unsqueeze(0)) / std.unsqueeze(0)
         scores = (acts_normed @ w + b).tolist()
@@ -1559,10 +1542,7 @@ class ChatCompareWebApp:
         @self.app.post("/api/heatmap/probe_scores")
         async def heatmap_probe_scores(payload: dict):
             probe_filename = payload["probe_filename"]
-            layer = payload["layer"]  # int or "concat"
-            if layer != "concat":
-                layer = int(layer)
-            return await asyncio.to_thread(self._compute_probe_scores, probe_filename, layer)
+            return await asyncio.to_thread(self._compute_probe_scores, probe_filename)
 
         @self.app.post("/api/heatmap/ao_logprobs")
         async def heatmap_ao_logprobs(payload: dict):
@@ -1794,10 +1774,6 @@ class ChatCompareWebApp:
           <div id=\"heatmapProbeControls\">
             <label>Probe</label>
             <select id=\"heatmapProbeSelect\"><option value=\"\">-- no probes --</option></select>
-          </div>
-          <div id=\"heatmapProbeLayerDiv\">
-            <label>Layer</label>
-            <select id=\"heatmapProbeLayer\"></select>
           </div>
           <div id=\"heatmapAoControls\" style=\"display:none\">
             <label>Oracle prompt</label>
@@ -2606,7 +2582,6 @@ For your final answer, respond with "Answer: Yes" or "Answer: No" after the chai
     let heatmapMode = 'probe';
     const heatmapSignalSel = document.getElementById('heatmapSignal');
     const heatmapProbeControls = document.getElementById('heatmapProbeControls');
-    const heatmapProbeLayerDiv = document.getElementById('heatmapProbeLayerDiv');
     const heatmapAoControls = document.getElementById('heatmapAoControls');
     const heatmapAoTokensDiv = document.getElementById('heatmapAoTokensDiv');
     const heatmapAoDisplayDiv = document.getElementById('heatmapAoDisplayDiv');
@@ -2617,7 +2592,6 @@ For your final answer, respond with "Answer: Yes" or "Answer: No" after the chai
       heatmapMode = heatmapSignalSel.value;
       const isProbe = heatmapMode === 'probe';
       heatmapProbeControls.style.display = isProbe ? '' : 'none';
-      heatmapProbeLayerDiv.style.display = isProbe ? '' : 'none';
       heatmapAoControls.style.display = isProbe ? 'none' : '';
       heatmapAoTokensDiv.style.display = isProbe ? 'none' : '';
       heatmapAoDisplayDiv.style.display = isProbe ? 'none' : '';
@@ -2633,50 +2607,16 @@ For your final answer, respond with "Answer: Yes" or "Answer: No" after the chai
       if (heatmapConfig.probes.length === 0) {
         probeSel.innerHTML = '<option value="">-- no probes found --</option>';
       } else {
-        // Extract task name from filename for cleaner display
         heatmapConfig.probes.forEach(p => {
           const opt = document.createElement('option');
           opt.value = p.filename;
           const acc = p.balanced_accuracy ? ` (${(p.balanced_accuracy * 100).toFixed(1)}%)` : '';
-          // e.g. "sycophancy_last_linear_concat.pt" -> "sycophancy [concat]"
-          const fname = p.filename.replace('.pt', '');
-          const isConcat = fname.endsWith('_concat');
-          const layerMatch = fname.match(/_L([0-9]+)$/);
-          let displayName;
-          if (isConcat) {
-            displayName = fname.replace(/_last_linear_concat$/, '') + ' [concat]';
-          } else if (layerMatch) {
-            displayName = fname.replace(/_last_linear_L[0-9]+$/, '') + ' [L' + layerMatch[1] + ']';
-          } else {
-            displayName = p.probe_name;
-          }
+          // e.g. "sycophancy_last_linear_concat.pt" -> "sycophancy"
+          const displayName = p.filename.replace('.pt', '').replace(/_last_linear_concat$/, '').replaceAll('_', ' ');
           opt.textContent = displayName + acc;
           probeSel.appendChild(opt);
         });
-        updateProbeLayerOptions();
       }
-      probeSel.addEventListener('change', updateProbeLayerOptions);
-    }
-
-    function updateProbeLayerOptions() {
-      const probeSel = document.getElementById('heatmapProbeSelect');
-      const layerSel = document.getElementById('heatmapProbeLayer');
-      layerSel.innerHTML = '';
-      const probeInfo = heatmapConfig.probes.find(p => p.filename === probeSel.value);
-      const layers = probeInfo && probeInfo.layers.length ? probeInfo.layers : heatmapConfig.layers;
-      // For concat probes (multiple layers), offer "concat" as default
-      if (layers.length > 1) {
-        const concatOpt = document.createElement('option');
-        concatOpt.value = 'concat';
-        concatOpt.textContent = 'Concat (all layers)';
-        layerSel.appendChild(concatOpt);
-      }
-      layers.forEach(l => {
-        const opt = document.createElement('option');
-        opt.value = l;
-        opt.textContent = 'Layer ' + l;
-        layerSel.appendChild(opt);
-      });
     }
 
     function heatmapColorProbe(score, minScore, maxScore) {
@@ -2762,11 +2702,10 @@ For your final answer, respond with "Answer: Yes" or "Answer: No" after the chai
       if (!session) { setHeatmapStatus(false, 'Generate a CoT first'); return; }
       if (heatmapMode === 'probe') {
         const probeFile = document.getElementById('heatmapProbeSelect').value;
-        const layer = Number(document.getElementById('heatmapProbeLayer').value);
         if (!probeFile) { setHeatmapStatus(false, 'Select a probe'); return; }
         setHeatmapStatus(true, 'Computing probe scores...');
         try {
-          const data = await postJson('/api/heatmap/probe_scores', { probe_filename: probeFile, layer });
+          const data = await postJson('/api/heatmap/probe_scores', { probe_filename: probeFile });
           heatmapScores = data;
           const colorFn = s => heatmapColorProbe(s, data.min_score, data.max_score);
           renderHeatmapTokens(data.scores, colorFn, 'probe score', !!data.all_positions);
