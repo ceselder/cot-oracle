@@ -1524,6 +1524,8 @@ def apply_config(args, config: dict):
             args.fineweb_min_target_tokens = fw["min_target_tokens"]
         if "max_target_tokens" in fw:
             args.fineweb_max_target_tokens = fw["max_target_tokens"]
+        if "variant" in fw:
+            args.fineweb_variant = fw["variant"]
 
     # Classification
     if "classification" in config:
@@ -1934,9 +1936,11 @@ def main():
         fw_max_ctx = getattr(args, "fineweb_max_context_tokens", 2000)
         fw_min_tgt = getattr(args, "fineweb_min_target_tokens", 5)
         fw_max_tgt = getattr(args, "fineweb_max_target_tokens", 25)
+        fw_variant = getattr(args, "fineweb_variant", None)
+        variant_str = fw_variant if fw_variant else "3 variants"
         if rank == 0:
             print(f"  [data] Generating {fineweb_n} FineWeb readout examples "
-                  f"(3 variants, single-position, target {fw_min_tgt}-{fw_max_tgt} tokens)...")
+                  f"({variant_str}, single-position, target {fw_min_tgt}-{fw_max_tgt} tokens)...")
         fineweb_data = load_fineweb_readout_data(
             tokenizer=tokenizer,
             n=fineweb_n,
@@ -1945,6 +1949,7 @@ def main():
             min_target_tokens=fw_min_tgt,
             max_target_tokens=fw_max_tgt,
             seed=args.seed,
+            variant=fw_variant,
         )
         raw_data.extend(fineweb_data)
         if rank == 0:
