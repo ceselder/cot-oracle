@@ -1482,10 +1482,6 @@ def apply_config(args, config: dict):
             args.classification_datasets = cls["datasets"]
 
     # LatentQA
-    if "latentqa" in config:
-        lqa = config["latentqa"]
-        if lqa.get("enabled", False) and not getattr(args, "_cli_latentqa_n", False):
-            args.latentqa_n = lqa.get("n", 65000)
 
     # Output
     if "output" in config:
@@ -1609,7 +1605,8 @@ def main():
                         help="Classification datasets to use (default: sst2, ag_news, snli)")
 
     # LatentQA (Adam's SPQA task)
-    parser.add_argument("--latentqa-n", type=int, default=0,
+    parser.add_argument("--latentqa-n", type=int, default=0,  # DEPRECATED: do not use
+
                         help="Number of LatentQA examples (0 = disabled, set via config)")
 
     # Layer dropout
@@ -1906,22 +1903,6 @@ def main():
         raw_data.extend(cls_data)
         if rank == 0:
             print(f"  [data]   -> {len(cls_data)} classification examples added (total: {len(raw_data)})")
-
-    # LatentQA / SPQA (Adam's AO task, if enabled)
-    lqa_n = getattr(args, "latentqa_n", 0)
-    if lqa_n > 0 and not NO_ACTIVATIONS:
-        from data_loading import load_latentqa_data
-        if rank == 0:
-            print(f"  [data] Loading {lqa_n} LatentQA examples...")
-        lqa_data = load_latentqa_data(
-            tokenizer=tokenizer,
-            n=lqa_n,
-            layers=MULTI_LAYERS,
-            seed=args.seed,
-        )
-        raw_data.extend(lqa_data)
-        if rank == 0:
-            print(f"  [data]   -> {len(lqa_data)} LatentQA examples added (total: {len(raw_data)})")
 
     if not raw_data:
         if rank == 0:

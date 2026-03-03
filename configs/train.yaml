@@ -80,11 +80,6 @@ classification:
   n: 15000
   datasets: [sst2, ag_news, snli]
 
-# LatentQA / SPQA (matching Adam's AO training)
-latentqa:
-  enabled: true
-  n: 30000
-
 # Training
 training:
   lr: 0.00001
