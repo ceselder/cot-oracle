@@ -641,7 +641,9 @@ def _materialize_activations(
     N = len(layers)
     for b in range(len(items)):
         positions = all_positions[b]
-        K = len(positions) // N
+        K, rem = divmod(len(positions), N)
+        if rem:
+            raise ValueError(f"len(context_positions)={len(positions)} not divisible by layers={layers}")
 
         vectors_parts = []
         for li, layer in enumerate(layers):
@@ -701,7 +703,7 @@ def _batched_oracle_generate(
 
     for activations, oracle_prompt in items:
         num_positions = activations.shape[0]
-        prefix = _build_oracle_prefix(num_positions, ph_token)
+        prefix = _build_oracle_prefix(num_positions, layers=layers, placeholder_token=ph_token)
         full_prompt = prefix + oracle_prompt
 
         messages = [{"role": "user", "content": full_prompt}]
@@ -809,11 +811,23 @@ def _batched_oracle_generate(
 _ACT_PREFIX_RE = re.compile(r'^Activations from \d+ positions[^.]*\.\s*')
 
 
-def _build_oracle_prefix(num_positions: int, placeholder_token: str | None = None) -> str:
+def _build_oracle_prefix(
+    num_positions: int,
+    layers: list[int] | None = None,
+    placeholder_token: str | None = None,
+) -> str:
     if placeholder_token is None:
         _ensure_ao_imports()
         placeholder_token = _ao_modules["PLACEHOLDER_TOKEN"]
-    return "Activations:" + placeholder_token * num_positions + ".\n"
+    prefix_layers = list(layers) if layers else []
+    if not prefix_layers:
+        raise ValueError("layers must be provided for oracle prefix construction")
+    if len(prefix_layers) == 1:
+        return f"L{prefix_layers[0]}:" + placeholder_token * num_positions + "\n"
+    k, rem = divmod(num_positions, len(prefix_layers))
+    if rem:
+        raise ValueError(f"num_positions={num_positions} not divisible by layers={prefix_layers}")
+    return " ".join(f"L{layer}:" + placeholder_token * k for layer in prefix_layers) + "\n"
 
 
 def _text_baseline_generate(
@@ -1249,7 +1263,7 @@ def _eval_single_task(
     traces = []
     for i, (pred, tgt) in enumerate(zip(predictions, targets)):
         item = test_data[i]
-        oracle_prefix = _build_oracle_prefix(all_activations[i].shape[0], ph_token)
+        oracle_prefix = _build_oracle_prefix(all_activations[i].shape[0], layers=layers, placeholder_token=ph_token)
 
         # Build masked_cot_field: replace activation-position tokens with placeholder
         ctx_ids = item.get("context_input_ids", [])

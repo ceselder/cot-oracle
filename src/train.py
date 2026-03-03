@@ -92,8 +92,20 @@ POSITION_MODE: str = "stochastic"  # "last_only", "stochastic", "all"
 _MODEL_N_LAYERS: int = 36  # total layers in the model (set in main())
 
 
+def _build_labeled_layer_prefix(num_positions: int, layers: list[int], placeholder_token: str = PLACEHOLDER_TOKEN) -> str:
+    if not layers:
+        raise ValueError("layers must be non-empty")
+    if len(layers) == 1:
+        return f"L{layers[0]}:" + placeholder_token * num_positions + "\n"
+    k, rem = divmod(num_positions, len(layers))
+    if rem:
+        raise ValueError(f"num_positions={num_positions} not divisible by layers={layers}")
+    return " ".join(f"L{layer}:" + placeholder_token * k for layer in layers) + "\n"
+
+
 def _patched_get_prefix(sae_layer: int, num_positions: int, layers: list[int] | None = None) -> str:
-    return "Activations:" + PLACEHOLDER_TOKEN * num_positions + ".\n"
+    prefix_layers = list(layers) if layers else [sae_layer]
+    return _build_labeled_layer_prefix(num_positions, prefix_layers)
 
 
 du_module.get_introspection_prefix = _patched_get_prefix
@@ -220,7 +232,11 @@ def materialize_multilayer_steering_vectors(
         item_layers = per_item_layers[b]
         total_positions = len(positions_per_item[b])
         N_item = len(item_layers)
-        K = total_positions // N_item
+        K, rem = divmod(total_positions, N_item)
+        if rem:
+            raise ValueError(
+                f"total_positions={total_positions} not divisible by item_layers={item_layers}"
+            )
 
         vectors_parts = []
         for li, layer in enumerate(item_layers):
@@ -241,7 +257,9 @@ def materialize_multilayer_steering_vectors(
         dp_new = dp.model_copy(deep=False)
         dp_new.steering_vectors = vectors
         if vectors.shape[0] != len(dp_new.positions):
-            dp_new.positions = dp_new.positions[:vectors.shape[0]]
+            raise ValueError(
+                f"steering_vectors rows {vectors.shape[0]} != placeholder positions {len(dp_new.positions)}"
+            )
         new_batch[idx] = dp_new
 
     return new_batch
@@ -397,7 +415,7 @@ def dicts_to_training_data(
                 feature_idx=-1,
                 context_input_ids=item["context_input_ids"],
                 context_positions=ctx_pos,
-                meta_info={"prompt": item["prompt"]},
+                meta_info={"prompt": item["prompt"], "layers": list(MULTI_LAYERS) if MULTI_LAYERS else [item["layer"]]},
             )
 
         training_data.append(dp)

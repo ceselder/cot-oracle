@@ -333,14 +333,28 @@ def query_original_ao(model, tokenizer, acts_l50, prompt, model_name, injection_
 
 def query_trained_oracle(model, tokenizer, selected_acts, prompt, selected_layers, layer_counts, injection_layer=1, max_new_tokens=150, device="cuda"):
     dtype = torch.bfloat16
+    if len(selected_layers) != len(layer_counts):
+        raise ValueError(f"selected_layers={selected_layers} and layer_counts={layer_counts} must align")
     total_count = sum(layer_counts)
-    prefix = "Activations:" + TRAINED_PLACEHOLDER * total_count + ".\n"
-    full_prompt = prefix + prompt
+    if selected_acts.shape[0] != total_count:
+        raise ValueError(f"selected_acts rows {selected_acts.shape[0]} != expected {total_count} from layer_counts={layer_counts}")
+    prefix = ""
     relative_spans = []
-    label_len = len("Activations:")
-    for pos_idx in range(total_count):
-        start = label_len + pos_idx * len(TRAINED_PLACEHOLDER)
-        relative_spans.append((start, start + len(TRAINED_PLACEHOLDER)))
+    cursor = 0
+    for i, (layer, count) in enumerate(zip(selected_layers, layer_counts)):
+        if i > 0:
+            prefix += " "
+            cursor += 1
+        label = f"L{layer}:"
+        prefix += label
+        cursor += len(label)
+        for _ in range(count):
+            start = cursor
+            prefix += TRAINED_PLACEHOLDER
+            cursor += len(TRAINED_PLACEHOLDER)
+            relative_spans.append((start, cursor))
+    prefix += "\n"
+    full_prompt = prefix + prompt
     input_ids, positions = encode_prompt_with_positions(tokenizer, full_prompt, relative_spans)
     input_tensor = torch.tensor([input_ids], device=get_model_input_device(model))
     attn_mask = torch.ones_like(input_tensor)

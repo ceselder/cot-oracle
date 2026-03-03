@@ -42,7 +42,7 @@ def build_random_layer_prefix(layers: list[int], num_positions_per_layer: int) -
     for layer in layers:
         block = f"L{layer}:" + SPECIAL_TOKEN * num_positions_per_layer
         parts.append(block)
-    return " ".join(parts) + " \n"
+    return " ".join(parts) + "\n"
 
 
 def find_all_special_positions(
