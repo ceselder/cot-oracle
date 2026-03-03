@@ -597,6 +597,132 @@ def run_oracle_with_answer_logprobs(
     return result
 
 
+@dynamo.disable
+@torch.no_grad()
+def run_batched_ao_logprobs(
+    model: PeftModel,
+    tokenizer: AutoTokenizer,
+    per_position_acts: list[torch.Tensor],
+    oracle_prompt: str,
+    answer_tokens: list[str],
+    model_name: str,
+    injection_layer: int = 1,
+    act_layer: int | list[int] | None = None,
+    device: str = "cuda",
+    placeholder_token: str | None = None,
+    oracle_adapter_name: str | None = None,
+    batch_size: int = 8,
+) -> dict[str, list[float]]:
+    """Run batched oracle forward passes, one per stride position, returning logprobs.
+
+    Each item in per_position_acts is a [n_layers, D] or [K, D] tensor for a
+    single stride position (all layers stacked). The function batches these into
+    groups of batch_size and runs forward passes with activation injection.
+
+    Returns:
+        Dict mapping each answer token string to a list of logprobs, one per
+        stride position (same order as per_position_acts).
+    """
+    dtype = torch.bfloat16
+    ph_token = placeholder_token or SPECIAL_TOKEN
+    n_total = len(per_position_acts)
+
+    if act_layer is None:
+        act_layer = layer_percent_to_layer(model_name, 50)
+
+    # Build the oracle prompt template (same for every batch item)
+    sample_acts = per_position_acts[0]
+    num_positions = sample_acts.shape[0]  # n_layers (or K positions per item)
+
+    if isinstance(act_layer, (list, tuple)):
+        N = len(act_layer)
+        K = num_positions // N
+        assert K * N == num_positions
+        parts = [f"L{l}:" + ph_token * K for l in act_layer]
+        prefix = " ".join(parts) + "\n"
+    else:
+        prefix = f"L{act_layer}:" + ph_token * num_positions + "\n"
+    full_prompt = prefix + oracle_prompt
+
+    messages = [{"role": "user", "content": full_prompt}]
+    formatted = tokenizer.apply_chat_template(
+        messages, tokenize=False, add_generation_prompt=True, enable_thinking=False,
+    )
+    input_ids = tokenizer.encode(formatted, add_special_tokens=False)
+
+    ph_id = tokenizer.encode(ph_token, add_special_tokens=False)
+    assert len(ph_id) == 1, f"Expected single token for '{ph_token}', got {len(ph_id)}"
+    ph_id = ph_id[0]
+
+    positions = []
+    for i, tid in enumerate(input_ids):
+        if tid == ph_id and len(positions) < num_positions:
+            positions.append(i)
+    assert len(positions) == num_positions
+
+    # Resolve answer token IDs
+    answer_token_ids = {}
+    for tok_str in answer_tokens:
+        candidates = tokenizer.encode(tok_str, add_special_tokens=False)
+        if candidates:
+            answer_token_ids[tok_str] = candidates[-1]
+
+    # Set adapter
+    previous_adapter = _active_adapter_name(model)
+    active_adapter = oracle_adapter_name
+    if oracle_adapter_name is not None:
+        model.set_adapter(oracle_adapter_name)
+    else:
+        ao_path = AO_CHECKPOINTS[model_name]
+        active_adapter = ao_path.replace(".", "_")
+        try:
+            model.set_adapter(active_adapter)
+        except ValueError:
+            model.set_adapter("default")
+            active_adapter = "default"
+
+    injection_submodule = get_hf_submodule(model, injection_layer, use_lora=True)
+    was_training = model.training
+    model.eval()
+
+    # Collect logprobs for all positions
+    all_logprobs = {tok_str: [] for tok_str in answer_token_ids}
+
+    try:
+        for batch_start in range(0, n_total, batch_size):
+            batch_acts = per_position_acts[batch_start:batch_start + batch_size]
+            B = len(batch_acts)
+
+            # Each item in the batch gets the same input_ids and the same positions
+            input_tensor = torch.tensor([input_ids] * B, device=device)
+            attn_mask = torch.ones_like(input_tensor)
+
+            hook_fn = get_batched_steering_hook(
+                vectors=batch_acts,
+                positions=[positions] * B,
+                device=device,
+                dtype=dtype,
+            )
+
+            with add_hook(injection_submodule, hook_fn):
+                outputs = model(input_ids=input_tensor, attention_mask=attn_mask)
+
+            # Extract logprobs at last position for each batch item
+            logits = outputs.logits[:, -1, :]  # [B, vocab_size]
+            log_probs = torch.log_softmax(logits.float(), dim=-1)
+
+            for tok_str, tid in answer_token_ids.items():
+                for b in range(B):
+                    all_logprobs[tok_str].append(log_probs[b, tid].item())
+    finally:
+        if was_training:
+            model.train()
+        if previous_adapter and previous_adapter in getattr(model, "peft_config", {}) and previous_adapter != active_adapter:
+            model.set_adapter(previous_adapter)
+
+    return all_logprobs
+
+
 def generate_cot(
     model: PeftModel,
     tokenizer: AutoTokenizer,

@@ -18,6 +18,7 @@ from .ao import (
     layer_percent_to_layer,
     load_extra_adapter,
     load_model_with_ao,
+    run_batched_ao_logprobs,
     run_oracle_on_activations,
     split_cot_into_sentences,
 )
@@ -43,6 +44,7 @@ __all__ = [
     "layer_percent_to_layer",
     "load_extra_adapter",
     "load_model_with_ao",
+    "run_batched_ao_logprobs",
     "run_oracle_on_activations",
     "split_cot_into_sentences",
 ]

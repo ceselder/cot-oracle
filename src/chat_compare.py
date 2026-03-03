@@ -55,6 +55,7 @@ from core.ao import (
     get_hf_submodule,
     get_steering_hook,
     load_extra_adapter,
+    run_batched_ao_logprobs,
     using_adapter,
 )
 from nl_probes.sae import load_dictionary_learning_batch_topk_sae
@@ -127,6 +128,29 @@ sys.stderr = _StderrTee(sys.__stderr__)
 MODEL_ORGANISMS = {
     "heretic": {"path": "ceselder/Qwen3-8B-heretic", "label": "Heretic", "type": "full_model"},
     "rot13": {"path": "ceselder/rot13-qwen3-8b-lora", "label": "ROT13", "type": "lora"},
+}
+
+# Available checkpoints for the Trained Oracle dropdown.
+# key -> {"path": HF repo or local path, "label": display name}
+TRAINED_CHECKPOINTS = {
+    "v6": {"path": "ceselder/cot-oracle-v6", "label": "v6 (latest)"},
+    "ablation-stride5": {"path": "ceselder/cot-oracle-ablation-stride5-3layers", "label": "ablation: stride5 3-layer"},
+    "ablation-stride10-pe-off": {"path": "ceselder/cot-oracle-ablation-stride10-pe-off", "label": "ablation: stride10 no-PE"},
+    "ablation-pooling": {"path": "ceselder/cot-oracle-ablation-stride100-3layers", "label": "ablation: pooling stride100"},
+    "text-baseline": {"path": "ceselder/cot-oracle-text-baseline-smoke", "label": "text baseline (no acts)"},
+}
+
+# Available checkpoints for the Original AO / Adam dropdown.
+ADAM_CHECKPOINTS = {
+    "default-8b": {"path": "adamkarvonen/checkpoints_latentqa_cls_past_lens_addition_Qwen3-8B", "label": "Adam: cls+latentqa+pastlens+addition (8B, default)"},
+    "cls-latentqa-sae-pastlens": {"path": "adamkarvonen/checkpoints_cls_latentqa_sae_past_lens_Qwen3-8B", "label": "Adam: cls+latentqa+sae+pastlens (8B)"},
+    "cls-latentqa-sae-addition": {"path": "adamkarvonen/checkpoints_cls_latentqa_sae_addition_Qwen3-8B", "label": "Adam: cls+latentqa+sae+addition (8B)"},
+    "latentqa-only": {"path": "adamkarvonen/checkpoints_latentqa_only_Qwen3-8B", "label": "Adam: latentqa only (8B)"},
+    "cls-only": {"path": "adamkarvonen/checkpoints_cls_only_Qwen3-8B", "label": "Adam: classification only (8B)"},
+    "all-single-multi-cls-latentqa": {"path": "adamkarvonen/checkpoints_all_single_and_multi_pretrain_cls_latentqa_posttrain_Qwen3-8B", "label": "Adam: all+cls+latentqa posttrain (8B)"},
+    "on-policy-3x": {"path": "adamkarvonen/checkpoints_latentqa_cls_on_policy_3x_Qwen3-8B", "label": "Adam: on-policy 3x (8B)"},
+    "on-policy-6x": {"path": "adamkarvonen/checkpoints_latentqa_cls_on_policy_6x_Qwen3-8B", "label": "Adam: on-policy 6x (8B)"},
+    "pastlens-400k": {"path": "adamkarvonen/checkpoints_cls_latentqa_past_lens_400k_Qwen3-8B", "label": "Adam: cls+latentqa+pastlens 400k (8B)"},
 }
 
 BUILTIN_TASK_PROMPTS = {
@@ -357,7 +381,7 @@ def encode_prompt_with_positions(tokenizer, full_prompt, relative_spans):
     return input_ids, positions
 
 
-def query_original_ao(model, tokenizer, acts_l50, prompt, model_name, injection_layer=1, max_new_tokens=150, device="cuda"):
+def query_original_ao(model, tokenizer, acts_l50, prompt, model_name, injection_layer=1, max_new_tokens=150, device="cuda", adapter_name="original_ao"):
     dtype = torch.bfloat16
     num_positions = acts_l50.shape[0]
     act_layer = layer_percent_to_layer(model_name, 50)
@@ -368,7 +392,7 @@ def query_original_ao(model, tokenizer, acts_l50, prompt, model_name, injection_
     input_ids, positions = encode_prompt_with_positions(tokenizer, full_prompt, relative_spans)
     input_tensor = torch.tensor([input_ids], device=get_model_input_device(model))
     attn_mask = torch.ones_like(input_tensor)
-    model.set_adapter("original_ao")
+    model.set_adapter(adapter_name)
     injection_submodule = get_hf_submodule(model, injection_layer, use_lora=True)
     hook_fn = get_steering_hook(vectors=acts_l50, positions=positions, device=get_module_device(injection_submodule), dtype=dtype)
     with torch.no_grad(), add_hook(injection_submodule, hook_fn):
@@ -376,7 +400,7 @@ def query_original_ao(model, tokenizer, acts_l50, prompt, model_name, injection_
     return tokenizer.decode(output[0][len(input_ids):], skip_special_tokens=True)
 
 
-def query_trained_oracle(model, tokenizer, selected_acts, prompt, selected_layers, layer_counts, injection_layer=1, max_new_tokens=150, device="cuda"):
+def query_trained_oracle(model, tokenizer, selected_acts, prompt, selected_layers, layer_counts, injection_layer=1, max_new_tokens=150, device="cuda", adapter_name="trained"):
     dtype = torch.bfloat16
     if len(selected_layers) != len(layer_counts):
         raise ValueError(f"selected_layers={selected_layers} and layer_counts={layer_counts} must align")
@@ -403,7 +427,7 @@ def query_trained_oracle(model, tokenizer, selected_acts, prompt, selected_layer
     input_ids, positions = encode_prompt_with_positions(tokenizer, full_prompt, relative_spans)
     input_tensor = torch.tensor([input_ids], device=get_model_input_device(model))
     attn_mask = torch.ones_like(input_tensor)
-    model.set_adapter("trained")
+    model.set_adapter(adapter_name)
     injection_submodule = get_hf_submodule(model, injection_layer, use_lora=True)
     hook_fn = get_steering_hook(vectors=selected_acts, positions=positions, device=get_module_device(injection_submodule), dtype=dtype)
     with torch.no_grad(), add_hook(injection_submodule, hook_fn):
@@ -603,9 +627,18 @@ class ChatCompareWebApp:
         self._active_cot_adapter = None
         self._progress_status = ""
         self.model_lock = threading.Lock()
+        # Track which adapter names map to "trained" and "original_ao" roles
+        self._active_trained_adapter = "trained"
+        self._active_ao_adapter = "original_ao"
+        # Track loaded adapter paths to avoid reloading
+        self._loaded_adapters = {
+            "trained": args.checkpoint,
+            "original_ao": AO_CHECKPOINTS[args.model],
+        }
         self.saes = None
         self.sae_labels = None
         self.no_act_adapter_name = None
+        self._probe_cache = {}
         self.state = SessionState()
         self.log_dir = CHAT_COMPARE_LOG_DIR
         self.log_dir.mkdir(parents=True, exist_ok=True)
@@ -635,6 +668,177 @@ class ChatCompareWebApp:
         if self.no_act_adapter_name is not None:
             return
         self.no_act_adapter_name = load_extra_adapter(self.model, self.no_act_checkpoint, adapter_name="no_act")
+
+    # --- Probe loading for heatmap ---
+
+    def _load_probe(self, filename: str):
+        """Load and cache a probe .pt file, extracting the binary direction."""
+        if filename in self._probe_cache:
+            return self._probe_cache[filename]
+        probes_dir = Path(self.args.probes_dir)
+        path = probes_dir / filename
+        if not path.exists():
+            raise HTTPException(status_code=404, detail=f"Probe file not found: {filename}")
+        probe_data = torch.load(path, weights_only=True, map_location="cpu")
+        weight = probe_data["weight"]
+        bias = probe_data["bias"]
+        mu = probe_data["mu"].squeeze(0)
+        std = probe_data["std"].squeeze(0)
+        if weight.shape[0] == 1:
+            w = weight[0]
+            b = bias[0].item()
+        elif weight.shape[0] == 2:
+            w = weight[1] - weight[0]
+            b = (bias[1] - bias[0]).item()
+        else:
+            raise ValueError(f"Expected binary probe (1 or 2 outputs), got {weight.shape[0]}")
+        result = {
+            "w": w, "b": b, "mu": mu, "std": std,
+            "layers": probe_data.get("layers", []),
+            "probe_name": probe_data.get("probe_name", filename),
+            "labels": probe_data.get("labels", []),
+            "pooling": probe_data.get("pooling", "unknown"),
+            "balanced_accuracy": probe_data.get("balanced_accuracy", None),
+        }
+        self._probe_cache[filename] = result
+        return result
+
+    def _list_probes(self):
+        """Scan probes_dir and return list of available probe files."""
+        probes_dir = Path(self.args.probes_dir)
+        if not probes_dir.exists():
+            return []
+        probes = []
+        for pt_file in sorted(probes_dir.glob("*.pt")):
+            try:
+                data = self._load_probe(pt_file.name)
+                probes.append({
+                    "filename": pt_file.name,
+                    "probe_name": data["probe_name"],
+                    "layers": data["layers"],
+                    "labels": data["labels"],
+                    "pooling": data["pooling"],
+                    "balanced_accuracy": data["balanced_accuracy"],
+                })
+            except Exception:
+                probes.append({"filename": pt_file.name, "probe_name": pt_file.stem, "layers": [], "labels": [], "pooling": "unknown", "balanced_accuracy": None})
+        return probes
+
+    def _compute_probe_scores(self, probe_filename, layer):
+        """Score all stride positions using a linear probe at the given layer."""
+        if self.state.multilayer_acts is None:
+            raise HTTPException(status_code=400, detail="Generate a CoT first")
+        probe = self._load_probe(probe_filename)
+        n_layers = len(self.layers)
+        K = len(self.state.stride_positions)
+        D = self.state.multilayer_acts.shape[1]
+        acts_by_layer = self.state.multilayer_acts.view(n_layers, K, D)
+        if layer not in self.layers:
+            raise HTTPException(status_code=400, detail=f"Layer {layer} not in session layers {self.layers}")
+        layer_idx = self.layers.index(layer)
+        acts = acts_by_layer[layer_idx]  # [K, D]
+        w, b, mu, std = probe["w"], probe["b"], probe["mu"], probe["std"]
+        # Handle concat probes: if w is larger than D, slice the correct layer portion
+        probe_layers = probe["layers"]
+        if w.shape[0] > D and len(probe_layers) > 1:
+            if layer not in probe_layers:
+                raise HTTPException(status_code=400, detail=f"Layer {layer} not in probe layers {probe_layers}")
+            li = probe_layers.index(layer)
+            w = w[li * D:(li + 1) * D]
+            mu = mu[li * D:(li + 1) * D]
+            std = std[li * D:(li + 1) * D]
+            b = b / len(probe_layers)
+        acts_normed = (acts.float() - mu.unsqueeze(0)) / std.unsqueeze(0)
+        scores = (acts_normed @ w + b).tolist()
+        return {"scores": scores, "min_score": min(scores), "max_score": max(scores)}
+
+    def _compute_ao_logprobs(self, prompt, answer_tokens_str, adapter_key):
+        """Run batched AO logprobs over all stride positions."""
+        if self.state.multilayer_acts is None:
+            raise HTTPException(status_code=400, detail="Generate a CoT first")
+        answer_tokens = [t.strip() for t in answer_tokens_str.split(",") if t.strip()]
+        if not answer_tokens:
+            raise HTTPException(status_code=400, detail="No answer tokens provided")
+        n_layers = len(self.layers)
+        K = len(self.state.stride_positions)
+        D = self.state.multilayer_acts.shape[1]
+        acts_by_layer = self.state.multilayer_acts.view(n_layers, K, D)
+        # Build per-position activation tensors: each is [n_layers, D]
+        per_position_acts = []
+        for pos_idx in range(K):
+            pos_acts = acts_by_layer[:, pos_idx, :]  # [n_layers, D]
+            per_position_acts.append(pos_acts)
+        # Determine adapter name and placeholder
+        if adapter_key == "trained":
+            oracle_adapter = self._active_trained_adapter
+            ph_token = TRAINED_PLACEHOLDER
+            act_layers = self.layers
+        else:
+            oracle_adapter = self._active_ao_adapter
+            ph_token = SPECIAL_TOKEN
+            act_layers = self.layer_50
+            # For original AO, use single-layer (layer 50%) acts
+            per_position_acts = []
+            if self.state.ao_acts is not None:
+                for pos_idx in range(K):
+                    per_position_acts.append(self.state.ao_acts[pos_idx:pos_idx + 1])  # [1, D]
+            else:
+                raise HTTPException(status_code=400, detail="No AO activations available")
+        self._progress_status = "Running batched AO logprobs..."
+        with self.model_lock:
+            result = run_batched_ao_logprobs(
+                self.model, self.tokenizer,
+                per_position_acts, prompt, answer_tokens,
+                model_name=self.args.model,
+                act_layer=act_layers,
+                device=self.args.device,
+                placeholder_token=ph_token,
+                oracle_adapter_name=oracle_adapter,
+                batch_size=8,
+            )
+        self._progress_status = ""
+        return {"scores": result}
+
+    def _switch_checkpoint(self, role, key):
+        """Switch the trained or AO adapter to a different checkpoint."""
+        if key == "__default__":
+            with self.model_lock:
+                if role == "trained":
+                    self._active_trained_adapter = "trained"
+                elif role == "adam":
+                    self._active_ao_adapter = "original_ao"
+            return {"ok": True, "adapter_name": "trained" if role == "trained" else "original_ao", "label": "CLI default"}
+        if role == "trained":
+            options = TRAINED_CHECKPOINTS
+        elif role == "adam":
+            options = ADAM_CHECKPOINTS
+        else:
+            return {"error": f"Unknown role: {role}"}
+        if key not in options:
+            return {"error": f"Unknown checkpoint key: {key}"}
+        path = options[key]["path"]
+        adapter_name = f"{role}_{key}"
+        with self.model_lock:
+            # Load if not already loaded
+            if adapter_name not in self._loaded_adapters:
+                print(f"Loading adapter '{adapter_name}' from {path}...")
+                self._progress_status = f"Loading {options[key]['label']}..."
+                try:
+                    self.model.load_adapter(path, adapter_name=adapter_name, is_trainable=False)
+                except Exception as e:
+                    self._progress_status = ""
+                    return {"error": f"Failed to load {path}: {e}"}
+                self._loaded_adapters[adapter_name] = path
+                print(f"  Loaded adapter '{adapter_name}'")
+                self._progress_status = ""
+            # Update which adapter is active for this role
+            if role == "trained":
+                self._active_trained_adapter = adapter_name
+            else:
+                self._active_ao_adapter = adapter_name
+        label = options[key]["label"]
+        self._log_event("switch_checkpoint", {"role": role, "key": key, "path": path, "adapter_name": adapter_name})
+        return {"ok": True, "adapter_name": adapter_name, "label": label}
 
     def _log_event(self, event_type, payload):
         record = {"ts": time.strftime("%Y-%m-%d %H:%M:%S"), "event": event_type, **payload}
@@ -903,7 +1107,7 @@ class ChatCompareWebApp:
     def _run_original_ao_component(self, ctx, max_tokens):
         ao_prompt = ctx["prompt"] if ctx["task_key"] == "custom" else "Can you predict the next 10 tokens that come after this?"
         with self.model_lock:
-            ao_response = query_original_ao(self.model, self.tokenizer, ctx["selected_ao"], ao_prompt, model_name=self.args.model, max_new_tokens=max_tokens, device=self.args.device)
+            ao_response = query_original_ao(self.model, self.tokenizer, ctx["selected_ao"], ao_prompt, model_name=self.args.model, max_new_tokens=max_tokens, device=self.args.device, adapter_name=self._active_ao_adapter)
         return {"ao_prompt": ao_prompt, "ao_response": ao_response}
 
     def _run_trained_oracle_component(self, ctx, max_tokens):
@@ -917,6 +1121,7 @@ class ChatCompareWebApp:
                 ctx["layer_counts"],
                 max_new_tokens=max_tokens,
                 device=self.args.device,
+                adapter_name=self._active_trained_adapter,
             )
         return {"prompt": ctx["prompt"], "trained_response": trained_response}
 
@@ -1068,7 +1273,25 @@ class ChatCompareWebApp:
                 "no_act_checkpoint": self.no_act_checkpoint,
                 "no_act_available": Path(self.no_act_checkpoint).exists(),
                 "organisms": [{"key": name, "label": MODEL_ORGANISMS[name]["label"]} for name in self.organism_names],
+                "trained_checkpoints": [
+                    {"key": k, "label": v["label"], "path": v["path"]}
+                    for k, v in TRAINED_CHECKPOINTS.items()
+                ],
+                "adam_checkpoints": [
+                    {"key": k, "label": v["label"], "path": v["path"]}
+                    for k, v in ADAM_CHECKPOINTS.items()
+                ],
+                "active_trained_checkpoint": self._active_trained_adapter,
+                "active_adam_checkpoint": self._active_ao_adapter,
+                "cli_checkpoint": self.args.checkpoint,
+                "cli_ao_checkpoint": AO_CHECKPOINTS.get(self.args.model, ""),
             }
+
+        @self.app.post("/api/switch_checkpoint")
+        async def switch_checkpoint(payload: dict):
+            role = payload["role"]  # "trained" or "adam"
+            key = payload["key"]
+            return await asyncio.to_thread(self._switch_checkpoint, role, key)
 
         @self.app.get("/api/progress")
         async def progress():
@@ -1161,6 +1384,29 @@ class ChatCompareWebApp:
             result = await asyncio.to_thread(self._run_sae_component, ctx)
             return {**result, "task_key": ctx["task_key"], "selected_layers": ctx["selected_layers"], "selected_positions": ctx["selected_positions"]}
 
+        # --- Heatmap endpoints ---
+        @self.app.get("/api/heatmap/config")
+        async def heatmap_config():
+            probes = self._list_probes()
+            return {
+                "probes": probes,
+                "layers": self.layers,
+                "has_session": self.state.multilayer_acts is not None,
+            }
+
+        @self.app.post("/api/heatmap/probe_scores")
+        async def heatmap_probe_scores(payload: dict):
+            probe_filename = payload["probe_filename"]
+            layer = int(payload["layer"])
+            return await asyncio.to_thread(self._compute_probe_scores, probe_filename, layer)
+
+        @self.app.post("/api/heatmap/ao_logprobs")
+        async def heatmap_ao_logprobs(payload: dict):
+            prompt = payload["prompt"]
+            answer_tokens = payload["answer_tokens"]
+            adapter = payload.get("adapter", "trained")
+            return await asyncio.to_thread(self._compute_ao_logprobs, prompt, answer_tokens, adapter)
+
         @self.app.post("/api/finalize_run")
         async def finalize_run(payload: dict):
             ctx = self._resolve_run_context(payload["task_key"], payload.get("custom_prompt", ""), payload.get("selected_cells", []))
@@ -1241,6 +1487,19 @@ class ChatCompareWebApp:
     .log-line.WARNING { color: #fbbf24; }
     .log-line.INFO { color: #94a3b8; }
     .log-line.DEBUG { color: #64748b; }
+    .heatmap-controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-end; margin-bottom: 10px; }
+    .heatmap-controls > div { display: flex; flex-direction: column; gap: 2px; }
+    .heatmap-controls label { font-size: 11px; color: #94a3b8; }
+    .heatmap-controls select, .heatmap-controls input { font-size: 13px; padding: 4px 6px; min-width: 120px; }
+    .heatmap-controls textarea { font-size: 12px; min-height: 40px; resize: vertical; min-width: 250px; }
+    .heatmap-controls button { padding: 6px 14px; font-size: 13px; align-self: flex-end; }
+    .heatmap-token-wrap { border: 1px solid #334155; border-radius: 12px; background: #020617; padding: 12px; margin-top: 8px; }
+    .heatmap-token-wrap .token-paragraph { white-space: pre-wrap; line-height: 2.0; }
+    .heatmap-tok { border-radius: 4px; padding: 1px 3px; cursor: default; position: relative; }
+    .heatmap-tok:hover .heatmap-tip { display: block; }
+    .heatmap-tip { display: none; position: absolute; bottom: 110%; left: 50%; transform: translateX(-50%); background: #1e293b; border: 1px solid #475569; border-radius: 6px; padding: 3px 7px; font-size: 11px; white-space: nowrap; z-index: 20; pointer-events: none; color: #e2e8f0; }
+    .heatmap-legend { display: flex; align-items: center; gap: 8px; margin-top: 8px; font-size: 11px; color: #94a3b8; }
+    .heatmap-legend-bar { width: 200px; height: 12px; border-radius: 4px; border: 1px solid #334155; }
   </style>
 </head>
 <body>
@@ -1282,6 +1541,11 @@ class ChatCompareWebApp:
           <label class=\"inline-check\"><input id=\"baselineOracle\" type=\"checkbox\" checked>Trained oracle</label>
           <label class=\"inline-check\"><input id=\"baselineSae\" type=\"checkbox\" checked>SAE -> LLM</label>
         </div>
+        <label style=\"display:block;margin-top:10px\" class=\"small\">Trained Oracle checkpoint</label>
+        <select id=\"trainedCheckpoint\"><option value=\"trained\">CLI default</option></select>
+        <label style=\"display:block;margin-top:10px\" class=\"small\">Original AO checkpoint (Adam)</label>
+        <select id=\"adamCheckpoint\"><option value=\"original_ao\">Adam default (8B)</option></select>
+        <div class=\"small muted\" id=\"checkpointStatus\" style=\"margin-top:4px\"></div>
         <label style=\"display:block;margin-top:10px\">Patchscopes per-layer injection strength</label>
         <div id=\"patchStrengthRows\" class=\"slider-stack\"></div>
         <div class=\"row\">
@@ -1312,6 +1576,53 @@ class ChatCompareWebApp:
         <h3 style=\"margin-top:0\">Activation Positions (CoT only)</h3>
         <div class=\"muted\">Drag across highlighted stride tokens to choose which activations to inject. Selection applies to all layers.</div>
         <div id=\"tokenRowsWrap\" class=\"token-wrap\" style=\"margin-top:12px\"></div>
+      </div>
+      <div class=\"panel\" id=\"heatmapPanel\" style=\"display:none\">
+        <h3 style=\"margin-top:0\">Per-Token Heatmap</h3>
+        <div class=\"heatmap-controls\">
+          <div>
+            <label>Signal</label>
+            <select id=\"heatmapSignal\">
+              <option value=\"probe\">Linear Probe</option>
+              <option value=\"ao\">AO Logprob</option>
+            </select>
+          </div>
+          <div id=\"heatmapProbeControls\">
+            <label>Probe</label>
+            <select id=\"heatmapProbeSelect\"><option value=\"\">-- no probes --</option></select>
+          </div>
+          <div id=\"heatmapProbeLayerDiv\">
+            <label>Layer</label>
+            <select id=\"heatmapProbeLayer\"></select>
+          </div>
+          <div id=\"heatmapAoControls\" style=\"display:none\">
+            <label>Oracle prompt</label>
+            <textarea id=\"heatmapAoPrompt\" rows=\"2\">Did the model use an external hint?</textarea>
+          </div>
+          <div id=\"heatmapAoTokensDiv\" style=\"display:none\">
+            <label>Answer tokens (comma-sep)</label>
+            <input id=\"heatmapAoTokens\" type=\"text\" value=\"Yes,No\" style=\"min-width:120px\">
+          </div>
+          <div id=\"heatmapAoDisplayDiv\" style=\"display:none\">
+            <label>Display token</label>
+            <select id=\"heatmapAoDisplay\"></select>
+          </div>
+          <div id=\"heatmapAoAdapterDiv\" style=\"display:none\">
+            <label>Oracle adapter</label>
+            <select id=\"heatmapAoAdapter\">
+              <option value=\"trained\">Trained Oracle</option>
+              <option value=\"adam\">Original AO (Adam)</option>
+            </select>
+          </div>
+          <button id=\"heatmapComputeBtn\">Compute</button>
+        </div>
+        <div class=\"mini-status\" id=\"heatmapStatus\"><span class=\"mini-dot\"></span><span id=\"heatmapStatusText\"></span></div>
+        <div id=\"heatmapTokenWrap\" class=\"heatmap-token-wrap\"></div>
+        <div id=\"heatmapLegend\" class=\"heatmap-legend\" style=\"display:none\">
+          <span id=\"heatmapLegendMin\"></span>
+          <div id=\"heatmapLegendBar\" class=\"heatmap-legend-bar\"></div>
+          <span id=\"heatmapLegendMax\"></span>
+        </div>
       </div>
       <div class=\"outputs\">
         <div class=\"panel\">
@@ -1714,7 +2025,44 @@ For your final answer, respond with "Answer: Yes" or "Answer: No" after the chai
       renderEvalTags();
       renderPromptTemplates();
       renderOrganismOptions();
+      renderCheckpointDropdowns();
       await loadSuggestedQuestion();
+    }
+    function renderCheckpointDropdowns() {
+      const trainedSel = document.getElementById('trainedCheckpoint');
+      trainedSel.options[0].textContent = `CLI default (${config.cli_checkpoint.split('/').pop()})`;
+      (config.trained_checkpoints || []).forEach(cp => {
+        const opt = document.createElement('option');
+        opt.value = cp.key;
+        opt.textContent = cp.label;
+        trainedSel.appendChild(opt);
+      });
+      trainedSel.addEventListener('change', () => switchCheckpoint('trained', trainedSel.value));
+      const adamSel = document.getElementById('adamCheckpoint');
+      adamSel.options[0].textContent = `CLI default (${config.cli_ao_checkpoint.split('/').pop()})`;
+      (config.adam_checkpoints || []).forEach(cp => {
+        const opt = document.createElement('option');
+        opt.value = cp.key;
+        opt.textContent = cp.label;
+        adamSel.appendChild(opt);
+      });
+      adamSel.addEventListener('change', () => switchCheckpoint('adam', adamSel.value));
+    }
+    async function switchCheckpoint(role, key) {
+      const ckptStatus = document.getElementById('checkpointStatus');
+      if ((role === 'trained' && key === 'trained') || (role === 'adam' && key === 'original_ao')) {
+        ckptStatus.textContent = `Switched to default ${role} adapter.`;
+        try { await postJson('/api/switch_checkpoint', { role, key: '__default__' }); } catch(e) {}
+        return;
+      }
+      ckptStatus.textContent = `Loading ${role} checkpoint...`;
+      try {
+        const data = await postJson('/api/switch_checkpoint', { role, key });
+        if (data.error) { ckptStatus.textContent = data.error; return; }
+        ckptStatus.textContent = `Active: ${data.label}`;
+      } catch (e) {
+        ckptStatus.textContent = `Error: ${e.message}`;
+      }
     }
     async function loadSuggestedQuestion() {
       setStatus('Fetching a sample prompt from Hugging Face...');
@@ -1778,6 +2126,8 @@ For your final answer, respond with "Answer: Yes" or "Answer: No" after the chai
       tagPills.innerHTML = session.layers.map(layer => `<span class=\"pill\">Layer ${layer}</span>`).join('');
       selectAll();
       renderTokenRows();
+      heatmapPanel.style.display = '';
+      loadHeatmapConfig();
       setStatus('Ready. Drag-select activations, pick a task, then run.');
     }
     async function runSelection() {
@@ -1956,6 +2306,199 @@ For your final answer, respond with "Answer: Yes" or "Answer: No" after the chai
     });
     loadConfig();
 
+    // --- Heatmap panel ---
+    let heatmapConfig = null;
+    let heatmapScores = null;  // {scores: [...]} or {scores: {token: [...]}}
+    let heatmapMode = 'probe';
+    const heatmapSignalSel = document.getElementById('heatmapSignal');
+    const heatmapProbeControls = document.getElementById('heatmapProbeControls');
+    const heatmapProbeLayerDiv = document.getElementById('heatmapProbeLayerDiv');
+    const heatmapAoControls = document.getElementById('heatmapAoControls');
+    const heatmapAoTokensDiv = document.getElementById('heatmapAoTokensDiv');
+    const heatmapAoDisplayDiv = document.getElementById('heatmapAoDisplayDiv');
+    const heatmapAoAdapterDiv = document.getElementById('heatmapAoAdapterDiv');
+    const heatmapPanel = document.getElementById('heatmapPanel');
+
+    function toggleHeatmapControls() {
+      heatmapMode = heatmapSignalSel.value;
+      const isProbe = heatmapMode === 'probe';
+      heatmapProbeControls.style.display = isProbe ? '' : 'none';
+      heatmapProbeLayerDiv.style.display = isProbe ? '' : 'none';
+      heatmapAoControls.style.display = isProbe ? 'none' : '';
+      heatmapAoTokensDiv.style.display = isProbe ? 'none' : '';
+      heatmapAoDisplayDiv.style.display = isProbe ? 'none' : '';
+      heatmapAoAdapterDiv.style.display = isProbe ? 'none' : '';
+    }
+    heatmapSignalSel.addEventListener('change', toggleHeatmapControls);
+
+    async function loadHeatmapConfig() {
+      const resp = await fetch('/api/heatmap/config');
+      heatmapConfig = await resp.json();
+      const probeSel = document.getElementById('heatmapProbeSelect');
+      probeSel.innerHTML = '';
+      if (heatmapConfig.probes.length === 0) {
+        probeSel.innerHTML = '<option value="">-- no probes found --</option>';
+      } else {
+        heatmapConfig.probes.forEach(p => {
+          const opt = document.createElement('option');
+          opt.value = p.filename;
+          const acc = p.balanced_accuracy ? ` (${(p.balanced_accuracy * 100).toFixed(1)}%)` : '';
+          opt.textContent = p.probe_name + acc;
+          probeSel.appendChild(opt);
+        });
+        updateProbeLayerOptions();
+      }
+      probeSel.addEventListener('change', updateProbeLayerOptions);
+    }
+
+    function updateProbeLayerOptions() {
+      const probeSel = document.getElementById('heatmapProbeSelect');
+      const layerSel = document.getElementById('heatmapProbeLayer');
+      layerSel.innerHTML = '';
+      const probeInfo = heatmapConfig.probes.find(p => p.filename === probeSel.value);
+      const layers = probeInfo && probeInfo.layers.length ? probeInfo.layers : heatmapConfig.layers;
+      layers.forEach(l => {
+        const opt = document.createElement('option');
+        opt.value = l;
+        opt.textContent = 'Layer ' + l;
+        layerSel.appendChild(opt);
+      });
+    }
+
+    function heatmapColorProbe(score, minScore, maxScore) {
+      // Diverging blue-black-red centered at 0
+      const absMax = Math.max(Math.abs(minScore), Math.abs(maxScore), 0.001);
+      const norm = Math.max(-1, Math.min(1, score / absMax));
+      if (norm >= 0) {
+        const r = Math.round(norm * 220);
+        return `rgba(${r + 35}, ${Math.round(30 - norm * 10)}, ${Math.round(30 - norm * 10)}, ${0.15 + Math.abs(norm) * 0.7})`;
+      } else {
+        const b = Math.round(-norm * 220);
+        return `rgba(${Math.round(30 + norm * 10)}, ${Math.round(30 + norm * 10)}, ${b + 35}, ${0.15 + Math.abs(norm) * 0.7})`;
+      }
+    }
+
+    function heatmapColorLogprob(logprob, minLp, maxLp) {
+      // Dark (low logprob) -> red (high logprob)
+      const range = maxLp - minLp || 1;
+      const norm = (logprob - minLp) / range;
+      const r = Math.round(35 + norm * 200);
+      const g = Math.round(15 + norm * 40);
+      const b = Math.round(15);
+      return `rgba(${r}, ${g}, ${b}, ${0.15 + norm * 0.75})`;
+    }
+
+    function renderHeatmapTokens(scores, colorFn, label) {
+      if (!session) return;
+      const wrap = document.getElementById('heatmapTokenWrap');
+      wrap.innerHTML = '';
+      const paragraph = document.createElement('div');
+      paragraph.className = 'token-paragraph';
+      session.cot_token_texts.forEach((text, i) => {
+        const strideIdx = session.sampled_token_to_stride_index[i];
+        const span = document.createElement('span');
+        span.className = 'heatmap-tok';
+        span.textContent = text;
+        if (strideIdx !== null && strideIdx < scores.length) {
+          const score = scores[strideIdx];
+          span.style.background = colorFn(score);
+          const tip = document.createElement('span');
+          tip.className = 'heatmap-tip';
+          tip.textContent = `${label}: ${score.toFixed(4)}`;
+          span.appendChild(tip);
+        } else {
+          span.style.color = '#64748b';
+        }
+        paragraph.appendChild(span);
+      });
+      wrap.appendChild(paragraph);
+    }
+
+    function renderHeatmapLegend(minVal, maxVal, colorFn) {
+      const legend = document.getElementById('heatmapLegend');
+      legend.style.display = 'flex';
+      document.getElementById('heatmapLegendMin').textContent = minVal.toFixed(3);
+      document.getElementById('heatmapLegendMax').textContent = maxVal.toFixed(3);
+      const bar = document.getElementById('heatmapLegendBar');
+      const steps = 40;
+      let gradient = 'linear-gradient(to right';
+      for (let i = 0; i <= steps; i++) {
+        const t = i / steps;
+        const val = minVal + t * (maxVal - minVal);
+        gradient += ', ' + colorFn(val);
+      }
+      gradient += ')';
+      bar.style.background = gradient;
+    }
+
+    function setHeatmapStatus(loading, msg) {
+      const box = document.getElementById('heatmapStatus');
+      box.classList.toggle('loading', loading);
+      document.getElementById('heatmapStatusText').textContent = msg || '';
+    }
+
+    document.getElementById('heatmapComputeBtn').addEventListener('click', async () => {
+      if (!session) { setHeatmapStatus(false, 'Generate a CoT first'); return; }
+      if (heatmapMode === 'probe') {
+        const probeFile = document.getElementById('heatmapProbeSelect').value;
+        const layer = Number(document.getElementById('heatmapProbeLayer').value);
+        if (!probeFile) { setHeatmapStatus(false, 'Select a probe'); return; }
+        setHeatmapStatus(true, 'Computing probe scores...');
+        try {
+          const data = await postJson('/api/heatmap/probe_scores', { probe_filename: probeFile, layer });
+          heatmapScores = data;
+          const colorFn = s => heatmapColorProbe(s, data.min_score, data.max_score);
+          renderHeatmapTokens(data.scores, colorFn, 'probe score');
+          renderHeatmapLegend(data.min_score, data.max_score, colorFn);
+          setHeatmapStatus(false, `Probe scores computed (${data.scores.length} positions)`);
+        } catch(e) {
+          setHeatmapStatus(false, 'Error: ' + e.message);
+        }
+      } else {
+        const prompt = document.getElementById('heatmapAoPrompt').value.trim();
+        const tokens = document.getElementById('heatmapAoTokens').value.trim();
+        const adapter = document.getElementById('heatmapAoAdapter').value;
+        if (!prompt) { setHeatmapStatus(false, 'Enter an oracle prompt'); return; }
+        if (!tokens) { setHeatmapStatus(false, 'Enter answer tokens'); return; }
+        setHeatmapStatus(true, 'Running batched AO logprobs...');
+        try {
+          const data = await postJson('/api/heatmap/ao_logprobs', { prompt, answer_tokens: tokens, adapter });
+          heatmapScores = data;
+          // Populate display token dropdown
+          const displaySel = document.getElementById('heatmapAoDisplay');
+          displaySel.innerHTML = '';
+          const tokenNames = Object.keys(data.scores);
+          tokenNames.forEach(t => {
+            const opt = document.createElement('option');
+            opt.value = t;
+            opt.textContent = t;
+            displaySel.appendChild(opt);
+          });
+          heatmapAoDisplayDiv.style.display = '';
+          displayAoHeatmap(tokenNames[0], data);
+          setHeatmapStatus(false, `AO logprobs computed (${tokenNames.length} tokens x ${(data.scores[tokenNames[0]] || []).length} positions)`);
+        } catch(e) {
+          setHeatmapStatus(false, 'Error: ' + e.message);
+        }
+      }
+    });
+
+    function displayAoHeatmap(tokenStr, data) {
+      if (!data || !data.scores[tokenStr]) return;
+      const scores = data.scores[tokenStr];
+      const minLp = Math.min(...scores);
+      const maxLp = Math.max(...scores);
+      const colorFn = s => heatmapColorLogprob(s, minLp, maxLp);
+      renderHeatmapTokens(scores, colorFn, tokenStr + ' logprob');
+      renderHeatmapLegend(minLp, maxLp, colorFn);
+    }
+
+    document.getElementById('heatmapAoDisplay').addEventListener('change', () => {
+      if (heatmapScores && heatmapScores.scores) {
+        displayAoHeatmap(document.getElementById('heatmapAoDisplay').value, heatmapScores);
+      }
+    });
+
     // --- Log pane ---
     let _logLastId = 0;
     let _logErrorCount = 0;
@@ -2078,6 +2621,7 @@ def build_parser():
     parser.add_argument("--host", default="127.0.0.1", help="Web host (use 0.0.0.0 for off-machine access)")
     parser.add_argument("--port", type=int, default=8000, help="Web port")
     parser.add_argument("--share-policy", choices=["never", "auto", "always"], default="auto", help="Create a public Cloudflare quick-tunnel URL: never, auto (only when hostname -f is not *.ucl.ac.uk), or always")
+    parser.add_argument("--probes-dir", default="data/saved_probes", help="Directory with saved linear probe .pt files for heatmap display")
     return parser
 
 
