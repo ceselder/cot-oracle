@@ -1255,6 +1255,14 @@ def train(
                 else:
                     task_loss_ema[task] = ema_alpha * avg + (1 - ema_alpha) * task_loss_ema[task]
 
+            # Aggregate token counts across ranks for accurate throughput
+            if world_size > 1:
+                _tok_tensor = torch.tensor([accum_batch_tokens], device=device)
+                dist.all_reduce(_tok_tensor)
+                global_batch_tokens = int(_tok_tensor.item())
+            else:
+                global_batch_tokens = accum_batch_tokens
+
             # Logging (rank 0 only)
             if rank == 0:
                 now = time.time()
@@ -1262,10 +1270,10 @@ def train(
                     "train/loss": accum_loss_sum / grad_accum,
                     "train/learning_rate": scheduler.get_last_lr()[0],
                     "train/total_tokens": total_tokens,
-                    "train/batch_tokens": accum_batch_tokens,
+                    "train/batch_tokens": global_batch_tokens,
                     "train/batch_splits": accum_batch_splits,
                     "train/avg_context_length": sum(accum_context_lengths) / len(accum_context_lengths) if accum_context_lengths else 0,
-                    "train/tokens_per_sec": accum_batch_tokens / max(now - last_step_time, 1e-6),
+                    "train/tokens_per_sec": global_batch_tokens / max(now - last_step_time, 1e-6),
                     "train/step_time": now - last_step_time,
                     "train/wallclock_hours": (now - train_start_time - eval_time_total) / 3600,
                     "eval/wallclock_hours": eval_time_total / 3600,
@@ -1689,6 +1697,15 @@ def main():
             print(f"{'=' * 60}")
             print(yaml.dump(config, default_flow_style=False, sort_keys=False).rstrip())
             print(f"{'=' * 60}\n")
+
+    # Auto-scale batch sizes for multi-GPU (unless explicitly set via CLI)
+    if world_size > 1:
+        if not getattr(args, "_cli_batch_size", False):
+            args.batch_size = 32
+        if not getattr(args, "_cli_effective_batch_size", False):
+            args.effective_batch_size = 32 * world_size
+        if rank == 0:
+            print(f"Multi-GPU auto-scale: batch_size={args.batch_size}, effective_batch_size={args.effective_batch_size} (world_size={world_size})")
 
     # No-activations setup
     if getattr(args, "no_activations", False):
