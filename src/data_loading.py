@@ -138,13 +138,21 @@ def load_all_training_data(task_config: dict[str, dict]) -> list[dict]:
 
         effective_n = None if n == -1 else n
         print(f"  [data] Loading {task_name} (n={n})...")
-        items = load_task_data(task_name, split="train", n=effective_n)
+        items = load_task_data(task_name, split="train", n=None)  # load all first
 
         if not items:
             raise RuntimeError(
                 f"Task {task_name!r} is enabled (n={n}) but returned 0 items. "
                 f"Check HF repo: {TASKS[task_name].hf_repo}"
             )
+
+        # Epoch (repeat) if requested n > available, then truncate
+        if effective_n is not None and len(items) < effective_n:
+            repeats = (effective_n + len(items) - 1) // len(items)
+            print(f"  [data]   {len(items)} available, repeating {repeats}x to reach {effective_n}")
+            items = (items * repeats)[:effective_n]
+        elif effective_n is not None:
+            items = items[:effective_n]
 
         print(f"  [data]   -> {len(items)} examples")
         all_data.extend(items)
