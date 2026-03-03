@@ -1241,12 +1241,27 @@ def _eval_single_task(
     # Attach per-example traces for wandb Tables
     _ensure_ao_imports()
     ph_token = _ao_modules["PLACEHOLDER_TOKEN"]
+    ph_id = tokenizer.encode(ph_token, add_special_tokens=False)[0]
+    n_layers = len(layers)
     traces = []
     for i, (pred, tgt) in enumerate(zip(predictions, targets)):
         item = test_data[i]
         oracle_prefix = _build_oracle_prefix(all_activations[i].shape[0], ph_token)
+
+        # Build masked_cot_field: replace activation-position tokens with placeholder
+        ctx_ids = item.get("context_input_ids", [])
+        ctx_pos = item.get("context_positions", [])
+        base_pos = set(ctx_pos[:len(ctx_pos) // n_layers]) if ctx_pos else set()
+        masked_ids = list(ctx_ids)
+        for p in base_pos:
+            if p < len(masked_ids):
+                masked_ids[p] = ph_id
+        masked_cot_field = tokenizer.decode(masked_ids, skip_special_tokens=False) if masked_ids else ""
+
         traces.append({
             "question": item.get("question", item.get("hinted_prompt", "")),
+            "cot_field": item.get("cot_text", ""),
+            "masked_cot_field": masked_cot_field,
             "oracle_prefix": oracle_prefix,
             "oracle_prompt": item["prompt"],
             "expected": tgt,

@@ -92,7 +92,7 @@ POSITION_MODE: str = "stochastic"  # "last_only", "stochastic", "all"
 _MODEL_N_LAYERS: int = 36  # total layers in the model (set in main())
 
 
-def _patched_get_prefix(sae_layer: int, num_positions: int) -> str:
+def _patched_get_prefix(sae_layer: int, num_positions: int, layers: list[int] | None = None) -> str:
     return "Activations:" + PLACEHOLDER_TOKEN * num_positions + ".\n"
 
 
@@ -706,10 +706,12 @@ def _run_unified_eval(model, tokenizer, model_name, global_step, args, log_dir=N
 
     if wandb.run and all_traces:
         for task_name, traces in all_traces.items():
-            table = wandb.Table(columns=["question", "oracle_prompt", "oracle_prefix", "expected", "predicted", "correct"])
+            table = wandb.Table(columns=["question", "cot_field", "masked_cot_field", "oracle_prompt", "oracle_prefix", "expected", "predicted", "correct"])
             for t in traces:
                 table.add_data(
                     t.get("question", "")[:200],
+                    t.get("cot_field", "")[:500],
+                    t.get("masked_cot_field", "")[:500],
                     t.get("oracle_prompt", "")[:300],
                     t.get("oracle_prefix", "")[:300],
                     t.get("expected", "")[:200],
