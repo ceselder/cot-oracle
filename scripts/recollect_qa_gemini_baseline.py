@@ -29,6 +29,7 @@ from qa_judge import (
     OPENROUTER_CHAT_COMPLETIONS_URL,
     QA_GEMINI_SCORE_SYSTEM,
     build_qa_gemini_score_prompt,
+    compute_token_f1_scores,
     extract_judge_json,
 )
 
@@ -174,6 +175,7 @@ async def _run_task(
 
     traces = []
     scores = []
+    token_f1_scores = compute_token_f1_scores(baseline_responses, [item["target_response"] for item in items])
     for idx, (item, baseline_messages_i, baseline_response, judge_response) in enumerate(zip(items, baseline_messages, baseline_responses, judge_responses)):
         judged = extract_judge_json(judge_response)
         score = float(judged["score"])
@@ -193,6 +195,7 @@ async def _run_task(
             "baseline_response": baseline_response,
             "judge_model": QA_GEMINI_SCORE_MODEL,
             "judge_score": score,
+            "token_f1": token_f1_scores[idx],
             "judge_reason": str(judged["reason"]).strip(),
             "judge_raw": judge_response,
         })
@@ -204,6 +207,8 @@ async def _run_task(
         "judge_model": QA_GEMINI_SCORE_MODEL,
         "mean_gemini_score": sum(scores) / len(scores),
         "per_item_gemini_score": scores,
+        "mean_token_f1": sum(token_f1_scores) / len(token_f1_scores),
+        "per_item_token_f1": token_f1_scores,
     }
     return summary, traces
 
@@ -239,7 +244,7 @@ def main() -> None:
         with open(output_dir / f"{task_name}_summary.json", "w") as f:
             json.dump(summary, f, indent=2)
         combined[task_name] = summary
-        print(f"[{task_name}] mean_gemini_score={summary['mean_gemini_score']:.3f} over {summary['n_items']} items")
+        print(f"[{task_name}] mean_gemini_score={summary['mean_gemini_score']:.3f} token_f1={summary['mean_token_f1']:.3f} over {summary['n_items']} items")
 
     with open(output_dir / "results.json", "w") as f:
         json.dump(combined, f, indent=2)

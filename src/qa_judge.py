@@ -43,3 +43,23 @@ def build_qa_gemini_score_prompt(task_name: str, qa_prompt: str, target: str, pr
         f"Candidate answer:\n{prediction}\n\n"
         "Score the candidate answer against the reference answer."
     )
+
+
+def compute_token_f1_scores(predictions: list[str], targets: list[str]) -> list[float]:
+    scores = []
+    for prediction, target in zip(predictions, targets):
+        pred_tokens = prediction.lower().split()
+        target_tokens = target.lower().split()
+        if not target_tokens:
+            scores.append(1.0 if not pred_tokens else 0.0)
+            continue
+        pred_set = set(pred_tokens)
+        target_set = set(target_tokens)
+        if not pred_set or not target_set:
+            scores.append(0.0)
+            continue
+        common = pred_set & target_set
+        precision = len(common) / len(pred_set)
+        recall = len(common) / len(target_set)
+        scores.append(0.0 if precision + recall == 0 else 2 * precision * recall / (precision + recall))
+    return scores

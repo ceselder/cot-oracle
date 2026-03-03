@@ -61,8 +61,10 @@ for old_name, data in results.items():
         acc_vals.append(m["accuracy"])
     elif "mean_gemini_score" in m:
         gemini_metrics[f"eval/{eval_name}"] = m["mean_gemini_score"]
+        gemini_metrics[f"eval/{eval_name}_gemini_score"] = m["mean_gemini_score"]
     elif "mean_token_f1" in m:
         gemini_metrics[f"eval/{eval_name}"] = m["mean_token_f1"]
+        gemini_metrics[f"eval/{eval_name}_token_f1"] = m["mean_token_f1"]
 
 if TASK_QA_RESULTS_PATH.exists():
     task_results = json.load(open(TASK_QA_RESULTS_PATH))
@@ -70,6 +72,9 @@ if TASK_QA_RESULTS_PATH.exists():
         m = data
         if "mean_gemini_score" in m:
             gemini_metrics[f"eval/{task_name}"] = m["mean_gemini_score"]
+            gemini_metrics[f"eval/{task_name}_gemini_score"] = m["mean_gemini_score"]
+        if "mean_token_f1" in m:
+            gemini_metrics[f"eval/{task_name}_token_f1"] = m["mean_token_f1"]
     print(f"Gemini QA eval-slice overrides: {sorted(task_results)}")
 else:
     print(f"Gemini QA eval-slice overrides missing: {TASK_QA_RESULTS_PATH}")

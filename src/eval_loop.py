@@ -29,6 +29,7 @@ from qa_judge import (
     OPENROUTER_CHAT_COMPLETIONS_URL,
     QA_GEMINI_SCORE_SYSTEM,
     build_qa_gemini_score_prompt,
+    compute_token_f1_scores,
     extract_judge_json,
     is_gemini_qa_task,
 )
@@ -151,13 +152,14 @@ def _score_qa_gemini(
     targets: list[str],
 ) -> dict[str, Any]:
     if not predictions:
-        return {"gemini_score": 0.0, "n": 0, "_qa_judge_scores": [], "_qa_judge_reasons": [], "_qa_judge_raw": [], "_qa_judge_model": QA_GEMINI_SCORE_MODEL}
+        return {"gemini_score": 0.0, "token_f1": 0.0, "n": 0, "_qa_judge_scores": [], "_qa_token_f1_scores": [], "_qa_judge_reasons": [], "_qa_judge_raw": [], "_qa_judge_model": QA_GEMINI_SCORE_MODEL}
     if len(eval_items) != len(predictions) or len(predictions) != len(targets):
         raise ValueError(f"QA judge length mismatch for {task_name}: items={len(eval_items)}, predictions={len(predictions)}, targets={len(targets)}")
 
     print(f"    [{task_name}] Scoring {len(predictions)} QA answers with {QA_GEMINI_SCORE_MODEL}...")
     api_key = os.environ["OPENROUTER_API_KEY"]
     headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+    token_f1_scores = compute_token_f1_scores(predictions, targets)
     scores = []
     reasons = []
     raw_responses = []
@@ -188,8 +190,10 @@ def _score_qa_gemini(
 
     return {
         "gemini_score": sum(scores) / len(scores),
+        "token_f1": sum(token_f1_scores) / len(token_f1_scores),
         "n": len(scores),
         "_qa_judge_scores": scores,
+        "_qa_token_f1_scores": token_f1_scores,
         "_qa_judge_reasons": reasons,
         "_qa_judge_raw": raw_responses,
         "_qa_judge_model": QA_GEMINI_SCORE_MODEL,
@@ -249,31 +253,7 @@ def _score_token_f1(
     """Word-level F1 between prediction and target."""
     if not predictions:
         return {"token_f1": 0.0, "n": 0}
-
-    f1_scores = []
-    for pred, target in zip(predictions, targets):
-        pred_tokens = pred.lower().split()
-        target_tokens = target.lower().split()
-
-        if not target_tokens:
-            f1_scores.append(1.0 if not pred_tokens else 0.0)
-            continue
-
-        pred_set = set(pred_tokens)
-        target_set = set(target_tokens)
-
-        if not pred_set or not target_set:
-            f1_scores.append(0.0)
-            continue
-
-        common = pred_set & target_set
-        precision = len(common) / len(pred_set)
-        recall = len(common) / len(target_set)
-
-        if precision + recall == 0:
-            f1_scores.append(0.0)
-        else:
-            f1_scores.append(2 * precision * recall / (precision + recall))
+    f1_scores = compute_token_f1_scores(predictions, targets)
 
     return {
         "token_f1": sum(f1_scores) / len(f1_scores) if f1_scores else 0.0,
@@ -681,6 +661,9 @@ def _resample_eval_positions(
             continue
         if position_mode == "last_only":
             sampled = base_positions[-1:]
+        elif position_mode.startswith("last_"):
+            n = int(position_mode.split("_", 1)[1])
+            sampled = base_positions[-n:]
         elif position_mode == "stochastic":
             # Derive a stable per-item RNG from one shared eval seed so repeats match across eval steps.
             rng = random.Random(f"{eval_position_seed}:{task_name}:{item_idx}")
@@ -1160,6 +1143,8 @@ def run_eval(
             primary_metric = _primary_metric_name(task_name, task_def.scoring)
             primary_score = result.get(primary_metric, 0.0)
             metrics[f"eval/{task_name}"] = primary_score
+            if is_gemini_qa_task(task_name):
+                metrics[f"eval/{task_name}_gemini_score"] = result.get("gemini_score", 0.0)
             metrics[f"eval_n/{task_name}"] = result.get("n", 0)
             if result.get("unparsed", 0) > 0:
                 metrics[f"eval_unparsed/{task_name}"] = result["unparsed"]
@@ -1167,11 +1152,14 @@ def run_eval(
             # Side-metrics
             extras = []
             for key, val in sorted(result.items()):
-                if key in (primary_metric, "n", "unparsed"):
+                if key in (primary_metric, "n", "unparsed") or key.startswith("_") or not isinstance(val, (int, float)):
                     continue
                 if key.endswith("_mae"):
                     short = key.replace("_mae", "")
                     extras.append(f"{short}_mae={val:.1f}")
+                    metrics[f"eval/{task_name}_{key}"] = val
+                else:
+                    extras.append(f"{key}={val:.3f}")
                     metrics[f"eval/{task_name}_{key}"] = val
 
             metrics[f"_eval_time/{task_name}"] = elapsed  # prefixed _ to exclude from wandb
@@ -1298,6 +1286,7 @@ def _eval_single_task(
 
         result = score_task(task_def, predictions, targets, tokenizer=tokenizer, eval_items=test_data)
         qa_judge_scores = result["_qa_judge_scores"] if is_gemini_qa_task(task_name) else None
+        qa_token_f1_scores = result["_qa_token_f1_scores"] if is_gemini_qa_task(task_name) else None
         qa_judge_reasons = result["_qa_judge_reasons"] if is_gemini_qa_task(task_name) else None
         qa_judge_raw = result["_qa_judge_raw"] if is_gemini_qa_task(task_name) else None
         qa_judge_model = result["_qa_judge_model"] if is_gemini_qa_task(task_name) else None
@@ -1317,6 +1306,7 @@ def _eval_single_task(
             if qa_judge_scores is not None:
                 trace["judge_model"] = qa_judge_model
                 trace["judge_score"] = qa_judge_scores[i]
+                trace["token_f1"] = qa_token_f1_scores[i]
                 trace["judge_reason"] = qa_judge_reasons[i]
                 trace["judge_raw"] = qa_judge_raw[i]
             traces.append(trace)
@@ -1439,6 +1429,7 @@ def _eval_single_task(
 
     result = score_task(task_def, predictions, targets, tokenizer=tokenizer, eval_items=test_data)
     qa_judge_scores = result["_qa_judge_scores"] if is_gemini_qa_task(task_name) else None
+    qa_token_f1_scores = result["_qa_token_f1_scores"] if is_gemini_qa_task(task_name) else None
     qa_judge_reasons = result["_qa_judge_reasons"] if is_gemini_qa_task(task_name) else None
     qa_judge_raw = result["_qa_judge_raw"] if is_gemini_qa_task(task_name) else None
     qa_judge_model = result["_qa_judge_model"] if is_gemini_qa_task(task_name) else None
@@ -1476,6 +1467,7 @@ def _eval_single_task(
         if qa_judge_scores is not None:
             trace["judge_model"] = qa_judge_model
             trace["judge_score"] = qa_judge_scores[i]
+            trace["token_f1"] = qa_token_f1_scores[i]
             trace["judge_reason"] = qa_judge_reasons[i]
             trace["judge_raw"] = qa_judge_raw[i]
         traces.append(trace)

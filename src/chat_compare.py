@@ -13,7 +13,9 @@ CLI mode is still available with --cli.
 import argparse
 import atexit
 import asyncio
+import collections
 import json
+import logging
 import os
 import random
 import re
@@ -21,6 +23,7 @@ import shutil
 import subprocess
 import sys
 import time
+import traceback
 import threading
 import urllib.parse
 import urllib.request
@@ -30,8 +33,8 @@ from pathlib import Path
 import openai
 import torch
 import yaml
-from fastapi import FastAPI, HTTPException
-from fastapi.responses import HTMLResponse
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import HTMLResponse, JSONResponse
 from dotenv import load_dotenv
 from peft import PeftModel
 from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
@@ -75,6 +78,48 @@ OPENROUTER_SAE_MODEL = "google/gemini-2.5-flash-lite"
 OPENROUTER_BLACKBOX_MODEL = "google/gemini-3-flash-preview"
 TRYCLOUDFLARE_URL_RE = re.compile(r"https://[A-Za-z0-9.-]+\\.trycloudflare\\.com")
 CHAT_COMPARE_LOG_DIR = Path(os.path.expandvars(os.environ.get("FAST_CACHE_DIR", f"/var/tmp/{Path.home().name}/"))) / "cot-oracle" / "chat_compare"
+LOG_BUFFER_SIZE = 500
+
+
+class LogBuffer(logging.Handler):
+    """Ring buffer that captures log records for the /api/logs endpoint."""
+
+    def __init__(self, maxlen=LOG_BUFFER_SIZE):
+        super().__init__()
+        self.records = collections.deque(maxlen=maxlen)
+        self._counter = 0
+
+    def emit(self, record):
+        self._counter += 1
+        self.records.append({"id": self._counter, "ts": time.strftime("%H:%M:%S"), "level": record.levelname, "msg": self.format(record)})
+
+    def since(self, after_id=0):
+        return [r for r in self.records if r["id"] > after_id]
+
+
+_log_buffer = LogBuffer()
+_log_buffer.setFormatter(logging.Formatter("%(levelname)s %(name)s: %(message)s"))
+logging.root.addHandler(_log_buffer)
+logging.root.setLevel(logging.INFO)
+
+# Also capture stderr prints (tracebacks, warnings) into the log buffer
+class _StderrTee:
+    def __init__(self, original):
+        self._original = original
+    def write(self, s):
+        self._original.write(s)
+        if s.strip():
+            _log_buffer._counter += 1
+            _log_buffer.records.append({"id": _log_buffer._counter, "ts": time.strftime("%H:%M:%S"), "level": "STDERR", "msg": s.rstrip()})
+    def flush(self):
+        self._original.flush()
+    def fileno(self):
+        return self._original.fileno()
+    def isatty(self):
+        return self._original.isatty()
+
+sys.stderr = _StderrTee(sys.__stderr__)
+
 
 # Model organisms for CoT generation.
 # type="lora": loaded as PEFT adapter at startup (fast switching, shared base weights)
@@ -290,7 +335,7 @@ def collect_multilayer_activations(model, tokenizer, text, layers, positions, co
         if adapter_name:
             model.set_adapter(adapter_name)
         acts = collect_activations_at_positions(model, tokenizer, text, layer, positions, device=input_device, adapter_name=adapter_name)
-        all_acts.append(acts)
+        all_acts.append(acts.to("cpu"))
     return torch.cat(all_acts, dim=0)
 
 
@@ -990,9 +1035,20 @@ class ChatCompareWebApp:
         )
 
     def _register_routes(self):
+        @self.app.exception_handler(Exception)
+        async def _global_exc_handler(request: Request, exc: Exception):
+            tb = traceback.format_exception(type(exc), exc, exc.__traceback__)
+            tb_str = "".join(tb)
+            logging.error("Unhandled exception on %s:\n%s", request.url.path, tb_str)
+            return JSONResponse(status_code=500, content={"detail": tb_str})
+
         @self.app.get("/", response_class=HTMLResponse)
         async def index():
             return HTMLResponse(self._render_html())
+
+        @self.app.get("/api/logs")
+        async def get_logs(after: int = 0):
+            return {"logs": _log_buffer.since(after)}
 
         @self.app.get("/api/config")
         async def config():
@@ -1129,7 +1185,7 @@ class ChatCompareWebApp:
   <meta charset=\"utf-8\">
   <title>chat_compare</title>
   <style>
-    body { font-family: sans-serif; margin: 0; background: #0f172a; color: #e2e8f0; }
+    body { font-family: sans-serif; margin: 0; padding-bottom: 36px; background: #0f172a; color: #e2e8f0; }
     .page { display: grid; grid-template-columns: 360px 1fr; min-height: 100vh; }
     .sidebar, .main { padding: 16px; }
     .sidebar { border-right: 1px solid #334155; background: #111827; }
@@ -1172,6 +1228,17 @@ class ChatCompareWebApp:
     .slider-row { display: grid; grid-template-columns: 40px 1fr 42px; gap: 8px; align-items: center; }
     .slider-row input { padding: 0; }
     @keyframes spin { to { transform: rotate(360deg); } }
+    .log-pane { position: fixed; bottom: 0; left: 0; right: 0; z-index: 100; background: #0c0f1a; border-top: 1px solid #334155; transition: height 0.2s; }
+    .log-pane.collapsed { height: 32px; overflow: hidden; }
+    .log-pane.expanded { height: 280px; }
+    .log-header { display: flex; align-items: center; gap: 10px; padding: 6px 12px; cursor: pointer; background: #111827; border-bottom: 1px solid #1e293b; font-size: 12px; font-weight: 700; user-select: none; }
+    .log-header .badge { background: #dc2626; color: white; border-radius: 999px; padding: 0 6px; font-size: 10px; display: none; }
+    .log-body { overflow-y: auto; height: calc(100% - 32px); padding: 4px 12px; font-family: monospace; font-size: 11px; line-height: 1.5; }
+    .log-line { white-space: pre-wrap; word-break: break-all; }
+    .log-line.ERROR, .log-line.STDERR { color: #f87171; }
+    .log-line.WARNING { color: #fbbf24; }
+    .log-line.INFO { color: #94a3b8; }
+    .log-line.DEBUG { color: #64748b; }
   </style>
 </head>
 <body>
@@ -1288,6 +1355,10 @@ class ChatCompareWebApp:
     </div>
   </div>
   <div id=\"selectionBox\" class=\"selection-box\"></div>
+  <div class=\"log-pane collapsed\" id=\"logPane\">
+    <div class=\"log-header\" id=\"logToggle\">Server Logs <span class=\"badge\" id=\"logBadge\">0</span> <span style=\"flex:1\"></span> <span class=\"muted\" id=\"logToggleHint\">click to expand</span></div>
+    <div class=\"log-body\" id=\"logBody\"></div>
+  </div>
   <script>
     let config = null;
     let session = null;
@@ -1873,6 +1944,43 @@ For your final answer, respond with "Answer: Yes" or "Answer: No" after the chai
     });
     window.addEventListener('mouseup', endRectSelection);
     loadConfig();
+
+    // --- Log pane ---
+    let _logLastId = 0;
+    let _logErrorCount = 0;
+    const logPane = document.getElementById('logPane');
+    const logBody = document.getElementById('logBody');
+    const logBadge = document.getElementById('logBadge');
+    const logToggleHint = document.getElementById('logToggleHint');
+    document.getElementById('logToggle').addEventListener('click', () => {
+      const expanded = logPane.classList.toggle('expanded');
+      logPane.classList.toggle('collapsed', !expanded);
+      logToggleHint.textContent = expanded ? 'click to collapse' : 'click to expand';
+      if (expanded) { _logErrorCount = 0; logBadge.style.display = 'none'; logBody.scrollTop = logBody.scrollHeight; }
+    });
+    async function pollLogs() {
+      try {
+        const resp = await fetch('/api/logs?after=' + _logLastId);
+        const data = await resp.json();
+        if (data.logs.length === 0) return;
+        const atBottom = logBody.scrollHeight - logBody.scrollTop - logBody.clientHeight < 40;
+        data.logs.forEach(entry => {
+          _logLastId = entry.id;
+          const div = document.createElement('div');
+          div.className = 'log-line ' + entry.level;
+          div.textContent = entry.ts + ' ' + entry.msg;
+          logBody.appendChild(div);
+          if (entry.level === 'ERROR' || entry.level === 'STDERR') {
+            _logErrorCount++;
+            if (!logPane.classList.contains('expanded')) { logBadge.textContent = _logErrorCount; logBadge.style.display = 'inline'; }
+          }
+        });
+        while (logBody.children.length > 1000) logBody.removeChild(logBody.firstChild);
+        if (atBottom) logBody.scrollTop = logBody.scrollHeight;
+      } catch(e) {}
+    }
+    setInterval(pollLogs, 2000);
+    pollLogs();
   </script>
 </body>
 </html>"""

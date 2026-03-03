@@ -252,18 +252,27 @@ def extract_and_cache_activations(
     return successful
 
 
-def load_cached_activations(items: list[dict], task_name: str, split_name: str) -> list[dict]:
-    """Load cached activations from disk."""
+def load_cached_activations(items: list[dict], task_name: str, split_name: str, max_positions: int | None = None) -> list[dict]:
+    """Load cached activations from disk. If max_positions set, subsample on load to save RAM."""
     cache_dir = ACT_CACHE / task_name / split_name
     successful = []
     for item in items:
         cache_path = cache_dir / f"{item['example_id']}.pt"
         if cache_path.exists():
             cached = torch.load(cache_path, map_location="cpu", weights_only=True)
-            item["acts"] = {k: v for k, v in cached.items() if isinstance(k, int)}
-            item["token_ids"] = cached["token_ids"]
+            acts = {k: v for k, v in cached.items() if isinstance(k, int)}
+            token_ids = cached["token_ids"]
+            if max_positions:
+                K = token_ids.shape[0]
+                if K > max_positions:
+                    sub_idx = _subsample_indices(K, max_positions)
+                    acts = {k: v[sub_idx] for k, v in acts.items()}
+                    token_ids = token_ids[sub_idx]
+            item["acts"] = acts
+            item["token_ids"] = token_ids
             successful.append(item)
-    print(f"  {task_name}/{split_name}: {len(successful)}/{len(items)} loaded from cache")
+    print(f"  {task_name}/{split_name}: {len(successful)}/{len(items)} loaded from cache"
+          + (f" (subsampled to {max_positions} pos)" if max_positions else ""))
     return successful
 
 
@@ -530,10 +539,12 @@ def main():
         import gc; gc.collect()
         print("  LLM freed.\n")
     else:
-        print("\nLoading cached activations...")
+        # Attention probes need position subsampling on load to fit in RAM
+        load_max_pos = 200 if args.probe_type == "attention" else None
+        print(f"\nLoading cached activations...{f' (max_positions={load_max_pos})' if load_max_pos else ''}")
         for task_name, (train_items, test_items) in all_data.items():
-            train_items = load_cached_activations(train_items, task_name, "train")
-            test_items = load_cached_activations(test_items, task_name, "test")
+            train_items = load_cached_activations(train_items, task_name, "train", max_positions=load_max_pos)
+            test_items = load_cached_activations(test_items, task_name, "test", max_positions=load_max_pos)
             all_data[task_name] = (train_items, test_items)
 
     if args.extract_only:

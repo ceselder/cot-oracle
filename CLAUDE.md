@@ -34,6 +34,7 @@ At **eval time**, all stride-5 positions are used (no subsampling).
 YAML controls task counts, hyperparams, activation settings, eval frequency. CLI flags override config values. Set `n: 0` to disable a task.
 
 Never include the number of GPUs used in the runname on wandb.
+Instead, try to log the number of gpus to metadata but dont put it in the runname itself, the runname itself should rather indicate what we ablate over
 
 ### Data pipeline rules
 - **ALL training data comes from HuggingFace.** The training script downloads precomputed JSONL from HF automatically. Never bake activation positions or limits into precomputed data — precomputed data stores `context_input_ids` and `context_positions`, and activation extraction happens at training time on GPU.
