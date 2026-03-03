@@ -161,6 +161,12 @@ ADAM_CHECKPOINTS = {
     "pastlens-400k": {"path": "adamkarvonen/checkpoints_cls_latentqa_past_lens_400k_Qwen3-8B", "label": "Adam: cls+latentqa+pastlens 400k (8B)"},
 }
 
+ATTENTION_PROBES = {
+    "attn_hint_admission": {"repo": "japhba/qwen-attention-probe-hint_admission", "label": "hint admission [attn]", "task": "hint_admission"},
+    "attn_sycophancy": {"repo": "japhba/qwen-attention-probe-sycophancy", "label": "sycophancy [attn]", "task": "sycophancy"},
+    "attn_truthfulqa_hint": {"repo": "japhba/qwen-attention-probe-truthfulqa_hint", "label": "truthfulqa hint [attn]", "task": "truthfulqa_hint"},
+}
+
 BUILTIN_TASK_PROMPTS = {
     # --- Prompts matching the cleaned HF training datasets ---
     "hint_admission": "Did the model use an external hint in its reasoning? Describe the hint usage and its effect.",
@@ -642,6 +648,62 @@ def split_cot_answer(response_text):
     return cot_part.strip(), answer_part.strip()
 
 
+# --- Minimal QwenAttentionProbe for inference (from baselines/qwen_attention_probe.py) ---
+
+class _QwenSwiGLU(torch.nn.Module):
+    def __init__(self, hidden_size=4096, intermediate_size=12288):
+        super().__init__()
+        self.gate_proj = torch.nn.Linear(hidden_size, intermediate_size, bias=False)
+        self.up_proj = torch.nn.Linear(hidden_size, intermediate_size, bias=False)
+        self.down_proj = torch.nn.Linear(intermediate_size, hidden_size, bias=False)
+
+    def forward(self, x):
+        return self.down_proj(torch.nn.functional.silu(self.gate_proj(x)) * self.up_proj(x))
+
+
+class _QwenAttentionProbe(torch.nn.Module):
+    def __init__(self, layers, hidden_size=4096, intermediate_size=12288, n_heads=32, n_outputs=2, max_positions_per_layer=200):
+        super().__init__()
+        self.layers = layers
+        self.max_positions_per_layer = max_positions_per_layer
+        self.layer_mlps = torch.nn.ModuleList([_QwenSwiGLU(hidden_size, intermediate_size) for _ in layers])
+        self.layer_embedding = torch.nn.Embedding(len(layers), hidden_size)
+        self.joint_attn = torch.nn.MultiheadAttention(hidden_size, n_heads, batch_first=True)
+        self.head = torch.nn.Sequential(torch.nn.LayerNorm(hidden_size), torch.nn.Linear(hidden_size, n_outputs))
+
+    def forward(self, inputs):
+        device = self.layer_embedding.weight.device
+        dtype = self.layer_embedding.weight.dtype
+        B = len(inputs)
+        all_seqs, all_masks = [], []
+        for li, layer_idx in enumerate(self.layers):
+            acts_list = [inp[layer_idx] for inp in inputs]
+            # Subsample if needed
+            for i, a in enumerate(acts_list):
+                if a.shape[0] > self.max_positions_per_layer:
+                    idx = torch.linspace(0, a.shape[0] - 2, self.max_positions_per_layer - 1).long()
+                    idx = torch.cat([idx, torch.tensor([a.shape[0] - 1])])
+                    acts_list[i] = a[idx]
+            K_max = max(a.shape[0] for a in acts_list)
+            D = acts_list[0].shape[1]
+            padded = torch.zeros(B, K_max, D, device=device, dtype=dtype)
+            mask = torch.ones(B, K_max, dtype=torch.bool, device=device)
+            for i, a in enumerate(acts_list):
+                K_i = a.shape[0]
+                padded[i, :K_i] = a.to(device=device, dtype=dtype)
+                mask[i, :K_i] = False
+            h = self.layer_mlps[li](padded)
+            h = h + self.layer_embedding(torch.tensor(li, device=device))
+            all_seqs.append(h)
+            all_masks.append(mask)
+        joint_seq = torch.cat(all_seqs, dim=1)
+        joint_mask = torch.cat(all_masks, dim=1)
+        joint_seq, _ = self.joint_attn(joint_seq, joint_seq, joint_seq, key_padding_mask=joint_mask)
+        valid = ~joint_mask
+        pooled = (joint_seq * valid.unsqueeze(-1)).sum(dim=1) / valid.sum(dim=1, keepdim=True).clamp(min=1)
+        return self.head(pooled)
+
+
 @dataclass
 class SessionState:
     question: str = ""
@@ -688,6 +750,7 @@ class ChatCompareWebApp:
         self.finetuned_monitor_adapter = None
         self._finetuned_monitor_checkpoint = list(FINETUNED_MONITOR_CHECKPOINTS.values())[0]["path"]
         self._probe_cache = {}
+        self._attn_probe_cache = {}
         self.state = SessionState()
         self._current_stride = args.stride
         self._current_extras = ()
@@ -724,7 +787,51 @@ class ChatCompareWebApp:
         self.finetuned_monitor_adapter = load_extra_adapter(self.model, path, adapter_name=adapter_name)
         self._loaded_adapters[adapter_name] = path
 
-    # --- Probe loading for heatmap ---
+    # --- Attention probe loading for heatmap ---
+
+    def _load_attention_probe(self, key):
+        """Load and cache a QwenAttentionProbe from HF."""
+        if key in self._attn_probe_cache:
+            return self._attn_probe_cache[key]
+        from huggingface_hub import hf_hub_download
+        info = ATTENTION_PROBES[key]
+        path = hf_hub_download(info["repo"], "model.pt", repo_type="model")
+        state_dict = torch.load(path, weights_only=True, map_location="cpu")
+        probe = _QwenAttentionProbe(layers=self.layers, n_outputs=2)
+        probe.load_state_dict(state_dict)
+        probe.eval()
+        self._attn_probe_cache[key] = probe
+        return probe
+
+    def _compute_attn_probe_scores(self, probe_key):
+        """Score CoT positions using an attention probe. Returns per-stride-position logit diff."""
+        if self.state.multilayer_acts is None:
+            raise HTTPException(status_code=400, detail="Generate a CoT first")
+        probe = self._load_attention_probe(probe_key)
+        n_layers = len(self.layers)
+        K = len(self.state.stride_positions)
+        D = self.state.multilayer_acts.shape[1]
+        acts_by_layer = self.state.multilayer_acts.view(n_layers, K, D)
+        # Build per-position inputs: each is a dict {layer_idx: [1, D]}
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        probe = probe.to(device)
+        scores = []
+        batch_size = 32
+        for start in range(0, K, batch_size):
+            end = min(start + batch_size, K)
+            batch_inputs = []
+            for pos_idx in range(start, end):
+                inp = {layer: acts_by_layer[li, pos_idx:pos_idx + 1, :] for li, layer in enumerate(self.layers)}
+                batch_inputs.append(inp)
+            with torch.no_grad():
+                logits = probe(batch_inputs)  # [batch, 2]
+                # Score = logit[1] - logit[0] (positive = class 1)
+                diff = (logits[:, 1] - logits[:, 0]).cpu().tolist()
+                scores.extend(diff)
+        probe = probe.cpu()
+        return {"scores": scores, "min_score": min(scores), "max_score": max(scores), "all_positions": False}
+
+    # --- Linear probe loading for heatmap ---
 
     def _load_probe(self, filename: str):
         """Load and cache a probe .pt file, extracting the binary direction."""
@@ -1585,8 +1692,13 @@ class ChatCompareWebApp:
         @self.app.get("/api/heatmap/config")
         async def heatmap_config():
             probes = self._list_probes()
+            attn_probes = [
+                {"key": k, "label": v["label"], "task": v["task"]}
+                for k, v in ATTENTION_PROBES.items()
+            ]
             return {
                 "probes": probes,
+                "attn_probes": attn_probes,
                 "layers": self.layers,
                 "has_session": self.state.multilayer_acts is not None,
             }
@@ -1595,6 +1707,11 @@ class ChatCompareWebApp:
         async def heatmap_probe_scores(payload: dict):
             probe_filename = payload["probe_filename"]
             return await asyncio.to_thread(self._compute_probe_scores, probe_filename)
+
+        @self.app.post("/api/heatmap/attn_probe_scores")
+        async def heatmap_attn_probe_scores(payload: dict):
+            probe_key = payload["probe_key"]
+            return await asyncio.to_thread(self._compute_attn_probe_scores, probe_key)
 
         @self.app.post("/api/heatmap/ao_logprobs")
         async def heatmap_ao_logprobs(payload: dict):
@@ -2738,17 +2855,25 @@ For your final answer, respond with "Answer: Yes" or "Answer: No" after the chai
       heatmapConfig = await resp.json();
       const probeSel = document.getElementById('heatmapProbeSelect');
       probeSel.innerHTML = '';
-      if (heatmapConfig.probes.length === 0) {
+      const allEmpty = heatmapConfig.probes.length === 0 && (heatmapConfig.attn_probes || []).length === 0;
+      if (allEmpty) {
         probeSel.innerHTML = '<option value="">-- no probes found --</option>';
       } else {
+        // Linear probes
         heatmapConfig.probes.forEach(p => {
           const opt = document.createElement('option');
-          opt.value = p.filename;
+          opt.value = 'linear:' + p.filename;
           const acc = p.balanced_accuracy ? ` (${(p.balanced_accuracy * 100).toFixed(1)}%)` : '';
-          // e.g. "sycophancy_last_linear_concat.pt" -> "sycophancy"
           const pooling = p.pooling === 'mean' ? ' [mean]' : ' [last]';
           const displayName = p.filename.replace('.pt', '').replace(/_(last|mean)_linear_concat$/, '').replaceAll('_', ' ') + pooling;
           opt.textContent = displayName + acc;
+          probeSel.appendChild(opt);
+        });
+        // Attention probes
+        (heatmapConfig.attn_probes || []).forEach(ap => {
+          const opt = document.createElement('option');
+          opt.value = 'attn:' + ap.key;
+          opt.textContent = ap.label;
           probeSel.appendChild(opt);
         });
       }
@@ -2862,11 +2987,18 @@ For your final answer, respond with "Answer: Yes" or "Answer: No" after the chai
     document.getElementById('heatmapComputeBtn').addEventListener('click', async () => {
       if (!session) { setHeatmapStatus(false, 'Generate a CoT first'); return; }
       if (heatmapMode === 'probe') {
-        const probeFile = document.getElementById('heatmapProbeSelect').value;
-        if (!probeFile) { setHeatmapStatus(false, 'Select a probe'); return; }
-        setHeatmapStatus(true, 'Computing probe scores...');
+        const probeVal = document.getElementById('heatmapProbeSelect').value;
+        if (!probeVal) { setHeatmapStatus(false, 'Select a probe'); return; }
+        const isAttn = probeVal.startsWith('attn:');
+        const probeId = probeVal.split(':').slice(1).join(':');
+        setHeatmapStatus(true, isAttn ? 'Running attention probe...' : 'Computing probe scores...');
         try {
-          const data = await postJson('/api/heatmap/probe_scores', { probe_filename: probeFile });
+          let data;
+          if (isAttn) {
+            data = await postJson('/api/heatmap/attn_probe_scores', { probe_key: probeId });
+          } else {
+            data = await postJson('/api/heatmap/probe_scores', { probe_filename: probeId });
+          }
           heatmapScores = data;
           const colorFn = s => heatmapColorProbe(s, data.min_score, data.max_score);
           renderHeatmapTokens(data.scores, colorFn, 'probe score', !!data.all_positions);
