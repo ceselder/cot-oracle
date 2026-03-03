@@ -70,10 +70,11 @@ tasks:
   rot13_reconstruction:
     eval: false     # skip for now
 
-# FineWeb readout tasks (futurelens/pastlens/reconstruction on web text)
+# FineWeb readout tasks (single-position: predict surrounding tokens)
 fineweb:
   enabled: true
-  n: 15000                    # total across 3 variants (~5K each)
+  n: 50000                    # 25K futurelens + 25K pastlens
+  variant: futurelens_fineweb,pastlens_fineweb
   max_context_tokens: 2000
   min_target_tokens: 5
   max_target_tokens: 25

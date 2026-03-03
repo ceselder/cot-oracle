@@ -697,10 +697,18 @@ def load_fineweb_readout_data(
 
     rng = random.Random(seed)
 
-    variants = ["futurelens_fineweb", "pastlens_fineweb", "reconstruction_fineweb"]
+    all_variants = ["futurelens_fineweb", "pastlens_fineweb", "reconstruction_fineweb"]
     if variant is not None:
-        assert variant in variants, f"Unknown variant: {variant}"
-        variants = [variant]
+        # Support comma-separated string or single variant
+        if isinstance(variant, str):
+            requested = [v.strip() for v in variant.split(",")]
+        else:
+            requested = list(variant)
+        for v in requested:
+            assert v in all_variants, f"Unknown variant: {v}"
+        variants = requested
+    else:
+        variants = all_variants
 
     print(f"  [fineweb-readout] Streaming FineWeb + LMSYS, generating {n} examples "
           f"({', '.join(variants)})...")
