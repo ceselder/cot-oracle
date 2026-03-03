@@ -1,152 +1,187 @@
 # CoT Oracle
 
-White-box chain-of-thought (CoT) monitoring built on [Activation Oracles](https://arxiv.org/abs/2512.15674).
+CoT Oracle is a white-box chain-of-thought monitor built on Activation Oracles. The core model is Qwen3-8B with a LoRA adapter trained to read its own residual-stream activations and answer questions about the reasoning that produced them.
 
-CoT text is often unfaithful. This project reads reasoning from activations to detect when stated reasoning diverges from actual computational influence — aiming to beat black-box CoT monitoring and probes on behavior prediction.
+This README documents the pipeline the current code actually runs. Older docs elsewhere in the repo, especially under `src/evals/`, describe older or parallel experiments and are not the main training-time path.
 
-## How It Works
+## Core Mechanism
 
-The oracle is the **same model** (Qwen3-8B) fine-tuned with LoRA to accept its own activations. During inference, activations are extracted from the source model's CoT generation at stride intervals across 3 layers (25%, 50%, 75% depth), then injected back into the model via norm-matched addition at layer 1. The model reads these activations and answers questions about the reasoning process.
+1. A source sequence is built from a question plus a chain-of-thought or other context text.
+2. Activation positions are chosen from that source sequence, usually by fixed stride and optionally by punctuation boundaries.
+3. Residual activations are extracted from the configured source layers with LoRA disabled.
+4. The oracle prompt is prefixed with one placeholder token per activation vector.
+5. Those activation vectors are injected back into the model at layer 1 at the placeholder positions.
+6. The LoRA-tuned model generates a natural-language answer about the reasoning process.
 
-**10 training tasks** teach the oracle to understand CoT structure:
+The main training and eval codepath uses:
 
-| Task | Description |
-|------|-------------|
-| Full reconstruction | Reconstruct full CoT from stride activations |
-| Next step prediction | Predict next ~50 tokens of CoT |
-| Answer prediction | Predict final answer from partial CoT |
-| Partial answer (vLLM) | What would model answer if stopped at X%? |
-| Load-bearing | Is this CoT load-bearing or decorative? |
-| Correctness | Did the model get the right answer? |
-| Decorative | Is the CoT decorative (not needed for correct answer)? |
-| Reasoning termination | Will model emit `</think>` within 100 tokens? |
-| Domain | What domain is this problem? |
-| Conversational QA | Answer questions about the CoT |
-
-**20 evals** test whether the oracle can detect unfaithfulness, classify reasoning properties, and generalize beyond training distribution. Includes 2 evals from ["When 'Just Read the Chain of Thought' Fails"](https://arxiv.org/abs/...) (ICLR 2026): reasoning termination and forced answer entropy.
+- Source-of-truth task registry: `src/tasks.py`
+- Unified HF/on-the-fly data loading: `src/data_loading.py`
+- Training entrypoint: `src/train.py`
+- Training-time eval loop: `src/eval_loop.py`
+- Default config: `configs/train.yaml`
 
 ## Setup
 
 ```bash
-pip install -r requirements.txt
-git clone https://github.com/adamkarvonen/activation_oracles
-export AO_REPO_PATH="$PWD/activation_oracles"
+UV_PROJECT_ENVIRONMENT="$VENV_LOCAL/${PWD##*/}" uv sync
+export AO_REPO_PATH="${AO_REPO_PATH:-$PWD/ao_reference}"
 ```
 
-## Quick Start
+`src/core/ao_repo.py` will look for `nl_probes` in `AO_REPO_PATH`, then in `./ao_reference`, then in `./activation_oracles`.
 
-### 1. Generate eval datasets
+## Task System
+
+`src/tasks.py` currently defines 17 tasks total.
+
+Trainable tasks:
+
+- `hint_admission`
+- `atypical_answer`
+- `reasoning_termination`
+- `answer_trajectory`
+- `futurelens`
+- `pastlens`
+- `correctness`
+- `decorative_cot`
+- `chunked_convqa`
+- `chunked_compqa`
+- `backtrack_prediction`
+- `sycophancy`
+- `probe_sycophancy`
+- `truthfulqa_hint_verbalized`
+- `truthfulqa_hint_unverbalized`
+
+Eval-only tasks:
+
+- `rot13_reconstruction`
+- `sentence_insertion`
+
+The default `configs/train.yaml` enables 13 of the trainable tasks by default and also enables three auxiliary non-task sources: FineWeb context prediction, standard NLP classification, and LatentQA.
+
+## Unified Data Format
+
+Most task data is normalized to the same shape before conversion to AO `TrainingDataPoint`s:
+
+```python
+{
+  "task": str,
+  "prompt": str,
+  "target_response": str,
+  "context_input_ids": list[int] | None,
+  "context_positions": list[int] | None,
+  "layers": list[int] | None,
+}
+```
+
+If `context_input_ids` is missing but `cot_text` is present, `prepare_context_ids()` reconstructs the chat-formatted sequence and computes activation positions at load time.
+
+## Training Pipeline
+
+The real training flow is:
+
+1. `src/train.py` parses CLI flags, merges one or more YAML configs, and lets CLI flags override config values.
+2. It resolves source layers from `activations.layers` or from evenly spaced percentages if `--n-layers` is used.
+3. It loads the base model, enables gradient checkpointing if configured, and either:
+   - resumes from an existing LoRA checkpoint,
+   - initializes a fresh LoRA adapter, or
+   - loads Adam's AO checkpoint as the starting adapter.
+4. It builds the training mixture:
+   - HF-backed task datasets are loaded through `load_all_training_data()`.
+   - `futurelens` and `pastlens` are generated on the fly from the corpus-v5 HF dataset.
+   - Optional FineWeb, classification, and LatentQA examples are generated/loaded separately and appended.
+5. `prepare_context_ids()` tokenizes any examples that still only have `cot_text`, computes activation positions, and repeats positions across all configured layers.
+6. `dicts_to_training_data()` converts raw dicts into AO `TrainingDataPoint`s:
+   - `position_mode=last_only` keeps only the final activation per layer.
+   - `position_mode=stochastic` does 50% last-only and 50% chi-squared sampling, always including the final position.
+   - `position_mode=all` keeps all computed positions.
+   - `layer_dropout.train=true` samples a random non-empty subset of configured layers per example.
+7. The training set is ordered according to `training.task_order`:
+   - `shuffled`: mix everything together.
+   - `sequential`: task-by-task in YAML order.
+   - `interleaved`: round-robin task blocks sized to finish at roughly the same end time.
+8. In each train step:
+   - activations are materialized on demand unless `--precompute` was used,
+   - batches may be split by token budget to avoid OOM,
+   - a steering hook injects the activation vectors at layer 1,
+   - the model is trained with standard next-token loss on the oracle response,
+   - metrics are logged to wandb.
+9. Checkpoints save LoRA weights plus `training_state.pt` (optimizer, scheduler, RNG state, wandb run metadata).
+10. The final checkpoint is optionally uploaded to HuggingFace if `HF_TOKEN` is set.
+
+The canonical launch command is:
+
 ```bash
-python src/evals/generate_datasets.py --output-dir data/evals
+python src/train.py --config configs/train.yaml
 ```
 
-### 2. Precompute training data (GPU required)
+Multi-GPU uses normal `torchrun`, for example:
+
 ```bash
-python scripts/precompute_training_data.py \
-  --corpus data/cot_corpus_v5/corpus_medium.jsonl \
-  --output-dir data/precomputed \
-  --model Qwen/Qwen3-8B
+torchrun --nproc_per_node=8 src/train.py --config configs/train.yaml
 ```
 
-### 3. Train
-```bash
-# Default: all tasks, shuffled
-python src/train.py --config configs/train.yaml --precomputed-dir data/precomputed
+## Evaluation Pipeline
 
-# Multi-GPU (via torchrun)
-torchrun --nproc_per_node=8 src/train.py --config configs/train.yaml --precomputed-dir data/precomputed
+The maintained eval path is the training-time call from `src/train.py` into `src/eval_loop.py`.
 
-# Sequential mode (per-task diagnostics, saves phase checkpoints)
-python src/train.py --config configs/train.yaml \
-  --precomputed-dir data/precomputed --task-order sequential
+At each eval event:
 
-# Disable specific tasks
-python src/train.py --config configs/train.yaml --domain-n 0 --conv-qa-n 0
-```
+1. `_run_unified_eval()` calls `run_eval()` with the configured eval task list.
+2. `run_eval()` loops over tasks from `args.eval_tasks` (derived from `tasks.*.eval` in the YAML).
+3. For each task, `_eval_single_task()`:
+   - loads the `test` split if available,
+   - falls back to `train` only if no `test` split can be loaded,
+   - generates `futurelens`/`pastlens` eval examples on the fly,
+   - normalizes legacy field names,
+   - computes missing `context_input_ids` / `context_positions`,
+   - re-strides older precomputed examples to the current stride setting,
+   - trims eval inputs to the last activation position per layer (minimal barrier context),
+   - materializes activations once and caches them on CPU for reuse across later evals.
+4. The oracle generates answers with activation steering active.
+5. `score_task()` applies the task-specific scoring rule:
+   - parser-based accuracy for structured binary tasks,
+   - token F1 for generation tasks,
+   - token match rate for reconstruction,
+   - step accuracy for sentence insertion.
+6. The training loop logs:
+   - scalar eval metrics,
+   - per-task sample tables to wandb (`question`, `expected`, `predicted`, `correct`).
 
-### 4. Evaluate
-```bash
-# Standalone eval suite
-python src/evals/run_evals.py --eval-dir data/evals --output-dir data/eval_results
-python src/evals/score_oracle.py --results-dir data/eval_results
+There is no separate maintained top-level eval CLI for this unified path right now. The `src/evals/` directory contains older or specialized evaluation utilities, but the training loop itself uses `src/eval_loop.py`.
 
-# Upload eval datasets to HuggingFace
-python scripts/upload_eval_datasets.py
-```
+## Configuration Notes
 
-## Configuration
+`configs/train.yaml` is the main control surface. The most important sections are:
 
-All settings in `configs/train.yaml`:
+- `tasks`: per-task sample counts and whether each task participates in eval
+- `fineweb`, `classification`, `latentqa`: auxiliary data sources outside `src/tasks.py`
+- `training`: optimizer, batch size, ordering, token budgets, prefetching behavior
+- `activations`: source layers, stride, position sampling mode, layer dropout
+- `model`: base model name, AO checkpoint, fresh-vs-resume adapter behavior
+- `output`: checkpoint directory and wandb metadata
 
-```yaml
-tasks:
-  full_recon:
-    n: 40000          # Set n: 0 to disable a task
-  next_step:
-    n: 30000
-  # ...
+Important current behavior:
 
-training:
-  lr: 1e-5
-  batch_size: 8
-  task_order: shuffled  # or "sequential"
+- `activations.stride` now supports either an integer or `"punctuation"` in the main training/eval path.
+- `training.eval_batch_size` is the value currently consumed by `src/train.py` for eval generation batches.
+- `eval.eval_batch_size` exists in `configs/train.yaml` but is not currently read by `apply_config()`.
+- In practice, `train()` recomputes eval/save cadence dynamically for `shuffled`, `sequential`, and `interleaved` runs, so the raw `eval.eval_steps` / `eval.save_steps` values in the YAML are not the final schedule.
 
-activations:
-  stride: 5
-  position_encoding: false  # Sinusoidal PE for activation vectors
-  pe_alpha: 0.1
+## Data Sources
 
-eval:
-  eval_steps: 500
-  save_steps: 2000
-```
+The current code pulls data from several places:
 
-CLI flags override config values.
+- HuggingFace task datasets from the repos listed in `src/tasks.py`
+- Corpus-v5 on HuggingFace for `futurelens` and `pastlens`
+- FineWeb and LMSYS chat streaming for auxiliary context prediction
+- Standard NLP datasets for auxiliary classification (`sst2`, `ag_news`, `snli` by default)
+- Local `ao_reference/datasets/latentqa_datasets/train` for LatentQA
 
-## Eval Suite (20 Evals)
+Downloaded HF task JSONL files are cached under `COT_ORACLE_CACHE_DIR` if set, otherwise under `data/hf_cache`.
 
-**Unfaithfulness detection:** hinted_mcq, sycophancy, sycophancy_scruples, sycophancy_v2, authority_bias, correct_authority, anchoring_bias, hint_influence_yesno, sentence_insertion, scruples_disagreement
+## Known Boundaries
 
-**Classification/regression:** decorative_cot, answer_correctness, contradictory_comparison, final_answer_kl, step_counting
-
-**Paper evals (ICLR 2026):** reasoning_termination, forced_answer_entropy
-
-**Model organism:** rot13_reconstruction, held_out_cot_reconstruction, logical_leaps
-
-All eval datasets published at: [`ceselder/cot-oracle-evals`](https://huggingface.co/collections/ceselder/cot-oracle-evals-699a2d31f652864af01d40dd)
-
-## Repository Structure
-
-```
-src/
-  train.py                 # Primary training entrypoint
-  position_encoding.py     # Optional sinusoidal PE for activations
-  cot_utils.py             # Shared utilities
-  core/                    # AO runtime wrappers
-  dataset_classes/         # Training data loaders (10 tasks)
-  evals/                   # Eval generation, running, scoring (20 evals)
-  data_pipeline/           # CoT generation + corpus tooling
-configs/
-  train.yaml               # Training configuration
-scripts/
-  precompute_*.py          # GPU precompute scripts
-  upload_*.py              # HuggingFace upload scripts
-data/
-  cot_corpus_v5/           # Main CoT corpus (47K entries)
-  concept_corpus/          # Safety/bias concept corpus (8K entries)
-  evals/                   # Generated eval JSONs
-  precomputed/             # Precomputed training JSONL
-```
-
-## Model
-
-- **Source & Oracle:** `Qwen/Qwen3-8B` (36 layers)
-- **AO checkpoint:** `adamkarvonen/checkpoints_latentqa_cls_past_lens_addition_Qwen3-8B`
-- **LoRA:** r=64, alpha=128, dropout=0.05, all-linear
-- **Activations:** Layers 9, 18, 27 with LoRA disabled; injected at layer 1
-
-## Related Work
-
-- [Activation Oracles](https://github.com/adamkarvonen/activation_oracles) (Karvonen et al., 2024)
-- [Thought Anchors](https://github.com/interp-reasoning/thought-anchors) (Bogdan et al., 2025)
-- [Thought Branches](https://arxiv.org/abs/2510.27484) (Macar, Bogdan et al., 2025)
+- Eval activations are cached by task name inside a single process because the base model is frozen during LoRA training. If you change eval stride/layers within the same long-lived Python process, clear the cache or start a fresh process.
+- `rot13_reconstruction` is skipped by default in the unified eval loop because it needs a different adapter setup.
+- The top-level README that was previously in this repo described a different, older pipeline. The source of truth is the current code listed above.

@@ -648,7 +648,6 @@ def _run_unified_eval(model, tokenizer, model_name, global_step, args, log_dir=N
     import wandb
 
     print(f"\n--- Evals at step {global_step} ---")
-    stride_val = int(args.stride) if args.stride and args.stride != "punctuation" else 5
     eval_tasks = getattr(args, "eval_tasks", None)
     metrics, all_traces = run_eval(
         model=model,
@@ -658,7 +657,7 @@ def _run_unified_eval(model, tokenizer, model_name, global_step, args, log_dir=N
         eval_batch_size=args.eval_batch_size,
         device="cuda",
         layers=MULTI_LAYERS,
-        stride=stride_val,
+        stride=args.stride,
         no_activations=no_activations,
     )
 
@@ -1810,6 +1809,7 @@ def main():
             tokenizer=tokenizer,
             n=futurelens_n,
             split="train",
+            stride=args.stride,
             layers=MULTI_LAYERS,
             seed=args.seed,
         )
@@ -1826,6 +1826,7 @@ def main():
             tokenizer=tokenizer,
             n=pastlens_n,
             split="train",
+            stride=args.stride,
             layers=MULTI_LAYERS,
             seed=args.seed + 1,  # different seed from futurelens
         )
@@ -1839,13 +1840,12 @@ def main():
         from data_loading import load_fineweb_data
         if rank == 0:
             print(f"  [data] Generating {fineweb_n} FineWeb context prediction examples...")
-        fw_stride = int(args.stride) if args.stride and args.stride != "punctuation" else 5
         fineweb_data = load_fineweb_data(
             tokenizer=tokenizer,
             model_name=args.model,
             n=fineweb_n,
             max_context_tokens=getattr(args, "fineweb_max_context_tokens", 2000),
-            stride=fw_stride,
+            stride=args.stride,
             layers=MULTI_LAYERS,
             seed=args.seed,
         )
@@ -1857,7 +1857,6 @@ def main():
     cls_n = getattr(args, "classification_n", 0)
     if cls_n > 0 and not NO_ACTIVATIONS:
         from data_loading import load_classification_data
-        cls_stride = int(args.stride) if args.stride and args.stride != "punctuation" else 5
         cls_datasets = getattr(args, "classification_datasets", None)
         if rank == 0:
             ds_str = ", ".join(cls_datasets) if cls_datasets else "all"
@@ -1867,7 +1866,7 @@ def main():
             n=cls_n,
             datasets=cls_datasets,
             layers=MULTI_LAYERS,
-            stride=cls_stride,
+            stride=args.stride,
             seed=args.seed,
         )
         raw_data.extend(cls_data)
@@ -1896,13 +1895,12 @@ def main():
         cleanup_distributed()
         return
 
-    stride_val = int(args.stride) if args.stride and args.stride != "punctuation" else 5
     if not NO_ACTIVATIONS:
         # Tokenize cot_text → context_input_ids for items that don't have them yet
         from data_loading import prepare_context_ids
         prepare_context_ids(
             raw_data, tokenizer,
-            stride=stride_val,
+            stride=args.stride,
             layers=MULTI_LAYERS,
         )
 
