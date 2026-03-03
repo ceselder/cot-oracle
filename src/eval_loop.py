@@ -526,6 +526,14 @@ def _primary_metric_name(task_name: str, scoring: ScoringMode) -> str:
     }.get(scoring, "accuracy")
 
 
+def _trace_extra_fields(item: dict) -> dict:
+    extras = {}
+    for key in ("source", "split_index", "num_sentences", "cot_suffix", "target_label", "bb_response", "bb_correct", "cot_id", "generation_prompt"):
+        if key in item:
+            extras[key] = item[key]
+    return extras
+
+
 # ── Activation cache ──
 # Base model is frozen during LoRA training, and activations are extracted
 # with adapter disabled. So for a fixed deterministic eval set, activations
@@ -1123,14 +1131,16 @@ def _eval_single_task(
         traces = []
         for i, (pred, tgt) in enumerate(zip(predictions, targets)):
             item = test_data[i]
-            traces.append({
+            trace = {
                 "question": item.get("question", item.get("hinted_prompt", "")),
                 "oracle_prefix": "",
                 "oracle_prompt": item["prompt"],
                 "expected": tgt,
                 "predicted": pred,
                 "correct": _per_example_correct(task_name, task_def, pred, tgt),
-            })
+            }
+            trace.update(_trace_extra_fields(item))
+            traces.append(trace)
         result["_traces"] = traces
         return result
 
@@ -1258,7 +1268,7 @@ def _eval_single_task(
                 masked_ids[p] = ph_id
         masked_cot_field = tokenizer.decode(masked_ids, skip_special_tokens=False) if masked_ids else ""
 
-        traces.append({
+        trace = {
             "question": item.get("question", item.get("hinted_prompt", "")),
             "cot_field": item.get("cot_text", ""),
             "masked_cot_field": masked_cot_field,
@@ -1267,7 +1277,9 @@ def _eval_single_task(
             "expected": tgt,
             "predicted": pred,
             "correct": _per_example_correct(task_name, task_def, pred, tgt),
-        })
+        }
+        trace.update(_trace_extra_fields(item))
+        traces.append(trace)
     result["_traces"] = traces
 
     return result

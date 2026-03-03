@@ -675,6 +675,31 @@ def _write_eval_traces(log_dir: Path | None, all_traces: dict[str, list[dict]], 
     return written
 
 
+def _build_eval_trace_table(wandb, traces: list[dict]):
+    base_columns = ["question", "cot_field", "masked_cot_field", "oracle_prompt", "oracle_prefix", "expected", "predicted", "correct"]
+    extra_columns = sorted({key for trace in traces for key in trace if key not in base_columns})
+    columns = base_columns + extra_columns
+    table = wandb.Table(columns=columns)
+    limits = {
+        "question": 200,
+        "cot_field": 500,
+        "masked_cot_field": 500,
+        "oracle_prompt": 300,
+        "oracle_prefix": 300,
+        "expected": 200,
+        "predicted": 200,
+    }
+    for trace in traces:
+        row = []
+        for column in columns:
+            value = trace.get(column, "")
+            if isinstance(value, str):
+                value = value[:limits.get(column, 200)]
+            row.append(value)
+        table.add_data(*row)
+    return table
+
+
 def _run_unified_eval(model, tokenizer, model_name, global_step, args, log_dir=None, no_activations=False):
     """Run all evals via unified eval loop."""
     import wandb
@@ -706,19 +731,7 @@ def _run_unified_eval(model, tokenizer, model_name, global_step, args, log_dir=N
 
     if wandb.run and all_traces:
         for task_name, traces in all_traces.items():
-            table = wandb.Table(columns=["question", "cot_field", "masked_cot_field", "oracle_prompt", "oracle_prefix", "expected", "predicted", "correct"])
-            for t in traces:
-                table.add_data(
-                    t.get("question", "")[:200],
-                    t.get("cot_field", "")[:500],
-                    t.get("masked_cot_field", "")[:500],
-                    t.get("oracle_prompt", "")[:300],
-                    t.get("oracle_prefix", "")[:300],
-                    t.get("expected", "")[:200],
-                    t.get("predicted", "")[:200],
-                    t.get("correct", "?"),
-                )
-            log_dict[f"eval_table/{task_name}"] = table
+            log_dict[f"eval_table/{task_name}"] = _build_eval_trace_table(wandb, traces)
 
     if log_dict and wandb.run:
         wandb.log(log_dict, step=global_step)
