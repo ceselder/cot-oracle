@@ -1,0 +1,122 @@
+# Ablation: readout-only training data
+# Train ONLY on: fineweb (future/past/recon), chunked_compqa, chunked_convqa, sqa, answer_trajectory
+# Eval on everything to measure transfer
+
+tasks:
+  hint_admission:
+    n: 0
+    eval: true
+
+  atypical_answer:
+    n: 0
+    eval: true
+
+  reasoning_termination:
+    n: 0
+    eval: true
+
+  answer_trajectory:
+    n: 15000
+    eval: true
+
+  futurelens:
+    n: 0
+    eval: true
+
+  correctness:
+    n: 0
+    eval: true
+
+  decorative_cot:
+    n: 0
+    eval: true
+
+  chunked_convqa:
+    n: 15000
+    eval: true
+
+  chunked_compqa:
+    n: 15000
+    eval: true
+
+  backtrack_prediction:
+    n: 0
+    eval: true
+
+  sycophancy:
+    n: 0
+    eval: true
+
+  probe_sycophancy:
+    n: 0
+    eval: false
+
+  truthfulqa_hint_verbalized:
+    n: 0
+    eval: false
+
+  sqa:
+    n: 999999
+    eval: true
+
+  truthfulqa_hint:
+    n: 0
+    eval: true
+
+  sentence_insertion:
+    eval: false
+
+  rot13_reconstruction:
+    eval: false
+
+# FineWeb readout tasks (futurelens/pastlens/reconstruction on web text)
+fineweb:
+  enabled: true
+  n: 15000                    # total across 3 variants (~5K each)
+  max_context_tokens: 2000
+  min_target_tokens: 5
+  max_target_tokens: 25
+
+# Classification
+classification:
+  enabled: false
+
+# Training
+training:
+  lr: 0.00001
+  epochs: 1
+  warmup_fraction: 0.1
+  max_grad_norm: 1.0
+  steering_coefficient: 1.0
+  gradient_checkpointing: true
+  task_order: shuffled
+  interleave_blocks: 50
+  max_train_tokens_per_gpu: 65536
+  extraction_batch_size: 128
+  seed: 42
+
+no_activations:
+  enabled: false
+
+activations:
+  layers: [9, 18, 27]
+  position_mode: stochastic
+  layer_dropout:
+    train: true
+    eval: false
+
+eval:
+  eval_steps: 2000
+  save_steps: 2000
+  max_items_per_eval: 25
+
+model:
+  name: Qwen/Qwen3-8B
+  ao_checkpoint: adamkarvonen/checkpoints_latentqa_cls_past_lens_addition_Qwen3-8B
+  fresh_lora: true
+
+output:
+  save_dir: checkpoints
+  wandb_project: cot_oracle
+  wandb_entity: MATS10-CS-JB
+  wandb_run: null
