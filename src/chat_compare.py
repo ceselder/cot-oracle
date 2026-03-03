@@ -1950,6 +1950,10 @@ For your final answer, respond with "Answer: Yes" or "Answer: No" after the chai
       applyRectSelection();
     });
     window.addEventListener('mouseup', endRectSelection);
+    document.getElementById('saeViewToggle').addEventListener('change', function() {
+      document.getElementById('saeOut').style.display = this.checked ? 'none' : 'block';
+      document.getElementById('saeRawOut').style.display = this.checked ? 'block' : 'none';
+    });
     loadConfig();
 
     // --- Log pane ---
