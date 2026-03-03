@@ -118,8 +118,8 @@ activations:
   position_encoding: false
   pe_alpha: 0.1
   layer_dropout:
-    train: true              # random non-empty subsets of layers per training example
-    eval: false              # always feed all configured layers during eval
+    train: false
+    eval: false
 
 # Eval
 eval:

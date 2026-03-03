@@ -107,8 +107,8 @@ activations:
   layers: [9, 18, 27]        # injection layers (25%, 50%, 75% of Qwen3-8B's 36 layers)
   position_mode: last_only   # ablation: always just the final position per layer
   layer_dropout:
-    train: true              # random non-empty subsets of layers per training example
-    eval: false              # always feed all configured layers during eval
+    train: false
+    eval: false
 
 # Eval
 eval:
