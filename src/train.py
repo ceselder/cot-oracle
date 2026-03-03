@@ -435,13 +435,6 @@ def _example_context_len(dp: TrainingDataPoint) -> int:
     return len(dp.context_input_ids) if dp.context_input_ids is not None else len(dp.input_ids)
 
 
-def _pos_bin(n: int) -> str:
-    if n <= 1: return "01"
-    if n <= 5: return "02-05"
-    if n <= 20: return "06-20"
-    if n <= 50: return "21-50"
-    return "51+"
-
 
 def _label_token_count(dp: TrainingDataPoint) -> int:
     return sum(label != -100 for label in dp.labels[1:])
@@ -1140,9 +1133,6 @@ def train(
     task_loss_ema = {}
     ema_alpha = 0.1
     total_tokens = 0
-    scatter_npos_loss = []   # (npos, loss) pairs for periodic scatter plots
-    scatter_nlayers_loss = []
-    SCATTER_LOG_INTERVAL = 50
     train_start_time = time.time()
     last_step_time = time.time()
     eval_time_total = 0.0
@@ -1170,8 +1160,6 @@ def train(
         accum_batch_tokens = 0
         accum_batch_splits = 0
         accum_context_lengths = []
-        accum_loss_by_npos = defaultdict(list)
-        accum_loss_by_nlayers = defaultdict(list)
 
         # Lookahead extraction: prefetch activations for multiple training batches at once
         ext_bs = args.extraction_batch_size if args.extraction_batch_size > 0 else args.batch_size
@@ -1278,13 +1266,6 @@ def train(
                 for i, (dp, task_type) in enumerate(zip(chunk_list, chunk_types)):
                     loss_val = per_item_loss[i].item()
                     accum_task_losses[task_type].append(loss_val)
-                    if dp.context_positions is not None:
-                        n_layers = len(dp.meta_info.get("layers", [dp.layer]))
-                        n_base_pos = len(dp.context_positions) // max(n_layers, 1)
-                        accum_loss_by_npos[_pos_bin(n_base_pos)].append(loss_val)
-                        accum_loss_by_nlayers[n_layers].append(loss_val)
-                        scatter_npos_loss.append([n_base_pos, loss_val])
-                        scatter_nlayers_loss.append([n_layers, loss_val])
                 accum_loss_sum += outputs.loss.item() * loss_weight
                 accum_batch_types.extend(chunk_types)
                 accum_batch_tokens += batch_tokens
@@ -1347,11 +1328,6 @@ def train(
                     if len(vals) > 1:
                         log_dict[f"train/loss_{parent}"] = sum(vals) / len(vals)
 
-                for bin_label, losses in accum_loss_by_npos.items():
-                    log_dict[f"train/loss_by_npos/{bin_label}"] = sum(losses) / len(losses)
-                for nl, losses in accum_loss_by_nlayers.items():
-                    log_dict[f"train/loss_by_nlayers/{nl}"] = sum(losses) / len(losses)
-
                 # Track dominant task for sequential mode phase transitions
                 batch_task_counts = defaultdict(int)
                 for t in accum_batch_types:
@@ -1376,11 +1352,6 @@ def train(
                             break
                     else:
                         log_dict["train/block_idx"] = len(task_blocks) - 1
-
-                if global_step % SCATTER_LOG_INTERVAL == 0 and scatter_npos_loss:
-                    # Skip scatter plot tables in wandb.log — they clog the file_stream
-                    scatter_npos_loss = []
-                    scatter_nlayers_loss = []
 
                 wandb.log(log_dict, step=global_step)
 
@@ -1439,8 +1410,6 @@ def train(
             accum_batch_tokens = 0
             accum_batch_splits = 0
             accum_context_lengths = []
-            accum_loss_by_npos = defaultdict(list)
-            accum_loss_by_nlayers = defaultdict(list)
 
             global_step += 1
 
@@ -1959,8 +1928,9 @@ def main():
             epochs = getattr(args, f"{task_name}_epochs", 1)
             task_config[task_name] = {"n": n, "epochs": epochs}
 
-    # FutureLens uses corpus-v5 + tokenizer — handle separately (like FineWeb)
+    # FutureLens/PastLens use corpus-v5 + tokenizer — handle separately (like FineWeb)
     futurelens_n = task_config.pop("futurelens", {}).get("n", 0)
+    pastlens_n = task_config.pop("pastlens", {}).get("n", 0)
     # FineWeb readout tasks use streaming generation, not HF download — pop them too
     for _fw_task in ("futurelens_fineweb", "pastlens_fineweb", "reconstruction_fineweb"):
         task_config.pop(_fw_task, None)
@@ -1984,6 +1954,24 @@ def main():
         raw_data.extend(futurelens_data)
         if rank == 0:
             print(f"  [data]   -> {len(futurelens_data)} FutureLens examples added (total: {len(raw_data)})")
+
+    # PastLens (corpus-based, needs tokenizer) — skip in no-activations mode
+    if pastlens_n != 0 and not NO_ACTIVATIONS:
+        from data_loading import load_pastlens_data
+        pastlens_target_n = None if pastlens_n == -1 else pastlens_n
+        if rank == 0:
+            pastlens_count_str = "all available" if pastlens_target_n is None else str(pastlens_target_n)
+            print(f"  [data] Generating {pastlens_count_str} PastLens examples from corpus...")
+        pastlens_data = load_pastlens_data(
+            tokenizer=tokenizer,
+            n=pastlens_target_n,
+            split="train",
+            layers=MULTI_LAYERS,
+            seed=args.seed,
+        )
+        raw_data.extend(pastlens_data)
+        if rank == 0:
+            print(f"  [data]   -> {len(pastlens_data)} PastLens examples added (total: {len(raw_data)})")
 
     # FineWeb readout tasks (futurelens/pastlens/reconstruction on web text, if enabled)
     fineweb_n = getattr(args, "fineweb_n", 0)

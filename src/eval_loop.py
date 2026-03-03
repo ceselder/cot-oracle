@@ -22,7 +22,7 @@ import httpx
 import torch
 
 from tasks import TASKS, TaskDef, ScoringMode, get_eval_tasks
-from data_loading import load_task_data, load_futurelens_data, prepare_context_ids
+from data_loading import load_task_data, load_futurelens_data, load_pastlens_data, prepare_context_ids
 from qa_judge import (
     QA_GEMINI_SCORE_MODEL,
     QA_GEMINI_SCORE_MAX_TOKENS,
@@ -1229,7 +1229,7 @@ def _eval_single_task(
             test_data = _eval_cache[cache_key].test_data
         else:
             # Skip FutureLens/PastLens in text-baseline mode
-            if task_name in ("futurelens", "futurelens_fineweb", "pastlens_fineweb", "reconstruction_fineweb"):
+            if task_name in ("futurelens", "pastlens", "futurelens_fineweb", "pastlens_fineweb", "reconstruction_fineweb"):
                 return {"n": 0}
 
             try:
@@ -1330,6 +1330,12 @@ def _eval_single_task(
             test_data = load_futurelens_data(
                 tokenizer=tokenizer, n=max_items, split="test",
                 layers=layers, seed=99,  # different seed from train
+            )
+        elif task_name == "pastlens":
+            # PastLens constructs examples from corpus (needs tokenizer)
+            test_data = load_pastlens_data(
+                tokenizer=tokenizer, n=max_items, split="test",
+                layers=layers, seed=98,
             )
         elif task_name in ("futurelens_fineweb", "pastlens_fineweb", "reconstruction_fineweb"):
             # FineWeb readout tasks: generate small test sets from streaming data

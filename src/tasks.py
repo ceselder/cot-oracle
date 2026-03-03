@@ -130,6 +130,18 @@ TASKS: dict[str, TaskDef] = {
         legacy_datapoint_type="cot_next_step",
     ),
 
+    "pastlens": TaskDef(
+        name="pastlens",
+        hf_repo=f"{HF_ORG}/cot-oracle-corpus-v5",
+        scoring=ScoringMode.TOKEN_F1,
+        positive_keywords=(),
+        negative_keywords=(),
+        trainable=True,
+        default_n=25000,
+        max_new_tokens=80,
+        legacy_datapoint_type="cot_prev_step",
+    ),
+
     "correctness": TaskDef(
         name="correctness",
         hf_repo=f"{HF_ORG}/cot-oracle-correctness-cleaned",

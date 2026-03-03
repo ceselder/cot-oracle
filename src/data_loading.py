@@ -499,21 +499,22 @@ def load_futurelens_data(
         full_text = prompt_text + cot_text
         full_ids = tokenizer.encode(full_text, add_special_tokens=False)
 
-        # All positions in CoT region
-        cot_positions = list(range(prompt_len, len(full_ids)))
-        if len(cot_positions) < 3:
+        # CoT region: must have at least predict_tokens margin on each side
+        cot_start = prompt_len + predict_tokens
+        cot_end = len(full_ids) - predict_tokens
+        if cot_start >= cot_end:
             return
 
+        cot_positions = list(range(cot_start, cot_end))
+
         # Pick up to 3 random cutoff positions per entry
-        max_k = len(cot_positions) - 1
-        n_picks = min(3, max_k + 1)
+        n_picks = min(3, len(cot_positions))
 
         for _ in range(n_picks):
             if target_n is not None and len(datapoints) >= target_n:
                 break
 
-            k = rng.randint(0, max_k)
-            cutoff_pos = cot_positions[k]
+            cutoff_pos = rng.choice(cot_positions)
 
             # Target: next predict_tokens tokens after cutoff
             target_start = cutoff_pos + 1
@@ -567,6 +568,152 @@ def load_futurelens_data(
         add_from_entry(rng.choice(corpus))
 
     print(f"  [futurelens] Generated {len(datapoints)} examples "
+          f"(from {attempts} attempts, {len(corpus)} corpus entries)")
+    return datapoints[:target_n]
+
+
+def load_pastlens_data(
+    tokenizer,
+    n: int | None = 30000,
+    split: str = "train",
+    predict_tokens: int = 50,
+    layers: list[int] | None = None,
+    seed: int = 42,
+    **_kwargs,
+) -> list[dict]:
+    """Generate PastLens training/eval data from corpus-v5.
+
+    Like FutureLens but reversed: picks a random position in the CoT and
+    the oracle must predict the preceding ~50 tokens of reasoning.
+
+    Args:
+        tokenizer: HuggingFace tokenizer.
+        n: Number of examples to generate, or None for all available.
+        split: "train" (first 80% of corpus) or "test" (last 20%).
+        predict_tokens: How many tokens to predict before the position.
+        layers: Layer indices for activation extraction.
+        seed: Random seed.
+
+    Returns:
+        List of dicts with context_input_ids, context_positions, etc.
+    """
+    if layers is None:
+        layers = [9, 18, 27]
+    n_layers = len(layers)
+
+    rng = random.Random(seed + 1)  # different seed from futurelens
+
+    corpus = _load_corpus_v5(split)
+    if not corpus:
+        raise RuntimeError(f"No entries found in corpus-v5 ({split} split)")
+
+    target_n = None if n in (-1, None) else n
+    print(f"  [pastlens] Loaded {len(corpus)} corpus entries ({split} split)")
+    print(f"  [pastlens] Generating {'all available' if target_n is None else target_n} examples (predict_tokens={predict_tokens})...")
+
+    datapoints: list[dict] = []
+    attempts = 0
+
+    def add_from_entry(entry: dict) -> None:
+        nonlocal attempts
+        attempts += 1
+
+        cot_text = entry.get("cot_response", "")
+        if not cot_text:
+            return
+
+        # Strip <think> tags
+        think_end = cot_text.find("</think>")
+        if think_end != -1:
+            cot_text = cot_text[:think_end]
+        cot_text = cot_text.replace("<think>", "").strip()
+        if not cot_text:
+            return
+
+        question = entry.get("question", "")
+
+        # Tokenize question + CoT
+        messages = [{"role": "user", "content": question}]
+        prompt_text = tokenizer.apply_chat_template(
+            messages, tokenize=False, add_generation_prompt=True,
+            enable_thinking=False,
+        )
+        prompt_ids = tokenizer.encode(prompt_text, add_special_tokens=False)
+        prompt_len = len(prompt_ids)
+
+        full_text = prompt_text + cot_text
+        full_ids = tokenizer.encode(full_text, add_special_tokens=False)
+
+        # CoT region: must have at least predict_tokens margin on each side
+        cot_start = prompt_len + predict_tokens
+        cot_end = len(full_ids) - predict_tokens
+        if cot_start >= cot_end:
+            return
+
+        cot_positions = list(range(cot_start, cot_end))
+
+        # Pick up to 3 random positions per entry
+        n_picks = min(3, len(cot_positions))
+
+        for _ in range(n_picks):
+            if target_n is not None and len(datapoints) >= target_n:
+                break
+
+            act_pos = rng.choice(cot_positions)
+
+            # Target: predict_tokens tokens BEFORE the position
+            target_end = act_pos
+            target_start = max(target_end - predict_tokens, prompt_len)
+            if target_end - target_start < 5:
+                continue
+
+            target_ids = full_ids[target_start:target_end]
+            target_text = tokenizer.decode(target_ids, skip_special_tokens=True)
+            if not target_text.strip():
+                continue
+
+            # Single activation at act_pos, repeated for each layer
+            context_positions = [act_pos] * n_layers
+
+            # Context: full tokens up to act_pos (oracle sees everything up to this point)
+            context_slice = full_ids[:act_pos + 1]
+
+            n_target = target_end - target_start
+            layers_str = ", ".join(str(l) for l in layers)
+            prompt = (
+                f"Activations from {n_layers} positions across layers {layers_str}. "
+                f"Predict the {n_target} tokens preceding this position in the reasoning."
+            )
+
+            datapoints.append({
+                "datapoint_type": "cot_prev_step",
+                "task": "pastlens",
+                "prompt": prompt,
+                "target_response": target_text,
+                "layer": layers[0],
+                "layers": layers,
+                "num_positions": len(context_positions),
+                "context_input_ids": context_slice,
+                "context_positions": context_positions,
+            })
+
+            if len(datapoints) % 10000 == 0:
+                progress_total = "all available" if target_n is None else str(target_n)
+                print(f"  [pastlens] {len(datapoints)}/{progress_total} examples...")
+
+    if target_n is None:
+        shuffled_corpus = list(corpus)
+        rng.shuffle(shuffled_corpus)
+        for entry in shuffled_corpus:
+            add_from_entry(entry)
+        print(f"  [pastlens] Generated {len(datapoints)} examples (from {attempts} sampled corpus entries)")
+        return datapoints
+
+    max_attempts = target_n * 5
+    while len(datapoints) < target_n and attempts < max_attempts:
+        add_from_entry(rng.choice(corpus))
+
+    print(f"  [pastlens] Generated {len(datapoints)} examples "
           f"(from {attempts} attempts, {len(corpus)} corpus entries)")
     return datapoints[:target_n]
 
