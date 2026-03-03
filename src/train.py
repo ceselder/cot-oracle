@@ -643,6 +643,38 @@ def _save_training_state(save_path: Path, global_step, optimizer, scheduler):
     torch.save(state, save_path / "training_state.pt")
 
 
+def _write_eval_traces(log_dir: Path | None, all_traces: dict[str, list[dict]], global_step: int):
+    """Write full-text eval traces to disk and return the created files."""
+    if not log_dir or not all_traces:
+        return []
+
+    import wandb
+    from datetime import datetime, timezone
+
+    log_dir.mkdir(parents=True, exist_ok=True)
+    written = []
+    timestamp = datetime.now(timezone.utc).isoformat()
+    run_id = wandb.run.id if wandb.run else None
+    run_name = wandb.run.name if wandb.run else None
+
+    for task_name, traces in all_traces.items():
+        out_path = log_dir / f"eval_table_{task_name}_step{global_step}.json"
+        payload = {
+            "step": global_step,
+            "name": f"eval_table_{task_name}",
+            "n": len(traces),
+            "run_id": run_id,
+            "run_name": run_name,
+            "logged_at": timestamp,
+            "rows": traces,
+        }
+        with open(out_path, "w") as f:
+            json.dump(payload, f, indent=2)
+        written.append(out_path)
+
+    return written
+
+
 def _run_unified_eval(model, tokenizer, model_name, global_step, args, log_dir=None, no_activations=False):
     """Run all evals via unified eval loop."""
     import wandb
@@ -666,6 +698,14 @@ def _run_unified_eval(model, tokenizer, model_name, global_step, args, log_dir=N
     log_dict = {k: v for k, v in metrics.items() if not k.startswith("_")}
     # Include samples_seen so wandb can correlate eval metrics with training x-axis
     log_dict["train/samples_seen"] = global_step * getattr(args, "effective_batch_size", 256)
+    trace_files = _write_eval_traces(log_dir, all_traces, global_step)
+
+    if wandb.run and trace_files:
+        artifact = wandb.Artifact(f"eval_traces_step{global_step}", type="eval_traces", metadata={"step": global_step})
+        for path in trace_files:
+            artifact.add_file(str(path), name=path.name)
+        wandb.run.log_artifact(artifact)
+
     if wandb.run and all_traces:
         for task_name, traces in all_traces.items():
             table = wandb.Table(columns=["question", "expected", "predicted", "correct"])
