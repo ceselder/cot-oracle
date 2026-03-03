@@ -1214,7 +1214,7 @@ def main():
                 try:
                     from huggingface_hub import HfApi
                     hf_repo = "mats-10-sprint-cs-jb/qwen3-8b-linear-probes"
-                    collection_slug = "mats-10-sprint-cs-jb/cleaned-datasets-69a365228a41b50e0e1e9af4"
+                    collection_slug = "mats-10-sprint-cs-jb/linear-probes-69a7569b34348f52a4cf8d38"
                     api = HfApi(token=hf_token)
                     api.create_repo(hf_repo, repo_type="model", exist_ok=True)
                     for pf in probe_files:
