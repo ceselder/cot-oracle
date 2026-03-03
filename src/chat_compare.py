@@ -648,7 +648,7 @@ def split_cot_answer(response_text):
     return cot_part.strip(), answer_part.strip()
 
 
-# --- Minimal QwenAttentionProbe for inference (from baselines/qwen_attention_probe.py) ---
+# --- Minimal QwenAttentionProbe for inference (matches main branch baselines/qwen_attention_probe.py) ---
 
 class _QwenSwiGLU(torch.nn.Module):
     def __init__(self, hidden_size=4096, intermediate_size=12288):
@@ -661,8 +661,21 @@ class _QwenSwiGLU(torch.nn.Module):
         return self.down_proj(torch.nn.functional.silu(self.gate_proj(x)) * self.up_proj(x))
 
 
+def _subsample_positions(acts, max_k):
+    """Subsample [K, D] → [max_k, D] uniformly, always keeping last position."""
+    K = acts.shape[0]
+    if K <= max_k:
+        return acts, None
+    idx = torch.linspace(0, K - 2, max_k - 1).long()
+    idx = torch.cat([idx, torch.tensor([K - 1])])
+    return acts[idx], idx
+
+
 class _QwenAttentionProbe(torch.nn.Module):
-    def __init__(self, layers, hidden_size=4096, intermediate_size=12288, n_heads=32, n_outputs=2, max_positions_per_layer=200):
+    """Joint position-layer probe: SwiGLU per layer → concat → joint self-attention → pool → classify."""
+
+    def __init__(self, layers, hidden_size=4096, intermediate_size=12288, n_heads=32, n_outputs=2,
+                 max_positions_per_layer=200):
         super().__init__()
         self.layers = layers
         self.max_positions_per_layer = max_positions_per_layer
@@ -671,20 +684,23 @@ class _QwenAttentionProbe(torch.nn.Module):
         self.joint_attn = torch.nn.MultiheadAttention(hidden_size, n_heads, batch_first=True)
         self.head = torch.nn.Sequential(torch.nn.LayerNorm(hidden_size), torch.nn.Linear(hidden_size, n_outputs))
 
-    def forward(self, inputs):
+    def forward(self, inputs, return_attention=False):
+        """inputs: list of B dicts {layer_idx: [K_i, D]}. Returns logits [B, n_outputs].
+        If return_attention=True, also returns (attn_weights, valid_mask, K_per_layer)."""
         device = self.layer_embedding.weight.device
         dtype = self.layer_embedding.weight.dtype
         B = len(inputs)
         all_seqs, all_masks = [], []
+        k_per_layer = []
+
         for li, layer_idx in enumerate(self.layers):
             acts_list = [inp[layer_idx] for inp in inputs]
             # Subsample if needed
             for i, a in enumerate(acts_list):
                 if a.shape[0] > self.max_positions_per_layer:
-                    idx = torch.linspace(0, a.shape[0] - 2, self.max_positions_per_layer - 1).long()
-                    idx = torch.cat([idx, torch.tensor([a.shape[0] - 1])])
-                    acts_list[i] = a[idx]
+                    acts_list[i], _ = _subsample_positions(a, self.max_positions_per_layer)
             K_max = max(a.shape[0] for a in acts_list)
+            k_per_layer.append(K_max)
             D = acts_list[0].shape[1]
             padded = torch.zeros(B, K_max, D, device=device, dtype=dtype)
             mask = torch.ones(B, K_max, dtype=torch.bool, device=device)
@@ -704,7 +720,9 @@ class _QwenAttentionProbe(torch.nn.Module):
         valid = ~joint_mask
         pooled = (joint_seq * valid.unsqueeze(-1)).sum(dim=1) / valid.sum(dim=1, keepdim=True).clamp(min=1)
         logits = self.head(pooled)
-        return logits, attn_w, valid
+        if return_attention:
+            return logits, attn_w, valid, k_per_layer
+        return logits
 
 
 @dataclass
@@ -809,9 +827,9 @@ class ChatCompareWebApp:
     def _compute_attn_probe_scores(self, probe_key):
         """Score CoT positions using an attention probe. Returns attention-based per-position scores.
 
-        Runs the probe once with ALL positions, extracts the joint attention weights
-        [1, T, T] where T = n_layers * K_sub (K_sub = min(K, max_positions_per_layer)),
-        then maps back to all K positions.
+        Runs the probe once with ALL K positions, extracts joint attention weights
+        [1, T, T] where T = sum(K_sub_per_layer), then aggregates per-CoT-position
+        importance (mean attention received) across the layer segments.
         """
         if self.state.multilayer_acts is None:
             raise HTTPException(status_code=400, detail="Generate a CoT first")
@@ -821,7 +839,7 @@ class ChatCompareWebApp:
         D = self.state.multilayer_acts.shape[1]
         acts_by_layer = self.state.multilayer_acts.view(n_layers, K, D)
         max_k = probe.max_positions_per_layer
-        # Compute the subsample indices (same logic as the probe's forward)
+        # Compute subsample indices (same logic as probe forward)
         if K > max_k:
             sub_idx = torch.linspace(0, K - 2, max_k - 1).long()
             sub_idx = torch.cat([sub_idx, torch.tensor([K - 1])])
@@ -829,27 +847,28 @@ class ChatCompareWebApp:
         else:
             sub_idx = None
             K_sub = K
-        # Build single input with all positions per layer
-        inp = {layer: acts_by_layer[li, :, :] for li, layer in enumerate(self.layers)}  # {layer: [K, D]}
+        # Build single input with all K positions per layer (probe will subsample internally)
+        inp = {layer: acts_by_layer[li, :, :] for li, layer in enumerate(self.layers)}
         device = "cuda" if torch.cuda.is_available() else "cpu"
         probe = probe.to(device)
         with torch.no_grad():
-            logits, attn_w, valid = probe([inp])  # attn_w: [1, T, T], T = n_layers * K_sub
-        # attn_w[0] is [T, T], laid out as [layer0_pos0..K_sub-1, layer1_pos0..K_sub-1, ...]
+            logits, attn_w, valid, k_per_layer = probe([inp], return_attention=True)
+        # attn_w: [1, T, T] where T = sum(k_per_layer), all layers have K_sub positions
         attn = attn_w[0].cpu().float()  # [T, T]
-        T = attn.shape[0]
-        # Mean attention received by each token = column mean
+        # Mean attention received per token (column mean)
         attn_received = attn.mean(dim=0)  # [T]
-        # Aggregate across layers: average each subsampled position's score across layers
+        # Aggregate across layer segments: each layer contributes K_sub positions
         scores_sub = torch.zeros(K_sub)
+        offset = 0
         for li in range(n_layers):
-            scores_sub += attn_received[li * K_sub : (li + 1) * K_sub]
+            kl = k_per_layer[li]
+            scores_sub[:kl] += attn_received[offset:offset + kl]
+            offset += kl
         scores_sub /= n_layers
-        # Map back to all K positions (interpolate for non-subsampled positions)
+        # Map back to all K positions via interpolation if subsampled
         if sub_idx is not None:
             scores_all = torch.zeros(K)
             scores_all[sub_idx] = scores_sub
-            # Linear interpolation for gaps
             sub_idx_list = sub_idx.tolist()
             for i in range(len(sub_idx_list) - 1):
                 start, end = sub_idx_list[i], sub_idx_list[i + 1]
@@ -858,17 +877,17 @@ class ChatCompareWebApp:
                     for j in range(start + 1, end):
                         t = (j - start) / (end - start)
                         scores_all[j] = s0 + t * (s1 - s0)
-            scores = scores_all.tolist()
+            scores_list = scores_all.tolist()
         else:
-            scores = scores_sub.tolist()
+            scores_list = scores_sub.tolist()
         # Classification result
         logit_diff = (logits[0, 1] - logits[0, 0]).cpu().item()
         probe_info = ATTENTION_PROBES[probe_key]
         probe = probe.cpu()
         return {
-            "scores": scores,
-            "min_score": min(scores),
-            "max_score": max(scores),
+            "scores": scores_list,
+            "min_score": min(scores_list),
+            "max_score": max(scores_list),
             "all_positions": False,
             "classification": {
                 "logit_diff": logit_diff,
