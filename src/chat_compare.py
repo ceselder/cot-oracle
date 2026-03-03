@@ -135,11 +135,17 @@ MODEL_ORGANISMS = {
 # key -> {"path": HF repo or local path, "label": display name}
 TRAINED_CHECKPOINTS = {
     "v12-no-stride": {"path": "ceselder/cot-oracle-v12-no-stride-2x-batch", "label": "v12 no-stride 2x-batch (latest)"},
+    "backtrack-only-adam": {"path": "ceselder/cot-oracle-backtrack-only-adam-ckpt", "label": "backtrack-only (Adam ckpt)"},
+    "v12-readout-only": {"path": "ceselder/cot-oracle-v12-ablation-readout-only", "label": "v12 ablation: readout-only"},
     "v6": {"path": "ceselder/cot-oracle-v6", "label": "v6"},
     "ablation-stride5": {"path": "ceselder/cot-oracle-ablation-stride5-3layers", "label": "ablation: stride5 3-layer"},
     "ablation-stride10-pe-off": {"path": "ceselder/cot-oracle-ablation-stride10-pe-off", "label": "ablation: stride10 no-PE"},
     "ablation-pooling": {"path": "ceselder/cot-oracle-ablation-stride100-3layers", "label": "ablation: pooling stride100"},
-    "text-baseline": {"path": "ceselder/cot-oracle-text-baseline-smoke", "label": "text baseline (no acts)"},
+}
+
+# Available checkpoints for the Finetuned Monitor (text baseline, no activations).
+FINETUNED_MONITOR_CHECKPOINTS = {
+    "text-baseline-v7": {"path": "ceselder/cot-oracle-text-baseline-v7", "label": "text baseline v7"},
 }
 
 # Available checkpoints for the Original AO / Adam dropdown.
@@ -290,8 +296,7 @@ def load_train_task_config(config_path):
         seen.add(task_name)
     eval_tags = [{"key": name, "group": "eval.evals"} for name in config.get("eval", {}).get("evals", [])]
     eval_tags.extend({"key": name, "group": "eval.classification_evals"} for name in config.get("eval", {}).get("classification_evals", []))
-    no_act_checkpoint = config["baselines"]["no_act_oracle"]["checkpoint"]
-    return prompt_map, task_options, eval_tags, no_act_checkpoint
+    return prompt_map, task_options, eval_tags
 
 
 def load_dual_model(model_name, checkpoint_path, organism_adapters=None, device="cuda"):
@@ -439,15 +444,18 @@ def query_trained_oracle(model, tokenizer, selected_acts, prompt, selected_layer
     return tokenizer.decode(output[0][len(input_ids):], skip_special_tokens=True)
 
 
-def query_no_act_oracle(model, tokenizer, question, cot_response, prompt, no_act_adapter_name, max_new_tokens=150):
-    cot_text = cot_response[:4000]
-    prompt_text = f"Question: {question}\nChain of thought: {cot_text}\n\n{prompt}"
+def query_finetuned_monitor(model, tokenizer, cot_text, prompt, adapter_name, max_new_tokens=150):
+    """Text-baseline monitor: no activations, just CoT text + task prompt.
+
+    Prompt template matches training: "Chain of thought: {cot_text}\\n\\n{task_prompt}"
+    """
+    prompt_text = f"Chain of thought: {cot_text}\n\n{prompt}"
     messages = [{"role": "user", "content": prompt_text}]
     formatted = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True, enable_thinking=False)
     input_ids = tokenizer.encode(formatted, add_special_tokens=False)
     input_tensor = torch.tensor([input_ids], device=get_model_input_device(model))
     attn_mask = torch.ones_like(input_tensor)
-    with using_adapter(model, no_act_adapter_name):
+    with using_adapter(model, adapter_name):
         with torch.no_grad():
             output = model.generate(input_ids=input_tensor, attention_mask=attn_mask, max_new_tokens=max_new_tokens, do_sample=False)
     return tokenizer.decode(output[0][len(input_ids):], skip_special_tokens=True)
@@ -659,7 +667,7 @@ class ChatCompareWebApp:
         self.share_info = share_info
         self.layers = compute_layers(args.model, n_layers=args.n_layers, layers=args.layers)
         self.layer_50 = layer_percent_to_layer(args.model, 50)
-        self.prompt_map, self.task_options, self.eval_tags, self.no_act_checkpoint = load_train_task_config(args.config)
+        self.prompt_map, self.task_options, self.eval_tags = load_train_task_config(args.config)
         self.model, self.tokenizer, self.organism_names = load_dual_model(
             args.model, args.checkpoint,
             organism_adapters=MODEL_ORGANISMS, device=args.device,
@@ -677,7 +685,8 @@ class ChatCompareWebApp:
         }
         self.saes = None
         self.sae_labels = None
-        self.no_act_adapter_name = None
+        self.finetuned_monitor_adapter = None
+        self._finetuned_monitor_checkpoint = list(FINETUNED_MONITOR_CHECKPOINTS.values())[0]["path"]
         self._probe_cache = {}
         self.state = SessionState()
         self._current_stride = args.stride
@@ -707,10 +716,13 @@ class ChatCompareWebApp:
         self.saes = load_saes(self.layers, "cpu")
         self.sae_labels = load_sae_labels(self.layers)
 
-    def _ensure_no_act_loaded(self):
-        if self.no_act_adapter_name is not None:
+    def _ensure_finetuned_monitor_loaded(self):
+        if self.finetuned_monitor_adapter is not None:
             return
-        self.no_act_adapter_name = load_extra_adapter(self.model, self.no_act_checkpoint, adapter_name="no_act")
+        path = self._finetuned_monitor_checkpoint
+        adapter_name = "finetuned_monitor"
+        self.finetuned_monitor_adapter = load_extra_adapter(self.model, path, adapter_name=adapter_name)
+        self._loaded_adapters[adapter_name] = path
 
     # --- Probe loading for heatmap ---
 
@@ -889,7 +901,7 @@ class ChatCompareWebApp:
         return {"readouts": results, "n_positions": K}
 
     def _switch_checkpoint(self, role, key):
-        """Switch the trained or AO adapter to a different checkpoint."""
+        """Switch the trained, AO, or finetuned_monitor adapter to a different checkpoint."""
         if key == "__default__":
             with self.model_lock:
                 if role == "trained":
@@ -901,6 +913,8 @@ class ChatCompareWebApp:
             options = TRAINED_CHECKPOINTS
         elif role == "adam":
             options = ADAM_CHECKPOINTS
+        elif role == "finetuned_monitor":
+            options = FINETUNED_MONITOR_CHECKPOINTS
         else:
             return {"error": f"Unknown role: {role}"}
         if key not in options:
@@ -923,8 +937,10 @@ class ChatCompareWebApp:
             # Update which adapter is active for this role
             if role == "trained":
                 self._active_trained_adapter = adapter_name
-            else:
+            elif role == "adam":
                 self._active_ao_adapter = adapter_name
+            elif role == "finetuned_monitor":
+                self.finetuned_monitor_adapter = adapter_name
         label = options[key]["label"]
         self._log_event("switch_checkpoint", {"role": role, "key": key, "path": path, "adapter_name": adapter_name})
         return {"ok": True, "adapter_name": adapter_name, "label": label}
@@ -938,7 +954,7 @@ class ChatCompareWebApp:
         if black_box_response != "(skipped)":
             answers.append({"name": "Black-Box Monitor", "prompt": ctx["prompt"], "answer": black_box_response})
         if no_act_response != "(skipped)":
-            answers.append({"name": "No-Act Oracle", "prompt": ctx["prompt"], "answer": no_act_response})
+            answers.append({"name": "Finetuned Monitor", "prompt": ctx["prompt"], "answer": no_act_response})
         if trained_response != "(skipped)":
             answers.append({"name": "Trained Oracle", "prompt": ctx["prompt"], "answer": trained_response})
         if sae_response != "(skipped)":
@@ -993,7 +1009,7 @@ class ChatCompareWebApp:
             "",
             payload["black_box_response"],
             "",
-            "## No-Act Oracle",
+            "## Finetuned Monitor",
             "",
             payload["no_act_response"],
             "",
@@ -1292,10 +1308,17 @@ class ChatCompareWebApp:
         return {"black_box_prompt": ctx["prompt"], "black_box_response": black_box_response}
 
     def _run_no_act_oracle_component(self, ctx, max_tokens):
-        self._ensure_no_act_loaded()
+        self._ensure_finetuned_monitor_loaded()
+        # Feed CoT up to the last selected activation position
+        last_stride_idx = max(ctx["selected_positions"]) if ctx["selected_positions"] else len(self.state.stride_positions) - 1
+        last_abs_pos = self.state.stride_positions[last_stride_idx]
+        cot_start = self._prompt_len
+        # Decode the CoT tokens up to (and including) the last selected position
+        cot_ids = self.tokenizer.encode(self.state.full_text, add_special_tokens=False)
+        partial_cot = self.tokenizer.decode(cot_ids[cot_start:last_abs_pos + 1], skip_special_tokens=True)
         with self.model_lock:
-            no_act_response = query_no_act_oracle(self.model, self.tokenizer, self.state.question, self.state.cot_response, ctx["prompt"], self.no_act_adapter_name, max_new_tokens=max_tokens)
-        return {"no_act_prompt": ctx["prompt"], "no_act_response": no_act_response}
+            no_act_response = query_finetuned_monitor(self.model, self.tokenizer, partial_cot, ctx["prompt"], self.finetuned_monitor_adapter, max_new_tokens=max_tokens)
+        return {"no_act_prompt": ctx["prompt"], "no_act_response": no_act_response, "cot_truncated_at": last_stride_idx}
 
     def _run_sae_component(self, ctx):
         self._ensure_sae_loaded()
@@ -1416,8 +1439,11 @@ class ChatCompareWebApp:
                 "is_ucl_host": self.share_info["is_ucl_host"],
                 "share_policy": self.share_info["share_policy"],
                 "public_url": self.share_info["public_url"],
-                "no_act_checkpoint": self.no_act_checkpoint,
-                "no_act_available": Path(self.no_act_checkpoint).exists(),
+                "finetuned_monitor_checkpoints": [
+                    {"key": k, "label": v["label"], "path": v["path"]}
+                    for k, v in FINETUNED_MONITOR_CHECKPOINTS.items()
+                ],
+                "finetuned_monitor_available": True,
                 "organisms": [{"key": name, "label": MODEL_ORGANISMS[name]["label"]} for name in self.organism_names],
                 "trained_checkpoints": [
                     {"key": k, "label": v["label"], "path": v["path"]}
@@ -1689,6 +1715,7 @@ class ChatCompareWebApp:
     .heatmap-tok:hover .heatmap-tip { display: block; }
     .heatmap-tip { display: none; position: absolute; bottom: 110%; left: 50%; transform: translateX(-50%); background: #1e293b; border: 1px solid #475569; border-radius: 6px; padding: 3px 7px; font-size: 11px; white-space: nowrap; z-index: 20; pointer-events: none; color: #e2e8f0; }
     .heatmap-tip.readout-tip { white-space: pre-wrap; max-width: 400px; min-width: 200px; font-size: 12px; padding: 6px 10px; }
+    .info-tooltip { cursor: help; font-size: 14px; color: #60a5fa; margin-left: 6px; vertical-align: middle; }
     .heatmap-legend { display: flex; align-items: center; gap: 8px; margin-top: 8px; font-size: 11px; color: #94a3b8; }
     .heatmap-legend-bar { width: 200px; height: 12px; border-radius: 4px; border: 1px solid #334155; }
   </style>
@@ -1732,7 +1759,7 @@ class ChatCompareWebApp:
           <label class=\"inline-check\"><input id=\"baselineAo\" type=\"checkbox\">Original AO</label>
           <label class=\"inline-check\"><input id=\"baselinePatch\" type=\"checkbox\">Patchscopes</label>
           <label class=\"inline-check\"><input id=\"baselineBb\" type=\"checkbox\" checked>Black-box</label>
-          <label class=\"inline-check\"><input id=\"baselineNoAct\" type=\"checkbox\" checked>No-act oracle</label>
+          <label class=\"inline-check\"><input id=\"baselineNoAct\" type=\"checkbox\" checked>Finetuned monitor</label>
           <label class=\"inline-check\"><input id=\"baselineOracle\" type=\"checkbox\" checked>Trained oracle</label>
           <label class=\"inline-check\"><input id=\"baselineSae\" type=\"checkbox\" checked>SAE -> LLM</label>
         </div>
@@ -1740,6 +1767,8 @@ class ChatCompareWebApp:
         <select id=\"trainedCheckpoint\"><option value=\"trained\">CLI default</option></select>
         <label style=\"display:block;margin-top:10px\" class=\"small\">Original AO checkpoint (Adam)</label>
         <select id=\"adamCheckpoint\"><option value=\"original_ao\">Adam default (8B)</option></select>
+        <label style=\"display:block;margin-top:10px\" class=\"small\">Finetuned Monitor checkpoint</label>
+        <select id=\"finetunedMonitorCheckpoint\"></select>
         <div class=\"small muted\" id=\"checkpointStatus\" style=\"margin-top:4px\"></div>
         <label style=\"display:block;margin-top:10px\">Patchscopes per-layer injection strength</label>
         <div id=\"patchStrengthRows\" class=\"slider-stack\"></div>
@@ -1876,7 +1905,8 @@ class ChatCompareWebApp:
           <div id=\"bbOut\" class=\"text-block\"></div>
         </div>
         <div class=\"panel\">
-          <h3 style=\"margin-top:0\">No-Act Oracle</h3>
+          <h3 style=\"margin-top:0;display:inline\">Finetuned Monitor</h3>
+          <span class=\"info-tooltip\" title=\"Text-baseline oracle (no activations). Receives the CoT text up to the last selected activation position.&#10;&#10;Prompt template: 'Chain of thought: {cot_text}\\n\\n{task_prompt}'&#10;&#10;This matches the exact format used during training.\">&#9432;</span>
           <div class=\"mini-status\" id=\"noActStatus\"><span class=\"mini-dot\"></span><span id=\"noActStatusText\"></span></div>
           <div class=\"muted small\" id=\"noActPrompt\"></div>
           <div id=\"noActOut\" class=\"text-block\"></div>
@@ -2285,8 +2315,8 @@ For your final answer, respond with "Answer: Yes" or "Answer: No" after the chai
       } else {
         shareInfo.textContent = `Host: ${config.host_fqdn} | share policy: ${config.share_policy}`;
       }
-      baselineInputs.noact.checked = config.no_act_available;
-      baselineInputs.noact.disabled = !config.no_act_available;
+      baselineInputs.noact.checked = config.finetuned_monitor_available;
+      baselineInputs.noact.disabled = !config.finetuned_monitor_available;
       document.getElementById('strideInput').value = config.stride;
       renderPatchStrengthRows();
       renderTaskOptions();
@@ -2315,6 +2345,14 @@ For your final answer, respond with "Answer: Yes" or "Answer: No" after the chai
         adamSel.appendChild(opt);
       });
       adamSel.addEventListener('change', () => switchCheckpoint('adam', adamSel.value));
+      const fmSel = document.getElementById('finetunedMonitorCheckpoint');
+      (config.finetuned_monitor_checkpoints || []).forEach(cp => {
+        const opt = document.createElement('option');
+        opt.value = cp.key;
+        opt.textContent = cp.label;
+        fmSel.appendChild(opt);
+      });
+      fmSel.addEventListener('change', () => switchCheckpoint('finetuned_monitor', fmSel.value));
     }
     async function switchCheckpoint(role, key) {
       const ckptStatus = document.getElementById('checkpointStatus');
@@ -2502,7 +2540,8 @@ For your final answer, respond with "Answer: Yes" or "Answer: No" after the chai
         setPanelLoading('noact', true, 'Running...');
         requests.push(postJson('/api/run_no_act_oracle', payload).then(data => {
         results.noact = data;
-        document.getElementById('noActPrompt').textContent = `No-act prompt: ${data.no_act_prompt}`;
+        const cutInfo = data.cot_truncated_at != null ? ` (CoT up to stride position ${data.cot_truncated_at})` : '';
+        document.getElementById('noActPrompt').textContent = `Prompt: ${data.no_act_prompt}${cutInfo}`;
         document.getElementById('noActOut').textContent = compactText(data.no_act_response);
         setPanelLoading('noact', false, 'Loaded');
         advanceProgress('No-act oracle loaded...');
