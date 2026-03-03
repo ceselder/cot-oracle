@@ -1902,8 +1902,8 @@ def main():
     task_config = {}
     for task_name in get_trainable_tasks():
         n = getattr(args, f"{task_name}_n", 0)
-        if n > 0:
-            task_config[task_name] = {"n": n}
+        if n > 0 or n == -1:
+            task_config[task_name] = {"n": 999999 if n == -1 else n}
 
     # FutureLens uses corpus-v5 + tokenizer — handle separately (like FineWeb)
     futurelens_n = task_config.pop("futurelens", {}).get("n", 0)
