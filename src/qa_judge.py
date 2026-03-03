@@ -20,7 +20,7 @@ QA_GEMINI_SCORE_SYSTEM = (
 
 
 def is_gemini_qa_task(task_name: str) -> bool:
-    return False  # disabled: fall back to token F1 scoring
+    return task_name in QA_GEMINI_SCORE_TASKS
 
 
 def extract_judge_json(text: str) -> dict[str, Any]:

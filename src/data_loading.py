@@ -423,7 +423,7 @@ def _download_via_datasets_lib(task_def: TaskDef, split: str, local_path: Path) 
 
 def load_futurelens_data(
     tokenizer,
-    n: int = 30000,
+    n: int | None = 30000,
     split: str = "train",
     predict_tokens: int = 50,
     layers: list[int] | None = None,
@@ -438,7 +438,7 @@ def load_futurelens_data(
 
     Args:
         tokenizer: HuggingFace tokenizer.
-        n: Number of examples to generate.
+        n: Number of examples to generate, or None for all available.
         split: "train" (first 80% of corpus) or "test" (last 20%).
         predict_tokens: How many tokens to predict after cutoff.
         layers: Layer indices for activation extraction.
@@ -458,20 +458,20 @@ def load_futurelens_data(
     if not corpus:
         raise RuntimeError(f"No entries found in corpus-v5 ({split} split)")
 
+    target_n = None if n in (-1, None) else n
     print(f"  [futurelens] Loaded {len(corpus)} corpus entries ({split} split)")
-    print(f"  [futurelens] Generating {n} examples (predict_tokens={predict_tokens})...")
+    print(f"  [futurelens] Generating {'all available' if target_n is None else target_n} examples (predict_tokens={predict_tokens})...")
 
     datapoints: list[dict] = []
     attempts = 0
-    max_attempts = n * 5
 
-    while len(datapoints) < n and attempts < max_attempts:
+    def add_from_entry(entry: dict) -> None:
+        nonlocal attempts
         attempts += 1
-        entry = rng.choice(corpus)
 
         cot_text = entry.get("cot_response", "")
         if not cot_text:
-            continue
+            return
 
         # Strip <think> tags
         think_end = cot_text.find("</think>")
@@ -479,7 +479,7 @@ def load_futurelens_data(
             cot_text = cot_text[:think_end]
         cot_text = cot_text.replace("<think>", "").strip()
         if not cot_text:
-            continue
+            return
 
         question = entry.get("question", "")
 
@@ -498,14 +498,14 @@ def load_futurelens_data(
         # All positions in CoT region
         cot_positions = list(range(prompt_len, len(full_ids)))
         if len(cot_positions) < 3:
-            continue
+            return
 
         # Pick up to 3 random cutoff positions per entry
         max_k = len(cot_positions) - 1
         n_picks = min(3, max_k + 1)
 
         for _ in range(n_picks):
-            if len(datapoints) >= n:
+            if target_n is not None and len(datapoints) >= target_n:
                 break
 
             k = rng.randint(0, max_k)
@@ -546,12 +546,25 @@ def load_futurelens_data(
                 "context_positions": context_positions,
             })
 
-        if len(datapoints) % 10000 == 0 and len(datapoints) > 0:
-            print(f"  [futurelens] {len(datapoints)}/{n} examples...")
+            if len(datapoints) % 10000 == 0:
+                progress_total = "all available" if target_n is None else str(target_n)
+                print(f"  [futurelens] {len(datapoints)}/{progress_total} examples...")
+
+    if target_n is None:
+        shuffled_corpus = list(corpus)
+        rng.shuffle(shuffled_corpus)
+        for entry in shuffled_corpus:
+            add_from_entry(entry)
+        print(f"  [futurelens] Generated {len(datapoints)} examples (from {attempts} sampled corpus entries)")
+        return datapoints
+
+    max_attempts = target_n * 5
+    while len(datapoints) < target_n and attempts < max_attempts:
+        add_from_entry(rng.choice(corpus))
 
     print(f"  [futurelens] Generated {len(datapoints)} examples "
           f"(from {attempts} attempts, {len(corpus)} corpus entries)")
-    return datapoints[:n]
+    return datapoints[:target_n]
 
 
 def _load_corpus_v5(split: str = "train") -> list[dict]:

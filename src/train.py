@@ -1951,7 +1951,7 @@ def main():
     for task_name in get_trainable_tasks():
         n = getattr(args, f"{task_name}_n", 0)
         if n > 0 or n == -1:
-            task_config[task_name] = {"n": 999999 if n == -1 else n}
+            task_config[task_name] = {"n": n}
 
     # FutureLens uses corpus-v5 + tokenizer — handle separately (like FineWeb)
     futurelens_n = task_config.pop("futurelens", {}).get("n", 0)
@@ -1962,13 +1962,15 @@ def main():
     raw_data = load_all_training_data(task_config)
 
     # FutureLens (corpus-based, needs tokenizer) — skip in no-activations mode
-    if futurelens_n > 0 and not NO_ACTIVATIONS:
+    if futurelens_n != 0 and not NO_ACTIVATIONS:
         from data_loading import load_futurelens_data
+        futurelens_target_n = None if futurelens_n == -1 else futurelens_n
         if rank == 0:
-            print(f"  [data] Generating {futurelens_n} FutureLens examples from corpus...")
+            futurelens_count_str = "all available" if futurelens_target_n is None else str(futurelens_target_n)
+            print(f"  [data] Generating {futurelens_count_str} FutureLens examples from corpus...")
         futurelens_data = load_futurelens_data(
             tokenizer=tokenizer,
-            n=futurelens_n,
+            n=futurelens_target_n,
             split="train",
             layers=MULTI_LAYERS,
             seed=args.seed,
