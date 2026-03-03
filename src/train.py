@@ -1871,12 +1871,11 @@ def main():
         fw_max_tgt = getattr(args, "fineweb_max_target_tokens", 25)
         if rank == 0:
             print(f"  [data] Generating {fineweb_n} FineWeb readout examples "
-                  f"(3 variants, target {fw_min_tgt}-{fw_max_tgt} tokens)...")
+                  f"(3 variants, single-position, target {fw_min_tgt}-{fw_max_tgt} tokens)...")
         fineweb_data = load_fineweb_readout_data(
             tokenizer=tokenizer,
             n=fineweb_n,
             max_context_tokens=fw_max_ctx,
-            stride=args.stride,
             layers=MULTI_LAYERS,
             min_target_tokens=fw_min_tgt,
             max_target_tokens=fw_max_tgt,

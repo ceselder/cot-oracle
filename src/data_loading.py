@@ -613,26 +613,27 @@ def load_fineweb_readout_data(
     tokenizer,
     n: int = 15000,
     max_context_tokens: int = 2000,
-    stride: int | str = 5,
     layers: list[int] | None = None,
     min_target_tokens: int = 5,
     max_target_tokens: int = 25,
     seed: int = 42,
     variant: str | None = None,
+    **_kwargs,
 ) -> list[dict]:
     """Generate FineWeb readout data with 3 task variants.
 
-    For each streamed FineWeb/LMSYS text, randomly assigns one of:
-      - futurelens_fineweb: activations [0, cutoff], target = next K tokens
-      - pastlens_fineweb: activations [act_start, end], target = previous K tokens
-      - reconstruction_fineweb: activations within span, target = reconstruct span
+    Single-position approach (like Adam's AO): pick one index in the text,
+    feed that single activation across all layers, predict around it.
+
+      - futurelens_fineweb: activation at pos, target = next K tokens after pos
+      - pastlens_fineweb: activation at pos, target = K tokens before pos
+      - reconstruction_fineweb: activation at midpoint of span, target = span tokens
 
     Args:
         tokenizer: HuggingFace tokenizer.
         n: Total number of examples (split ~equally across 3 variants, or all
            one variant if `variant` is specified).
         max_context_tokens: Max tokens for activation context.
-        stride: Position stride for activation extraction.
         layers: Layer indices for activation extraction.
         min_target_tokens: Minimum target length.
         max_target_tokens: Maximum target length.
@@ -640,8 +641,6 @@ def load_fineweb_readout_data(
         variant: If set, only generate this variant (for eval). One of
             "futurelens_fineweb", "pastlens_fineweb", "reconstruction_fineweb".
     """
-    from cot_utils import get_cot_positions
-
     if layers is None:
         layers = [9, 18, 27]
     n_layers = len(layers)
@@ -659,8 +658,7 @@ def load_fineweb_readout_data(
 
     datapoints: list[dict] = []
     skipped = 0
-    stride_floor = 5 if stride == "punctuation" else int(stride)
-    min_context_tokens = stride_floor * 3
+    min_pos = 10  # need at least 10 tokens before the activation position
 
     while len(datapoints) < n:
         text = next(gen)
@@ -671,7 +669,7 @@ def load_fineweb_readout_data(
         )["input_ids"]
         L = len(input_ids)
 
-        if L < min_context_tokens + min_target_tokens:
+        if L < min_pos + min_target_tokens:
             skipped += 1
             continue
 
@@ -680,65 +678,48 @@ def load_fineweb_readout_data(
         k_target = _sample_heavy_tail_target_length(available, min_target_tokens, max_target_tokens)
 
         if task_variant == "futurelens_fineweb":
-            # Activations from [0, cutoff], target = next k_target tokens
-            max_cutoff = min(L - k_target - 1, max_context_tokens - 1)
-            if max_cutoff < min_context_tokens:
+            # Single activation at pos, predict next k_target tokens
+            max_pos = min(L - k_target - 1, max_context_tokens - 1)
+            if max_pos < min_pos:
                 skipped += 1
                 continue
-            cutoff = rng.randint(min_context_tokens, max_cutoff)
+            pos = rng.randint(min_pos, max_pos)
 
-            context_ids = input_ids[:cutoff + 1]
-            positions = get_cot_positions(
-                0, len(context_ids), stride=stride, tokenizer=tokenizer, input_ids=context_ids, include_last=True,
-            )
-
-            target_ids = input_ids[cutoff + 1: cutoff + 1 + k_target]
-            target_text = tokenizer.decode(target_ids, skip_special_tokens=True)
-            prompt = _FINEWEB_READOUT_PROMPTS[task_variant].format(n=len(target_ids))
+            context_ids = input_ids[:pos + 1]
+            target_ids = input_ids[pos + 1: pos + 1 + k_target]
 
         elif task_variant == "pastlens_fineweb":
-            # Activations from [act_start, end], target = previous k_target tokens
-            act_start_max = min(L - stride_floor, max_context_tokens) - 1
-            if act_start_max < k_target:
+            # Single activation at pos, predict k_target tokens before pos
+            if L - 1 < k_target + min_pos:
                 skipped += 1
                 continue
-            act_start = rng.randint(k_target, act_start_max)
+            pos = rng.randint(k_target + min_pos, min(L - 1, max_context_tokens - 1))
 
-            context_end = min(act_start + max_context_tokens, L)
-            context_ids = input_ids[:context_end]
-            positions = get_cot_positions(
-                act_start, len(context_ids), stride=stride, tokenizer=tokenizer, input_ids=context_ids, include_last=True,
-            )
-
-            target_ids = input_ids[act_start - k_target: act_start]
-            target_text = tokenizer.decode(target_ids, skip_special_tokens=True)
-            prompt = _FINEWEB_READOUT_PROMPTS[task_variant].format(n=len(target_ids))
+            context_ids = input_ids[:pos + 1]
+            target_ids = input_ids[pos - k_target: pos]
 
         else:  # reconstruction_fineweb
-            # Pick span [start, end], activations from within span, target = span tokens
+            # Single activation at midpoint of span, predict span tokens
             max_span_start = L - k_target - 1
-            if max_span_start < min_context_tokens:
+            if max_span_start < 0:
                 skipped += 1
                 continue
             span_start = rng.randint(0, max_span_start)
             span_end = span_start + k_target
+            pos = (span_start + span_end) // 2  # midpoint
 
-            # Context: full text up to span_end (so the activations cover the span)
-            context_ids = input_ids[:span_end]
-            # Positions within the span
-            positions = get_cot_positions(
-                span_start, span_end, stride=stride, tokenizer=tokenizer, input_ids=context_ids, include_last=True,
-            )
-
+            context_ids = input_ids[:max(pos + 1, span_end)]
             target_ids = input_ids[span_start:span_end]
-            target_text = tokenizer.decode(target_ids, skip_special_tokens=True)
-            prompt = _FINEWEB_READOUT_PROMPTS[task_variant].format(n=len(target_ids))
 
+        target_text = tokenizer.decode(target_ids, skip_special_tokens=True)
         if not target_text.strip():
             skipped += 1
             continue
 
-        all_positions = positions * n_layers
+        prompt = _FINEWEB_READOUT_PROMPTS[task_variant].format(n=len(target_ids))
+
+        # Single position repeated for each layer
+        context_positions = [pos] * n_layers
 
         datapoints.append({
             "datapoint_type": f"fineweb_{task_variant}",
@@ -747,9 +728,9 @@ def load_fineweb_readout_data(
             "target_response": target_text,
             "layer": layers[0],
             "layers": layers,
-            "num_positions": len(all_positions),
+            "num_positions": len(context_positions),
             "context_input_ids": context_ids,
-            "context_positions": all_positions,
+            "context_positions": context_positions,
         })
 
         if len(datapoints) % 5000 == 0 and len(datapoints) > 0:
