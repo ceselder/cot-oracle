@@ -1409,12 +1409,12 @@ def apply_config(args, config: dict):
     if "training" in config:
         t = config["training"]
         _float_keys = {"lr", "warmup_fraction", "max_grad_norm", "steering_coefficient"}
-        _int_keys = {"epochs", "seed", "interleave_blocks", "length_bucket_window_batches", "max_train_tokens_per_gpu", "max_extract_tokens_per_gpu", "extraction_batch_size"}
+        _int_keys = {"epochs", "seed", "interleave_blocks", "length_bucket_window_batches", "max_train_tokens_per_gpu", "max_extract_tokens_per_gpu", "extraction_batch_size", "batch_size", "effective_batch_size"}
         for key in ["lr", "epochs",
                      "warmup_fraction", "max_grad_norm", "steering_coefficient",
                      "gradient_checkpointing", "task_order", "seed",
                      "interleave_blocks", "max_train_tokens_per_gpu", "max_extract_tokens_per_gpu",
-                     "extraction_batch_size",
+                     "batch_size", "effective_batch_size", "extraction_batch_size",
                      "length_bucketing", "length_bucket_window_batches",
                      "torch_compile", "torch_compile_mode"]:
             if key in t and not getattr(args, f"_cli_{key}", False):
@@ -1520,7 +1520,7 @@ def main():
     local_rank, rank, world_size = setup_distributed()
 
     parser = argparse.ArgumentParser(description="Train CoT Oracle")
-    parser.add_argument("--config", nargs="+", default=None,
+    parser.add_argument("--config", nargs="+", default=["configs/train.yaml"],
                         help="YAML config file(s). Multiple configs are merged left-to-right (later overrides earlier)")
     parser.add_argument("--corpus", default="data/cot_corpus_v5/corpus_medium.jsonl",
                         help="Path to corpus.jsonl")

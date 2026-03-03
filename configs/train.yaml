@@ -95,7 +95,9 @@ training:
   task_order: shuffled
   interleave_blocks: 50
   max_train_tokens_per_gpu: 65536
-  extraction_batch_size: 128     # lookahead extraction; actual micro-batches split further on token budget / OOM
+  batch_size: 16                  # per-GPU micro-batch size
+  effective_batch_size: 128       # total effective batch size (invariant to GPU count); grad_accum = effective / (batch * world_size)
+  extraction_batch_size: 128      # lookahead extraction; actual micro-batches split further on token budget / OOM
   seed: 42
 
 # Text-baseline (no activations — receives CoT as plain text instead of activation vectors)
@@ -106,6 +108,10 @@ no_activations:
 activations:
   layers: [9, 18, 27]        # injection layers (25%, 50%, 75% of Qwen3-8B's 36 layers)
   position_mode: stochastic  # "last_only" (fastest), "stochastic" (chi-squared random), "all"
+  stochastic_max_k: 100      # upper bound for Poisson position sampling
+  max_context_length: 0      # drop samples longer than this (0 = no filter)
+  position_encoding: false
+  pe_alpha: 0.1
   layer_dropout:
     train: true              # random non-empty subsets of layers per training example
     eval: false              # always feed all configured layers during eval
