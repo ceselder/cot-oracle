@@ -796,24 +796,38 @@ class ChatCompareWebApp:
         return self.state.full_layer_acts[layer]
 
     def _compute_probe_scores(self, probe_filename, layer):
-        """Score ALL CoT token positions using a linear probe at the given layer."""
+        """Score ALL CoT token positions using a linear probe.
+
+        For single-layer probes: extracts activations at `layer`.
+        For concat probes (layer="concat"): extracts and concatenates all probe layers.
+        """
         if self.state.multilayer_acts is None:
             raise HTTPException(status_code=400, detail="Generate a CoT first")
         probe = self._load_probe(probe_filename)
-        # Get full-position activations (lazy extraction)
-        acts = self._ensure_full_layer_acts(layer)  # [cot_len, D]
-        D = acts.shape[1]
         w, b, mu, std = probe["w"], probe["b"], probe["mu"], probe["std"]
-        # Handle concat probes: if w is larger than D, slice the correct layer portion
         probe_layers = probe["layers"]
-        if w.shape[0] > D and len(probe_layers) > 1:
-            if layer not in probe_layers:
-                raise HTTPException(status_code=400, detail=f"Layer {layer} not in probe layers {probe_layers}")
-            li = probe_layers.index(layer)
-            w = w[li * D:(li + 1) * D]
-            mu = mu[li * D:(li + 1) * D]
-            std = std[li * D:(li + 1) * D]
-            b = b / len(probe_layers)
+
+        if layer == "concat" and len(probe_layers) > 1:
+            # Concat probe: extract all layers and concatenate
+            layer_acts = []
+            for pl in probe_layers:
+                layer_acts.append(self._ensure_full_layer_acts(pl))  # [cot_len, D]
+            acts = torch.cat(layer_acts, dim=1)  # [cot_len, n_layers * D]
+        else:
+            # Single-layer probe or user picked one layer from a concat probe
+            actual_layer = int(layer)
+            acts = self._ensure_full_layer_acts(actual_layer)  # [cot_len, D]
+            D = acts.shape[1]
+            # If this is a concat probe but user picked a single layer, slice w
+            if w.shape[0] > D and len(probe_layers) > 1:
+                if actual_layer not in probe_layers:
+                    raise HTTPException(status_code=400, detail=f"Layer {actual_layer} not in probe layers {probe_layers}")
+                li = probe_layers.index(actual_layer)
+                w = w[li * D:(li + 1) * D]
+                mu = mu[li * D:(li + 1) * D]
+                std = std[li * D:(li + 1) * D]
+                b = b / len(probe_layers)
+
         acts_normed = (acts.float() - mu.unsqueeze(0)) / std.unsqueeze(0)
         scores = (acts_normed @ w + b).tolist()
         return {"scores": scores, "min_score": min(scores), "max_score": max(scores), "all_positions": True}
@@ -1545,7 +1559,9 @@ class ChatCompareWebApp:
         @self.app.post("/api/heatmap/probe_scores")
         async def heatmap_probe_scores(payload: dict):
             probe_filename = payload["probe_filename"]
-            layer = int(payload["layer"])
+            layer = payload["layer"]  # int or "concat"
+            if layer != "concat":
+                layer = int(layer)
             return await asyncio.to_thread(self._compute_probe_scores, probe_filename, layer)
 
         @self.app.post("/api/heatmap/ao_logprobs")
@@ -2617,11 +2633,24 @@ For your final answer, respond with "Answer: Yes" or "Answer: No" after the chai
       if (heatmapConfig.probes.length === 0) {
         probeSel.innerHTML = '<option value="">-- no probes found --</option>';
       } else {
+        // Extract task name from filename for cleaner display
         heatmapConfig.probes.forEach(p => {
           const opt = document.createElement('option');
           opt.value = p.filename;
           const acc = p.balanced_accuracy ? ` (${(p.balanced_accuracy * 100).toFixed(1)}%)` : '';
-          opt.textContent = p.probe_name + acc;
+          // e.g. "sycophancy_last_linear_concat.pt" -> "sycophancy [concat]"
+          const fname = p.filename.replace('.pt', '');
+          const isConcat = fname.endsWith('_concat');
+          const layerMatch = fname.match(/_L([0-9]+)$/);
+          let displayName;
+          if (isConcat) {
+            displayName = fname.replace(/_last_linear_concat$/, '') + ' [concat]';
+          } else if (layerMatch) {
+            displayName = fname.replace(/_last_linear_L[0-9]+$/, '') + ' [L' + layerMatch[1] + ']';
+          } else {
+            displayName = p.probe_name;
+          }
+          opt.textContent = displayName + acc;
           probeSel.appendChild(opt);
         });
         updateProbeLayerOptions();
@@ -2635,6 +2664,13 @@ For your final answer, respond with "Answer: Yes" or "Answer: No" after the chai
       layerSel.innerHTML = '';
       const probeInfo = heatmapConfig.probes.find(p => p.filename === probeSel.value);
       const layers = probeInfo && probeInfo.layers.length ? probeInfo.layers : heatmapConfig.layers;
+      // For concat probes (multiple layers), offer "concat" as default
+      if (layers.length > 1) {
+        const concatOpt = document.createElement('option');
+        concatOpt.value = 'concat';
+        concatOpt.textContent = 'Concat (all layers)';
+        layerSel.appendChild(concatOpt);
+      }
       layers.forEach(l => {
         const opt = document.createElement('option');
         opt.value = l;
