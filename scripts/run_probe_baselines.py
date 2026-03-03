@@ -759,6 +759,9 @@ def main():
                         help="Directory to save trained probe weights (.pt files)")
     parser.add_argument("--cross-eval", action="store_true",
                         help="Cross-evaluate hint_admission ↔ truthfulqa_hint probes")
+    parser.add_argument("--cross-mechanism", nargs="*", default=None,
+                        help="Cross-mechanism transfer: train on first, test on rest. "
+                             "E.g. --cross-mechanism hint_admission sycophancy")
     args = parser.parse_args()
 
     datasets_to_run = args.datasets or list(DATASETS.keys())
@@ -983,7 +986,13 @@ def main():
         all_results[ds_name] = ds_results
 
         # Stash data for cross-eval if needed
-        if args.cross_eval and ds_name in ("hint_admission", "truthfulqa_hint"):
+        stash_for = set()
+        if args.cross_eval:
+            stash_for |= {"hint_admission", "truthfulqa_hint"}
+        if args.cross_mechanism:
+            stash_for |= set(args.cross_mechanism)
+
+        if ds_name in stash_for:
             cross_eval_data[ds_name] = {
                 "train": train_items, "test": test_items,
                 "y_train": y_train, "y_test_raw": y_test_raw,
@@ -1036,7 +1045,79 @@ def main():
 
             all_results[cross_key] = cross_results
 
-        # Free cross-eval data
+        # Free same-mechanism cross-eval data (keep for cross-mechanism if needed)
+        if not args.cross_mechanism:
+            del cross_eval_data
+            gc.collect()
+
+    # ── Cross-mechanism transfer: train on one task, test on others ──
+    if args.cross_mechanism and len(args.cross_mechanism) >= 2:
+        train_ds = args.cross_mechanism[0]
+        test_datasets = args.cross_mechanism[1:]
+
+        # Verify all datasets were extracted
+        missing = [d for d in args.cross_mechanism if d not in cross_eval_data]
+        if missing:
+            print(f"\nWARNING: Missing datasets for cross-mechanism: {missing}")
+            print(f"  Available: {list(cross_eval_data.keys())}")
+        else:
+            print(f"\n\n{'=' * 60}")
+            print(f"CROSS-MECHANISM TRANSFER: {train_ds} → {test_datasets}")
+            print(f"{'=' * 60}")
+
+            tr = cross_eval_data[train_ds]
+
+            for test_ds in test_datasets:
+                te = cross_eval_data[test_ds]
+
+                # Both must be binary with 2 classes
+                if tr["n_classes"] != 2 or te["n_classes"] != 2:
+                    print(f"\n  Skipping {train_ds} → {test_ds}: not both binary")
+                    continue
+
+                print(f"\n  Train on {train_ds} → Test on {test_ds}")
+                print(f"  Train labels: {tr['all_labels']}, Test labels: {te['all_labels']}")
+                print(f"  Train: {len(tr['train'])} examples, Test: {len(te['test'])} examples")
+
+                # Map: probe outputs class idx 0/1 from train labels,
+                # test labels are 0/1 from test labels. Both binarized so
+                # idx 0 = negative, idx 1 = positive (by sorted order).
+                y_test_idx = torch.tensor(
+                    [te["label2idx"][row["label"]] for _, row, _ in te["test"]])
+
+                cross_key = f"xmech_{train_ds}_to_{test_ds}"
+                cross_results = {}
+
+                for layer in layers:
+                    ln = f"L{layer}"
+                    for pool_name, pool_fn in [("mean", mean_pool_vec), ("last", last_pool_vec)]:
+                        X_tr = pool_fn(tr["train"], [layer])
+                        X_te = pool_fn(te["test"], [layer])
+                        preds = train_linear_probe(
+                            X_tr, tr["y_train"], X_te, tr["n_classes"],
+                            device=args.device)
+                        # preds are 0/1 idx in train label space
+                        # y_test_idx are 0/1 idx in test label space
+                        # Both sorted: idx 0 = neg, idx 1 = pos
+                        bal = balanced_accuracy(preds.tolist(), y_test_idx.tolist())
+                        name = f"{pool_name}_linear_{ln}"
+                        cross_results[name] = {"balanced_accuracy": bal}
+                        print(f"    {name:<28s} bal_acc={bal:.3f}")
+
+                # Also try concat
+                for pool_name, pool_fn in [("mean", mean_pool_vec), ("last", last_pool_vec)]:
+                    X_tr = pool_fn(tr["train"], layers)
+                    X_te = pool_fn(te["test"], layers)
+                    preds = train_linear_probe(
+                        X_tr, tr["y_train"], X_te, tr["n_classes"],
+                        device=args.device)
+                    bal = balanced_accuracy(preds.tolist(), y_test_idx.tolist())
+                    name = f"{pool_name}_linear_concat"
+                    cross_results[name] = {"balanced_accuracy": bal}
+                    print(f"    {name:<28s} bal_acc={bal:.3f}")
+
+                all_results[cross_key] = cross_results
+
         del cross_eval_data
         gc.collect()
 
