@@ -1241,6 +1241,19 @@ def _eval_single_task(
         )
         n_layers = len(layers)
 
+        # Eval always uses last-position-only: keep only the final position per layer
+        for item in test_data:
+            pos = item.get("context_positions", [])
+            if pos and n_layers > 0:
+                k = len(pos) // n_layers
+                if k > 1:
+                    # pos is [layer0_pos..., layer1_pos..., layer2_pos...]
+                    # keep only the last position from each layer's chunk
+                    item["context_positions"] = [
+                        pos[(li + 1) * k - 1] for li in range(n_layers)
+                    ]
+                    item["num_positions"] = n_layers
+
         test_data = [d for d in test_data if d.get("context_input_ids")]
         if not test_data:
             return {"n": 0}
