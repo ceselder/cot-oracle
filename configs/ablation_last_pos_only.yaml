@@ -22,7 +22,11 @@ tasks:
     eval: true
 
   futurelens:
-    n: 25000
+    n: 20000
+    eval: true
+
+  pastlens:
+    n: 20000
     eval: true
 
   correctness:              # ~7.8K available
@@ -84,7 +88,7 @@ tasks:
 # FineWeb readout tasks (single-position: predict surrounding tokens)
 fineweb:
   enabled: true
-  n: 50000                    # 25K futurelens + 25K pastlens
+  n: 40000                    # 20K futurelens + 20K pastlens
   variant: futurelens_fineweb,pastlens_fineweb
   max_context_tokens: 2000
   min_target_tokens: 5
