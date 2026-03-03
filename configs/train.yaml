@@ -38,10 +38,9 @@ tasks:
     epochs: 2
     eval: true
 
-  resampling_importance:    # ~468 available
-    n: -1
-    epochs: 2
-    eval: true
+  resampling_importance:
+    n: 0
+    eval: false
 
   chunked_convqa:           # ~27K available
     n: -1
