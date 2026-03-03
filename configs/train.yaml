@@ -118,7 +118,7 @@ activations:
 # Eval
 eval:
   eval_steps: 2000
-  save_steps: 1000
+  save_steps: 2000
   max_items_per_eval: 25
   eval_batch_size: 4
 
