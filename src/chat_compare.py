@@ -134,7 +134,8 @@ MODEL_ORGANISMS = {
 # Available checkpoints for the Trained Oracle dropdown.
 # key -> {"path": HF repo or local path, "label": display name}
 TRAINED_CHECKPOINTS = {
-    "v6": {"path": "ceselder/cot-oracle-v6", "label": "v6 (latest)"},
+    "v12-no-stride": {"path": "ceselder/cot-oracle-v12-no-stride-2x-batch", "label": "v12 no-stride 2x-batch (latest)"},
+    "v6": {"path": "ceselder/cot-oracle-v6", "label": "v6"},
     "ablation-stride5": {"path": "ceselder/cot-oracle-ablation-stride5-3layers", "label": "ablation: stride5 3-layer"},
     "ablation-stride10-pe-off": {"path": "ceselder/cot-oracle-ablation-stride10-pe-off", "label": "ablation: stride10 no-PE"},
     "ablation-pooling": {"path": "ceselder/cot-oracle-ablation-stride100-3layers", "label": "ablation: pooling stride100"},
@@ -536,13 +537,19 @@ def build_sae_feature_description(saes, labels, layer_to_selected_acts, layers, 
 
 
 def query_openrouter(prompt, model, api_base=OPENROUTER_API_BASE, max_tokens=300, response_format=None):
-    api_key = os.environ["OPENROUTER_API_KEY"]
+    api_key = os.environ.get("OPENROUTER_API_KEY", "")
+    if not api_key:
+        return "(OpenRouter API key not set — skipping)"
     client = openai.OpenAI(base_url=api_base, api_key=api_key)
     kwargs = {"model": model, "messages": [{"role": "user", "content": prompt}], "max_tokens": max_tokens, "temperature": 0.0}
     if response_format is not None:
         kwargs["response_format"] = response_format
-    response = client.chat.completions.create(**kwargs)
-    return response.choices[0].message.content or ""
+    try:
+        response = client.chat.completions.create(**kwargs)
+        return response.choices[0].message.content or ""
+    except openai.AuthenticationError as e:
+        logging.warning("OpenRouter auth failed: %s", e)
+        return f"(OpenRouter auth error: {e})"
 
 
 def query_sae_llm(prompt, model=OPENROUTER_SAE_MODEL, api_base=OPENROUTER_API_BASE, max_tokens=300):
