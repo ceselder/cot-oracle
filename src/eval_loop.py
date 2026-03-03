@@ -691,13 +691,12 @@ def _batched_oracle_generate(
     dtype = torch.bfloat16
     ph_token = PLACEHOLDER_TOKEN
 
-    layer_list = list(layers) if len(layers) > 1 else layers
     ph_id = tokenizer.encode(ph_token, add_special_tokens=False)
     assert len(ph_id) == 1, f"Expected single token for '{ph_token}', got {len(ph_id)}"
     ph_id = ph_id[0]
     pad_id = tokenizer.pad_token_id or tokenizer.eos_token_id
 
-    # Tokenize all items
+    # Tokenize all items using manual prefix insertion (matches training path)
     all_input_ids: list[list[int]] = []
     all_ph_positions: list[list[int]] = []
 
@@ -710,12 +709,22 @@ def _batched_oracle_generate(
         formatted = tokenizer.apply_chat_template(
             messages, tokenize=False, add_generation_prompt=True, enable_thinking=False,
         )
-        input_ids = tokenizer.encode(formatted, add_special_tokens=False)
 
-        positions = [i for i, tid in enumerate(input_ids) if tid == ph_id][:num_positions]
-        assert len(positions) == num_positions, (
-            f"Found {len(positions)} placeholder positions, expected {num_positions}"
+        # Manual prefix tokenization: split text around prefix, insert
+        # placeholder token IDs directly to prevent tokenizer boundary merges.
+        # This matches the training path (_tokenize_with_manual_prefix).
+        prefix_idx = formatted.find(prefix)
+        assert prefix_idx >= 0, "Prefix text not found in chat template output"
+
+        before_ids = tokenizer.encode(formatted[:prefix_idx], add_special_tokens=False)
+        after_ids = tokenizer.encode(formatted[prefix_idx + len(prefix):], add_special_tokens=False)
+
+        prefix_ids, rel_positions = _build_manual_prefix_token_ids(
+            tokenizer, num_positions, layers, ph_id,
         )
+
+        input_ids = before_ids + prefix_ids + after_ids
+        positions = [len(before_ids) + p for p in rel_positions]
 
         all_input_ids.append(input_ids)
         all_ph_positions.append(positions)
@@ -809,6 +818,35 @@ def _batched_oracle_generate(
 # ── Text-baseline generation (no activations) ──
 
 _ACT_PREFIX_RE = re.compile(r'^Activations from \d+ positions[^.]*\.\s*')
+
+
+def _build_manual_prefix_token_ids(
+    tokenizer, num_positions: int, layers: list[int], ph_id: int,
+) -> tuple[list[int], list[int]]:
+    """Build token IDs and relative placeholder positions for the oracle prefix.
+
+    Tokenizes layer labels individually and inserts placeholder token IDs
+    directly, preventing tokenizer boundary merges. Mirrors the training
+    path (_build_manual_prefix_tokens in dataset_utils.py).
+    """
+    prefix_layers = list(layers)
+    block_sizes = [num_positions]
+    if len(prefix_layers) > 1:
+        k, rem = divmod(num_positions, len(prefix_layers))
+        assert rem == 0, f"num_positions={num_positions} not divisible by layers={prefix_layers}"
+        block_sizes = [k] * len(prefix_layers)
+
+    prefix_ids: list[int] = []
+    positions: list[int] = []
+    for i, (layer_idx, block_size) in enumerate(zip(prefix_layers, block_sizes)):
+        label = f"L{layer_idx}:"
+        if i > 0:
+            label = " " + label
+        prefix_ids.extend(tokenizer.encode(label, add_special_tokens=False))
+        positions.extend(range(len(prefix_ids), len(prefix_ids) + block_size))
+        prefix_ids.extend([ph_id] * block_size)
+    prefix_ids.extend(tokenizer.encode("\n", add_special_tokens=False))
+    return prefix_ids, positions
 
 
 def _build_oracle_prefix(

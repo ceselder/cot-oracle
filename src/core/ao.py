@@ -373,7 +373,7 @@ def run_oracle_on_activations(
     Args:
         placeholder_token: Token to use for activation injection positions.
             Default (None) uses SPECIAL_TOKEN (" ?") for original AO.
-            Pass TRAINED_PLACEHOLDER (" ¶") for trained oracle.
+            Pass TRAINED_PLACEHOLDER (" ?") for trained oracle.
         oracle_adapter_name: Adapter name to activate for oracle inference.
             Default (None) auto-detects original AO adapter.
             Pass "default" or "trained" for trained oracle during training/eval.

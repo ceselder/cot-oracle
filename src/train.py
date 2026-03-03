@@ -89,6 +89,10 @@ NO_ACTIVATIONS: bool = False
 RANDOM_LAYERS: bool = False
 LAYER_DROPOUT: bool = False
 POSITION_MODE: str = "stochastic"  # "last_only", "stochastic", "all"
+STOCHASTIC_MAX_K: int = 100  # upper bound for Poisson position sampling
+MAX_CONTEXT_LENGTH: int = 0  # drop samples with context_input_ids longer than this (0 = no filter)
+POSITION_ENCODING: bool = False
+PE_ALPHA: float = 0.1
 _MODEL_N_LAYERS: int = 36  # total layers in the model (set in main())
 
 
@@ -109,24 +113,6 @@ def _patched_get_prefix(sae_layer: int, num_positions: int, layers: list[int] | 
 
 
 du_module.get_introspection_prefix = _patched_get_prefix
-
-
-def _patched_find_pattern_in_tokens(token_ids, special_token_str, num_positions, tokenizer):
-    special_token_id = tokenizer.encode(special_token_str, add_special_tokens=False)
-    assert len(special_token_id) == 1, f"Expected single token, got {len(special_token_id)}"
-    special_token_id = special_token_id[0]
-    positions = []
-    for i in range(len(token_ids)):
-        if len(positions) == num_positions:
-            break
-        if token_ids[i] == special_token_id:
-            positions.append(i)
-    assert len(positions) == num_positions, f"Expected {num_positions} positions, got {len(positions)}"
-    return positions
-
-
-du_module.find_pattern_in_tokens = _patched_find_pattern_in_tokens
-
 
 
 # ── Distributed helpers ──
@@ -250,6 +236,10 @@ def materialize_multilayer_steering_vectors(
                     f"Activation index out of range for item {b}: {adjusted} with L={L}"
                 )
             layer_vecs = acts_BLD[b, adjusted, :]  # [K, D]
+            if POSITION_ENCODING:
+                from position_encoding import apply_position_encoding
+                total_length = len(contexts[b])
+                layer_vecs = apply_position_encoding(layer_vecs, chunk_positions, total_length, alpha=PE_ALPHA)
             vectors_parts.append(layer_vecs)
 
         vectors = torch.cat(vectors_parts, dim=0).detach().contiguous()
@@ -436,7 +426,7 @@ def _apply_position_mode(base_positions: list[int]) -> list[int]:
     if POSITION_MODE == "last_only":
         return base_positions[-1:]
     elif POSITION_MODE == "stochastic":
-        return sample_poisson_positions(base_positions)
+        return sample_poisson_positions(base_positions, max_k=STOCHASTIC_MAX_K)
     return base_positions  # "all"
 
 
@@ -1443,6 +1433,14 @@ def apply_config(args, config: dict):
                 setattr(args, key, a[key])
         if "layers" in a and not getattr(args, "_cli_layers", False):
             args.layers = a["layers"]  # list of ints, e.g. [9, 18, 27]
+        if "position_encoding" in a and not getattr(args, "_cli_position_encoding", False):
+            args.position_encoding = a["position_encoding"]
+        if "pe_alpha" in a and not getattr(args, "_cli_pe_alpha", False):
+            args.pe_alpha = float(a["pe_alpha"])
+        if "stochastic_max_k" in a and not getattr(args, "_cli_stochastic_max_k", False):
+            args.stochastic_max_k = int(a["stochastic_max_k"])
+        if "max_context_length" in a and not getattr(args, "_cli_max_context_length", False):
+            args.max_context_length = int(a["max_context_length"])
         if "layer_dropout" in a and not getattr(args, "_cli_layer_dropout", False):
             ld = a["layer_dropout"]
             if isinstance(ld, bool):
@@ -1580,6 +1578,10 @@ def main():
     parser.add_argument("--position-mode", type=str, default="last_only",
                         choices=["last_only", "stochastic", "all"],
                         help="Position sampling: last_only (fastest), stochastic (random subsample), all")
+    parser.add_argument("--stochastic-max-k", type=int, default=100,
+                        help="Upper bound for Poisson position sampling (default 100)")
+    parser.add_argument("--max-context-length", type=int, default=0,
+                        help="Drop training samples with context_input_ids longer than this (0 = no filter)")
     parser.add_argument("--task-order", choices=["shuffled", "sequential", "interleaved"], default="shuffled",
                         help="'shuffled' mixes all tasks; 'sequential' trains one at a time; 'interleaved' round-robin blocks")
     parser.add_argument("--interleave-blocks", type=int, default=50,
@@ -1634,6 +1636,10 @@ def main():
                         help="Random non-empty subsets of configured layers per training example")
     parser.add_argument("--no-layer-dropout", dest="layer_dropout", action="store_false",
                         help="Disable layer dropout (override config)")
+    parser.add_argument("--position-encoding", action="store_true", default=False,
+                        help="Add sinusoidal position encoding to activations")
+    parser.add_argument("--no-position-encoding", dest="position_encoding", action="store_false")
+    parser.add_argument("--pe-alpha", type=float, default=0.1, help="Position encoding strength")
 
     # Ablations
     parser.add_argument("--random-layers", action="store_true", default=False,
@@ -1691,11 +1697,15 @@ def main():
     set_seed(args.seed)
 
     # Multi-layer config
-    global MULTI_LAYERS, NO_ACTIVATIONS, RANDOM_LAYERS, LAYER_DROPOUT, POSITION_MODE, _MODEL_N_LAYERS
+    global MULTI_LAYERS, NO_ACTIVATIONS, RANDOM_LAYERS, LAYER_DROPOUT, POSITION_MODE, STOCHASTIC_MAX_K, MAX_CONTEXT_LENGTH, POSITION_ENCODING, PE_ALPHA, _MODEL_N_LAYERS
     NO_ACTIVATIONS = getattr(args, "no_activations", False)
     RANDOM_LAYERS = getattr(args, "random_layers", False)
     LAYER_DROPOUT = getattr(args, "layer_dropout", False)
     POSITION_MODE = getattr(args, "position_mode", "last_only")
+    STOCHASTIC_MAX_K = getattr(args, "stochastic_max_k", 100)
+    MAX_CONTEXT_LENGTH = getattr(args, "max_context_length", 0)
+    POSITION_ENCODING = getattr(args, "position_encoding", False)
+    PE_ALPHA = getattr(args, "pe_alpha", 0.1)
     from cot_utils import LAYER_COUNTS
     _MODEL_N_LAYERS = LAYER_COUNTS.get(args.model, 36)
     if hasattr(args, "layers") and args.layers:
@@ -1718,6 +1728,10 @@ def main():
         if RANDOM_LAYERS:
             print("Ablation: RANDOM LAYERS (per-item random layer sampling)")
         print(f"Position mode: {POSITION_MODE}")
+        if POSITION_MODE == "stochastic":
+            print(f"Stochastic max_k: {STOCHASTIC_MAX_K}")
+        if MAX_CONTEXT_LENGTH > 0:
+            print(f"Max context length: {MAX_CONTEXT_LENGTH} (longer samples will be dropped)")
 
     tokenizer = load_tokenizer(args.model)
 
@@ -1942,6 +1956,14 @@ def main():
         raw_data = [d for d in raw_data if d.get("cot_text")]
         if len(raw_data) < before and rank == 0:
             print(f"  [data] Dropped {before - len(raw_data)} items without cot_text (no-activations mode)")
+
+    # Filter by max context length
+    if MAX_CONTEXT_LENGTH > 0:
+        before = len(raw_data)
+        raw_data = [d for d in raw_data if len(d.get("context_input_ids", [])) <= MAX_CONTEXT_LENGTH]
+        if rank == 0:
+            print(f"  [data] max_context_length={MAX_CONTEXT_LENGTH}: kept {len(raw_data)}/{before} samples "
+                  f"(dropped {before - len(raw_data)})")
 
     random.shuffle(raw_data)
 
