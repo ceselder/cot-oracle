@@ -163,10 +163,9 @@ There is no separate maintained top-level eval CLI for this unified path right n
 
 Important current behavior:
 
-- `activations.stride` now supports either an integer or `"punctuation"` in the main training/eval path.
-- `training.eval_batch_size` is the value currently consumed by `src/train.py` for eval generation batches.
-- `eval.eval_batch_size` exists in `configs/train.yaml` but is not currently read by `apply_config()`.
-- In practice, `train()` recomputes eval/save cadence dynamically for `shuffled`, `sequential`, and `interleaved` runs, so the raw `eval.eval_steps` / `eval.save_steps` values in the YAML are not the final schedule.
+- `activations.stride` supports either an integer or `"punctuation"` in the maintained training/eval path.
+- The main train/eval batch sizes are no longer sourced from `configs/train.yaml`; they come from CLI flags or the parser defaults in `src/train.py`.
+- `configs/train.yaml` keeps `eval.max_items_per_eval`, but eval/save cadence is computed dynamically inside `train()` for `shuffled`, `sequential`, and `interleaved` runs.
 
 ## Data Sources
 

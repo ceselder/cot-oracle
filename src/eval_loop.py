@@ -928,7 +928,7 @@ def run_eval(
     oracle_adapter_name: str = "default",
     skip_rot13: bool = True,
     activation_extract_batch_size: int = 4,
-    stride: int = 5,
+    stride: int | str = 5,
     no_activations: bool = False,
 ) -> dict[str, float]:
     """Run eval for all (or specified) tasks.
@@ -1140,6 +1140,7 @@ def _eval_single_task(
             # FutureLens constructs examples from corpus (needs tokenizer)
             test_data = load_futurelens_data(
                 tokenizer=tokenizer, n=max_items, split="test",
+                stride=stride,
                 layers=layers, seed=99,  # different seed from train
             )
         elif task_name in ("futurelens_fineweb", "pastlens_fineweb", "reconstruction_fineweb"):
@@ -1148,6 +1149,7 @@ def _eval_single_task(
             test_data = load_fineweb_readout_data(
                 tokenizer=tokenizer,
                 n=max_items,
+                stride=stride,
                 layers=layers,
                 seed=97,
                 variant=task_name,
@@ -1180,7 +1182,7 @@ def _eval_single_task(
         )
 
         # Re-stride precomputed items to match training stride
-        from cot_utils import get_cot_stride_positions
+        from cot_utils import get_cot_positions
         n_layers = len(layers)
         re_strided = 0
         for item in test_data:
@@ -1198,9 +1200,9 @@ def _eval_single_task(
             # Recompute: stride over the CoT region (first position to last)
             cot_start = layer0_pos[0]
             cot_end = layer0_pos[-1]
-            new_layer_pos = list(range(cot_start, cot_end + 1, stride))
-            if new_layer_pos[-1] != cot_end:
-                new_layer_pos.append(cot_end)
+            new_layer_pos = get_cot_positions(
+                cot_start, cot_end + 1, stride=stride, tokenizer=tokenizer, input_ids=item["context_input_ids"], include_last=True,
+            )
             new_pos = new_layer_pos * n_layers
             item["context_positions"] = new_pos
             item["num_positions"] = len(new_pos)

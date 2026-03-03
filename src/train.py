@@ -680,7 +680,6 @@ def _run_unified_eval(model, tokenizer, model_name, global_step, args, log_dir=N
     import wandb
 
     print(f"\n--- Evals at step {global_step} ---")
-    stride_val = int(args.stride) if args.stride and args.stride != "punctuation" else 5
     eval_tasks = getattr(args, "eval_tasks", None)
     metrics, all_traces = run_eval(
         model=model,
@@ -690,7 +689,7 @@ def _run_unified_eval(model, tokenizer, model_name, global_step, args, log_dir=N
         eval_batch_size=args.eval_batch_size,
         device="cuda",
         layers=MULTI_LAYERS,
-        stride=stride_val,
+        stride=args.stride,
         no_activations=no_activations,
     )
 
@@ -1399,11 +1398,11 @@ def apply_config(args, config: dict):
     if "training" in config:
         t = config["training"]
         _float_keys = {"lr", "warmup_fraction", "max_grad_norm", "steering_coefficient"}
-        _int_keys = {"batch_size", "eval_batch_size", "epochs", "seed", "effective_batch_size", "interleave_blocks", "length_bucket_window_batches", "max_train_tokens_per_gpu", "max_extract_tokens_per_gpu", "extraction_batch_size"}
-        for key in ["lr", "batch_size", "eval_batch_size", "epochs",
+        _int_keys = {"epochs", "seed", "interleave_blocks", "length_bucket_window_batches", "max_train_tokens_per_gpu", "max_extract_tokens_per_gpu", "extraction_batch_size"}
+        for key in ["lr", "epochs",
                      "warmup_fraction", "max_grad_norm", "steering_coefficient",
                      "gradient_checkpointing", "task_order", "seed",
-                     "effective_batch_size", "interleave_blocks", "max_train_tokens_per_gpu", "max_extract_tokens_per_gpu",
+                     "interleave_blocks", "max_train_tokens_per_gpu", "max_extract_tokens_per_gpu",
                      "extraction_batch_size",
                      "length_bucketing", "length_bucket_window_batches",
                      "torch_compile", "torch_compile_mode"]:
@@ -1433,7 +1432,7 @@ def apply_config(args, config: dict):
     # Eval
     if "eval" in config:
         e = config["eval"]
-        for key in ["eval_steps", "save_steps", "max_items_per_eval"]:
+        for key in ["max_items_per_eval"]:
             if key in e and not getattr(args, f"_cli_{key}", False):
                 setattr(args, key, int(e[key]))
 
@@ -1541,8 +1540,8 @@ def main():
 
     # Training hyperparams
     parser.add_argument("--lr", type=float, default=1e-5)
-    parser.add_argument("--batch-size", type=int, default=8)
-    parser.add_argument("--eval-batch-size", type=int, default=2)
+    parser.add_argument("--batch-size", type=int, default=16)
+    parser.add_argument("--eval-batch-size", type=int, default=8)
     parser.add_argument("--max-items-per-eval", type=int, default=10,
                         help="Maximum items per detection eval")
     parser.add_argument("--eval-max-new-tokens", type=int, default=32,
@@ -1574,7 +1573,7 @@ def main():
     parser.add_argument("--no-length-bucketing", dest="length_bucketing", action="store_false")
     parser.add_argument("--length-bucket-window-batches", type=int, default=32,
                         help="Window size for length bucketing, in units of train batches")
-    parser.add_argument("--effective-batch-size", type=int, default=32,
+    parser.add_argument("--effective-batch-size", type=int, default=16,
                         help="Total effective batch size (invariant to GPU count). "
                              "gradient_accumulation_steps = effective_batch_size / (batch_size * world_size)")
     parser.add_argument("--max-train-tokens-per-gpu", type=int, default=0,
@@ -1856,6 +1855,7 @@ def main():
             tokenizer=tokenizer,
             n=futurelens_n,
             split="train",
+            stride=args.stride,
             layers=MULTI_LAYERS,
             seed=args.seed,
         )
@@ -1867,7 +1867,6 @@ def main():
     fineweb_n = getattr(args, "fineweb_n", 0)
     if fineweb_n > 0 and not NO_ACTIVATIONS:
         from data_loading import load_fineweb_readout_data
-        fw_stride = int(args.stride) if args.stride and args.stride != "punctuation" else 5
         fw_max_ctx = getattr(args, "fineweb_max_context_tokens", 2000)
         fw_min_tgt = getattr(args, "fineweb_min_target_tokens", 5)
         fw_max_tgt = getattr(args, "fineweb_max_target_tokens", 25)
@@ -1878,7 +1877,7 @@ def main():
             tokenizer=tokenizer,
             n=fineweb_n,
             max_context_tokens=fw_max_ctx,
-            stride=fw_stride,
+            stride=args.stride,
             layers=MULTI_LAYERS,
             min_target_tokens=fw_min_tgt,
             max_target_tokens=fw_max_tgt,
@@ -1892,7 +1891,6 @@ def main():
     cls_n = getattr(args, "classification_n", 0)
     if cls_n > 0 and not NO_ACTIVATIONS:
         from data_loading import load_classification_data
-        cls_stride = int(args.stride) if args.stride and args.stride != "punctuation" else 5
         cls_datasets = getattr(args, "classification_datasets", None)
         if rank == 0:
             ds_str = ", ".join(cls_datasets) if cls_datasets else "all"
@@ -1902,7 +1900,7 @@ def main():
             n=cls_n,
             datasets=cls_datasets,
             layers=MULTI_LAYERS,
-            stride=cls_stride,
+            stride=args.stride,
             seed=args.seed,
         )
         raw_data.extend(cls_data)
@@ -1931,13 +1929,12 @@ def main():
         cleanup_distributed()
         return
 
-    stride_val = int(args.stride) if args.stride and args.stride != "punctuation" else 5
     if not NO_ACTIVATIONS:
         # Tokenize cot_text → context_input_ids for items that don't have them yet
         from data_loading import prepare_context_ids
         prepare_context_ids(
             raw_data, tokenizer,
-            stride=stride_val,
+            stride=args.stride,
             layers=MULTI_LAYERS,
         )
 

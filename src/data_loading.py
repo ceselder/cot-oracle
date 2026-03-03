@@ -150,7 +150,7 @@ def load_all_training_data(task_config: dict[str, dict]) -> list[dict]:
 def prepare_context_ids(
     items: list[dict],
     tokenizer,
-    stride: int = 5,
+    stride: int | str = 5,
     layers: list[int] | None = None,
 ) -> list[dict]:
     """Compute context_input_ids and context_positions for items that need them.
@@ -170,7 +170,7 @@ def prepare_context_ids(
         Same list, mutated in place (items gain context_input_ids,
         context_positions, num_positions, layer fields).
     """
-    from cot_utils import get_cot_stride_positions
+    from cot_utils import get_cot_positions
 
     if layers is None:
         layers = [9, 18, 27]
@@ -214,8 +214,8 @@ def prepare_context_ids(
         full_ids = tokenizer.encode(full_text, add_special_tokens=False)
 
         # Stride positions in the CoT region
-        cot_positions = get_cot_stride_positions(
-            prompt_len, len(full_ids), stride=stride, include_last=True,
+        cot_positions = get_cot_positions(
+            prompt_len, len(full_ids), stride=stride, tokenizer=tokenizer, input_ids=full_ids, include_last=True,
         )
         if not cot_positions:
             continue
@@ -337,6 +337,7 @@ def load_futurelens_data(
     n: int = 30000,
     split: str = "train",
     predict_tokens: int = 50,
+    stride: int | str = 5,
     layers: list[int] | None = None,
     seed: int = 42,
 ) -> list[dict]:
@@ -357,7 +358,7 @@ def load_futurelens_data(
     Returns:
         List of dicts with context_input_ids, context_positions, etc.
     """
-    from cot_utils import get_cot_stride_positions
+    from cot_utils import get_cot_positions
 
     if layers is None:
         layers = [9, 18, 27]
@@ -408,8 +409,8 @@ def load_futurelens_data(
         full_ids = tokenizer.encode(full_text, add_special_tokens=False)
 
         # Get stride positions in CoT region
-        stride_positions = get_cot_stride_positions(
-            prompt_len, len(full_ids), stride=5, include_last=True,
+        stride_positions = get_cot_positions(
+            prompt_len, len(full_ids), stride=stride, tokenizer=tokenizer, input_ids=full_ids, include_last=True,
         )
         if len(stride_positions) < 3:
             continue
@@ -585,7 +586,7 @@ def load_fineweb_readout_data(
     tokenizer,
     n: int = 15000,
     max_context_tokens: int = 2000,
-    stride: int = 5,
+    stride: int | str = 5,
     layers: list[int] | None = None,
     min_target_tokens: int = 5,
     max_target_tokens: int = 25,
@@ -612,6 +613,8 @@ def load_fineweb_readout_data(
         variant: If set, only generate this variant (for eval). One of
             "futurelens_fineweb", "pastlens_fineweb", "reconstruction_fineweb".
     """
+    from cot_utils import get_cot_positions
+
     if layers is None:
         layers = [9, 18, 27]
     n_layers = len(layers)
@@ -629,7 +632,8 @@ def load_fineweb_readout_data(
 
     datapoints: list[dict] = []
     skipped = 0
-    min_context_tokens = stride * 3
+    stride_floor = 5 if stride == "punctuation" else int(stride)
+    min_context_tokens = stride_floor * 3
 
     while len(datapoints) < n:
         text = next(gen)
@@ -657,9 +661,9 @@ def load_fineweb_readout_data(
             cutoff = rng.randint(min_context_tokens, max_cutoff)
 
             context_ids = input_ids[:cutoff + 1]
-            positions = list(range(0, len(context_ids), stride))
-            if positions[-1] != len(context_ids) - 1:
-                positions.append(len(context_ids) - 1)
+            positions = get_cot_positions(
+                0, len(context_ids), stride=stride, tokenizer=tokenizer, input_ids=context_ids, include_last=True,
+            )
 
             target_ids = input_ids[cutoff + 1: cutoff + 1 + k_target]
             target_text = tokenizer.decode(target_ids, skip_special_tokens=True)
@@ -667,7 +671,7 @@ def load_fineweb_readout_data(
 
         elif task_variant == "pastlens_fineweb":
             # Activations from [act_start, end], target = previous k_target tokens
-            act_start_max = min(L - stride, max_context_tokens) - 1
+            act_start_max = min(L - stride_floor, max_context_tokens) - 1
             if act_start_max < k_target:
                 skipped += 1
                 continue
@@ -675,9 +679,9 @@ def load_fineweb_readout_data(
 
             context_end = min(act_start + max_context_tokens, L)
             context_ids = input_ids[:context_end]
-            positions = list(range(act_start, len(context_ids), stride))
-            if positions[-1] != len(context_ids) - 1:
-                positions.append(len(context_ids) - 1)
+            positions = get_cot_positions(
+                act_start, len(context_ids), stride=stride, tokenizer=tokenizer, input_ids=context_ids, include_last=True,
+            )
 
             target_ids = input_ids[act_start - k_target: act_start]
             target_text = tokenizer.decode(target_ids, skip_special_tokens=True)
@@ -695,9 +699,9 @@ def load_fineweb_readout_data(
             # Context: full text up to span_end (so the activations cover the span)
             context_ids = input_ids[:span_end]
             # Positions within the span
-            positions = list(range(span_start, span_end, stride))
-            if positions[-1] != span_end - 1:
-                positions.append(span_end - 1)
+            positions = get_cot_positions(
+                span_start, span_end, stride=stride, tokenizer=tokenizer, input_ids=context_ids, include_last=True,
+            )
 
             target_ids = input_ids[span_start:span_end]
             target_text = tokenizer.decode(target_ids, skip_special_tokens=True)
@@ -773,7 +777,7 @@ def load_classification_data(
     n: int = 100000,
     datasets: list[str] | None = None,
     layers: list[int] | None = None,
-    stride: int = 5,
+    stride: int | str = 5,
     seed: int = 42,
 ) -> list[dict]:
     """Load classification training data from standard NLP datasets.
@@ -794,6 +798,7 @@ def load_classification_data(
         List of dicts compatible with dicts_to_training_data().
     """
     from datasets import load_dataset as hf_load_dataset
+    from cot_utils import get_cot_positions
 
     if layers is None:
         layers = [9, 18, 27]
@@ -801,6 +806,7 @@ def load_classification_data(
         datasets = list(_CLS_DATASETS.keys())
 
     rng = random.Random(seed)
+    stride_floor = 5 if stride == "punctuation" else int(stride)
     n_layers = len(layers)
     per_ds = n // len(datasets)
 
@@ -844,13 +850,13 @@ def load_classification_data(
                 text, add_special_tokens=True, truncation=True, max_length=512,
             )
 
-            if len(input_ids) < stride * 2:
+            if len(input_ids) < stride_floor * 2:
                 continue
 
-            # Stride positions over the full text
-            positions = list(range(0, len(input_ids), stride))
-            if positions[-1] != len(input_ids) - 1:
-                positions.append(len(input_ids) - 1)
+            # Activation positions over the full text
+            positions = get_cot_positions(
+                0, len(input_ids), stride=stride, tokenizer=tokenizer, input_ids=input_ids, include_last=True,
+            )
 
             # Repeat for each layer
             all_positions = positions * n_layers
