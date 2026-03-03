@@ -1035,12 +1035,14 @@ class ChatCompareWebApp:
         )
 
     def _register_routes(self):
-        @self.app.exception_handler(Exception)
-        async def _global_exc_handler(request: Request, exc: Exception):
-            tb = traceback.format_exception(type(exc), exc, exc.__traceback__)
-            tb_str = "".join(tb)
-            logging.error("Unhandled exception on %s:\n%s", request.url.path, tb_str)
-            return JSONResponse(status_code=500, content={"detail": tb_str})
+        @self.app.middleware("http")
+        async def _error_logging_middleware(request: Request, call_next):
+            try:
+                return await call_next(request)
+            except Exception as exc:
+                tb_str = "".join(traceback.format_exception(type(exc), exc, exc.__traceback__))
+                logging.error("Unhandled exception on %s:\n%s", request.url.path, tb_str)
+                return JSONResponse(status_code=500, content={"detail": tb_str})
 
         @self.app.get("/", response_class=HTMLResponse)
         async def index():

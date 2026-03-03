@@ -642,6 +642,17 @@ def _upload_checkpoint_to_hf(checkpoint_path: Path, args, global_step: int):
         print(f"  [HF upload] Failed: {e}")
 
 
+def _log_final_checkpoint_to_wandb(checkpoint_path: Path, global_step: int):
+    """Log the final checkpoint as a W&B model artifact."""
+    import wandb
+    artifact_name = f"final_checkpoint_{wandb.run.id}"
+    print(f"  [wandb] Logging final checkpoint artifact {artifact_name}")
+    artifact = wandb.Artifact(artifact_name, type="model", metadata={"step": global_step, "run_id": wandb.run.id, "run_name": wandb.run.name, "checkpoint_path": str(checkpoint_path)})
+    for path in sorted(checkpoint_path.iterdir()):
+        artifact.add_file(str(path), name=path.name)
+    wandb.run.log_artifact(artifact)
+
+
 
 def _save_training_state(save_path: Path, global_step, optimizer, scheduler):
     """Save optimizer/scheduler/RNG state for resume."""
@@ -1431,6 +1442,7 @@ def train(
         print(f"  Saving final checkpoint to {final_path}")
         model.save_pretrained(str(final_path))
         _save_training_state(final_path, global_step, optimizer, scheduler)
+        _log_final_checkpoint_to_wandb(final_path, global_step)
 
         # Upload final checkpoint to HuggingFace
         _upload_checkpoint_to_hf(final_path, args, global_step)
