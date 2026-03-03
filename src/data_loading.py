@@ -68,11 +68,8 @@ def load_task_data(
             if line[0] != '{':
                 raise ValueError(f"Corrupt JSONL at {local_path}:{i+1} — starts with {repr(line[:20])}")
             item = json.loads(line)
-            # Normalize: ensure 'task' field exists
-            if "task" not in item and "datapoint_type" in item:
-                item["task"] = item["datapoint_type"]
-            elif "task" not in item:
-                item["task"] = task_name
+            # Normalize: ensure 'task' field matches the task we're loading
+            item["task"] = task_name
             # Ensure datapoint_type exists (needed by dicts_to_training_data)
             if "datapoint_type" not in item:
                 item["datapoint_type"] = task_def.legacy_datapoint_type or task_name
@@ -83,6 +80,14 @@ def load_task_data(
             if "layer" not in item:
                 layers = item.get("layers", [9, 18, 27])
                 item["layer"] = layers[0] if layers else 9
+            # Map target_output → target_response (Adam's AO format, e.g. SQA)
+            if "target_response" not in item and "target_output" in item:
+                item["target_response"] = item["target_output"]
+            # Map raw_dialog → prompt for SQA (dialog[0] is the question)
+            if "prompt" not in item and "raw_dialog" in item:
+                dialog = item["raw_dialog"]
+                if dialog and isinstance(dialog, list) and len(dialog) > 0:
+                    item["prompt"] = dialog[0].get("content", dialog[0].get("content_0", ""))
             # Map label → target_response for reasoning_termination new format
             if "target_response" not in item and "label" in item:
                 label_map = {"terminates": "will_terminate", "continues": "will_continue"}

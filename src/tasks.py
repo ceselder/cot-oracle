@@ -205,6 +205,17 @@ TASKS: dict[str, TaskDef] = {
         max_new_tokens=64,
     ),
 
+    "sqa": TaskDef(
+        name="sqa",
+        hf_repo=f"{HF_ORG}/cot-oracle-sqa-cleaned",
+        scoring=ScoringMode.TOKEN_F1,
+        positive_keywords=(),
+        negative_keywords=(),
+        trainable=True,
+        default_n=15000,
+        max_new_tokens=64,
+    ),
+
     # ─── FineWeb readout (3 tasks) ───
 
     "futurelens_fineweb": TaskDef(
