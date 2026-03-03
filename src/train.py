@@ -1492,6 +1492,8 @@ def apply_config(args, config: dict):
             # YAML is source of truth — always set unless CLI explicitly overrode
             if not getattr(args, f"_cli_{arg_name}", False):
                 setattr(args, arg_name, task_cfg.get("n", 0))
+            # Per-task epochs (default 1)
+            setattr(args, f"{task_name}_epochs", task_cfg.get("epochs", 1))
             # Per-task eval flag (default True)
             if task_cfg.get("eval", True):
                 eval_tasks.append(task_name)
@@ -1954,7 +1956,8 @@ def main():
     for task_name in get_trainable_tasks():
         n = getattr(args, f"{task_name}_n", 0)
         if n > 0 or n == -1:
-            task_config[task_name] = {"n": n}
+            epochs = getattr(args, f"{task_name}_epochs", 1)
+            task_config[task_name] = {"n": n, "epochs": epochs}
 
     # FutureLens uses corpus-v5 + tokenizer — handle separately (like FineWeb)
     futurelens_n = task_config.pop("futurelens", {}).get("n", 0)

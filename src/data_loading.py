@@ -116,8 +116,9 @@ def load_all_training_data(task_config: dict[str, dict]) -> list[dict]:
     """Load train splits for all enabled tasks.
 
     Args:
-        task_config: Maps task_name -> {"n": int, ...}.
-            Set n: 0 to disable a task.
+        task_config: Maps task_name -> {"n": int, "epochs": int, ...}.
+            n: how many to select from dataset (-1 = all, 0 = skip).
+            epochs: how many times to repeat (default 1).
 
     Returns:
         Combined list of dicts from all enabled tasks, shuffled.
@@ -127,6 +128,7 @@ def load_all_training_data(task_config: dict[str, dict]) -> list[dict]:
 
     for task_name, cfg in task_config.items():
         n = cfg.get("n", 0)
+        epochs = cfg.get("epochs", 1)
         if n == 0:
             continue
 
@@ -137,7 +139,7 @@ def load_all_training_data(task_config: dict[str, dict]) -> list[dict]:
             )
 
         effective_n = None if n == -1 else n
-        print(f"  [data] Loading {task_name} (n={n})...")
+        print(f"  [data] Loading {task_name} (n={n}, epochs={epochs})...")
         items = load_task_data(task_name, split="train", n=None)  # load all first
 
         if not items:
@@ -146,13 +148,15 @@ def load_all_training_data(task_config: dict[str, dict]) -> list[dict]:
                 f"Check HF repo: {TASKS[task_name].hf_repo}"
             )
 
-        # Epoch (repeat) if requested n > available, then truncate
-        if effective_n is not None and len(items) < effective_n:
-            repeats = (effective_n + len(items) - 1) // len(items)
-            print(f"  [data]   {len(items)} available, repeating {repeats}x to reach {effective_n}")
-            items = (items * repeats)[:effective_n]
-        elif effective_n is not None:
+        # Select n items from dataset
+        if effective_n is not None and len(items) > effective_n:
             items = items[:effective_n]
+        available = len(items)
+
+        # Repeat for epochs
+        if epochs > 1:
+            items = items * epochs
+            print(f"  [data]   {available} available × {epochs} epochs = {len(items)}")
 
         print(f"  [data]   -> {len(items)} examples")
         all_data.extend(items)

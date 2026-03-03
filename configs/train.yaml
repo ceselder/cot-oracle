@@ -1,22 +1,26 @@
 # CoT Oracle Training Config (Unified Task System)
-# Each task has `n` (training samples, 0 to skip) and `eval` (whether to evaluate).
+# Each task has `n` (samples to select, -1 = all), `epochs` (repetitions), `eval`.
 # All data is downloaded from HuggingFace automatically.
 
 tasks:
-  # --- Trainable tasks (n=-1 means "load all available") ---
-  hint_admission:
-    n: 30000
+  # n: how many to select from dataset (-1 = all, 0 = skip)
+  # epochs: how many times to repeat the selected data (default 1)
+
+  hint_admission:           # ~3K available
+    n: -1
+    epochs: 2
     eval: true
 
-  atypical_answer:
-    n: 30000
+  atypical_answer:          # ~20K available
+    n: -1
     eval: true
 
-  reasoning_termination:
-    n: 30000
+  reasoning_termination:    # ~12K available
+    n: -1
+    epochs: 2
     eval: true
 
-  answer_trajectory:
+  answer_trajectory:        # ~42K available
     n: 30000
     eval: true
 
@@ -24,48 +28,55 @@ tasks:
     n: 25000
     eval: true
 
-  correctness:
-    n: 30000
+  correctness:              # ~7.8K available
+    n: -1
+    epochs: 2
     eval: true
 
-  decorative_cot:
-    n: 30000
+  decorative_cot:           # ~4.1K available
+    n: -1
+    epochs: 2
     eval: true
 
-  resampling_importance:
-    n: 30000
+  resampling_importance:    # ~468 available
+    n: -1
+    epochs: 2
     eval: true
 
-  chunked_convqa:
-    n: 30000
+  chunked_convqa:           # ~27K available
+    n: -1
     eval: true
 
-  chunked_compqa:
-    n: 30000
+  chunked_compqa:           # ~30K available
+    n: -1
     eval: true
 
-  backtrack_prediction:
-    n: 30000
+  backtrack_prediction:     # ~12K available
+    n: -1
+    epochs: 2
     eval: true
 
-  sycophancy:
-    n: 30000
+  sycophancy:               # ~10K available
+    n: -1
+    epochs: 2
     eval: true
 
   probe_sycophancy:
-    n: 0        # dataset not yet on HF
+    n: 0
     eval: false
 
   truthfulqa_hint_verbalized:
     n: 0
     eval: false
 
-  sqa:
-    n: 30000
+  sqa:                      # ~8.5K available
+    n: -1
+    epochs: 2
     eval: true
 
-  truthfulqa_hint:
-    n: 30000
+  truthfulqa_hint:          # ~3.8K available
+    n: -1
+    epochs: 2
     eval: true
 
   sentence_insertion:
