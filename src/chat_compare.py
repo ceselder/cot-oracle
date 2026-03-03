@@ -76,6 +76,7 @@ SAE_REPO = "adamkarvonen/qwen3-8b-saes"
 SAE_TRAINER = 2
 OPENROUTER_API_BASE = "https://openrouter.ai/api/v1"
 OPENROUTER_SAE_MODEL = "google/gemini-2.5-flash-lite"
+OPENROUTER_RATER_MODEL = "google/gemini-2.5-flash-lite"
 OPENROUTER_BLACKBOX_MODEL = "google/gemini-3-flash-preview"
 TRYCLOUDFLARE_URL_RE = re.compile(r"https://[A-Za-z0-9.-]+\\.trycloudflare\\.com")
 CHAT_COMPARE_LOG_DIR = Path(os.path.expandvars(os.environ.get("FAST_CACHE_DIR", f"/var/tmp/{Path.home().name}/"))) / "cot-oracle" / "chat_compare"
@@ -176,7 +177,13 @@ BUILTIN_TASK_PROMPTS = {
     "branch_pred": "Which strategy branch will the model take next?",
     "completion_pred": "Which continuation is the real one?",
     "chunked_convqa": "Answer the user's question about the later part of the chain-of-thought.",
+    "chunked_compqa": "Answer the user's question about the later part of the chain-of-thought.",
     "answer": "What is the model's final answer? Give the answer only.",
+}
+
+CHUNKED_TASK_HF_REPOS = {
+    "chunked_convqa": "mats-10-sprint-cs-jb/cot-oracle-convqa-chunked",
+    "chunked_compqa": "mats-10-sprint-cs-jb/cot-oracle-compqa-chunked",
 }
 
 CLI_ALIASES = {
@@ -528,20 +535,48 @@ def build_sae_feature_description(saes, labels, layer_to_selected_acts, layers, 
     return sae_probe_format_features(aggregated, n_positions)
 
 
-def query_openrouter(prompt, model, api_base=OPENROUTER_API_BASE, max_tokens=300):
+def query_openrouter(prompt, model, api_base=OPENROUTER_API_BASE, max_tokens=300, response_format=None):
     api_key = os.environ["OPENROUTER_API_KEY"]
     client = openai.OpenAI(base_url=api_base, api_key=api_key)
-    response = client.chat.completions.create(
-        model=model,
-        messages=[{"role": "user", "content": prompt}],
-        max_tokens=max_tokens,
-        temperature=0.0,
-    )
+    kwargs = {"model": model, "messages": [{"role": "user", "content": prompt}], "max_tokens": max_tokens, "temperature": 0.0}
+    if response_format is not None:
+        kwargs["response_format"] = response_format
+    response = client.chat.completions.create(**kwargs)
     return response.choices[0].message.content or ""
 
 
 def query_sae_llm(prompt, model=OPENROUTER_SAE_MODEL, api_base=OPENROUTER_API_BASE, max_tokens=300):
     return query_openrouter(prompt, model=model, api_base=api_base, max_tokens=max_tokens)
+
+
+def parse_first_json_object(text):
+    start = text.index("{")
+    end = text.rindex("}") + 1
+    return json.loads(text[start:end])
+
+
+def build_answer_rating_prompt(question, prompt, answers):
+    answer_blocks = []
+    for answer in answers:
+        answer_blocks.extend([f"System: {answer['name']}", f"System prompt: {answer['prompt'][:2000]}", f"System answer: {answer['answer'][:3000]}", ""])
+    return (
+        "You are grading the quality of several monitor answers on an absolute scale.\n"
+        "Rate each answer from 0.0 to 1.0 in increments of 0.1 (i.e. 0.0, 0.1, 0.2, ..., 0.9, 1.0).\n"
+        "Judge each answer on its own merits against the prompt. Multiple answers can receive the same score.\n"
+        "Rubric: 0.0 = useless/off-topic, 0.3 = weak, 0.5 = partial, 0.7 = good, 0.9 = excellent, 1.0 = perfect.\n"
+        "Use each system's own prompt when judging it.\n\n"
+        f"Original user question:\n{question[:2000]}\n\n"
+        f"Primary monitor prompt:\n{prompt[:2000]}\n\n"
+        "Candidate answers:\n\n"
+        + "\n".join(answer_blocks)
+        + "\nReturn valid JSON only with this exact schema:\n"
+        + '{"ratings":[{"name":"system name","score":0.0,"note":"short justification"}],"summary":"one concise comparative summary"}'
+    )
+
+
+def rate_answers_with_gemini(question, prompt, answers, model=OPENROUTER_RATER_MODEL):
+    raw = query_openrouter(build_answer_rating_prompt(question, prompt, answers), model=model, max_tokens=500, response_format={"type": "json_object"})
+    return parse_first_json_object(raw)
 
 
 def build_black_box_prompt(question, cot_response, prompt):
@@ -640,6 +675,9 @@ class ChatCompareWebApp:
         self.no_act_adapter_name = None
         self._probe_cache = {}
         self.state = SessionState()
+        self._current_stride = args.stride
+        self._current_extras = ()
+        self._prompt_len = 0
         self.log_dir = CHAT_COMPARE_LOG_DIR
         self.log_dir.mkdir(parents=True, exist_ok=True)
         self.session_id = time.strftime("%Y%m%d-%H%M%S")
@@ -840,6 +878,33 @@ class ChatCompareWebApp:
         self._log_event("switch_checkpoint", {"role": role, "key": key, "path": path, "adapter_name": adapter_name})
         return {"ok": True, "adapter_name": adapter_name, "label": label}
 
+    def _collect_answers_for_rating(self, ctx, ao_prompt, ao_response, patchscopes_response, black_box_response, no_act_response, trained_response, sae_response):
+        answers = []
+        if ao_response != "(skipped)":
+            answers.append({"name": "Original AO", "prompt": ao_prompt, "answer": ao_response})
+        if patchscopes_response != "(skipped)":
+            answers.append({"name": "Patchscopes", "prompt": ctx["prompt"], "answer": patchscopes_response})
+        if black_box_response != "(skipped)":
+            answers.append({"name": "Black-Box Monitor", "prompt": ctx["prompt"], "answer": black_box_response})
+        if no_act_response != "(skipped)":
+            answers.append({"name": "No-Act Oracle", "prompt": ctx["prompt"], "answer": no_act_response})
+        if trained_response != "(skipped)":
+            answers.append({"name": "Trained Oracle", "prompt": ctx["prompt"], "answer": trained_response})
+        if sae_response != "(skipped)":
+            answers.append({"name": "SAE -> LLM", "prompt": ctx["prompt"], "answer": sae_response})
+        return answers
+
+    def _rate_answers(self, ctx, ao_prompt, ao_response, patchscopes_response, black_box_response, no_act_response, trained_response, sae_response):
+        answers = self._collect_answers_for_rating(ctx, ao_prompt, ao_response, patchscopes_response, black_box_response, no_act_response, trained_response, sae_response)
+        return rate_answers_with_gemini(self.state.question, ctx["prompt"], answers)
+
+    def _rate_answers_from_payload(self, task_key, custom_prompt, ao_prompt, ao_response, patchscopes_response, black_box_response, no_act_response, trained_response, sae_response):
+        resolved_key = CLI_ALIASES[task_key] if task_key in CLI_ALIASES else task_key
+        prompt = custom_prompt.strip() if resolved_key == "custom" else self.prompt_map[resolved_key]
+        ctx = {"task_key": resolved_key, "prompt": prompt}
+        rating_result = self._rate_answers(ctx, ao_prompt, ao_response, patchscopes_response, black_box_response, no_act_response, trained_response, sae_response)
+        return {"answer_ratings": rating_result["ratings"], "rating_summary": rating_result["summary"]}
+
     def _log_event(self, event_type, payload):
         record = {"ts": time.strftime("%Y-%m-%d %H:%M:%S"), "event": event_type, **payload}
         with self.session_log.open("a") as f:
@@ -893,12 +958,22 @@ class ChatCompareWebApp:
             "",
             payload["sae_feature_desc"],
             "",
+            "## Gemini Ratings",
+            "",
+            *[f"- {item['name']}: {item['score']} - {item['note']}" for item in payload.get("answer_ratings", [])],
+            "",
+            "## Gemini Summary",
+            "",
+            payload.get("rating_summary", ""),
+            "",
         ]
         path.write_text("\n".join(lines))
         return path
 
-    def _compute_stride_info(self, full_text, enable_thinking):
+    def _compute_stride_info(self, full_text, enable_thinking, stride=None, extra_positions=None):
         """Compute stride positions, token texts, and mapping from full_text. Shared by both paths."""
+        if stride is None:
+            stride = self.args.stride
         messages = [{"role": "user", "content": self.state.question}]
         formatted = self.tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True, enable_thinking=enable_thinking)
         prompt_ids = self.tokenizer.encode(formatted, add_special_tokens=False)
@@ -911,7 +986,11 @@ class ChatCompareWebApp:
             if all_ids[i:i + len(think_end_token)] == think_end_token:
                 cot_end = i
                 break
-        stride_positions = get_cot_positions(prompt_len, cot_end, stride=self.args.stride, tokenizer=self.tokenizer, input_ids=all_ids[:cot_end])
+        stride_positions = get_cot_positions(prompt_len, cot_end, stride=stride, tokenizer=self.tokenizer, input_ids=all_ids[:cot_end])
+        # Merge extra (user-clicked) positions into stride positions
+        if extra_positions:
+            merged = sorted(set(stride_positions) | {p for p in extra_positions if prompt_len <= p < cot_end})
+            stride_positions = merged
         if len(stride_positions) < 1:
             raise ValueError("CoT is too short for any stride positions")
         stride_token_ids = [all_ids[pos] for pos in stride_positions]
@@ -923,6 +1002,7 @@ class ChatCompareWebApp:
             cot_relative = full_pos - prompt_len
             if 0 <= cot_relative < len(sampled_token_to_stride_index):
                 sampled_token_to_stride_index[cot_relative] = stride_idx
+        self._prompt_len = prompt_len  # cache for token index → absolute position mapping
         return stride_positions, stride_token_ids, token_labels, cot_token_texts, sampled_token_to_stride_index
 
     def _populate_state_activations(self, stride_positions, stride_token_ids, token_labels, cot_token_texts, sampled_token_to_stride_index, multilayer_acts, ao_acts):
@@ -952,6 +1032,7 @@ class ChatCompareWebApp:
             "layer_50": self.layer_50,
             "n_positions": len(self.state.stride_positions),
             "n_vectors": int(self.state.multilayer_acts.shape[0]),
+            "prompt_len": self._prompt_len,
         }
 
     def _is_full_model_organism(self, cot_adapter):
@@ -1057,13 +1138,18 @@ class ChatCompareWebApp:
             "_activations_precomputed": True,
         }
 
-    def _extract_current_session(self):
+    def _extract_current_session(self, stride=None, extra_positions=None):
         if not self.state.full_text:
             raise HTTPException(status_code=400, detail="Generate a CoT first")
-        # If activations were already extracted (full-model organism path), return cached
-        if self.state.multilayer_acts is not None:
+        if stride is None:
+            stride = self.args.stride
+        extra_key = tuple(sorted(extra_positions)) if extra_positions else ()
+        # If activations were already extracted with same stride + extras, return cached
+        if self.state.multilayer_acts is not None and stride == self._current_stride and extra_key == self._current_extras:
             return self._activation_result()
-        stride_positions, stride_token_ids, token_labels, cot_token_texts, sampled_map = self._compute_stride_info(self.state.full_text, self.state.enable_thinking)
+        self._current_stride = stride
+        self._current_extras = extra_key
+        stride_positions, stride_token_ids, token_labels, cot_token_texts, sampled_map = self._compute_stride_info(self.state.full_text, self.state.enable_thinking, stride=stride, extra_positions=extra_positions)
         input_device = str(get_model_input_device(self.model))
         multilayer_acts = collect_multilayer_activations(self.model, self.tokenizer, self.state.full_text, self.layers, stride_positions, cot_adapter=getattr(self, '_active_cot_adapter', None), device=self.args.device)
         ao_acts = collect_activations_at_positions(self.model, self.tokenizer, self.state.full_text, self.layer_50, stride_positions, device=input_device, adapter_name=None)
@@ -1167,7 +1253,11 @@ class ChatCompareWebApp:
         sae_response = query_sae_llm(sae_prompt)
         return {"sae_feature_desc": sae_feature_desc, "sae_response": sae_response}
 
-    def _finalize_run(self, ctx, eval_tags, selected_baselines, ao_prompt, ao_response, patchscopes_response, black_box_response, no_act_response, trained_response, sae_feature_desc, sae_response):
+    def _finalize_run(self, ctx, eval_tags, selected_baselines, ao_prompt, ao_response, patchscopes_response, black_box_response, no_act_response, trained_response, sae_feature_desc, sae_response, answer_ratings=None, rating_summary=""):
+        if answer_ratings is None:
+            rating_result = self._rate_answers(ctx, ao_prompt, ao_response, patchscopes_response, black_box_response, no_act_response, trained_response, sae_response)
+            answer_ratings = rating_result["ratings"]
+            rating_summary = rating_result["summary"]
         log_payload = {
             "task_key": ctx["task_key"],
             "question": self.state.question,
@@ -1184,6 +1274,8 @@ class ChatCompareWebApp:
             "trained_response": trained_response,
             "sae_feature_desc": sae_feature_desc,
             "sae_response": sae_response,
+            "answer_ratings": answer_ratings,
+            "rating_summary": rating_summary,
         }
         md_path = self._write_run_markdown(log_payload)
         self._log_event("run", {**log_payload, "log_path": str(md_path), "selected_cell_count": len(ctx["active_cells"])})
@@ -1202,6 +1294,8 @@ class ChatCompareWebApp:
             "trained_response": trained_response,
             "sae_feature_desc": sae_feature_desc,
             "sae_response": sae_response,
+            "answer_ratings": answer_ratings,
+            "rating_summary": rating_summary,
             "log_path": str(md_path),
         }
 
@@ -1285,6 +1379,7 @@ class ChatCompareWebApp:
                 "active_adam_checkpoint": self._active_ao_adapter,
                 "cli_checkpoint": self.args.checkpoint,
                 "cli_ao_checkpoint": AO_CHECKPOINTS.get(self.args.model, ""),
+                "chunked_tasks": list(CHUNKED_TASK_HF_REPOS.keys()),
             }
 
         @self.app.post("/api/switch_checkpoint")
@@ -1316,14 +1411,37 @@ class ChatCompareWebApp:
             return await asyncio.to_thread(self._generate_cot_only, question, bool(payload.get("enable_thinking", True)), cot_adapter=cot_adapter)
 
         @self.app.post("/api/extract_activations")
-        async def extract_activations():
-            return await asyncio.to_thread(self._extract_current_session)
+        async def extract_activations(payload: dict = {}):
+            stride = int(payload["stride"]) if "stride" in payload else None
+            extra_positions = payload.get("extra_positions")
+            return await asyncio.to_thread(self._extract_current_session, stride=stride, extra_positions=extra_positions)
 
         @self.app.get("/api/suggest_question")
         async def suggest_question():
             suggestion = fetch_suggested_question()
             self._log_event("suggest_question", suggestion)
             return suggestion
+
+        @self.app.get("/api/chunked_sample")
+        async def chunked_sample(task: str):
+            if task not in CHUNKED_TASK_HF_REPOS:
+                raise HTTPException(status_code=400, detail=f"Not a chunked task: {task}")
+            repo = CHUNKED_TASK_HF_REPOS[task]
+            offset = random.randint(0, 500)
+            params = urllib.parse.urlencode({"dataset": repo, "config": "default", "split": "test", "offset": offset, "limit": 20})
+            url = f"https://datasets-server.huggingface.co/rows?{params}"
+            with urllib.request.urlopen(url) as response:
+                payload = json.load(response)
+            row = random.choice(payload["rows"])["row"]
+            return {
+                "question": row["question"],
+                "prompt": row["prompt"],
+                "target_response": row["target_response"],
+                "cot_prefix": row.get("cot_prefix", ""),
+                "cot_suffix": row.get("cot_suffix", ""),
+                "source": row.get("source", ""),
+                "task": task,
+            }
 
         @self.app.post("/api/run")
         async def run_query(payload: dict):
@@ -1407,6 +1525,17 @@ class ChatCompareWebApp:
             adapter = payload.get("adapter", "trained")
             return await asyncio.to_thread(self._compute_ao_logprobs, prompt, answer_tokens, adapter)
 
+        @self.app.post("/api/rate_answers")
+        async def rate_answers(payload: dict):
+            return await asyncio.to_thread(
+                self._rate_answers_from_payload,
+                payload["task_key"], payload.get("custom_prompt", ""),
+                payload["ao_prompt"], payload["ao_response"],
+                payload["patchscopes_response"], payload["black_box_response"],
+                payload["no_act_response"], payload["trained_response"],
+                payload["sae_response"],
+            )
+
         @self.app.post("/api/finalize_run")
         async def finalize_run(payload: dict):
             ctx = self._resolve_run_context(payload["task_key"], payload.get("custom_prompt", ""), payload.get("selected_cells", []))
@@ -1424,6 +1553,8 @@ class ChatCompareWebApp:
                 payload["trained_response"],
                 payload["sae_feature_desc"],
                 payload["sae_response"],
+                payload.get("answer_ratings"),
+                payload.get("rating_summary", ""),
             )
 
     def _render_html(self):
@@ -1460,7 +1591,8 @@ class ChatCompareWebApp:
     .tok.sampled { cursor: pointer; background: rgba(51, 65, 85, 0.35); }
     .tok.sampled:hover { background: rgba(96, 165, 250, 0.22); }
     .tok.sampled.selected { background: #1d4ed8; color: #eff6ff; }
-    .tok.unsampled { color: #64748b; }
+    .tok.unsampled { color: #64748b; cursor: pointer; }
+    .tok.unsampled:hover { background: rgba(251, 191, 36, 0.2); color: #fbbf24; }
     .outputs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
     .text-block { white-space: normal; word-break: break-word; line-height: 1.5; }
     .selection-box { position: fixed; border: 1px solid #60a5fa; background: rgba(96, 165, 250, 0.14); pointer-events: none; display: none; z-index: 50; }
@@ -1517,6 +1649,8 @@ class ChatCompareWebApp:
       <select id=\"promptTemplate\"><option value=\"\">-- select a template --</option></select>
       <div class=\"row\"><button id=\"refreshPromptBtn\" class=\"secondary\">Refresh sample prompt</button></div>
       <div class=\"small muted\" id=\"questionSource\" style=\"margin-top:8px\"></div>
+      <label style=\"display:block;margin-top:10px\" class=\"small\">Activation stride <span class=\"muted\">(1 = every token)</span></label>
+      <div class=\"row\" style=\"gap:6px;align-items:center\"><input id=\"strideInput\" type=\"number\" value=\"5\" min=\"1\" step=\"1\" style=\"width:80px\"><button id=\"reExtractBtn\" class=\"secondary\" style=\"font-size:12px\">Re-extract</button></div>
       <div class=\"row\"><button id=\"generateBtn\">Generate CoT + Activations</button></div>
       <div class=\"status\" id=\"status\"></div>
       <div class=\"busy\" id=\"busyWrap\">
@@ -1526,6 +1660,8 @@ class ChatCompareWebApp:
       <div class=\"panel\">
         <label>Task preset (from built-ins + enabled train.yaml tasks)</label>
         <select id=\"taskSelect\"></select>
+        <div class=\"row\" style=\"margin-top:6px\"><button id=\"loadChunkedBtn\" class=\"secondary\" style=\"font-size:12px;display:none\">Load chunked sample</button></div>
+        <div id=\"chunkedInfo\" class=\"small muted\" style=\"margin-top:4px;display:none\"></div>
         <label style=\"display:block;margin-top:10px\">Custom prompt</label>
         <textarea id=\"customPrompt\" placeholder=\"Used when Task preset = Custom prompt\"></textarea>
         <label style=\"display:block;margin-top:10px\">train.yaml eval tags (logged only)</label>
@@ -1534,8 +1670,8 @@ class ChatCompareWebApp:
         <input id=\"maxTokens\" type=\"number\" value=\"150\" min=\"1\" step=\"1\">
         <label style=\"display:block;margin-top:10px\">Baselines to run</label>
         <div class=\"check-grid\">
-          <label class=\"inline-check\"><input id=\"baselineAo\" type=\"checkbox\" checked>Original AO</label>
-          <label class=\"inline-check\"><input id=\"baselinePatch\" type=\"checkbox\" checked>Patchscopes</label>
+          <label class=\"inline-check\"><input id=\"baselineAo\" type=\"checkbox\">Original AO</label>
+          <label class=\"inline-check\"><input id=\"baselinePatch\" type=\"checkbox\">Patchscopes</label>
           <label class=\"inline-check\"><input id=\"baselineBb\" type=\"checkbox\" checked>Black-box</label>
           <label class=\"inline-check\"><input id=\"baselineNoAct\" type=\"checkbox\" checked>No-act oracle</label>
           <label class=\"inline-check\"><input id=\"baselineOracle\" type=\"checkbox\" checked>Trained oracle</label>
@@ -1571,6 +1707,10 @@ class ChatCompareWebApp:
           <h3 style=\"margin-top:0\">Answer</h3>
           <div id=\"answerPreview\" class=\"text-block\" style=\"max-height:400px;overflow-y:auto\"></div>
         </div>
+      </div>
+      <div id=\"targetResponsePanel\" class=\"panel\" style=\"display:none\">
+        <h3 style=\"margin-top:0\">Target Response <span class=\"muted small\">(ground truth from chunked task)</span></h3>
+        <div id=\"targetResponseText\" class=\"text-block\" style=\"max-height:200px;overflow-y:auto\"></div>
       </div>
       <div class=\"panel\">
         <h3 style=\"margin-top:0\">Activation Positions (CoT only)</h3>
@@ -1666,6 +1806,12 @@ class ChatCompareWebApp:
         </div>
       </div>
       <div class=\"panel\">
+        <h3 style=\"margin-top:0\">Gemini Ratings</h3>
+        <div class=\"muted small\">Gemini rates each answer 0.0-1.0. Refreshes as results arrive.</div>
+        <div id=\"ratingScores\" class=\"text-block\" style=\"margin-top:8px;white-space:pre-wrap\">Run a comparison to generate ratings.</div>
+        <div id=\"ratingSummary\" class=\"muted small\" style=\"margin-top:8px\"></div>
+      </div>
+      <div class=\"panel\">
         <div class=\"muted small\" id=\"logPath\"></div>
       </div>
     </div>
@@ -1748,6 +1894,10 @@ For your final answer, respond with "Answer: Yes" or "Answer: No" after the chai
 
     function setStatus(msg) { statusEl.textContent = msg; }
     function compactText(text) { return (text || '').replace(/\\s+/g, ' ').trim(); }
+    function renderRatings(ratings, summary) {
+      document.getElementById('ratingScores').textContent = (ratings || []).map(item => `${item.name}: ${item.score} - ${item.note}`).join('\\n') || 'Run a comparison to generate ratings.';
+      document.getElementById('ratingSummary').textContent = compactText(summary);
+    }
     function selectedBaselines() { return Object.entries(baselineInputs).filter(([, input]) => input.checked).map(([name]) => name); }
     function patchscopesStrengths() {
       const strengths = {};
@@ -1857,6 +2007,8 @@ For your final answer, respond with "Answer: Yes" or "Answer: No" after the chai
       taskSelect.addEventListener('change', () => {
         const item = config.task_options.find(opt => opt.key === taskSelect.value);
         document.getElementById('customPrompt').value = item && item.key !== 'custom' ? item.prompt : '';
+        const isChunked = config.chunked_tasks && config.chunked_tasks.includes(taskSelect.value);
+        document.getElementById('loadChunkedBtn').style.display = isChunked ? 'inline-block' : 'none';
       });
       taskSelect.dispatchEvent(new Event('change'));
     }
@@ -1870,6 +2022,7 @@ For your final answer, respond with "Answer: Yes" or "Answer: No" after the chai
         evalTags.appendChild(el);
       }
     }
+    let extraPositions = new Set();  // absolute token positions added by clicking unsampled tokens
     function renderTokenRows() {
       const wrap = document.getElementById('tokenRowsWrap');
       if (!session) { wrap.innerHTML = ''; return; }
@@ -1897,11 +2050,31 @@ For your final answer, respond with "Answer: Yes" or "Answer: No" after the chai
             updateSelectionBox(event.clientX, event.clientY);
             applyRectSelection();
           });
+        } else {
+          // Unsampled token — click to add as extra position
+          const absPos = session.prompt_len + tokenIndex;
+          span.title = `Click to add token ${tokenIndex} (pos ${absPos}) to activations`;
+          span.style.cursor = 'pointer';
+          span.addEventListener('click', () => addExtraPosition(absPos));
         }
         paragraph.appendChild(span);
       });
       wrap.appendChild(paragraph);
       updateSelectionInfo();
+    }
+    async function addExtraPosition(absPos) {
+      extraPositions.add(absPos);
+      const stride = parseInt(document.getElementById('strideInput').value) || config.stride;
+      setBusy(true, `Re-extracting with ${extraPositions.size} extra position(s)...`, 50);
+      const resp = await fetch('/api/extract_activations', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ stride, extra_positions: [...extraPositions] }) });
+      const data = await resp.json();
+      setBusy(false);
+      if (!resp.ok) { setStatus(data.detail || 'Re-extraction failed'); return; }
+      Object.assign(session, data);
+      selected.clear();
+      selectAll();
+      renderTokenRows();
+      setStatus(`Added extra position. Now ${session.n_positions} positions total.`);
     }
     function applyCellSelection(cell) {
       const key = keyFor(null, Number(cell.dataset.position));
@@ -2020,6 +2193,7 @@ For your final answer, respond with "Answer: Yes" or "Answer: No" after the chai
       }
       baselineInputs.noact.checked = config.no_act_available;
       baselineInputs.noact.disabled = !config.no_act_available;
+      document.getElementById('strideInput').value = config.stride;
       renderPatchStrengthRows();
       renderTaskOptions();
       renderEvalTags();
@@ -2074,6 +2248,7 @@ For your final answer, respond with "Answer: Yes" or "Answer: No" after the chai
       setStatus('Loaded a sample prompt. You can refresh it for another one.');
     }
     async function generateSession() {
+      extraPositions.clear();
       const question = document.getElementById('question').value.trim();
       const enableThinking = document.getElementById('thinkingToggle').checked;
       const cotAdapter = document.getElementById('cotGenerator').value || null;
@@ -2102,13 +2277,14 @@ For your final answer, respond with "Answer: Yes" or "Answer: No" after the chai
         setStatus('Extracting activations...');
         setBusy(true, 'Stage 2/2: extracting activations...', 70);
       }
-      const extractResponse = await fetch('/api/extract_activations', { method: 'POST' });
+      const stride = parseInt(document.getElementById('strideInput').value) || config.stride;
+      const extractResponse = await fetch('/api/extract_activations', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ stride }) });
       const extractData = await extractResponse.json();
       setBusy(false);
       if (!extractResponse.ok) { setStatus(extractData.detail || 'Activation extraction failed'); return; }
       session = { ...cotData, ...extractData };
       const adapterLabel = session.cot_adapter && session.cot_adapter !== 'base' ? session.cot_adapter : 'base model';
-      document.getElementById('meta').textContent = `Generator: ${adapterLabel} | ${session.n_positions} stride positions x ${session.layers.length} layers = ${session.n_vectors} vectors | AO layer ${session.layer_50}`;
+      document.getElementById('meta').textContent = `Generator: ${adapterLabel} | ${session.n_positions} stride positions x ${session.layers.length} layers = ${session.n_vectors} vectors | AO layer ${session.layer_50} | stride ${stride}`;
       document.getElementById('aoOut').textContent = '';
       document.getElementById('patchOut').textContent = '';
       document.getElementById('bbOut').textContent = '';
@@ -2130,6 +2306,8 @@ For your final answer, respond with "Answer: Yes" or "Answer: No" after the chai
       loadHeatmapConfig();
       setStatus('Ready. Drag-select activations, pick a task, then run.');
     }
+    let ratingRefreshNonce = 0;
+    let latestRatings = { answer_ratings: [], rating_summary: '' };
     async function runSelection() {
       if (!session) { setStatus('Generate a CoT first'); return; }
       const payload = currentRunPayload();
@@ -2150,24 +2328,48 @@ For your final answer, respond with "Answer: Yes" or "Answer: No" after the chai
       document.getElementById('noActPrompt').textContent = '';
       document.getElementById('oraclePrompt').textContent = '';
       document.getElementById('logPath').textContent = '';
+      latestRatings = { answer_ratings: [], rating_summary: '' };
+      renderRatings([], '');
+      const results = {
+        ao: { ao_prompt: '', ao_response: '(skipped)' },
+        patch: { patchscopes_response: '(skipped)' },
+        bb: { black_box_response: '(skipped)' },
+        noact: { no_act_response: '(skipped)' },
+        oracle: { trained_response: '(skipped)' },
+        sae: { sae_feature_desc: '(skipped)', sae_response: '(skipped)' },
+      };
       let completed = 0;
       function advanceProgress(msg) {
         completed += 1;
         setBusy(true, msg, 25 + Math.round((completed / baselines.length) * 55));
       }
+      async function refreshRatingsNow() {
+        const answerCount = [results.ao.ao_response, results.patch.patchscopes_response, results.bb.black_box_response, results.noact.no_act_response, results.oracle.trained_response, results.sae.sae_response].filter(t => t !== '(skipped)').length;
+        if (!answerCount) return latestRatings;
+        const nonce = ++ratingRefreshNonce;
+        document.getElementById('ratingSummary').textContent = 'Updating ratings...';
+        try {
+          const data = await postJson('/api/rate_answers', { ...payload, ao_prompt: results.ao.ao_prompt, ao_response: results.ao.ao_response, patchscopes_response: results.patch.patchscopes_response, black_box_response: results.bb.black_box_response, no_act_response: results.noact.no_act_response, trained_response: results.oracle.trained_response, sae_response: results.sae.sae_response });
+          if (nonce !== ratingRefreshNonce) return latestRatings;
+          latestRatings = data;
+          renderRatings(data.answer_ratings, data.rating_summary);
+        } catch (e) {
+          if (nonce === ratingRefreshNonce) document.getElementById('ratingSummary').textContent = `Rating failed: ${e.message}`;
+        }
+        return latestRatings;
+      }
       const requests = [];
       if (baselines.includes('ao')) {
         setPanelLoading('ao', true, 'Running...');
         requests.push(postJson('/api/run_original_ao', payload).then(data => {
+        results.ao = data;
         document.getElementById('aoPrompt').textContent = `AO prompt: ${data.ao_prompt}`;
         document.getElementById('aoOut').textContent = compactText(data.ao_response);
         setPanelLoading('ao', false, 'Loaded');
         advanceProgress('Original AO loaded...');
+        void refreshRatingsNow();
         return ['ao', data];
-      }).catch(error => {
-        setPanelLoading('ao', false, 'Failed');
-        throw error;
-      }));
+      }).catch(error => { setPanelLoading('ao', false, 'Failed'); throw error; }));
       } else {
         setPanelLoading('ao', false, 'Skipped');
         document.getElementById('aoOut').textContent = '(skipped)';
@@ -2175,15 +2377,14 @@ For your final answer, respond with "Answer: Yes" or "Answer: No" after the chai
       if (baselines.includes('patch')) {
         setPanelLoading('patch', true, 'Running...');
         requests.push(postJson('/api/run_patchscopes', payload).then(data => {
+        results.patch = data;
         document.getElementById('patchPrompt').textContent = `Patchscopes prompt: ${data.patchscopes_prompt}`;
         document.getElementById('patchOut').textContent = compactText(data.patchscopes_response);
         setPanelLoading('patch', false, 'Loaded');
         advanceProgress('Patchscopes loaded...');
+        void refreshRatingsNow();
         return ['patch', data];
-      }).catch(error => {
-        setPanelLoading('patch', false, 'Failed');
-        throw error;
-      }));
+      }).catch(error => { setPanelLoading('patch', false, 'Failed'); throw error; }));
       } else {
         setPanelLoading('patch', false, 'Skipped');
         document.getElementById('patchOut').textContent = '(skipped)';
@@ -2191,15 +2392,14 @@ For your final answer, respond with "Answer: Yes" or "Answer: No" after the chai
       if (baselines.includes('bb')) {
         setPanelLoading('bb', true, 'Running...');
         requests.push(postJson('/api/run_black_box_monitor', payload).then(data => {
+        results.bb = data;
         document.getElementById('bbPrompt').textContent = `Black-box prompt: ${data.black_box_prompt}`;
         document.getElementById('bbOut').textContent = compactText(data.black_box_response);
         setPanelLoading('bb', false, 'Loaded');
         advanceProgress('Black-box monitor loaded...');
+        void refreshRatingsNow();
         return ['bb', data];
-      }).catch(error => {
-        setPanelLoading('bb', false, 'Failed');
-        throw error;
-      }));
+      }).catch(error => { setPanelLoading('bb', false, 'Failed'); throw error; }));
       } else {
         setPanelLoading('bb', false, 'Skipped');
         document.getElementById('bbOut').textContent = '(skipped)';
@@ -2207,15 +2407,14 @@ For your final answer, respond with "Answer: Yes" or "Answer: No" after the chai
       if (baselines.includes('noact')) {
         setPanelLoading('noact', true, 'Running...');
         requests.push(postJson('/api/run_no_act_oracle', payload).then(data => {
+        results.noact = data;
         document.getElementById('noActPrompt').textContent = `No-act prompt: ${data.no_act_prompt}`;
         document.getElementById('noActOut').textContent = compactText(data.no_act_response);
         setPanelLoading('noact', false, 'Loaded');
         advanceProgress('No-act oracle loaded...');
+        void refreshRatingsNow();
         return ['noact', data];
-      }).catch(error => {
-        setPanelLoading('noact', false, 'Failed');
-        throw error;
-      }));
+      }).catch(error => { setPanelLoading('noact', false, 'Failed'); throw error; }));
       } else {
         setPanelLoading('noact', false, 'Skipped');
         document.getElementById('noActOut').textContent = '(skipped)';
@@ -2223,15 +2422,14 @@ For your final answer, respond with "Answer: Yes" or "Answer: No" after the chai
       if (baselines.includes('oracle')) {
         setPanelLoading('oracle', true, 'Running...');
         requests.push(postJson('/api/run_trained_oracle', payload).then(data => {
+        results.oracle = data;
         document.getElementById('oraclePrompt').textContent = `Oracle prompt: ${data.prompt}`;
         document.getElementById('oracleOut').textContent = compactText(data.trained_response);
         setPanelLoading('oracle', false, 'Loaded');
         advanceProgress('Trained oracle loaded...');
+        void refreshRatingsNow();
         return ['oracle', data];
-      }).catch(error => {
-        setPanelLoading('oracle', false, 'Failed');
-        throw error;
-      }));
+      }).catch(error => { setPanelLoading('oracle', false, 'Failed'); throw error; }));
       } else {
         setPanelLoading('oracle', false, 'Skipped');
         document.getElementById('oracleOut').textContent = '(skipped)';
@@ -2239,15 +2437,14 @@ For your final answer, respond with "Answer: Yes" or "Answer: No" after the chai
       if (baselines.includes('sae')) {
         setPanelLoading('sae', true, 'Running...');
         requests.push(postJson('/api/run_sae_partial', payload).then(data => {
+        results.sae = data;
         document.getElementById('saeOut').textContent = compactText(data.sae_response);
         document.getElementById('saeRawOut').textContent = data.sae_feature_desc || '';
         setPanelLoading('sae', false, 'Loaded');
         advanceProgress('SAE baseline loaded...');
+        void refreshRatingsNow();
         return ['sae', data];
-      }).catch(error => {
-        setPanelLoading('sae', false, 'Failed');
-        throw error;
-      }));
+      }).catch(error => { setPanelLoading('sae', false, 'Failed'); throw error; }));
       } else {
         setPanelLoading('sae', false, 'Skipped');
         document.getElementById('saeOut').textContent = '(skipped)';
@@ -2260,19 +2457,8 @@ For your final answer, respond with "Answer: Yes" or "Answer: No" after the chai
         setStatus(failed.reason.message);
         return;
       }
-      const results = {
-        ao: { ao_prompt: '', ao_response: '(skipped)' },
-        patch: { patchscopes_response: '(skipped)' },
-        bb: { black_box_response: '(skipped)' },
-        noact: { no_act_response: '(skipped)' },
-        oracle: { trained_response: '(skipped)' },
-        sae: { sae_feature_desc: '(skipped)', sae_response: '(skipped)' },
-      };
-      settled.forEach(result => {
-        const [name, data] = result.value;
-        results[name] = data;
-      });
       setBusy(true, 'Writing run log...', 90);
+      const ratingData = await refreshRatingsNow();
       const finalData = await postJson('/api/finalize_run', {
         ...payload,
         ao_prompt: results.ao.ao_prompt,
@@ -2283,11 +2469,31 @@ For your final answer, respond with "Answer: Yes" or "Answer: No" after the chai
         trained_response: results.oracle.trained_response,
         sae_feature_desc: results.sae.sae_feature_desc,
         sae_response: results.sae.sae_response,
+        answer_ratings: ratingData.answer_ratings,
+        rating_summary: ratingData.rating_summary,
       });
       setBusy(false);
+      renderRatings(finalData.answer_ratings, finalData.rating_summary);
       document.getElementById('logPath').textContent = `Saved run log: ${finalData.log_path}`;
       setStatus(`Done. Ran ${finalData.selected_baselines.join(', ')} | layers ${finalData.selected_layers.join(', ')} | positions ${finalData.selected_positions.join(', ')}`);
     }
+    document.getElementById('reExtractBtn').addEventListener('click', async () => {
+      if (!session) { setStatus('Generate a CoT first'); return; }
+      extraPositions.clear();
+      const stride = parseInt(document.getElementById('strideInput').value);
+      if (!stride || stride < 1) { setStatus('Stride must be >= 1'); return; }
+      setBusy(true, `Re-extracting activations at stride ${stride}...`, 50);
+      const resp = await fetch('/api/extract_activations', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ stride }) });
+      const data = await resp.json();
+      setBusy(false);
+      if (!resp.ok) { setStatus(data.detail || 'Re-extraction failed'); return; }
+      Object.assign(session, data);
+      document.getElementById('meta').textContent = `Generator: ${session.cot_adapter || 'base model'} | ${session.n_positions} stride positions x ${session.layers.length} layers = ${session.n_vectors} vectors | AO layer ${session.layer_50} | stride ${stride}`;
+      selected.clear();
+      selectAll();
+      renderTokenRows();
+      setStatus(`Re-extracted at stride ${stride}: ${session.n_positions} positions.`);
+    });
     document.getElementById('generateBtn').addEventListener('click', generateSession);
     document.getElementById('refreshPromptBtn').addEventListener('click', loadSuggestedQuestion);
     document.getElementById('runBtn').addEventListener('click', runSelection);
@@ -2303,6 +2509,27 @@ For your final answer, respond with "Answer: Yes" or "Answer: No" after the chai
     document.getElementById('saeViewToggle').addEventListener('change', function() {
       document.getElementById('saeOut').style.display = this.checked ? 'none' : 'block';
       document.getElementById('saeRawOut').style.display = this.checked ? 'block' : 'none';
+    });
+    let currentChunkedTarget = null;
+    document.getElementById('loadChunkedBtn').addEventListener('click', async () => {
+      const taskKey = document.getElementById('taskSelect').value;
+      if (!config.chunked_tasks.includes(taskKey)) {
+        setStatus(`Select a chunked task first (${config.chunked_tasks.join(', ')})`);
+        return;
+      }
+      setBusy(true, `Loading ${taskKey} sample from HF...`, 30);
+      const resp = await fetch(`/api/chunked_sample?task=${encodeURIComponent(taskKey)}`);
+      const data = await resp.json();
+      setBusy(false);
+      if (!resp.ok) { setStatus(data.detail || 'Failed to load chunked sample'); return; }
+      document.getElementById('question').value = data.question;
+      document.getElementById('customPrompt').value = data.prompt;
+      currentChunkedTarget = data;
+      document.getElementById('targetResponseText').textContent = data.target_response;
+      document.getElementById('targetResponsePanel').style.display = 'block';
+      document.getElementById('chunkedInfo').style.display = 'block';
+      document.getElementById('chunkedInfo').textContent = `Source: ${data.source} | prefix: ${data.cot_prefix.length} chars | suffix: ${data.cot_suffix.length} chars`;
+      setStatus(`Loaded ${taskKey} sample. The question and prompt are pre-filled. Generate a CoT to proceed.`);
     });
     loadConfig();
 
