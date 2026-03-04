@@ -591,13 +591,26 @@ def train(cfg: dict) -> None:
                     except Exception as e:
                         print(f"  [wandb] Table logging failed: {e}")
 
-                # Save checkpoint
+                # Save checkpoint + upload to HF
                 if global_step % save_every == 0:
                     save_dir = Path(f"checkpoints/calibration_dpo_step_{global_step}")
                     save_dir.mkdir(parents=True, exist_ok=True)
                     model.save_pretrained(str(save_dir))
                     tokenizer.save_pretrained(str(save_dir))
                     print(f"  Saved checkpoint: {save_dir}")
+                    try:
+                        from huggingface_hub import HfApi
+                        api = HfApi()
+                        repo_id = "ceselder/cot-oracle-calibration-dpo"
+                        api.create_repo(repo_id, exist_ok=True)
+                        api.upload_folder(
+                            folder_path=str(save_dir),
+                            path_in_repo=f"step_{global_step}",
+                            repo_id=repo_id,
+                        )
+                        print(f"  Uploaded to HF: {repo_id}/step_{global_step}")
+                    except Exception as e:
+                        print(f"  HF upload failed: {e}")
 
                 # Clean up
                 del dpo_loss, sft_loss, total_loss
@@ -622,13 +635,14 @@ def train(cfg: dict) -> None:
             try:
                 from huggingface_hub import HfApi
                 api = HfApi()
-                repo_name = f"ceselder/cot-oracle-calibration-dpo-step{global_step}"
-                api.create_repo(repo_name, exist_ok=True)
+                repo_id = "ceselder/cot-oracle-calibration-dpo"
+                api.create_repo(repo_id, exist_ok=True)
                 api.upload_folder(
                     folder_path=str(save_dir),
-                    repo_id=repo_name,
+                    path_in_repo=f"step_{global_step}_final",
+                    repo_id=repo_id,
                 )
-                print(f"Uploaded to HF: {repo_name}")
+                print(f"Uploaded to HF: {repo_id}/step_{global_step}_final")
             except Exception as e:
                 print(f"HF upload failed: {e}")
 
