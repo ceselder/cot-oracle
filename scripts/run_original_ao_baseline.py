@@ -53,7 +53,7 @@ def run_cls_eval(model, tokenizer, layer, model_name, eval_batch_size, n_per_dat
             save_acts=True,
             batch_size=256,
         )
-        loader = ClassificationDatasetLoader(dataset_config=loader_config, model=model)
+        loader = ClassificationDatasetLoader(dataset_config=loader_config, model=model.base_model.model)
         eval_data = loader.load_dataset("test")
 
         results = run_evaluation(
@@ -83,10 +83,11 @@ def run_cls_eval(model, tokenizer, layer, model_name, eval_batch_size, n_per_dat
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--model", default="Qwen/Qwen3-8B")
-    parser.add_argument("--max-items", type=int, default=100)
+    parser.add_argument("--max-items", type=int, default=25)
     parser.add_argument("--eval-batch-size", type=int, default=4)
     parser.add_argument("--device", default="cuda")
-    parser.add_argument("--wandb-project", default="cot-oracle")
+    parser.add_argument("--wandb-project", default="cot_oracle")
+    parser.add_argument("--wandb-entity", default="MATS10-CS-JB")
     parser.add_argument("--position-mode", default="last_5")
     parser.add_argument("--cls-eval-n", type=int, default=25)
     args = parser.parse_args()
@@ -104,7 +105,7 @@ def main():
         tokenizer.pad_token_id = tokenizer.eos_token_id
 
     base_model = AutoModelForCausalLM.from_pretrained(
-        model_name, device_map="auto", torch_dtype=dtype,
+        model_name, device_map="auto", dtype=dtype,
         attn_implementation=choose_attn_implementation(model_name),
     )
 
@@ -124,6 +125,7 @@ def main():
 
         wandb.init(
             project=args.wandb_project,
+            entity=args.wandb_entity,
             name=run_name,
             config={
                 "model": model_name,
