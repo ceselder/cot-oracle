@@ -2481,7 +2481,6 @@ For your final answer, respond with "Answer: Yes" or "Answer: No" after the chai
       setStatus('Loaded a sample prompt. You can refresh it for another one.');
     }
     async function generateSession() {
-      extraPositions.clear();
       const question = document.getElementById('question').value.trim();
       const enableThinking = document.getElementById('thinkingToggle').checked;
       const cotAdapter = document.getElementById('cotGenerator').value || null;
@@ -2712,7 +2711,6 @@ For your final answer, respond with "Answer: Yes" or "Answer: No" after the chai
     }
     document.getElementById('reExtractBtn').addEventListener('click', async () => {
       if (!session) { setStatus('Generate a CoT first'); return; }
-      extraPositions.clear();
       const stride = parseInt(document.getElementById('strideInput').value);
       if (!stride || stride < 1) { setStatus('Stride must be >= 1'); return; }
       setBusy(true, `Re-extracting activations at stride ${stride}...`, 50);
