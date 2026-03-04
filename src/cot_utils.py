@@ -199,38 +199,87 @@ def get_cot_positions(
     )
 
 
+def _sample_poisson_tagged(
+    base_positions: list[int],
+    sampler: random.Random,
+    max_k: int,
+    period_positions: list[int] | None,
+) -> tuple[list[int], str]:
+    """Core logic of sample_poisson_positions, also returning the bucket name."""
+    K = len(base_positions)
+    if K <= 1:
+        return base_positions[-1:], "last_k"
+
+    r = sampler.random()
+
+    if r < 0.2:
+        k = min(sampler.randint(1, 5), K)
+        return base_positions[-k:], "last_k"
+
+    def _end_skewed() -> list[int]:
+        # k ~ Uniform{1, min(K, max_k)}: small k clusters tightly at end, large k spreads with end bias
+        k = sampler.randint(1, min(K, max_k))
+        if k >= K:
+            return list(base_positions)
+        beta_m1 = END_CONCENTRATION - 1
+        # Additive floor ensures ~5% mass in first decile while keeping strong end-skewing
+        log_weights = [math.log(((i + 0.5) / K) ** beta_m1 + END_WEIGHT_FLOOR) for i in range(K)]
+        keys = [lw - math.log(-math.log(max(sampler.random(), 1e-15))) for lw in log_weights]
+        selected = {K - 1}
+        for _, idx in sorted(((keys[i], i) for i in range(K - 1)), reverse=True)[:k - 1]:
+            selected.add(idx)
+        return sorted(base_positions[i] for i in selected)
+
+    if r < 0.7:
+        # 50%: sentence boundaries
+        if period_positions:
+            result = list(period_positions)
+            if base_positions[-1] not in result:
+                result = sorted(result + [base_positions[-1]])
+            return result, "sentence"
+        return _end_skewed(), "sentence_fallback"
+
+    # 30%: end-skewed, high-coverage random
+    return _end_skewed(), "end_skewed"
+
+
 def sample_poisson_positions(
     base_positions: list[int],
     rng: random.Random | None = None,
     max_k: int = 100,
-    p_last_only: float = 0.4,
     include_boundaries: bool = False,
+    period_positions: list[int] | None = None,
 ) -> list[int]:
-    """40% last-only, 60% Poisson-process sampled positions.
+    """3-way stochastic position sampling:
 
-    In the 60% case, sample k from a log-uniform (heavy-tailed) distribution
-    between 2 and min(max_k, len(base_positions)), then place k positions via
-    a Poisson process (uniform iid draws from available positions, deduplicated).
-    Optionally keep both boundary positions.
+      20% → last k contiguous positions, k ~ Uniform{1,...,5}
+      50% → sentence boundary positions + last; fallback to end-skewed if unavailable
+      30% → end-skewed random: Zipf k + Beta(END_CONCENTRATION, 1) Gumbel-top-k, high coverage
+
+    At eval time use sentence_boundaries_plus_last5() instead (deterministic).
     """
-    sampler = rng or random
-    K = len(base_positions)
-    if K <= 1:
-        return base_positions[-1:]
-    if sampler.random() < p_last_only:
-        if include_boundaries:
-            return sorted({base_positions[0], base_positions[-1]})
-        return [base_positions[-1]]
-    # Log-uniform between 2 and min(max_k, K) for heavy tail
-    lo, hi = 2, min(max_k, K)
-    k = int(round(math.exp(sampler.uniform(math.log(lo), math.log(hi)))))
-    k = max(2, min(k, K))
-    # Poisson process: uniform iid draws, deduplicated
-    picked = set(sampler.sample(base_positions, k))
-    if include_boundaries:
-        picked.add(base_positions[0])
-    picked.add(base_positions[-1])  # always include last position
-    return sorted(picked)
+    positions, _ = _sample_poisson_tagged(base_positions, rng or random, max_k, period_positions)
+    return positions
+
+
+def sample_poisson_positions_tagged(
+    base_positions: list[int],
+    rng: random.Random | None = None,
+    max_k: int = 100,
+    period_positions: list[int] | None = None,
+) -> tuple[list[int], str]:
+    """Same as sample_poisson_positions but also returns the bucket name (for visualization)."""
+    return _sample_poisson_tagged(base_positions, rng or random, max_k, period_positions)
+
+
+def sentence_boundaries_plus_last5(
+    base_positions: list[int],
+    period_positions: list[int] | None,
+) -> list[int]:
+    """Deterministic eval-time positions: first token + sentence boundaries + last 5 contiguous tokens."""
+    anchors = {base_positions[0], *base_positions[-5:]}
+    pp = set(period_positions) if period_positions else set()
+    return sorted(anchors | pp)
 
 
 @lru_cache(maxsize=512)
@@ -286,6 +335,9 @@ def _sample_from_cdf(cdf: tuple[float, ...], sampler: random.Random) -> int:
 
 # β such that P(Beta(β,1) > 0.9) = 0.7  ⇒  0.9^β = 0.3  → ~70% of ticks in trailing 10%
 END_CONCENTRATION = -math.log(10 / 3) / math.log(0.9)  # ≈ 11.43
+# Additive floor added to Beta weights: w_i = ((i+0.5)/K)^(β-1) + floor
+# floor=0.1 → ~5% mass in first 10% of sequence, ~11:1 last-vs-first weight ratio
+END_WEIGHT_FLOOR = 0.1
 
 MAX_ENDWEIGHTED_K = 500
 
@@ -295,14 +347,15 @@ def sample_endweighted_positions(
     rng: random.Random | None = None,
     target_mean_k: int = 50,
     end_concentration: float = END_CONCENTRATION,
+    reverse: bool = False,
 ) -> list[int]:
-    """End-weighted stochastic position sampling.
+    """Skewed stochastic position sampling via Gumbel-top-k.
 
     1. Draw k ~ Zipf(s) on {1,...,min(K, MAX_ENDWEIGHTED_K)} with mean ≈ target_mean_k.
-       Discrete power law: P(k) ∝ k^(-s). Monotonically falling, heavy-tailed.
-    2. Select k positions via Gumbel-top-k weighted by Beta(end_concentration, 1),
-       concentrating ~70% of selected positions in the trailing 10% of the CoT.
-    3. Always includes the last position.
+    2. Select k positions via Gumbel-top-k with Beta-profile weights:
+       reverse=False → Beta(end_concentration, 1): concentrated at the end.
+       reverse=True  → Beta(1, end_concentration): concentrated at the start.
+    3. Anchor position (last if reverse=False, first if reverse=True) is always included.
     """
     sampler = rng or random
     K = len(base_positions)
@@ -323,16 +376,21 @@ def sample_endweighted_positions(
         return list(base_positions)
 
     # --- Select positions via Gumbel-top-k ---
-    # Weight profile: Beta(β, 1) → w_i ∝ ((i+0.5)/K)^(β-1), concentrated at end
     beta_m1 = end_concentration - 1
-    log_weights = [beta_m1 * math.log((i + 0.5) / K) for i in range(K)]
+    if reverse:
+        # Beta(1, β): w_i ∝ (1 - (i+0.5)/K)^(β-1), concentrated at start
+        log_weights = [beta_m1 * math.log(1.0 - (i + 0.5) / K) for i in range(K)]
+        anchor = 0
+    else:
+        # Beta(β, 1): w_i ∝ ((i+0.5)/K)^(β-1), concentrated at end
+        log_weights = [beta_m1 * math.log((i + 0.5) / K) for i in range(K)]
+        anchor = K - 1
 
     # Gumbel-max trick: key_i = log(w_i) + Gumbel(0,1), take top-k
     keys = [lw - math.log(-math.log(max(sampler.random(), 1e-15))) for lw in log_weights]
 
-    # Always include last position; pick top-(k-1) from rest
-    selected = {K - 1}
-    rest_with_keys = sorted(((keys[i], i) for i in range(K - 1)), reverse=True)
+    selected = {anchor}
+    rest_with_keys = sorted(((keys[i], i) for i in range(K) if i != anchor), reverse=True)
     for _, idx in rest_with_keys[:k - 1]:
         selected.add(idx)
 

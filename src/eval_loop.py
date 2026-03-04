@@ -39,7 +39,7 @@ from qa_judge import (
     build_llm_judge_prompt,
     get_llm_judge_system,
 )
-from cot_utils import sample_poisson_positions, sample_endweighted_positions
+from cot_utils import sample_poisson_positions, sample_endweighted_positions, sentence_boundaries_plus_last5
 
 
 # ── Per-task response parsers ──
@@ -786,6 +786,7 @@ def _resample_eval_positions(
     position_mode: str,
     stochastic_max_k: int,
     eval_position_seed: int,
+    sentence_delim_ids: set[int] | None = None,
 ) -> None:
     """Match training-time position selection for eval, but keep it deterministic across eval steps."""
     n_layers = len(layers)
@@ -799,19 +800,20 @@ def _resample_eval_positions(
         if position_mode == "last_only":
             sampled = base_positions[-1:]
         elif position_mode == "graduated":
-            # Deterministic for eval: use last-2 (middle option)
             sampled = base_positions[-2:]
         elif position_mode == "hybrid":
-            # Deterministic for eval: use end-weighted sampling with seeded RNG
             rng = random.Random(f"{eval_position_seed}:{task_name}:{item_idx}")
             sampled = sample_endweighted_positions(base_positions, rng=rng)
         elif position_mode.startswith("last_"):
             n = int(position_mode.split("_", 1)[1])
             sampled = base_positions[-n:]
         elif position_mode == "stochastic":
-            # Derive a stable per-item RNG from one shared eval seed so repeats match across eval steps.
-            rng = random.Random(f"{eval_position_seed}:{task_name}:{item_idx}")
-            sampled = sample_poisson_positions(base_positions, rng=rng, max_k=stochastic_max_k, include_boundaries=True)
+            ctx_ids = item.get("context_input_ids", [])
+            period_pos = None
+            if sentence_delim_ids and ctx_ids:
+                lo, hi = base_positions[0], base_positions[-1]
+                period_pos = [i for i in range(lo, min(hi + 1, len(ctx_ids))) if ctx_ids[i] in sentence_delim_ids]
+            sampled = sentence_boundaries_plus_last5(base_positions, period_pos)
         elif position_mode == "all":
             sampled = base_positions
         else:
@@ -1552,6 +1554,11 @@ def _eval_single_task(
         test_data = [d for d in test_data if d.get("context_input_ids")]
         if not test_data:
             return {"n": 0}
+        _sent_delim: set[int] = set()
+        for _pat in [".", ".\n", ".\n\n"]:
+            _ids = tokenizer.encode(_pat, add_special_tokens=False)
+            if len(_ids) == 1:
+                _sent_delim.add(_ids[0])
         _resample_eval_positions(
             test_data=test_data,
             task_name=task_name,
@@ -1559,6 +1566,7 @@ def _eval_single_task(
             position_mode=position_mode,
             stochastic_max_k=stochastic_max_k,
             eval_position_seed=eval_position_seed,
+            sentence_delim_ids=_sent_delim,
         )
 
         # Materialize activations in mini-batches

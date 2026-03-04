@@ -89,7 +89,8 @@ NO_ACTIVATIONS: bool = False
 RANDOM_LAYERS: bool = False
 LAYER_DROPOUT: bool = False
 POSITION_MODE: str = "stochastic"  # "last_only", "stochastic", "all"
-STOCHASTIC_MAX_K: int = 100  # upper bound for Poisson position sampling
+STOCHASTIC_MAX_K: int = 100  # upper bound for Poisson position sampling (random bucket)
+SENTENCE_DELIM_IDS: set[int] = set()  # token IDs for "." — set from tokenizer in main()
 MAX_CONTEXT_LENGTH: int = 0  # drop samples with context_input_ids longer than this (0 = no filter)
 POSITION_ENCODING: bool = False
 PE_ALPHA: float = 0.1
@@ -325,6 +326,7 @@ def dicts_to_training_data(
 
         # Extract base positions (single-layer) for re-expansion
         base_positions = _extract_base_positions(ctx_pos, n_layers_runtime)
+        period_pos = _get_period_positions(item.get("context_input_ids", []), base_positions)
 
         if RANDOM_LAYERS:
             # Per-item random layer sampling (ablation: arbitrary model layers)
@@ -332,7 +334,7 @@ def dicts_to_training_data(
             sampled = sample_layers(_MODEL_N_LAYERS, mean=3)
 
             # Apply position mode to base positions
-            sampled_pos = _apply_position_mode(base_positions)
+            sampled_pos = _apply_position_mode(base_positions, period_pos)
             ctx_pos = sampled_pos * len(sampled)
             num_pos = len(ctx_pos)
 
@@ -359,7 +361,7 @@ def dicts_to_training_data(
             sampled = sorted(random.sample(MULTI_LAYERS, k))
 
             # Apply position mode to base positions
-            sampled_pos = _apply_position_mode(base_positions)
+            sampled_pos = _apply_position_mode(base_positions, period_pos)
             ctx_pos = sampled_pos * len(sampled)
             num_pos = len(ctx_pos)
 
@@ -382,7 +384,7 @@ def dicts_to_training_data(
 
         else:
             # Standard: all configured layers, apply position mode
-            sampled_pos = _apply_position_mode(base_positions)
+            sampled_pos = _apply_position_mode(base_positions, period_pos)
             ctx_pos = sampled_pos * n_layers_runtime
             num_pos = len(ctx_pos)
 
@@ -413,16 +415,17 @@ def dicts_to_training_data(
     return training_data
 
 
-def _apply_position_mode(base_positions: list[int]) -> list[int]:
-    """Apply POSITION_MODE to base (single-layer) positions.
+def _get_period_positions(context_input_ids: list[int], base_positions: list[int]) -> list[int]:
+    """Find '.' token positions within the CoT region (bounded by base_positions)."""
+    if not context_input_ids or not base_positions or not SENTENCE_DELIM_IDS:
+        return []
+    lo, hi = base_positions[0], base_positions[-1]
+    return [i for i in range(lo, min(hi + 1, len(context_input_ids)))
+            if context_input_ids[i] in SENTENCE_DELIM_IDS]
 
-    Modes:
-        "last_only": only the final position (fastest iteration)
-        "graduated": 33% last-1, 33% last-2, 33% last-3
-        "hybrid": 30% last-1, 30% last-3, 40% end-weighted stochastic
-        "stochastic": 40% last-only, 60% Poisson-process sampled positions
-        "all": use all positions
-    """
+
+def _apply_position_mode(base_positions: list[int], period_positions: list[int] | None = None) -> list[int]:
+    """Apply POSITION_MODE to base (single-layer) positions."""
     if not base_positions:
         return base_positions
     if POSITION_MODE == "last_only":
@@ -439,7 +442,7 @@ def _apply_position_mode(base_positions: list[int]) -> list[int]:
         else:
             return sample_endweighted_positions(base_positions)
     elif POSITION_MODE == "stochastic":
-        return sample_poisson_positions(base_positions, max_k=STOCHASTIC_MAX_K)
+        return sample_poisson_positions(base_positions, max_k=STOCHASTIC_MAX_K, period_positions=period_positions)
     return base_positions  # "all"
 
 
@@ -1946,7 +1949,7 @@ def main():
     set_seed(args.seed)
 
     # Multi-layer config
-    global MULTI_LAYERS, NO_ACTIVATIONS, RANDOM_LAYERS, LAYER_DROPOUT, POSITION_MODE, STOCHASTIC_MAX_K, MAX_CONTEXT_LENGTH, POSITION_ENCODING, PE_ALPHA, _MODEL_N_LAYERS
+    global MULTI_LAYERS, NO_ACTIVATIONS, RANDOM_LAYERS, LAYER_DROPOUT, POSITION_MODE, STOCHASTIC_MAX_K, MAX_CONTEXT_LENGTH, POSITION_ENCODING, PE_ALPHA, _MODEL_N_LAYERS, SENTENCE_DELIM_IDS
     NO_ACTIVATIONS = getattr(args, "no_activations", False)
     RANDOM_LAYERS = getattr(args, "random_layers", False)
     LAYER_DROPOUT = args.layer_dropout
@@ -1983,6 +1986,15 @@ def main():
             print(f"Max context length: {MAX_CONTEXT_LENGTH} (longer samples will be dropped)")
 
     tokenizer = load_tokenizer(args.model)
+
+    # Build sentence delimiter token set for stochastic position sampling
+    SENTENCE_DELIM_IDS = set()
+    for pattern in [".", ".\n", ".\n\n"]:
+        ids = tokenizer.encode(pattern, add_special_tokens=False)
+        if len(ids) == 1:
+            SENTENCE_DELIM_IDS.add(ids[0])
+    if rank == 0:
+        print(f"Sentence delimiter token IDs: {sorted(SENTENCE_DELIM_IDS)}")
 
     # Verify placeholder
     tok_ids = tokenizer.encode(PLACEHOLDER_TOKEN, add_special_tokens=False)
