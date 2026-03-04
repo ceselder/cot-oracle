@@ -88,6 +88,12 @@ tasks:
   rot13_reconstruction:
     eval: false     # skip for now
 
+  hallucination:
+    eval: false
+
+  vagueness:
+    eval: false
+
 # FineWeb readout tasks
 fineweb:
   enabled: true
@@ -127,7 +133,7 @@ no_activations:
 activations:
   layers: [9, 18, 27]        # injection layers (25%, 50%, 75% of Qwen3-8B's 36 layers)
   position_mode: endweighted  # "last_only", "stochastic", "endweighted" (Zipf k + end-concentrated), "all"
-  stochastic_max_k: 50        # endweighted: target mean k; stochastic: upper bound for k
+  stochastic_max_k: 20        # endweighted: target mean k; stochastic: upper bound for k
   max_context_length: 0      # drop samples longer than this (0 = no filter)
   position_encoding: false
   pe_alpha: 0.1

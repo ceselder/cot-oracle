@@ -89,7 +89,7 @@ NO_ACTIVATIONS: bool = False
 RANDOM_LAYERS: bool = False
 LAYER_DROPOUT: bool = False
 POSITION_MODE: str = "endweighted"  # "last_only", "stochastic", "endweighted", "all"
-STOCHASTIC_MAX_K: int = 50  # endweighted: target mean k; stochastic: upper bound for k
+STOCHASTIC_MAX_K: int = 20  # endweighted: target mean k; stochastic: upper bound for k
 SENTENCE_DELIM_IDS: set[int] = set()  # token IDs for ".", ".\n", ".\n\n" — set from tokenizer in main()
 MAX_CONTEXT_LENGTH: int = 0  # drop samples with context_input_ids longer than this (0 = no filter)
 POSITION_ENCODING: bool = False
@@ -748,7 +748,7 @@ def _run_unified_eval(model, tokenizer, model_name, global_step, args, log_dir=N
 
     if wandb.run and all_traces:
         for task_name, traces in all_traces.items():
-            table = wandb.Table(columns=["question", "cot_field", "masked_cot_field", "oracle_prompt", "oracle_prefix", "expected", "predicted", "correct"])
+            table = wandb.Table(columns=["question", "cot_field", "masked_cot_field", "oracle_prompt", "oracle_prefix", "expected", "predicted", "correct", "judge_score", "predicted_confidence", "judge_reason"])
             for t in traces:
                 table.add_data(
                     t.get("question", "")[:200],
@@ -759,6 +759,9 @@ def _run_unified_eval(model, tokenizer, model_name, global_step, args, log_dir=N
                     t.get("expected", "")[:200],
                     t.get("predicted", "")[:200],
                     t.get("correct", "?"),
+                    t.get("judge_score"),
+                    t.get("predicted_confidence"),
+                    t.get("judge_reason", ""),
                 )
             log_dict[f"eval_table/{task_name}"] = table
 
@@ -881,6 +884,33 @@ def _run_cls_eval(model, tokenizer, submodule, global_step: int, args):
         wandb.log(log_dict, step=global_step)
 
     model.train()
+
+
+def _normalized_train_progress(global_step: int, total_steps: int) -> float:
+    if total_steps <= 1:
+        return 1.0
+    return min(global_step / (total_steps - 1), 1.0)
+
+
+def _build_progress_scatter(points: list[tuple[int, float, float]], x_key: str, title: str):
+    import matplotlib.pyplot as plt
+    import wandb
+
+    xs = [x for x, _, _ in points]
+    ys = [y for _, y, _ in points]
+    progress = [p for _, _, p in points]
+
+    fig, ax = plt.subplots(figsize=(6, 4))
+    scatter = ax.scatter(xs, ys, c=progress, cmap="viridis", vmin=0.0, vmax=1.0, alpha=0.75, s=16, linewidths=0)
+    ax.set_xlabel(x_key.replace("_", " ").title())
+    ax.set_ylabel("Loss")
+    ax.set_title(title)
+    cbar = fig.colorbar(scatter, ax=ax)
+    cbar.set_label("Training Progress")
+    fig.tight_layout()
+    image = wandb.Image(fig)
+    plt.close(fig)
+    return image
 
 
 # ── Main training loop ──
@@ -1257,6 +1287,9 @@ def train(
     train_start_time = time.time()
     last_step_time = time.time()
     eval_time_total = 0.0
+    scatter_image_every = 100
+    scatter_history_acts: list[tuple[int, float, float]] = []
+    scatter_history_layers: list[tuple[int, float, float]] = []
 
     prev_dominant_task = None  # Track task transitions for phase checkpoints
     micro_step = 0  # counts micro-batches within a gradient accumulation window
@@ -1429,6 +1462,7 @@ def train(
             # Logging (rank 0 only)
             if rank == 0:
                 now = time.time()
+                train_progress = _normalized_train_progress(global_step, total_steps)
                 log_dict = {
                     "train/loss": accum_loss_sum / grad_accum,
                     "train/learning_rate": scheduler.get_last_lr()[0],
@@ -1441,18 +1475,20 @@ def train(
                     "train/wallclock_hours": (now - train_start_time - eval_time_total) / 3600,
                     "eval/wallclock_hours": eval_time_total / 3600,
                     "train/samples_seen": global_step * args.effective_batch_size,
+                    "train/progress": train_progress,
                 }
                 last_step_time = now
                 if accum_scatter_acts:
-                    tbl_acts = wandb.Table(columns=["n_activations", "loss"])
                     for _lv, _na in accum_scatter_acts:
-                        tbl_acts.add_data(_na, _lv)
-                    log_dict["train/loss_vs_n_activations"] = wandb.plot.scatter(tbl_acts, "n_activations", "loss", title="Loss vs N Activations")
+                        scatter_history_acts.append((_na, _lv, train_progress))
                 if accum_scatter_layers:
-                    tbl_lyr = wandb.Table(columns=["n_layers", "loss"])
                     for _lv, _nl in accum_scatter_layers:
-                        tbl_lyr.add_data(_nl, _lv)
-                    log_dict["train/loss_vs_n_layers"] = wandb.plot.scatter(tbl_lyr, "n_layers", "loss", title="Loss vs N Layers")
+                        scatter_history_layers.append((_nl, _lv, train_progress))
+                if global_step % scatter_image_every == 0:
+                    if scatter_history_acts:
+                        log_dict["train/loss_vs_n_activations"] = _build_progress_scatter(scatter_history_acts, "n_activations", "Loss vs N Activations")
+                    if scatter_history_layers:
+                        log_dict["train/loss_vs_n_layers"] = _build_progress_scatter(scatter_history_layers, "n_layers", "Loss vs N Layers")
                 parent_task_emas = defaultdict(list)
                 for subtype, ema_val in task_loss_ema.items():
                     parent = subtype_to_task.get(subtype, subtype)
@@ -1473,7 +1509,6 @@ def train(
                 log_dict["train/stage_idx"] = task_stage_idx.get(dominant_task, -1)
                 log_dict["train/stage_name"] = dominant_task
                 wandb.run.summary["current_stage"] = dominant_task
-                log_dict["train/progress"] = global_step / max(total_steps, 1)
                 if dominant_task in stage_step_ranges:
                     s_start, s_end = stage_step_ranges[dominant_task]
                     s_len = max(s_end - s_start, 1)

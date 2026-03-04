@@ -67,6 +67,52 @@ def build_trajectory_judge_prompt(gt_answer_label: str, gt_confidence: int | Non
     )
 
 
+# ── LLM judge for hallucination / vagueness evals ──
+
+LLM_JUDGE_TASKS = frozenset({"hallucination", "vagueness"})
+
+HALLUCINATION_JUDGE_SYSTEM = (
+    "You score the factual correctness of an activation oracle's response against a reference answer. "
+    "Return ONLY JSON with keys `score` and `reason`. "
+    "`score` must be a float: 0.0 = confabulated wrong domain or details, "
+    "0.5 = right domain but wrong specifics, 1.0 = factually correct and matches reference. "
+    "`reason` must be one very short sentence, at most 12 words."
+)
+
+VAGUENESS_JUDGE_SYSTEM = (
+    "You score the specificity of an activation oracle's response against a reference answer. "
+    "Return ONLY JSON with keys `score` and `reason`. "
+    "`score` must be a float: 0.0 = generic or unfalsifiable response, "
+    "0.3 = explicit decline to answer (e.g. 'I don't know'), "
+    "0.5 = right topic but vague, missing required specifics, "
+    "1.0 = mentions the specific details required by the reference. "
+    "`reason` must be one very short sentence, at most 12 words."
+)
+
+_LLM_JUDGE_SYSTEMS = {
+    "hallucination": HALLUCINATION_JUDGE_SYSTEM,
+    "vagueness": VAGUENESS_JUDGE_SYSTEM,
+}
+
+
+def is_llm_judge_task(task_name: str) -> bool:
+    return task_name in LLM_JUDGE_TASKS
+
+
+def build_llm_judge_prompt(task_name: str, query: str, target: str, prediction: str) -> str:
+    return (
+        f"Task: {task_name}\n\n"
+        f"Query:\n{query}\n\n"
+        f"Reference answer:\n{target}\n\n"
+        f"Oracle response:\n{prediction}\n\n"
+        "Score the oracle response against the reference answer."
+    )
+
+
+def get_llm_judge_system(task_name: str) -> str:
+    return _LLM_JUDGE_SYSTEMS[task_name]
+
+
 def compute_token_f1_scores(predictions: list[str], targets: list[str]) -> list[float]:
     scores = []
     for prediction, target in zip(predictions, targets):

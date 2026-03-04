@@ -284,8 +284,8 @@ def _sample_from_cdf(cdf: tuple[float, ...], sampler: random.Random) -> int:
     return lo + 1
 
 
-# β such that P(Beta(β,1) > 0.9) = 0.7  ⇒  0.9^β = 0.3  → ~70% of ticks in trailing 10%
-END_CONCENTRATION = -math.log(10 / 3) / math.log(0.9)  # ≈ 11.43
+# β such that P(Beta(β,1) > 2/3) = 2/3  ⇒  (2/3)^β = 1/3  → ~2/3 of ticks in trailing 1/3
+END_CONCENTRATION = math.log(3) / math.log(1.5)  # ≈ 2.71
 
 
 MAX_ENDWEIGHTED_K = 500
@@ -302,7 +302,7 @@ def sample_endweighted_positions(
     1. Draw k ~ Zipf(s) on {1,...,min(K, MAX_ENDWEIGHTED_K)} with mean ≈ target_mean_k.
        Discrete power law: P(k) ∝ k^(-s). Monotonically falling, heavy-tailed.
     2. Select k positions via Gumbel-top-k weighted by Beta(end_concentration, 1),
-       concentrating ~70% of selected positions in the trailing 10% of the CoT.
+       concentrating ~2/3 of selected positions in the trailing 1/3 of the CoT.
     3. Always includes the last position.
     """
     sampler = rng or random

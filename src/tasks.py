@@ -19,6 +19,7 @@ class ScoringMode(Enum):
     TOKEN_F1 = "token_f1"           # word-level F1(prediction, target)
     STEP_ACCURACY = "step_accuracy"  # parse step number, off-by-1 ok
     TOKEN_MATCH = "token_match"      # token-level match rate (reconstruction)
+    LLM_JUDGE = "llm_judge"         # LLM judges response on task-specific rubric
 
 
 # ── Task definition ──
@@ -370,6 +371,28 @@ TASKS: dict[str, TaskDef] = {
         negative_keywords=(),
         trainable=False,
         max_new_tokens=64,
+    ),
+
+    # ─── LLM-judged evals ───
+
+    "hallucination": TaskDef(
+        name="hallucination",
+        hf_repo=f"{HF_ORG}/cot-oracle-hallucination",
+        scoring=ScoringMode.LLM_JUDGE,
+        positive_keywords=(),
+        negative_keywords=(),
+        trainable=False,
+        max_new_tokens=150,
+    ),
+
+    "vagueness": TaskDef(
+        name="vagueness",
+        hf_repo=f"{HF_ORG}/cot-oracle-vagueness",
+        scoring=ScoringMode.LLM_JUDGE,
+        positive_keywords=(),
+        negative_keywords=(),
+        trainable=False,
+        max_new_tokens=150,
     ),
 }
 
