@@ -134,7 +134,8 @@ MODEL_ORGANISMS = {
 # Available checkpoints for the Trained Oracle dropdown.
 # key -> {"path": HF repo or local path, "label": display name}
 TRAINED_CHECKPOINTS = {
-    "v12-no-stride": {"path": "ceselder/cot-oracle-v12-no-stride-2x-batch", "label": "v12 no-stride 2x-batch (latest)"},
+    "v15-last-pos-only": {"path": "ceselder/cot-oracle-v15-last-pos-only", "label": "v15 last-pos-only"},
+    "v12-no-stride": {"path": "ceselder/cot-oracle-v12-no-stride-2x-batch", "label": "v12 no-stride 2x-batch"},
     "backtrack-only-adam": {"path": "ceselder/cot-oracle-backtrack-only-adam-ckpt", "label": "backtrack-only (Adam ckpt)"},
     "v12-readout-only": {"path": "ceselder/cot-oracle-v12-ablation-readout-only", "label": "v12 ablation: readout-only"},
     "v6": {"path": "ceselder/cot-oracle-v6", "label": "v6"},
