@@ -1,0 +1,252 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>chat_compare</title>
+  <link rel="stylesheet" href="/assets/chat_compare.css">
+
+</head>
+<body>
+  <div class="page">
+    <div class="sidebar">
+      <h2 style="margin-top:0">chat_compare</h2>
+      <div class="muted">Bind this app with <code>--host 0.0.0.0</code> to reach it off-machine; public internet access still depends on your firewall / tunnel setup.</div>
+      <div class="small muted" id="shareInfo" style="margin-top:8px"></div>
+      <label style="display:block;margin-top:16px">Question</label>
+      <textarea id="question" placeholder="Ask the base model to think..."></textarea>
+      <label class="small" style="display:flex;align-items:center;gap:8px;margin-top:8px"><input id="thinkingToggle" type="checkbox" checked style="width:auto">Enable thinking for CoT generation</label>
+      <label style="display:block;margin-top:10px" class="small">CoT generator</label>
+      <select id="cotGenerator"><option value="">Base model (no adapter)</option></select>
+      <label style="display:block;margin-top:10px" class="small">Prompt templates</label>
+      <select id="promptTemplate"><option value="">-- select a template --</option></select>
+      <div class="row"><button id="refreshPromptBtn" class="secondary">Refresh sample prompt</button></div>
+      <div class="small muted" id="questionSource" style="margin-top:8px"></div>
+      <label style="display:block;margin-top:10px" class="small">Generator temperature <span class="muted" id="genTempVal">0.0</span></label>
+      <input id="genTemp" type="range" min="0" max="1.5" step="0.05" value="0" style="width:100%">
+      <label style="display:block;margin-top:10px" class="small">Activation stride <span class="muted">(1 = every token)</span></label>
+      <div class="row" style="gap:6px;align-items:center"><input id="strideInput" type="number" value="5" min="1" step="1" style="width:80px"><button id="reExtractBtn" class="secondary" style="font-size:12px">Re-extract</button></div>
+      <div class="row"><button id="generateBtn">Generate CoT + Activations</button></div>
+      <div class="status" id="status"></div>
+      <div class="busy" id="busyWrap">
+        <div class="busy-row"><div class="spinner"></div><div class="small" id="busyLabel">Working...</div></div>
+        <div class="progress-track"><div class="progress-bar"></div></div>
+      </div>
+      <div class="panel">
+        <label>Task preset (from built-ins + enabled train.yaml tasks)</label>
+        <select id="taskSelect"></select>
+        <div class="row" style="margin-top:6px"><button id="loadChunkedBtn" class="secondary" style="font-size:12px;display:none">Load chunked sample</button></div>
+        <div id="chunkedInfo" class="small muted" style="margin-top:4px;display:none"></div>
+        <label id="promptLabel" style="display:block;margin-top:10px">Oracle prompt</label>
+        <textarea id="customPrompt" placeholder="The prompt sent to the oracle along with activations"></textarea>
+        <label style="display:block;margin-top:10px">train.yaml eval tags (logged only)</label>
+        <select id="evalTags" multiple size="8"></select>
+        <label style="display:block;margin-top:10px">Max new tokens</label>
+        <input id="maxTokens" type="number" value="150" min="1" step="1">
+        <label style="display:block;margin-top:10px" class="small">Oracle temperature <span class="muted" id="oracleTempVal">0.0</span></label>
+        <input id="oracleTemp" type="range" min="0" max="1.5" step="0.05" value="0" style="width:100%">
+        <label style="display:block;margin-top:10px">Baselines to run</label>
+        <div class="check-grid">
+          <label class="inline-check"><input id="baselineAo" type="checkbox">Original AO</label>
+          <label class="inline-check"><input id="baselinePatch" type="checkbox">Patchscopes</label>
+          <label class="inline-check"><input id="baselineBb" type="checkbox" checked>Black-box</label>
+          <label class="inline-check"><input id="baselineNoAct" type="checkbox" checked>Finetuned monitor</label>
+          <label class="inline-check"><input id="baselineOracle" type="checkbox" checked>Trained oracle</label>
+          <label class="inline-check"><input id="baselineSae" type="checkbox" checked>SAE -> LLM</label>
+        </div>
+        <label style="display:block;margin-top:10px" class="small">Trained Oracle checkpoint</label>
+        <select id="trainedCheckpoint"><option value="trained">CLI default</option></select>
+        <label style="display:block;margin-top:10px" class="small">Original AO checkpoint (Adam)</label>
+        <select id="adamCheckpoint"><option value="original_ao">Adam default (8B)</option></select>
+        <label style="display:block;margin-top:10px" class="small">Finetuned Monitor checkpoint</label>
+        <select id="finetunedMonitorCheckpoint"></select>
+        <div class="small muted" id="checkpointStatus" style="margin-top:4px"></div>
+        <label style="display:block;margin-top:10px">Patchscopes per-layer injection strength</label>
+        <div id="patchStrengthRows" class="slider-stack"></div>
+        <label style="display:block;margin-top:10px" class="small">Run stride <span class="muted">(subsample selected positions: 1 = all, 2 = every other, ...)</span></label>
+        <input id="runStrideInput" type="number" value="1" min="1" step="1" style="width:80px">
+        <div class="row">
+          <button id="runBtn">Run oracle</button>
+          <button id="selectAllBtn" class="secondary">Select all</button>
+          <button id="lastOnlyBtn" class="secondary">Last only</button>
+          <button id="clearBtn" class="secondary">Clear</button>
+        </div>
+        <div class="small muted" id="selectionInfo" style="margin-top:8px">No session yet.</div>
+      </div>
+    </div>
+    <div class="main">
+      <div class="panel">
+        <div id="meta" class="muted">Generate a CoT to populate the selectable activation text.</div>
+        <div id="tagPills" style="margin-top:8px"></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div class="panel">
+          <h3 style="margin-top:0" id="cotHeader">Chain of Thought</h3>
+          <div id="cotPreview" class="text-block" style="max-height:400px;overflow-y:auto"></div>
+        </div>
+        <div class="panel">
+          <h3 style="margin-top:0">Answer</h3>
+          <div id="answerPreview" class="text-block" style="max-height:400px;overflow-y:auto"></div>
+        </div>
+      </div>
+      <div id="chunkedPanel" style="display:none">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div class="panel">
+            <h3 style="margin-top:0">CoT Prefix <code>cot_prefix</code> <span class="muted small">(activations extracted from this)</span></h3>
+            <div id="chunkedPrefix" class="text-block" style="max-height:300px;overflow-y:auto"></div>
+          </div>
+          <div class="panel">
+            <h3 style="margin-top:0">CoT Suffix <code>cot_suffix</code> <span class="muted small">(oracle must predict about this)</span></h3>
+            <div id="chunkedSuffix" class="text-block" style="max-height:300px;overflow-y:auto"></div>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:0">
+          <div class="panel">
+            <h3 style="margin-top:0">Full CoT <code>cot_text</code></h3>
+            <div id="chunkedFullCot" class="text-block" style="max-height:200px;overflow-y:auto"></div>
+          </div>
+          <div class="panel">
+            <h3 style="margin-top:0">Target Response <code>target_response</code> <span class="muted small">(ground truth)</span></h3>
+            <div id="targetResponseText" class="text-block" style="max-height:200px;overflow-y:auto"></div>
+          </div>
+        </div>
+      </div>
+      <div class="panel">
+        <h3 style="margin-top:0">Activation Positions (CoT only)</h3>
+        <div class="muted">Drag across highlighted stride tokens to choose which activations to inject. Selection applies to all layers.</div>
+        <div id="tokenRowsWrap" class="token-wrap" style="margin-top:12px"></div>
+      </div>
+      <div class="panel" id="heatmapPanel" style="display:none">
+        <h3 style="margin-top:0">Per-Token Heatmap</h3>
+        <div class="heatmap-controls">
+          <div>
+            <label>Signal</label>
+            <select id="heatmapSignal">
+              <option value="probe">Linear Probe</option>
+              <option value="ao">AO Logprob</option>
+              <option value="readout">Trained Oracle Readout</option>
+            </select>
+          </div>
+          <div id="heatmapProbeControls">
+            <label>Probe</label>
+            <select id="heatmapProbeSelect"><option value="">-- no probes --</option></select>
+          </div>
+          <div id="heatmapAoControls" style="display:none">
+            <label>Task preset</label>
+            <select id="heatmapAoTask">
+              <option value="hint_admission">hint admission</option>
+              <option value="atypical_answer">atypical answer</option>
+              <option value="reasoning_termination">reasoning termination</option>
+              <option value="correctness">correctness</option>
+              <option value="decorative_cot">decorative cot</option>
+              <option value="sycophancy">sycophancy</option>
+              <option value="backtrack_prediction">backtrack prediction</option>
+              <option value="answer_trajectory">answer trajectory</option>
+              <option value="custom">custom prompt</option>
+            </select>
+          </div>
+          <div id="heatmapAoPromptDiv" style="display:none">
+            <label>Oracle prompt</label>
+            <textarea id="heatmapAoPrompt" rows="2"></textarea>
+          </div>
+          <div id="heatmapAoStrideDiv" style="display:none">
+            <label>Heatmap stride <span class="muted">(1=every pos)</span></label>
+            <input id="heatmapAoStride" type="number" value="5" min="1" step="1" style="width:60px">
+          </div>
+          <div id="heatmapAoAdapterDiv" style="display:none">
+            <label>Oracle adapter</label>
+            <select id="heatmapAoAdapter">
+              <option value="trained">Trained Oracle</option>
+              <option value="adam">Original AO (Adam)</option>
+            </select>
+          </div>
+          <div id="heatmapReadoutControls" style="display:none">
+            <label>Task</label>
+            <select id="heatmapReadoutTask">
+              <option value="hint_admission">hint admission</option>
+              <option value="atypical_answer">atypical answer</option>
+              <option value="reasoning_termination">reasoning termination</option>
+              <option value="correctness">correctness</option>
+              <option value="decorative_cot">decorative cot</option>
+              <option value="sycophancy">sycophancy</option>
+              <option value="backtrack_prediction">backtrack prediction</option>
+              <option value="answer_trajectory">answer trajectory</option>
+              <option value="custom">custom prompt</option>
+            </select>
+          </div>
+          <div id="heatmapReadoutPromptDiv" style="display:none">
+            <label>Prompt</label>
+            <textarea id="heatmapReadoutPrompt" rows="2"></textarea>
+          </div>
+          <button id="heatmapComputeBtn">Compute</button>
+        </div>
+        <div class="mini-status" id="heatmapStatus"><span class="mini-dot"></span><span id="heatmapStatusText"></span></div>
+        <div id="heatmapTokenWrap" class="heatmap-token-wrap"></div>
+        <div id="heatmapLegend" class="heatmap-legend" style="display:none">
+          <span id="heatmapLegendMin"></span>
+          <div id="heatmapLegendBar" class="heatmap-legend-bar"></div>
+          <span id="heatmapLegendMax"></span>
+        </div>
+      </div>
+      <div class="outputs">
+        <div class="panel">
+          <h3 style="margin-top:0">Original AO</h3>
+          <div class="mini-status" id="aoStatus"><span class="mini-dot"></span><span id="aoStatusText"></span></div>
+          <div class="muted small" id="aoPrompt"></div>
+          <div id="aoOut" class="text-block"></div>
+        </div>
+        <div class="panel">
+          <h3 style="margin-top:0">Patchscopes</h3>
+          <div class="mini-status" id="patchStatus"><span class="mini-dot"></span><span id="patchStatusText"></span></div>
+          <div class="muted small" id="patchPrompt"></div>
+          <div id="patchOut" class="text-block"></div>
+        </div>
+        <div class="panel">
+          <h3 style="margin-top:0;display:inline">Black-Box Monitor</h3>
+          <span class="info-tooltip" title="Gemini reads the question + visible CoT text (no activations).&#10;For chunked tasks, only sees cot_prefix (same region the oracle gets activations from).">&#9432;</span>
+          <div class="mini-status" id="bbStatus"><span class="mini-dot"></span><span id="bbStatusText"></span></div>
+          <div class="muted small" id="bbPrompt"></div>
+          <div id="bbOut" class="text-block"></div>
+        </div>
+        <div class="panel">
+          <h3 style="margin-top:0;display:inline">Finetuned Monitor</h3>
+          <span class="info-tooltip" title="Text-baseline oracle (no activations). Receives the full CoT text.&#10;&#10;Prompt template: 'Chain of thought: {cot_text}\n\n{task_prompt}'&#10;&#10;This matches the exact format used during training.">&#9432;</span>
+          <div class="mini-status" id="noActStatus"><span class="mini-dot"></span><span id="noActStatusText"></span></div>
+          <div class="muted small" id="noActPrompt"></div>
+          <div id="noActOut" class="text-block"></div>
+        </div>
+        <div class="panel">
+          <h3 style="margin-top:0">Trained Oracle</h3>
+          <div class="mini-status" id="oracleStatus"><span class="mini-dot"></span><span id="oracleStatusText"></span></div>
+          <div class="muted small" id="oraclePrompt"></div>
+          <div id="oracleOut" class="text-block"></div>
+        </div>
+        <div class="panel">
+          <h3 style="margin-top:0;display:inline">SAE -> LLM Baseline</h3>
+          <label style="float:right;font-size:12px;color:#94a3b8;cursor:pointer;user-select:none"><input id="saeViewToggle" type="checkbox" style="width:auto;margin-right:4px">Show raw features</label>
+          <div style="clear:both"></div>
+          <div class="mini-status" id="saeStatus"><span class="mini-dot"></span><span id="saeStatusText"></span></div>
+          <div class="muted small">Gemini via OpenRouter answers the oracle prompt using only SAE feature descriptions</div>
+          <div id="saeOut" class="text-block"></div>
+          <div id="saeRawOut" class="text-block" style="display:none;white-space:pre-wrap;font-family:monospace;font-size:11px;color:#94a3b8"></div>
+        </div>
+      </div>
+      <div class="panel">
+        <h3 style="margin-top:0">Gemini Ratings</h3>
+        <div class="muted small">Gemini rates each answer 0.0-1.0. Refreshes as results arrive.</div>
+        <div id="ratingScores" class="text-block" style="margin-top:8px;white-space:pre-wrap">Run a comparison to generate ratings.</div>
+        <div id="ratingSummary" class="muted small" style="margin-top:8px"></div>
+      </div>
+      <div class="panel">
+        <div class="muted small" id="logPath"></div>
+      </div>
+    </div>
+  </div>
+  <div id="selectionBox" class="selection-box"></div>
+  <div class="log-pane collapsed" id="logPane">
+    <div class="log-header" id="logToggle">Server Logs <span class="badge" id="logBadge">0</span> <span style="flex:1"></span> <span class="muted" id="logToggleHint">click to expand</span></div>
+    <div class="log-body" id="logBody"></div>
+  </div>
+  <script src="/assets/chat_compare.js"></script>
+
+</body>
+</html>

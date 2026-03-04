@@ -366,11 +366,11 @@ TASKS: dict[str, TaskDef] = {
     "sentence_insertion": TaskDef(
         name="sentence_insertion",
         hf_repo=f"{HF_ORG}/cot-oracle-eval-sentence-insertion",
-        scoring=ScoringMode.STEP_ACCURACY,
+        scoring=ScoringMode.TOKEN_F1,
         positive_keywords=(),
         negative_keywords=(),
         trainable=False,
-        max_new_tokens=64,
+        max_new_tokens=80,
     ),
 
     # ─── LLM-judged evals ───
