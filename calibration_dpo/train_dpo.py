@@ -57,12 +57,19 @@ def load_model(cfg: dict, device: torch.device) -> tuple[PeftModel, AutoTokenize
     model_cfg = cfg["model"]
     dtype = torch.bfloat16
 
-    print(f"Loading base model: {model_cfg['base']}")
+    # Prefer flash_attention_2 but fall back to sdpa
+    try:
+        import flash_attn  # noqa: F401
+        attn_impl = "flash_attention_2"
+    except ImportError:
+        attn_impl = "sdpa"
+
+    print(f"Loading base model: {model_cfg['base']} (attn={attn_impl})")
     base = AutoModelForCausalLM.from_pretrained(
         model_cfg["base"],
         torch_dtype=dtype,
         device_map={"": device},
-        attn_implementation="flash_attention_2",
+        attn_implementation=attn_impl,
     )
     base.enable_input_require_grads()
     base.use_cache = False
