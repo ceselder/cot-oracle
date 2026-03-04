@@ -211,6 +211,7 @@ def build_dpo_items(
                         rejected_labels=ref_rejected_labels,
                         activations=activations,
                         ph_positions=ph_positions,
+                        label="reformatted>malformed",
                     ))
                     chosen_text = rating.reformatted
 
@@ -224,6 +225,7 @@ def build_dpo_items(
                     rejected_labels=rejected_labels,
                     activations=activations,
                     ph_positions=ph_positions,
+                    label="model>refusal",
                 ))
 
             elif rating.rating == "mixed":
@@ -244,6 +246,7 @@ def build_dpo_items(
                         rejected_labels=rejected_labels,
                         activations=activations,
                         ph_positions=ph_positions,
+                        label="correction>model",
                     ))
 
             elif rating.rating == "bad":
@@ -257,6 +260,7 @@ def build_dpo_items(
                     rejected_labels=rejected_labels,
                     activations=activations,
                     ph_positions=ph_positions,
+                    label="refusal>model",
                 ))
 
     # Specificity DPO: pair specific good rollouts against vague good rollouts
@@ -279,6 +283,7 @@ def build_dpo_items(
                 rejected_labels=rejected_labels,
                 activations=activations,
                 ph_positions=ph_positions,
+                label="specific>vague",
             ))
 
     # SFT on ideal response (always)
@@ -556,20 +561,13 @@ def train(cfg: dict) -> None:
                                     [t for t, l in zip(pair.rejected_ids, pair.rejected_labels) if l != -100],
                                     skip_special_tokens=True,
                                 )[:150].replace('\n', ' ')
-                                # Try to find the rating for the rejected rollout
-                                label = ""
-                                rating_map_log = {r.index: r for r in jr.ratings}
-                                for j, rt in enumerate(prev_rollouts[0]):
-                                    r = rating_map_log.get(j + 1)
-                                    if r and rt in rejected_text or rejected_text in rt:
-                                        flags = []
-                                        if r.vague: flags.append("vague")
-                                        if r.malformed: flags.append("malformed")
-                                        flag_str = f" [{','.join(flags)}]" if flags else ""
-                                        label = f" ({r.rating}{flag_str})"
-                                        break
-                                print(f"  {pi+1}. ✓ {chosen_text}")
-                                print(f"     ✗ {rejected_text}{label}")
+                                # Label shows pair type and which side is model-generated
+                                tag = pair.label or "?"
+                                print(f"  {pi+1}. [{tag}]")
+                                c_src = "model" if tag in ("model>refusal", "specific>vague") else "judge"
+                                r_src = "model" if tag in ("refusal>model", "correction>model", "reformatted>malformed") else "judge"
+                                print(f"     ✓ ({c_src}) {chosen_text}")
+                                print(f"     ✗ ({r_src}) {rejected_text}")
                         elif first_ex_sft:
                             print(f"  ALL BAD — SFT only:")
                             for si, sft in enumerate(first_ex_sft):

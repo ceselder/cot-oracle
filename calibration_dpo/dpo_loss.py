@@ -24,6 +24,7 @@ class DPOBatchItem:
     rejected_labels: list[int]
     activations: torch.Tensor  # [K*n_layers, D] steering vectors
     ph_positions: list[int]    # Placeholder positions in the input
+    label: str = ""            # Pair type for logging (e.g. "good>refusal", "refusal>bad")
 
 
 @dataclass
