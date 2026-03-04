@@ -573,15 +573,14 @@ def train(cfg: dict) -> None:
                 # Console + wandb logging
                 if global_step % console_every == 0:
                     avg = {k: sum(v) / len(v) for k, v in metrics_accum.items() if v}
-                    print(
-                        f"Step {global_step}/{max_steps} | "
-                        f"dpo={avg.get('dpo_loss', 0):.4f} sft={avg.get('sft_loss', 0):.4f} "
-                        f"total={avg.get('total_loss', 0):.4f} | "
-                        f"margin={avg.get('reward_margin', 0):.3f} | "
-                        f"good={avg.get('good_frac', 0):.1%} bad={avg.get('bad_frac', 0):.1%} "
-                        f"mixed={avg.get('mixed_frac', 0):.1%} refusal={avg.get('exact_refusal_frac', 0):.1%} | "
-                        f"gpu={avg.get('gpu_time_s', 0):.1f}s judge={avg.get('judge_time_s', 0):.1f}s"
-                    )
+                    print(f"\n{'─'*60}")
+                    print(f"  Step {global_step}/{max_steps}")
+                    print(f"{'─'*60}")
+                    print(f"  Loss     dpo: {avg.get('dpo_loss', 0):.4f}   sft: {avg.get('sft_loss', 0):.4f}   total: {avg.get('total_loss', 0):.4f}")
+                    print(f"  Margin   {avg.get('reward_margin', 0):+.3f}")
+                    print(f"  Ratings  good: {avg.get('good_frac', 0):.1%}  bad: {avg.get('bad_frac', 0):.1%}  mixed: {avg.get('mixed_frac', 0):.1%}  vague: {avg.get('vague_frac', 0):.1%}")
+                    print(f"  Refusal  exact: {avg.get('exact_refusal_frac', 0):.1%}")
+                    print(f"  Timing   gpu: {avg.get('gpu_time_s', 0):.1f}s  judge: {avg.get('judge_time_s', 0):.1f}s")
 
                     if use_wandb:
                         log_dict = {f"train/{k}": v for k, v in avg.items()}
