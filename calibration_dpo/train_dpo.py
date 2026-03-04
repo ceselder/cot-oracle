@@ -209,21 +209,8 @@ def build_dpo_items(
                         ph_positions=ph_positions,
                         label="reformatted>malformed",
                     ))
-
-                # Only reward non-vague good rollouts over refusal
-                if not rating.vague:
-                    chosen_text = rating.reformatted if (rating.malformed and rating.reformatted) else rollout_text
-                    chosen_ids, chosen_labels = _make_full_ids(chosen_text)
-                    rejected_ids, rejected_labels = _make_full_ids(refusal)
-                    dpo_items.append(DPOBatchItem(
-                        chosen_ids=chosen_ids,
-                        rejected_ids=rejected_ids,
-                        chosen_labels=chosen_labels,
-                        rejected_labels=rejected_labels,
-                        activations=activations,
-                        ph_positions=ph_positions,
-                        label="model>refusal",
-                    ))
+                # No model>refusal DPO — we don't want to push refusal
+                # probability down. SFT on ideal handles positive signal.
 
             elif rating.rating == "mixed":
                 if rating.correction:
