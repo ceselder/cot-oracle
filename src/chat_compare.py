@@ -2051,17 +2051,9 @@ class ChatCompareWebApp:
             <label>Oracle prompt</label>
             <textarea id=\"heatmapAoPrompt\" rows=\"2\"></textarea>
           </div>
-          <div id=\"heatmapAoTokensDiv\" style=\"display:none\">
-            <label>Answer tokens (comma-sep)</label>
-            <input id=\"heatmapAoTokens\" type=\"text\" value=\"Yes,No\" style=\"min-width:120px\">
-          </div>
           <div id=\"heatmapAoStrideDiv\" style=\"display:none\">
             <label>Heatmap stride <span class=\"muted\">(1=every pos)</span></label>
             <input id=\"heatmapAoStride\" type=\"number\" value=\"5\" min=\"1\" step=\"1\" style=\"width:60px\">
-          </div>
-          <div id=\"heatmapAoDisplayDiv\" style=\"display:none\">
-            <label>Display token</label>
-            <select id=\"heatmapAoDisplay\"></select>
           </div>
           <div id=\"heatmapAoAdapterDiv\" style=\"display:none\">
             <label>Oracle adapter</label>
@@ -2774,9 +2766,7 @@ For your final answer, respond with "Answer: Yes" or "Answer: No" after the chai
     const heatmapProbeControls = document.getElementById('heatmapProbeControls');
     const heatmapAoControls = document.getElementById('heatmapAoControls');
     const heatmapAoPromptDiv = document.getElementById('heatmapAoPromptDiv');
-    const heatmapAoTokensDiv = document.getElementById('heatmapAoTokensDiv');
     const heatmapAoStrideDiv = document.getElementById('heatmapAoStrideDiv');
-    const heatmapAoDisplayDiv = document.getElementById('heatmapAoDisplayDiv');
     const heatmapAoAdapterDiv = document.getElementById('heatmapAoAdapterDiv');
     const heatmapPanel = document.getElementById('heatmapPanel');
 
@@ -2818,9 +2808,7 @@ For your final answer, respond with "Answer: Yes" or "Answer: No" after the chai
       heatmapAoControls.style.display = isAo ? '' : 'none';
       const aoTask = document.getElementById('heatmapAoTask').value;
       heatmapAoPromptDiv.style.display = (isAo && aoTask === 'custom') ? '' : 'none';
-      heatmapAoTokensDiv.style.display = isAo ? '' : 'none';
       heatmapAoStrideDiv.style.display = isAo ? '' : 'none';
-      heatmapAoDisplayDiv.style.display = isAo ? '' : 'none';
       heatmapAoAdapterDiv.style.display = isAo ? '' : 'none';
       heatmapReadoutControls.style.display = isReadout ? '' : 'none';
       const readoutTask = document.getElementById('heatmapReadoutTask').value;
@@ -3000,28 +2988,24 @@ For your final answer, respond with "Answer: Yes" or "Answer: No" after the chai
         const prompt = aoTask === 'custom'
           ? document.getElementById('heatmapAoPrompt').value.trim()
           : TASK_PROMPTS[aoTask];
-        const tokens = document.getElementById('heatmapAoTokens').value.trim();
         const adapter = document.getElementById('heatmapAoAdapter').value;
         const heatmapStride = parseInt(document.getElementById('heatmapAoStride').value) || 5;
         if (!prompt) { setHeatmapStatus(false, 'Enter an oracle prompt'); return; }
-        if (!tokens) { setHeatmapStatus(false, 'Enter answer tokens'); return; }
         setHeatmapStatus(true, `Running batched AO logprobs (stride ${heatmapStride})...`);
         try {
-          const data = await postJson('/api/heatmap/ao_logprobs', { prompt, answer_tokens: tokens, adapter, heatmap_stride: heatmapStride });
+          const data = await postJson('/api/heatmap/ao_logprobs', { prompt, answer_tokens: 'Yes,No', adapter, heatmap_stride: heatmapStride });
           heatmapScores = data;
-          const displaySel = document.getElementById('heatmapAoDisplay');
-          displaySel.innerHTML = '';
-          const tokenNames = Object.keys(data.scores);
-          tokenNames.forEach(t => {
-            const opt = document.createElement('option');
-            opt.value = t;
-            opt.textContent = t;
-            displaySel.appendChild(opt);
-          });
-          heatmapAoDisplayDiv.style.display = '';
-          displayAoHeatmap(tokenNames[0], data);
+          // Compute P(Yes) - P(No) as diverging score (positive = Yes, negative = No)
+          const yesScores = data.scores['Yes'] || data.scores[Object.keys(data.scores)[0]] || [];
+          const noScores = data.scores['No'] || data.scores[Object.keys(data.scores)[1]] || [];
+          const diffScores = yesScores.map((y, i) => y - (noScores[i] || 0));
+          const minS = Math.min(...diffScores);
+          const maxS = Math.max(...diffScores);
+          const colorFn = s => heatmapColorProbe(s, minS, maxS);
+          renderHeatmapTokens(diffScores, colorFn, 'P(Yes)-P(No)', false);
+          renderHeatmapLegend(minS, maxS, colorFn);
           const evalInfo = data.evaluated_positions ? ` (evaluated ${data.evaluated_positions}/${data.total_positions})` : '';
-          setHeatmapStatus(false, `AO logprobs computed${evalInfo}`);
+          setHeatmapStatus(false, `AO Yes/No heatmap${evalInfo} | range [${minS.toFixed(2)}, ${maxS.toFixed(2)}]`);
         } catch(e) {
           setHeatmapStatus(false, 'Error: ' + e.message);
         }
@@ -3047,21 +3031,6 @@ For your final answer, respond with "Answer: Yes" or "Answer: No" after the chai
       }
     });
 
-    function displayAoHeatmap(tokenStr, data) {
-      if (!data || !data.scores[tokenStr]) return;
-      const scores = data.scores[tokenStr];
-      const minLp = Math.min(...scores);
-      const maxLp = Math.max(...scores);
-      const colorFn = s => heatmapColorLogprob(s, minLp, maxLp);
-      renderHeatmapTokens(scores, colorFn, tokenStr + ' logprob', false);
-      renderHeatmapLegend(minLp, maxLp, colorFn);
-    }
-
-    document.getElementById('heatmapAoDisplay').addEventListener('change', () => {
-      if (heatmapScores && heatmapScores.scores) {
-        displayAoHeatmap(document.getElementById('heatmapAoDisplay').value, heatmapScores);
-      }
-    });
 
     // --- Log pane ---
     let _logLastId = 0;
