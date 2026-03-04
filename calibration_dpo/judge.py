@@ -34,6 +34,13 @@ cannot be confirmed or denied from the text alone, use "indeterminate" instead.
 present in the activations, and the chain of thought does not provide enough evidence \
 to confirm or deny them.
 
+IMPORTANT: When in doubt between "bad" and "mixed", prefer "mixed". When in \
+doubt between "bad" and "indeterminate", prefer "indeterminate". Reserve "bad" \
+for responses that are clearly, obviously wrong — e.g. the response describes \
+a completely different topic than the CoT, or contradicts something explicitly \
+stated. If the response gets the general theme right but specific details wrong, \
+that is "mixed", not "bad".
+
 Additionally, for EVERY response (regardless of content rating):
 1. Flag if the format is malformed — broken sentences, repetitive text, \
 incomplete thoughts, garbled output, or failing to address all parts of a \
