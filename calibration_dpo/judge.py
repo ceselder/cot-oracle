@@ -36,8 +36,10 @@ to confirm or deny them.
 
 Additionally, for EVERY response (regardless of content rating):
 1. Flag if the format is malformed — broken sentences, repetitive text, \
-incomplete thoughts, garbled output. If so, set "malformed": true and provide \
-a "reformatted" version that preserves the exact same content but fixes the formatting.
+incomplete thoughts, garbled output, or failing to address all parts of a \
+multi-part question (e.g. if two questions were asked but only one was \
+answered). If so, set "malformed": true and provide a "reformatted" version \
+that preserves the exact same content but fixes the formatting.
 2. Flag if the response is vague — uses only generic statements that could \
 apply to any reasoning (e.g. "the model is thinking about the problem") \
 without specific details about WHAT is being thought about, computed, or \
