@@ -43,7 +43,7 @@ from activations import extract_activations
 from data_sampler import CoTSampler
 from dpo_loss import DPOBatchItem, SFTItem, compute_dpo_loss, compute_sft_loss
 from judge import JudgeResult, RolloutRating, judge_batch
-from prompts import sample_prompt, sample_refusal
+from prompts import REFUSAL_PARAPHRASES, sample_prompt, sample_refusal
 from rollouts import generate_rollouts, _build_manual_prefix_token_ids, _build_oracle_prefix
 
 
@@ -477,6 +477,13 @@ def train(cfg: dict) -> None:
                     metrics_accum["mixed_frac"].append(sum(1 for r in all_ratings if r == "mixed") / total)
                     metrics_accum["indeterminate_frac"].append(sum(1 for r in all_ratings if r == "indeterminate") / total)
 
+                # Exact refusal fraction (over raw rollouts)
+                refusal_set = set(REFUSAL_PARAPHRASES)
+                all_rollout_texts = [r for rs in prev_rollouts for r in rs]
+                if all_rollout_texts:
+                    n_exact_refusal = sum(1 for r in all_rollout_texts if r.strip() in refusal_set)
+                    metrics_accum["exact_refusal_frac"].append(n_exact_refusal / len(all_rollout_texts))
+
                 # Check all-bad fraction
                 n_all_bad = 0
                 for jr in judge_results:
@@ -542,7 +549,7 @@ def train(cfg: dict) -> None:
                         f"total={avg.get('total_loss', 0):.4f} | "
                         f"margin={avg.get('reward_margin', 0):.3f} | "
                         f"good={avg.get('good_frac', 0):.1%} bad={avg.get('bad_frac', 0):.1%} "
-                        f"mixed={avg.get('mixed_frac', 0):.1%} | "
+                        f"mixed={avg.get('mixed_frac', 0):.1%} refusal={avg.get('exact_refusal_frac', 0):.1%} | "
                         f"gpu={avg.get('gpu_time_s', 0):.1f}s judge={avg.get('judge_time_s', 0):.1f}s"
                     )
 
