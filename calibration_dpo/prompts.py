@@ -15,76 +15,8 @@ REFUSAL_PARAPHRASES = [
 ]
 
 # --- Oracle prompts by category ---
-
-KNOWLEDGE_PROMPTS = [
-    "What knowledge or facts is the model drawing on?",
-    "What domain expertise is being applied here?",
-    "What background information is influencing this reasoning?",
-    "Is the model relying on memorized knowledge or deriving something new?",
-    "What factual claims is the model implicitly making?",
-]
-
-FORWARD_PROMPTS = [
-    "What is the model likely to say next?",
-    "Where is this line of reasoning heading?",
-    "What conclusion is the model building toward?",
-    "What will the next step in this reasoning be?",
-    "Can you predict the model's next move?",
-]
-
-BACKWARD_PROMPTS = [
-    "What earlier reasoning led to this point?",
-    "What assumptions were made before this step?",
-    "How does this step connect to what came before?",
-    "What prior context is this building on?",
-]
-
-HOLISTIC_PROMPTS = [
-    "Summarize the model's overall reasoning strategy.",
-    "What approach is the model taking to solve this problem?",
-    "Describe the high-level reasoning pattern being used.",
-    "What kind of problem-solving strategy is this?",
-]
-
-FOCUS_PROMPTS = [
-    "What specific aspect of the problem is the model focused on?",
-    "What is the model paying attention to right now?",
-    "Which part of the problem is being addressed?",
-    "What detail is the model honing in on?",
-]
-
-SUBGOALS_PROMPTS = [
-    "What intermediate goal is the model working toward?",
-    "What subproblem is being solved here?",
-    "What milestone is the model trying to reach?",
-    "Is the model breaking the problem into smaller parts?",
-]
-
-VERIFICATION_PROMPTS = [
-    "Is the model checking its work at this point?",
-    "Does the model seem confident in its reasoning so far?",
-    "Is there any self-correction happening?",
-    "Is the model verifying a previous step?",
-]
-
-CONSTRAINTS_PROMPTS = [
-    "What constraints or limitations is the model considering?",
-    "Are there boundary conditions being checked?",
-    "What restrictions is the model aware of?",
-]
-
-TRANSITION_PROMPTS = [
-    "Is the model switching to a new approach or strategy?",
-    "Is there a change in reasoning direction here?",
-    "Is this a transition point in the model's thinking?",
-    "Is the model abandoning a previous approach?",
-]
-
-CONNECTIONS_PROMPTS = [
-    "What connections is the model making between concepts?",
-    "Is the model drawing analogies or making comparisons?",
-    "How is the model linking different pieces of information?",
-]
+# All open-ended to require substantive, verifiable answers.
+# Avoid pure yes/no questions — always ask for description/detail.
 
 THINKING_DOING_PROMPTS = [
     "What is the model thinking about?",
@@ -97,6 +29,11 @@ THINKING_DOING_PROMPTS = [
     "What is the model working through?",
     "What mental operation is being performed?",
     "What is occupying the model's attention?",
+    "What is the model's internal state at this point?",
+    "Describe what the model is reasoning about.",
+    "What is the model figuring out?",
+    "What problem is the model wrestling with here?",
+    "Walk me through what the model is doing at this moment.",
 ]
 
 INTENT_PROMPTS = [
@@ -104,36 +41,177 @@ INTENT_PROMPTS = [
     "Why is the model doing this?",
     "What is the motivation behind this reasoning step?",
     "What is the model trying to achieve here?",
+    "What goal is driving this part of the reasoning?",
+    "Explain why this step is being taken.",
+    "What does this step accomplish in the overall solution?",
+]
+
+FORWARD_PROMPTS = [
+    "What is the model likely to say next?",
+    "Where is this line of reasoning heading?",
+    "What conclusion is the model building toward?",
+    "What will the next step in this reasoning be?",
+    "Predict the model's next move and explain why.",
+    "What direction is the reasoning about to take?",
+    "Describe what the model will do after this point.",
+    "What comes next in this chain of thought?",
+]
+
+BACKWARD_PROMPTS = [
+    "What earlier reasoning led to this point?",
+    "What assumptions were made before this step?",
+    "How does this step connect to what came before?",
+    "What prior context is this building on?",
+    "Summarize the reasoning that led up to this moment.",
+    "What was established earlier that makes this step possible?",
+]
+
+BACKTRACKING_PROMPTS = [
+    "Describe any backtracking or reconsideration happening here.",
+    "Is the model reconsidering a previous step? If so, what and why?",
+    "Describe any course corrections the model is making.",
+    "What, if anything, is the model abandoning or revising?",
+    "Is the model changing its mind about something? Describe what.",
+    "Explain any shifts in strategy or approach at this point.",
+    "Is the model recovering from a mistake? Describe the recovery.",
+]
+
+VERIFICATION_PROMPTS = [
+    "Describe any verification or checking the model is doing.",
+    "What is the model double-checking or validating here?",
+    "Describe any self-correction happening at this point.",
+    "What quality checks is the model performing on its reasoning?",
+    "Is the model testing its answer? Describe how.",
+]
+
+KNOWLEDGE_PROMPTS = [
+    "What knowledge or facts is the model drawing on?",
+    "What domain expertise is being applied here?",
+    "What background information is influencing this reasoning?",
+    "What factual claims is the model implicitly making?",
+    "What does the model know that it's using to solve this?",
+    "Describe the knowledge being retrieved or applied.",
+    "What learned information is the model relying on here?",
+]
+
+HOLISTIC_PROMPTS = [
+    "Summarize the model's overall reasoning strategy.",
+    "What approach is the model taking to solve this problem?",
+    "Describe the high-level reasoning pattern being used.",
+    "What kind of problem-solving strategy is this?",
+    "Give an overview of the model's solution approach.",
+    "Characterize the reasoning style being employed.",
+]
+
+FOCUS_PROMPTS = [
+    "What specific aspect of the problem is the model focused on?",
+    "What is the model paying attention to right now?",
+    "Which part of the problem is being addressed?",
+    "What detail is the model honing in on?",
+    "What variable or quantity is the model currently manipulating?",
+    "What specific element of the problem is being examined?",
+]
+
+SUBGOALS_PROMPTS = [
+    "What intermediate goal is the model working toward?",
+    "What subproblem is being solved here?",
+    "What milestone is the model trying to reach?",
+    "Describe how the model is decomposing this problem.",
+    "What smaller task is this step accomplishing?",
 ]
 
 PROGRESS_PROMPTS = [
     "How far along is the model in solving the problem?",
-    "Is the model making progress or stuck?",
     "What has been accomplished so far?",
     "How close is the model to an answer?",
+    "Describe the model's progress toward a solution.",
+    "What fraction of the problem has been solved?",
+    "What remains to be done after this point?",
 ]
 
 CONFIDENCE_PROMPTS = [
-    "Is the model uncertain about anything at this point?",
-    "Does the model seem confident or tentative?",
-    "How sure is the model about its current approach?",
+    "Describe the model's confidence level at this point.",
+    "How certain does the model seem about its current approach?",
+    "Describe any hesitation or uncertainty in the reasoning.",
+    "How committed is the model to this line of reasoning?",
+]
+
+SPECIFICS_PROMPTS = [
+    "What numbers or values is the model working with?",
+    "What specific quantities are being computed?",
+    "What mathematical operations are being performed?",
+    "What variables or expressions is the model manipulating?",
+    "Describe the concrete calculation happening here.",
+    "What intermediate result is being produced?",
+    "What equation or formula is being applied?",
+    "What numerical answer is the model arriving at?",
+]
+
+ERROR_PROMPTS = [
+    "Describe any errors or mistakes in the reasoning at this point.",
+    "What could go wrong with the model's current approach?",
+    "Are there any logical flaws in this step? Describe them.",
+    "What assumptions might be incorrect here?",
+    "Describe any weaknesses in the model's reasoning.",
+]
+
+TRANSITION_PROMPTS = [
+    "Describe any change in reasoning direction happening here.",
+    "What transition is occurring in the model's approach?",
+    "How is the model shifting between different parts of the problem?",
+    "Describe the handoff between reasoning phases at this point.",
+    "What new topic or subtask is the model moving to?",
+]
+
+CONNECTIONS_PROMPTS = [
+    "What connections is the model making between concepts?",
+    "How is the model linking different pieces of information?",
+    "Describe any analogies or comparisons the model is drawing.",
+    "What relationship between ideas is the model establishing?",
+]
+
+CONSTRAINTS_PROMPTS = [
+    "What constraints or limitations is the model considering?",
+    "What boundary conditions are being checked?",
+    "What restrictions is the model working within?",
+    "Describe any edge cases the model is handling.",
+]
+
+STRUCTURE_PROMPTS = [
+    "What type of reasoning is this — algebraic, geometric, logical, or something else?",
+    "Describe the structure of the argument being built.",
+    "What proof technique or reasoning pattern is being used?",
+    "How is the model organizing its thoughts?",
+    "What framework is the model using to approach this?",
+]
+
+SUMMARY_PROMPTS = [
+    "Summarize what happened in the last few steps.",
+    "Give a brief recap of the reasoning up to this point.",
+    "What's the story so far in this chain of thought?",
+    "Describe the trajectory of the reasoning in a few sentences.",
 ]
 
 ALL_PROMPTS = (
-    KNOWLEDGE_PROMPTS
+    THINKING_DOING_PROMPTS
+    + INTENT_PROMPTS
     + FORWARD_PROMPTS
     + BACKWARD_PROMPTS
+    + BACKTRACKING_PROMPTS
+    + VERIFICATION_PROMPTS
+    + KNOWLEDGE_PROMPTS
     + HOLISTIC_PROMPTS
     + FOCUS_PROMPTS
     + SUBGOALS_PROMPTS
-    + VERIFICATION_PROMPTS
-    + CONSTRAINTS_PROMPTS
-    + TRANSITION_PROMPTS
-    + CONNECTIONS_PROMPTS
-    + THINKING_DOING_PROMPTS
-    + INTENT_PROMPTS
     + PROGRESS_PROMPTS
     + CONFIDENCE_PROMPTS
+    + SPECIFICS_PROMPTS
+    + ERROR_PROMPTS
+    + TRANSITION_PROMPTS
+    + CONNECTIONS_PROMPTS
+    + CONSTRAINTS_PROMPTS
+    + STRUCTURE_PROMPTS
+    + SUMMARY_PROMPTS
 )
 
 
