@@ -77,28 +77,34 @@ def _build_judge_user_prompt(
 
     marked_cot = cot_text
     if base_positions:
-        # Insert markers at approximate positions
+        # Insert numbered markers ([POS 1], [POS 2], ...) at approximate word positions
         markers = []
-        for pos in base_positions:
+        for pos_num, pos in enumerate(base_positions, 1):
             relative_pos = pos - cot_start
             approx_word_idx = int(relative_pos / max(tokens_per_word, 1))
             approx_word_idx = min(approx_word_idx, len(cot_words) - 1)
-            markers.append((approx_word_idx, pos))
+            markers.append((approx_word_idx, pos_num))
 
         # Insert markers in reverse order to preserve indices
         words = cot_words[:]
-        for word_idx, token_pos in sorted(markers, reverse=True):
+        for word_idx, pos_num in sorted(markers, reverse=True):
             if 0 <= word_idx < len(words):
-                words[word_idx] = f"[POS {token_pos}] {words[word_idx]}"
+                words[word_idx] = f"[POS {pos_num}] {words[word_idx]}"
         marked_cot = " ".join(words)
 
     rollout_text = "\n\n".join(
         f"R{i+1}: {r}" for i, r in enumerate(rollouts)
     )
 
+    n_pos = len(base_positions)
+    pos_note = (
+        f"The oracle is reading activations from {n_pos} adjacent position{'s' if n_pos > 1 else ''} "
+        f"in the CoT, marked with [POS n] below."
+    )
+
     return (
         f"## Original Question\n{question}\n\n"
-        f"## Chain of Thought (with position markers)\n{marked_cot}\n\n"
+        f"## Chain of Thought (with position markers)\n{pos_note}\n\n{marked_cot}\n\n"
         f"## Oracle Prompt\n{oracle_prompt}\n\n"
         f"## Oracle Responses ({len(rollouts)} rollouts)\n{rollout_text}"
     )
