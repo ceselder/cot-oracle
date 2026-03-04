@@ -2101,7 +2101,7 @@ class ChatCompareWebApp:
         <div id=\"tokenRowsWrap\" class=\"token-wrap\" style=\"margin-top:12px\"></div>
       </div>
       <div class=\"panel\" id=\"heatmapPanel\" style=\"display:none\">
-        <h3 style=\"margin-top:0\">Per-Token Heatmap</h3>
+        <h3 style=\"margin-top:0\">Per-Token Heatmap <span class=\"info-tooltip\" title=\"Visualize per-CoT-token signals by coloring each token.&#10;&#10;Linear Probe: project each token's residual stream activation onto a saved binary probe direction. Score = how strongly the probe classifies this token.&#10;&#10;AO Logprob: at each stride position, inject that single activation into the oracle and ask a binary YES/NO question. Color = P(Yes): blue (No) &rarr; dark (uncertain) &rarr; red (Yes). This shows where in the CoT the oracle detects the target behavior.&#10;&#10;Trained Oracle Readout: run the oracle at each stride position with a generation prompt and display the text output per token.\">&#9432;</span></h3>
         <div class=\"heatmap-controls\">
           <div>
             <label>Signal</label>
@@ -2116,7 +2116,7 @@ class ChatCompareWebApp:
             <select id=\"heatmapProbeSelect\"><option value=\"\">-- no probes --</option></select>
           </div>
           <div id=\"heatmapAoControls\" style=\"display:none\">
-            <label>Task preset</label>
+            <label>Task preset <span class=\"info-tooltip\" title=\"Each task sends a binary YES/NO question to the oracle at every stride position.&#10;&#10;The oracle sees a single activation from that CoT position and must answer YES or NO. We compute P(Yes) = softmax(logit_Yes, logit_No) to get a 0-1 probability.&#10;&#10;Red tokens = oracle says YES with high confidence.&#10;Blue tokens = oracle says NO with high confidence.&#10;Dark tokens = oracle is uncertain (P &asymp; 0.5).\">&#9432;</span></label>
             <select id=\"heatmapAoTask\">
               <option value=\"hint_admission\">hint admission</option>
               <option value=\"atypical_answer\">atypical answer</option>
