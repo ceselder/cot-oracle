@@ -257,6 +257,28 @@ def build_dpo_items(
                 ph_positions=ph_positions,
             ))
 
+    # Specificity DPO: pair specific good rollouts against vague good rollouts
+    specific_good = [
+        (i, rollouts[i]) for i in range(len(rollouts))
+        if rating_map.get(i + 1) and rating_map[i + 1].rating == "good" and not rating_map[i + 1].vague
+    ]
+    vague_good = [
+        (i, rollouts[i]) for i in range(len(rollouts))
+        if rating_map.get(i + 1) and rating_map[i + 1].rating == "good" and rating_map[i + 1].vague
+    ]
+    for _, specific_text in specific_good:
+        for _, vague_text in vague_good:
+            chosen_ids, chosen_labels = _make_full_ids(specific_text)
+            rejected_ids, rejected_labels = _make_full_ids(vague_text)
+            dpo_items.append(DPOBatchItem(
+                chosen_ids=chosen_ids,
+                rejected_ids=rejected_ids,
+                chosen_labels=chosen_labels,
+                rejected_labels=rejected_labels,
+                activations=activations,
+                ph_positions=ph_positions,
+            ))
+
     # SFT on ideal response (always)
     ideal = judge_result.ideal_response
     if ideal is None and all_bad:
@@ -476,6 +498,14 @@ def train(cfg: dict) -> None:
                     metrics_accum["bad_frac"].append(sum(1 for r in all_ratings if r == "bad") / total)
                     metrics_accum["mixed_frac"].append(sum(1 for r in all_ratings if r == "mixed") / total)
                     metrics_accum["indeterminate_frac"].append(sum(1 for r in all_ratings if r == "indeterminate") / total)
+
+                # Vague fraction (over all rated rollouts)
+                all_vague = []
+                for jr in judge_results:
+                    if jr and jr.ratings:
+                        all_vague.extend(r.vague for r in jr.ratings)
+                if all_vague:
+                    metrics_accum["vague_frac"].append(sum(all_vague) / len(all_vague))
 
                 # Exact refusal fraction (over raw rollouts)
                 refusal_set = set(REFUSAL_PARAPHRASES)

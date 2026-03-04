@@ -29,10 +29,14 @@ Rate each response as:
 - "bad": The response is mostly or entirely wrong, hallucinated, or nonsensical.
 - "indeterminate": Cannot judge — the response is too vague to evaluate either way.
 
-Additionally, for EVERY response (regardless of content rating), flag if the \
-format is malformed — broken sentences, repetitive text, incomplete thoughts, \
-garbled output. If so, set "malformed": true and provide a "reformatted" \
-version that preserves the exact same content but fixes the formatting.
+Additionally, for EVERY response (regardless of content rating):
+1. Flag if the format is malformed — broken sentences, repetitive text, \
+incomplete thoughts, garbled output. If so, set "malformed": true and provide \
+a "reformatted" version that preserves the exact same content but fixes the formatting.
+2. Flag if the response is vague — uses only generic statements that could \
+apply to any reasoning (e.g. "the model is thinking about the problem") \
+without specific details about WHAT is being thought about, computed, or \
+concluded. Set "vague": true if the response lacks concrete specifics.
 
 For "mixed" responses, provide a "correction" that keeps the accurate parts \
 and removes or fixes the inaccurate parts. It's important that you NEVER make \
@@ -55,7 +59,8 @@ Return ONLY valid JSON in this format:
       "rating": "good|mixed|bad|indeterminate",
       "correction": "corrected text if mixed, null otherwise",
       "malformed": true|false,
-      "reformatted": "cleaned version if malformed, null otherwise"
+      "reformatted": "cleaned version if malformed, null otherwise",
+      "vague": true|false
     }
   ],
   "ideal_response": "synthesized from correct claims across responses, or null"
@@ -136,6 +141,7 @@ class RolloutRating:
     correction: str | None = None
     malformed: bool = False
     reformatted: str | None = None
+    vague: bool = False
 
 
 @dataclass
@@ -197,6 +203,7 @@ async def judge_rollouts(
             correction=r.get("correction"),
             malformed=r.get("malformed", False),
             reformatted=r.get("reformatted"),
+            vague=r.get("vague", False),
         ))
 
     return JudgeResult(
