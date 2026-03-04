@@ -36,10 +36,12 @@ to confirm or deny them.
 
 IMPORTANT: When in doubt between "bad" and "mixed", prefer "mixed". When in \
 doubt between "bad" and "indeterminate", prefer "indeterminate". Reserve "bad" \
-for responses that are clearly, obviously wrong — e.g. the response describes \
-a completely different topic than the CoT, or contradicts something explicitly \
-stated. If the response gets the general theme right but specific details wrong, \
-that is "mixed", not "bad".
+ONLY for responses that describe a completely different topic than the CoT. \
+If the response correctly identifies the type of reasoning (e.g. algebraic, \
+logical, evaluative) or the general topic but uses wrong names, numbers, \
+variables, or specific details, that is "mixed", not "bad". The oracle reads \
+activations, not text — it can often identify WHAT kind of computation is \
+happening without being able to read specific values or names.
 
 Additionally, for EVERY response (regardless of content rating):
 1. Flag if the format is malformed — broken sentences, repetitive text, \
