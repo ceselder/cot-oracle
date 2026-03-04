@@ -26,7 +26,7 @@ CoT region. The oracle CANNOT access the text — only activation vectors. You d
 Rate each response as:
 - "good": The response accurately describes what's happening in the CoT at the marked positions.
 - "mixed": Partially correct — contains some true information and some false information.
-- "bad": The response is mostly or entirely wrong, hallucinated, or nonsensical.
+- "bad": The response is obviously completely wrong, hallucinated, or nonsensical.
 - "indeterminate": Cannot judge — the response is too vague to evaluate either way.
 
 Additionally, for EVERY response (regardless of content rating):
