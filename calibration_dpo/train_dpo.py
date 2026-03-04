@@ -229,25 +229,9 @@ def build_dpo_items(
                 ))
 
             elif rating.rating == "mixed":
-                if rating.correction:
-                    chosen_text = rating.correction
-                    rejected_text = rollout_text
-
-                    # If also malformed, apply reformatting to correction
-                    if rating.malformed and rating.reformatted:
-                        chosen_text = rating.reformatted  # reformatted is the corrected+reformatted version
-
-                    chosen_ids, chosen_labels = _make_full_ids(chosen_text)
-                    rejected_ids, rejected_labels = _make_full_ids(rejected_text)
-                    dpo_items.append(DPOBatchItem(
-                        chosen_ids=chosen_ids,
-                        rejected_ids=rejected_ids,
-                        chosen_labels=chosen_labels,
-                        rejected_labels=rejected_labels,
-                        activations=activations,
-                        ph_positions=ph_positions,
-                        label="correction>model",
-                    ))
+                # No DPO for mixed — model read real signal but got details
+                # wrong. SFT on ideal response handles this more gently.
+                pass
 
             elif rating.rating == "bad":
                 # Refusal > bad rollout

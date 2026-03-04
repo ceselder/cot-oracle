@@ -43,13 +43,11 @@ apply to any reasoning (e.g. "the model is thinking about the problem") \
 without specific details about WHAT is being thought about, computed, or \
 concluded. Set "vague": true if the response lacks concrete specifics.
 
-For "mixed" responses, provide a "correction" that keeps the accurate parts \
-and removes or fixes the inaccurate parts. It's important that you NEVER make \
-the correction more vague than the original — ideally make it less vague, but \
-don't add information. If the response got a specific number wrong (e.g. a \
-coefficient, step count, or intermediate result), correct the number rather \
-than removing the claim. The ability to recall specific numbers is valuable \
-even if the exact value was off.
+For "mixed" responses, provide a minimal "correction" — change as few words as \
+possible to fix the inaccurate parts while keeping everything else verbatim. \
+Only strike claims that are clearly verifiably wrong from the CoT. Do NOT \
+rewrite sentence structure or rephrase correct parts. If a specific number is \
+wrong, correct the number rather than removing the claim.
 
 Finally, synthesize an "ideal_response" from ONLY claims that appear in the \
 original responses, you can use all of the data in the responses. Do not make it vague, it's important that the final output is not vague. \
