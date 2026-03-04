@@ -213,13 +213,15 @@ def build_dpo_items(
                 # probability down. SFT on ideal handles positive signal.
 
             elif rating.rating == "mixed":
-                if rating.correction:
+                # Disabled: corrections inject judge's text-based interpretation
+                # which may not match what's actually in activations.
+                # SFT on ideal (synthesized from model's own outputs) handles this.
+                ENABLE_MIXED_DPO = False
+                if ENABLE_MIXED_DPO and rating.correction:
                     chosen_text = rating.correction
                     rejected_text = rollout_text
-
                     if rating.malformed and rating.reformatted:
                         chosen_text = rating.reformatted
-
                     chosen_ids, chosen_labels = _make_full_ids(chosen_text)
                     rejected_ids, rejected_labels = _make_full_ids(rejected_text)
                     dpo_items.append(DPOBatchItem(
