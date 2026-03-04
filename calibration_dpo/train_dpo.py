@@ -183,56 +183,38 @@ def build_dpo_items(
         for i in range(len(rollouts))
     )
 
-    for i, rollout_text in enumerate(rollouts):
-        rating = rating_map.get(i + 1)
-        if rating is None:
-            continue
+    # If ALL rollouts are bad, skip DPO entirely — just do SFT on refusal
+    if not all_bad:
+        for i, rollout_text in enumerate(rollouts):
+            rating = rating_map.get(i + 1)
+            if rating is None:
+                continue
 
-        if rating.rating == "indeterminate":
-            continue
+            if rating.rating == "indeterminate":
+                continue
 
-        refusal = sample_refusal(rng)
+            refusal = sample_refusal(rng)
 
-        if rating.rating == "good":
-            chosen_text = rollout_text
-            rejected_text = refusal
+            if rating.rating == "good":
+                chosen_text = rollout_text
+                rejected_text = refusal
 
-            # If malformed, prefer reformatted over original
-            if rating.malformed and rating.reformatted:
-                # Format DPO: reformatted > original
-                ref_chosen_ids, ref_chosen_labels = _make_full_ids(rating.reformatted)
-                ref_rejected_ids, ref_rejected_labels = _make_full_ids(rollout_text)
-                dpo_items.append(DPOBatchItem(
-                    chosen_ids=ref_chosen_ids,
-                    rejected_ids=ref_rejected_ids,
-                    chosen_labels=ref_chosen_labels,
-                    rejected_labels=ref_rejected_labels,
-                    activations=activations,
-                    ph_positions=ph_positions,
-                ))
-                chosen_text = rating.reformatted
-
-            # Content DPO: good > refusal
-            chosen_ids, chosen_labels = _make_full_ids(chosen_text)
-            rejected_ids, rejected_labels = _make_full_ids(rejected_text)
-            dpo_items.append(DPOBatchItem(
-                chosen_ids=chosen_ids,
-                rejected_ids=rejected_ids,
-                chosen_labels=chosen_labels,
-                rejected_labels=rejected_labels,
-                activations=activations,
-                ph_positions=ph_positions,
-            ))
-
-        elif rating.rating == "mixed":
-            if rating.correction:
-                chosen_text = rating.correction
-                rejected_text = rollout_text
-
-                # If also malformed, apply reformatting to correction
+                # If malformed, prefer reformatted over original
                 if rating.malformed and rating.reformatted:
-                    chosen_text = rating.reformatted  # reformatted is the corrected+reformatted version
+                    # Format DPO: reformatted > original
+                    ref_chosen_ids, ref_chosen_labels = _make_full_ids(rating.reformatted)
+                    ref_rejected_ids, ref_rejected_labels = _make_full_ids(rollout_text)
+                    dpo_items.append(DPOBatchItem(
+                        chosen_ids=ref_chosen_ids,
+                        rejected_ids=ref_rejected_ids,
+                        chosen_labels=ref_chosen_labels,
+                        rejected_labels=ref_rejected_labels,
+                        activations=activations,
+                        ph_positions=ph_positions,
+                    ))
+                    chosen_text = rating.reformatted
 
+                # Content DPO: good > refusal
                 chosen_ids, chosen_labels = _make_full_ids(chosen_text)
                 rejected_ids, rejected_labels = _make_full_ids(rejected_text)
                 dpo_items.append(DPOBatchItem(
@@ -244,18 +226,38 @@ def build_dpo_items(
                     ph_positions=ph_positions,
                 ))
 
-        elif rating.rating == "bad":
-            # Refusal > bad rollout
-            chosen_ids, chosen_labels = _make_full_ids(refusal)
-            rejected_ids, rejected_labels = _make_full_ids(rollout_text)
-            dpo_items.append(DPOBatchItem(
-                chosen_ids=chosen_ids,
-                rejected_ids=rejected_ids,
-                chosen_labels=chosen_labels,
-                rejected_labels=rejected_labels,
-                activations=activations,
-                ph_positions=ph_positions,
-            ))
+            elif rating.rating == "mixed":
+                if rating.correction:
+                    chosen_text = rating.correction
+                    rejected_text = rollout_text
+
+                    # If also malformed, apply reformatting to correction
+                    if rating.malformed and rating.reformatted:
+                        chosen_text = rating.reformatted  # reformatted is the corrected+reformatted version
+
+                    chosen_ids, chosen_labels = _make_full_ids(chosen_text)
+                    rejected_ids, rejected_labels = _make_full_ids(rejected_text)
+                    dpo_items.append(DPOBatchItem(
+                        chosen_ids=chosen_ids,
+                        rejected_ids=rejected_ids,
+                        chosen_labels=chosen_labels,
+                        rejected_labels=rejected_labels,
+                        activations=activations,
+                        ph_positions=ph_positions,
+                    ))
+
+            elif rating.rating == "bad":
+                # Refusal > bad rollout
+                chosen_ids, chosen_labels = _make_full_ids(refusal)
+                rejected_ids, rejected_labels = _make_full_ids(rollout_text)
+                dpo_items.append(DPOBatchItem(
+                    chosen_ids=chosen_ids,
+                    rejected_ids=rejected_ids,
+                    chosen_labels=chosen_labels,
+                    rejected_labels=rejected_labels,
+                    activations=activations,
+                    ph_positions=ph_positions,
+                ))
 
     # Specificity DPO: pair specific good rollouts against vague good rollouts
     specific_good = [
@@ -606,7 +608,8 @@ def train(cfg: dict) -> None:
                     model, step_sft, injection_layer, device,
                 )
 
-                total_loss = dpo_loss + dpo_cfg["sft_weight"] * sft_loss
+                dpo_lr_scale = dpo_cfg.get("lr_scale", 1.0)
+                total_loss = dpo_lr_scale * dpo_loss + dpo_cfg["sft_weight"] * sft_loss
 
                 total_loss.backward()
                 torch.nn.utils.clip_grad_norm_(
