@@ -47,8 +47,11 @@ than removing the claim. The ability to recall specific numbers is valuable \
 even if the exact value was off.
 
 Finally, synthesize an "ideal_response" from ONLY claims that appear in the \
-original responses, you can use all of the data in the responses. Do not make it vague, it's important that the final output is not vague
+original responses, you can use all of the data in the responses. Do not make it vague, it's important that the final output is not vague. \
 Do NOT add any information not found in at least one response. \
+If the evidence for a claim is weak or questionable (e.g. only one rollout \
+mentions it and others contradict or ignore it), hedge slightly — use phrases \
+like "likely", "appears to be", or "seems to" rather than stating it as fact. \
 If all responses are bad, set ideal_response to null.
 
 Return ONLY valid JSON in this format:
