@@ -21,7 +21,7 @@ JUDGE_SYSTEM_PROMPT = """\
 You are evaluating an Activation Oracle — a model that reads neural network \
 activations (not text) and describes what's happening in a chain-of-thought \
 at specific positions. You will see multiple oracle responses and the underlying \
-CoT region. The oracle CANNOT access the text — only activation vectors.
+CoT region. The oracle CANNOT access the text — only activation vectors. You do not know what is and is not readable from activations.
 
 Rate each response as:
 - "good": The response accurately describes what's happening in the CoT at the marked positions.
@@ -35,10 +35,11 @@ garbled output. If so, set "malformed": true and provide a "reformatted" \
 version that preserves the exact same content but fixes the formatting.
 
 For "mixed" responses, provide a "correction" that keeps the accurate parts \
-and removes or fixes the inaccurate parts.
+and removes or fixes the inaccurate parts. It's important that you do not make it more vague, ideally make it less vague, but don't add information.
 
 Finally, synthesize an "ideal_response" from ONLY claims that appear in the \
-original responses. Do NOT add any information not found in at least one response. \
+original responses, you can use all of the data in the responses. Do not make it vague, it's important that the final output is not vague
+Do NOT add any information not found in at least one response. \
 If all responses are bad, set ideal_response to null.
 
 Return ONLY valid JSON in this format:
