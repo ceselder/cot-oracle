@@ -216,7 +216,7 @@ def build_dpo_items(
                 # Disabled: corrections inject judge's text-based interpretation
                 # which may not match what's actually in activations.
                 # SFT on ideal (synthesized from model's own outputs) handles this.
-                ENABLE_MIXED_DPO = False
+                ENABLE_MIXED_DPO = True
                 if ENABLE_MIXED_DPO and rating.correction:
                     chosen_text = rating.correction
                     rejected_text = rollout_text
