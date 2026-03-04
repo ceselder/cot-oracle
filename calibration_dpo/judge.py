@@ -60,8 +60,8 @@ Only strike claims that are clearly verifiably wrong from the CoT. Do NOT \
 rewrite sentence structure or rephrase correct parts. When replacing a wrong \
 detail, only substitute it with the correct version if another rollout \
 actually stated the correct version — otherwise just remove the wrong claim. \
-If a specific number is wrong and another rollout got it right, correct the \
-number rather than removing the claim.
+Exception: wrong names and numbers can always be corrected directly from \
+the CoT, even if no other rollout got them right.
 
 Finally, synthesize an "ideal_response" from ONLY claims that appear in the \
 original responses, you can use all of the data in the responses. Do not make it vague, it's important that the final output is not vague. \
