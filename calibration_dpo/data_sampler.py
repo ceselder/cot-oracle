@@ -24,7 +24,12 @@ def sample_positions(
     max_positions: int,
     rng: random.Random,
 ) -> list[int]:
-    """Pick k adjacent stride-5 positions from the CoT region.
+    """Sample positions from the CoT region.
+
+    Three modes (randomly chosen):
+      - 50%: local — 1-3 adjacent stride positions from a random spot
+      - 30%: spread — 5-15 positions spread across the entire CoT
+      - 20%: all — every stride position (full CoT view)
 
     Returns position indices into the full tokenized sequence.
     """
@@ -32,12 +37,23 @@ def sample_positions(
     if not all_stride_positions:
         return []
 
-    k = rng.randint(min_positions, min(max_positions, len(all_stride_positions)))
+    roll = rng.random()
 
-    # Pick a random contiguous window of k positions
-    max_start = len(all_stride_positions) - k
-    window_start = rng.randint(0, max_start)
-    return all_stride_positions[window_start : window_start + k]
+    if roll < 0.50:
+        # Local: 1-3 adjacent positions
+        k = rng.randint(min_positions, min(max_positions, len(all_stride_positions)))
+        max_start = len(all_stride_positions) - k
+        window_start = rng.randint(0, max_start)
+        return all_stride_positions[window_start : window_start + k]
+
+    elif roll < 0.80:
+        # Spread: 5-15 positions sampled uniformly across the CoT
+        k = rng.randint(5, min(15, len(all_stride_positions)))
+        return sorted(rng.sample(all_stride_positions, k))
+
+    else:
+        # All: every stride position
+        return all_stride_positions
 
 
 def prepare_example(
