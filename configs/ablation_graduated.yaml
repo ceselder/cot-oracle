@@ -1,11 +1,8 @@
-# CoT Oracle Training Config (Unified Task System)
-# Each task has `n` (samples to select, -1 = all), `epochs` (repetitions), `eval`.
+# Ablation: graduated position count (33% last-1, 33% last-2, 33% last-3)
+# n: how many to select (-1 = all, 0 = skip), epochs: repetitions (default 1)
 # All data is downloaded from HuggingFace automatically.
 
 tasks:
-  # n: how many to select from dataset (-1 = all, 0 = skip)
-  # epochs: how many times to repeat the selected data (default 1)
-
   hint_admission:           # ~3K available
     n: -1
     epochs: 2
@@ -88,16 +85,10 @@ tasks:
   rot13_reconstruction:
     eval: false     # skip for now
 
-  hallucination:
-    eval: false
-
-  vagueness:
-    eval: false
-
-# FineWeb readout tasks
+# FineWeb readout tasks (single-position: predict surrounding tokens)
 fineweb:
   enabled: true
-  n: 40000                      # 20K futurelens + 20K pastlens
+  n: 40000                    # 20K futurelens + 20K pastlens
   variant: futurelens_fineweb,pastlens_fineweb
   max_context_tokens: 2000
   min_target_tokens: 5
@@ -132,11 +123,7 @@ no_activations:
 # Activation extraction
 activations:
   layers: [9, 18, 27]        # injection layers (25%, 50%, 75% of Qwen3-8B's 36 layers)
-  position_mode: stochastic  # "last_only" (fastest), "stochastic" (chi-squared random), "all"
-  stochastic_max_k: 100      # upper bound for Poisson position sampling
-  max_context_length: 0      # drop samples longer than this (0 = no filter)
-  position_encoding: false
-  pe_alpha: 0.1
+  position_mode: graduated    # 33% last-1, 33% last-2, 33% last-3
   layer_dropout:
     train: false
     eval: false
@@ -144,9 +131,8 @@ activations:
 # Eval
 eval:
   eval_steps: 2000
+  save_steps: 2000              # checkpoint every eval
   max_items_per_eval: 25
-  cls_eval: false          # run AO classification evals (sst2, ag_news, etc.) at each eval step
-  cls_eval_n: 25           # test examples per classification dataset
 
 # Model
 model:

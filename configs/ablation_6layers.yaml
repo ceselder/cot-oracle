@@ -1,11 +1,8 @@
-# CoT Oracle Training Config (Unified Task System)
-# Each task has `n` (samples to select, -1 = all), `epochs` (repetitions), `eval`.
+# Ablation: 6 layers instead of 3, stochastic position sampling
+# n: how many to select (-1 = all, 0 = skip), epochs: repetitions (default 1)
 # All data is downloaded from HuggingFace automatically.
 
 tasks:
-  # n: how many to select from dataset (-1 = all, 0 = skip)
-  # epochs: how many times to repeat the selected data (default 1)
-
   hint_admission:           # ~3K available
     n: -1
     epochs: 2
@@ -88,12 +85,6 @@ tasks:
   rot13_reconstruction:
     eval: false     # skip for now
 
-  hallucination:
-    eval: false
-
-  vagueness:
-    eval: false
-
 # FineWeb readout tasks
 fineweb:
   enabled: true
@@ -131,10 +122,10 @@ no_activations:
 
 # Activation extraction
 activations:
-  layers: [9, 18, 27]        # injection layers (25%, 50%, 75% of Qwen3-8B's 36 layers)
-  position_mode: stochastic  # "last_only" (fastest), "stochastic" (chi-squared random), "all"
-  stochastic_max_k: 100      # upper bound for Poisson position sampling
-  max_context_length: 0      # drop samples longer than this (0 = no filter)
+  layers: [6, 12, 18, 24, 30, 35]  # 6 layers evenly spaced (17%, 33%, 50%, 67%, 83%, 97% of 36)
+  position_mode: stochastic         # 40% last-only, 60% Poisson-process sampled
+  stochastic_max_k: 100
+  max_context_length: 0
   position_encoding: false
   pe_alpha: 0.1
   layer_dropout:
@@ -144,9 +135,8 @@ activations:
 # Eval
 eval:
   eval_steps: 2000
+  save_steps: 2000
   max_items_per_eval: 25
-  cls_eval: false          # run AO classification evals (sst2, ag_news, etc.) at each eval step
-  cls_eval_n: 25           # test examples per classification dataset
 
 # Model
 model:
@@ -199,7 +189,7 @@ baselines:
       - mats-10-sprint-cs-jb/cot-oracle-truthfulqa-hint-verbalized-cleaned
 
   linear_probe:
-    layers: [9, 18, 27]       # also runs concat of all 3
+    layers: [6, 12, 18, 24, 30, 35]
     k_folds: 5
     lr: 0.01
     epochs: 100
@@ -215,7 +205,7 @@ baselines:
     temperature: 0.0
 
   patchscopes:
-    source_layers: [9, 18, 27]
+    source_layers: [6, 12, 18, 24, 30, 35]
     injection_layer: 1
     steering_coefficients: [0.5, 1.0, 2.0]
     max_new_tokens: 100
@@ -225,7 +215,7 @@ baselines:
     max_new_tokens: 150
 
   qwen_attention_probe:
-    layers: [9, 18, 27]
+    layers: [6, 12, 18, 24, 30, 35]
     k_folds: 5
     lr: 0.0001
     epochs: 50
@@ -236,7 +226,7 @@ baselines:
     sae_dir: downloaded_saes
     sae_labels_dir: /ceph/scratch/jbauer/sae_features/trainer_2/trainer_2/labels
     sae_trainer: 2
-    layers: [9, 18, 27]
+    layers: [6, 12, 18, 24, 30, 35]
     top_k: 20
     llm_model: google/gemini-2.5-flash-lite
     api_base: https://openrouter.ai/api/v1

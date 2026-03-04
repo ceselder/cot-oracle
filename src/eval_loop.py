@@ -786,7 +786,6 @@ def _resample_eval_positions(
     position_mode: str,
     stochastic_max_k: int,
     eval_position_seed: int,
-    sentence_delim_ids: set[int] | None = None,
 ) -> None:
     """Match training-time position selection for eval, but keep it deterministic across eval steps."""
     n_layers = len(layers)
@@ -799,6 +798,13 @@ def _resample_eval_positions(
             continue
         if position_mode == "last_only":
             sampled = base_positions[-1:]
+        elif position_mode == "graduated":
+            # Deterministic for eval: use last-2 (middle option)
+            sampled = base_positions[-2:]
+        elif position_mode == "hybrid":
+            # Deterministic for eval: use end-weighted sampling with seeded RNG
+            rng = random.Random(f"{eval_position_seed}:{task_name}:{item_idx}")
+            sampled = sample_endweighted_positions(base_positions, rng=rng)
         elif position_mode.startswith("last_"):
             n = int(position_mode.split("_", 1)[1])
             sampled = base_positions[-n:]
@@ -806,22 +812,6 @@ def _resample_eval_positions(
             # Derive a stable per-item RNG from one shared eval seed so repeats match across eval steps.
             rng = random.Random(f"{eval_position_seed}:{task_name}:{item_idx}")
             sampled = sample_poisson_positions(base_positions, rng=rng, max_k=stochastic_max_k, include_boundaries=True)
-        elif position_mode == "endweighted":
-            # Eval: always use sentence delimiter positions
-            ctx_ids = item.get("context_input_ids", [])
-            lo, hi = base_positions[0], base_positions[-1]
-            period_pos = [i for i in range(lo, min(hi + 1, len(ctx_ids)))
-                          if sentence_delim_ids and ctx_ids[i] in sentence_delim_ids]
-            sampled = period_pos if period_pos else base_positions
-        elif position_mode == "random_sentence_count":
-            # Sample the same number of positions as sentence-boundary mode would feed.
-            ctx_ids = item.get("context_input_ids", [])
-            lo, hi = base_positions[0], base_positions[-1]
-            period_pos = [i for i in range(lo, min(hi + 1, len(ctx_ids)))
-                          if sentence_delim_ids and ctx_ids[i] in sentence_delim_ids]
-            target_k = len(period_pos) if period_pos else len(base_positions)
-            rng = random.Random(f"{eval_position_seed}:{task_name}:{item_idx}:random_sentence_count")
-            sampled = sorted(rng.sample(base_positions, target_k))
         elif position_mode == "all":
             sampled = base_positions
         else:
@@ -1253,13 +1243,6 @@ def run_eval(
     if layers is None:
         layers = [9, 18, 27]
 
-    # Build sentence delimiter token set for endweighted eval
-    _sent_delim: set[int] = set()
-    for pat in [".", ".\n", ".\n\n", "?", "?\n", "?\n\n", "!", "!\n", "!\n\n"]:
-        ids = tokenizer.encode(pat, add_special_tokens=False)
-        if len(ids) == 1:
-            _sent_delim.add(ids[0])
-
     all_tasks = get_eval_tasks()
     if task_names is not None:
         tasks_to_eval = {k: all_tasks[k] for k in task_names if k in all_tasks}
@@ -1293,7 +1276,6 @@ def run_eval(
                 position_mode=position_mode,
                 stochastic_max_k=stochastic_max_k,
                 eval_position_seed=eval_position_seed,
-                sentence_delim_ids=_sent_delim,
             )
             elapsed = time.time() - t0
 
@@ -1381,7 +1363,6 @@ def _eval_single_task(
     position_mode: str = "stochastic",
     stochastic_max_k: int = 100,
     eval_position_seed: int = 0,
-    sentence_delim_ids: set[int] | None = None,
 ) -> dict[str, float]:
     """Eval a single task with activation caching (or text-baseline mode)."""
 
@@ -1578,7 +1559,6 @@ def _eval_single_task(
             position_mode=position_mode,
             stochastic_max_k=stochastic_max_k,
             eval_position_seed=eval_position_seed,
-            sentence_delim_ids=sentence_delim_ids,
         )
 
         # Materialize activations in mini-batches
