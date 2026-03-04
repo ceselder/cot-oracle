@@ -57,18 +57,13 @@ def build_dataset(resampling_path: Path, corpus_path: Path) -> list[dict]:
             # Build SFT input/label
             sentences = cot.get("sentences", [])
             question = cot.get("question", entry["question"])
-            numbered_cot = "\n".join(f"[{i+1}] {s}" for i, s in enumerate(sentences))
-            sft_input = (
-                f"Identify the most causally important reasoning steps in this chain of thought.\n\n"
-                f"Problem: {question}\n\n"
-                f"Chain of thought:\n{numbered_cot}"
-            )
+            sft_input = "Please restate the three most important sentences in this chain of thought in order, starting with the most important."
             # Top 3 sentences by KL, must have KL > 0
             important_indices = [i for i in range(len(kl_scores)) if kl_scores[i] > 0]
             important_indices.sort(key=lambda i: kl_scores[i], reverse=True)
             important_indices = important_indices[:3]
             top_k = important_indices
-            sft_label_lines = [f"[{idx+1}] {sentences[idx]}" for idx in important_indices if idx < len(sentences)]
+            sft_label_lines = [f"{i+1}. {sentences[idx]}" for i, idx in enumerate(important_indices) if idx < len(sentences)]
             sft_label = "\n".join(sft_label_lines)
 
             items.append({

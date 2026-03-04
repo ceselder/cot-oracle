@@ -45,6 +45,28 @@ def build_qa_gemini_score_prompt(task_name: str, qa_prompt: str, target: str, pr
     )
 
 
+TRAJECTORY_JUDGE_TASKS = frozenset({"answer_trajectory"})
+TRAJECTORY_JUDGE_SYSTEM = (
+    "You evaluate answer trajectory predictions. "
+    "Return ONLY JSON with keys `answer_score` and `predicted_confidence`. "
+    "`answer_score` is a float 0.0–1.0: 1.0 if the prediction identifies the same answer as the reference, 0.0 if wrong or irrelevant. "
+    "`predicted_confidence` is an integer 0–100 extracted from the prediction's stated confidence percentage; use null if not mentioned."
+)
+
+
+def is_trajectory_judge_task(task_name: str) -> bool:
+    return task_name in TRAJECTORY_JUDGE_TASKS
+
+
+def build_trajectory_judge_prompt(gt_answer_label: str, gt_confidence: int | None, prediction: str) -> str:
+    conf_str = f"\nReference confidence: {gt_confidence}%" if gt_confidence is not None else ""
+    return (
+        f"Reference answer: {gt_answer_label}{conf_str}\n\n"
+        f"Prediction:\n{prediction}\n\n"
+        "Judge whether the prediction identifies the correct answer and extract the stated confidence."
+    )
+
+
 def compute_token_f1_scores(predictions: list[str], targets: list[str]) -> list[float]:
     scores = []
     for prediction, target in zip(predictions, targets):

@@ -8,6 +8,7 @@ import bisect
 import math
 import random
 import re
+from functools import lru_cache
 
 
 def split_cot_into_sentences(cot_text: str) -> list[str]:
@@ -230,6 +231,113 @@ def sample_poisson_positions(
         picked.add(base_positions[0])
     picked.add(base_positions[-1])  # always include last position
     return sorted(picked)
+
+
+@lru_cache(maxsize=512)
+def _zipf_cdf(K: int, target_mean_10x: int) -> tuple[float, tuple[float, ...]]:
+    """Solve for Zipf exponent s and build CDF for sampling k ~ Zipf(s) on {1,...,K}.
+
+    P(k) ∝ k^(-s).  Monotonically falling for s > 0, heavy-tailed (power law).
+    target_mean_10x = 10 * target_mean (int for lru_cache hashability).
+
+    Returns (s, cumulative_cdf_tuple).
+    """
+    target_mean = target_mean_10x / 10.0
+
+    def _mean(s: float) -> float:
+        num = sum(k ** (1 - s) for k in range(1, K + 1))
+        denom = sum(k ** (-s) for k in range(1, K + 1))
+        return num / denom
+
+    # Bisection: s=0 → uniform (mean=(K+1)/2); s→∞ → mean→1
+    lo, hi = 0.0, 20.0
+    for _ in range(80):
+        mid = (lo + hi) / 2
+        if _mean(mid) > target_mean:
+            lo = mid
+        else:
+            hi = mid
+    s = (lo + hi) / 2
+
+    # Build CDF for inverse-CDF sampling
+    weights = [k ** (-s) for k in range(1, K + 1)]
+    total = sum(weights)
+    cdf: list[float] = []
+    cumsum = 0.0
+    for w in weights:
+        cumsum += w / total
+        cdf.append(cumsum)
+
+    return s, tuple(cdf)
+
+
+def _sample_from_cdf(cdf: tuple[float, ...], sampler: random.Random) -> int:
+    """Sample from discrete distribution via inverse-CDF (binary search). Returns 1-indexed."""
+    u = sampler.random()
+    lo, hi = 0, len(cdf) - 1
+    while lo < hi:
+        mid = (lo + hi) // 2
+        if cdf[mid] < u:
+            lo = mid + 1
+        else:
+            hi = mid
+    return lo + 1
+
+
+# β such that P(Beta(β,1) > 0.9) = 0.7  ⇒  0.9^β = 0.3  → ~70% of ticks in trailing 10%
+END_CONCENTRATION = -math.log(10 / 3) / math.log(0.9)  # ≈ 11.43
+
+
+MAX_ENDWEIGHTED_K = 500
+
+
+def sample_endweighted_positions(
+    base_positions: list[int],
+    rng: random.Random | None = None,
+    target_mean_k: int = 50,
+    end_concentration: float = END_CONCENTRATION,
+) -> list[int]:
+    """End-weighted stochastic position sampling.
+
+    1. Draw k ~ Zipf(s) on {1,...,min(K, MAX_ENDWEIGHTED_K)} with mean ≈ target_mean_k.
+       Discrete power law: P(k) ∝ k^(-s). Monotonically falling, heavy-tailed.
+    2. Select k positions via Gumbel-top-k weighted by Beta(end_concentration, 1),
+       concentrating ~70% of selected positions in the trailing 10% of the CoT.
+    3. Always includes the last position.
+    """
+    sampler = rng or random
+    K = len(base_positions)
+    if K <= 1:
+        return list(base_positions)
+
+    # --- Draw k from Zipf (capped at MAX_ENDWEIGHTED_K) ---
+    K_eff = min(K, MAX_ENDWEIGHTED_K)
+    max_falling_mean = (K_eff + 1) / 2
+    effective_target = min(float(target_mean_k), max_falling_mean - 0.5)
+    if effective_target < 1.5:
+        return list(base_positions)
+
+    _, cdf = _zipf_cdf(K_eff, int(effective_target * 10))
+    k = _sample_from_cdf(cdf, sampler)
+
+    if k >= K:
+        return list(base_positions)
+
+    # --- Select positions via Gumbel-top-k ---
+    # Weight profile: Beta(β, 1) → w_i ∝ ((i+0.5)/K)^(β-1), concentrated at end
+    beta_m1 = end_concentration - 1
+    log_weights = [beta_m1 * math.log((i + 0.5) / K) for i in range(K)]
+
+    # Gumbel-max trick: key_i = log(w_i) + Gumbel(0,1), take top-k
+    keys = [lw - math.log(-math.log(max(sampler.random(), 1e-15))) for lw in log_weights]
+
+    # Always include last position; pick top-(k-1) from rest
+    selected = {K - 1}
+    rest_with_keys = sorted(((keys[i], i) for i in range(K - 1)), reverse=True)
+    for _, idx in rest_with_keys[:k - 1]:
+        selected.add(idx)
+
+    return sorted(base_positions[i] for i in selected)
 
 
 def sparse_sample_positions(

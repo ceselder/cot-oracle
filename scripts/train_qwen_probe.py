@@ -463,13 +463,23 @@ def log_max_activating_tokens(
     print(f"  Logged {len(rows)} examples with max-activating tokens for {task_name}")
 
 
-def save_checkpoint_and_upload(model: nn.Module, task_name: str, probe_type: str = "attention"):
-    """Save checkpoint to /ceph and upload to HuggingFace."""
+def save_checkpoint_and_upload(model: nn.Module, task_name: str, probe_type: str = "attention",
+                               run_name: str = "", wandb_run=None):
+    """Save checkpoint to /ceph, upload to HuggingFace, and log as wandb artifact."""
     ckpt_dir = CKPT_DIR / f"{probe_type}_{task_name}"
     ckpt_dir.mkdir(parents=True, exist_ok=True)
     ckpt_path = ckpt_dir / "model.pt"
     torch.save(model.state_dict(), ckpt_path)
     print(f"  Checkpoint saved: {ckpt_path}")
+
+    # Save as wandb artifact
+    if wandb_run:
+        import wandb
+        artifact = wandb.Artifact(name=run_name or f"{probe_type}-{task_name}", type="model",
+                                  metadata={"task": task_name, "probe_type": probe_type, "run_name": run_name})
+        artifact.add_file(str(ckpt_path), name="model.pt")
+        wandb_run.log_artifact(artifact)
+        print(f"  Logged wandb artifact: {artifact.name}")
 
     # Upload to HF
     from huggingface_hub import HfApi
@@ -570,13 +580,12 @@ def main():
     if args.probe_type == "linear":
         probe_model = LinearConcatProbe(LAYERS, n_outputs=2, pooling=args.pooling).to(device=args.device)
         run_name = f"linear-{args.pooling}-concat-{task}"
-        wandb_group = "probes"
         default_lr = args.lr if args.lr != 1e-4 else 0.01  # higher default for linear
     else:
         probe_model = QwenAttentionProbe(LAYERS, n_outputs=2).to(device=args.device, dtype=torch.bfloat16)
-        run_name = f"qwen-probe-{task}"
-        wandb_group = "attprobes"
+        run_name = f"attn-{task}"
         default_lr = args.lr
+    wandb_group = "probes"
 
     # wandb
     wandb_run = None
@@ -659,7 +668,8 @@ def main():
         wandb_run.log({f"transfer_matrix/{task}": table})
 
     # ── Save + upload ──
-    save_checkpoint_and_upload(probe, task, probe_type=args.probe_type)
+    save_checkpoint_and_upload(probe, task, probe_type=args.probe_type,
+                               run_name=run_name, wandb_run=wandb_run)
 
     if wandb_run:
         wandb_run.finish()

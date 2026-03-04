@@ -32,8 +32,11 @@ from qa_judge import (
     compute_token_f1_scores,
     extract_judge_json,
     is_gemini_qa_task,
+    TRAJECTORY_JUDGE_SYSTEM,
+    build_trajectory_judge_prompt,
+    is_trajectory_judge_task,
 )
-from cot_utils import sample_poisson_positions
+from cot_utils import sample_poisson_positions, sample_endweighted_positions
 
 
 # ── Per-task response parsers ──
@@ -198,6 +201,79 @@ def _score_qa_gemini(
         "_qa_judge_raw": raw_responses,
         "_qa_judge_model": QA_GEMINI_SCORE_MODEL,
     }
+
+
+def _score_trajectory_llm(
+    predictions: list[str],
+    targets: list[str],
+) -> dict[str, Any]:
+    """Score answer_trajectory with LLM judge.
+
+    Returns answer_score (0-1 correctness) and confidence_mse (MSE between
+    predicted and GT confidence %, when both are available).
+    Per-example arrays are aligned 1:1 with predictions (None where GT unparseable).
+    """
+    n = len(predictions)
+    _empty = {"answer_score": 0.0, "n": 0, "_traj_answer_scores": [], "_traj_pred_confidences": [], "_traj_reasons": [], "_traj_raw": [], "_traj_judge_model": QA_GEMINI_SCORE_MODEL}
+    if not predictions:
+        return _empty
+
+    print(f"    [answer_trajectory] Scoring {n} predictions with {QA_GEMINI_SCORE_MODEL}...")
+    api_key = os.environ["OPENROUTER_API_KEY"]
+    headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+
+    answer_scores_all: list[float] = []
+    conf_se_all: list[float] = []
+    answer_scores_per: list[float | None] = [None] * n
+    pred_confs_per: list[int | None] = [None] * n
+    reasons_per: list[str | None] = [None] * n
+    raw_per: list[str | None] = [None] * n
+
+    with httpx.Client(timeout=90.0) as client:
+        for i, (prediction, target) in enumerate(zip(predictions, targets)):
+            gt = _parse_trajectory(target)
+            if gt is None:
+                continue
+            gt_answer = gt["label"]
+            gt_confidence = gt.get("confidence")
+            body = {
+                "model": QA_GEMINI_SCORE_MODEL,
+                "messages": [
+                    {"role": "system", "content": TRAJECTORY_JUDGE_SYSTEM},
+                    {"role": "user", "content": build_trajectory_judge_prompt(gt_answer, gt_confidence, prediction)},
+                ],
+                "temperature": 0.0,
+                "max_tokens": 80,
+            }
+            response = client.post(OPENROUTER_CHAT_COMPLETIONS_URL, json=body, headers=headers)
+            response.raise_for_status()
+            raw_text = response.json()["choices"][0]["message"]["content"]
+            raw_text = re.sub(r"<think>.*?</think>", "", raw_text, flags=re.DOTALL).strip()
+            parsed = extract_judge_json(raw_text)
+            answer_score = float(parsed["answer_score"])
+            if not (0.0 <= answer_score <= 1.0):
+                raise ValueError(f"answer_score out of range: {answer_score}")
+            answer_scores_all.append(answer_score)
+            answer_scores_per[i] = answer_score
+            pred_conf = parsed.get("predicted_confidence")
+            pred_confs_per[i] = int(pred_conf) if pred_conf is not None else None
+            if pred_conf is not None and gt_confidence is not None:
+                conf_se_all.append((int(pred_conf) - gt_confidence) ** 2)
+            reasons_per[i] = str(parsed.get("reason", "")).strip()
+            raw_per[i] = raw_text
+
+    result: dict[str, Any] = {
+        "answer_score": sum(answer_scores_all) / len(answer_scores_all) if answer_scores_all else 0.0,
+        "n": len(answer_scores_all),
+        "_traj_answer_scores": answer_scores_per,
+        "_traj_pred_confidences": pred_confs_per,
+        "_traj_reasons": reasons_per,
+        "_traj_raw": raw_per,
+        "_traj_judge_model": QA_GEMINI_SCORE_MODEL,
+    }
+    if conf_se_all:
+        result["confidence_mse"] = sum(conf_se_all) / len(conf_se_all)
+    return result
 
 
 def _score_parsed(
@@ -450,9 +526,8 @@ def score_task(
             raise ValueError(f"Gemini QA scoring needs eval_items for {task_def.name}")
         return _score_qa_gemini(task_def.name, eval_items, predictions, targets)
 
-    # answer_trajectory: token F1 on the answer text + MAE on confidence/entropy
-    if task_def.name == "answer_trajectory":
-        return _score_trajectory(predictions, targets)
+    if is_trajectory_judge_task(task_def.name):
+        return _score_trajectory_llm(predictions, targets)
 
     parser = TASK_PARSERS.get(task_def.name)
     if parser is not None:
@@ -567,8 +642,8 @@ def _primary_metric_name(task_name: str, scoring: ScoringMode) -> str:
     """Map task to its primary metric key."""
     if is_gemini_qa_task(task_name):
         return "gemini_score"
-    if task_name == "answer_trajectory":
-        return "token_f1"
+    if is_trajectory_judge_task(task_name):
+        return "answer_score"
     if task_name in TASK_PARSERS:
         return "accuracy"
     return {
@@ -649,6 +724,7 @@ def _resample_eval_positions(
     position_mode: str,
     stochastic_max_k: int,
     eval_position_seed: int,
+    sentence_delim_ids: set[int] | None = None,
 ) -> None:
     """Match training-time position selection for eval, but keep it deterministic across eval steps."""
     n_layers = len(layers)
@@ -668,6 +744,13 @@ def _resample_eval_positions(
             # Derive a stable per-item RNG from one shared eval seed so repeats match across eval steps.
             rng = random.Random(f"{eval_position_seed}:{task_name}:{item_idx}")
             sampled = sample_poisson_positions(base_positions, rng=rng, max_k=stochastic_max_k, include_boundaries=True)
+        elif position_mode == "endweighted":
+            # Eval: always use sentence delimiter positions
+            ctx_ids = item.get("context_input_ids", [])
+            lo, hi = base_positions[0], base_positions[-1]
+            period_pos = [i for i in range(lo, min(hi + 1, len(ctx_ids)))
+                          if sentence_delim_ids and ctx_ids[i] in sentence_delim_ids]
+            sampled = period_pos if period_pos else base_positions
         elif position_mode == "all":
             sampled = base_positions
         else:
@@ -1099,6 +1182,13 @@ def run_eval(
     if layers is None:
         layers = [9, 18, 27]
 
+    # Build sentence delimiter token set for endweighted eval
+    _sent_delim: set[int] = set()
+    for pat in [".", ".\n", ".\n\n"]:
+        ids = tokenizer.encode(pat, add_special_tokens=False)
+        if len(ids) == 1:
+            _sent_delim.add(ids[0])
+
     all_tasks = get_eval_tasks()
     if task_names is not None:
         tasks_to_eval = {k: all_tasks[k] for k in task_names if k in all_tasks}
@@ -1290,9 +1380,20 @@ def _eval_single_task(
         qa_judge_reasons = result["_qa_judge_reasons"] if is_gemini_qa_task(task_name) else None
         qa_judge_raw = result["_qa_judge_raw"] if is_gemini_qa_task(task_name) else None
         qa_judge_model = result["_qa_judge_model"] if is_gemini_qa_task(task_name) else None
+        traj_answer_scores = result["_traj_answer_scores"] if is_trajectory_judge_task(task_name) else None
+        traj_pred_confs = result["_traj_pred_confidences"] if is_trajectory_judge_task(task_name) else None
+        traj_reasons = result["_traj_reasons"] if is_trajectory_judge_task(task_name) else None
+        traj_raw = result["_traj_raw"] if is_trajectory_judge_task(task_name) else None
+        traj_judge_model = result["_traj_judge_model"] if is_trajectory_judge_task(task_name) else None
         traces = []
         for i, (pred, tgt) in enumerate(zip(predictions, targets)):
             item = test_data[i]
+            if qa_judge_scores is not None:
+                correct_str = f"Gemini={qa_judge_scores[i]:.2f}"
+            elif traj_answer_scores is not None and traj_answer_scores[i] is not None:
+                correct_str = f"score={traj_answer_scores[i]:.2f}"
+            else:
+                correct_str = _per_example_correct(task_name, task_def, pred, tgt)
             trace = {
                 "question": item.get("question", item.get("hinted_prompt", "")),
                 "cot_field": item.get("cot_text", ""),
@@ -1301,7 +1402,7 @@ def _eval_single_task(
                 "oracle_prompt": item["prompt"],
                 "expected": tgt,
                 "predicted": pred,
-                "correct": f"Gemini={qa_judge_scores[i]:.2f}" if qa_judge_scores is not None else _per_example_correct(task_name, task_def, pred, tgt),
+                "correct": correct_str,
             }
             if qa_judge_scores is not None:
                 trace["judge_model"] = qa_judge_model
@@ -1309,6 +1410,12 @@ def _eval_single_task(
                 trace["token_f1"] = qa_token_f1_scores[i]
                 trace["judge_reason"] = qa_judge_reasons[i]
                 trace["judge_raw"] = qa_judge_raw[i]
+            if traj_answer_scores is not None and traj_answer_scores[i] is not None:
+                trace["judge_model"] = traj_judge_model
+                trace["judge_score"] = traj_answer_scores[i]
+                trace["predicted_confidence"] = traj_pred_confs[i]
+                trace["judge_reason"] = traj_reasons[i]
+                trace["judge_raw"] = traj_raw[i]
             traces.append(trace)
         result["_traces"] = traces
         return result
@@ -1385,6 +1492,7 @@ def _eval_single_task(
             position_mode=position_mode,
             stochastic_max_k=stochastic_max_k,
             eval_position_seed=eval_position_seed,
+            sentence_delim_ids=_sent_delim,
         )
 
         # Materialize activations in mini-batches
@@ -1439,6 +1547,11 @@ def _eval_single_task(
     qa_judge_reasons = result["_qa_judge_reasons"] if is_gemini_qa_task(task_name) else None
     qa_judge_raw = result["_qa_judge_raw"] if is_gemini_qa_task(task_name) else None
     qa_judge_model = result["_qa_judge_model"] if is_gemini_qa_task(task_name) else None
+    traj_answer_scores = result["_traj_answer_scores"] if is_trajectory_judge_task(task_name) else None
+    traj_pred_confs = result["_traj_pred_confidences"] if is_trajectory_judge_task(task_name) else None
+    traj_reasons = result["_traj_reasons"] if is_trajectory_judge_task(task_name) else None
+    traj_raw = result["_traj_raw"] if is_trajectory_judge_task(task_name) else None
+    traj_judge_model = result["_traj_judge_model"] if is_trajectory_judge_task(task_name) else None
 
     # Attach per-example traces for wandb Tables
     _ensure_ao_imports()
@@ -1460,6 +1573,12 @@ def _eval_single_task(
                 masked_ids[p] = ph_id
         masked_cot_field = tokenizer.decode(masked_ids, skip_special_tokens=False) if masked_ids else ""
 
+        if qa_judge_scores is not None:
+            correct_str = f"Gemini={qa_judge_scores[i]:.2f}"
+        elif traj_answer_scores is not None and traj_answer_scores[i] is not None:
+            correct_str = f"score={traj_answer_scores[i]:.2f}"
+        else:
+            correct_str = _per_example_correct(task_name, task_def, pred, tgt)
         trace = {
             "question": item.get("question", item.get("hinted_prompt", "")),
             "cot_field": item.get("cot_text", ""),
@@ -1468,7 +1587,7 @@ def _eval_single_task(
             "oracle_prefix": oracle_prefix,
             "expected": tgt,
             "predicted": pred,
-            "correct": f"Gemini={qa_judge_scores[i]:.2f}" if qa_judge_scores is not None else _per_example_correct(task_name, task_def, pred, tgt),
+            "correct": correct_str,
         }
         if qa_judge_scores is not None:
             trace["judge_model"] = qa_judge_model
@@ -1476,6 +1595,12 @@ def _eval_single_task(
             trace["token_f1"] = qa_token_f1_scores[i]
             trace["judge_reason"] = qa_judge_reasons[i]
             trace["judge_raw"] = qa_judge_raw[i]
+        if traj_answer_scores is not None and traj_answer_scores[i] is not None:
+            trace["judge_model"] = traj_judge_model
+            trace["judge_score"] = traj_answer_scores[i]
+            trace["predicted_confidence"] = traj_pred_confs[i]
+            trace["judge_reason"] = traj_reasons[i]
+            trace["judge_raw"] = traj_raw[i]
         traces.append(trace)
     result["_traces"] = traces
 

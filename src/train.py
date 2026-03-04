@@ -74,7 +74,7 @@ from nl_probes.utils.activation_utils import (
 )
 from nl_probes.utils.common import load_tokenizer, set_seed
 
-from cot_utils import layer_percent_to_layer, sparse_sample_positions, sample_poisson_positions
+from cot_utils import layer_percent_to_layer, sparse_sample_positions, sample_poisson_positions, sample_endweighted_positions
 from tasks import TASKS, get_trainable_tasks
 from data_loading import load_all_training_data
 from eval_loop import run_eval
@@ -88,8 +88,9 @@ MULTI_LAYERS: list[int] = []
 NO_ACTIVATIONS: bool = False
 RANDOM_LAYERS: bool = False
 LAYER_DROPOUT: bool = False
-POSITION_MODE: str = "stochastic"  # "last_only", "stochastic", "all"
-STOCHASTIC_MAX_K: int = 100  # upper bound for Poisson position sampling
+POSITION_MODE: str = "endweighted"  # "last_only", "stochastic", "endweighted", "all"
+STOCHASTIC_MAX_K: int = 50  # endweighted: target mean k; stochastic: upper bound for k
+SENTENCE_DELIM_IDS: set[int] = set()  # token IDs for ".", ".\n", ".\n\n" — set from tokenizer in main()
 MAX_CONTEXT_LENGTH: int = 0  # drop samples with context_input_ids longer than this (0 = no filter)
 POSITION_ENCODING: bool = False
 PE_ALPHA: float = 0.1
@@ -326,13 +327,16 @@ def dicts_to_training_data(
         # Extract base positions (single-layer) for re-expansion
         base_positions = _extract_base_positions(ctx_pos, n_layers_runtime)
 
+        # Sentence delimiter positions for endweighted mode
+        period_pos = _get_period_positions(item.get("context_input_ids", []), base_positions)
+
         if RANDOM_LAYERS:
             # Per-item random layer sampling (ablation: arbitrary model layers)
             from layer_utils import sample_layers
             sampled = sample_layers(_MODEL_N_LAYERS, mean=3)
 
             # Apply position mode to base positions
-            sampled_pos = _apply_position_mode(base_positions)
+            sampled_pos = _apply_position_mode(base_positions, period_pos)
             ctx_pos = sampled_pos * len(sampled)
             num_pos = len(ctx_pos)
 
@@ -359,7 +363,7 @@ def dicts_to_training_data(
             sampled = sorted(random.sample(MULTI_LAYERS, k))
 
             # Apply position mode to base positions
-            sampled_pos = _apply_position_mode(base_positions)
+            sampled_pos = _apply_position_mode(base_positions, period_pos)
             ctx_pos = sampled_pos * len(sampled)
             num_pos = len(ctx_pos)
 
@@ -382,7 +386,7 @@ def dicts_to_training_data(
 
         else:
             # Standard: all configured layers, apply position mode
-            sampled_pos = _apply_position_mode(base_positions)
+            sampled_pos = _apply_position_mode(base_positions, period_pos)
             ctx_pos = sampled_pos * n_layers_runtime
             num_pos = len(ctx_pos)
 
@@ -413,12 +417,23 @@ def dicts_to_training_data(
     return training_data
 
 
-def _apply_position_mode(base_positions: list[int]) -> list[int]:
+def _get_period_positions(context_input_ids: list[int], base_positions: list[int]) -> list[int]:
+    """Find sentence delimiter token positions within the CoT region."""
+    if not context_input_ids or not base_positions or not SENTENCE_DELIM_IDS:
+        return []
+    lo, hi = base_positions[0], base_positions[-1]
+    return [i for i in range(lo, min(hi + 1, len(context_input_ids)))
+            if context_input_ids[i] in SENTENCE_DELIM_IDS]
+
+
+def _apply_position_mode(base_positions: list[int], period_positions: list[int] | None = None) -> list[int]:
     """Apply POSITION_MODE to base (single-layer) positions.
 
     Modes:
         "last_only": only the final position (fastest iteration)
         "stochastic": 40% last-only, 60% Poisson-process sampled positions
+        "endweighted": heavy-tailed k, Beta-weighted positions at CoT end.
+                       50% of the time uses sentence delimiter positions instead.
         "all": use all positions
     """
     if not base_positions:
@@ -427,6 +442,10 @@ def _apply_position_mode(base_positions: list[int]) -> list[int]:
         return base_positions[-1:]
     elif POSITION_MODE == "stochastic":
         return sample_poisson_positions(base_positions, max_k=STOCHASTIC_MAX_K)
+    elif POSITION_MODE == "endweighted":
+        if period_positions and random.random() < 0.5:
+            return sample_endweighted_positions(period_positions, target_mean_k=STOCHASTIC_MAX_K)
+        return sample_endweighted_positions(base_positions, target_mean_k=STOCHASTIC_MAX_K)
     return base_positions  # "all"
 
 
@@ -762,6 +781,106 @@ def _run_unified_eval(model, tokenizer, model_name, global_step, args, log_dir=N
 
     elapsed = sum(v for k, v in metrics.items() if k.startswith("_eval_time/"))
     return metrics, elapsed
+
+
+# ── AO classification eval ──
+
+_CLS_EVAL_DATA: dict[str, list[TrainingDataPoint]] | None = None
+
+DEFAULT_CLS_EVAL_DATASETS = [
+    "sst2", "ag_news", "snli", "ner", "tense",
+    "language_identification", "singular_plural",
+    "geometry_of_truth", "relations", "md_gender",
+]
+
+
+def _load_cls_eval_data(model, model_name: str, layers: list[int], n_per_dataset: int, datasets: list[str] | None = None):
+    """Load AO classification eval datasets (cached to disk after first run)."""
+    global _CLS_EVAL_DATA
+    if _CLS_EVAL_DATA is not None:
+        return _CLS_EVAL_DATA
+
+    from nl_probes.dataset_classes.classification import ClassificationDatasetConfig, ClassificationDatasetLoader
+    from nl_probes.dataset_classes.act_dataset_manager import DatasetLoaderConfig
+
+    datasets = datasets or DEFAULT_CLS_EVAL_DATASETS
+    # Convert our absolute layer indices to layer_percents for the AO loader
+    from nl_probes.utils.common import get_layer_count
+    n_layers = get_layer_count(model_name)
+    layer_percents = [round(100 * l / n_layers) for l in layers]
+
+    print(f"\n  [cls-eval] Loading {len(datasets)} classification eval datasets (n={n_per_dataset}, layers={layers} -> percents={layer_percents})...")
+
+    _CLS_EVAL_DATA = {}
+    for ds_name in datasets:
+        cls_config = ClassificationDatasetConfig(
+            classification_dataset_name=ds_name,
+            max_end_offset=-3, min_end_offset=-3,
+            max_window_size=1, min_window_size=1,
+        )
+        loader_config = DatasetLoaderConfig(
+            custom_dataset_params=cls_config,
+            num_train=0, num_test=n_per_dataset,
+            splits=["test"],
+            model_name=model_name,
+            layer_percents=layer_percents,
+            save_acts=True,
+            batch_size=256,
+        )
+        loader = ClassificationDatasetLoader(dataset_config=loader_config, model=model)
+        data = loader.load_dataset("test")
+        ds_id = ds_name
+        _CLS_EVAL_DATA[ds_id] = data
+        print(f"  [cls-eval]   {ds_id}: {len(data)} examples")
+
+    return _CLS_EVAL_DATA
+
+
+def _run_cls_eval(model, tokenizer, submodule, global_step: int, args):
+    """Run AO classification evals and log to wandb."""
+    import wandb
+    from nl_probes.utils.eval import run_evaluation, score_eval_responses
+
+    cls_data = _load_cls_eval_data(
+        model, args.model, MULTI_LAYERS,
+        n_per_dataset=args.cls_eval_n,
+        datasets=getattr(args, "cls_eval_datasets", None),
+    )
+
+    print(f"\n--- AO cls eval at step {global_step} ---")
+    model.eval()
+
+    generation_kwargs = {"do_sample": False, "temperature": 0.0, "max_new_tokens": 10}
+    log_dict = {}
+
+    for ds_name, eval_data in cls_data.items():
+        results = run_evaluation(
+            eval_data=eval_data,
+            model=model,
+            tokenizer=tokenizer,
+            submodule=submodule,
+            device=torch.device("cuda"),
+            dtype=torch.bfloat16,
+            global_step=global_step,
+            lora_path=None,  # already active on model
+            eval_batch_size=args.eval_batch_size,
+            steering_coefficient=args.steering_coefficient,
+            generation_kwargs=generation_kwargs,
+        )
+        fmt_acc, ans_acc = score_eval_responses(results, eval_data)
+        log_dict[f"cls_eval/{ds_name}/format_acc"] = fmt_acc
+        log_dict[f"cls_eval/{ds_name}/accuracy"] = ans_acc
+        print(f"  [cls-eval] {ds_name}: accuracy={ans_acc:.3f}, format={fmt_acc:.3f}")
+
+    # Aggregate
+    accs = [v for k, v in log_dict.items() if k.endswith("/accuracy")]
+    log_dict["cls_eval/mean_accuracy"] = sum(accs) / len(accs)
+    print(f"  [cls-eval] mean accuracy: {log_dict['cls_eval/mean_accuracy']:.3f}")
+
+    if wandb.run:
+        wandb.log(log_dict, step=global_step)
+
+    model.train()
 
 
 # ── Main training loop ──
@@ -1125,6 +1244,8 @@ def train(
     skip_step0 = getattr(args, "no_step0_eval", False)
     if global_step == 0 and rank == 0 and not skip_step0:
         _run_unified_eval(model, tokenizer, args.model, 0, args, log_dir=log_dir, no_activations=args.no_activations)
+        if args.cls_eval:
+            _run_cls_eval(model, tokenizer, submodule, 0, args)
         model.train()
     if world_size > 1:
         dist.barrier()
@@ -1160,6 +1281,8 @@ def train(
         accum_batch_tokens = 0
         accum_batch_splits = 0
         accum_context_lengths = []
+        accum_scatter_acts: list[tuple[float, int]] = []   # (loss, n_activations)
+        accum_scatter_layers: list[tuple[float, int]] = [] # (loss, n_layers)
 
         # Lookahead extraction: prefetch activations for multiple training batches at once
         ext_bs = args.extraction_batch_size if args.extraction_batch_size > 0 else args.batch_size
@@ -1266,6 +1389,10 @@ def train(
                 for i, (dp, task_type) in enumerate(zip(chunk_list, chunk_types)):
                     loss_val = per_item_loss[i].item()
                     accum_task_losses[task_type].append(loss_val)
+                    if dp.positions:
+                        item_layers = dp.meta_info.get("layers", MULTI_LAYERS)
+                        accum_scatter_acts.append((loss_val, len(dp.positions)))
+                        accum_scatter_layers.append((loss_val, len(item_layers) if item_layers else 1))
                 accum_loss_sum += outputs.loss.item() * loss_weight
                 accum_batch_types.extend(chunk_types)
                 accum_batch_tokens += batch_tokens
@@ -1316,6 +1443,16 @@ def train(
                     "train/samples_seen": global_step * args.effective_batch_size,
                 }
                 last_step_time = now
+                if accum_scatter_acts:
+                    tbl_acts = wandb.Table(columns=["n_activations", "loss"])
+                    for _lv, _na in accum_scatter_acts:
+                        tbl_acts.add_data(_na, _lv)
+                    log_dict["train/loss_vs_n_activations"] = wandb.plot.scatter(tbl_acts, "n_activations", "loss", title="Loss vs N Activations")
+                if accum_scatter_layers:
+                    tbl_lyr = wandb.Table(columns=["n_layers", "loss"])
+                    for _lv, _nl in accum_scatter_layers:
+                        tbl_lyr.add_data(_nl, _lv)
+                    log_dict["train/loss_vs_n_layers"] = wandb.plot.scatter(tbl_lyr, "n_layers", "loss", title="Loss vs N Layers")
                 parent_task_emas = defaultdict(list)
                 for subtype, ema_val in task_loss_ema.items():
                     parent = subtype_to_task.get(subtype, subtype)
@@ -1381,6 +1518,8 @@ def train(
                 if rank == 0:
                     _, elapsed = _run_unified_eval(model, tokenizer, args.model, global_step, args, log_dir=log_dir, no_activations=args.no_activations)
                     eval_time_total += elapsed
+                    if args.cls_eval:
+                        _run_cls_eval(model, tokenizer, submodule, global_step, args)
                     model.train()
                 if world_size > 1:
                     dist.barrier()
@@ -1410,12 +1549,16 @@ def train(
             accum_batch_tokens = 0
             accum_batch_splits = 0
             accum_context_lengths = []
+            accum_scatter_acts = []
+            accum_scatter_layers = []
 
             global_step += 1
 
     # Final eval (rank 0 only)
     if rank == 0:
         _run_unified_eval(model, tokenizer, args.model, global_step, args, log_dir=log_dir, no_activations=args.no_activations)
+        if args.cls_eval:
+            _run_cls_eval(model, tokenizer, submodule, global_step, args)
 
         # Save final
         final_path = save_dir / "final"
@@ -1514,9 +1657,15 @@ def apply_config(args, config: dict):
     # Eval
     if "eval" in config:
         e = config["eval"]
-        for key in ["max_items_per_eval"]:
+        for key in ["max_items_per_eval", "eval_steps"]:
             if key in e and not getattr(args, f"_cli_{key}", False):
                 setattr(args, key, int(e[key]))
+        if "cls_eval" in e and not getattr(args, "_cli_cls_eval", False):
+            args.cls_eval = e["cls_eval"]
+        if "cls_eval_datasets" in e and not getattr(args, "_cli_cls_eval_datasets", False):
+            args.cls_eval_datasets = e["cls_eval_datasets"]
+        if "cls_eval_n" in e and not getattr(args, "_cli_cls_eval_n", False):
+            args.cls_eval_n = int(e["cls_eval_n"])
 
     # Data paths (unified: all data from HuggingFace, no local corpus/precomputed paths needed)
 
@@ -1687,6 +1836,10 @@ def main():
                         help="Randomize layer count and indices per training sequence")
 
     # Eval / save
+    parser.add_argument("--cls-eval", action="store_true", default=None, help="Run AO classification evals (sst2, ag_news, etc.) at each eval step")
+    parser.add_argument("--no-cls-eval", dest="cls_eval", action="store_false")
+    parser.add_argument("--cls-eval-datasets", nargs="+", default=None, help="Classification eval datasets (default: all 10 standard datasets)")
+    parser.add_argument("--cls-eval-n", type=int, default=None, help="Number of test examples per cls eval dataset")
     parser.add_argument("--eval-steps", type=int, default=None, help="Run evals every N steps (shuffled mode)")
     parser.add_argument("--save-steps", type=int, default=None, help="Save checkpoint every N steps (shuffled mode)")
     parser.add_argument("--no-step0-eval", action="store_true", default=False,
@@ -1742,6 +1895,7 @@ def main():
         torch_compile=False, torch_compile_mode="default",
         layer_dropout=False, position_encoding=False, pe_alpha=0.1,
         n_layers=3, eval_steps=2000, save_steps=10000,
+        cls_eval=False, cls_eval_n=25,
     )
     for key, fallback in _FALLBACKS.items():
         if getattr(args, key, None) is None:
@@ -1800,6 +1954,16 @@ def main():
             print(f"Max context length: {MAX_CONTEXT_LENGTH} (longer samples will be dropped)")
 
     tokenizer = load_tokenizer(args.model)
+
+    # Build sentence delimiter token set: ".", ".\n", ".\n\n"
+    global SENTENCE_DELIM_IDS
+    SENTENCE_DELIM_IDS = set()
+    for pattern in [".", ".\n", ".\n\n"]:
+        ids = tokenizer.encode(pattern, add_special_tokens=False)
+        if len(ids) == 1:
+            SENTENCE_DELIM_IDS.add(ids[0])
+    if rank == 0:
+        print(f"Sentence delimiter token IDs: {sorted(SENTENCE_DELIM_IDS)}")
 
     # Verify placeholder
     tok_ids = tokenizer.encode(PLACEHOLDER_TOKEN, add_special_tokens=False)

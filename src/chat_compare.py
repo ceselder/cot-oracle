@@ -280,7 +280,7 @@ def load_train_task_config(config_path):
     for task_name, task_cfg in config["tasks"].items():
         train_n = task_cfg["n"] if "n" in task_cfg else 0
         eval_n = task_cfg["eval_n"] if "eval_n" in task_cfg else 0
-        enabled = train_n > 0 or eval_n > 0
+        enabled = train_n != 0 or eval_n != 0
         if not enabled:
             continue
         if task_name in BUILTIN_TASK_PROMPTS:
@@ -1120,7 +1120,7 @@ class ChatCompareWebApp:
 
     def _rate_answers_from_payload(self, task_key, custom_prompt, ao_prompt, ao_response, patchscopes_response, black_box_response, no_act_response, trained_response, sae_response):
         resolved_key = CLI_ALIASES[task_key] if task_key in CLI_ALIASES else task_key
-        prompt = custom_prompt.strip() if resolved_key == "custom" else self.prompt_map[resolved_key]
+        prompt = custom_prompt.strip() if custom_prompt.strip() else self.prompt_map.get(resolved_key, "")
         ctx = {"task_key": resolved_key, "prompt": prompt}
         rating_result = self._rate_answers(ctx, ao_prompt, ao_response, patchscopes_response, black_box_response, no_act_response, trained_response, sae_response)
         return {"answer_ratings": rating_result["ratings"], "rating_summary": rating_result["summary"]}
@@ -1259,6 +1259,28 @@ class ChatCompareWebApp:
     def _is_full_model_organism(self, cot_adapter):
         return cot_adapter and MODEL_ORGANISMS.get(cot_adapter, {}).get("type") == "full_model"
 
+    def _set_cot(self, question, cot_text):
+        """Set a precomputed CoT (e.g. cot_prefix from chunked tasks) matching eval's prepare_context_ids flow."""
+        messages = [{"role": "user", "content": question}]
+        formatted = self.tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True, enable_thinking=False)
+        full_text = formatted + cot_text
+        self.state = SessionState(
+            question=question,
+            cot_response=cot_text,
+            cot_text=cot_text,
+            answer_text="",
+            full_text=full_text,
+            enable_thinking=False,
+        )
+        self._active_cot_adapter = None
+        return {
+            "question": question,
+            "cot_response": cot_text,
+            "cot_text": cot_text,
+            "answer_text": "",
+            "cot_adapter": "precomputed",
+        }
+
     def _generate_cot_only(self, question, enable_thinking=True, cot_adapter=None):
         organism_info = MODEL_ORGANISMS.get(cot_adapter) if cot_adapter else None
         is_full_model = organism_info and organism_info.get("type") == "full_model"
@@ -1381,9 +1403,9 @@ class ChatCompareWebApp:
         if self.state.multilayer_acts is None:
             raise HTTPException(status_code=400, detail="Generate a CoT first")
         resolved_key = CLI_ALIASES.get(task_key, task_key)
-        prompt = custom_prompt.strip() if resolved_key == "custom" else self.prompt_map[resolved_key]
-        if resolved_key == "custom" and not prompt:
-            raise HTTPException(status_code=400, detail="Custom prompt is empty")
+        prompt = custom_prompt.strip() if custom_prompt.strip() else self.prompt_map.get(resolved_key, "")
+        if not prompt:
+            raise HTTPException(status_code=400, detail="Oracle prompt is empty")
         selected_ml, selected_ao, selected_layers, layer_counts, selected_positions = select_activation_cells(
             self.state.multilayer_acts,
             self.state.ao_acts,
@@ -1640,6 +1662,12 @@ class ChatCompareWebApp:
                 raise HTTPException(status_code=400, detail="Question is empty")
             cot_adapter = payload.get("cot_adapter") or None
             return await asyncio.to_thread(self._generate_cot_only, question, bool(payload.get("enable_thinking", True)), cot_adapter=cot_adapter)
+
+        @self.app.post("/api/set_cot")
+        async def set_cot(payload: dict):
+            question = payload["question"].strip()
+            cot_text = payload["cot_text"]
+            return await asyncio.to_thread(self._set_cot, question, cot_text)
 
         @self.app.post("/api/extract_activations")
         async def extract_activations(payload: dict = {}):
@@ -1911,8 +1939,8 @@ class ChatCompareWebApp:
         <select id=\"taskSelect\"></select>
         <div class=\"row\" style=\"margin-top:6px\"><button id=\"loadChunkedBtn\" class=\"secondary\" style=\"font-size:12px;display:none\">Load chunked sample</button></div>
         <div id=\"chunkedInfo\" class=\"small muted\" style=\"margin-top:4px;display:none\"></div>
-        <label style=\"display:block;margin-top:10px\">Custom prompt</label>
-        <textarea id=\"customPrompt\" placeholder=\"Used when Task preset = Custom prompt\"></textarea>
+        <label id=\"promptLabel\" style=\"display:block;margin-top:10px\">Oracle prompt</label>
+        <textarea id=\"customPrompt\" placeholder=\"The prompt sent to the oracle along with activations\"></textarea>
         <label style=\"display:block;margin-top:10px\">train.yaml eval tags (logged only)</label>
         <select id=\"evalTags\" multiple size=\"8\"></select>
         <label style=\"display:block;margin-top:10px\">Max new tokens</label>
@@ -1935,6 +1963,8 @@ class ChatCompareWebApp:
         <div class=\"small muted\" id=\"checkpointStatus\" style=\"margin-top:4px\"></div>
         <label style=\"display:block;margin-top:10px\">Patchscopes per-layer injection strength</label>
         <div id=\"patchStrengthRows\" class=\"slider-stack\"></div>
+        <label style=\"display:block;margin-top:10px\" class=\"small\">Run stride <span class=\"muted\">(subsample selected positions: 1 = all, 2 = every other, ...)</span></label>
+        <input id=\"runStrideInput\" type=\"number\" value=\"1\" min=\"1\" step=\"1\" style=\"width:80px\">
         <div class=\"row\">
           <button id=\"runBtn\">Run selected activations</button>
           <button id=\"selectAllBtn\" class=\"secondary\">Select all</button>
@@ -1951,7 +1981,7 @@ class ChatCompareWebApp:
       </div>
       <div style=\"display:grid;grid-template-columns:1fr 1fr;gap:12px\">
         <div class=\"panel\">
-          <h3 style=\"margin-top:0\">Chain of Thought</h3>
+          <h3 style=\"margin-top:0\" id=\"cotHeader\">Chain of Thought</h3>
           <div id=\"cotPreview\" class=\"text-block\" style=\"max-height:400px;overflow-y:auto\"></div>
         </div>
         <div class=\"panel\">
@@ -1962,21 +1992,21 @@ class ChatCompareWebApp:
       <div id=\"chunkedPanel\" style=\"display:none\">
         <div style=\"display:grid;grid-template-columns:1fr 1fr;gap:12px\">
           <div class=\"panel\">
-            <h3 style=\"margin-top:0\">CoT Prefix <span class=\"muted small\">(activations extracted from this)</span></h3>
+            <h3 style=\"margin-top:0\">CoT Prefix <code>cot_prefix</code> <span class=\"muted small\">(activations extracted from this)</span></h3>
             <div id=\"chunkedPrefix\" class=\"text-block\" style=\"max-height:300px;overflow-y:auto\"></div>
           </div>
           <div class=\"panel\">
-            <h3 style=\"margin-top:0\">CoT Suffix <span class=\"muted small\">(oracle must predict about this)</span></h3>
+            <h3 style=\"margin-top:0\">CoT Suffix <code>cot_suffix</code> <span class=\"muted small\">(oracle must predict about this)</span></h3>
             <div id=\"chunkedSuffix\" class=\"text-block\" style=\"max-height:300px;overflow-y:auto\"></div>
           </div>
         </div>
         <div style=\"display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:0\">
           <div class=\"panel\">
-            <h3 style=\"margin-top:0\">Full CoT</h3>
+            <h3 style=\"margin-top:0\">Full CoT <code>cot_text</code></h3>
             <div id=\"chunkedFullCot\" class=\"text-block\" style=\"max-height:200px;overflow-y:auto\"></div>
           </div>
           <div class=\"panel\">
-            <h3 style=\"margin-top:0\">Target Response <span class=\"muted small\">(ground truth)</span></h3>
+            <h3 style=\"margin-top:0\">Target Response <code>target_response</code> <span class=\"muted small\">(ground truth)</span></h3>
             <div id=\"targetResponseText\" class=\"text-block\" style=\"max-height:200px;overflow-y:auto\"></div>
           </div>
         </div>
@@ -2062,7 +2092,8 @@ class ChatCompareWebApp:
           <div id=\"patchOut\" class=\"text-block\"></div>
         </div>
         <div class=\"panel\">
-          <h3 style=\"margin-top:0\">Black-Box Monitor</h3>
+          <h3 style=\"margin-top:0;display:inline\">Black-Box Monitor</h3>
+          <span class=\"info-tooltip\" title=\"Gemini reads the question + visible CoT text (no activations).&#10;For chunked tasks, only sees cot_prefix (same region the oracle gets activations from).\">&#9432;</span>
           <div class=\"mini-status\" id=\"bbStatus\"><span class=\"mini-dot\"></span><span id=\"bbStatusText\"></span></div>
           <div class=\"muted small\" id=\"bbPrompt\"></div>
           <div id=\"bbOut\" class=\"text-block\"></div>
@@ -2268,9 +2299,11 @@ For your final answer, respond with "Answer: Yes" or "Answer: No" after the chai
     }
     function selectedCells() {
       if (!session) return [];
+      const runStride = Math.max(1, parseInt(document.getElementById('runStrideInput').value) || 1);
+      const sortedPositions = [...selected].map(Number).sort((a, b) => a - b);
+      const strided = runStride <= 1 ? sortedPositions : sortedPositions.filter((_, i) => i % runStride === 0);
       const cells = [];
-      for (const posStr of selected) {
-        const position = Number(posStr);
+      for (const position of strided) {
         for (const layer of session.layers) {
           cells.push({ layer, position });
         }
@@ -2280,7 +2313,10 @@ For your final answer, respond with "Answer: Yes" or "Answer: No" after the chai
     function updateSelectionInfo() {
       if (!session) { selectionInfo.textContent = 'No session yet.'; return; }
       const count = selected.size;
-      selectionInfo.textContent = `${count} / ${session.n_positions} positions selected across ${session.layers.length} layers (${count === 0 ? 'oracle run will fail' : 'drag to edit'})`;
+      const runStride = Math.max(1, parseInt(document.getElementById('runStrideInput').value) || 1);
+      const effective = runStride <= 1 ? count : Math.ceil(count / runStride);
+      const strideSuffix = runStride > 1 ? `, run stride ${runStride} -> ${effective} used` : '';
+      selectionInfo.textContent = `${count} / ${session.n_positions} positions selected across ${session.layers.length} layers${strideSuffix} (${count === 0 ? 'oracle run will fail' : 'drag to edit'})`;
     }
     function renderTaskOptions() {
       const taskSelect = document.getElementById('taskSelect');
@@ -2296,6 +2332,8 @@ For your final answer, respond with "Answer: Yes" or "Answer: No" after the chai
         document.getElementById('customPrompt').value = item && item.key !== 'custom' ? item.prompt : '';
         const isChunked = config.chunked_tasks && config.chunked_tasks.includes(taskSelect.value);
         document.getElementById('loadChunkedBtn').style.display = isChunked ? 'inline-block' : 'none';
+        const label = document.getElementById('promptLabel');
+        label.innerHTML = item && item.key !== 'custom' ? `Oracle prompt <span class="muted small">(from task <code>${item.key}</code>)</span>` : 'Oracle prompt';
       });
       taskSelect.dispatchEvent(new Event('change'));
     }
@@ -2548,19 +2586,27 @@ For your final answer, respond with "Answer: Yes" or "Answer: No" after the chai
       const enableThinking = document.getElementById('thinkingToggle').checked;
       const cotAdapter = document.getElementById('cotGenerator').value || null;
       if (!question) { setStatus('Question is empty'); return; }
-      const genLabel = cotAdapter ? `CoT (${cotAdapter})` : 'CoT (base)';
-      setStatus(`Generating ${genLabel}...`);
-      setBusy(true, `Stage 1/2: generating ${genLabel}...`, 20);
-      // Poll /api/progress for live status updates during generation
-      const progressPoller = setInterval(async () => {
-        try {
-          const r = await fetch('/api/progress');
-          const d = await r.json();
-          if (d.status) setBusy(true, d.status, 30);
-        } catch(e) {}
-      }, 1500);
-      const cotResponse = await fetch('/api/generate_cot', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ question, enable_thinking: enableThinking, cot_adapter: cotAdapter }) });
-      clearInterval(progressPoller);
+      let cotResponse;
+      let progressPoller;
+      if (currentChunkedTarget) {
+        setStatus('Setting CoT from cot_prefix...');
+        setBusy(true, 'Stage 1/2: setting CoT from cot_prefix...', 20);
+        cotResponse = await fetch('/api/set_cot', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ question, cot_text: currentChunkedTarget.cot_prefix }) });
+      } else {
+        const genLabel = cotAdapter ? `CoT (${cotAdapter})` : 'CoT (base)';
+        setStatus(`Generating ${genLabel}...`);
+        setBusy(true, `Stage 1/2: generating ${genLabel}...`, 20);
+        // Poll /api/progress for live status updates during generation
+        progressPoller = setInterval(async () => {
+          try {
+            const r = await fetch('/api/progress');
+            const d = await r.json();
+            if (d.status) setBusy(true, d.status, 30);
+          } catch(e) {}
+        }, 1500);
+        cotResponse = await fetch('/api/generate_cot', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ question, enable_thinking: enableThinking, cot_adapter: cotAdapter }) });
+      }
+      if (progressPoller) clearInterval(progressPoller);
       const cotData = await cotResponse.json();
       if (!cotResponse.ok) { setBusy(false); setStatus(cotData.detail || 'CoT generation failed'); return; }
       document.getElementById('cotPreview').textContent = cotData.cot_text || '(no CoT)';
@@ -2593,6 +2639,11 @@ For your final answer, respond with "Answer: Yes" or "Answer: No" after the chai
       document.getElementById('oraclePrompt').textContent = '';
       document.getElementById('logPath').textContent = '';
       resetPanelStatuses();
+      document.getElementById('cotHeader').innerHTML = currentChunkedTarget ? 'Chain of Thought (from data field <code>cot_prefix</code>)' : 'Chain of Thought';
+      if (!currentChunkedTarget) {
+        document.getElementById('chunkedPanel').style.display = 'none';
+        document.getElementById('chunkedInfo').style.display = 'none';
+      }
       const tagPills = document.getElementById('tagPills');
       tagPills.innerHTML = session.layers.map(layer => `<span class=\"pill\">Layer ${layer}</span>`).join('');
       selectAll();
@@ -2793,6 +2844,7 @@ For your final answer, respond with "Answer: Yes" or "Answer: No" after the chai
     document.getElementById('generateBtn').addEventListener('click', generateSession);
     document.getElementById('refreshPromptBtn').addEventListener('click', loadSuggestedQuestion);
     document.getElementById('runBtn').addEventListener('click', runSelection);
+    document.getElementById('runStrideInput').addEventListener('input', updateSelectionInfo);
     document.getElementById('selectAllBtn').addEventListener('click', selectAll);
     document.getElementById('lastOnlyBtn').addEventListener('click', selectLastOnly);
     document.getElementById('clearBtn').addEventListener('click', clearSelection);
@@ -2836,15 +2888,17 @@ For your final answer, respond with "Answer: Yes" or "Answer: No" after the chai
       if (!resp.ok) { setStatus(data.detail || 'Failed to load chunked sample'); return; }
       document.getElementById('question').value = data.question;
       document.getElementById('customPrompt').value = data.prompt;
+      document.getElementById('promptLabel').innerHTML = 'Oracle prompt <span class="muted small">(from data field <code>prompt</code>)</span>';
       currentChunkedTarget = data;
       document.getElementById('chunkedPrefix').textContent = data.cot_prefix;
       document.getElementById('chunkedSuffix').textContent = data.cot_suffix;
       document.getElementById('chunkedFullCot').textContent = data.cot_text;
       document.getElementById('targetResponseText').textContent = data.target_response;
       document.getElementById('chunkedPanel').style.display = 'block';
+      document.getElementById('cotHeader').innerHTML = 'Chain of Thought (from data field <code>cot_prefix</code>)';
       document.getElementById('chunkedInfo').style.display = 'block';
-      document.getElementById('chunkedInfo').textContent = `Source: ${data.source} | prefix: ${data.cot_prefix.length} chars | suffix: ${data.cot_suffix.length} chars`;
-      setStatus(`Loaded ${taskKey} sample. The question and prompt are pre-filled. Generate a CoT to proceed.`);
+      document.getElementById('chunkedInfo').innerHTML = `Source: ${data.source} | <code>cot_prefix</code>: ${data.cot_prefix.length} chars | <code>cot_suffix</code>: ${data.cot_suffix.length} chars`;
+      setStatus(`Loaded ${taskKey} sample. Question (from \\`question\\`) and prompt (from \\`prompt\\`) pre-filled. Click Generate & Extract to use \\`cot_prefix\\` for activations.`);
     });
     loadConfig();
 
