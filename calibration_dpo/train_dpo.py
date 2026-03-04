@@ -525,6 +525,39 @@ def train(cfg: dict) -> None:
 
                 metrics_accum["judge_time_s"].append(judge_time)
 
+                # Detailed per-rollout log (first example only, every table_every steps)
+                if global_step % table_every < batch_size and prev_examples:
+                    ex = prev_examples[0]
+                    jr = judge_results[0]
+                    if jr and jr.ratings:
+                        rating_map = {r.index: r for r in jr.ratings}
+                        print(f"\n{'═'*70}")
+                        print(f"  EXAMPLE DETAIL")
+                        print(f"{'═'*70}")
+                        print(f"  Question:  {ex['question'][:120]}...")
+                        print(f"  CoT:       {ex['cot_response'][:120]}...")
+                        print(f"  Prompt:    {prev_prompts[0]}")
+                        print(f"{'─'*70}")
+                        for j, rollout_text in enumerate(prev_rollouts[0]):
+                            r = rating_map.get(j + 1)
+                            tag = r.rating.upper() if r else "?"
+                            flags = []
+                            if r and r.vague:
+                                flags.append("vague")
+                            if r and r.malformed:
+                                flags.append("malformed")
+                            flag_str = f" [{', '.join(flags)}]" if flags else ""
+                            trunc = rollout_text[:150].replace('\n', ' ')
+                            if len(rollout_text) > 150:
+                                trunc += "..."
+                            print(f"  R{j+1:2d} {tag:13s}{flag_str}")
+                            print(f"      {trunc}")
+                        if jr.ideal_response:
+                            print(f"{'─'*70}")
+                            ideal_trunc = jr.ideal_response[:200].replace('\n', ' ')
+                            print(f"  IDEAL: {ideal_trunc}")
+                        print(f"{'═'*70}\n")
+
             pending_judge = True
 
             # If we have enough accumulated items, do a training step

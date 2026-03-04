@@ -11,10 +11,10 @@ data:
   max_positions: 3
 
 rollouts:
-  n: 12
+  n: 16
   temperature: 1.0
   max_new_tokens: 150
-  generation_batch_size: 12
+  generation_batch_size: 16
 
 judge:
   model: "google/gemini-3.1-flash-lite-preview"
