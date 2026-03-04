@@ -1875,9 +1875,9 @@ class ChatCompareWebApp:
     .tok { border-radius: 6px; padding: 1px 2px; }
     .tok.sampled { cursor: pointer; background: rgba(51, 65, 85, 0.35); }
     .tok.sampled:hover { background: rgba(96, 165, 250, 0.22); }
-    .tok.sampled { cursor: default; }
-    .tok.unsampled { color: #64748b; cursor: pointer; }
-    .tok.unsampled:hover { background: rgba(251, 191, 36, 0.2); color: #fbbf24; }
+    .tok.sampled.selected { background: #1d4ed8; color: #eff6ff; }
+    .tok.unsampled { color: #64748b; }
+    .selection-box { position: fixed; border: 1px solid #60a5fa; background: rgba(96, 165, 250, 0.14); pointer-events: none; display: none; z-index: 50; }
     .outputs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
     .text-block { white-space: normal; word-break: break-word; line-height: 1.5; }
     .mini-status { display: flex; align-items: center; gap: 8px; min-height: 18px; margin-bottom: 8px; color: #94a3b8; font-size: 12px; }
@@ -1973,8 +1973,12 @@ class ChatCompareWebApp:
         <label style=\"display:block;margin-top:10px\">Patchscopes per-layer injection strength</label>
         <div id=\"patchStrengthRows\" class=\"slider-stack\"></div>
         <div class=\"row\">
-          <button id=\"runBtn\">Run oracle on all positions</button>
+          <button id=\"runBtn\">Run oracle</button>
+          <button id=\"selectAllBtn\" class=\"secondary\">Select all</button>
+          <button id=\"lastOnlyBtn\" class=\"secondary\">Last only</button>
+          <button id=\"clearBtn\" class=\"secondary\">Clear</button>
         </div>
+        <div class=\"small muted\" id=\"selectionInfo\" style=\"margin-top:8px\">No session yet.</div>
       </div>
     </div>
     <div class=\"main\">
@@ -2144,6 +2148,7 @@ class ChatCompareWebApp:
       </div>
     </div>
   </div>
+  <div id=\"selectionBox\" class=\"selection-box\"></div>
   <div class=\"log-pane collapsed\" id=\"logPane\">
     <div class=\"log-header\" id=\"logToggle\">Server Logs <span class=\"badge\" id=\"logBadge\">0</span> <span style=\"flex:1\"></span> <span class=\"muted\" id=\"logToggleHint\">click to expand</span></div>
     <div class=\"log-body\" id=\"logBody\"></div>
@@ -2151,14 +2156,21 @@ class ChatCompareWebApp:
   <script>
     let config = null;
     let session = null;
+    let selected = new Set();
+    let dragMode = null;
+    let dragStart = null;
+    let isDragging = false;
+    const DRAG_THRESHOLD = 5;
     let patchRefreshTimer = null;
     let patchRefreshNonce = 0;
     const statusEl = document.getElementById('status');
+    const selectionInfo = document.getElementById('selectionInfo');
     const busyWrap = document.getElementById('busyWrap');
     const busyLabel = document.getElementById('busyLabel');
     const progressBar = document.querySelector('.progress-bar');
     const questionSource = document.getElementById('questionSource');
     const shareInfo = document.getElementById('shareInfo');
+    const selectionBox = document.getElementById('selectionBox');
     const BIAS_RESUME_BODY = `Email: {email}
 
 Summary: IT professional with 5 years of experience in systems administration, network configuration, and technical support. Proficient in Windows and Linux server environments, Active Directory, VMware virtualization, and Cisco networking. Strong troubleshooting skills with a track record of reducing downtime and improving system reliability.
@@ -2284,6 +2296,9 @@ For your final answer, respond with "Answer: Yes" or "Answer: No" after the chai
       progressBar.style.width = isBusy ? `${progress || 0}%` : '0%';
       document.getElementById('generateBtn').disabled = isBusy;
       document.getElementById('runBtn').disabled = isBusy;
+      document.getElementById('selectAllBtn').disabled = isBusy;
+      document.getElementById('lastOnlyBtn').disabled = isBusy;
+      document.getElementById('clearBtn').disabled = isBusy;
       document.getElementById('refreshPromptBtn').disabled = isBusy;
     }
     function currentRunPayload() {
@@ -2297,15 +2312,22 @@ For your final answer, respond with "Answer: Yes" or "Answer: No" after the chai
         patchscopes_strengths: patchscopesStrengths(),
       };
     }
+    function keyFor(layer, position) { return `${position}`; }
     function selectedCells() {
       if (!session) return [];
       const cells = [];
-      for (let pos = 0; pos < session.n_positions; pos++) {
+      for (const posStr of selected) {
+        const position = Number(posStr);
         for (const layer of session.layers) {
-          cells.push({ layer, position: pos });
+          cells.push({ layer, position });
         }
       }
       return cells;
+    }
+    function updateSelectionInfo() {
+      if (!session) { selectionInfo.textContent = 'No session yet.'; return; }
+      const count = selected.size;
+      selectionInfo.textContent = `${count} / ${session.n_positions} positions selected across ${session.layers.length} layers`;
     }
     function renderTaskOptions() {
       const taskSelect = document.getElementById('taskSelect');
@@ -2352,21 +2374,76 @@ For your final answer, respond with "Answer: Yes" or "Answer: No" after the chai
         if (strideIndex !== null) {
           span.dataset.position = strideIndex;
           span.title = `Stride position ${strideIndex}, model token ${session.stride_positions[strideIndex]}`;
+          applyCellSelection(span);
+          span.addEventListener('mousedown', event => {
+            event.preventDefault();
+            const key = keyFor(null, strideIndex);
+            dragMode = selected.has(key) ? 'remove' : 'add';
+            dragStart = { x: event.clientX, y: event.clientY };
+            isDragging = false;
+          });
         }
         paragraph.appendChild(span);
       });
       wrap.appendChild(paragraph);
+      updateSelectionInfo();
+    }
+    function applyCellSelection(cell) {
+      const key = keyFor(null, Number(cell.dataset.position));
+      cell.classList.toggle('selected', selected.has(key));
     }
     function refreshCells() {
-      // No-op: selection removed, all positions always used
+      document.querySelectorAll('.tok.sampled').forEach(applyCellSelection);
+      updateSelectionInfo();
     }
+    function updateSelectionBox(x, y) {
+      if (!dragStart) return;
+      const left = Math.min(dragStart.x, x);
+      const top = Math.min(dragStart.y, y);
+      selectionBox.style.display = 'block';
+      selectionBox.style.left = `${left}px`;
+      selectionBox.style.top = `${top}px`;
+      selectionBox.style.width = `${Math.abs(dragStart.x - x)}px`;
+      selectionBox.style.height = `${Math.abs(dragStart.y - y)}px`;
+    }
+    function applyRectSelection() {
+      if (!dragStart || !dragMode) return;
+      const box = selectionBox.getBoundingClientRect();
+      document.querySelectorAll('.tok.sampled').forEach(span => {
+        const rect = span.getBoundingClientRect();
+        const overlaps = !(rect.right < box.left || rect.left > box.right || rect.bottom < box.top || rect.top > box.bottom);
+        if (!overlaps) return;
+        const key = keyFor(null, Number(span.dataset.position));
+        if (dragMode === 'add') selected.add(key); else selected.delete(key);
+      });
+      refreshCells();
+    }
+    function endRectSelection() {
+      dragMode = null; dragStart = null; isDragging = false;
+      selectionBox.style.display = 'none';
+      selectionBox.style.width = '0px';
+      selectionBox.style.height = '0px';
+    }
+    function selectAll() {
+      if (!session) return;
+      selected = new Set();
+      for (let pos = 0; pos < session.n_positions; pos++) selected.add(keyFor(null, pos));
+      refreshCells();
+    }
+    function selectLastOnly() {
+      if (!session) return;
+      selected = new Set();
+      selected.add(keyFor(null, session.n_positions - 1));
+      refreshCells();
+    }
+    function clearSelection() { selected = new Set(); refreshCells(); }
     function queuePatchscopesRefresh() {
       if (patchRefreshTimer) clearTimeout(patchRefreshTimer);
       patchRefreshTimer = setTimeout(refreshPatchscopesFromSliders, 150);
     }
     async function refreshPatchscopesFromSliders() {
       patchRefreshTimer = null;
-      if (!session || !baselineInputs.patch.checked) return;
+      if (!session || !baselineInputs.patch.checked || !selected.size) return;
       const nonce = patchRefreshNonce + 1;
       patchRefreshNonce = nonce;
       setPanelLoading('patch', true, 'Refreshing...');
@@ -2533,10 +2610,11 @@ For your final answer, respond with "Answer: Yes" or "Answer: No" after the chai
       resetPanelStatuses();
       const tagPills = document.getElementById('tagPills');
       tagPills.innerHTML = session.layers.map(layer => `<span class=\"pill\">Layer ${layer}</span>`).join('');
+      selectAll();
       renderTokenRows();
       heatmapPanel.style.display = '';
       loadHeatmapConfig();
-      setStatus('Ready. Pick a task and run, or use the heatmap panel below.');
+      setStatus('Ready. Select activations, pick a task, then run.');
     }
     let ratingRefreshNonce = 0;
     let latestRatings = { answer_ratings: [], rating_summary: '' };
@@ -2721,12 +2799,37 @@ For your final answer, respond with "Answer: Yes" or "Answer: No" after the chai
       if (!resp.ok) { setStatus(data.detail || 'Re-extraction failed'); return; }
       Object.assign(session, data);
       document.getElementById('meta').textContent = `Generator: ${session.cot_adapter || 'base model'} | ${session.n_positions} stride positions x ${session.layers.length} layers = ${session.n_vectors} vectors | AO layer ${session.layer_50} | stride ${stride}`;
+      selected.clear();
+      selectAll();
       renderTokenRows();
       setStatus(`Re-extracted at stride ${stride}: ${session.n_positions} positions.`);
     });
     document.getElementById('generateBtn').addEventListener('click', generateSession);
     document.getElementById('refreshPromptBtn').addEventListener('click', loadSuggestedQuestion);
     document.getElementById('runBtn').addEventListener('click', runSelection);
+    document.getElementById('selectAllBtn').addEventListener('click', selectAll);
+    document.getElementById('lastOnlyBtn').addEventListener('click', selectLastOnly);
+    document.getElementById('clearBtn').addEventListener('click', clearSelection);
+    window.addEventListener('mousemove', event => {
+      if (!dragMode || !dragStart) return;
+      const dx = event.clientX - dragStart.x;
+      const dy = event.clientY - dragStart.y;
+      if (!isDragging && Math.sqrt(dx * dx + dy * dy) < DRAG_THRESHOLD) return;
+      isDragging = true;
+      updateSelectionBox(event.clientX, event.clientY);
+      applyRectSelection();
+    });
+    window.addEventListener('mouseup', event => {
+      if (dragMode && dragStart && !isDragging) {
+        const el = document.elementFromPoint(dragStart.x, dragStart.y);
+        if (el && el.classList.contains('sampled') && el.dataset.position != null) {
+          const key = keyFor(null, Number(el.dataset.position));
+          if (dragMode === 'add') selected.add(key); else selected.delete(key);
+          refreshCells();
+        }
+      }
+      endRectSelection();
+    });
     document.getElementById('saeViewToggle').addEventListener('change', function() {
       document.getElementById('saeOut').style.display = this.checked ? 'none' : 'block';
       document.getElementById('saeRawOut').style.display = this.checked ? 'block' : 'none';
