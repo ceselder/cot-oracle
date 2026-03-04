@@ -57,8 +57,11 @@ concluded. Set "vague": true if the response lacks concrete specifics.
 For "mixed" responses, provide a minimal "correction" — change as few words as \
 possible to fix the inaccurate parts while keeping everything else verbatim. \
 Only strike claims that are clearly verifiably wrong from the CoT. Do NOT \
-rewrite sentence structure or rephrase correct parts. If a specific number is \
-wrong, correct the number rather than removing the claim.
+rewrite sentence structure or rephrase correct parts. When replacing a wrong \
+detail, only substitute it with the correct version if another rollout \
+actually stated the correct version — otherwise just remove the wrong claim. \
+If a specific number is wrong and another rollout got it right, correct the \
+number rather than removing the claim.
 
 Finally, synthesize an "ideal_response" from ONLY claims that appear in the \
 original responses, you can use all of the data in the responses. Do not make it vague, it's important that the final output is not vague. \
