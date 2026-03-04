@@ -196,12 +196,8 @@ def build_dpo_items(
             refusal = sample_refusal(rng)
 
             if rating.rating == "good":
-                chosen_text = rollout_text
-                rejected_text = refusal
-
                 # If malformed, prefer reformatted over original
                 if rating.malformed and rating.reformatted:
-                    # Format DPO: reformatted > original
                     ref_chosen_ids, ref_chosen_labels = _make_full_ids(rating.reformatted)
                     ref_rejected_ids, ref_rejected_labels = _make_full_ids(rollout_text)
                     dpo_items.append(DPOBatchItem(
@@ -213,20 +209,21 @@ def build_dpo_items(
                         ph_positions=ph_positions,
                         label="reformatted>malformed",
                     ))
-                    chosen_text = rating.reformatted
 
-                # Content DPO: good > refusal
-                chosen_ids, chosen_labels = _make_full_ids(chosen_text)
-                rejected_ids, rejected_labels = _make_full_ids(rejected_text)
-                dpo_items.append(DPOBatchItem(
-                    chosen_ids=chosen_ids,
-                    rejected_ids=rejected_ids,
-                    chosen_labels=chosen_labels,
-                    rejected_labels=rejected_labels,
-                    activations=activations,
-                    ph_positions=ph_positions,
-                    label="model>refusal",
-                ))
+                # Only reward non-vague good rollouts over refusal
+                if not rating.vague:
+                    chosen_text = rating.reformatted if (rating.malformed and rating.reformatted) else rollout_text
+                    chosen_ids, chosen_labels = _make_full_ids(chosen_text)
+                    rejected_ids, rejected_labels = _make_full_ids(refusal)
+                    dpo_items.append(DPOBatchItem(
+                        chosen_ids=chosen_ids,
+                        rejected_ids=rejected_ids,
+                        chosen_labels=chosen_labels,
+                        rejected_labels=rejected_labels,
+                        activations=activations,
+                        ph_positions=ph_positions,
+                        label="model>refusal",
+                    ))
 
             elif rating.rating == "mixed":
                 if rating.correction:
