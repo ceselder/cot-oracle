@@ -192,7 +192,23 @@ SUMMARY_PROMPTS = [
     "Describe the trajectory of the reasoning in a few sentences.",
 ]
 
-ALL_PROMPTS = (
+FORMAT_PROMPTS = [
+    "In one sentence, describe what the model is doing.",
+    "In 2-3 sentences, explain the model's current reasoning.",
+    "Briefly describe the model's thought process here.",
+    "Give a detailed description of what's happening at this point in the reasoning.",
+    "List the key things happening in the model's reasoning right now.",
+]
+
+COMPOUND_CONNECTORS = [
+    " Also, ",
+    " Additionally, ",
+    "\n\n",
+    " And separately: ",
+    " Second question: ",
+]
+
+SINGLE_PROMPTS = (
     THINKING_DOING_PROMPTS
     + INTENT_PROMPTS
     + FORWARD_PROMPTS
@@ -212,13 +228,27 @@ ALL_PROMPTS = (
     + CONSTRAINTS_PROMPTS
     + STRUCTURE_PROMPTS
     + SUMMARY_PROMPTS
+    + FORMAT_PROMPTS
 )
 
 
+def _make_compound(rng: random.Random) -> str:
+    """Combine two different prompts into a multi-part question."""
+    q1, q2 = rng.sample(SINGLE_PROMPTS, 2)
+    connector = rng.choice(COMPOUND_CONNECTORS)
+    return q1 + connector + q2[0].lower() + q2[1:]
+
+
 def sample_prompt(rng: random.Random | None = None) -> str:
-    """Sample a random oracle prompt."""
+    """Sample a random oracle prompt.
+
+    ~25% chance of a compound (multi-part) prompt to train
+    instruction following on multi-question inputs.
+    """
     r = rng or random
-    return r.choice(ALL_PROMPTS)
+    if r.random() < 0.25:
+        return _make_compound(r)
+    return r.choice(SINGLE_PROMPTS)
 
 
 def sample_refusal(rng: random.Random | None = None) -> str:
