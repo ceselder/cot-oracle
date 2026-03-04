@@ -74,7 +74,7 @@ from nl_probes.utils.activation_utils import (
 )
 from nl_probes.utils.common import load_tokenizer, set_seed
 
-from cot_utils import layer_percent_to_layer, sparse_sample_positions, sample_poisson_positions
+from cot_utils import layer_percent_to_layer, sparse_sample_positions, sample_poisson_positions, sample_endweighted_positions
 from tasks import TASKS, get_trainable_tasks
 from data_loading import load_all_training_data
 from eval_loop import run_eval
@@ -419,6 +419,7 @@ def _apply_position_mode(base_positions: list[int]) -> list[int]:
     Modes:
         "last_only": only the final position (fastest iteration)
         "graduated": 33% last-1, 33% last-2, 33% last-3
+        "hybrid": 30% last-1, 30% last-3, 40% end-weighted stochastic
         "stochastic": 40% last-only, 60% Poisson-process sampled positions
         "all": use all positions
     """
@@ -429,6 +430,14 @@ def _apply_position_mode(base_positions: list[int]) -> list[int]:
     elif POSITION_MODE == "graduated":
         n = random.choice([1, 2, 3])
         return base_positions[-n:]
+    elif POSITION_MODE == "hybrid":
+        r = random.random()
+        if r < 0.3:
+            return base_positions[-1:]
+        elif r < 0.6:
+            return base_positions[-3:]
+        else:
+            return sample_endweighted_positions(base_positions)
     elif POSITION_MODE == "stochastic":
         return sample_poisson_positions(base_positions, max_k=STOCHASTIC_MAX_K)
     return base_positions  # "all"

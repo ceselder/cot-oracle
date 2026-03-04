@@ -33,7 +33,7 @@ from qa_judge import (
     extract_judge_json,
     is_gemini_qa_task,
 )
-from cot_utils import sample_poisson_positions
+from cot_utils import sample_poisson_positions, sample_endweighted_positions
 
 
 # ── Per-task response parsers ──
@@ -664,6 +664,10 @@ def _resample_eval_positions(
         elif position_mode == "graduated":
             # Deterministic for eval: use last-2 (middle option)
             sampled = base_positions[-2:]
+        elif position_mode == "hybrid":
+            # Deterministic for eval: use end-weighted sampling with seeded RNG
+            rng = random.Random(f"{eval_position_seed}:{task_name}:{item_idx}")
+            sampled = sample_endweighted_positions(base_positions, rng=rng)
         elif position_mode.startswith("last_"):
             n = int(position_mode.split("_", 1)[1])
             sampled = base_positions[-n:]
