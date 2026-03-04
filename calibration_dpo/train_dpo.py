@@ -537,7 +537,6 @@ def train(cfg: dict) -> None:
                     ex = prev_examples[0]
                     jr = judge_results[0]
                     if jr and jr.ratings:
-                        rating_map = {r.index: r for r in jr.ratings}
                         print(f"\n{'═'*70}")
                         print(f"  EXAMPLE DETAIL")
                         print(f"{'═'*70}")
@@ -545,39 +544,44 @@ def train(cfg: dict) -> None:
                         print(f"  CoT:       {ex['cot_response'][:120]}...")
                         print(f"  Prompt:    {prev_prompts[0]}")
                         print(f"{'─'*70}")
-                        for j, rollout_text in enumerate(prev_rollouts[0]):
-                            r = rating_map.get(j + 1)
-                            tag = r.rating.upper() if r else "?"
-                            flags = []
-                            if r and r.vague:
-                                flags.append("vague")
-                            if r and r.malformed:
-                                flags.append("malformed")
-                            flag_str = f" [{', '.join(flags)}]" if flags else ""
-                            trunc = rollout_text[:150].replace('\n', ' ')
-                            if len(rollout_text) > 150:
-                                trunc += "..."
-                            print(f"  R{j+1:2d} {tag:13s}{flag_str}")
-                            print(f"      {trunc}")
-                        if jr.ideal_response:
-                            print(f"{'─'*70}")
-                            ideal_trunc = jr.ideal_response[:200].replace('\n', ' ')
-                            print(f"  IDEAL: {ideal_trunc}")
-                        # Show DPO pairs for this example
+                        # Show DPO pairs with rating labels
                         if first_ex_dpo:
-                            print(f"{'─'*70}")
                             print(f"  DPO PAIRS ({len(first_ex_dpo)}):")
                             for pi, pair in enumerate(first_ex_dpo):
                                 chosen_text = tokenizer.decode(
                                     [t for t, l in zip(pair.chosen_ids, pair.chosen_labels) if l != -100],
                                     skip_special_tokens=True,
-                                )[:120].replace('\n', ' ')
+                                )[:150].replace('\n', ' ')
                                 rejected_text = tokenizer.decode(
                                     [t for t, l in zip(pair.rejected_ids, pair.rejected_labels) if l != -100],
                                     skip_special_tokens=True,
-                                )[:120].replace('\n', ' ')
+                                )[:150].replace('\n', ' ')
+                                # Try to find the rating for the rejected rollout
+                                label = ""
+                                rating_map_log = {r.index: r for r in jr.ratings}
+                                for j, rt in enumerate(prev_rollouts[0]):
+                                    r = rating_map_log.get(j + 1)
+                                    if r and rt in rejected_text or rejected_text in rt:
+                                        flags = []
+                                        if r.vague: flags.append("vague")
+                                        if r.malformed: flags.append("malformed")
+                                        flag_str = f" [{','.join(flags)}]" if flags else ""
+                                        label = f" ({r.rating}{flag_str})"
+                                        break
                                 print(f"  {pi+1}. ✓ {chosen_text}")
-                                print(f"     ✗ {rejected_text}")
+                                print(f"     ✗ {rejected_text}{label}")
+                        elif first_ex_sft:
+                            print(f"  ALL BAD — SFT only:")
+                            for si, sft in enumerate(first_ex_sft):
+                                sft_text = tokenizer.decode(
+                                    [t for t, l in zip(sft.input_ids, sft.labels) if l != -100],
+                                    skip_special_tokens=True,
+                                )[:150].replace('\n', ' ')
+                                print(f"  SFT (w={sft.weight:.1f}): {sft_text}")
+                        if jr.ideal_response:
+                            print(f"{'─'*70}")
+                            ideal_trunc = jr.ideal_response[:200].replace('\n', ' ')
+                            print(f"  IDEAL: {ideal_trunc}")
                         print(f"{'═'*70}\n")
 
             pending_judge = True
