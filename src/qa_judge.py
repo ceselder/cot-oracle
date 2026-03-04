@@ -67,31 +67,24 @@ def build_trajectory_judge_prompt(gt_answer_label: str, gt_confidence: int | Non
     )
 
 
-# ── LLM judge for hallucination / vagueness evals ──
+# ── LLM judge for cot_description eval ──
 
-LLM_JUDGE_TASKS = frozenset({"hallucination", "vagueness"})
+LLM_JUDGE_TASKS = frozenset({"cot_description"})
 
-HALLUCINATION_JUDGE_SYSTEM = (
-    "You score the factual correctness of an activation oracle's response against a reference answer. "
-    "Return ONLY JSON with keys `score` and `reason`. "
-    "`score` must be a float: 0.0 = confabulated wrong domain or details, "
-    "0.5 = right domain but wrong specifics, 1.0 = factually correct and matches reference. "
-    "`reason` must be one very short sentence, at most 12 words."
-)
-
-VAGUENESS_JUDGE_SYSTEM = (
-    "You score the specificity of an activation oracle's response against a reference answer. "
-    "Return ONLY JSON with keys `score` and `reason`. "
-    "`score` must be a float: 0.0 = generic or unfalsifiable response, "
-    "0.3 = explicit decline to answer (e.g. 'I don't know'), "
-    "0.5 = right topic but vague, missing required specifics, "
-    "1.0 = mentions the specific details required by the reference. "
-    "`reason` must be one very short sentence, at most 12 words."
+COT_DESCRIPTION_JUDGE_SYSTEM = (
+    "You score an activation oracle's response against a reference answer on three dimensions. "
+    "Return ONLY JSON with keys `correctness`, `specificity`, `confidence`, `reason`.\n\n"
+    "`correctness` (float 0-1): 0.0 = wrong domain or fabricated details, "
+    "0.5 = right domain but wrong specifics, 1.0 = factually matches reference.\n\n"
+    "`specificity` (float 0-1): 0.0 = generic/unfalsifiable ('the model is processing information'), "
+    "0.5 = right topic but missing required details, 1.0 = includes concrete names/numbers/relationships from reference.\n\n"
+    "`confidence` (float 0-1): 0.0 = fully hedged/declined ('I cannot determine'), "
+    "0.5 = partial hedging ('it seems to be about...'), 1.0 = stated as fact with no caveats.\n\n"
+    "`reason`: one sentence, at most 15 words."
 )
 
 _LLM_JUDGE_SYSTEMS = {
-    "hallucination": HALLUCINATION_JUDGE_SYSTEM,
-    "vagueness": VAGUENESS_JUDGE_SYSTEM,
+    "cot_description": COT_DESCRIPTION_JUDGE_SYSTEM,
 }
 
 

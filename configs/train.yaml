@@ -89,10 +89,11 @@ tasks:
   rot13_reconstruction:
     eval: false     # skip for now
 
-  hallucination:
+  cot_description:
     eval: false
 
-  vagueness:
+  deception_detection:
+    n: 0
     eval: false
 
 # FineWeb readout tasks
@@ -133,7 +134,7 @@ no_activations:
 # Activation extraction
 activations:
   layers: [9, 18, 27]        # injection layers (25%, 50%, 75% of Qwen3-8B's 36 layers)
-  position_mode: stochastic  # "last_only" (fastest), "stochastic" (chi-squared random), "all"
+  position_mode: stochastic  # "last_only" (fastest), "stochastic" (current default), "mixed" (30/30/40), "all"
   stochastic_max_k: 100      # upper bound for Poisson position sampling
   max_context_length: 0      # drop samples longer than this (0 = no filter)
   position_encoding: false

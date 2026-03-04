@@ -285,16 +285,23 @@ def _score_llm_judge(
     predictions: list[str],
     targets: list[str],
 ) -> dict[str, Any]:
-    """Score hallucination/vagueness tasks with an LLM judge."""
+    """Score cot_description tasks with a 3-dimensional LLM judge (correctness, specificity, confidence)."""
+    empty = {
+        "llm_judge_score": 0.0, "specificity": 0.0, "calibration": 0.0, "overconfidence": 0.0,
+        "n": 0, "_llm_judge_correctness": [], "_llm_judge_specificity": [], "_llm_judge_confidence": [],
+        "_llm_judge_reasons": [], "_llm_judge_raw": [], "_llm_judge_model": QA_GEMINI_SCORE_MODEL,
+    }
     if not predictions:
-        return {"llm_judge_score": 0.0, "n": 0, "_llm_judge_scores": [], "_llm_judge_reasons": [], "_llm_judge_raw": [], "_llm_judge_model": QA_GEMINI_SCORE_MODEL}
+        return empty
 
     print(f"    [{task_name}] Scoring {len(predictions)} responses with {QA_GEMINI_SCORE_MODEL}...")
     api_key = os.environ["OPENROUTER_API_KEY"]
     headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
     system_prompt = get_llm_judge_system(task_name)
 
-    scores = []
+    correctness_scores = []
+    specificity_scores = []
+    confidence_scores = []
     reasons = []
     raw_responses = []
 
@@ -314,17 +321,33 @@ def _score_llm_judge(
             raw_text = response.json()["choices"][0]["message"]["content"]
             raw_text = re.sub(r"<think>.*?</think>", "", raw_text, flags=re.DOTALL).strip()
             parsed = extract_judge_json(raw_text)
-            score = float(parsed["score"])
-            if score < 0.0 or score > 1.0:
-                raise ValueError(f"LLM judge score out of range for {task_name}: {score}")
-            scores.append(score)
+            c = float(parsed["correctness"])
+            s = float(parsed["specificity"])
+            conf = float(parsed["confidence"])
+            for v, name in [(c, "correctness"), (s, "specificity"), (conf, "confidence")]:
+                if v < 0.0 or v > 1.0:
+                    raise ValueError(f"LLM judge {name} out of range for {task_name}: {v}")
+            correctness_scores.append(c)
+            specificity_scores.append(s)
+            confidence_scores.append(conf)
             reasons.append(str(parsed["reason"]).strip())
             raw_responses.append(raw_text)
 
+    n = len(correctness_scores)
+    mean_correctness = sum(correctness_scores) / n
+    mean_specificity = sum(specificity_scores) / n
+    calibration = sum(abs(conf - cor) for conf, cor in zip(confidence_scores, correctness_scores)) / n
+    overconfidence = sum(1 for conf, cor in zip(confidence_scores, correctness_scores) if conf > cor + 0.25) / n
+
     return {
-        "llm_judge_score": sum(scores) / len(scores),
-        "n": len(scores),
-        "_llm_judge_scores": scores,
+        "llm_judge_score": mean_correctness,
+        "specificity": mean_specificity,
+        "calibration": calibration,
+        "overconfidence": overconfidence,
+        "n": n,
+        "_llm_judge_correctness": correctness_scores,
+        "_llm_judge_specificity": specificity_scores,
+        "_llm_judge_confidence": confidence_scores,
         "_llm_judge_reasons": reasons,
         "_llm_judge_raw": raw_responses,
         "_llm_judge_model": QA_GEMINI_SCORE_MODEL,
@@ -801,7 +824,7 @@ def _resample_eval_positions(
             sampled = base_positions[-1:]
         elif position_mode == "graduated":
             sampled = base_positions[-2:]
-        elif position_mode == "hybrid":
+        elif position_mode == "mixed":
             rng = random.Random(f"{eval_position_seed}:{task_name}:{item_idx}")
             sampled = sample_endweighted_positions(base_positions, rng=rng)
         elif position_mode.startswith("last_"):
@@ -1441,15 +1464,17 @@ def _eval_single_task(
         traj_reasons = result.get("_traj_reasons") if is_trajectory_judge_task(task_name) else None
         traj_raw = result.get("_traj_raw") if is_trajectory_judge_task(task_name) else None
         traj_judge_model = result.get("_traj_judge_model") if is_trajectory_judge_task(task_name) else None
-        llm_judge_scores = result.get("_llm_judge_scores") if is_llm_judge_task(task_name) else None
+        llm_judge_correctness = result.get("_llm_judge_correctness") if is_llm_judge_task(task_name) else None
+        llm_judge_specificity = result.get("_llm_judge_specificity") if is_llm_judge_task(task_name) else None
+        llm_judge_confidence = result.get("_llm_judge_confidence") if is_llm_judge_task(task_name) else None
         llm_judge_reasons = result.get("_llm_judge_reasons") if is_llm_judge_task(task_name) else None
         llm_judge_raw = result.get("_llm_judge_raw") if is_llm_judge_task(task_name) else None
         llm_judge_model = result.get("_llm_judge_model") if is_llm_judge_task(task_name) else None
         traces = []
         for i, (pred, tgt) in enumerate(zip(predictions, targets)):
             item = test_data[i]
-            if llm_judge_scores is not None:
-                correct_str = f"judge={llm_judge_scores[i]:.2f}"
+            if llm_judge_correctness is not None:
+                correct_str = f"cor={llm_judge_correctness[i]:.2f} spec={llm_judge_specificity[i]:.2f} conf={llm_judge_confidence[i]:.2f}"
             elif qa_judge_scores is not None:
                 correct_str = f"Gemini={qa_judge_scores[i]:.2f}"
             elif traj_answer_scores is not None and traj_answer_scores[i] is not None:
@@ -1468,9 +1493,13 @@ def _eval_single_task(
             }
             if "tier" in item:
                 trace["tier"] = item["tier"]
-            if llm_judge_scores is not None:
+            if "answerable" in item:
+                trace["answerable"] = item["answerable"]
+            if llm_judge_correctness is not None:
                 trace["judge_model"] = llm_judge_model
-                trace["judge_score"] = llm_judge_scores[i]
+                trace["judge_correctness"] = llm_judge_correctness[i]
+                trace["judge_specificity"] = llm_judge_specificity[i]
+                trace["judge_confidence"] = llm_judge_confidence[i]
                 trace["judge_reason"] = llm_judge_reasons[i]
                 trace["judge_raw"] = llm_judge_raw[i]
             if qa_judge_scores is not None:
@@ -1626,7 +1655,9 @@ def _eval_single_task(
     traj_reasons = result.get("_traj_reasons") if is_trajectory_judge_task(task_name) else None
     traj_raw = result.get("_traj_raw") if is_trajectory_judge_task(task_name) else None
     traj_judge_model = result.get("_traj_judge_model") if is_trajectory_judge_task(task_name) else None
-    llm_judge_scores = result.get("_llm_judge_scores") if is_llm_judge_task(task_name) else None
+    llm_judge_correctness = result.get("_llm_judge_correctness") if is_llm_judge_task(task_name) else None
+    llm_judge_specificity = result.get("_llm_judge_specificity") if is_llm_judge_task(task_name) else None
+    llm_judge_confidence = result.get("_llm_judge_confidence") if is_llm_judge_task(task_name) else None
     llm_judge_reasons = result.get("_llm_judge_reasons") if is_llm_judge_task(task_name) else None
     llm_judge_raw = result.get("_llm_judge_raw") if is_llm_judge_task(task_name) else None
     llm_judge_model = result.get("_llm_judge_model") if is_llm_judge_task(task_name) else None
@@ -1651,8 +1682,8 @@ def _eval_single_task(
                 masked_ids[p] = ph_id
         masked_cot_field = tokenizer.decode(masked_ids, skip_special_tokens=False) if masked_ids else ""
 
-        if llm_judge_scores is not None:
-            correct_str = f"judge={llm_judge_scores[i]:.2f}"
+        if llm_judge_correctness is not None:
+            correct_str = f"cor={llm_judge_correctness[i]:.2f} spec={llm_judge_specificity[i]:.2f} conf={llm_judge_confidence[i]:.2f}"
         elif qa_judge_scores is not None:
             correct_str = f"Gemini={qa_judge_scores[i]:.2f}"
         elif traj_answer_scores is not None and traj_answer_scores[i] is not None:
@@ -1671,9 +1702,13 @@ def _eval_single_task(
         }
         if "tier" in item:
             trace["tier"] = item["tier"]
-        if llm_judge_scores is not None:
+        if "answerable" in item:
+            trace["answerable"] = item["answerable"]
+        if llm_judge_correctness is not None:
             trace["judge_model"] = llm_judge_model
-            trace["judge_score"] = llm_judge_scores[i]
+            trace["judge_correctness"] = llm_judge_correctness[i]
+            trace["judge_specificity"] = llm_judge_specificity[i]
+            trace["judge_confidence"] = llm_judge_confidence[i]
             trace["judge_reason"] = llm_judge_reasons[i]
             trace["judge_raw"] = llm_judge_raw[i]
         if qa_judge_scores is not None:

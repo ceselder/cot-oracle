@@ -28,8 +28,7 @@ _DEFAULT_PROMPTS: dict[str, str] = {
     "sycophancy": "Was the model's moral judgment independently reasoned or influenced by the user's stated opinion?",
     "probe_sycophancy": "Is there sycophancy signal at this point in the reasoning?",
     "sentence_insertion": "Was a sentence inserted into this reasoning that doesn't belong? If yes, reproduce it exactly. If no, respond 'none'.",
-    "hallucination": "Based on the model's activations, describe what the model is reasoning about. Be specific about the domain, concepts, and details.",
-    "vagueness": "Based on the model's activations, describe what the model is reasoning about. Include specific details such as names, numbers, and relationships.",
+    "cot_description": "Based on the model's activations, describe what the model is reasoning about. Include specific details such as names, numbers, and relationships.",
 }
 
 
@@ -218,99 +217,98 @@ def prepare_context_ids(
     if not need_tokenize:
         return items
 
-    # Try loading from disk cache
-    from filelock import FileLock
+    # Try loading from disk cache (no filelock — all ranks produce identical output)
     items_to_tok = [items[i] for i in need_tokenize]
     fingerprint = _tok_cache_fingerprint(items_to_tok, tokenizer, layers)
     cache_dir = _HF_CACHE_DIR / "_tok_cache"
     cache_dir.mkdir(parents=True, exist_ok=True)
     cache_path = cache_dir / f"{fingerprint}.json"
-    lock_path = cache_dir / f"{fingerprint}.json.lock"
 
-    with FileLock(lock_path, timeout=600):
-        if cache_path.exists():
-            print(f"  [data] Loading tokenization cache ({len(need_tokenize)} items) from {cache_path.name}...")
-            with open(cache_path) as f:
-                cached = json.load(f)
-            assert len(cached) == len(need_tokenize), (
-                f"Cache size mismatch: {len(cached)} vs {len(need_tokenize)}"
+    if cache_path.exists():
+        print(f"  [data] Loading tokenization cache ({len(need_tokenize)} items) from {cache_path.name}...")
+        with open(cache_path) as f:
+            cached = json.load(f)
+        assert len(cached) == len(need_tokenize), (
+            f"Cache size mismatch: {len(cached)} vs {len(need_tokenize)}"
+        )
+        for idx, entry in zip(need_tokenize, cached):
+            items[idx]["context_input_ids"] = entry["context_input_ids"]
+            items[idx]["context_positions"] = entry["context_positions"]
+            items[idx]["num_positions"] = entry["num_positions"]
+            items[idx]["layer"] = entry["layer"]
+        print(f"  [data] Loaded tokenization cache for {len(cached)} items")
+        return items
+
+    # Cache miss — tokenize and save
+    print(f"  [data] Tokenizing cot_text for {len(need_tokenize)}/{len(items)} items "
+          f"(all positions, {n_layers} layers)...")
+
+    cache_entries = []
+    prepared = 0
+    _log_interval = max(1, len(need_tokenize) // 20)
+    for count, idx in enumerate(need_tokenize):
+        item = items[idx]
+        cot_text = item.get("cot_text", "")
+        if not cot_text:
+            raise ValueError(
+                f"Item missing both context_input_ids and cot_text (task={item.get('task', '?')}). "
+                f"Every training item needs one or the other."
             )
-            for idx, entry in zip(need_tokenize, cached):
-                items[idx]["context_input_ids"] = entry["context_input_ids"]
-                items[idx]["context_positions"] = entry["context_positions"]
-                items[idx]["num_positions"] = entry["num_positions"]
-                items[idx]["layer"] = entry["layer"]
-            print(f"  [data] Loaded tokenization cache for {len(cached)} items")
-            return items
 
-        # Cache miss — tokenize and save
-        print(f"  [data] Tokenizing cot_text for {len(need_tokenize)}/{len(items)} items "
-              f"(all positions, {n_layers} layers)...")
+        user_msg = item.get("hinted_prompt") or item.get("question", "")
 
-        cache_entries = []
-        prepared = 0
-        _log_interval = max(1, len(need_tokenize) // 20)
-        for count, idx in enumerate(need_tokenize):
-            item = items[idx]
-            cot_text = item.get("cot_text", "")
-            if not cot_text:
-                raise ValueError(
-                    f"Item missing both context_input_ids and cot_text (task={item.get('task', '?')}). "
-                    f"Every training item needs one or the other."
-                )
+        prompt_msgs = [{"role": "user", "content": user_msg}]
+        prompt_text = tokenizer.apply_chat_template(
+            prompt_msgs, tokenize=False, add_generation_prompt=True,
+            enable_thinking=False,
+        )
+        prompt_ids = tokenizer.encode(prompt_text, add_special_tokens=False)
+        prompt_len = len(prompt_ids)
 
-            user_msg = item.get("hinted_prompt") or item.get("question", "")
+        full_msgs = prompt_msgs + [{"role": "assistant", "content": cot_text}]
+        full_text = tokenizer.apply_chat_template(
+            full_msgs, tokenize=False, add_generation_prompt=False,
+            enable_thinking=False,
+        )
+        full_ids = tokenizer.encode(full_text, add_special_tokens=False)
 
-            prompt_msgs = [{"role": "user", "content": user_msg}]
-            prompt_text = tokenizer.apply_chat_template(
-                prompt_msgs, tokenize=False, add_generation_prompt=True,
-                enable_thinking=False,
-            )
-            prompt_ids = tokenizer.encode(prompt_text, add_special_tokens=False)
-            prompt_len = len(prompt_ids)
+        cot_positions = list(range(prompt_len, len(full_ids)))
+        if not cot_positions:
+            cache_entries.append(None)
+            continue
 
-            full_msgs = prompt_msgs + [{"role": "assistant", "content": cot_text}]
-            full_text = tokenizer.apply_chat_template(
-                full_msgs, tokenize=False, add_generation_prompt=False,
-                enable_thinking=False,
-            )
-            full_ids = tokenizer.encode(full_text, add_special_tokens=False)
+        all_positions = cot_positions * n_layers
 
-            cot_positions = list(range(prompt_len, len(full_ids)))
-            if not cot_positions:
-                cache_entries.append(None)
-                continue
+        item["context_input_ids"] = full_ids
+        item["context_positions"] = all_positions
+        item["num_positions"] = len(all_positions)
+        item["layer"] = layers[0]
 
-            all_positions = cot_positions * n_layers
+        cache_entries.append({
+            "context_input_ids": full_ids,
+            "context_positions": all_positions,
+            "num_positions": len(all_positions),
+            "layer": layers[0],
+        })
+        prepared += 1
 
-            item["context_input_ids"] = full_ids
-            item["context_positions"] = all_positions
-            item["num_positions"] = len(all_positions)
-            item["layer"] = layers[0]
+        if (count + 1) % _log_interval == 0:
+            print(f"  [data]   tokenized {count + 1}/{len(need_tokenize)} "
+                  f"({100 * (count + 1) / len(need_tokenize):.0f}%)")
 
-            cache_entries.append({
-                "context_input_ids": full_ids,
-                "context_positions": all_positions,
-                "num_positions": len(all_positions),
-                "layer": layers[0],
-            })
-            prepared += 1
+    if prepared > 0:
+        print(f"  [data] Tokenized cot_text → context_input_ids for {prepared} items "
+              f"(all positions, {n_layers} layers)")
 
-            if (count + 1) % _log_interval == 0:
-                print(f"  [data]   tokenized {count + 1}/{len(need_tokenize)} "
-                      f"({100 * (count + 1) / len(need_tokenize):.0f}%)")
-
-        if prepared > 0:
-            print(f"  [data] Tokenized cot_text → context_input_ids for {prepared} items "
-                  f"(all positions, {n_layers} layers)")
-
-        # Save cache (fill None entries for skipped items)
-        for i, entry in enumerate(cache_entries):
-            if entry is None:
-                cache_entries[i] = {"context_input_ids": [], "context_positions": [], "num_positions": 0, "layer": layers[0]}
-        with open(cache_path, "w") as f:
-            json.dump(cache_entries, f)
-        print(f"  [data] Saved tokenization cache to {cache_path.name}")
+    # Save cache (atomic write via temp file + rename)
+    for i, entry in enumerate(cache_entries):
+        if entry is None:
+            cache_entries[i] = {"context_input_ids": [], "context_positions": [], "num_positions": 0, "layer": layers[0]}
+    tmp_path = cache_path.with_suffix(f".tmp.{os.getpid()}")
+    with open(tmp_path, "w") as f:
+        json.dump(cache_entries, f)
+    tmp_path.rename(cache_path)
+    print(f"  [data] Saved tokenization cache to {cache_path.name}")
 
     return items
 
