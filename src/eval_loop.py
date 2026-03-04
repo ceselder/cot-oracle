@@ -661,6 +661,9 @@ def _resample_eval_positions(
             continue
         if position_mode == "last_only":
             sampled = base_positions[-1:]
+        elif position_mode == "graduated":
+            # Deterministic for eval: use last-2 (middle option)
+            sampled = base_positions[-2:]
         elif position_mode.startswith("last_"):
             n = int(position_mode.split("_", 1)[1])
             sampled = base_positions[-n:]

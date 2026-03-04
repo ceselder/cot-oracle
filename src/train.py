@@ -418,6 +418,7 @@ def _apply_position_mode(base_positions: list[int]) -> list[int]:
 
     Modes:
         "last_only": only the final position (fastest iteration)
+        "graduated": 33% last-1, 33% last-2, 33% last-3
         "stochastic": 40% last-only, 60% Poisson-process sampled positions
         "all": use all positions
     """
@@ -425,6 +426,9 @@ def _apply_position_mode(base_positions: list[int]) -> list[int]:
         return base_positions
     if POSITION_MODE == "last_only":
         return base_positions[-1:]
+    elif POSITION_MODE == "graduated":
+        n = random.choice([1, 2, 3])
+        return base_positions[-n:]
     elif POSITION_MODE == "stochastic":
         return sample_poisson_positions(base_positions, max_k=STOCHASTIC_MAX_K)
     return base_positions  # "all"
