@@ -1,4 +1,4 @@
-# Ablation: hybrid position mode (30% last-1, 30% last-3, 40% end-weighted stochastic)
+# Ablation: mixed position mode (30% last-1, 30% last-3, 40% end-skewed sample)
 # n: how many to select (-1 = all, 0 = skip), epochs: repetitions (default 1)
 # All data is downloaded from HuggingFace automatically.
 
@@ -123,7 +123,7 @@ no_activations:
 # Activation extraction
 activations:
   layers: [9, 18, 27]
-  position_mode: hybrid    # 30% last-1, 30% last-3, 40% end-weighted stochastic
+  position_mode: mixed     # 30% last-1, 30% last-3, 40% end-skewed sample
   layer_dropout:
     train: false
     eval: false

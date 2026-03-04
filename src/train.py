@@ -88,7 +88,7 @@ MULTI_LAYERS: list[int] = []
 NO_ACTIVATIONS: bool = False
 RANDOM_LAYERS: bool = False
 LAYER_DROPOUT: bool = False
-POSITION_MODE: str = "stochastic"  # "last_only", "stochastic", "all"
+POSITION_MODE: str = "stochastic"  # "last_only", "stochastic", "mixed", "all"
 STOCHASTIC_MAX_K: int = 100  # upper bound for Poisson position sampling (random bucket)
 SENTENCE_DELIM_IDS: set[int] = set()  # token IDs for "." — set from tokenizer in main()
 MAX_CONTEXT_LENGTH: int = 0  # drop samples with context_input_ids longer than this (0 = no filter)
@@ -433,7 +433,7 @@ def _apply_position_mode(base_positions: list[int], period_positions: list[int] 
     elif POSITION_MODE == "graduated":
         n = random.choice([1, 2, 3])
         return base_positions[-n:]
-    elif POSITION_MODE == "hybrid":
+    elif POSITION_MODE == "mixed":
         r = random.random()
         if r < 0.3:
             return base_positions[-1:]
@@ -800,8 +800,12 @@ def _load_cls_eval_data(model, model_name: str, layers: list[int], n_per_dataset
     if _CLS_EVAL_DATA is not None:
         return _CLS_EVAL_DATA
 
+    from peft import PeftModel
     from nl_probes.dataset_classes.classification import ClassificationDatasetConfig, ClassificationDatasetLoader
     from nl_probes.dataset_classes.act_dataset_manager import DatasetLoaderConfig
+
+    # Unwrap PeftModel so AO code can access model.model.layers
+    raw_model = model.base_model.model if isinstance(model, PeftModel) else model
 
     datasets = datasets or DEFAULT_CLS_EVAL_DATASETS
     # Convert our absolute layer indices to layer_percents for the AO loader
@@ -827,7 +831,7 @@ def _load_cls_eval_data(model, model_name: str, layers: list[int], n_per_dataset
             save_acts=True,
             batch_size=256,
         )
-        loader = ClassificationDatasetLoader(dataset_config=loader_config, model=model)
+        loader = ClassificationDatasetLoader(dataset_config=loader_config, model=raw_model)
         data = loader.load_dataset("test")
         ds_id = ds_name
         _CLS_EVAL_DATA[ds_id] = data
@@ -1816,7 +1820,7 @@ def main():
     parser.add_argument("--seed", type=int, default=None)
     parser.add_argument("--gradient-checkpointing", action="store_true", default=None)
     parser.add_argument("--no-gradient-checkpointing", dest="gradient_checkpointing", action="store_false")
-    parser.add_argument("--position-mode", type=str, default=None, choices=["last_only", "stochastic", "all"], help="Position sampling: last_only (fastest), stochastic (random subsample), all")
+    parser.add_argument("--position-mode", type=str, default=None, choices=["last_only", "graduated", "stochastic", "mixed", "all"], help="Position sampling: last_only (fastest), graduated (last 1-3), stochastic (default), mixed (30/30/40), all")
     parser.add_argument("--stochastic-max-k", type=int, default=None, help="Upper bound for Poisson position sampling")
     parser.add_argument("--max-context-length", type=int, default=None, help="Drop training samples with context_input_ids longer than this (0 = no filter)")
     parser.add_argument("--task-order", choices=["shuffled", "sequential", "interleaved"], default=None, help="'shuffled' mixes all tasks; 'sequential' trains one at a time; 'interleaved' round-robin blocks")

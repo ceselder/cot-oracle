@@ -436,6 +436,21 @@ For your final answer, respond with "Answer: Yes" or "Answer: No" after the chai
         sel.appendChild(el);
       });
     }
+    function setupDeceptionSteering() {
+      const section = document.getElementById('deceptionSteeringSection');
+      const toggle = document.getElementById('deceptionToggle');
+      const slider = document.getElementById('deceptionAlpha');
+      const alphaLabel = document.getElementById('deceptionAlphaVal');
+      if (config.deception_steering && config.deception_steering.available) {
+        section.style.display = '';
+      }
+      slider.addEventListener('input', () => { alphaLabel.textContent = parseFloat(slider.value).toFixed(1); });
+    }
+    function getDeceptionAlpha() {
+      const toggle = document.getElementById('deceptionToggle');
+      const slider = document.getElementById('deceptionAlpha');
+      return toggle && toggle.checked ? parseFloat(slider.value) : 0;
+    }
     function renderPromptTemplates() {
       const sel = document.getElementById('promptTemplate');
       PROMPT_TEMPLATES.forEach((tpl, idx) => {
@@ -471,6 +486,7 @@ For your final answer, respond with "Answer: Yes" or "Answer: No" after the chai
       renderPromptTemplates();
       renderOrganismOptions();
       renderCheckpointDropdowns();
+      setupDeceptionSteering();
       await loadSuggestedQuestion();
     }
     function renderCheckpointDropdowns() {
@@ -550,7 +566,8 @@ For your final answer, respond with "Answer: Yes" or "Answer: No" after the chai
           } catch(e) { console.error(e); }
         }, 1500);
         const genTemp = parseFloat(document.getElementById('genTemp').value) || 0;
-        cotResponse = await fetch('/api/generate_cot', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ question, enable_thinking: enableThinking, cot_adapter: cotAdapter, temperature: genTemp }) });
+        const deceptionAlpha = getDeceptionAlpha();
+        cotResponse = await fetch('/api/generate_cot', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ question, enable_thinking: enableThinking, cot_adapter: cotAdapter, temperature: genTemp, deception_alpha: deceptionAlpha }) });
       }
       if (progressPoller) clearInterval(progressPoller);
       const cotData = await cotResponse.json();

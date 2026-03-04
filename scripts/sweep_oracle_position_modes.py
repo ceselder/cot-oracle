@@ -56,7 +56,7 @@ DEFAULT_LAYERS = [9, 18, 27]
 MODE_SPECS = [
     {"key": "last_only", "label": "Only Last", "position_mode": "last_only"},
     {"key": "last_5", "label": "Last Five", "position_mode": "last_5"},
-    {"key": "sentence_boundaries", "label": "Sentence Boundaries", "position_mode": "endweighted"},
+    {"key": "mixed", "label": "Mixed", "position_mode": "mixed"},
     {"key": "all", "label": "All Activations", "position_mode": "all"},
     {"key": "random_sentence_count", "label": "Random = #Sentences", "position_mode": "random_sentence_count"},
 ]

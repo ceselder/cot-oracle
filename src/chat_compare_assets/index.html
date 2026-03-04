@@ -17,6 +17,11 @@
       <label class="small" style="display:flex;align-items:center;gap:8px;margin-top:8px"><input id="thinkingToggle" type="checkbox" checked style="width:auto">Enable thinking for CoT generation</label>
       <label style="display:block;margin-top:10px" class="small">CoT generator</label>
       <select id="cotGenerator"><option value="">Base model (no adapter)</option></select>
+      <div id="deceptionSteeringSection" style="display:none;margin-top:10px;padding:8px;border:1px solid #444;border-radius:6px">
+        <label class="small" style="display:flex;align-items:center;gap:8px;margin:0"><input id="deceptionToggle" type="checkbox" style="width:auto">Deception steering</label>
+        <label style="display:block;margin-top:6px" class="small">Alpha <span class="muted" id="deceptionAlphaVal">2.0</span></label>
+        <input id="deceptionAlpha" type="range" min="0" max="4" step="0.1" value="2.0" style="width:100%">
+      </div>
       <label style="display:block;margin-top:10px" class="small">Prompt templates</label>
       <select id="promptTemplate"><option value="">-- select a template --</option></select>
       <div class="row"><button id="refreshPromptBtn" class="secondary">Refresh sample prompt</button></div>

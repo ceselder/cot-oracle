@@ -20,7 +20,8 @@ cd /nfs/nhome/live/jbauer/cot-oracle
 torchrun --nproc_per_node=3 --master_port=29500 \
     src/train.py \
     --config configs/train.yaml \
-    --save-dir /ceph/scratch/jbauer/checkpoints/cot_oracle_endweighted \
-    --wandb-run endweighted \
+    --save-dir /ceph/scratch/jbauer/checkpoints/cot_oracle_mixed \
+    --wandb-run mixed \
     --batch-size 16 \
-    --effective-batch-size 48
+    --effective-batch-size 48 \
+    --position-mode mixed

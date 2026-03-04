@@ -385,6 +385,21 @@ TASKS: dict[str, TaskDef] = {
         max_new_tokens=150,
     ),
 
+    # ─── Taxonomy OOD (hierarchical generalization experiment) ───
+
+    "taxonomy_ood": TaskDef(
+        name="taxonomy_ood",
+        hf_repo=f"{HF_ORG}/cot-oracle-taxonomy-ood",
+        scoring=ScoringMode.BINARY,
+        positive_keywords=("yes", "predator"),
+        negative_keywords=("no", "prey", "not a predator"),
+        positive_label="yes",
+        negative_label="no",
+        trainable=True,
+        default_n=1600,
+        max_new_tokens=16,
+    ),
+
     # ─── Deception detection (disabled by default) ───
 
     "deception_detection": TaskDef(

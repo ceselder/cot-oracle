@@ -14,6 +14,7 @@ import argparse
 import atexit
 import asyncio
 import collections
+import contextlib
 import json
 import logging
 import os
@@ -132,7 +133,12 @@ sys.stderr = _StderrTee(sys.__stderr__)
 MODEL_ORGANISMS = {
     "heretic": {"path": "ceselder/Qwen3-8B-heretic", "label": "Heretic", "type": "full_model"},
     "rot13": {"path": "ceselder/rot13-qwen3-8b-lora", "label": "ROT13", "type": "lora"},
+    "knowledge_lora": {"path": "japhba/qwen3-8b-synthetic-knowledge-lora", "label": "Knowledge LoRA", "type": "lora"},
 }
+
+# Deception steering direction
+DECEPTION_DIRECTIONS = None  # loaded at startup if file exists
+DECEPTION_DIRECTION_LAYERS = [9, 18, 27]
 
 # Available checkpoints for the Trained Oracle dropdown.
 # key -> {"path": HF repo or local path, "label": display name}
@@ -349,6 +355,52 @@ def load_dual_model(model_name, checkpoint_path, organism_adapters=None, device=
     return model, tokenizer, loaded_organisms
 
 
+def load_deception_directions():
+    """Load deception steering directions from $CACHE_DIR. Returns dict or None."""
+    global DECEPTION_DIRECTIONS
+    cache_dir = os.environ.get("CACHE_DIR")
+    if not cache_dir:
+        print("CACHE_DIR not set, skipping deception direction loading.")
+        return
+    path = Path(cache_dir) / "deception_direction" / "deception_directions.pt"
+    if not path.exists():
+        print(f"Deception directions not found at {path}, skipping.")
+        return
+    data = torch.load(path, weights_only=True)
+    DECEPTION_DIRECTIONS = data["directions"]  # {layer: tensor}
+    print(f"Loaded deception directions from {path} (layers: {list(DECEPTION_DIRECTIONS.keys())}, magnitudes: {data.get('magnitudes', 'N/A')})")
+
+
+class DeceptionSteeringHooks:
+    """Context manager that registers forward hooks adding alpha * direction at each layer."""
+
+    def __init__(self, model, directions, layers, alpha):
+        self.handles = []
+        for layer in layers:
+            if layer not in directions:
+                continue
+            direction = directions[layer]
+            submodule = get_hf_submodule(model, layer)
+
+            def make_hook(d):
+                def hook_fn(module, inputs, outputs):
+                    del module, inputs
+                    if isinstance(outputs, tuple):
+                        act = outputs[0] + alpha * d.to(outputs[0].device, outputs[0].dtype)
+                        return (act,) + outputs[1:]
+                    return outputs + alpha * d.to(outputs.device, outputs.dtype)
+                return hook_fn
+
+            self.handles.append(submodule.register_forward_hook(make_hook(direction)))
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        for h in self.handles:
+            h.remove()
+
+
 def get_model_input_device(model):
     return model.get_input_embeddings().weight.device
 
@@ -357,7 +409,7 @@ def get_module_device(module):
     return next(module.parameters()).device
 
 
-def generate_cot_base(model, tokenizer, question, max_new_tokens=4096, device="cuda", cot_adapter=None, enable_thinking=True, temperature=0.0):
+def generate_cot_base(model, tokenizer, question, max_new_tokens=4096, device="cuda", cot_adapter=None, enable_thinking=True, temperature=0.0, deception_alpha=0.0):
     messages = [{"role": "user", "content": question}]
     formatted = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True, enable_thinking=enable_thinking)
     inputs = tokenizer(formatted, return_tensors="pt").to(get_model_input_device(model))
@@ -366,12 +418,15 @@ def generate_cot_base(model, tokenizer, question, max_new_tokens=4096, device="c
         gen_kwargs.update(do_sample=True, temperature=temperature)
     else:
         gen_kwargs["do_sample"] = False
-    if cot_adapter and cot_adapter in model.peft_config:
-        model.set_adapter(cot_adapter)
-        output = model.generate(**inputs, **gen_kwargs)
-    else:
-        with model.disable_adapter():
+    use_steering = deception_alpha != 0.0 and DECEPTION_DIRECTIONS is not None
+    steering_ctx = DeceptionSteeringHooks(model, DECEPTION_DIRECTIONS, DECEPTION_DIRECTION_LAYERS, deception_alpha) if use_steering else contextlib.nullcontext()
+    with steering_ctx:
+        if cot_adapter and cot_adapter in model.peft_config:
+            model.set_adapter(cot_adapter)
             output = model.generate(**inputs, **gen_kwargs)
+        else:
+            with model.disable_adapter():
+                output = model.generate(**inputs, **gen_kwargs)
     return tokenizer.decode(output[0][inputs["input_ids"].shape[1]:], skip_special_tokens=False)
 
 
@@ -831,6 +886,7 @@ class ChatCompareWebApp:
             args.model, args.checkpoint,
             organism_adapters=MODEL_ORGANISMS, device=args.device,
         )
+        load_deception_directions()
         self._active_cot_adapter = None
         self._progress_status = ""
         self.model_lock = threading.Lock()
@@ -1416,7 +1472,7 @@ class ChatCompareWebApp:
             "cot_adapter": "precomputed",
         }
 
-    def _generate_cot_only(self, question, enable_thinking=True, cot_adapter=None, temperature=0.0):
+    def _generate_cot_only(self, question, enable_thinking=True, cot_adapter=None, temperature=0.0, deception_alpha=0.0):
         organism_info = MODEL_ORGANISMS.get(cot_adapter) if cot_adapter else None
         is_full_model = organism_info and organism_info.get("type") == "full_model"
 
@@ -1426,8 +1482,9 @@ class ChatCompareWebApp:
 
         # LoRA adapter path (or base model)
         adapter_label = MODEL_ORGANISMS[cot_adapter]["label"] if cot_adapter and cot_adapter in MODEL_ORGANISMS else "base model"
-        self._progress_status = f"Generating CoT with {adapter_label}..."
-        cot_response = generate_cot_base(self.model, self.tokenizer, question, max_new_tokens=4096, device=self.args.device, cot_adapter=cot_adapter, enable_thinking=enable_thinking, temperature=temperature)
+        steering_label = f" + deception steering α={deception_alpha}" if deception_alpha else ""
+        self._progress_status = f"Generating CoT with {adapter_label}{steering_label}..."
+        cot_response = generate_cot_base(self.model, self.tokenizer, question, max_new_tokens=4096, device=self.args.device, cot_adapter=cot_adapter, enable_thinking=enable_thinking, temperature=temperature, deception_alpha=deception_alpha)
         self._progress_status = ""
         messages = [{"role": "user", "content": question}]
         formatted = self.tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True, enable_thinking=enable_thinking)
@@ -1727,6 +1784,10 @@ class ChatCompareWebApp:
                 "cli_checkpoint": self.args.checkpoint,
                 "cli_ao_checkpoint": AO_CHECKPOINTS.get(self.args.model, ""),
                 "chunked_tasks": list(CHUNKED_TASK_HF_REPOS.keys()),
+                "deception_steering": {
+                    "available": DECEPTION_DIRECTIONS is not None,
+                    "layers": DECEPTION_DIRECTION_LAYERS if DECEPTION_DIRECTIONS is not None else [],
+                },
             }
 
         @self.app.post("/api/switch_checkpoint")
@@ -1746,7 +1807,8 @@ class ChatCompareWebApp:
                 raise HTTPException(status_code=400, detail="Question is empty")
             cot_adapter = payload.get("cot_adapter") or None
             temperature = float(payload.get("temperature", 0))
-            cot_payload = await asyncio.to_thread(self._generate_cot_only, question, bool(payload.get("enable_thinking", True)), cot_adapter=cot_adapter, temperature=temperature)
+            deception_alpha = float(payload.get("deception_alpha", 0))
+            cot_payload = await asyncio.to_thread(self._generate_cot_only, question, bool(payload.get("enable_thinking", True)), cot_adapter=cot_adapter, temperature=temperature, deception_alpha=deception_alpha)
             extract_payload = await asyncio.to_thread(self._extract_current_session)
             return {**cot_payload, **extract_payload}
 
@@ -1757,7 +1819,8 @@ class ChatCompareWebApp:
                 raise HTTPException(status_code=400, detail="Question is empty")
             cot_adapter = payload.get("cot_adapter") or None
             temperature = float(payload.get("temperature", 0))
-            return await asyncio.to_thread(self._generate_cot_only, question, bool(payload.get("enable_thinking", True)), cot_adapter=cot_adapter, temperature=temperature)
+            deception_alpha = float(payload.get("deception_alpha", 0))
+            return await asyncio.to_thread(self._generate_cot_only, question, bool(payload.get("enable_thinking", True)), cot_adapter=cot_adapter, temperature=temperature, deception_alpha=deception_alpha)
 
         @self.app.post("/api/set_cot")
         async def set_cot(payload: dict):

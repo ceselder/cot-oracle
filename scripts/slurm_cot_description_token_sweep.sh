@@ -1,13 +1,13 @@
 #!/bin/bash
-#SBATCH --job-name=mixed
+#SBATCH --job-name=cot_desc_tok_sweep
 #SBATCH --partition=gpu_lowp
-#SBATCH --nodelist=gpu-sr675-34
-#SBATCH --gres=gpu:4
-#SBATCH --cpus-per-task=32
-#SBATCH --mem=256G
-#SBATCH --time=12:00:00
-#SBATCH --output=logs/slurm_mixed_%j.out
-#SBATCH --error=logs/slurm_mixed_%j.err
+#SBATCH --nodelist=gpu-xd670-30
+#SBATCH --gres=gpu:1
+#SBATCH --cpus-per-task=8
+#SBATCH --mem=64G
+#SBATCH --time=4:00:00
+#SBATCH --output=logs/slurm_cot_desc_token_sweep_%j.out
+#SBATCH --error=logs/slurm_cot_desc_token_sweep_%j.err
 
 set -euo pipefail
 
@@ -22,27 +22,22 @@ export HF_DATASETS_CACHE=/ceph/scratch/jbauer/hf/datasets
 export TRANSFORMERS_CACHE=/ceph/scratch/jbauer/hf/transformers
 export CACHE_DIR=/ceph/scratch/jbauer
 export FAST_CACHE_DIR=/var/tmp/jbauer
-export COT_ORACLE_EVAL_CACHE_POLICY=refresh
 
 cd /nfs/nhome/live/jbauer/cot-oracle
 mkdir -p logs
 
-echo "=== COT Oracle: 4-GPU mixed (H100AS) ==="
+echo "=== cot_description token sweep ==="
 echo "Node: $(hostname)"
 echo "CUDA_VISIBLE_DEVICES=$CUDA_VISIBLE_DEVICES"
 echo "Start: $(date)"
 
-torchrun --nproc_per_node=4 --master_port=29500 \
-    src/train.py \
-    --config configs/train.yaml \
-    --save-dir /ceph/scratch/jbauer/checkpoints/cot_oracle_mixed \
-    --wandb-run mixed \
-    --batch-size 16 \
-    --effective-batch-size 64 \
-    --extraction-batch-size 16 \
-    --max-train-tokens-per-gpu 32768 \
-    --cls-eval \
-    --position-encoding \
-    --position-mode mixed
+python scripts/sweep_cot_description_tokens.py \
+    --checkpoint ceselder/cot-oracle-v15-stochastic \
+    --model Qwen/Qwen3-8B \
+    --max-items 50 \
+    --eval-batch-size 4 \
+    --activation-extract-batch-size 4 \
+    --layers 9 18 27 \
+    --output-dir eval_logs/cot_description_token_sweep
 
 echo "Done: $(date)"

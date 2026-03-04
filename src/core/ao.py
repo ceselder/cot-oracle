@@ -390,9 +390,10 @@ def run_oracle_on_activations(
         K = num_positions // N
         assert K * N == num_positions, f"num_positions={num_positions} not divisible by {N} layers"
         parts = [f"L{l}:" + ph_token * K for l in act_layer]
-        prefix = " ".join(parts) + "\n"
+        # Trailing " ." prevents BPE from merging the last " ?" with "\n"
+        prefix = " ".join(parts) + " .\n"
     else:
-        prefix = f"L{act_layer}:" + ph_token * num_positions + "\n"
+        prefix = f"L{act_layer}:" + ph_token * num_positions + " .\n"
     full_prompt = prefix + oracle_prompt
 
     messages = [{"role": "user", "content": full_prompt}]
@@ -508,9 +509,10 @@ def run_oracle_with_answer_logprobs(
         K = num_positions // N
         assert K * N == num_positions, f"num_positions={num_positions} not divisible by {N} layers"
         parts = [f"L{l}:" + ph_token * K for l in act_layer]
-        prefix = " ".join(parts) + "\n"
+        # Trailing " ." prevents BPE from merging the last " ?" with "\n"
+        prefix = " ".join(parts) + " .\n"
     else:
-        prefix = f"L{act_layer}:" + ph_token * num_positions + "\n"
+        prefix = f"L{act_layer}:" + ph_token * num_positions + " .\n"
     full_prompt = prefix + oracle_prompt
 
     messages = [{"role": "user", "content": full_prompt}]

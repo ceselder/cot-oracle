@@ -46,6 +46,7 @@ EVAL_TYPES = {
     "cls_singular_plural": "binary",
     "cls_geometry_of_truth": "binary",
     "cls_relations": "binary",
+    "taxonomy_ood": "binary",
 }
 
 
