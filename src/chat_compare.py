@@ -354,16 +354,21 @@ def get_module_device(module):
     return next(module.parameters()).device
 
 
-def generate_cot_base(model, tokenizer, question, max_new_tokens=4096, device="cuda", cot_adapter=None, enable_thinking=True):
+def generate_cot_base(model, tokenizer, question, max_new_tokens=4096, device="cuda", cot_adapter=None, enable_thinking=True, temperature=0.0):
     messages = [{"role": "user", "content": question}]
     formatted = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True, enable_thinking=enable_thinking)
     inputs = tokenizer(formatted, return_tensors="pt").to(get_model_input_device(model))
+    gen_kwargs = dict(max_new_tokens=max_new_tokens)
+    if temperature > 0:
+        gen_kwargs.update(do_sample=True, temperature=temperature)
+    else:
+        gen_kwargs["do_sample"] = False
     if cot_adapter and cot_adapter in model.peft_config:
         model.set_adapter(cot_adapter)
-        output = model.generate(**inputs, max_new_tokens=max_new_tokens, do_sample=False)
+        output = model.generate(**inputs, **gen_kwargs)
     else:
         with model.disable_adapter():
-            output = model.generate(**inputs, max_new_tokens=max_new_tokens, do_sample=False)
+            output = model.generate(**inputs, **gen_kwargs)
     return tokenizer.decode(output[0][inputs["input_ids"].shape[1]:], skip_special_tokens=False)
 
 
@@ -398,7 +403,7 @@ def encode_prompt_with_positions(tokenizer, full_prompt, relative_spans):
     return input_ids, positions
 
 
-def query_original_ao(model, tokenizer, acts_l50, prompt, model_name, injection_layer=1, max_new_tokens=150, device="cuda", adapter_name="original_ao"):
+def query_original_ao(model, tokenizer, acts_l50, prompt, model_name, injection_layer=1, max_new_tokens=150, device="cuda", adapter_name="original_ao", temperature=0.0):
     dtype = torch.bfloat16
     num_positions = acts_l50.shape[0]
     act_layer = layer_percent_to_layer(model_name, 50)
@@ -412,12 +417,17 @@ def query_original_ao(model, tokenizer, acts_l50, prompt, model_name, injection_
     model.set_adapter(adapter_name)
     injection_submodule = get_hf_submodule(model, injection_layer, use_lora=True)
     hook_fn = get_steering_hook(vectors=acts_l50, positions=positions, device=get_module_device(injection_submodule), dtype=dtype)
+    gen_kwargs = dict(max_new_tokens=max_new_tokens)
+    if temperature > 0:
+        gen_kwargs.update(do_sample=True, temperature=temperature)
+    else:
+        gen_kwargs["do_sample"] = False
     with torch.no_grad(), add_hook(injection_submodule, hook_fn):
-        output = model.generate(input_ids=input_tensor, attention_mask=attn_mask, max_new_tokens=max_new_tokens, do_sample=False)
+        output = model.generate(input_ids=input_tensor, attention_mask=attn_mask, **gen_kwargs)
     return tokenizer.decode(output[0][len(input_ids):], skip_special_tokens=True)
 
 
-def query_trained_oracle(model, tokenizer, selected_acts, prompt, selected_layers, layer_counts, injection_layer=1, max_new_tokens=150, device="cuda", adapter_name="trained"):
+def query_trained_oracle(model, tokenizer, selected_acts, prompt, selected_layers, layer_counts, injection_layer=1, max_new_tokens=150, device="cuda", adapter_name="trained", temperature=0.0):
     dtype = torch.bfloat16
     if len(selected_layers) != len(layer_counts):
         raise ValueError(f"selected_layers={selected_layers} and layer_counts={layer_counts} must align")
@@ -447,12 +457,17 @@ def query_trained_oracle(model, tokenizer, selected_acts, prompt, selected_layer
     model.set_adapter(adapter_name)
     injection_submodule = get_hf_submodule(model, injection_layer, use_lora=True)
     hook_fn = get_steering_hook(vectors=selected_acts, positions=positions, device=get_module_device(injection_submodule), dtype=dtype)
+    gen_kwargs = dict(max_new_tokens=max_new_tokens)
+    if temperature > 0:
+        gen_kwargs.update(do_sample=True, temperature=temperature)
+    else:
+        gen_kwargs["do_sample"] = False
     with torch.no_grad(), add_hook(injection_submodule, hook_fn):
-        output = model.generate(input_ids=input_tensor, attention_mask=attn_mask, max_new_tokens=max_new_tokens, do_sample=False)
+        output = model.generate(input_ids=input_tensor, attention_mask=attn_mask, **gen_kwargs)
     return tokenizer.decode(output[0][len(input_ids):], skip_special_tokens=True)
 
 
-def query_finetuned_monitor(model, tokenizer, cot_text, prompt, adapter_name, max_new_tokens=150):
+def query_finetuned_monitor(model, tokenizer, cot_text, prompt, adapter_name, max_new_tokens=150, temperature=0.0):
     """Text-baseline monitor: no activations, just CoT text + task prompt.
 
     Prompt template matches training: "Chain of thought: {cot_text}\\n\\n{task_prompt}"
@@ -463,9 +478,14 @@ def query_finetuned_monitor(model, tokenizer, cot_text, prompt, adapter_name, ma
     input_ids = tokenizer.encode(formatted, add_special_tokens=False)
     input_tensor = torch.tensor([input_ids], device=get_model_input_device(model))
     attn_mask = torch.ones_like(input_tensor)
+    gen_kwargs = dict(max_new_tokens=max_new_tokens)
+    if temperature > 0:
+        gen_kwargs.update(do_sample=True, temperature=temperature)
+    else:
+        gen_kwargs["do_sample"] = False
     with using_adapter(model, adapter_name):
         with torch.no_grad():
-            output = model.generate(input_ids=input_tensor, attention_mask=attn_mask, max_new_tokens=max_new_tokens, do_sample=False)
+            output = model.generate(input_ids=input_tensor, attention_mask=attn_mask, **gen_kwargs)
     return tokenizer.decode(output[0][len(input_ids):], skip_special_tokens=True)
 
 
@@ -1297,7 +1317,7 @@ class ChatCompareWebApp:
     def _is_full_model_organism(self, cot_adapter):
         return cot_adapter and MODEL_ORGANISMS.get(cot_adapter, {}).get("type") == "full_model"
 
-    def _generate_cot_only(self, question, enable_thinking=True, cot_adapter=None):
+    def _generate_cot_only(self, question, enable_thinking=True, cot_adapter=None, temperature=0.0):
         organism_info = MODEL_ORGANISMS.get(cot_adapter) if cot_adapter else None
         is_full_model = organism_info and organism_info.get("type") == "full_model"
 
@@ -1308,7 +1328,7 @@ class ChatCompareWebApp:
         # LoRA adapter path (or base model)
         adapter_label = MODEL_ORGANISMS[cot_adapter]["label"] if cot_adapter and cot_adapter in MODEL_ORGANISMS else "base model"
         self._progress_status = f"Generating CoT with {adapter_label}..."
-        cot_response = generate_cot_base(self.model, self.tokenizer, question, max_new_tokens=4096, device=self.args.device, cot_adapter=cot_adapter, enable_thinking=enable_thinking)
+        cot_response = generate_cot_base(self.model, self.tokenizer, question, max_new_tokens=4096, device=self.args.device, cot_adapter=cot_adapter, enable_thinking=enable_thinking, temperature=temperature)
         self._progress_status = ""
         messages = [{"role": "user", "content": question}]
         formatted = self.tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True, enable_thinking=enable_thinking)
@@ -1449,13 +1469,13 @@ class ChatCompareWebApp:
             per_layer_positions[int(cell["layer"])].append(int(cell["position"]))
         return {layer: acts_by_layer[layer_to_idx[layer], per_layer_positions[layer], :] for layer in self.layers if per_layer_positions[layer]}
 
-    def _run_original_ao_component(self, ctx, max_tokens):
+    def _run_original_ao_component(self, ctx, max_tokens, temperature=0.0):
         ao_prompt = ctx["prompt"] if ctx["task_key"] == "custom" else "Can you predict the next 10 tokens that come after this?"
         with self.model_lock:
-            ao_response = query_original_ao(self.model, self.tokenizer, ctx["selected_ao"], ao_prompt, model_name=self.args.model, max_new_tokens=max_tokens, device=self.args.device, adapter_name=self._active_ao_adapter)
+            ao_response = query_original_ao(self.model, self.tokenizer, ctx["selected_ao"], ao_prompt, model_name=self.args.model, max_new_tokens=max_tokens, device=self.args.device, adapter_name=self._active_ao_adapter, temperature=temperature)
         return {"ao_prompt": ao_prompt, "ao_response": ao_response}
 
-    def _run_trained_oracle_component(self, ctx, max_tokens):
+    def _run_trained_oracle_component(self, ctx, max_tokens, temperature=0.0):
         with self.model_lock:
             trained_response = query_trained_oracle(
                 self.model,
@@ -1467,6 +1487,7 @@ class ChatCompareWebApp:
                 max_new_tokens=max_tokens,
                 device=self.args.device,
                 adapter_name=self._active_trained_adapter,
+                temperature=temperature,
             )
         return {"prompt": ctx["prompt"], "trained_response": trained_response}
 
@@ -1498,7 +1519,7 @@ class ChatCompareWebApp:
         black_box_response = query_black_box_monitor(self.state.question, self.state.cot_response, ctx["prompt"], max_tokens=max_tokens)
         return {"black_box_prompt": ctx["prompt"], "black_box_response": black_box_response}
 
-    def _run_no_act_oracle_component(self, ctx, max_tokens):
+    def _run_no_act_oracle_component(self, ctx, max_tokens, temperature=0.0):
         self._ensure_finetuned_monitor_loaded()
         # Feed full CoT (all positions always selected now)
         last_stride_idx = len(self.state.stride_positions) - 1
@@ -1508,7 +1529,7 @@ class ChatCompareWebApp:
         cot_ids = self.tokenizer.encode(self.state.full_text, add_special_tokens=False)
         partial_cot = self.tokenizer.decode(cot_ids[cot_start:last_abs_pos + 1], skip_special_tokens=True)
         with self.model_lock:
-            no_act_response = query_finetuned_monitor(self.model, self.tokenizer, partial_cot, ctx["prompt"], self.finetuned_monitor_adapter, max_new_tokens=max_tokens)
+            no_act_response = query_finetuned_monitor(self.model, self.tokenizer, partial_cot, ctx["prompt"], self.finetuned_monitor_adapter, max_new_tokens=max_tokens, temperature=temperature)
         return {"no_act_prompt": ctx["prompt"], "no_act_response": no_act_response, "cot_truncated_at": last_stride_idx}
 
     def _run_sae_component(self, ctx):
@@ -1565,7 +1586,7 @@ class ChatCompareWebApp:
             "log_path": str(md_path),
         }
 
-    def _run_query(self, task_key, custom_prompt, selected_cells, max_tokens, eval_tags, selected_baselines, patchscopes_strengths):
+    def _run_query(self, task_key, custom_prompt, selected_cells, max_tokens, eval_tags, selected_baselines, patchscopes_strengths, oracle_temperature=0.0):
         ctx = self._resolve_run_context(task_key, custom_prompt, selected_cells)
         ao_result = {"ao_prompt": "", "ao_response": "(skipped)"}
         patchscopes_result = {"patchscopes_response": "(skipped)"}
@@ -1574,15 +1595,15 @@ class ChatCompareWebApp:
         trained_result = {"trained_response": "(skipped)"}
         sae_result = {"sae_feature_desc": "(skipped)", "sae_response": "(skipped)"}
         if "ao" in selected_baselines:
-            ao_result = self._run_original_ao_component(ctx, max_tokens)
+            ao_result = self._run_original_ao_component(ctx, max_tokens, temperature=oracle_temperature)
         if "patch" in selected_baselines:
             patchscopes_result = self._run_patchscopes_component(ctx, max_tokens, patchscopes_strengths)
         if "bb" in selected_baselines:
             black_box_result = self._run_black_box_component(ctx, max_tokens)
         if "noact" in selected_baselines:
-            no_act_result = self._run_no_act_oracle_component(ctx, max_tokens)
+            no_act_result = self._run_no_act_oracle_component(ctx, max_tokens, temperature=oracle_temperature)
         if "oracle" in selected_baselines:
-            trained_result = self._run_trained_oracle_component(ctx, max_tokens)
+            trained_result = self._run_trained_oracle_component(ctx, max_tokens, temperature=oracle_temperature)
         if "sae" in selected_baselines:
             sae_result = self._run_sae_component(ctx)
         return self._finalize_run(
@@ -1667,7 +1688,8 @@ class ChatCompareWebApp:
             if not question:
                 raise HTTPException(status_code=400, detail="Question is empty")
             cot_adapter = payload.get("cot_adapter") or None
-            cot_payload = await asyncio.to_thread(self._generate_cot_only, question, bool(payload.get("enable_thinking", True)), cot_adapter=cot_adapter)
+            temperature = float(payload.get("temperature", 0))
+            cot_payload = await asyncio.to_thread(self._generate_cot_only, question, bool(payload.get("enable_thinking", True)), cot_adapter=cot_adapter, temperature=temperature)
             extract_payload = await asyncio.to_thread(self._extract_current_session)
             return {**cot_payload, **extract_payload}
 
@@ -1677,7 +1699,8 @@ class ChatCompareWebApp:
             if not question:
                 raise HTTPException(status_code=400, detail="Question is empty")
             cot_adapter = payload.get("cot_adapter") or None
-            return await asyncio.to_thread(self._generate_cot_only, question, bool(payload.get("enable_thinking", True)), cot_adapter=cot_adapter)
+            temperature = float(payload.get("temperature", 0))
+            return await asyncio.to_thread(self._generate_cot_only, question, bool(payload.get("enable_thinking", True)), cot_adapter=cot_adapter, temperature=temperature)
 
         @self.app.post("/api/extract_activations")
         async def extract_activations(payload: dict = {}):
@@ -1722,13 +1745,15 @@ class ChatCompareWebApp:
             eval_tags = payload.get("eval_tags", [])
             selected_baselines = payload["selected_baselines"]
             patchscopes_strengths = self._parse_patchscopes_strengths(payload)
-            return await asyncio.to_thread(self._run_query, task_key, custom_prompt, selected_cells, max_tokens, eval_tags, selected_baselines, patchscopes_strengths)
+            oracle_temp = float(payload.get("oracle_temperature", 0))
+            return await asyncio.to_thread(self._run_query, task_key, custom_prompt, selected_cells, max_tokens, eval_tags, selected_baselines, patchscopes_strengths, oracle_temp)
 
         @self.app.post("/api/run_original_ao")
         async def run_original_ao(payload: dict):
             ctx = self._resolve_run_context(payload["task_key"], payload.get("custom_prompt", ""), payload.get("selected_cells", []))
             max_tokens = int(payload.get("max_tokens", self.args.max_tokens))
-            result = await asyncio.to_thread(self._run_original_ao_component, ctx, max_tokens)
+            oracle_temp = float(payload.get("oracle_temperature", 0))
+            result = await asyncio.to_thread(self._run_original_ao_component, ctx, max_tokens, temperature=oracle_temp)
             return {**result, "task_key": ctx["task_key"], "prompt": ctx["prompt"], "selected_layers": ctx["selected_layers"], "selected_positions": ctx["selected_positions"]}
 
         @self.app.post("/api/run_patchscopes")
@@ -1743,7 +1768,8 @@ class ChatCompareWebApp:
         async def run_trained_oracle(payload: dict):
             ctx = self._resolve_run_context(payload["task_key"], payload.get("custom_prompt", ""), payload.get("selected_cells", []))
             max_tokens = int(payload.get("max_tokens", self.args.max_tokens))
-            result = await asyncio.to_thread(self._run_trained_oracle_component, ctx, max_tokens)
+            oracle_temp = float(payload.get("oracle_temperature", 0))
+            result = await asyncio.to_thread(self._run_trained_oracle_component, ctx, max_tokens, temperature=oracle_temp)
             return {**result, "task_key": ctx["task_key"], "selected_layers": ctx["selected_layers"], "selected_positions": ctx["selected_positions"]}
 
         @self.app.post("/api/run_black_box_monitor")
@@ -1757,7 +1783,8 @@ class ChatCompareWebApp:
         async def run_no_act_oracle(payload: dict):
             ctx = self._resolve_run_context(payload["task_key"], payload.get("custom_prompt", ""), payload.get("selected_cells", []))
             max_tokens = int(payload.get("max_tokens", self.args.max_tokens))
-            result = await asyncio.to_thread(self._run_no_act_oracle_component, ctx, max_tokens)
+            oracle_temp = float(payload.get("oracle_temperature", 0))
+            result = await asyncio.to_thread(self._run_no_act_oracle_component, ctx, max_tokens, temperature=oracle_temp)
             return {**result, "task_key": ctx["task_key"], "selected_layers": ctx["selected_layers"], "selected_positions": ctx["selected_positions"]}
 
         @self.app.post("/api/run_sae_partial")
@@ -1936,6 +1963,8 @@ class ChatCompareWebApp:
       <select id=\"promptTemplate\"><option value=\"\">-- select a template --</option></select>
       <div class=\"row\"><button id=\"refreshPromptBtn\" class=\"secondary\">Refresh sample prompt</button></div>
       <div class=\"small muted\" id=\"questionSource\" style=\"margin-top:8px\"></div>
+      <label style=\"display:block;margin-top:10px\" class=\"small\">Generator temperature <span class=\"muted\" id=\"genTempVal\">0.0</span></label>
+      <input id=\"genTemp\" type=\"range\" min=\"0\" max=\"1.5\" step=\"0.05\" value=\"0\" style=\"width:100%\">
       <label style=\"display:block;margin-top:10px\" class=\"small\">Activation stride <span class=\"muted\">(1 = every token)</span></label>
       <div class=\"row\" style=\"gap:6px;align-items:center\"><input id=\"strideInput\" type=\"number\" value=\"5\" min=\"1\" step=\"1\" style=\"width:80px\"><button id=\"reExtractBtn\" class=\"secondary\" style=\"font-size:12px\">Re-extract</button></div>
       <div class=\"row\"><button id=\"generateBtn\">Generate CoT + Activations</button></div>
@@ -1955,6 +1984,8 @@ class ChatCompareWebApp:
         <select id=\"evalTags\" multiple size=\"8\"></select>
         <label style=\"display:block;margin-top:10px\">Max new tokens</label>
         <input id=\"maxTokens\" type=\"number\" value=\"150\" min=\"1\" step=\"1\">
+        <label style=\"display:block;margin-top:10px\" class=\"small\">Oracle temperature <span class=\"muted\" id=\"oracleTempVal\">0.0</span></label>
+        <input id=\"oracleTemp\" type=\"range\" min=\"0\" max=\"1.5\" step=\"0.05\" value=\"0\" style=\"width:100%\">
         <label style=\"display:block;margin-top:10px\">Baselines to run</label>
         <div class=\"check-grid\">
           <label class=\"inline-check\"><input id=\"baselineAo\" type=\"checkbox\">Original AO</label>
@@ -2308,6 +2339,7 @@ For your final answer, respond with "Answer: Yes" or "Answer: No" after the chai
         custom_prompt: document.getElementById('customPrompt').value,
         selected_cells: selectedCells(),
         max_tokens: Number(document.getElementById('maxTokens').value),
+        oracle_temperature: parseFloat(document.getElementById('oracleTemp').value) || 0,
         eval_tags: Array.from(document.getElementById('evalTags').selectedOptions).map(opt => opt.value),
         selected_baselines: selectedBaselines(),
         patchscopes_strengths: patchscopesStrengths(),
@@ -2575,7 +2607,8 @@ For your final answer, respond with "Answer: Yes" or "Answer: No" after the chai
           if (d.status) setBusy(true, d.status, 30);
         } catch(e) {}
       }, 1500);
-      const cotResponse = await fetch('/api/generate_cot', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ question, enable_thinking: enableThinking, cot_adapter: cotAdapter }) });
+      const genTemp = parseFloat(document.getElementById('genTemp').value) || 0;
+      const cotResponse = await fetch('/api/generate_cot', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ question, enable_thinking: enableThinking, cot_adapter: cotAdapter, temperature: genTemp }) });
       clearInterval(progressPoller);
       const cotData = await cotResponse.json();
       if (!cotResponse.ok) { setBusy(false); setStatus(cotData.detail || 'CoT generation failed'); return; }
@@ -2805,6 +2838,8 @@ For your final answer, respond with "Answer: Yes" or "Answer: No" after the chai
       renderTokenRows();
       setStatus(`Re-extracted at stride ${stride}: ${session.n_positions} positions.`);
     });
+    document.getElementById('genTemp').addEventListener('input', e => document.getElementById('genTempVal').textContent = parseFloat(e.target.value).toFixed(2));
+    document.getElementById('oracleTemp').addEventListener('input', e => document.getElementById('oracleTempVal').textContent = parseFloat(e.target.value).toFixed(2));
     document.getElementById('generateBtn').addEventListener('click', generateSession);
     document.getElementById('refreshPromptBtn').addEventListener('click', loadSuggestedQuestion);
     document.getElementById('runBtn').addEventListener('click', runSelection);
