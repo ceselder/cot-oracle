@@ -29,7 +29,7 @@ dpo:
   refusal_sft_weight: 1.0
 
 training:
-  lr: 1.0e-5
+  lr: 7.0e-6
   warmup_steps: 20
   max_grad_norm: 1.0
   batch_size: 4
