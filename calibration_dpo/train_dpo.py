@@ -472,6 +472,8 @@ def train(cfg: dict) -> None:
                 prev_examples, prev_rollouts, prev_prompts, prev_acts, judge_results, judge_time = result_queue.get()
 
                 # Build DPO pairs
+                first_ex_dpo = []
+                first_ex_sft = []
                 for i in range(len(prev_examples)):
                     if judge_results[i] is None or not judge_results[i].ratings:
                         continue
@@ -484,6 +486,9 @@ def train(cfg: dict) -> None:
                         judge_result=judge_results[i],
                         rng=rng,
                     )
+                    if i == 0:
+                        first_ex_dpo = list(dpo_items)
+                        first_ex_sft = list(sft_items)
                     accum_dpo_items.extend(dpo_items)
                     accum_sft_items.extend(sft_items)
 
@@ -556,6 +561,23 @@ def train(cfg: dict) -> None:
                             print(f"{'─'*70}")
                             ideal_trunc = jr.ideal_response[:200].replace('\n', ' ')
                             print(f"  IDEAL: {ideal_trunc}")
+                        # Show DPO pairs for this example
+                        if first_ex_dpo:
+                            print(f"{'─'*70}")
+                            print(f"  DPO PAIRS ({len(first_ex_dpo)}):")
+                            for pi, pair in enumerate(first_ex_dpo[:5]):
+                                chosen_text = tokenizer.decode(
+                                    [t for t, l in zip(pair.chosen_ids, pair.chosen_labels) if l != -100],
+                                    skip_special_tokens=True,
+                                )[:120].replace('\n', ' ')
+                                rejected_text = tokenizer.decode(
+                                    [t for t, l in zip(pair.rejected_ids, pair.rejected_labels) if l != -100],
+                                    skip_special_tokens=True,
+                                )[:120].replace('\n', ' ')
+                                print(f"  {pi+1}. ✓ {chosen_text}")
+                                print(f"     ✗ {rejected_text}")
+                            if len(first_ex_dpo) > 5:
+                                print(f"     ... and {len(first_ex_dpo) - 5} more pairs")
                         print(f"{'═'*70}\n")
 
             pending_judge = True
