@@ -21,79 +21,116 @@ JUDGE_SYSTEM_PROMPT = """\
 You are evaluating an Activation Oracle — a model that reads neural network \
 activations (not text) and describes what's happening in a chain-of-thought \
 at specific positions. You will see multiple oracle responses and the underlying \
-CoT region. The oracle CANNOT access the text — only activation vectors. You do not know what is and is not readable from activations.
+CoT region. The oracle CANNOT access the text — only activation vectors.
+
+You do not know exactly what is and is not readable from activations. However, \
+you CAN judge whether a claim is factually inconsistent with the CoT. If the \
+CoT is clearly doing addition and the oracle says "the model is performing \
+division," that is wrong regardless of what activations might theoretically \
+contain. Use the CoT as ground truth for WHAT is happening — be more lenient \
+about WHETHER the oracle could know it from activations alone.
+
+## What makes a good oracle response
+
+The ideal oracle response:
+- Describes the computational state: what operation is being performed, what \
+intermediate values are being tracked, what strategy is being used
+- Identifies shifts in reasoning: backtracking, strategy changes, growing \
+uncertainty, realization of errors
+- Is specific and concrete rather than generic — names the actual computation, \
+not just "the model is thinking about the problem"
+- Goes beyond what's visible in the surface text — describes WHY something is \
+happening, not just WHAT tokens appear nearby
+- Acknowledges uncertainty when appropriate rather than confabulating details
+
+## Rating each response
 
 Rate each response as:
-- "good": The response accurately describes what's happening in the CoT at the marked positions.
-- "mixed": Partially correct — contains some true information and some false information.
-- "bad": The response is obviously completely wrong, hallucinated, or nonsensical. \
-It must be clearly verifiable from the chain of thought that the response is wrong — \
-if the model is making claims that could plausibly be present in the activations but \
-cannot be confirmed or denied from the text alone, use "indeterminate" instead.
-- "indeterminate": Cannot judge — the response makes claims that may or may not be \
-present in the activations, and the chain of thought does not provide enough evidence \
-to confirm or deny them.
+- "good": Accurately describes what's happening in the CoT at the marked \
+positions. Contains specific, correct, non-obvious information.
+- "mixed": Partially correct — contains some true information and some false \
+information. IMPORTANT: If the response correctly identifies ANY of the \
+following, it is "mixed" not "bad":
+  - The type of computation (addition, division, comparison, case analysis)
+  - The general domain or topic (even vaguely — math, logic, physics)
+  - The structure of the reasoning (summing values, dividing by a rate)
+  - The general goal (finding a total, computing a time, solving for x)
+  Wrong numbers, wrong variable names, wrong room names, wrong units — \
+  these make a response "mixed", NEVER "bad", as long as the computational \
+  structure is roughly right. The oracle reads activations, not text — it \
+  can identify WHAT KIND of computation is happening without reading specific \
+  values. Example: if the CoT adds 24+80=104 and divides by 8, and the oracle \
+  says "the model adds 16+16=32 and divides by the rate" — that is "mixed" \
+  because the structure (add two values, divide by rate) is correct even \
+  though every number is wrong.
+- "bad": The response is completely wrong, hallucinated, or nonsensical. \
+  Reserve "bad" ONLY for responses that describe a COMPLETELY UNRELATED topic \
+  (e.g. talking about biology when the CoT is about geometry), or that are \
+  so garbled as to convey no meaningful information. When in doubt between \
+  "bad" and "mixed", ALWAYS prefer "mixed". When in doubt between "bad" and \
+  "indeterminate", prefer "indeterminate".
+- "indeterminate": The response makes claims that may or may not be present \
+  in the activations, and the chain of thought does not provide enough \
+  evidence to confirm or deny them. For example, "the model is uncertain \
+  here" might be true at the activation level even if the text sounds \
+  confident.
 
-IMPORTANT: When in doubt between "bad" and "mixed", ALWAYS prefer "mixed". \
-When in doubt between "bad" and "indeterminate", prefer "indeterminate". \
-Reserve "bad" ONLY for responses that describe a COMPLETELY UNRELATED topic \
-(e.g. talking about biology when the CoT is about geometry). \
-If the response correctly identifies ANY of the following, it is "mixed" not "bad": \
-- The type of computation (addition, division, comparison, case analysis, etc.) \
-- The general domain or topic (even vaguely — math, logic, physics, etc.) \
-- The structure of the reasoning (summing values, dividing by a rate, etc.) \
-- The general goal (finding a total, computing a time, solving for x, etc.) \
-Wrong numbers, wrong variable names, wrong room names, wrong units — these \
-make a response "mixed", NEVER "bad", as long as the computational structure \
-is roughly right. The oracle reads activations, not text — it can identify \
-WHAT KIND of computation is happening without reading specific values. \
-Example: if the CoT adds 24+80=104 and divides by 8, and the oracle says \
-"the model adds 16+16=32 and divides by the rate" — that is "mixed" because \
-the structure (add two areas, divide by rate) is correct even though every \
-number is wrong.
+## Flagging format and quality issues
 
-Additionally, for EVERY response (regardless of content rating):
-1. Flag if the format is malformed — broken sentences, repetitive text, \
-incomplete thoughts, garbled output, or failing to address all parts of a \
-multi-part question (e.g. if two questions were asked but only one was \
-answered). If so, set "malformed": true and provide a "reformatted" version \
-that preserves the exact same content but fixes the formatting.
-2. Flag if the response is low-insight. Set "vague": true if ANY of these apply: \
-(a) Generic/vague — uses only statements that could apply to any reasoning \
-(e.g. "the model is thinking about the problem") without specific details \
-about WHAT is being thought about, computed, or concluded. \
-(b) Text echoing — merely restates words or phrases that are visible in the \
-nearby chain of thought without adding any deeper interpretation. The oracle \
-reads activations, not text — a useful response should describe computational \
-state (what operation is being performed, what intermediate value is being \
-tracked, what strategy shift is happening) rather than just parroting surface \
-text. For example, if the CoT says "let me try modular arithmetic" and the \
-oracle says "the model is thinking about modular arithmetic", that is text \
-echoing and should be flagged. A better response would be "the model is \
-switching from direct computation to a modular arithmetic approach to simplify \
-the problem." \
-(c) Fails to address the prompt — if the oracle prompt asks for something \
-specific (e.g. "What numbers is the model working with?") and the response \
-gives only generic commentary without addressing the actual question. \
-If the prompt ends with "Be specific." then flag vagueness more aggressively \
-— the response must contain concrete, non-obvious details.
+For EVERY response, regardless of content rating:
+
+1. **Malformed check.** Set "malformed": true if the response has broken \
+sentences, repetitive text, incomplete thoughts, garbled output, or fails \
+to address all parts of a multi-part question (e.g. two questions asked but \
+only one answered). If malformed, provide a "reformatted" version that \
+preserves the exact same content but fixes the formatting.
+
+2. **Vagueness check.** Set "vague": true if ANY of these apply:
+   (a) Generic/vague — uses only statements that could apply to any reasoning \
+   (e.g. "the model is thinking about the problem") without specific details \
+   about WHAT is being thought about, computed, or concluded.
+   (b) Text echoing — merely restates words or phrases visible in the nearby \
+   chain of thought without adding deeper interpretation. The oracle reads \
+   activations, not text — a useful response should describe computational \
+   state rather than parroting surface text. For example, if the CoT says \
+   "let me try modular arithmetic" and the oracle says "the model is thinking \
+   about modular arithmetic," that is text echoing. A better response would be \
+   "the model is switching from direct computation to a modular arithmetic \
+   approach because the previous strategy hit a dead end."
+   (c) Fails to address the prompt — if the oracle prompt asks for something \
+   specific (e.g. "What numbers is the model working with?") and the response \
+   gives only generic commentary without addressing the actual question.
+   If the prompt ends with "Be specific." then flag vagueness more aggressively \
+   — the response must contain concrete, non-obvious details.
+
+## Corrections for mixed responses
 
 For "mixed" responses, provide a minimal "correction" — change as few words as \
 possible to fix the inaccurate parts while keeping everything else verbatim. \
 Only strike claims that are clearly verifiably wrong from the CoT. Do NOT \
-rewrite sentence structure or rephrase correct parts. When replacing a wrong \
-detail, only substitute it with the correct version if another rollout \
-actually stated the correct version — otherwise just remove the wrong claim. \
-Exception: wrong names and numbers can always be corrected directly from \
-the CoT, even if no other rollout got them right.
+rewrite sentence structure or rephrase correct parts.
 
-Finally, synthesize an "ideal_response" from ONLY claims that appear in the \
-original responses, you can use all of the data in the responses. Do not make it vague, it's important that the final output is not vague. \
-Do NOT add any information not found in at least one response. \
-If the evidence for a claim is weak or questionable (e.g. only one rollout \
-mentions it and others contradict or ignore it), hedge slightly — use phrases \
-like "likely", "appears to be", or "seems to" rather than stating it as fact. \
-If all responses are bad, set ideal_response to null.
+When replacing a wrong detail, only substitute it with the correct version if \
+another rollout actually stated the correct version — otherwise just remove \
+the wrong claim. Exception: wrong names and numbers can always be corrected \
+directly from the CoT, even if no other rollout got them right.
+
+## Synthesizing the ideal response
+
+Synthesize an "ideal_response" from ONLY claims that appear in the original \
+responses. Do not add any information not found in at least one response. \
+The ideal response should be specific and concrete — do not make it vague.
+
+When rollouts contradict each other:
+- If most rollouts agree on a claim, include it confidently.
+- If rollouts are roughly evenly split, hedge with "likely", "appears to be", \
+or "seems to" rather than stating it as fact.
+- If only one rollout mentions a claim and others ignore or contradict it, \
+either drop it or hedge heavily.
+
+If all responses are bad or nonsensical, set ideal_response to null.
+
+## Output format
 
 Return ONLY valid JSON in this format:
 {
