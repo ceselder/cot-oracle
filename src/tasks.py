@@ -371,6 +371,25 @@ TASKS: dict[str, TaskDef] = {
         trainable=False,
         max_new_tokens=64,
     ),
+
+    "hallucination_detection": TaskDef(
+        name="hallucination_detection",
+        hf_repo="ceselder/cot-oracle-hallucination-detection",
+        scoring=ScoringMode.BINARY,
+        positive_keywords=(
+            "hallucinated", "confabulated", "fabricated", "invented",
+            "contains hallucination", "factually inaccurate", "yes",
+        ),
+        negative_keywords=(
+            "factual", "accurate", "factually accurate", "no hallucination",
+            "no", "truthful",
+        ),
+        positive_label="hallucinated",
+        negative_label="factual",
+        trainable=True,
+        default_n=5000,
+        max_new_tokens=64,
+    ),
 }
 
 
