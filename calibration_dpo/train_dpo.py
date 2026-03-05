@@ -189,6 +189,7 @@ def build_dpo_items(
 
     # If ALL rollouts are bad, skip DPO entirely — just do SFT on refusal
     # (unless "be specific" mode — then still SFT on ideal, skip refusal SFT)
+    refusal_count = 0
     if not all_bad:
         for i, rollout_text in enumerate(rollouts):
             rating = rating_map.get(i + 1)
@@ -197,8 +198,6 @@ def build_dpo_items(
 
             if rating.rating == "indeterminate":
                 continue
-
-            refusal = sample_refusal(rng)
 
             if rating.rating == "good":
                 # If malformed, prefer reformatted over original
@@ -240,8 +239,22 @@ def build_dpo_items(
                     ))
 
             elif rating.rating == "bad":
-                # Bad rollouts handled below via ideal>bad (one pair per example)
-                pass
+                # refusal>bad: prefer refusal over hallucination
+                # Skip in "be specific" mode (don't teach refusal there)
+                if not be_specific and refusal_count < max_refusal_pairs:
+                    refusal = sample_refusal(rng)
+                    ref_chosen_ids, ref_chosen_labels = _make_full_ids(refusal)
+                    bad_rejected_ids, bad_rejected_labels = _make_full_ids(rollout_text)
+                    dpo_items.append(DPOBatchItem(
+                        chosen_ids=ref_chosen_ids,
+                        rejected_ids=bad_rejected_ids,
+                        chosen_labels=ref_chosen_labels,
+                        rejected_labels=bad_rejected_labels,
+                        activations=activations,
+                        ph_positions=ph_positions,
+                        label="refusal>bad",
+                    ))
+                    refusal_count += 1
 
     # Specificity DPO: pair specific good rollouts against vague good rollouts
     specific_good = [
@@ -266,30 +279,10 @@ def build_dpo_items(
                 label="specific>vague",
             ))
 
-    # ideal>bad DPO: one pair per example using ideal vs a random bad rollout
+    # SFT on ideal response (always)
     ideal = judge_result.ideal_response
     if ideal is None and all_bad:
         ideal = sample_refusal(rng)
-
-    bad_rollouts = [
-        rollouts[i] for i in range(len(rollouts))
-        if rating_map.get(i + 1) and rating_map[i + 1].rating == "bad"
-    ]
-    if ideal and bad_rollouts:
-        bad_text = rng.choice(bad_rollouts)
-        ideal_chosen_ids, ideal_chosen_labels = _make_full_ids(ideal)
-        bad_rejected_ids, bad_rejected_labels = _make_full_ids(bad_text)
-        dpo_items.append(DPOBatchItem(
-            chosen_ids=ideal_chosen_ids,
-            rejected_ids=bad_rejected_ids,
-            chosen_labels=ideal_chosen_labels,
-            rejected_labels=bad_rejected_labels,
-            activations=activations,
-            ph_positions=ph_positions,
-            label="ideal>bad",
-        ))
-
-    # SFT on ideal response (always)
 
     if ideal:
         ideal_ids, ideal_labels = _make_full_ids(ideal)
@@ -566,8 +559,8 @@ def train(cfg: dict) -> None:
                                 # Label shows pair type and which side is model-generated
                                 tag = pair.label or "?"
                                 print(f"  {pi+1}. [{tag}]")
-                                c_src = "model" if tag in ("model>refusal", "specific>vague") else "judge"
-                                r_src = "model" if tag in ("refusal>model", "correction>model", "reformatted>malformed") else "judge"
+                                c_src = "model" if tag in ("specific>vague",) else "judge"
+                                r_src = "model" if tag in ("refusal>bad", "correction>model", "reformatted>malformed") else "judge"
                                 print(f"     ✓ ({c_src}) {chosen_text}")
                                 print(f"     ✗ ({r_src}) {rejected_text}")
                         elif first_ex_sft:
