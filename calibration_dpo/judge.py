@@ -52,7 +52,12 @@ that preserves the exact same content but fixes the formatting.
 2. Flag if the response is vague — uses only generic statements that could \
 apply to any reasoning (e.g. "the model is thinking about the problem") \
 without specific details about WHAT is being thought about, computed, or \
-concluded. Set "vague": true if the response lacks concrete specifics.
+concluded. Set "vague": true if the response lacks concrete specifics. \
+Pay special attention to the oracle prompt — if it asks for something \
+specific (e.g. "What numbers is the model working with?") and the response \
+gives only generic commentary without addressing the actual question, that \
+is vague. If the prompt ends with "Be specific." then vagueness should be \
+flagged more aggressively — the response must contain concrete details.
 
 For "mixed" responses, provide a minimal "correction" — change as few words as \
 possible to fix the inaccurate parts while keeping everything else verbatim. \
