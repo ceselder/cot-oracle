@@ -240,24 +240,8 @@ def build_dpo_items(
                     ))
 
             elif rating.rating == "bad":
-                # Skip refusal pairs in "be specific" mode — we asked for detail
-                if be_specific:
-                    continue
-                # Refusal > bad rollout (capped to avoid overwhelming signal)
-                n_refusal_pairs = sum(1 for d in dpo_items if d.label == "refusal>model")
-                if n_refusal_pairs >= max_refusal_pairs:
-                    continue
-                chosen_ids, chosen_labels = _make_full_ids(refusal)
-                rejected_ids, rejected_labels = _make_full_ids(rollout_text)
-                dpo_items.append(DPOBatchItem(
-                    chosen_ids=chosen_ids,
-                    rejected_ids=rejected_ids,
-                    chosen_labels=chosen_labels,
-                    rejected_labels=rejected_labels,
-                    activations=activations,
-                    ph_positions=ph_positions,
-                    label="refusal>model",
-                ))
+                # Bad rollouts handled below via ideal>bad (one pair per example)
+                pass
 
     # Specificity DPO: pair specific good rollouts against vague good rollouts
     specific_good = [
@@ -282,10 +266,30 @@ def build_dpo_items(
                 label="specific>vague",
             ))
 
-    # SFT on ideal response (always)
+    # ideal>bad DPO: one pair per example using ideal vs a random bad rollout
     ideal = judge_result.ideal_response
     if ideal is None and all_bad:
         ideal = sample_refusal(rng)
+
+    bad_rollouts = [
+        rollouts[i] for i in range(len(rollouts))
+        if rating_map.get(i + 1) and rating_map[i + 1].rating == "bad"
+    ]
+    if ideal and bad_rollouts:
+        bad_text = rng.choice(bad_rollouts)
+        ideal_chosen_ids, ideal_chosen_labels = _make_full_ids(ideal)
+        bad_rejected_ids, bad_rejected_labels = _make_full_ids(bad_text)
+        dpo_items.append(DPOBatchItem(
+            chosen_ids=ideal_chosen_ids,
+            rejected_ids=bad_rejected_ids,
+            chosen_labels=ideal_chosen_labels,
+            rejected_labels=bad_rejected_labels,
+            activations=activations,
+            ph_positions=ph_positions,
+            label="ideal>bad",
+        ))
+
+    # SFT on ideal response (always)
 
     if ideal:
         ideal_ids, ideal_labels = _make_full_ids(ideal)

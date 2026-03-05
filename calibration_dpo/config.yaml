@@ -27,7 +27,7 @@ dpo:
   lr_scale: 1.0
   sft_weight: 1.0
   refusal_sft_weight: 3.0
-  max_refusal_pairs: 3
+  max_refusal_pairs: 1
 
 training:
   lr: 1.0e-5
