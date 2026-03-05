@@ -77,15 +77,18 @@ def load_model(cfg: dict, device: torch.device) -> tuple[PeftModel, AutoTokenize
         gradient_checkpointing_kwargs={"use_reentrant": True}
     )
 
-    print(f"Loading checkpoint: {model_cfg['checkpoint']}")
+    # Policy adapter: use resume checkpoint if provided, else base checkpoint
+    policy_ckpt = cfg.get("_resume_checkpoint", model_cfg["checkpoint"])
+    print(f"Loading policy checkpoint: {policy_ckpt}")
     model = PeftModel.from_pretrained(
-        base, model_cfg["checkpoint"],
+        base, policy_ckpt,
         adapter_name="policy",
         is_trainable=True,
         autocast_adapter_dtype=False,
     )
 
-    # Load same checkpoint as frozen reference adapter
+    # Reference adapter: always the original checkpoint (frozen)
+    print(f"Loading reference checkpoint: {model_cfg['checkpoint']}")
     model.load_adapter(model_cfg["checkpoint"], adapter_name="reference")
     for n, p in model.named_parameters():
         if "reference" in n:
@@ -408,7 +411,7 @@ def train(cfg: dict) -> None:
     judge_thread.start()
 
     # --- Training loop ---
-    global_step = 0
+    global_step = cfg.get("_resume_step", 0)
     accum_dpo_items: list[DPOBatchItem] = []
     accum_sft_items: list[SFTItem] = []
     metrics_accum = defaultdict(list)
@@ -723,9 +726,16 @@ def train(cfg: dict) -> None:
 def main():
     parser = argparse.ArgumentParser(description="Calibration DPO training")
     parser.add_argument("--config", type=str, default="calibration_dpo/config.yaml")
+    parser.add_argument("--resume", type=str, default=None,
+                        help="Path to checkpoint dir to resume policy adapter from")
+    parser.add_argument("--resume-step", type=int, default=0,
+                        help="Step number to resume from (for logging)")
     args = parser.parse_args()
 
     cfg = load_config(args.config)
+    if args.resume:
+        cfg["_resume_checkpoint"] = args.resume
+        cfg["_resume_step"] = args.resume_step
     train(cfg)
 
 

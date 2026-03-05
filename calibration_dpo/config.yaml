@@ -26,7 +26,7 @@ dpo:
   beta: 0.1
   lr_scale: 1.0
   sft_weight: 1.0
-  refusal_sft_weight: 3.0
+  refusal_sft_weight: 1.0
   max_refusal_pairs: 1  # cap refusal>bad DPO pairs per example
 
 training:
