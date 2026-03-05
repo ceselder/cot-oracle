@@ -145,7 +145,7 @@ TRAINED_CHECKPOINTS = {
     "ablation-stride5": {"path": "ceselder/cot-oracle-ablation-stride5-3layers", "label": "ablation: stride5 3-layer"},
     "ablation-stride10-pe-off": {"path": "ceselder/cot-oracle-ablation-stride10-pe-off", "label": "ablation: stride10 no-PE"},
     "ablation-pooling": {"path": "ceselder/cot-oracle-ablation-stride100-3layers", "label": "ablation: pooling stride100"},
-    "calibration-dpo": {"path": "ceselder/cot-oracle-calibration-dpo", "label": "calibration DPO"},
+    "calibration-dpo": {"path": "ceselder/cot-oracle-calibration-dpo", "subfolder": "step_378_final/policy", "label": "calibration DPO"},
 }
 
 # Available checkpoints for the Finetuned Monitor (text baseline, no activations).
@@ -1277,6 +1277,7 @@ class ChatCompareWebApp:
         if key not in options:
             return {"error": f"Unknown checkpoint key: {key}"}
         path = options[key]["path"]
+        subfolder = options[key].get("subfolder")
         adapter_name = f"{role}_{key}"
         with self.model_lock:
             # Load if not already loaded
@@ -1284,7 +1285,10 @@ class ChatCompareWebApp:
                 print(f"Loading adapter '{adapter_name}' from {path}...")
                 self._progress_status = f"Loading {options[key]['label']}..."
                 try:
-                    self.model.load_adapter(path, adapter_name=adapter_name, is_trainable=False)
+                    load_kwargs = dict(adapter_name=adapter_name, is_trainable=False)
+                    if subfolder:
+                        load_kwargs["subfolder"] = subfolder
+                    self.model.load_adapter(path, **load_kwargs)
                 except Exception as e:
                     self._progress_status = ""
                     return {"error": f"Failed to load {path}: {e}"}
