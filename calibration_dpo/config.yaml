@@ -24,8 +24,8 @@ judge:
 
 dpo:
   beta: 0.1
-  lr_scale: 0.1
-  sft_weight: 1.0
+  lr_scale: 0.5
+  sft_weight: 0.5
   refusal_sft_weight: 3.0
   max_refusal_pairs: 3
 
