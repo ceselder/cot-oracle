@@ -1707,11 +1707,11 @@ class ChatCompareWebApp:
             if cot_adapter and cot_adapter in self.model.peft_config:
                 self.model.set_adapter(cot_adapter)
                 with torch.no_grad():
-                    output = self.model.generate(input_ids, max_new_tokens=512, do_sample=False)
+                    output = self.model.generate(input_ids, max_new_tokens=128, do_sample=False)
             else:
                 with self.model.disable_adapter():
                     with torch.no_grad():
-                        output = self.model.generate(input_ids, max_new_tokens=512, do_sample=False)
+                        output = self.model.generate(input_ids, max_new_tokens=128, do_sample=False)
         self._progress_status = ""
 
         new_ids = output[0].tolist()
@@ -1771,11 +1771,11 @@ class ChatCompareWebApp:
                 if cot_adapter and cot_adapter in self.model.peft_config:
                     self.model.set_adapter(cot_adapter)
                     with torch.no_grad():
-                        output = self.model.generate(input_ids, max_new_tokens=256, do_sample=False)
+                        output = self.model.generate(input_ids, max_new_tokens=64, do_sample=False)
                 else:
                     with self.model.disable_adapter():
                         with torch.no_grad():
-                            output = self.model.generate(input_ids, max_new_tokens=256, do_sample=False)
+                            output = self.model.generate(input_ids, max_new_tokens=64, do_sample=False)
 
             new_ids = output[0].tolist()
             answer_ids = new_ids[len(prefix_ids) + len(close_ids):]
