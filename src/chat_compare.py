@@ -372,17 +372,19 @@ def generate_cot_base(model, tokenizer, question, max_new_tokens=16384, device="
     messages = [{"role": "user", "content": question}]
     formatted = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True, enable_thinking=enable_thinking)
     inputs = tokenizer(formatted, return_tensors="pt").to(get_model_input_device(model))
+    model.eval()
     gen_kwargs = dict(max_new_tokens=max_new_tokens)
     if temperature > 0:
         gen_kwargs.update(do_sample=True, temperature=temperature)
     else:
         gen_kwargs["do_sample"] = False
-    if cot_adapter and cot_adapter in model.peft_config:
-        model.set_adapter(cot_adapter)
-        output = model.generate(**inputs, **gen_kwargs)
-    else:
-        with model.disable_adapter():
+    with torch.no_grad():
+        if cot_adapter and cot_adapter in model.peft_config:
+            model.set_adapter(cot_adapter)
             output = model.generate(**inputs, **gen_kwargs)
+        else:
+            with model.disable_adapter():
+                output = model.generate(**inputs, **gen_kwargs)
     return tokenizer.decode(output[0][inputs["input_ids"].shape[1]:], skip_special_tokens=False)
 
 
