@@ -1,23 +1,22 @@
 #!/usr/bin/env python3
 """
-Evaluate hallucination detection: Oracle vs Adam's AO.
+Evaluate hallucination detection at the SENTENCE level: Oracle vs Adam's AO.
 
-Loads test split from HF, runs both our trained oracle and Adam's pretrained AO
-on each item, extracts hallucinated/factual logit-diff scores, and plots ROC curves.
-
-Key design: activations are extracted only from "claim sentences" in the CoT —
-sentences that assert facts, not meta-reasoning like "Let me think..." or "Wait...".
-Every token in a claim sentence gets its activation extracted (no stride subsampling).
+Each test item is a single sentence from a CoT, labeled hallucinated or factual.
+For each sentence:
+  1. Chat-template [user: question][assistant: full_cot]
+  2. Extract activations at that sentence's token positions only
+  3. Run oracle with those activations → logit(hallucinated) - logit(factual)
+  4. Compute AUROC over all sentences
 
 Usage (on GPU machine):
     cd /root/cot-oracle
     export HF_TOKEN=hf_...
     python scripts/eval_hallucination_auroc.py \
-        --checkpoint ceselder/cot-oracle-v15-stochastic \
-        --max-items 0  # 0 = all
+        --checkpoint ceselder/cot-oracle-v15-stochastic
 
     # Quick sanity check:
-    python scripts/eval_hallucination_auroc.py --max-items 10
+    python scripts/eval_hallucination_auroc.py --max-items 20
 """
 
 import argparse
@@ -53,43 +52,17 @@ ADAM_LAYER = 18
 INJECTION_LAYER = 1
 HF_REPO = "ceselder/cot-oracle-hallucination-detection"
 
-# Oracle prompts
 OUR_PROMPT = "Is the model's reasoning factually accurate, or does it contain hallucinated information?"
 ADAM_PROMPT = "Is the model's reasoning factually accurate, or does it contain hallucinated information?"
 
-# Patterns that indicate meta-reasoning (NOT factual claims)
-META_PATTERNS = re.compile(
-    r"^("
-    r"(let me|i need to|i should|i('ll| will)|i think|i recall|i remember|i believe|"
-    r"i'm |i am |i don't|i can|i want|i have to|"
-    r"let's|we need|we should|we can|"
-    r"hmm|hm+|okay|ok |ok,|alright|well,|well |so,|so |"
-    r"wait|actually,|actually |hold on|now,|now |"
-    r"first,|second,|third,|next,|then,|finally,|"
-    r"to (answer|solve|figure|determine|find|calculate|check|verify|address|approach)|"
-    r"looking at|thinking about|considering|given that|"
-    r"this (means|suggests|implies|indicates|is|seems|looks)|"
-    r"that (means|suggests|implies|indicates|is|seems|looks)|"
-    r"so the (answer|result|solution|conclusion)|"
-    r"in (summary|conclusion|short)|to summarize|overall|"
-    r"the (question|problem|task|prompt) (is|asks|wants)|"
-    r"let me (think|consider|recall|check|verify|look|break|start|try|see|go|review|reconsider|re-examine)"
-    r")"
-    r")",
-    re.IGNORECASE,
-)
 
-# Short sentences are usually transitions, not claims
-MIN_CLAIM_CHARS = 30
-
-
-def load_test_data(max_items: int = 0) -> list[dict]:
-    """Load test split from HF."""
+def load_sentence_data(max_items: int = 0) -> list[dict]:
+    """Load sentence-level test data from HF."""
     from huggingface_hub import hf_hub_download
 
     path = hf_hub_download(
         repo_id=HF_REPO,
-        filename="test.jsonl",
+        filename="sentences_test.jsonl",
         repo_type="dataset",
     )
     items = []
@@ -99,50 +72,20 @@ def load_test_data(max_items: int = 0) -> list[dict]:
                 items.append(json.loads(line))
     if max_items > 0:
         items = items[:max_items]
-    print(f"Loaded {len(items)} test items from {HF_REPO}")
-    labels = {}
-    for it in items:
-        labels[it["label"]] = labels.get(it["label"], 0) + 1
-    print(f"  Distribution: {labels}")
+    print(f"Loaded {len(items)} sentence-level test items")
+    from collections import Counter
+    labels = Counter(it["label"] for it in items)
+    print(f"  Distribution: {dict(labels)}")
     return items
 
 
-def split_sentences(text: str) -> list[str]:
-    """Split text into sentences. Handles common abbreviations."""
-    # Split on sentence-ending punctuation followed by space+uppercase or newline
-    parts = re.split(r'(?<=[.!?])\s+(?=[A-Z\n])|(?<=\n)\s*(?=\S)', text)
-    # Also split on double newlines
-    result = []
-    for p in parts:
-        if '\n\n' in p:
-            result.extend(s.strip() for s in p.split('\n\n') if s.strip())
-        else:
-            if p.strip():
-                result.append(p.strip())
-    return result
+def get_sentence_token_positions(
+    tokenizer, question: str, cot_text: str, sentence: str,
+) -> tuple[list[int], list[int]]:
+    """Chat-template the full CoT, find token positions for one sentence.
 
-
-def is_claim_sentence(sentence: str) -> bool:
-    """Return True if a sentence asserts factual content (not meta-reasoning)."""
-    s = sentence.strip()
-    if len(s) < MIN_CLAIM_CHARS:
-        return False
-    if META_PATTERNS.search(s):
-        return False
-    return True
-
-
-def get_claim_positions(
-    tokenizer, question: str, cot_text: str
-) -> tuple[list[int], list[int], int, int]:
-    """Chat-template [user: question][assistant: cot_text], find token positions
-    for claim sentences in the CoT.
-
-    Returns:
-        (input_ids, claim_positions, n_claims, n_total_sentences)
-        claim_positions: list of token indices corresponding to claim sentences
+    Returns (input_ids, sentence_positions).
     """
-    # Build the chat-templated text
     messages = [
         {"role": "user", "content": question},
         {"role": "assistant", "content": cot_text},
@@ -151,66 +94,42 @@ def get_claim_positions(
         messages, tokenize=False, add_generation_prompt=False, enable_thinking=False,
     )
 
-    # Tokenize with offset mapping so we can map character spans → token indices
     encoded = tokenizer(formatted, add_special_tokens=False, return_offsets_mapping=True)
     input_ids = encoded["input_ids"]
-    offsets = encoded["offset_mapping"]  # list of (char_start, char_end) per token
+    offsets = encoded["offset_mapping"]
 
-    # Find where cot_text appears in the formatted string
-    cot_start_char = formatted.find(cot_text)
-    if cot_start_char == -1:
-        # Fallback: try to find it approximately (chat template may add whitespace)
-        # Use the assistant content which should appear after the last assistant header
-        cot_start_char = formatted.rfind(cot_text[:50])
-        if cot_start_char == -1:
-            # Last resort: assume CoT is in the latter half
-            cot_start_char = len(formatted) // 2
-    cot_end_char = cot_start_char + len(cot_text)
+    # Find the sentence in the formatted text
+    # Search within the CoT region
+    cot_start = formatted.find(cot_text)
+    if cot_start == -1:
+        cot_start = formatted.rfind(cot_text[:50])
+        if cot_start == -1:
+            cot_start = 0
 
-    # Split CoT into sentences and classify
-    sentences = split_sentences(cot_text)
-    n_total = len(sentences)
-
-    # For each claim sentence, find its character span within formatted text,
-    # then map to token positions
-    claim_positions = []
-    n_claims = 0
-    search_from = cot_start_char
-
-    for sentence in sentences:
-        # Find this sentence in the formatted text
-        sent_start = formatted.find(sentence, search_from)
+    sent_start = formatted.find(sentence, cot_start)
+    if sent_start == -1:
+        # Try partial match
+        sent_start = formatted.find(sentence[:60], cot_start)
         if sent_start == -1:
-            # Try partial match (first 40 chars)
-            sent_start = formatted.find(sentence[:40], search_from)
-            if sent_start == -1:
-                continue
-        sent_end = sent_start + len(sentence)
-        search_from = sent_start + 1  # advance for next search
+            return input_ids, []
+    sent_end = sent_start + len(sentence)
 
-        if not is_claim_sentence(sentence):
-            continue
+    # Map character span to token indices
+    positions = []
+    for tok_idx, (ts, te) in enumerate(offsets):
+        if te > sent_start and ts < sent_end:
+            positions.append(tok_idx)
 
-        n_claims += 1
-
-        # Map character span to token indices
-        for tok_idx, (ts, te) in enumerate(offsets):
-            if te > sent_start and ts < sent_end:
-                claim_positions.append(tok_idx)
-
-    # Deduplicate and sort
-    claim_positions = sorted(set(claim_positions))
-
-    return input_ids, claim_positions, n_claims, n_total
+    return input_ids, positions
 
 
 def extract_activations_at_positions(
     model, input_ids: list[int], positions: list[int],
     layers: list[int], device: str,
 ) -> torch.Tensor:
-    """Extract activations at given positions for multiple layers.
+    """Extract activations at given positions for specified layers.
 
-    Returns [K * N_layers, D] — K positions per layer, concatenated.
+    Returns [K * N_layers, D].
     """
     input_tensor = torch.tensor([input_ids], dtype=torch.long, device=device)
     attn_mask = torch.ones_like(input_tensor)
@@ -228,35 +147,29 @@ def extract_activations_at_positions(
 
     parts = []
     for layer in layers:
-        acts_BLD = acts_by_layer[layer]  # [1, L, D]
-        parts.append(acts_BLD[0, positions, :].detach())  # [K, D]
+        parts.append(acts_by_layer[layer][0, positions, :].detach())
 
-    return torch.cat(parts, dim=0)  # [K*N, D]
+    return torch.cat(parts, dim=0)
 
 
 def build_prefix_and_find_positions(
-    tokenizer, num_positions: int, layers: list[int] | int, ph_token: str, oracle_prompt: str
+    tokenizer, num_positions: int, layers: list[int] | int, ph_token: str, oracle_prompt: str,
 ) -> tuple[list[int], list[int]]:
-    """Build oracle prompt with placeholders via direct token ID insertion.
-
-    Avoids BPE boundary merges by inserting ph_id directly rather than encoding
-    the placeholder string. Mirrors _build_manual_prefix_token_ids in eval_loop.py.
-    """
+    """Build oracle prompt with direct token ID insertion (avoids BPE merges)."""
     ph_id_list = tokenizer.encode(ph_token, add_special_tokens=False)
-    assert len(ph_id_list) == 1, f"Expected single token for '{ph_token}', got {len(ph_id_list)}"
+    assert len(ph_id_list) == 1
     ph_id = ph_id_list[0]
 
     if isinstance(layers, (list, tuple)):
         prefix_layers = list(layers)
         N = len(prefix_layers)
         K = num_positions // N
-        assert K * N == num_positions, f"num_positions={num_positions} not divisible by {N} layers"
+        assert K * N == num_positions, f"num_positions={num_positions} not divisible by {N}"
         block_sizes = [K] * N
     else:
         prefix_layers = [layers]
         block_sizes = [num_positions]
 
-    # Build prefix token IDs manually (no BPE merges on placeholders)
     prefix_ids: list[int] = []
     positions: list[int] = []
     for i, (layer_idx, block_size) in enumerate(zip(prefix_layers, block_sizes)):
@@ -268,191 +181,207 @@ def build_prefix_and_find_positions(
         prefix_ids.extend([ph_id] * block_size)
     prefix_ids.extend(tokenizer.encode("\n", add_special_tokens=False))
 
-    # Build the rest of the prompt (oracle question + chat template wrapping)
-    prompt_text = oracle_prompt
+    prompt_ids = tokenizer.encode(oracle_prompt, add_special_tokens=False)
+
     messages = [{"role": "user", "content": "PLACEHOLDER"}]
     formatted = tokenizer.apply_chat_template(
         messages, tokenize=False, add_generation_prompt=True, enable_thinking=False,
     )
-    # Split on PLACEHOLDER to get header/footer tokens
     before, after = formatted.split("PLACEHOLDER", 1)
     header_ids = tokenizer.encode(before, add_special_tokens=False)
-    prompt_ids = tokenizer.encode(prompt_text, add_special_tokens=False)
     footer_ids = tokenizer.encode(after, add_special_tokens=False)
 
-    # Adjust positions for header offset
     positions = [p + len(header_ids) for p in positions]
-
     input_ids = header_ids + prefix_ids + prompt_ids + footer_ids
 
-    assert len(positions) == num_positions, (
-        f"Built {len(positions)} positions, expected {num_positions}"
-    )
     return input_ids, positions
 
 
-def score_item_with_oracle(
+def score_sentence(
     model, tokenizer, activations: torch.Tensor,
     layers: list[int] | int, oracle_prompt: str,
     ph_token: str, adapter_name: str | None,
-    device: str,
+    device: str, hall_id: int, fact_id: int,
 ) -> float:
-    """Run oracle forward pass, return logit_diff = logit(hallucinated) - logit(factual).
-
-    Positive score = model thinks hallucinated.
-    """
+    """Forward pass with activation injection, return logit(hallucinated) - logit(factual)."""
     num_positions = activations.shape[0]
     input_ids, ph_positions = build_prefix_and_find_positions(
         tokenizer, num_positions, layers, ph_token, oracle_prompt
     )
 
-    # Resolve answer token IDs
-    hall_id = tokenizer.encode("hallucinated", add_special_tokens=False)[0]
-    fact_id = tokenizer.encode("factual", add_special_tokens=False)[0]
-
     input_tensor = torch.tensor([input_ids], device=device)
     attn_mask = torch.ones_like(input_tensor)
 
-    # Set adapter
     if adapter_name is not None:
         model.set_adapter(adapter_name)
     else:
         ao_path = AO_CHECKPOINTS[MODEL_NAME]
-        sanitized = ao_path.replace(".", "_")
-        model.set_adapter(sanitized)
+        model.set_adapter(ao_path.replace(".", "_"))
 
     hook_fn = get_steering_hook(
-        vectors=activations,
-        positions=ph_positions,
-        device=device,
-        dtype=torch.bfloat16,
+        vectors=activations, positions=ph_positions,
+        device=device, dtype=torch.bfloat16,
     )
-    injection_submodule = get_hf_submodule(model, INJECTION_LAYER, use_lora=True)
+    injection_sub = get_hf_submodule(model, INJECTION_LAYER, use_lora=True)
 
-    with add_hook(injection_submodule, hook_fn):
+    with add_hook(injection_sub, hook_fn):
         outputs = model(input_ids=input_tensor, attention_mask=attn_mask)
 
-    logits = outputs.logits[0, -1, :].float()  # [vocab_size]
-    score = (logits[hall_id] - logits[fact_id]).item()
-
-    return score
+    logits = outputs.logits[0, -1, :].float()
+    return (logits[hall_id] - logits[fact_id]).item()
 
 
 @torch.no_grad()
 def run_evaluation(
     model, tokenizer, test_data: list[dict],
     our_adapter: str, device: str,
-    max_positions_per_layer: int = 300,
 ) -> dict:
-    """Run both oracle and Adam's AO on all test items."""
+    """Score each sentence with both oracles."""
     model.eval()
+
+    # Pre-resolve token IDs
+    hall_id = tokenizer.encode("hallucinated", add_special_tokens=False)[0]
+    fact_id = tokenizer.encode("factual", add_special_tokens=False)[0]
 
     our_scores = []
     adam_scores = []
-    labels = []  # 1 = hallucinated, 0 = factual
+    labels = []
     skipped = 0
-    claim_stats = []
+    categories = []
 
+    # Group sentences by CoT to reuse activation extraction
+    from collections import defaultdict
+    cot_groups = defaultdict(list)
     for i, item in enumerate(test_data):
-        cot_text = item["cot_text"]
-        question = item["question"]
-        label = 1 if item["label"] == "hallucinated" else 0
+        key = (item["question"], item["cot_text"][:200])  # group by CoT
+        cot_groups[key].append((i, item))
 
-        # Get claim-sentence positions from chat-templated input
-        input_ids, claim_positions, n_claims, n_total = get_claim_positions(
-            tokenizer, question, cot_text
+    print(f"  {len(cot_groups)} unique CoTs, {len(test_data)} sentences")
+
+    processed_cots = 0
+    for (question, _), group in cot_groups.items():
+        cot_text = group[0][1]["cot_text"]
+        processed_cots += 1
+
+        # One forward pass to get all activations for this CoT
+        messages = [
+            {"role": "user", "content": question},
+            {"role": "assistant", "content": cot_text},
+        ]
+        formatted = tokenizer.apply_chat_template(
+            messages, tokenize=False, add_generation_prompt=False, enable_thinking=False,
         )
+        encoded = tokenizer(formatted, add_special_tokens=False, return_offsets_mapping=True)
+        full_input_ids = encoded["input_ids"]
+        full_offsets = encoded["offset_mapping"]
 
-        if len(claim_positions) < 3:
-            print(f"  [{i}] Only {len(claim_positions)} claim tokens "
-                  f"({n_claims}/{n_total} sentences) — skipping")
-            skipped += 1
-            continue
+        cot_start_char = formatted.find(cot_text)
+        if cot_start_char == -1:
+            cot_start_char = formatted.rfind(cot_text[:50])
+            if cot_start_char == -1:
+                skipped += len(group)
+                continue
 
-        # Cap positions to avoid OOM on the oracle prompt
-        if len(claim_positions) > max_positions_per_layer:
-            import numpy as np
-            indices = np.linspace(0, len(claim_positions) - 1,
-                                  max_positions_per_layer, dtype=int)
-            claim_positions = [claim_positions[j] for j in indices]
-
-        claim_stats.append((n_claims, n_total, len(claim_positions)))
-
-        # Extract activations at claim positions
+        # Extract activations for all layers in one forward pass
         try:
-            # Multi-layer for our oracle
-            acts_multi = extract_activations_at_positions(
-                model, input_ids, claim_positions, OUR_LAYERS, device
-            )
-            # Single layer for Adam's AO
-            acts_single = extract_activations_at_positions(
-                model, input_ids, claim_positions, [ADAM_LAYER], device
-            )
+            input_tensor = torch.tensor([full_input_ids], dtype=torch.long, device=device)
+            attn_mask = torch.ones_like(input_tensor)
+            submodules_multi = {l: get_hf_submodule(model, l, use_lora=True) for l in OUR_LAYERS}
+            submodules_single = {ADAM_LAYER: get_hf_submodule(model, ADAM_LAYER, use_lora=True)}
+            all_submodules = {**submodules_multi, **submodules_single}
+
+            with using_adapter(model, None):
+                acts_by_layer = collect_activations_multiple_layers(
+                    model=model,
+                    submodules=all_submodules,
+                    inputs_BL={"input_ids": input_tensor, "attention_mask": attn_mask},
+                    min_offset=None, max_offset=None,
+                )
         except Exception as e:
-            print(f"  [{i}] Activation extraction failed: {e}")
-            skipped += 1
+            print(f"  CoT activation extraction failed: {e}")
+            skipped += len(group)
             continue
 
-        # Score with our oracle
-        try:
-            our_score = score_item_with_oracle(
-                model, tokenizer, acts_multi,
-                layers=OUR_LAYERS, oracle_prompt=OUR_PROMPT,
-                ph_token=TRAINED_PLACEHOLDER, adapter_name=our_adapter,
-                device=device,
-            )
-        except Exception as e:
-            print(f"  [{i}] Our oracle failed: {e}")
-            skipped += 1
-            continue
+        # Score each sentence in this CoT
+        for idx, item in group:
+            sentence = item["sentence"]
+            label = 1 if item["label"] == "hallucinated" else 0
 
-        # Score with Adam's AO
-        try:
-            adam_score = score_item_with_oracle(
-                model, tokenizer, acts_single,
-                layers=ADAM_LAYER, oracle_prompt=ADAM_PROMPT,
-                ph_token=SPECIAL_TOKEN, adapter_name=None,
-                device=device,
-            )
-        except Exception as e:
-            print(f"  [{i}] Adam's AO failed: {e}")
-            skipped += 1
-            continue
+            # Find sentence token positions
+            sent_start = formatted.find(sentence, cot_start_char)
+            if sent_start == -1:
+                sent_start = formatted.find(sentence[:60], cot_start_char)
+                if sent_start == -1:
+                    skipped += 1
+                    continue
+            sent_end = sent_start + len(sentence)
 
-        our_scores.append(our_score)
-        adam_scores.append(adam_score)
-        labels.append(label)
+            positions = []
+            for tok_idx, (ts, te) in enumerate(full_offsets):
+                if te > sent_start and ts < sent_end:
+                    positions.append(tok_idx)
 
-        if (i + 1) % 10 == 0 or i == 0:
-            print(f"  [{i+1}/{len(test_data)}] label={item['label']}, "
-                  f"claims={n_claims}/{n_total} sents, "
-                  f"pos={len(claim_positions)}, "
-                  f"our={our_score:.3f}, adam={adam_score:.3f}")
+            if len(positions) < 3:
+                skipped += 1
+                continue
 
-    print(f"\nProcessed {len(labels)} items, skipped {skipped}")
-    if claim_stats:
-        avg_claims = sum(c for c, _, _ in claim_stats) / len(claim_stats)
-        avg_total = sum(t for _, t, _ in claim_stats) / len(claim_stats)
-        avg_pos = sum(p for _, _, p in claim_stats) / len(claim_stats)
-        print(f"Claim stats: avg {avg_claims:.1f}/{avg_total:.1f} sentences, "
-              f"{avg_pos:.0f} tokens per item")
+            # Slice activations for this sentence
+            try:
+                # Multi-layer for our oracle
+                acts_multi_parts = []
+                for layer in OUR_LAYERS:
+                    acts_multi_parts.append(acts_by_layer[layer][0, positions, :].detach())
+                acts_multi = torch.cat(acts_multi_parts, dim=0)
 
+                # Single layer for Adam's AO
+                acts_single = acts_by_layer[ADAM_LAYER][0, positions, :].detach()
+
+                # Score with our oracle
+                our_score = score_sentence(
+                    model, tokenizer, acts_multi,
+                    OUR_LAYERS, OUR_PROMPT,
+                    TRAINED_PLACEHOLDER, our_adapter,
+                    device, hall_id, fact_id,
+                )
+
+                # Score with Adam's AO
+                adam_score = score_sentence(
+                    model, tokenizer, acts_single,
+                    ADAM_LAYER, ADAM_PROMPT,
+                    SPECIAL_TOKEN, None,
+                    device, hall_id, fact_id,
+                )
+            except Exception as e:
+                print(f"  [{idx}] Scoring failed: {e}")
+                skipped += 1
+                continue
+
+            our_scores.append(our_score)
+            adam_scores.append(adam_score)
+            labels.append(label)
+            categories.append(item.get("prompt_category", ""))
+
+        if processed_cots % 5 == 0:
+            n_done = len(labels)
+            print(f"  CoTs: {processed_cots}/{len(cot_groups)}, "
+                  f"sentences scored: {n_done}, skipped: {skipped}")
+
+    print(f"\nScored {len(labels)} sentences, skipped {skipped}")
     return {
         "our_scores": our_scores,
         "adam_scores": adam_scores,
         "labels": labels,
+        "categories": categories,
     }
 
 
 def plot_roc(results: dict, output_path: str):
-    """Plot ROC curves for both oracles."""
     from sklearn.metrics import roc_auc_score, roc_curve
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
     labels = results["labels"]
-
     fig, ax = plt.subplots(1, 1, figsize=(8, 6))
 
     for name, scores in [
@@ -470,103 +399,96 @@ def plot_roc(results: dict, output_path: str):
     ax.plot([0, 1], [0, 1], "--", color="gray", linewidth=1)
     ax.set_xlabel("False Positive Rate")
     ax.set_ylabel("True Positive Rate")
-    ax.set_title("Hallucination Detection: Oracle vs AO")
+    ax.set_title("Sentence-Level Hallucination Detection: Oracle vs AO")
     ax.legend(loc="lower right")
-    ax.set_xlim([0, 1])
-    ax.set_ylim([0, 1])
+    ax.set_xlim([0, 1]); ax.set_ylim([0, 1])
 
-    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
     fig.savefig(output_path, dpi=150, bbox_inches="tight")
     plt.close(fig)
     print(f"ROC plot saved to {output_path}")
 
 
 def print_summary(results: dict):
-    """Print summary statistics."""
     import numpy as np
+    from collections import Counter
 
     labels = np.array(results["labels"])
-    n_hall = labels.sum()
+    n_hall = int(labels.sum())
     n_fact = len(labels) - n_hall
 
     print(f"\n{'='*60}")
-    print(f"Hallucination Detection Summary")
+    print(f"Sentence-Level Hallucination Detection")
     print(f"{'='*60}")
-    print(f"Total items: {len(labels)} ({n_hall} hallucinated, {n_fact} factual)")
+    print(f"Total sentences: {len(labels)} ({n_hall} hallucinated, {n_fact} factual)")
 
-    for name, scores_key in [("Our Oracle", "our_scores"), ("Adam's AO", "adam_scores")]:
-        scores = np.array(results[scores_key])
-        hall_scores = scores[labels == 1]
-        fact_scores = scores[labels == 0]
+    for name, key in [("Our Oracle", "our_scores"), ("Adam's AO", "adam_scores")]:
+        scores = np.array(results[key])
+        hall_s = scores[labels == 1]
+        fact_s = scores[labels == 0]
         print(f"\n{name}:")
-        print(f"  Mean score (hallucinated): {hall_scores.mean():.3f} +/- {hall_scores.std():.3f}")
-        print(f"  Mean score (factual):      {fact_scores.mean():.3f} +/- {fact_scores.std():.3f}")
-        print(f"  Score gap:                 {hall_scores.mean() - fact_scores.mean():.3f}")
-
-        # Accuracy at threshold=0
+        if len(hall_s):
+            print(f"  Mean score (hallucinated): {hall_s.mean():.3f} +/- {hall_s.std():.3f}")
+        if len(fact_s):
+            print(f"  Mean score (factual):      {fact_s.mean():.3f} +/- {fact_s.std():.3f}")
+        if len(hall_s) and len(fact_s):
+            print(f"  Score gap:                 {hall_s.mean() - fact_s.mean():.3f}")
         preds = (scores > 0).astype(int)
         acc = (preds == labels).mean()
         print(f"  Accuracy (threshold=0):    {acc:.3f}")
 
+    # Per-category breakdown
+    cats = results.get("categories", [])
+    if cats:
+        cat_counts = Counter(
+            c for c, l in zip(cats, labels) if l == 1
+        )
+        print(f"\nHallucinated sentences by category: {dict(cat_counts)}")
+
 
 def main():
-    parser = argparse.ArgumentParser(description="Hallucination detection AUROC eval")
-    parser.add_argument("--checkpoint", type=str, default="ceselder/cot-oracle-v15-stochastic",
-                        help="HF repo or local path for our oracle adapter")
-    parser.add_argument("--max-items", type=int, default=0,
-                        help="Max test items (0 = all)")
-    parser.add_argument("--max-positions", type=int, default=300,
-                        help="Max claim-token positions per layer (default 300)")
-    parser.add_argument("--output", type=str, default="data/hallucination_auroc.png",
-                        help="Output path for ROC plot")
+    parser = argparse.ArgumentParser(description="Sentence-level hallucination AUROC eval")
+    parser.add_argument("--checkpoint", type=str, default="ceselder/cot-oracle-v15-stochastic")
+    parser.add_argument("--max-items", type=int, default=0, help="0 = all")
+    parser.add_argument("--output", type=str, default="data/hallucination_auroc.png")
     parser.add_argument("--device", type=str, default="cuda")
-    parser.add_argument("--use-8bit", action="store_true",
-                        help="Load model in 8-bit quantization")
+    parser.add_argument("--use-8bit", action="store_true")
     args = parser.parse_args()
 
-    print(f"Loading test data...")
-    test_data = load_test_data(args.max_items)
+    print("Loading sentence-level test data...")
+    test_data = load_sentence_data(args.max_items)
     if not test_data:
-        print("No test data found! Run generate_hallucination_dataset.py first.")
+        print("No data! Run label_hallucination_sentences.py first.")
         sys.exit(1)
 
     print(f"\nLoading model: {MODEL_NAME}")
     model, tokenizer = load_model_with_ao(MODEL_NAME, use_8bit=args.use_8bit)
 
-    # Load our trained oracle adapter
     our_adapter_name = "trained_oracle"
-    print(f"Loading our oracle adapter: {args.checkpoint}")
+    print(f"Loading our oracle: {args.checkpoint}")
     if our_adapter_name not in model.peft_config:
-        model.load_adapter(
-            args.checkpoint,
-            adapter_name=our_adapter_name,
-            is_trainable=False,
-        )
-    # Ensure ALL adapter params are on GPU (low_cpu_mem_usage can leave them on CPU)
+        model.load_adapter(args.checkpoint, adapter_name=our_adapter_name, is_trainable=False)
+
+    # Move all params to GPU
     target_device = next(model.base_model.parameters()).device
     for name, param in model.named_parameters():
         if param.device.type == "cpu":
             param.data = param.data.to(target_device)
 
-    print(f"\nRunning evaluation...")
+    print("\nRunning evaluation...")
     t0 = time.time()
-    results = run_evaluation(
-        model, tokenizer, test_data, our_adapter_name, args.device,
-        max_positions_per_layer=args.max_positions,
-    )
-    elapsed = time.time() - t0
-    print(f"Evaluation took {elapsed:.1f}s")
+    results = run_evaluation(model, tokenizer, test_data, our_adapter_name, args.device)
+    print(f"Evaluation took {time.time() - t0:.1f}s")
 
     if not results["labels"]:
-        print("No items were successfully scored!")
+        print("No sentences scored!")
         sys.exit(1)
 
-    # Save raw results
     results_path = args.output.replace(".png", "_results.json")
-    os.makedirs(os.path.dirname(results_path), exist_ok=True)
+    os.makedirs(os.path.dirname(results_path) or ".", exist_ok=True)
     with open(results_path, "w") as f:
         json.dump(results, f)
-    print(f"Raw results saved to {results_path}")
+    print(f"Results saved to {results_path}")
 
     print_summary(results)
     plot_roc(results, args.output)
