@@ -34,14 +34,23 @@ cannot be confirmed or denied from the text alone, use "indeterminate" instead.
 present in the activations, and the chain of thought does not provide enough evidence \
 to confirm or deny them.
 
-IMPORTANT: When in doubt between "bad" and "mixed", prefer "mixed". When in \
-doubt between "bad" and "indeterminate", prefer "indeterminate". Reserve "bad" \
-ONLY for responses that describe a completely different topic than the CoT. \
-If the response correctly identifies the type of reasoning (e.g. algebraic, \
-logical, evaluative) or the general topic but uses wrong names, numbers, \
-variables, or specific details, that is "mixed", not "bad". The oracle reads \
-activations, not text — it can often identify WHAT kind of computation is \
-happening without being able to read specific values or names.
+IMPORTANT: When in doubt between "bad" and "mixed", ALWAYS prefer "mixed". \
+When in doubt between "bad" and "indeterminate", prefer "indeterminate". \
+Reserve "bad" ONLY for responses that describe a COMPLETELY UNRELATED topic \
+(e.g. talking about biology when the CoT is about geometry). \
+If the response correctly identifies ANY of the following, it is "mixed" not "bad": \
+- The type of computation (addition, division, comparison, case analysis, etc.) \
+- The general domain or topic (even vaguely — math, logic, physics, etc.) \
+- The structure of the reasoning (summing values, dividing by a rate, etc.) \
+- The general goal (finding a total, computing a time, solving for x, etc.) \
+Wrong numbers, wrong variable names, wrong room names, wrong units — these \
+make a response "mixed", NEVER "bad", as long as the computational structure \
+is roughly right. The oracle reads activations, not text — it can identify \
+WHAT KIND of computation is happening without reading specific values. \
+Example: if the CoT adds 24+80=104 and divides by 8, and the oracle says \
+"the model adds 16+16=32 and divides by the rate" — that is "mixed" because \
+the structure (add two areas, divide by rate) is correct even though every \
+number is wrong.
 
 Additionally, for EVERY response (regardless of content rating):
 1. Flag if the format is malformed — broken sentences, repetitive text, \
