@@ -14,6 +14,8 @@ import argparse
 import atexit
 import asyncio
 import collections
+import copy
+import dataclasses
 import json
 import logging
 import os
@@ -75,9 +77,9 @@ SUGGESTED_QUESTION_MAX_OFFSET = 1219
 SAE_REPO = "adamkarvonen/qwen3-8b-saes"
 SAE_TRAINER = 2
 OPENROUTER_API_BASE = "https://openrouter.ai/api/v1"
-OPENROUTER_SAE_MODEL = "google/gemini-2.5-flash-lite"
-OPENROUTER_RATER_MODEL = "google/gemini-2.5-flash-lite"
-OPENROUTER_BLACKBOX_MODEL = "google/gemini-3-flash-preview"
+OPENROUTER_SAE_MODEL = "google/gemini-3.1-flash-lite-preview"
+OPENROUTER_RATER_MODEL = "google/gemini-3.1-flash-lite-preview"
+OPENROUTER_BLACKBOX_MODEL = "google/gemini-3.1-flash-lite-preview"
 TRYCLOUDFLARE_URL_RE = re.compile(r"https://[A-Za-z0-9.-]+\\.trycloudflare\\.com")
 CHAT_COMPARE_LOG_DIR = Path(os.path.expandvars(os.environ.get("FAST_CACHE_DIR", f"/var/tmp/{Path.home().name}/"))) / "cot-oracle" / "chat_compare"
 LOG_BUFFER_SIZE = 500
@@ -366,7 +368,7 @@ def get_module_device(module):
     return next(module.parameters()).device
 
 
-def generate_cot_base(model, tokenizer, question, max_new_tokens=4096, device="cuda", cot_adapter=None, enable_thinking=True, temperature=0.0):
+def generate_cot_base(model, tokenizer, question, max_new_tokens=16384, device="cuda", cot_adapter=None, enable_thinking=True, temperature=0.0):
     messages = [{"role": "user", "content": question}]
     formatted = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True, enable_thinking=enable_thinking)
     inputs = tokenizer(formatted, return_tensors="pt").to(get_model_input_device(model))
@@ -581,7 +583,7 @@ def build_sae_feature_description(saes, labels, layer_to_selected_acts, layers, 
 
 
 def query_openrouter(prompt, model, api_base=OPENROUTER_API_BASE, max_tokens=300, response_format=None):
-    api_key = os.environ.get("OPENROUTER_API_KEY", "")
+    api_key = os.environ.get("OPENROUTER_API_KEY", "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")
     if not api_key:
         return "(OpenRouter API key not set — skipping)"
     client = openai.OpenAI(base_url=api_base, api_key=api_key)
@@ -771,6 +773,7 @@ class SessionState:
     stride_token_ids: list[int] = field(default_factory=list)
     token_labels: list[str] = field(default_factory=list)
     cot_token_texts: list[str] = field(default_factory=list)
+    answer_token_texts: list[str] = field(default_factory=list)
     sampled_token_to_stride_index: list[int | None] = field(default_factory=list)
     multilayer_acts: torch.Tensor | None = None
     ao_acts: torch.Tensor | None = None
@@ -807,6 +810,8 @@ class ChatCompareWebApp:
         self._probe_cache = {}
         self._attn_probe_cache = {}
         self.state = SessionState()
+        self._timeline = []        # list of (SessionState, prompt_len, cot_end, stride, extras) snapshots
+        self._timeline_index = -1  # current position in timeline
         self._current_stride = args.stride
         self._current_extras = ()
         self._prompt_len = 0
@@ -1029,7 +1034,7 @@ class ChatCompareWebApp:
         scores = (acts_normed @ w + b).tolist()
         return {"scores": scores, "min_score": min(scores), "max_score": max(scores), "all_positions": True}
 
-    def _compute_ao_logprobs(self, prompt, answer_tokens_str, adapter_key, heatmap_stride=1):
+    def _compute_ao_logprobs(self, prompt, answer_tokens_str, adapter_key, heatmap_stride=1, temperature=1.0, context_window=1, include_answer=False):
         """Run batched AO logprobs over stride positions, subsampled by heatmap_stride.
 
         Returns per-position logprobs for each answer token, plus normalized
@@ -1050,14 +1055,63 @@ class ChatCompareWebApp:
         eval_indices = list(range(0, K, max(1, heatmap_stride)))
         if eval_indices[-1] != K - 1:
             eval_indices.append(K - 1)  # always include last
+
+        # Collect answer-region activations on the fly if requested
+        answer_stride_positions = []
+        answer_acts_by_layer = None
+        answer_ao_acts = None
+        n_answer_eval = 0
+        if include_answer:
+            answer_start = getattr(self, '_answer_start', None)
+            all_ids = self.tokenizer.encode(self.state.full_text, add_special_tokens=False)
+            total_len = len(all_ids)
+            if answer_start and answer_start < total_len:
+                # Build stride positions over the answer region
+                answer_stride_positions = list(range(answer_start, total_len, max(1, self._current_stride)))
+                if answer_stride_positions and answer_stride_positions[-1] != total_len - 1:
+                    answer_stride_positions.append(total_len - 1)
+                if answer_stride_positions:
+                    self._progress_status = "Collecting answer-region activations..."
+                    input_device = str(get_model_input_device(self.model))
+                    cot_adapter = self._active_cot_adapter
+                    answer_ml_acts = collect_multilayer_activations(
+                        self.model, self.tokenizer, self.state.full_text,
+                        self.layers, answer_stride_positions,
+                        cot_adapter=cot_adapter, device=self.args.device,
+                    )
+                    answer_ao_acts = collect_activations_at_positions(
+                        self.model, self.tokenizer, self.state.full_text,
+                        self.layer_50, answer_stride_positions,
+                        device=input_device, adapter_name=None,
+                    )
+                    K_ans = len(answer_stride_positions)
+                    answer_acts_by_layer = answer_ml_acts.view(n_layers, K_ans, D)
+
         # Build per-position activation tensors for evaluated positions
+        # context_window: number of positions to feed per eval point (1=just center, 3=center+neighbors, etc.)
+        cw = max(1, context_window)
+        half = cw // 2  # positions on each side of center
         per_position_acts = []
         if adapter_key == "trained":
             oracle_adapter = self._active_trained_adapter
             ph_token = TRAINED_PLACEHOLDER
             act_layers = self.layers
             for pos_idx in eval_indices:
-                per_position_acts.append(acts_by_layer[:, pos_idx, :])  # [n_layers, D]
+                neighbor_indices = [max(0, min(K - 1, pos_idx + offset)) for offset in range(-half, half + 1)]
+                layer_chunks = []
+                for layer_i in range(n_layers):
+                    for ni in neighbor_indices:
+                        layer_chunks.append(acts_by_layer[layer_i, ni, :])
+                per_position_acts.append(torch.stack(layer_chunks, dim=0))
+            # Add answer positions (no context window for these — just single position)
+            if answer_acts_by_layer is not None:
+                K_ans = answer_acts_by_layer.shape[1]
+                answer_eval_indices = list(range(0, K_ans, max(1, heatmap_stride)))
+                if answer_eval_indices[-1] != K_ans - 1:
+                    answer_eval_indices.append(K_ans - 1)
+                n_answer_eval = len(answer_eval_indices)
+                for pos_idx in answer_eval_indices:
+                    per_position_acts.append(answer_acts_by_layer[:, pos_idx, :])
         else:
             oracle_adapter = self._active_ao_adapter
             ph_token = SPECIAL_TOKEN
@@ -1065,9 +1119,22 @@ class ChatCompareWebApp:
             if self.state.ao_acts is None:
                 raise HTTPException(status_code=400, detail="No AO activations available")
             for pos_idx in eval_indices:
-                per_position_acts.append(self.state.ao_acts[pos_idx:pos_idx + 1])  # [1, D]
+                neighbor_indices = [max(0, min(K - 1, pos_idx + offset)) for offset in range(-half, half + 1)]
+                chunks = [self.state.ao_acts[ni:ni + 1] for ni in neighbor_indices]
+                per_position_acts.append(torch.cat(chunks, dim=0))
+            # Add answer positions
+            if include_answer and answer_ao_acts is not None:
+                K_ans = len(answer_stride_positions)
+                answer_eval_indices = list(range(0, K_ans, max(1, heatmap_stride)))
+                if answer_eval_indices[-1] != K_ans - 1:
+                    answer_eval_indices.append(K_ans - 1)
+                n_answer_eval = len(answer_eval_indices)
+                for pos_idx in answer_eval_indices:
+                    per_position_acts.append(answer_ao_acts[pos_idx:pos_idx + 1])
+
         n_eval = len(eval_indices)
-        self._progress_status = f"Running batched AO logprobs ({n_eval}/{K} positions)..."
+        n_total_eval = n_eval + n_answer_eval
+        self._progress_status = f"Running batched AO logprobs ({n_total_eval} positions)..."
         with self.model_lock:
             result = run_batched_ao_logprobs(
                 self.model, self.tokenizer,
@@ -1081,27 +1148,44 @@ class ChatCompareWebApp:
             )
         self._progress_status = ""
 
+        # Split result into CoT scores and answer scores
+        cot_result = {}
+        ans_result = {}
+        for tok, scores in result.items():
+            cot_result[tok] = scores[:n_eval]
+            ans_result[tok] = scores[n_eval:]
+
         # Compute normalized P(token_0) when exactly 2 answer tokens (binary yes/no)
+        def _compute_p_yes(lp0_list, lp1_list):
+            T = max(temperature, 0.01)
+            out = []
+            for a, b in zip(lp0_list, lp1_list):
+                diff = (b - a) / T
+                p = 1.0 / (1.0 + math.exp(diff)) if diff < 30 else 0.0
+                out.append(p)
+            return out
+
         p_yes_scores = None
+        p_yes_answer = None
         if len(answer_tokens) == 2:
             tok0, tok1 = answer_tokens[0], answer_tokens[1]
-            lp0 = result.get(tok0, [])
-            lp1 = result.get(tok1, [])
+            lp0 = cot_result.get(tok0, [])
+            lp1 = cot_result.get(tok1, [])
             if lp0 and lp1 and len(lp0) == len(lp1):
-                p_yes_scores = []
-                for a, b in zip(lp0, lp1):
-                    # Numerically stable softmax: P(tok0) = 1 / (1 + exp(b - a))
-                    diff = b - a
-                    p = 1.0 / (1.0 + math.exp(diff)) if diff < 30 else 0.0
-                    p_yes_scores.append(p)
+                p_yes_scores = _compute_p_yes(lp0, lp1)
+            # Answer region P(Yes)
+            alp0 = ans_result.get(tok0, [])
+            alp1 = ans_result.get(tok1, [])
+            if alp0 and alp1 and len(alp0) == len(alp1):
+                p_yes_answer = _compute_p_yes(alp0, alp1)
 
-        # Interpolate back to all K positions
-        def _interpolate(sparse_scores):
-            full = [0.0] * K
-            for i, idx in enumerate(eval_indices):
+        # Interpolate back to all K CoT positions
+        def _interpolate(sparse_scores, indices, total):
+            full = [0.0] * total
+            for i, idx in enumerate(indices):
                 full[idx] = sparse_scores[i]
-            for i in range(len(eval_indices) - 1):
-                start, end = eval_indices[i], eval_indices[i + 1]
+            for i in range(len(indices) - 1):
+                start, end = indices[i], indices[i + 1]
                 if end - start > 1:
                     s0, s1 = sparse_scores[i], sparse_scores[i + 1]
                     for j in range(start + 1, end):
@@ -1110,18 +1194,32 @@ class ChatCompareWebApp:
             return full
 
         if heatmap_stride > 1:
-            interpolated = {tok: _interpolate(scores) for tok, scores in result.items()}
+            interpolated = {tok: _interpolate(scores, eval_indices, K) for tok, scores in cot_result.items()}
             if p_yes_scores is not None:
-                p_yes_scores = _interpolate(p_yes_scores)
-            return {
-                "scores": interpolated,
-                "p_yes": p_yes_scores,
-                "evaluated_positions": n_eval,
-                "total_positions": K,
-            }
+                p_yes_scores = _interpolate(p_yes_scores, eval_indices, K)
+        else:
+            interpolated = cot_result
+
+        # Build answer P(Yes) interpolated to answer token count
+        answer_p_yes = None
+        if include_answer and answer_stride_positions and p_yes_answer is not None:
+            n_answer_tokens = len(self.state.answer_token_texts)
+            answer_start_abs = getattr(self, '_answer_start', 0)
+            # Map answer stride positions to answer-token-relative indices
+            ans_token_indices = [pos - answer_start_abs for pos in answer_stride_positions]
+            # Subsample same as eval
+            K_ans = len(answer_stride_positions)
+            ans_eval_idx = list(range(0, K_ans, max(1, heatmap_stride)))
+            if ans_eval_idx[-1] != K_ans - 1:
+                ans_eval_idx.append(K_ans - 1)
+            # Map to token-relative indices
+            ans_eval_token_idx = [ans_token_indices[i] for i in ans_eval_idx]
+            answer_p_yes = _interpolate(p_yes_answer, ans_eval_token_idx, n_answer_tokens)
+
         return {
-            "scores": result,
+            "scores": interpolated,
             "p_yes": p_yes_scores,
+            "answer_p_yes": answer_p_yes,
             "evaluated_positions": n_eval,
             "total_positions": K,
         }
@@ -1320,6 +1418,10 @@ class ChatCompareWebApp:
         token_labels = [token_preview(self.tokenizer, token_id) for token_id in stride_token_ids]
         cot_token_ids = all_ids[prompt_len:cot_end]
         cot_token_texts = [decode_token_text(self.tokenizer, token_id) for token_id in cot_token_ids]
+        # Answer tokens: everything after </think> tag (skip the tag itself)
+        answer_start = cot_end + len(think_end_token) if cot_end < len(all_ids) else len(all_ids)
+        answer_token_ids = all_ids[answer_start:]
+        answer_token_texts = [decode_token_text(self.tokenizer, token_id) for token_id in answer_token_ids]
         sampled_token_to_stride_index = [None] * len(cot_token_ids)
         for stride_idx, full_pos in enumerate(stride_positions):
             cot_relative = full_pos - prompt_len
@@ -1327,14 +1429,16 @@ class ChatCompareWebApp:
                 sampled_token_to_stride_index[cot_relative] = stride_idx
         self._prompt_len = prompt_len  # cache for token index → absolute position mapping
         self._cot_end = cot_end
-        return stride_positions, stride_token_ids, token_labels, cot_token_texts, sampled_token_to_stride_index
+        self._answer_start = answer_start
+        return stride_positions, stride_token_ids, token_labels, cot_token_texts, answer_token_texts, sampled_token_to_stride_index
 
-    def _populate_state_activations(self, stride_positions, stride_token_ids, token_labels, cot_token_texts, sampled_token_to_stride_index, multilayer_acts, ao_acts):
+    def _populate_state_activations(self, stride_positions, stride_token_ids, token_labels, cot_token_texts, answer_token_texts, sampled_token_to_stride_index, multilayer_acts, ao_acts):
         """Write stride/activation data into self.state."""
         self.state.stride_positions = list(stride_positions)
         self.state.stride_token_ids = stride_token_ids
         self.state.token_labels = token_labels
         self.state.cot_token_texts = cot_token_texts
+        self.state.answer_token_texts = answer_token_texts
         self.state.sampled_token_to_stride_index = sampled_token_to_stride_index
         self.state.multilayer_acts = multilayer_acts
         self.state.ao_acts = ao_acts
@@ -1351,6 +1455,7 @@ class ChatCompareWebApp:
             "stride_positions": self.state.stride_positions,
             "token_labels": self.state.token_labels,
             "cot_token_texts": self.state.cot_token_texts,
+            "answer_token_texts": self.state.answer_token_texts,
             "sampled_token_to_stride_index": self.state.sampled_token_to_stride_index,
             "layers": self.layers,
             "layer_50": self.layer_50,
@@ -1368,17 +1473,23 @@ class ChatCompareWebApp:
 
         if is_full_model:
             # Load the full organism model, generate CoT + extract activations, then unload
-            return self._generate_with_full_model(question, enable_thinking, cot_adapter, organism_info)
+            result = self._generate_with_full_model(question, enable_thinking, cot_adapter, organism_info)
+            self._timeline = []
+            self._timeline_index = 0
+            return result
 
         # LoRA adapter path (or base model)
         adapter_label = MODEL_ORGANISMS[cot_adapter]["label"] if cot_adapter and cot_adapter in MODEL_ORGANISMS else "base model"
         self._progress_status = f"Generating CoT with {adapter_label}..."
-        cot_response = generate_cot_base(self.model, self.tokenizer, question, max_new_tokens=4096, device=self.args.device, cot_adapter=cot_adapter, enable_thinking=enable_thinking, temperature=temperature)
+        cot_response = generate_cot_base(self.model, self.tokenizer, question, max_new_tokens=16384, device=self.args.device, cot_adapter=cot_adapter, enable_thinking=enable_thinking, temperature=temperature)
         self._progress_status = ""
         messages = [{"role": "user", "content": question}]
         formatted = self.tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True, enable_thinking=enable_thinking)
         full_text = formatted + cot_response
         cot_text, answer_text = split_cot_answer(cot_response)
+        # Reset timeline on new generation
+        self._timeline = []
+        self._timeline_index = 0
         self.state = SessionState(
             question=question,
             cot_response=cot_response,
@@ -1415,7 +1526,7 @@ class ChatCompareWebApp:
             formatted = self.tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True, enable_thinking=enable_thinking)
             inputs = self.tokenizer(formatted, return_tensors="pt").to(get_model_input_device(organism_model))
             with torch.no_grad():
-                output = organism_model.generate(**inputs, max_new_tokens=4096, do_sample=False)
+                output = organism_model.generate(**inputs, max_new_tokens=16384, do_sample=False)
             cot_response = self.tokenizer.decode(output[0][inputs["input_ids"].shape[1]:], skip_special_tokens=False)
             full_text = formatted + cot_response
             cot_text, answer_text = split_cot_answer(cot_response)
@@ -1430,7 +1541,7 @@ class ChatCompareWebApp:
                 full_text=full_text,
                 enable_thinking=enable_thinking,
             )
-            stride_positions, stride_token_ids, token_labels, cot_token_texts, sampled_map = self._compute_stride_info(full_text, enable_thinking)
+            stride_positions, stride_token_ids, token_labels, cot_token_texts, answer_token_texts, sampled_map = self._compute_stride_info(full_text, enable_thinking)
 
             # Extract activations from the organism model (no adapter needed, plain model)
             input_device = str(get_model_input_device(organism_model))
@@ -1442,7 +1553,7 @@ class ChatCompareWebApp:
             ao_acts = collect_activations_at_positions(organism_model, self.tokenizer, full_text, self.layer_50, stride_positions, device=input_device, adapter_name=None)
 
             # Store everything
-            self._populate_state_activations(stride_positions, stride_token_ids, token_labels, cot_token_texts, sampled_map, multilayer_acts, ao_acts)
+            self._populate_state_activations(stride_positions, stride_token_ids, token_labels, cot_token_texts, answer_token_texts, sampled_map, multilayer_acts, ao_acts)
             self._active_cot_adapter = adapter_key
         finally:
             # Free organism model VRAM
@@ -1473,12 +1584,138 @@ class ChatCompareWebApp:
             return self._activation_result()
         self._current_stride = stride
         self._current_extras = extra_key
-        stride_positions, stride_token_ids, token_labels, cot_token_texts, sampled_map = self._compute_stride_info(self.state.full_text, self.state.enable_thinking, stride=stride, extra_positions=extra_positions)
+        stride_positions, stride_token_ids, token_labels, cot_token_texts, answer_token_texts, sampled_map = self._compute_stride_info(self.state.full_text, self.state.enable_thinking, stride=stride, extra_positions=extra_positions)
         input_device = str(get_model_input_device(self.model))
         multilayer_acts = collect_multilayer_activations(self.model, self.tokenizer, self.state.full_text, self.layers, stride_positions, cot_adapter=getattr(self, '_active_cot_adapter', None), device=self.args.device)
         ao_acts = collect_activations_at_positions(self.model, self.tokenizer, self.state.full_text, self.layer_50, stride_positions, device=input_device, adapter_name=None)
-        self._populate_state_activations(stride_positions, stride_token_ids, token_labels, cot_token_texts, sampled_map, multilayer_acts, ao_acts)
+        self._populate_state_activations(stride_positions, stride_token_ids, token_labels, cot_token_texts, answer_token_texts, sampled_map, multilayer_acts, ao_acts)
         return self._activation_result()
+
+    # --- Timeline / resample logic ---
+
+    def _snapshot_state(self):
+        """Deep-copy current state + metadata for timeline storage."""
+        state_copy = dataclasses.replace(self.state)
+        # Tensors need explicit clone
+        if state_copy.multilayer_acts is not None:
+            state_copy.multilayer_acts = state_copy.multilayer_acts.clone()
+        if state_copy.ao_acts is not None:
+            state_copy.ao_acts = state_copy.ao_acts.clone()
+        if state_copy.full_layer_acts:
+            state_copy.full_layer_acts = {k: v.clone() for k, v in state_copy.full_layer_acts.items()}
+        return {
+            "state": state_copy,
+            "prompt_len": self._prompt_len,
+            "cot_end": getattr(self, "_cot_end", 0),
+            "stride": self._current_stride,
+            "extras": self._current_extras,
+        }
+
+    def _restore_snapshot(self, snap):
+        """Restore a timeline snapshot into self.state."""
+        self.state = snap["state"]
+        self._prompt_len = snap["prompt_len"]
+        self._cot_end = snap["cot_end"]
+        self._current_stride = snap["stride"]
+        self._current_extras = snap["extras"]
+
+    def _resample_from(self, barrier_cot_token_index):
+        """Resample CoT from barrier_cot_token_index onwards.
+
+        barrier_cot_token_index is an index into cot_token_texts — the first
+        token to be regenerated.  Everything before it is kept as a prefix.
+        """
+        if not self.state.full_text:
+            raise HTTPException(status_code=400, detail="Generate a CoT first")
+
+        # Save current state to timeline before overwriting
+        snap = self._snapshot_state()
+        # If we're not at the tip, truncate future entries
+        if self._timeline_index >= 0 and self._timeline_index < len(self._timeline) - 1:
+            self._timeline = self._timeline[:self._timeline_index + 1]
+        self._timeline.append(snap)
+
+        # Build prefix token IDs
+        all_ids = self.tokenizer.encode(self.state.full_text, add_special_tokens=False)
+        prompt_len = self._prompt_len
+        prefix_end = prompt_len + barrier_cot_token_index  # keep tokens [0, prefix_end)
+        prefix_ids = all_ids[:prefix_end]
+
+        # Generate continuation with temperature >= 0.7 for variety
+        gen_temp = max(0.7, float(getattr(self.args, "temperature", 0.7)))
+        input_ids = torch.tensor([prefix_ids], device=get_model_input_device(self.model))
+        gen_kwargs = dict(max_new_tokens=16384, do_sample=True, temperature=gen_temp)
+        cot_adapter = self._active_cot_adapter
+        self._progress_status = "Resampling CoT from barrier..."
+        self.model.eval()
+        if cot_adapter and cot_adapter in self.model.peft_config:
+            self.model.set_adapter(cot_adapter)
+            with torch.no_grad():
+                output = self.model.generate(input_ids, **gen_kwargs)
+        else:
+            with self.model.disable_adapter():
+                with torch.no_grad():
+                    output = self.model.generate(input_ids, **gen_kwargs)
+        self._progress_status = ""
+
+        new_ids = output[0].tolist()
+        new_text = self.tokenizer.decode(new_ids, skip_special_tokens=False)
+        # The response part starts after the prompt
+        response_ids = new_ids[prompt_len:]
+        cot_response = self.tokenizer.decode(response_ids, skip_special_tokens=False)
+        cot_text, answer_text = split_cot_answer(cot_response)
+
+        self.state = SessionState(
+            question=self.state.question,
+            cot_response=cot_response,
+            cot_text=cot_text,
+            answer_text=answer_text,
+            full_text=new_text,
+            enable_thinking=self.state.enable_thinking,
+        )
+        self._timeline_index = len(self._timeline)  # we're at the tip (new entry not yet saved)
+
+        return {
+            "question": self.state.question,
+            "cot_response": cot_response,
+            "cot_text": cot_text,
+            "answer_text": answer_text,
+            "cot_adapter": cot_adapter or "base",
+            "timeline_index": self._timeline_index,
+            "timeline_length": len(self._timeline) + 1,  # +1 for current unsaved state
+            "barrier_token_index": barrier_cot_token_index,
+        }
+
+    def _timeline_navigate(self, index):
+        """Navigate to a specific timeline entry. Returns cot+activation data."""
+        total = len(self._timeline) + (1 if self._timeline_index >= len(self._timeline) or self._timeline_index == -1 else 0)
+        # If navigating to the current live state (tip), just return current
+        if index == len(self._timeline) and self._timeline_index >= len(self._timeline):
+            return None  # already there
+
+        # Save current state if it's the tip and not yet in timeline
+        if self._timeline_index >= len(self._timeline):
+            self._timeline.append(self._snapshot_state())
+
+        if index < 0 or index >= len(self._timeline):
+            raise HTTPException(status_code=400, detail=f"Timeline index {index} out of range [0, {len(self._timeline)-1}]")
+
+        self._restore_snapshot(self._timeline[index])
+        self._timeline_index = index
+
+        result = {
+            "question": self.state.question,
+            "cot_response": self.state.cot_response,
+            "cot_text": self.state.cot_text,
+            "answer_text": self.state.answer_text,
+            "cot_adapter": self._active_cot_adapter or "base",
+            "timeline_index": index,
+            "timeline_length": len(self._timeline),
+        }
+        # Include activation data if available
+        if self.state.multilayer_acts is not None:
+            result.update(self._activation_result())
+        return result
 
     def _resolve_run_context(self, task_key, custom_prompt, selected_cells):
         if self.state.multilayer_acts is None:
@@ -1844,6 +2081,30 @@ class ChatCompareWebApp:
             result = await asyncio.to_thread(self._run_sae_component, ctx)
             return {**result, "task_key": ctx["task_key"], "selected_layers": ctx["selected_layers"], "selected_positions": ctx["selected_positions"]}
 
+        # --- Resample / timeline endpoints ---
+        @self.app.post("/api/resample_from")
+        async def resample_from(payload: dict):
+            barrier = int(payload["barrier_token_index"])
+            cot_data = await asyncio.to_thread(self._resample_from, barrier)
+            extract_data = await asyncio.to_thread(self._extract_current_session)
+            return {**cot_data, **extract_data}
+
+        @self.app.post("/api/timeline_navigate")
+        async def timeline_navigate(payload: dict):
+            index = int(payload["index"])
+            result = await asyncio.to_thread(self._timeline_navigate, index)
+            if result is None:
+                return {"already_there": True}
+            return result
+
+        @self.app.get("/api/timeline_info")
+        async def timeline_info():
+            total = len(self._timeline) + (1 if self._timeline_index >= len(self._timeline) or self._timeline_index == -1 else 0)
+            return {
+                "timeline_index": self._timeline_index if self._timeline_index >= 0 else 0,
+                "timeline_length": max(total, 1),
+            }
+
         # --- Heatmap endpoints ---
         @self.app.get("/api/heatmap/config")
         async def heatmap_config():
@@ -1875,7 +2136,10 @@ class ChatCompareWebApp:
             answer_tokens = payload["answer_tokens"]
             adapter = payload.get("adapter", "trained")
             heatmap_stride = int(payload.get("heatmap_stride", 1))
-            return await asyncio.to_thread(self._compute_ao_logprobs, prompt, answer_tokens, adapter, heatmap_stride)
+            temperature = float(payload.get("temperature", 1.0))
+            context_window = int(payload.get("context_window", 1))
+            include_answer = payload.get("include_answer", False)
+            return await asyncio.to_thread(self._compute_ao_logprobs, prompt, answer_tokens, adapter, heatmap_stride, temperature, context_window, include_answer)
 
         @self.app.post("/api/heatmap/readout")
         async def heatmap_readout(payload: dict):
@@ -1950,6 +2214,16 @@ class ChatCompareWebApp:
     .tok.sampled:hover { background: rgba(96, 165, 250, 0.22); }
     .tok.sampled.selected { background: #1d4ed8; color: #eff6ff; }
     .tok.unsampled { color: #64748b; }
+    .tok.after-barrier { opacity: 0.35; text-decoration: line-through; }
+    .tok.barrier-start { position: relative; }
+    .tok.barrier-start::before { content: ''; position: absolute; left: -1px; top: -2px; bottom: -2px; width: 2px; background: #ef4444; border-radius: 1px; }
+    .tok.resampled { background: rgba(34, 197, 94, 0.18); }
+    #timelineBar { display: none; align-items: center; gap: 10px; padding: 8px 12px; background: #0f172a; border: 1px solid #334155; border-radius: 8px; margin-bottom: 8px; }
+    #timelineBar button { padding: 4px 10px; font-size: 13px; }
+    #timelineBar button:disabled { opacity: 0.3; cursor: default; }
+    #timelineLabel { font-size: 13px; color: #94a3b8; }
+    #barrierModeBtn.active { background: #ef4444; color: white; }
+    #resampleBtn { display: none; }
     .selection-box { position: fixed; border: 1px solid #60a5fa; background: rgba(96, 165, 250, 0.14); pointer-events: none; display: none; z-index: 50; }
     .outputs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
     .text-block { white-space: normal; word-break: break-word; line-height: 1.5; }
@@ -2054,6 +2328,8 @@ class ChatCompareWebApp:
           <button id=\"selectAllBtn\" class=\"secondary\">Select all</button>
           <button id=\"lastOnlyBtn\" class=\"secondary\">Last only</button>
           <button id=\"clearBtn\" class=\"secondary\">Clear</button>
+          <button id=\"barrierModeBtn\" class=\"secondary\" title=\"Click then click a CoT token to set a resample barrier\">&#9986; Barrier</button>
+          <button id=\"resampleBtn\">Resample from barrier</button>
         </div>
         <div class=\"small muted\" id=\"selectionInfo\" style=\"margin-top:8px\">No session yet.</div>
       </div>
@@ -2098,10 +2374,15 @@ class ChatCompareWebApp:
       <div class=\"panel\">
         <h3 style=\"margin-top:0\">Activation Positions (CoT only)</h3>
         <div class=\"muted\">Drag across highlighted stride tokens to choose which activations to inject. Selection applies to all layers.</div>
+        <div id=\"timelineBar\">
+          <button id=\"timelinePrev\" class=\"secondary\">&larr;</button>
+          <span id=\"timelineLabel\">Version 1/1</span>
+          <button id=\"timelineNext\" class=\"secondary\">&rarr;</button>
+        </div>
         <div id=\"tokenRowsWrap\" class=\"token-wrap\" style=\"margin-top:12px\"></div>
       </div>
       <div class=\"panel\" id=\"heatmapPanel\" style=\"display:none\">
-        <h3 style=\"margin-top:0\">Per-Token Heatmap <span class=\"info-tooltip\" title=\"Visualize per-CoT-token signals by coloring each token.&#10;&#10;Linear Probe: project each token's residual stream activation onto a saved binary probe direction. Score = how strongly the probe classifies this token.&#10;&#10;AO Logprob: at each stride position, inject that single activation into the oracle and ask a binary YES/NO question. Color = P(Yes): blue (No) &rarr; dark (uncertain) &rarr; red (Yes). This shows where in the CoT the oracle detects the target behavior.&#10;&#10;Trained Oracle Readout: run the oracle at each stride position with a generation prompt and display the text output per token.\">&#9432;</span></h3>
+        <h3 style=\"margin-top:0\">Per-Token Heatmap <span class=\"info-tooltip\" title=\"Visualize per-CoT-token signals by coloring each token.&#10;&#10;Linear Probe: project each token's residual stream activation onto a saved binary probe direction. Score = how strongly the probe classifies this token.&#10;&#10;AO Logprob: at each stride position, inject that single activation into the oracle and ask a binary YES/NO question. Color = P(Yes): black (No) &rarr; red (Yes). With heatmap stride &gt; 1, only every Nth position is evaluated and in-between tokens are linearly interpolated.&#10;&#10;Trained Oracle Readout: run the oracle at each stride position with a generation prompt and display the text output per token.\">&#9432;</span></h3>
         <div class=\"heatmap-controls\">
           <div>
             <label>Signal</label>
@@ -2116,7 +2397,7 @@ class ChatCompareWebApp:
             <select id=\"heatmapProbeSelect\"><option value=\"\">-- no probes --</option></select>
           </div>
           <div id=\"heatmapAoControls\" style=\"display:none\">
-            <label>Task preset <span class=\"info-tooltip\" title=\"Each task sends a binary YES/NO question to the oracle at every stride position.&#10;&#10;The oracle sees a single activation from that CoT position and must answer YES or NO. We compute P(Yes) = softmax(logit_Yes, logit_No) to get a 0-1 probability.&#10;&#10;Red tokens = oracle says YES with high confidence.&#10;Blue tokens = oracle says NO with high confidence.&#10;Dark tokens = oracle is uncertain (P &asymp; 0.5).\">&#9432;</span></label>
+            <label>Task preset <span class=\"info-tooltip\" title=\"Each task sends a binary YES/NO question to the oracle at every stride position.&#10;&#10;The oracle sees a single activation from that CoT position and must answer YES or NO. We compute P(Yes) = softmax(logit_Yes, logit_No) to get a 0-1 probability.&#10;&#10;Red tokens = oracle says YES with high confidence.&#10;Dark/black tokens = oracle says NO or is uncertain.&#10;&#10;Stride &gt; 1: only every Nth position gets a real oracle score. In-between tokens are linearly interpolated between their nearest evaluated neighbors.\">&#9432;</span></label>
             <select id=\"heatmapAoTask\">
               <option value=\"hint_admission\">hint admission</option>
               <option value=\"atypical_answer\">atypical answer</option>
@@ -2144,6 +2425,14 @@ class ChatCompareWebApp:
               <option value=\"adam\">Original AO (Adam)</option>
             </select>
           </div>
+          <div id=\"heatmapAoTempDiv\" style=\"display:none\">
+            <label>Temp <span class=\"muted\">(sharpness)</span></label>
+            <input id=\"heatmapAoTemp\" type=\"number\" value=\"1\" min=\"0.01\" max=\"10\" step=\"0.1\" style=\"width:60px\">
+          </div>
+          <div id=\"heatmapAoContextDiv\" style=\"display:none\">
+            <label>Context <span class=\"muted\">(positions fed)</span></label>
+            <input id=\"heatmapAoContext\" type=\"number\" value=\"1\" min=\"1\" max=\"11\" step=\"2\" style=\"width:60px\">
+          </div>
           <div id=\"heatmapReadoutControls\" style=\"display:none\">
             <label>Task</label>
             <select id=\"heatmapReadoutTask\">
@@ -2161,6 +2450,13 @@ class ChatCompareWebApp:
           <div id=\"heatmapReadoutPromptDiv\" style=\"display:none\">
             <label>Prompt</label>
             <textarea id=\"heatmapReadoutPrompt\" rows=\"2\"></textarea>
+          </div>
+          <div>
+            <label>Region</label>
+            <select id=\"heatmapRegion\">
+              <option value=\"cot\">CoT only</option>
+              <option value=\"both\">CoT + Answer</option>
+            </select>
           </div>
           <button id=\"heatmapComputeBtn\">Compute</button>
         </div>
@@ -2240,6 +2536,10 @@ class ChatCompareWebApp:
     const DRAG_THRESHOLD = 5;
     let patchRefreshTimer = null;
     let patchRefreshNonce = 0;
+    let barrierMode = false;
+    let barrierTokenIndex = null;
+    let timelineIndex = 0;
+    let timelineLength = 1;
     const statusEl = document.getElementById('status');
     const selectionInfo = document.getElementById('selectionInfo');
     const busyWrap = document.getElementById('busyWrap');
@@ -2448,23 +2748,44 @@ For your final answer, respond with "Answer: Yes" or "Answer: No" after the chai
         const strideIndex = session.sampled_token_to_stride_index[tokenIndex];
         const span = document.createElement('span');
         span.className = `tok ${strideIndex === null ? 'unsampled' : 'sampled'}`;
+        span.dataset.tokenIndex = tokenIndex;
         span.textContent = tokenText;
+        // Barrier visuals
+        if (barrierTokenIndex !== null) {
+          if (tokenIndex === barrierTokenIndex) span.classList.add('barrier-start');
+          if (tokenIndex >= barrierTokenIndex) span.classList.add('after-barrier');
+        }
+        // Resampled token highlight
+        if (session._resampledFromIndex !== undefined && tokenIndex >= session._resampledFromIndex) {
+          span.classList.add('resampled');
+        }
         if (strideIndex !== null) {
           span.dataset.position = strideIndex;
           span.title = `Stride position ${strideIndex}, model token ${session.stride_positions[strideIndex]}`;
           applyCellSelection(span);
-          span.addEventListener('mousedown', event => {
+        }
+        // Click handler: barrier mode or normal drag selection
+        span.addEventListener('mousedown', event => {
+          if (barrierMode) {
+            event.preventDefault();
+            barrierTokenIndex = tokenIndex;
+            document.getElementById('resampleBtn').style.display = '';
+            renderTokenRows();
+            return;
+          }
+          if (strideIndex !== null) {
             event.preventDefault();
             const key = keyFor(null, strideIndex);
             dragMode = selected.has(key) ? 'remove' : 'add';
             dragStart = { x: event.clientX, y: event.clientY };
             isDragging = false;
-          });
-        }
+          }
+        });
         paragraph.appendChild(span);
       });
       wrap.appendChild(paragraph);
       updateSelectionInfo();
+      updateTimelineBar();
     }
     function applyCellSelection(cell) {
       const key = keyFor(null, Number(cell.dataset.position));
@@ -2515,6 +2836,94 @@ For your final answer, respond with "Answer: Yes" or "Answer: No" after the chai
       refreshCells();
     }
     function clearSelection() { selected = new Set(); refreshCells(); }
+
+    // --- Barrier / Resample / Timeline ---
+    function toggleBarrierMode() {
+      barrierMode = !barrierMode;
+      const btn = document.getElementById('barrierModeBtn');
+      btn.classList.toggle('active', barrierMode);
+      if (!barrierMode) {
+        // Exiting barrier mode — clear barrier
+        barrierTokenIndex = null;
+        document.getElementById('resampleBtn').style.display = 'none';
+        renderTokenRows();
+      }
+    }
+    function clearBarrier() {
+      barrierTokenIndex = null;
+      barrierMode = false;
+      document.getElementById('barrierModeBtn').classList.remove('active');
+      document.getElementById('resampleBtn').style.display = 'none';
+      renderTokenRows();
+    }
+    async function resampleFromBarrier() {
+      if (barrierTokenIndex === null || !session) return;
+      const idx = barrierTokenIndex;
+      clearBarrier();
+      setStatus('Resampling CoT from barrier...');
+      setBusy(true, 'Resampling CoT from barrier...', 30);
+      try {
+        const resp = await fetch('/api/resample_from', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ barrier_token_index: idx }),
+        });
+        const data = await resp.json();
+        if (!resp.ok) { setStatus(data.detail || 'Resample failed'); setBusy(false); return; }
+        // Mark which tokens are resampled
+        data._resampledFromIndex = idx;
+        session = { ...session, ...data };
+        timelineIndex = data.timeline_index;
+        timelineLength = data.timeline_length;
+        document.getElementById('cotPreview').textContent = session.cot_text || '(no CoT)';
+        document.getElementById('answerPreview').textContent = session.answer_text || '(no answer)';
+        selectAll();
+        renderTokenRows();
+        setStatus('Resampled. Use timeline arrows to navigate versions.');
+        setBusy(false);
+      } catch (e) {
+        setStatus('Resample error: ' + e.message);
+        setBusy(false);
+      }
+    }
+    function updateTimelineBar() {
+      const bar = document.getElementById('timelineBar');
+      if (timelineLength <= 1) { bar.style.display = 'none'; return; }
+      bar.style.display = 'flex';
+      document.getElementById('timelineLabel').textContent = `Version ${timelineIndex + 1}/${timelineLength}`;
+      document.getElementById('timelinePrev').disabled = (timelineIndex <= 0);
+      document.getElementById('timelineNext').disabled = (timelineIndex >= timelineLength - 1);
+    }
+    async function timelineNav(delta) {
+      const newIndex = timelineIndex + delta;
+      if (newIndex < 0 || newIndex >= timelineLength) return;
+      setStatus('Loading timeline version...');
+      setBusy(true, 'Navigating timeline...', 50);
+      try {
+        const resp = await fetch('/api/timeline_navigate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ index: newIndex }),
+        });
+        const data = await resp.json();
+        if (!resp.ok) { setStatus(data.detail || 'Timeline navigation failed'); setBusy(false); return; }
+        if (data.already_there) { setBusy(false); return; }
+        session = { ...session, ...data };
+        delete session._resampledFromIndex;
+        timelineIndex = data.timeline_index;
+        timelineLength = data.timeline_length;
+        document.getElementById('cotPreview').textContent = session.cot_text || '(no CoT)';
+        document.getElementById('answerPreview').textContent = session.answer_text || '(no answer)';
+        selectAll();
+        renderTokenRows();
+        setStatus(`Viewing version ${timelineIndex + 1}/${timelineLength}`);
+        setBusy(false);
+      } catch (e) {
+        setStatus('Timeline error: ' + e.message);
+        setBusy(false);
+      }
+    }
+
     function queuePatchscopesRefresh() {
       if (patchRefreshTimer) clearTimeout(patchRefreshTimer);
       patchRefreshTimer = setTimeout(refreshPatchscopesFromSliders, 150);
@@ -2689,6 +3098,10 @@ For your final answer, respond with "Answer: Yes" or "Answer: No" after the chai
       resetPanelStatuses();
       const tagPills = document.getElementById('tagPills');
       tagPills.innerHTML = session.layers.map(layer => `<span class=\"pill\">Layer ${layer}</span>`).join('');
+      // Reset barrier/timeline on new generation
+      clearBarrier();
+      timelineIndex = 0;
+      timelineLength = 1;
       selectAll();
       renderTokenRows();
       heatmapPanel.style.display = '';
@@ -2891,6 +3304,10 @@ For your final answer, respond with "Answer: Yes" or "Answer: No" after the chai
     document.getElementById('selectAllBtn').addEventListener('click', selectAll);
     document.getElementById('lastOnlyBtn').addEventListener('click', selectLastOnly);
     document.getElementById('clearBtn').addEventListener('click', clearSelection);
+    document.getElementById('barrierModeBtn').addEventListener('click', toggleBarrierMode);
+    document.getElementById('resampleBtn').addEventListener('click', resampleFromBarrier);
+    document.getElementById('timelinePrev').addEventListener('click', () => timelineNav(-1));
+    document.getElementById('timelineNext').addEventListener('click', () => timelineNav(1));
     window.addEventListener('mousemove', event => {
       if (!dragMode || !dragStart) return;
       const dx = event.clientX - dragStart.x;
@@ -3004,6 +3421,8 @@ For your final answer, respond with "Answer: Yes" or "Answer: No" after the chai
       heatmapAoPromptDiv.style.display = (isAo && aoTask === 'custom') ? '' : 'none';
       heatmapAoStrideDiv.style.display = isAo ? '' : 'none';
       heatmapAoAdapterDiv.style.display = isAo ? '' : 'none';
+      document.getElementById('heatmapAoTempDiv').style.display = isAo ? '' : 'none';
+      document.getElementById('heatmapAoContextDiv').style.display = isAo ? '' : 'none';
       heatmapReadoutControls.style.display = isReadout ? '' : 'none';
       const readoutTask = document.getElementById('heatmapReadoutTask').value;
       heatmapReadoutPromptDiv.style.display = (isReadout && readoutTask === 'custom') ? '' : 'none';
@@ -3063,34 +3482,32 @@ For your final answer, respond with "Answer: Yes" or "Answer: No" after the chai
     }
 
     function heatmapColorProbability(p) {
-      // 0 = blue (No), 0.5 = neutral/dark, 1 = red (Yes)
-      // Symmetric diverging scale centered at 0.5
-      const norm = (p - 0.5) * 2;  // -1 to 1
-      if (norm >= 0) {
-        const r = Math.round(norm * 220);
-        return `rgba(${r + 35}, ${Math.round(25 - norm * 10)}, ${Math.round(25 - norm * 10)}, ${0.15 + Math.abs(norm) * 0.75})`;
-      } else {
-        const b = Math.round(-norm * 220);
-        return `rgba(${Math.round(25 + norm * 10)}, ${Math.round(25 + norm * 10)}, ${b + 35}, ${0.15 + Math.abs(norm) * 0.75})`;
-      }
+      // 0 = black (nothing), 1 = bright red
+      const r = Math.round(p * 240);
+      const g = Math.round(p * 40);
+      const b = Math.round(p * 20);
+      return `rgba(${r + 15}, ${g + 10}, ${b + 10}, ${0.1 + p * 0.85})`;
     }
 
-    function renderHeatmapTokens(scores, colorFn, label, allPositions) {
+    function heatmapShowAnswer() {
+      return document.getElementById('heatmapRegion').value === 'both';
+    }
+    function renderHeatmapTokens(scores, colorFn, label, allPositions, answerScores) {
       if (!session) return;
       const wrap = document.getElementById('heatmapTokenWrap');
       wrap.innerHTML = '';
       const paragraph = document.createElement('div');
       paragraph.className = 'token-paragraph';
+      const showAnswer = heatmapShowAnswer();
+      // CoT tokens
       session.cot_token_texts.forEach((text, i) => {
         const span = document.createElement('span');
         span.className = 'heatmap-tok';
         span.textContent = text;
         let score = null;
         if (allPositions) {
-          // scores array has one entry per CoT token
           if (i < scores.length) score = scores[i];
         } else {
-          // scores array has one entry per stride position
           const strideIdx = session.sampled_token_to_stride_index[i];
           if (strideIdx !== null && strideIdx < scores.length) score = scores[strideIdx];
         }
@@ -3105,6 +3522,31 @@ For your final answer, respond with "Answer: Yes" or "Answer: No" after the chai
         }
         paragraph.appendChild(span);
       });
+      // Answer tokens — scored if answerScores provided, else shown as context
+      if (showAnswer && session.answer_token_texts && session.answer_token_texts.length) {
+        const sep = document.createElement('span');
+        sep.className = 'heatmap-tok';
+        sep.style.background = 'rgba(96, 165, 250, 0.15)';
+        sep.style.fontWeight = '700';
+        sep.textContent = ' | ';
+        paragraph.appendChild(sep);
+        session.answer_token_texts.forEach((text, i) => {
+          const span = document.createElement('span');
+          span.className = 'heatmap-tok';
+          span.textContent = text;
+          if (answerScores && i < answerScores.length) {
+            const s = answerScores[i];
+            span.style.background = colorFn(s);
+            const tip = document.createElement('span');
+            tip.className = 'heatmap-tip';
+            tip.textContent = `${label}: ${s.toFixed(4)}`;
+            span.appendChild(tip);
+          } else {
+            span.style.color = '#93c5fd';
+          }
+          paragraph.appendChild(span);
+        });
+      }
       wrap.appendChild(paragraph);
     }
 
@@ -3131,6 +3573,7 @@ For your final answer, respond with "Answer: Yes" or "Answer: No" after the chai
       wrap.innerHTML = '';
       const paragraph = document.createElement('div');
       paragraph.className = 'token-paragraph';
+      const showAnswer = heatmapShowAnswer();
       session.cot_token_texts.forEach((text, i) => {
         const span = document.createElement('span');
         span.className = 'heatmap-tok';
@@ -3148,6 +3591,21 @@ For your final answer, respond with "Answer: Yes" or "Answer: No" after the chai
         }
         paragraph.appendChild(span);
       });
+      if (showAnswer && session.answer_token_texts && session.answer_token_texts.length) {
+        const sep = document.createElement('span');
+        sep.className = 'heatmap-tok';
+        sep.style.background = 'rgba(96, 165, 250, 0.15)';
+        sep.style.fontWeight = '700';
+        sep.textContent = ' | ';
+        paragraph.appendChild(sep);
+        session.answer_token_texts.forEach(text => {
+          const span = document.createElement('span');
+          span.className = 'heatmap-tok';
+          span.textContent = text;
+          span.style.color = '#93c5fd';
+          paragraph.appendChild(span);
+        });
+      }
       wrap.appendChild(paragraph);
     }
 
@@ -3176,14 +3634,14 @@ For your final answer, respond with "Answer: Yes" or "Answer: No" after the chai
           if (isAttn) {
             // Attention probes: use sequential colormap (attention weights are all positive)
             const colorFn = s => heatmapColorLogprob(s, data.min_score, data.max_score);
-            renderHeatmapTokens(data.scores, colorFn, 'attention weight', !!data.all_positions);
+            renderHeatmapTokens(data.scores, colorFn, 'attention weight', !!data.all_positions, null);
             renderHeatmapLegend(data.min_score, data.max_score, colorFn);
             const cls = data.classification || {};
             const clsInfo = cls.task ? ` | Classification: ${cls.prediction} (logit diff: ${cls.logit_diff.toFixed(3)})` : '';
             setHeatmapStatus(false, `Attention heatmap (${data.scores.length} positions)${clsInfo}`);
           } else {
             const colorFn = s => heatmapColorProbe(s, data.min_score, data.max_score);
-            renderHeatmapTokens(data.scores, colorFn, 'probe score', !!data.all_positions);
+            renderHeatmapTokens(data.scores, colorFn, 'probe score', !!data.all_positions, null);
             renderHeatmapLegend(data.min_score, data.max_score, colorFn);
             setHeatmapStatus(false, `Probe scores computed (${data.scores.length} positions)`);
           }
@@ -3200,7 +3658,10 @@ For your final answer, respond with "Answer: Yes" or "Answer: No" after the chai
         if (!prompt) { setHeatmapStatus(false, 'Enter an oracle prompt'); return; }
         setHeatmapStatus(true, `Running batched AO logprobs (stride ${heatmapStride})...`);
         try {
-          const data = await postJson('/api/heatmap/ao_logprobs', { prompt, answer_tokens: 'Yes,No', adapter, heatmap_stride: heatmapStride });
+          const aoTemp = parseFloat(document.getElementById('heatmapAoTemp').value) || 1.0;
+          const aoContext = parseInt(document.getElementById('heatmapAoContext').value) || 1;
+          const includeAnswer = heatmapShowAnswer();
+          const data = await postJson('/api/heatmap/ao_logprobs', { prompt, answer_tokens: 'Yes,No', adapter, heatmap_stride: heatmapStride, temperature: aoTemp, context_window: aoContext, include_answer: includeAnswer });
           heatmapScores = data;
           // Use normalized P(Yes) probability (0-1) if available, else fall back to logprob diff
           let scores, label, minS, maxS;
@@ -3210,7 +3671,7 @@ For your final answer, respond with "Answer: Yes" or "Answer: No" after the chai
             minS = 0;
             maxS = 1;
             const colorFn = p => heatmapColorProbability(p);
-            renderHeatmapTokens(scores, colorFn, label, false);
+            renderHeatmapTokens(scores, colorFn, label, false, data.answer_p_yes);
             renderHeatmapLegend(0, 1, colorFn);
           } else {
             const yesScores = data.scores['Yes'] || data.scores[Object.keys(data.scores)[0]] || [];
@@ -3220,7 +3681,7 @@ For your final answer, respond with "Answer: Yes" or "Answer: No" after the chai
             minS = Math.min(...scores);
             maxS = Math.max(...scores);
             const colorFn = s => heatmapColorProbe(s, minS, maxS);
-            renderHeatmapTokens(scores, colorFn, label, false);
+            renderHeatmapTokens(scores, colorFn, label, false, null);
             renderHeatmapLegend(minS, maxS, colorFn);
           }
           const evalInfo = data.evaluated_positions ? ` (evaluated ${data.evaluated_positions}/${data.total_positions})` : '';
@@ -3333,7 +3794,7 @@ def run_cli(args):
             print("Starting fresh.")
             continue
         if multilayer_acts is None:
-            cot_response = generate_cot_base(model, tokenizer, user_input, max_new_tokens=4096, device=args.device, cot_adapter=cot_adapter)
+            cot_response = generate_cot_base(model, tokenizer, user_input, max_new_tokens=16384, device=args.device, cot_adapter=cot_adapter)
             print("\n--- Model CoT ---")
             print(cot_response[:1500])
             if len(cot_response) > 1500:
