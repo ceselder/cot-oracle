@@ -237,8 +237,7 @@ def collect_activations_at_positions(
         acts = _pool_vectors(acts, pooling)
     if position_encoding:
         from position_encoding import apply_position_encoding
-        total_length = inputs["input_ids"].shape[1]
-        acts = apply_position_encoding(acts, positions, total_length, alpha=pe_alpha)
+        acts = apply_position_encoding(acts, positions, alpha=pe_alpha)
     return acts
 
 

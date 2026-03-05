@@ -239,8 +239,7 @@ def materialize_multilayer_steering_vectors(
             layer_vecs = acts_BLD[b, adjusted, :]  # [K, D]
             if POSITION_ENCODING:
                 from position_encoding import apply_position_encoding
-                total_length = len(contexts[b])
-                layer_vecs = apply_position_encoding(layer_vecs, chunk_positions, total_length, alpha=PE_ALPHA)
+                layer_vecs = apply_position_encoding(layer_vecs, chunk_positions, alpha=PE_ALPHA)
             vectors_parts.append(layer_vecs)
 
         vectors = torch.cat(vectors_parts, dim=0).detach().contiguous()
