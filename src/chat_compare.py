@@ -837,6 +837,85 @@ class ChatCompareWebApp:
             "public_url": share_info["public_url"],
         })
 
+    def _ensure_persona_drift_loaded(self):
+        if hasattr(self, '_persona_drift_ds'):
+            return self._persona_drift_ds
+        from datasets import load_dataset
+        logging.info("Loading persona drift dataset from HuggingFace...")
+        self._persona_drift_ds = load_dataset("ceselder/cot-oracle-persona-drift", split="train")
+        logging.info("Loaded %d persona drift conversations", len(self._persona_drift_ds))
+        return self._persona_drift_ds
+
+    def _persona_drift_summary(self):
+        """Return lightweight conversation list for /api/config."""
+        ds = self._ensure_persona_drift_loaded()
+        result = []
+        for i, row in enumerate(ds):
+            result.append({
+                "index": i,
+                "conversation_id": row["conversation_id"],
+                "category": row["category"],
+                "false_claim": row["false_claim"],
+                "num_turns": row["num_turns"],
+                "max_drift": row["max_drift"],
+            })
+        return result
+
+    def _load_persona_drift_conversation(self, index):
+        """Format a persona drift conversation for activation extraction."""
+        ds = self._ensure_persona_drift_loaded()
+        if index < 0 or index >= len(ds):
+            raise HTTPException(status_code=400, detail=f"Index {index} out of range [0, {len(ds)})")
+        row = ds[index]
+        turns = json.loads(row["turns"]) if isinstance(row["turns"], str) else row["turns"]
+        drift_sequence = json.loads(row["drift_sequence"]) if isinstance(row["drift_sequence"], str) else row["drift_sequence"]
+
+        # Build multi-turn chat template WITHOUT thinking tags
+        messages = []
+        for t in turns:
+            messages.append({"role": "user", "content": t["user"]})
+            messages.append({"role": "assistant", "content": t["assistant"]})
+
+        # Manual formatting to avoid auto-inserted <think> tags
+        parts = []
+        for msg in messages:
+            parts.append(f'<|im_start|>{msg["role"]}\n{msg["content"]}<|im_end|>\n')
+        full_text = "".join(parts)
+
+        # Compute prompt_len: tokens up through the first "<|im_start|>assistant\n"
+        # so stride positions start at the first assistant response
+        first_prompt = f'<|im_start|>user\n{turns[0]["user"]}<|im_end|>\n<|im_start|>assistant\n'
+        cot_start_pos = len(self.tokenizer.encode(first_prompt, add_special_tokens=False))
+
+        # The "question" is the first user turn
+        question = turns[0]["user"]
+
+        # Reset timeline
+        self._timeline = []
+        self._timeline_index = 0
+        self.state = SessionState(
+            question=question,
+            cot_response=full_text,  # entire conversation
+            cot_text=full_text,
+            answer_text="",
+            full_text=full_text,
+            enable_thinking=False,
+            cot_start_pos=cot_start_pos,
+        )
+        self._active_cot_adapter = None
+
+        return {
+            "conversation_id": row["conversation_id"],
+            "category": row["category"],
+            "false_claim": row["false_claim"],
+            "drift_sequence": drift_sequence,
+            "num_turns": row["num_turns"],
+            "max_drift": row["max_drift"],
+            "cot_text": full_text,
+            "answer_text": "",
+            "cot_adapter": "persona_drift",
+        }
+
     def _ensure_sae_loaded(self):
         if self.saes is not None:
             return
@@ -1403,11 +1482,15 @@ class ChatCompareWebApp:
         """Compute stride positions, token texts, and mapping from full_text. Shared by both paths."""
         if stride is None:
             stride = self.args.stride
-        messages = [{"role": "user", "content": self.state.question}]
-        formatted = self.tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True, enable_thinking=enable_thinking)
-        prompt_ids = self.tokenizer.encode(formatted, add_special_tokens=False)
         all_ids = self.tokenizer.encode(full_text, add_special_tokens=False)
-        prompt_len = len(prompt_ids)
+        if self.state.cot_start_pos > 0:
+            # Pre-computed prompt length (e.g. persona drift conversations)
+            prompt_len = self.state.cot_start_pos
+        else:
+            messages = [{"role": "user", "content": self.state.question}]
+            formatted = self.tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True, enable_thinking=enable_thinking)
+            prompt_ids = self.tokenizer.encode(formatted, add_special_tokens=False)
+            prompt_len = len(prompt_ids)
         # Find the </think> boundary so activations only come from CoT
         think_end_token = self.tokenizer.encode("</think>", add_special_tokens=False)
         cot_end = len(all_ids)
@@ -2146,6 +2229,7 @@ class ChatCompareWebApp:
                 "cli_checkpoint": self.args.checkpoint,
                 "cli_ao_checkpoint": AO_CHECKPOINTS.get(self.args.model, ""),
                 "chunked_tasks": list(CHUNKED_TASK_HF_REPOS.keys()),
+                "persona_drift_conversations": self._persona_drift_summary(),
             }
 
         @self.app.post("/api/switch_checkpoint")
@@ -2177,6 +2261,11 @@ class ChatCompareWebApp:
             cot_adapter = payload.get("cot_adapter") or None
             temperature = float(payload.get("temperature", 0))
             return await asyncio.to_thread(self._generate_cot_only, question, bool(payload.get("enable_thinking", True)), cot_adapter=cot_adapter, temperature=temperature)
+
+        @self.app.post("/api/load_persona_drift")
+        async def load_persona_drift(payload: dict):
+            index = int(payload["index"])
+            return await asyncio.to_thread(self._load_persona_drift_conversation, index)
 
         @self.app.post("/api/extract_activations")
         async def extract_activations(payload: dict = {}):
@@ -2544,6 +2633,14 @@ class ChatCompareWebApp:
         <div class=\"busy-row\"><div class=\"spinner\"></div><div class=\"small\" id=\"busyLabel\">Working...</div></div>
         <div class=\"progress-track\"><div class=\"progress-bar\"></div></div>
       </div>
+      <details id=\"personaDriftDetails\" style=\"margin-top:10px;margin-bottom:10px\">
+        <summary class=\"small\" style=\"cursor:pointer;color:#94a3b8\">Persona drift conversations</summary>
+        <div style=\"margin-top:6px\">
+          <select id=\"personaDriftSelect\" style=\"width:100%;font-size:12px\"></select>
+          <div class=\"row\" style=\"margin-top:6px\"><button id=\"loadPersonaDriftBtn\" class=\"secondary\">Load conversation</button></div>
+          <div id=\"personaDriftInfo\" class=\"small muted\" style=\"margin-top:4px\"></div>
+        </div>
+      </details>
       <div class=\"panel\">
         <label>Task preset (from built-ins + enabled train.yaml tasks)</label>
         <select id=\"taskSelect\"></select>
@@ -3343,6 +3440,65 @@ For your final answer, respond with "Answer: Yes" or "Answer: No" after the chai
         sel.appendChild(el);
       });
     }
+    function renderPersonaDriftOptions() {
+      const sel = document.getElementById('personaDriftSelect');
+      sel.innerHTML = '';
+      (config.persona_drift_conversations || []).forEach(c => {
+        const el = document.createElement('option');
+        el.value = c.index;
+        const claim = c.false_claim.length > 60 ? c.false_claim.slice(0, 57) + '...' : c.false_claim;
+        el.textContent = `[${c.category}] ${claim} (${c.num_turns}t, ${c.max_drift})`;
+        sel.appendChild(el);
+      });
+    }
+    async function loadPersonaDrift() {
+      const sel = document.getElementById('personaDriftSelect');
+      const index = parseInt(sel.value);
+      if (isNaN(index)) { setStatus('Select a conversation first'); return; }
+      setStatus('Loading persona drift conversation...');
+      setBusy(true, 'Loading conversation...', 20);
+      const resp = await fetch('/api/load_persona_drift', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ index }) });
+      const data = await resp.json();
+      if (!resp.ok) { setBusy(false); setStatus(data.detail || 'Load failed'); return; }
+      document.getElementById('cotPreview').textContent = data.cot_text || '(empty)';
+      const driftLabels = (data.drift_sequence || []).map((d, i) => `Turn ${i+1}: ${d}`).join(', ');
+      document.getElementById('answerPreview').innerHTML = `<strong>Category:</strong> ${data.category}<br><strong>False claim:</strong> ${data.false_claim}<br><strong>Drift:</strong> ${driftLabels}<br><strong>Max drift:</strong> ${data.max_drift}`;
+      document.getElementById('personaDriftInfo').textContent = `Loaded: ${data.conversation_id} (${data.num_turns} turns)`;
+      // Extract activations (same as generateSession post-gen flow)
+      setStatus('Extracting activations...');
+      setBusy(true, 'Extracting activations from conversation...', 60);
+      const stride = parseInt(document.getElementById('strideInput').value) || config.stride;
+      const extractResp = await fetch('/api/extract_activations', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ stride }) });
+      const extractData = await extractResp.json();
+      setBusy(false);
+      if (!extractResp.ok) { setStatus(extractData.detail || 'Activation extraction failed'); return; }
+      session = { ...data, ...extractData };
+      document.getElementById('meta').textContent = `Persona drift | stride ${stride} | layers ${session.layers.join(', ')}`;
+      document.getElementById('slot1Out').textContent = '';
+      document.getElementById('patchOut').textContent = '';
+      document.getElementById('bbOut').textContent = '';
+      document.getElementById('noActOut').textContent = '';
+      document.getElementById('slot2Out').textContent = '';
+      document.getElementById('saeOut').textContent = '';
+      document.getElementById('slot1Prompt').textContent = '';
+      document.getElementById('patchPrompt').textContent = '';
+      document.getElementById('bbPrompt').textContent = '';
+      document.getElementById('noActPrompt').textContent = '';
+      document.getElementById('slot2Prompt').textContent = '';
+      document.getElementById('logPath').textContent = '';
+      resetPanelStatuses();
+      const tagPills = document.getElementById('tagPills');
+      tagPills.innerHTML = session.layers.map(layer => `<span class=\"pill\">Layer ${layer}</span>`).join('');
+      clearBarrier();
+      document.getElementById('trajectoryPanel').style.display = 'none';
+      timelineIndex = 0;
+      timelineLength = 1;
+      selectAll();
+      renderTokenRows();
+      heatmapPanel.style.display = '';
+      loadHeatmapConfig();
+      setStatus('Persona drift conversation loaded. Select activations, pick a task, then run.');
+    }
     function renderPromptTemplates() {
       const sel = document.getElementById('promptTemplate');
       PROMPT_TEMPLATES.forEach((tpl, idx) => {
@@ -3377,6 +3533,7 @@ For your final answer, respond with "Answer: Yes" or "Answer: No" after the chai
       renderEvalTags();
       renderPromptTemplates();
       renderOrganismOptions();
+      renderPersonaDriftOptions();
       renderCheckpointDropdowns();
       await loadSuggestedQuestion();
     }
@@ -3726,6 +3883,7 @@ For your final answer, respond with "Answer: Yes" or "Answer: No" after the chai
     document.getElementById('oracleTemp').addEventListener('input', e => document.getElementById('oracleTempVal').textContent = parseFloat(e.target.value).toFixed(2));
     document.getElementById('generateBtn').addEventListener('click', generateSession);
     document.getElementById('refreshPromptBtn').addEventListener('click', loadSuggestedQuestion);
+    document.getElementById('loadPersonaDriftBtn').addEventListener('click', loadPersonaDrift);
     document.getElementById('runBtn').addEventListener('click', runSelection);
     document.getElementById('selectAllBtn').addEventListener('click', selectAll);
     document.getElementById('lastOnlyBtn').addEventListener('click', selectLastOnly);
