@@ -2544,7 +2544,9 @@ class ChatCompareWebApp:
           <button id=\"barrierModeBtn\" class=\"secondary\" title=\"Click then click a CoT token to set a resample barrier\">&#9986; Barrier</button>
           <button id=\"resampleBtn\">Resample from barrier</button>
           <button id=\"forceAnswerBtn\">Force answer</button>
-          <button id=\"probeTrajectoryBtn\" class=\"secondary\">Answer trajectory</button>
+        </div>
+        <div class=\"row\" style=\"margin-top:6px\">
+          <button id=\"probeTrajectoryBtn\" style=\"background:#7c3aed\">Answer trajectory</button>
         </div>
         <div id=\"prefillWrap\">
           <textarea id=\"prefillText\" placeholder=\"e.g. </think>  or  Wait, let me reconsider.\"></textarea>
