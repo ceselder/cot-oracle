@@ -21,15 +21,15 @@ tasks:
     eval: true
 
   answer_trajectory:        # ~42K available
-    n: 30000
+    n: -1
     eval: true
 
   futurelens:
-    n: 20000
+    n: 30000
     eval: true
 
   pastlens:
-    n: 20000
+    n: 30000
     eval: true
 
   correctness:              # ~7.8K available
@@ -124,7 +124,7 @@ fineweb:
 # Classification (matching Adam's AO training)
 classification:
   enabled: true
-  n: 15000
+  n: 20000
   datasets: [sst2, ag_news, snli]
 
 # Training

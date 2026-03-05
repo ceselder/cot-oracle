@@ -657,7 +657,7 @@ def run_batched_ao_logprobs(
             start = len(prefix)
             prefix += ph_token
             char_spans.append((start, len(prefix)))
-    prefix += "\n"
+    prefix += ".\n"
     full_prompt = prefix + oracle_prompt
 
     messages = [{"role": "user", "content": full_prompt}]

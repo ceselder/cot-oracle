@@ -43,7 +43,7 @@ from activations import extract_activations
 from data_sampler import CoTSampler
 from dpo_loss import DPOBatchItem, SFTItem, compute_dpo_loss, compute_sft_loss
 from judge import JudgeResult, RolloutRating, judge_batch
-from prompts import REFUSAL_PARAPHRASES, sample_prompt, sample_refusal
+from prompts import REFUSAL_PARAPHRASES, SPECIFICITY_SUFFIX, sample_prompt, sample_refusal
 from rollouts import generate_rollouts, _build_manual_prefix_token_ids, _build_oracle_prefix
 
 
@@ -77,15 +77,18 @@ def load_model(cfg: dict, device: torch.device) -> tuple[PeftModel, AutoTokenize
         gradient_checkpointing_kwargs={"use_reentrant": True}
     )
 
-    print(f"Loading checkpoint: {model_cfg['checkpoint']}")
+    # Policy adapter: use resume checkpoint if provided, else base checkpoint
+    policy_ckpt = cfg.get("_resume_checkpoint", model_cfg["checkpoint"])
+    print(f"Loading policy checkpoint: {policy_ckpt}")
     model = PeftModel.from_pretrained(
-        base, model_cfg["checkpoint"],
+        base, policy_ckpt,
         adapter_name="policy",
         is_trainable=True,
         autocast_adapter_dtype=False,
     )
 
-    # Load same checkpoint as frozen reference adapter
+    # Reference adapter: always the original checkpoint (frozen)
+    print(f"Loading reference checkpoint: {model_cfg['checkpoint']}")
     model.load_adapter(model_cfg["checkpoint"], adapter_name="reference")
     for n, p in model.named_parameters():
         if "reference" in n:
@@ -149,6 +152,8 @@ def build_dpo_items(
     rollouts: list[str],
     judge_result: JudgeResult,
     rng: random.Random,
+    max_refusal_pairs: int = 3,
+    refusal_sft_weight: float = 3.0,
 ) -> tuple[list[DPOBatchItem], list[SFTItem]]:
     """Construct DPO pairs and SFT targets from judge verdicts.
 
@@ -173,6 +178,8 @@ def build_dpo_items(
     dpo_items = []
     sft_items = []
 
+    be_specific = oracle_prompt.endswith(SPECIFICITY_SUFFIX)
+
     # Map ratings by index
     rating_map: dict[int, RolloutRating] = {}
     for r in judge_result.ratings:
@@ -184,6 +191,7 @@ def build_dpo_items(
     )
 
     # If ALL rollouts are bad, skip DPO entirely — just do SFT on refusal
+    # (unless "be specific" mode — then still SFT on ideal, skip refusal SFT)
     if not all_bad:
         for i, rollout_text in enumerate(rollouts):
             rating = rating_map.get(i + 1)
@@ -192,8 +200,6 @@ def build_dpo_items(
 
             if rating.rating == "indeterminate":
                 continue
-
-            refusal = sample_refusal(rng)
 
             if rating.rating == "good":
                 # If malformed, prefer reformatted over original
@@ -213,13 +219,15 @@ def build_dpo_items(
                 # probability down. SFT on ideal handles positive signal.
 
             elif rating.rating == "mixed":
-                if rating.correction:
+                # Disabled: corrections inject judge's text-based interpretation
+                # which may not match what's actually in activations.
+                # SFT on ideal (synthesized from model's own outputs) handles this.
+                ENABLE_MIXED_DPO = True
+                if ENABLE_MIXED_DPO and rating.correction:
                     chosen_text = rating.correction
                     rejected_text = rollout_text
-
                     if rating.malformed and rating.reformatted:
                         chosen_text = rating.reformatted
-
                     chosen_ids, chosen_labels = _make_full_ids(chosen_text)
                     rejected_ids, rejected_labels = _make_full_ids(rejected_text)
                     dpo_items.append(DPOBatchItem(
@@ -233,18 +241,11 @@ def build_dpo_items(
                     ))
 
             elif rating.rating == "bad":
-                # Refusal > bad rollout
-                chosen_ids, chosen_labels = _make_full_ids(refusal)
-                rejected_ids, rejected_labels = _make_full_ids(rollout_text)
-                dpo_items.append(DPOBatchItem(
-                    chosen_ids=chosen_ids,
-                    rejected_ids=rejected_ids,
-                    chosen_labels=chosen_labels,
-                    rejected_labels=rejected_labels,
-                    activations=activations,
-                    ph_positions=ph_positions,
-                    label="refusal>model",
-                ))
+                # Don't DPO individual bad rollouts — refusal>bad causes
+                # mode collapse. The model learns to avoid bad outputs via
+                # SFT on ideal + correction>model DPO on mixed outputs.
+                # Refusal is only taught via SFT when ALL rollouts are bad.
+                pass
 
     # Specificity DPO: pair specific good rollouts against vague good rollouts
     specific_good = [
@@ -285,8 +286,8 @@ def build_dpo_items(
             weight=weight,
         ))
 
-    # Extra refusal SFT if all bad (10× weight)
-    if all_bad:
+    # Extra refusal SFT if all bad (skip in "be specific" mode)
+    if all_bad and not be_specific:
         refusal = sample_refusal(rng)
         ref_ids, ref_labels = _make_full_ids(refusal)
         sft_items.append(SFTItem(
@@ -294,7 +295,7 @@ def build_dpo_items(
             labels=ref_labels,
             activations=activations,
             ph_positions=ph_positions,
-            weight=10.0,
+            weight=refusal_sft_weight,
         ))
 
     return dpo_items, sft_items
@@ -410,7 +411,7 @@ def train(cfg: dict) -> None:
     judge_thread.start()
 
     # --- Training loop ---
-    global_step = 0
+    global_step = cfg.get("_resume_step", 0)
     accum_dpo_items: list[DPOBatchItem] = []
     accum_sft_items: list[SFTItem] = []
     metrics_accum = defaultdict(list)
@@ -475,6 +476,8 @@ def train(cfg: dict) -> None:
                         rollouts=prev_rollouts[i],
                         judge_result=judge_results[i],
                         rng=rng,
+                        max_refusal_pairs=dpo_cfg.get("max_refusal_pairs", 3),
+                        refusal_sft_weight=dpo_cfg.get("refusal_sft_weight", 3.0),
                     )
                     if i == 0:
                         first_ex_dpo = list(dpo_items)
@@ -547,8 +550,8 @@ def train(cfg: dict) -> None:
                                 # Label shows pair type and which side is model-generated
                                 tag = pair.label or "?"
                                 print(f"  {pi+1}. [{tag}]")
-                                c_src = "model" if tag in ("model>refusal", "specific>vague") else "judge"
-                                r_src = "model" if tag in ("refusal>model", "correction>model", "reformatted>malformed") else "judge"
+                                c_src = "model" if tag in ("specific>vague",) else "judge"
+                                r_src = "model" if tag in ("refusal>bad", "correction>model", "reformatted>malformed") else "judge"
                                 print(f"     ✓ ({c_src}) {chosen_text}")
                                 print(f"     ✗ ({r_src}) {rejected_text}")
                         elif first_ex_sft:
@@ -723,9 +726,16 @@ def train(cfg: dict) -> None:
 def main():
     parser = argparse.ArgumentParser(description="Calibration DPO training")
     parser.add_argument("--config", type=str, default="calibration_dpo/config.yaml")
+    parser.add_argument("--resume", type=str, default=None,
+                        help="Path to checkpoint dir to resume policy adapter from")
+    parser.add_argument("--resume-step", type=int, default=0,
+                        help="Step number to resume from (for logging)")
     args = parser.parse_args()
 
     cfg = load_config(args.config)
+    if args.resume:
+        cfg["_resume_checkpoint"] = args.resume
+        cfg["_resume_step"] = args.resume_step
     train(cfg)
 
 

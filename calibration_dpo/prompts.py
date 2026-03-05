@@ -21,19 +21,12 @@ REFUSAL_PARAPHRASES = [
 THINKING_DOING_PROMPTS = [
     "What is the model thinking about?",
     "What is the model doing right now?",
-    "What is going through the model's mind at this point?",
     "What computation is happening here?",
-    "What is the model currently processing?",
     "Describe the model's thought process at this moment.",
     "What idea is the model exploring?",
     "What is the model working through?",
-    "What mental operation is being performed?",
-    "What is occupying the model's attention?",
-    "What is the model's internal state at this point?",
     "Describe what the model is reasoning about.",
-    "What is the model figuring out?",
     "What problem is the model wrestling with here?",
-    "Walk me through what the model is doing at this moment.",
 ]
 
 INTENT_PROMPTS = [
@@ -72,7 +65,7 @@ BACKTRACKING_PROMPTS = [
     "Describe any course corrections the model is making.",
     "What, if anything, is the model abandoning or revising?",
     "Is the model changing its mind about something? Describe what.",
-    "Explain any shifts in strategy or approach at this point.",
+    "Why is the model backtracking?",
     "Is the model recovering from a mistake? Describe the recovery.",
 ]
 
@@ -136,6 +129,22 @@ CONFIDENCE_PROMPTS = [
     "How committed is the model to this line of reasoning?",
 ]
 
+# From Arya's AO evaluation (LessWrong post) — probes that AOs struggled on
+UNCERTAINTY_PROBES = [
+    "Is the model uncertain about something? If yes, what? If no, say not sure.",
+    "Is the model missing any information? If yes, what information specifically? If no, say not sure.",
+    "Is the model considering alternatives? If yes, what are they? If no, say not sure.",
+    "Is the model confused about something? If yes, describe the confusion.",
+    "Does the model think its current approach might be wrong? If yes, what specifically?",
+]
+
+INFLUENCE_PROBES = [
+    "Is this answer influenced by the user's stated preference?",
+    "What does the model think the user wants the answer to be?",
+    "Is the model biasing its answer toward a particular conclusion? If yes, describe how.",
+    "Is the model rationalizing a predetermined answer rather than reasoning freely?",
+]
+
 SPECIFICS_PROMPTS = [
     "What numbers or values is the model working with?",
     "What specific quantities are being computed?",
@@ -195,9 +204,7 @@ SUMMARY_PROMPTS = [
 FORMAT_PROMPTS = [
     "In one sentence, describe what the model is doing.",
     "In 2-3 sentences, explain the model's current reasoning.",
-    "Briefly describe the model's thought process here.",
     "Give a detailed description of what's happening at this point in the reasoning.",
-    "List the key things happening in the model's reasoning right now.",
 ]
 
 COMPOUND_CONNECTORS = [
@@ -221,6 +228,8 @@ SINGLE_PROMPTS = (
     + SUBGOALS_PROMPTS
     + PROGRESS_PROMPTS
     + CONFIDENCE_PROMPTS
+    + UNCERTAINTY_PROBES
+    + INFLUENCE_PROBES
     + SPECIFICS_PROMPTS
     + ERROR_PROMPTS
     + TRANSITION_PROMPTS
@@ -239,16 +248,28 @@ def _make_compound(rng: random.Random) -> str:
     return q1 + connector + q2[0].lower() + q2[1:]
 
 
-def sample_prompt(rng: random.Random | None = None) -> str:
+SPECIFICITY_SUFFIX = " Be specific."
+
+
+def sample_prompt(rng: random.Random | None = None, force_specific: bool | None = None) -> str:
     """Sample a random oracle prompt.
 
     ~25% chance of a compound (multi-part) prompt to train
     instruction following on multi-question inputs.
+
+    ~50% chance of appending "Be specific." — when present, the model
+    should give maximally detailed answers (no refusal DPO pairs).
     """
     r = rng or random
     if r.random() < 0.25:
-        return _make_compound(r)
-    return r.choice(SINGLE_PROMPTS)
+        base = _make_compound(r)
+    else:
+        base = r.choice(SINGLE_PROMPTS)
+
+    be_specific = force_specific if force_specific is not None else (r.random() < 0.5)
+    if be_specific:
+        base += SPECIFICITY_SUFFIX
+    return base
 
 
 def sample_refusal(rng: random.Random | None = None) -> str:
