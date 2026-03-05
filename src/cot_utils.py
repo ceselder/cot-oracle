@@ -203,33 +203,49 @@ def sample_poisson_positions(
     base_positions: list[int],
     rng: random.Random | None = None,
     max_k: int = 100,
-    p_last_only: float = 0.4,
-    include_boundaries: bool = False,
+    include_boundaries: bool = True,
 ) -> list[int]:
-    """40% last-only, 60% Poisson-process sampled positions.
+    """Graduated position subsampling with Poisson-process tail.
 
-    In the 60% case, sample k from a log-uniform (heavy-tailed) distribution
-    between 2 and min(max_k, len(base_positions)), then place k positions via
-    a Poisson process (uniform iid draws from available positions, deduplicated).
-    Optionally keep both boundary positions.
+    Schedule:
+        20% → last position only
+        15% → last 2 positions
+        15% → last 3 positions
+        50% → Poisson-process (log-uniform k, iid draws, always include first AND last)
+
+    When include_boundaries=True (default), the sparse branches (last-1/2/3)
+    also include the first position.
     """
     sampler = rng or random
     K = len(base_positions)
     if K <= 1:
         return base_positions[-1:]
-    if sampler.random() < p_last_only:
-        if include_boundaries:
+    r = sampler.random()
+    if r < 0.20:
+        # Last position only
+        if include_boundaries and K >= 2:
             return sorted({base_positions[0], base_positions[-1]})
         return [base_positions[-1]]
-    # Log-uniform between 2 and min(max_k, K) for heavy tail
+    elif r < 0.35:
+        # Last 2 positions
+        picked = set(base_positions[-2:])
+        if include_boundaries:
+            picked.add(base_positions[0])
+        return sorted(picked)
+    elif r < 0.50:
+        # Last 3 positions
+        picked = set(base_positions[-3:])
+        if include_boundaries:
+            picked.add(base_positions[0])
+        return sorted(picked)
+    # 50%: Poisson process — log-uniform k, always include first and last
     lo, hi = 2, min(max_k, K)
     k = int(round(math.exp(sampler.uniform(math.log(lo), math.log(hi)))))
     k = max(2, min(k, K))
-    # Poisson process: uniform iid draws, deduplicated
     picked = set(sampler.sample(base_positions, k))
     if include_boundaries:
         picked.add(base_positions[0])
-    picked.add(base_positions[-1])  # always include last position
+    picked.add(base_positions[-1])
     return sorted(picked)
 
 

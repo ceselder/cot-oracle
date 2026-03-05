@@ -332,7 +332,7 @@ def dicts_to_training_data(
             sampled = sample_layers(_MODEL_N_LAYERS, mean=3)
 
             # Apply position mode to base positions
-            sampled_pos = _apply_position_mode(base_positions)
+            sampled_pos = _apply_position_mode(base_positions, task_name=item["datapoint_type"])
             ctx_pos = sampled_pos * len(sampled)
             num_pos = len(ctx_pos)
 
@@ -359,7 +359,7 @@ def dicts_to_training_data(
             sampled = sorted(random.sample(MULTI_LAYERS, k))
 
             # Apply position mode to base positions
-            sampled_pos = _apply_position_mode(base_positions)
+            sampled_pos = _apply_position_mode(base_positions, task_name=item["datapoint_type"])
             ctx_pos = sampled_pos * len(sampled)
             num_pos = len(ctx_pos)
 
@@ -382,7 +382,7 @@ def dicts_to_training_data(
 
         else:
             # Standard: all configured layers, apply position mode
-            sampled_pos = _apply_position_mode(base_positions)
+            sampled_pos = _apply_position_mode(base_positions, task_name=item["datapoint_type"])
             ctx_pos = sampled_pos * n_layers_runtime
             num_pos = len(ctx_pos)
 
@@ -413,17 +413,21 @@ def dicts_to_training_data(
     return training_data
 
 
-def _apply_position_mode(base_positions: list[int]) -> list[int]:
+def _apply_position_mode(base_positions: list[int], task_name: str = "") -> list[int]:
     """Apply POSITION_MODE to base (single-layer) positions.
 
     Modes:
         "last_only": only the final position (fastest iteration)
         "graduated": 33% last-1, 33% last-2, 33% last-3
         "hybrid": 30% last-1, 30% last-3, 40% end-weighted stochastic
-        "stochastic": 40% last-only, 60% Poisson-process sampled positions
+        "stochastic": 20% last-1, 15% last-2, 15% last-3, 50% Poisson-process
         "all": use all positions
+
+    backtrack_prediction always uses all positions (signal is localized).
     """
     if not base_positions:
+        return base_positions
+    if task_name == "backtrack_prediction":
         return base_positions
     if POSITION_MODE == "last_only":
         return base_positions[-1:]

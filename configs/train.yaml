@@ -21,15 +21,15 @@ tasks:
     eval: true
 
   answer_trajectory:        # ~42K available
-    n: 30000
+    n: -1
     eval: true
 
   futurelens:
-    n: 20000
+    n: 30000
     eval: true
 
   pastlens:
-    n: 20000
+    n: 30000
     eval: true
 
   correctness:              # ~7.8K available
@@ -91,7 +91,7 @@ tasks:
 # FineWeb readout tasks
 fineweb:
   enabled: true
-  n: 40000                      # 20K futurelens + 20K pastlens
+  n: 60000                      # 30K futurelens + 30K pastlens
   variant: futurelens_fineweb,pastlens_fineweb
   max_context_tokens: 2000
   min_target_tokens: 5
@@ -100,7 +100,7 @@ fineweb:
 # Classification (matching Adam's AO training)
 classification:
   enabled: true
-  n: 15000
+  n: 20000
   datasets: [sst2, ag_news, snli]
 
 # Training
