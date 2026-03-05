@@ -1523,10 +1523,9 @@ class ChatCompareWebApp:
         self._progress_status = f"Generating CoT with {organism_info['label']}..."
 
         try:
-            # Generate CoT — force enable_thinking=False for full models
-            # (Qwen3-8B thinking mode generates 4K-8K+ <think> tokens without closing)
+            # Generate CoT — cap at 4096 tokens to avoid unbounded <think> generation
             messages = [{"role": "user", "content": question}]
-            formatted = self.tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True, enable_thinking=False)
+            formatted = self.tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True, enable_thinking=enable_thinking)
             inputs = self.tokenizer(formatted, return_tensors="pt").to(get_model_input_device(organism_model))
             with torch.no_grad():
                 output = organism_model.generate(**inputs, max_new_tokens=4096, do_sample=False)
