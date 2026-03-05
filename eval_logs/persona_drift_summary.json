@@ -1,0 +1,101 @@
+{
+  "n_turns": 50,
+  "n_conversations": 10,
+  "auroc_table": [
+    {
+      "display": "No-CoT: opinionated+why",
+      "key": "nocot_opinionated_why",
+      "auroc": 0.904,
+      "ci_lo": 0.805,
+      "ci_hi": 0.978,
+      "n": 50
+    },
+    {
+      "display": "Trained: opinionated",
+      "key": "trained_opinionated",
+      "auroc": 0.877,
+      "ci_lo": 0.772,
+      "ci_hi": 0.964,
+      "n": 50
+    },
+    {
+      "display": "Adam AO: opinionated",
+      "key": "ao_opinionated",
+      "auroc": 0.845,
+      "ci_lo": 0.718,
+      "ci_hi": 0.939,
+      "n": 50
+    },
+    {
+      "display": "No-CoT: opinionated",
+      "key": "nocot_opinionated",
+      "auroc": 0.809,
+      "ci_lo": 0.676,
+      "ci_hi": 0.922,
+      "n": 50
+    },
+    {
+      "display": "Trained: opinionated+what",
+      "key": "trained_opinionated_what",
+      "auroc": 0.772,
+      "ci_lo": 0.645,
+      "ci_hi": 0.893,
+      "n": 50
+    },
+    {
+      "display": "Adam AO: biased",
+      "key": "ao_biased",
+      "auroc": 0.744,
+      "ci_lo": 0.616,
+      "ci_hi": 0.862,
+      "n": 50
+    },
+    {
+      "display": "Adam AO: partisan",
+      "key": "ao_partisan",
+      "auroc": 0.706,
+      "ci_lo": 0.575,
+      "ci_hi": 0.822,
+      "n": 50
+    },
+    {
+      "display": "Trained: biased",
+      "key": "trained_biased",
+      "auroc": 0.638,
+      "ci_lo": 0.513,
+      "ci_hi": 0.758,
+      "n": 50
+    },
+    {
+      "display": "No-CoT: biased",
+      "key": "nocot_biased",
+      "auroc": 0.389,
+      "ci_lo": 0.208,
+      "ci_hi": 0.581,
+      "n": 50
+    }
+  ],
+  "best_per_oracle": {
+    "nocot": {
+      "display": "No-CoT: opinionated+why",
+      "key": "nocot_opinionated_why",
+      "auroc": 0.904,
+      "ci_lo": 0.805,
+      "ci_hi": 0.978
+    },
+    "trained": {
+      "display": "Trained: opinionated",
+      "key": "trained_opinionated",
+      "auroc": 0.877,
+      "ci_lo": 0.772,
+      "ci_hi": 0.964
+    },
+    "ao": {
+      "display": "Adam AO: opinionated",
+      "key": "ao_opinionated",
+      "auroc": 0.845,
+      "ci_lo": 0.718,
+      "ci_hi": 0.939
+    }
+  }
+}
