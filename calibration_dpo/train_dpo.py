@@ -189,7 +189,6 @@ def build_dpo_items(
 
     # If ALL rollouts are bad, skip DPO entirely — just do SFT on refusal
     # (unless "be specific" mode — then still SFT on ideal, skip refusal SFT)
-    refusal_count = 0
     if not all_bad:
         for i, rollout_text in enumerate(rollouts):
             rating = rating_map.get(i + 1)
@@ -239,22 +238,11 @@ def build_dpo_items(
                     ))
 
             elif rating.rating == "bad":
-                # refusal>bad: prefer refusal over hallucination
-                # Skip in "be specific" mode (don't teach refusal there)
-                if not be_specific and refusal_count < max_refusal_pairs:
-                    refusal = sample_refusal(rng)
-                    ref_chosen_ids, ref_chosen_labels = _make_full_ids(refusal)
-                    bad_rejected_ids, bad_rejected_labels = _make_full_ids(rollout_text)
-                    dpo_items.append(DPOBatchItem(
-                        chosen_ids=ref_chosen_ids,
-                        rejected_ids=bad_rejected_ids,
-                        chosen_labels=ref_chosen_labels,
-                        rejected_labels=bad_rejected_labels,
-                        activations=activations,
-                        ph_positions=ph_positions,
-                        label="refusal>bad",
-                    ))
-                    refusal_count += 1
+                # Don't DPO individual bad rollouts — refusal>bad causes
+                # mode collapse. The model learns to avoid bad outputs via
+                # SFT on ideal + correction>model DPO on mixed outputs.
+                # Refusal is only taught via SFT when ALL rollouts are bad.
+                pass
 
     # Specificity DPO: pair specific good rollouts against vague good rollouts
     specific_good = [
