@@ -146,7 +146,7 @@ TRAINED_CHECKPOINTS = {
     "ablation-stride10-pe-off": {"path": "ceselder/cot-oracle-ablation-stride10-pe-off", "label": "ablation: stride10 no-PE"},
     "ablation-pooling": {"path": "ceselder/cot-oracle-ablation-stride100-3layers", "label": "ablation: pooling stride100"},
     "calibration-dpo": {"path": "ceselder/cot-oracle-calibration-dpo", "subfolder": "step_378_final/policy", "label": "calibration DPO"},
-    "calibration-dpo-step200": {"path": "ceselder/cot-oracle-calibration-dpo", "subfolder": "step_200", "label": "calibration DPO step 200"},
+    "calibration-dpo-step200": {"path": "ceselder/cot-oracle-calibration-dpo", "subfolder": "step_200/policy", "label": "calibration DPO step 200"},
 }
 
 # Available checkpoints for the Finetuned Monitor (text baseline, no activations).
