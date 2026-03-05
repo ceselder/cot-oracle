@@ -146,6 +146,7 @@ TRAINED_CHECKPOINTS = {
     "ablation-stride10-pe-off": {"path": "ceselder/cot-oracle-ablation-stride10-pe-off", "label": "ablation: stride10 no-PE"},
     "ablation-pooling": {"path": "ceselder/cot-oracle-ablation-stride100-3layers", "label": "ablation: pooling stride100"},
     "calibration-dpo": {"path": "ceselder/cot-oracle-calibration-dpo", "subfolder": "step_378_final/policy", "label": "calibration DPO"},
+    "calibration-dpo-step200": {"path": "ceselder/cot-oracle-calibration-dpo", "subfolder": "step_200", "label": "calibration DPO step 200"},
 }
 
 # Available checkpoints for the Finetuned Monitor (text baseline, no activations).
@@ -2247,6 +2248,34 @@ class ChatCompareWebApp:
             result = await asyncio.to_thread(self._run_trained_oracle_component, ctx, max_tokens, temperature=oracle_temp)
             return {**result, "task_key": ctx["task_key"], "selected_layers": ctx["selected_layers"], "selected_positions": ctx["selected_positions"]}
 
+        @self.app.post("/api/run_oracle_slot")
+        async def run_oracle_slot(payload: dict):
+            slot = payload["slot"]  # "slot1" or "slot2"
+            checkpoint_type = payload["checkpoint_type"]  # "trained" or "adam"
+            checkpoint_key = payload["checkpoint_key"]  # key or "__default__"
+            ctx = self._resolve_run_context(payload["task_key"], payload.get("custom_prompt", ""), payload.get("selected_cells", []))
+            max_tokens = int(payload.get("max_tokens", self.args.max_tokens))
+            oracle_temp = float(payload.get("oracle_temperature", 0))
+            # Switch checkpoint if needed
+            if checkpoint_key != "__default__":
+                switch_result = await asyncio.to_thread(self._switch_checkpoint, checkpoint_type, checkpoint_key)
+                if "error" in switch_result:
+                    return {"error": switch_result["error"]}
+            else:
+                # Reset to default
+                await asyncio.to_thread(self._switch_checkpoint, checkpoint_type, "__default__")
+            # Run the appropriate component
+            if checkpoint_type == "trained":
+                result = await asyncio.to_thread(self._run_trained_oracle_component, ctx, max_tokens, temperature=oracle_temp)
+                response = result.get("trained_response", "")
+                prompt = result.get("prompt", ctx["prompt"])
+            else:
+                result = await asyncio.to_thread(self._run_original_ao_component, ctx, max_tokens, temperature=oracle_temp)
+                response = result.get("ao_response", "")
+                prompt = result.get("ao_prompt", "")
+            return {**result, "slot": slot, "slot_prompt": prompt, "slot_response": response,
+                    "task_key": ctx["task_key"], "selected_layers": ctx["selected_layers"], "selected_positions": ctx["selected_positions"]}
+
         @self.app.post("/api/run_black_box_monitor")
         async def run_black_box_monitor(payload: dict):
             ctx = self._resolve_run_context(payload["task_key"], payload.get("custom_prompt", ""), payload.get("selected_cells", []))
@@ -2530,17 +2559,17 @@ class ChatCompareWebApp:
         <input id=\"oracleTemp\" type=\"range\" min=\"0\" max=\"1.5\" step=\"0.05\" value=\"0\" style=\"width:100%\">
         <label style=\"display:block;margin-top:10px\">Baselines to run</label>
         <div class=\"check-grid\">
-          <label class=\"inline-check\"><input id=\"baselineAo\" type=\"checkbox\">Original AO</label>
+          <label class=\"inline-check\"><input id=\"baselineSlot1\" type=\"checkbox\" checked>Oracle Slot 1</label>
           <label class=\"inline-check\"><input id=\"baselinePatch\" type=\"checkbox\">Patchscopes</label>
           <label class=\"inline-check\"><input id=\"baselineBb\" type=\"checkbox\" checked>Black-box</label>
           <label class=\"inline-check\"><input id=\"baselineNoAct\" type=\"checkbox\" checked>Finetuned monitor</label>
-          <label class=\"inline-check\"><input id=\"baselineOracle\" type=\"checkbox\" checked>Trained oracle</label>
+          <label class=\"inline-check\"><input id=\"baselineSlot2\" type=\"checkbox\" checked>Oracle Slot 2</label>
           <label class=\"inline-check\"><input id=\"baselineSae\" type=\"checkbox\" checked>SAE -> LLM</label>
         </div>
-        <label style=\"display:block;margin-top:10px\" class=\"small\">Trained Oracle checkpoint</label>
-        <select id=\"trainedCheckpoint\"><option value=\"trained\">CLI default</option></select>
-        <label style=\"display:block;margin-top:10px\" class=\"small\">Original AO checkpoint (Adam)</label>
-        <select id=\"adamCheckpoint\"><option value=\"original_ao\">Adam default (8B)</option></select>
+        <label style=\"display:block;margin-top:10px\" class=\"small\">Oracle Slot 1</label>
+        <select id=\"slot1Checkpoint\"></select>
+        <label style=\"display:block;margin-top:10px\" class=\"small\">Oracle Slot 2</label>
+        <select id=\"slot2Checkpoint\"></select>
         <label style=\"display:block;margin-top:10px\" class=\"small\">Finetuned Monitor checkpoint</label>
         <select id=\"finetunedMonitorCheckpoint\"></select>
         <div class=\"small muted\" id=\"checkpointStatus\" style=\"margin-top:4px\"></div>
@@ -2617,7 +2646,8 @@ class ChatCompareWebApp:
         <div id=\"tokenRowsWrap\" class=\"token-wrap\" style=\"margin-top:12px\"></div>
       </div>
       <div class=\"panel\" id=\"heatmapPanel\" style=\"display:none\">
-        <h3 style=\"margin-top:0\">Per-Token Heatmap <span class=\"info-tooltip\" title=\"Visualize per-CoT-token signals by coloring each token.&#10;&#10;Linear Probe: project each token's residual stream activation onto a saved binary probe direction. Score = how strongly the probe classifies this token.&#10;&#10;AO Logprob: at each stride position, inject that single activation into the oracle and ask a binary YES/NO question. Color = P(Yes): black (No) &rarr; red (Yes). With heatmap stride &gt; 1, only every Nth position is evaluated and in-between tokens are linearly interpolated.&#10;&#10;Trained Oracle Readout: run the oracle at each stride position with a generation prompt and display the text output per token.\">&#9432;</span></h3>
+        <h3 style=\"margin-top:0;cursor:pointer;user-select:none\" id=\"heatmapHeader\" onclick=\"(function(){var b=document.getElementById('heatmapBody'),c=document.getElementById('heatmapCaret');if(b.style.display==='none'){b.style.display='';c.textContent='\\u25BC';}else{b.style.display='none';c.textContent='\\u25B6';}})();\"><span id=\"heatmapCaret\">&#9660;</span> Per-Token Heatmap <span class=\"info-tooltip\" title=\"Visualize per-CoT-token signals by coloring each token.&#10;&#10;Linear Probe: project each token's residual stream activation onto a saved binary probe direction. Score = how strongly the probe classifies this token.&#10;&#10;AO Logprob: at each stride position, inject that single activation into the oracle and ask a binary YES/NO question. Color = P(Yes): black (No) &rarr; red (Yes). With heatmap stride &gt; 1, only every Nth position is evaluated and in-between tokens are linearly interpolated.&#10;&#10;Trained Oracle Readout: run the oracle at each stride position with a generation prompt and display the text output per token.\">&#9432;</span></h3>
+        <div id=\"heatmapBody\">
         <div class=\"heatmap-controls\">
           <div>
             <label>Signal</label>
@@ -2702,13 +2732,14 @@ class ChatCompareWebApp:
           <div id=\"heatmapLegendBar\" class=\"heatmap-legend-bar\"></div>
           <span id=\"heatmapLegendMax\"></span>
         </div>
+        </div>
       </div>
       <div class=\"outputs\">
         <div class=\"panel\">
-          <h3 style=\"margin-top:0\">Original AO</h3>
-          <div class=\"mini-status\" id=\"aoStatus\"><span class=\"mini-dot\"></span><span id=\"aoStatusText\"></span></div>
-          <div class=\"muted small\" id=\"aoPrompt\"></div>
-          <div id=\"aoOut\" class=\"text-block\"></div>
+          <h3 style=\"margin-top:0\" id=\"slot1Header\">Oracle Slot 1</h3>
+          <div class=\"mini-status\" id=\"slot1Status\"><span class=\"mini-dot\"></span><span id=\"slot1StatusText\"></span></div>
+          <div class=\"muted small\" id=\"slot1Prompt\"></div>
+          <div id=\"slot1Out\" class=\"text-block\"></div>
         </div>
         <div class=\"panel\">
           <h3 style=\"margin-top:0\">Patchscopes</h3>
@@ -2730,10 +2761,10 @@ class ChatCompareWebApp:
           <div id=\"noActOut\" class=\"text-block\"></div>
         </div>
         <div class=\"panel\">
-          <h3 style=\"margin-top:0\">Trained Oracle</h3>
-          <div class=\"mini-status\" id=\"oracleStatus\"><span class=\"mini-dot\"></span><span id=\"oracleStatusText\"></span></div>
-          <div class=\"muted small\" id=\"oraclePrompt\"></div>
-          <div id=\"oracleOut\" class=\"text-block\"></div>
+          <h3 style=\"margin-top:0\" id=\"slot2Header\">Oracle Slot 2</h3>
+          <div class=\"mini-status\" id=\"slot2Status\"><span class=\"mini-dot\"></span><span id=\"slot2StatusText\"></span></div>
+          <div class=\"muted small\" id=\"slot2Prompt\"></div>
+          <div id=\"slot2Out\" class=\"text-block\"></div>
         </div>
         <div class=\"panel\">
           <h3 style=\"margin-top:0;display:inline\">SAE -> LLM Baseline</h3>
@@ -2823,19 +2854,19 @@ For your final answer, respond with "Answer: Yes" or "Answer: No" after the chai
       { label: 'Bias: Lakisha Robinson (Black female)', fn: () => biasPrompt('Lakisha Robinson', 'She/Her', 'lakisha.robinson@gmail.com') },
     ];
     const baselineInputs = {
-      ao: document.getElementById('baselineAo'),
+      slot1: document.getElementById('baselineSlot1'),
       patch: document.getElementById('baselinePatch'),
       bb: document.getElementById('baselineBb'),
       noact: document.getElementById('baselineNoAct'),
-      oracle: document.getElementById('baselineOracle'),
+      slot2: document.getElementById('baselineSlot2'),
       sae: document.getElementById('baselineSae'),
     };
     const panelStatus = {
-      ao: { box: document.getElementById('aoStatus'), text: document.getElementById('aoStatusText') },
+      slot1: { box: document.getElementById('slot1Status'), text: document.getElementById('slot1StatusText') },
       patch: { box: document.getElementById('patchStatus'), text: document.getElementById('patchStatusText') },
       bb: { box: document.getElementById('bbStatus'), text: document.getElementById('bbStatusText') },
       noact: { box: document.getElementById('noActStatus'), text: document.getElementById('noActStatusText') },
-      oracle: { box: document.getElementById('oracleStatus'), text: document.getElementById('oracleStatusText') },
+      slot2: { box: document.getElementById('slot2Status'), text: document.getElementById('slot2StatusText') },
       sae: { box: document.getElementById('saeStatus'), text: document.getElementById('saeStatusText') },
     };
 
@@ -2896,11 +2927,11 @@ For your final answer, respond with "Answer: Yes" or "Answer: No" after the chai
       panel.text.textContent = msg || '';
     }
     function resetPanelStatuses() {
-      setPanelLoading('ao', false, '');
+      setPanelLoading('slot1', false, '');
       setPanelLoading('patch', false, '');
       setPanelLoading('bb', false, '');
       setPanelLoading('noact', false, '');
-      setPanelLoading('oracle', false, '');
+      setPanelLoading('slot2', false, '');
       setPanelLoading('sae', false, '');
     }
     function setBusy(isBusy, msg, progress) {
@@ -3349,25 +3380,51 @@ For your final answer, respond with "Answer: Yes" or "Answer: No" after the chai
       renderCheckpointDropdowns();
       await loadSuggestedQuestion();
     }
-    function renderCheckpointDropdowns() {
-      const trainedSel = document.getElementById('trainedCheckpoint');
-      trainedSel.options[0].textContent = `CLI default (${config.cli_checkpoint.split('/').pop()})`;
+    function buildSlotSelect(sel, defaultValue) {
+      sel.innerHTML = '';
+      // Trained optgroup
+      const trainedGroup = document.createElement('optgroup');
+      trainedGroup.label = 'Trained';
+      const trainedDefault = document.createElement('option');
+      trainedDefault.value = 'trained:__default__';
+      trainedDefault.textContent = `Trained: CLI default (${config.cli_checkpoint.split('/').pop()})`;
+      trainedGroup.appendChild(trainedDefault);
       (config.trained_checkpoints || []).forEach(cp => {
         const opt = document.createElement('option');
-        opt.value = cp.key;
-        opt.textContent = cp.label;
-        trainedSel.appendChild(opt);
+        opt.value = `trained:${cp.key}`;
+        opt.textContent = `Trained: ${cp.label}`;
+        trainedGroup.appendChild(opt);
       });
-      trainedSel.addEventListener('change', () => switchCheckpoint('trained', trainedSel.value));
-      const adamSel = document.getElementById('adamCheckpoint');
-      adamSel.options[0].textContent = `CLI default (${config.cli_ao_checkpoint.split('/').pop()})`;
+      sel.appendChild(trainedGroup);
+      // Adam / Original AO optgroup
+      const adamGroup = document.createElement('optgroup');
+      adamGroup.label = 'Adam / Original AO';
+      const adamDefault = document.createElement('option');
+      adamDefault.value = 'adam:__default__';
+      adamDefault.textContent = `Adam: CLI default (${config.cli_ao_checkpoint.split('/').pop()})`;
+      adamGroup.appendChild(adamDefault);
       (config.adam_checkpoints || []).forEach(cp => {
         const opt = document.createElement('option');
-        opt.value = cp.key;
-        opt.textContent = cp.label;
-        adamSel.appendChild(opt);
+        opt.value = `adam:${cp.key}`;
+        opt.textContent = `Adam: ${cp.label}`;
+        adamGroup.appendChild(opt);
       });
-      adamSel.addEventListener('change', () => switchCheckpoint('adam', adamSel.value));
+      sel.appendChild(adamGroup);
+      if (defaultValue) sel.value = defaultValue;
+    }
+    function getSlotLabel(sel) {
+      return sel.options[sel.selectedIndex]?.textContent || 'Oracle Slot';
+    }
+    function renderCheckpointDropdowns() {
+      const slot1Sel = document.getElementById('slot1Checkpoint');
+      const slot2Sel = document.getElementById('slot2Checkpoint');
+      buildSlotSelect(slot1Sel, 'trained:__default__');
+      buildSlotSelect(slot2Sel, 'adam:__default__');
+      slot1Sel.addEventListener('change', () => { document.getElementById('slot1Header').textContent = getSlotLabel(slot1Sel); });
+      slot2Sel.addEventListener('change', () => { document.getElementById('slot2Header').textContent = getSlotLabel(slot2Sel); });
+      // Set initial headers
+      document.getElementById('slot1Header').textContent = getSlotLabel(slot1Sel);
+      document.getElementById('slot2Header').textContent = getSlotLabel(slot2Sel);
       const fmSel = document.getElementById('finetunedMonitorCheckpoint');
       (config.finetuned_monitor_checkpoints || []).forEach(cp => {
         const opt = document.createElement('option');
@@ -3440,17 +3497,17 @@ For your final answer, respond with "Answer: Yes" or "Answer: No" after the chai
       session = { ...cotData, ...extractData };
       const adapterLabel = session.cot_adapter && session.cot_adapter !== 'base' ? session.cot_adapter : 'base model';
       document.getElementById('meta').textContent = `Generator: ${adapterLabel} | stride ${stride} | layers ${session.layers.join(', ')}`;
-      document.getElementById('aoOut').textContent = '';
+      document.getElementById('slot1Out').textContent = '';
       document.getElementById('patchOut').textContent = '';
       document.getElementById('bbOut').textContent = '';
       document.getElementById('noActOut').textContent = '';
-      document.getElementById('oracleOut').textContent = '';
+      document.getElementById('slot2Out').textContent = '';
       document.getElementById('saeOut').textContent = '';
-      document.getElementById('aoPrompt').textContent = '';
+      document.getElementById('slot1Prompt').textContent = '';
       document.getElementById('patchPrompt').textContent = '';
       document.getElementById('bbPrompt').textContent = '';
       document.getElementById('noActPrompt').textContent = '';
-      document.getElementById('oraclePrompt').textContent = '';
+      document.getElementById('slot2Prompt').textContent = '';
       document.getElementById('logPath').textContent = '';
       resetPanelStatuses();
       const tagPills = document.getElementById('tagPills');
@@ -3476,26 +3533,26 @@ For your final answer, respond with "Answer: Yes" or "Answer: No" after the chai
       setStatus('Running baselines...');
       setBusy(true, 'Running baselines and populating panels...', 25);
       resetPanelStatuses();
-      document.getElementById('aoOut').textContent = '';
+      document.getElementById('slot1Out').textContent = '';
       document.getElementById('patchOut').textContent = '';
       document.getElementById('bbOut').textContent = '';
       document.getElementById('noActOut').textContent = '';
-      document.getElementById('oracleOut').textContent = '';
+      document.getElementById('slot2Out').textContent = '';
       document.getElementById('saeOut').textContent = '';
-      document.getElementById('aoPrompt').textContent = '';
+      document.getElementById('slot1Prompt').textContent = '';
       document.getElementById('patchPrompt').textContent = '';
       document.getElementById('bbPrompt').textContent = '';
       document.getElementById('noActPrompt').textContent = '';
-      document.getElementById('oraclePrompt').textContent = '';
+      document.getElementById('slot2Prompt').textContent = '';
       document.getElementById('logPath').textContent = '';
       latestRatings = { answer_ratings: [], rating_summary: '' };
       renderRatings([], '');
       const results = {
-        ao: { ao_prompt: '', ao_response: '(skipped)' },
+        slot1: { ao_prompt: '', ao_response: '(skipped)', trained_response: '(skipped)' },
         patch: { patchscopes_response: '(skipped)' },
         bb: { black_box_response: '(skipped)' },
         noact: { no_act_response: '(skipped)' },
-        oracle: { trained_response: '(skipped)' },
+        slot2: { ao_prompt: '', ao_response: '(skipped)', trained_response: '(skipped)' },
         sae: { sae_feature_desc: '(skipped)', sae_response: '(skipped)' },
       };
       let completed = 0;
@@ -3503,13 +3560,21 @@ For your final answer, respond with "Answer: Yes" or "Answer: No" after the chai
         completed += 1;
         setBusy(true, msg, 25 + Math.round((completed / baselines.length) * 55));
       }
+      function slotResponse(slotResults) {
+        // Return the slot's response regardless of type (trained or adam)
+        if (slotResults.trained_response && slotResults.trained_response !== '(skipped)') return slotResults.trained_response;
+        if (slotResults.ao_response && slotResults.ao_response !== '(skipped)') return slotResults.ao_response;
+        return '(skipped)';
+      }
       async function refreshRatingsNow() {
-        const answerCount = [results.ao.ao_response, results.patch.patchscopes_response, results.bb.black_box_response, results.noact.no_act_response, results.oracle.trained_response, results.sae.sae_response].filter(t => t !== '(skipped)').length;
+        const slot1Resp = slotResponse(results.slot1);
+        const slot2Resp = slotResponse(results.slot2);
+        const answerCount = [slot1Resp, results.patch.patchscopes_response, results.bb.black_box_response, results.noact.no_act_response, slot2Resp, results.sae.sae_response].filter(t => t !== '(skipped)').length;
         if (!answerCount) return latestRatings;
         const nonce = ++ratingRefreshNonce;
         document.getElementById('ratingSummary').textContent = 'Updating ratings...';
         try {
-          const data = await postJson('/api/rate_answers', { ...payload, ao_prompt: results.ao.ao_prompt, ao_response: results.ao.ao_response, patchscopes_response: results.patch.patchscopes_response, black_box_response: results.bb.black_box_response, no_act_response: results.noact.no_act_response, trained_response: results.oracle.trained_response, sae_response: results.sae.sae_response });
+          const data = await postJson('/api/rate_answers', { ...payload, ao_prompt: results.slot1.ao_prompt || '', ao_response: slot1Resp, patchscopes_response: results.patch.patchscopes_response, black_box_response: results.bb.black_box_response, no_act_response: results.noact.no_act_response, trained_response: slot2Resp, sae_response: results.sae.sae_response });
           if (nonce !== ratingRefreshNonce) return latestRatings;
           latestRatings = data;
           renderRatings(data.answer_ratings, data.rating_summary);
@@ -3518,21 +3583,33 @@ For your final answer, respond with "Answer: Yes" or "Answer: No" after the chai
         }
         return latestRatings;
       }
+      function parseSlotValue(sel) {
+        const val = sel.value;
+        const [type, ...rest] = val.split(':');
+        return { type, key: rest.join(':') };
+      }
+      function runSlot(slotName, slotSel) {
+        const { type, key } = parseSlotValue(slotSel);
+        const slotLabel = getSlotLabel(slotSel);
+        setPanelLoading(slotName, true, 'Running...');
+        return postJson('/api/run_oracle_slot', { ...payload, slot: slotName, checkpoint_type: type, checkpoint_key: key }).then(data => {
+          results[slotName] = data;
+          const prompt = data.slot_prompt || data.ao_prompt || data.prompt || '';
+          const response = data.slot_response || '';
+          document.getElementById(`${slotName}Prompt`).textContent = `${slotLabel}: ${prompt}`;
+          document.getElementById(`${slotName}Out`).textContent = compactText(response);
+          setPanelLoading(slotName, false, 'Loaded');
+          advanceProgress(`${slotLabel} loaded...`);
+          void refreshRatingsNow();
+          return [slotName, data];
+        }).catch(error => { setPanelLoading(slotName, false, 'Failed'); throw error; });
+      }
       const requests = [];
-      if (baselines.includes('ao')) {
-        setPanelLoading('ao', true, 'Running...');
-        requests.push(postJson('/api/run_original_ao', payload).then(data => {
-        results.ao = data;
-        document.getElementById('aoPrompt').textContent = `AO prompt: ${data.ao_prompt}`;
-        document.getElementById('aoOut').textContent = compactText(data.ao_response);
-        setPanelLoading('ao', false, 'Loaded');
-        advanceProgress('Original AO loaded...');
-        void refreshRatingsNow();
-        return ['ao', data];
-      }).catch(error => { setPanelLoading('ao', false, 'Failed'); throw error; }));
+      if (baselines.includes('slot1')) {
+        requests.push(runSlot('slot1', document.getElementById('slot1Checkpoint')));
       } else {
-        setPanelLoading('ao', false, 'Skipped');
-        document.getElementById('aoOut').textContent = '(skipped)';
+        setPanelLoading('slot1', false, 'Skipped');
+        document.getElementById('slot1Out').textContent = '(skipped)';
       }
       if (baselines.includes('patch')) {
         setPanelLoading('patch', true, 'Running...');
@@ -3580,20 +3657,11 @@ For your final answer, respond with "Answer: Yes" or "Answer: No" after the chai
         setPanelLoading('noact', false, 'Skipped');
         document.getElementById('noActOut').textContent = '(skipped)';
       }
-      if (baselines.includes('oracle')) {
-        setPanelLoading('oracle', true, 'Running...');
-        requests.push(postJson('/api/run_trained_oracle', payload).then(data => {
-        results.oracle = data;
-        document.getElementById('oraclePrompt').textContent = `Oracle prompt: ${data.prompt}`;
-        document.getElementById('oracleOut').textContent = compactText(data.trained_response);
-        setPanelLoading('oracle', false, 'Loaded');
-        advanceProgress('Trained oracle loaded...');
-        void refreshRatingsNow();
-        return ['oracle', data];
-      }).catch(error => { setPanelLoading('oracle', false, 'Failed'); throw error; }));
+      if (baselines.includes('slot2')) {
+        requests.push(runSlot('slot2', document.getElementById('slot2Checkpoint')));
       } else {
-        setPanelLoading('oracle', false, 'Skipped');
-        document.getElementById('oracleOut').textContent = '(skipped)';
+        setPanelLoading('slot2', false, 'Skipped');
+        document.getElementById('slot2Out').textContent = '(skipped)';
       }
       if (baselines.includes('sae')) {
         setPanelLoading('sae', true, 'Running...');
@@ -3622,12 +3690,12 @@ For your final answer, respond with "Answer: Yes" or "Answer: No" after the chai
       const ratingData = await refreshRatingsNow();
       const finalData = await postJson('/api/finalize_run', {
         ...payload,
-        ao_prompt: results.ao.ao_prompt,
-        ao_response: results.ao.ao_response,
+        ao_prompt: results.slot1.ao_prompt || results.slot1.slot_prompt || '',
+        ao_response: slotResponse(results.slot1),
         patchscopes_response: results.patch.patchscopes_response,
         black_box_response: results.bb.black_box_response,
         no_act_response: results.noact.no_act_response,
-        trained_response: results.oracle.trained_response,
+        trained_response: slotResponse(results.slot2),
         sae_feature_desc: results.sae.sae_feature_desc,
         sae_response: results.sae.sae_response,
         answer_ratings: ratingData.answer_ratings,
