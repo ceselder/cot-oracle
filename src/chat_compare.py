@@ -47,7 +47,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 sys.path.insert(0, str(PROJECT_ROOT / "ao_reference"))
 sys.path.insert(0, str(PROJECT_ROOT / "baselines"))
 
-from cot_utils import get_cot_positions, layer_percent_to_layer
+from cot_utils import get_cot_positions, layer_percent_to_layer, split_cot_into_sentences, find_sentence_boundary_positions
 from core.ao import (
     AO_CHECKPOINTS,
     SPECIAL_TOKEN,
@@ -583,7 +583,7 @@ def build_sae_feature_description(saes, labels, layer_to_selected_acts, layers, 
 
 
 def query_openrouter(prompt, model, api_base=OPENROUTER_API_BASE, max_tokens=300, response_format=None):
-    api_key = os.environ.get("OPENROUTER_API_KEY", "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")
+    api_key = os.environ.get("OPENROUTER_API_KEY", "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")
     if not api_key:
         return "(OpenRouter API key not set — skipping)"
     client = openai.OpenAI(base_url=api_base, api_key=api_key)
@@ -1686,6 +1686,191 @@ class ChatCompareWebApp:
             "barrier_token_index": barrier_cot_token_index,
         }
 
+    def _force_answer_from(self, barrier_cot_token_index):
+        """Read-only probe: force model to answer at barrier point (no timeline mutation)."""
+        if not self.state.full_text:
+            raise HTTPException(status_code=400, detail="Generate a CoT first")
+
+        all_ids = self.tokenizer.encode(self.state.full_text, add_special_tokens=False)
+        prompt_len = self._prompt_len
+        prefix_end = prompt_len + barrier_cot_token_index
+        prefix_ids = all_ids[:prefix_end]
+
+        # Append </think>\n\n to force answer mode
+        close_ids = self.tokenizer.encode("</think>\n\n", add_special_tokens=False)
+        input_ids = torch.tensor([prefix_ids + close_ids], device=get_model_input_device(self.model))
+
+        cot_adapter = self._active_cot_adapter
+        self._progress_status = "Forcing answer at barrier..."
+        self.model.eval()
+        with self.model_lock:
+            if cot_adapter and cot_adapter in self.model.peft_config:
+                self.model.set_adapter(cot_adapter)
+                with torch.no_grad():
+                    output = self.model.generate(input_ids, max_new_tokens=512, do_sample=False)
+            else:
+                with self.model.disable_adapter():
+                    with torch.no_grad():
+                        output = self.model.generate(input_ids, max_new_tokens=512, do_sample=False)
+        self._progress_status = ""
+
+        new_ids = output[0].tolist()
+        answer_ids = new_ids[len(prefix_ids) + len(close_ids):]
+        forced_answer = self.tokenizer.decode(answer_ids, skip_special_tokens=True).strip()
+        n_cot_total = len(all_ids) - prompt_len
+
+        return {
+            "forced_answer": forced_answer,
+            "barrier_token_index": barrier_cot_token_index,
+            "n_cot_tokens_used": barrier_cot_token_index,
+            "n_cot_tokens_total": n_cot_total,
+        }
+
+    def _probe_answer_trajectory(self, n_points=8):
+        """Probe answer beliefs at multiple sentence boundaries along the CoT."""
+        if not self.state.full_text:
+            raise HTTPException(status_code=400, detail="Generate a CoT first")
+
+        cot_text = self.state.cot_text or ""
+        sentences = split_cot_into_sentences(cot_text)
+        if not sentences:
+            raise HTTPException(status_code=400, detail="No sentences found in CoT")
+
+        all_ids = self.tokenizer.encode(self.state.full_text, add_special_tokens=False)
+        prompt_len = self._prompt_len
+        n_cot_total = len(all_ids) - prompt_len
+
+        # Find sentence boundary token positions
+        boundaries = find_sentence_boundary_positions(self.tokenizer, self.state.full_text, sentences)
+        # boundaries are absolute token positions — convert to CoT-relative
+        cot_boundaries = [(pos - prompt_len, i) for i, pos in enumerate(boundaries) if pos > prompt_len]
+        if not cot_boundaries:
+            raise HTTPException(status_code=400, detail="Could not find sentence boundaries in tokenized CoT")
+
+        # Select ~n_points evenly spaced boundaries
+        if len(cot_boundaries) > n_points:
+            step = len(cot_boundaries) / n_points
+            indices = [int(i * step) for i in range(n_points)]
+            # Always include the last
+            if indices[-1] != len(cot_boundaries) - 1:
+                indices[-1] = len(cot_boundaries) - 1
+            cot_boundaries = [cot_boundaries[i] for i in indices]
+
+        close_ids = self.tokenizer.encode("</think>\n\n", add_special_tokens=False)
+        cot_adapter = self._active_cot_adapter
+        self.model.eval()
+
+        trajectory = []
+        for probe_i, (cot_tok_idx, sent_idx) in enumerate(cot_boundaries):
+            self._progress_status = f"Probing answer at point {probe_i + 1}/{len(cot_boundaries)}..."
+            prefix_end = prompt_len + cot_tok_idx + 1  # +1 because boundary is last token of sentence
+            prefix_ids = all_ids[:prefix_end]
+            input_ids = torch.tensor([prefix_ids + close_ids], device=get_model_input_device(self.model))
+
+            with self.model_lock:
+                if cot_adapter and cot_adapter in self.model.peft_config:
+                    self.model.set_adapter(cot_adapter)
+                    with torch.no_grad():
+                        output = self.model.generate(input_ids, max_new_tokens=256, do_sample=False)
+                else:
+                    with self.model.disable_adapter():
+                        with torch.no_grad():
+                            output = self.model.generate(input_ids, max_new_tokens=256, do_sample=False)
+
+            new_ids = output[0].tolist()
+            answer_ids = new_ids[len(prefix_ids) + len(close_ids):]
+            forced_answer = self.tokenizer.decode(answer_ids, skip_special_tokens=True).strip()
+            fraction = (cot_tok_idx + 1) / max(n_cot_total, 1)
+
+            preview = sentences[sent_idx][:80] if sent_idx < len(sentences) else ""
+            trajectory.append({
+                "fraction": round(fraction, 3),
+                "sentence_preview": preview,
+                "forced_answer": forced_answer,
+            })
+
+        self._progress_status = ""
+
+        # Add final answer at 100%
+        final_answer = self.state.answer_text or ""
+        trajectory.append({
+            "fraction": 1.0,
+            "sentence_preview": "(full CoT)",
+            "forced_answer": final_answer,
+        })
+
+        return {"trajectory": trajectory, "final_answer": final_answer}
+
+    def _generate_with_prefill(self, barrier_cot_token_index, prefill_text):
+        """Generate from barrier with arbitrary prefill text, saves to timeline."""
+        if not self.state.full_text:
+            raise HTTPException(status_code=400, detail="Generate a CoT first")
+
+        # Save current state to timeline
+        snap = self._snapshot_state()
+        if self._timeline_index >= 0 and self._timeline_index < len(self._timeline) - 1:
+            self._timeline = self._timeline[:self._timeline_index + 1]
+        self._timeline.append(snap)
+
+        all_ids = self.tokenizer.encode(self.state.full_text, add_special_tokens=False)
+        prompt_len = self._prompt_len
+        prefix_end = prompt_len + barrier_cot_token_index
+        prefix_ids = all_ids[:prefix_end]
+
+        # Tokenize prefill
+        prefill_ids = self.tokenizer.encode(prefill_text, add_special_tokens=False)
+        combined_ids = prefix_ids + prefill_ids
+
+        # If prefill contains </think>, generate as answer (greedy, short)
+        has_close_think = "</think>" in prefill_text
+        if has_close_think:
+            gen_kwargs = dict(max_new_tokens=512, do_sample=False)
+        else:
+            gen_temp = max(0.7, float(getattr(self.args, "temperature", 0.7)))
+            gen_kwargs = dict(max_new_tokens=16384, do_sample=True, temperature=gen_temp)
+
+        input_ids = torch.tensor([combined_ids], device=get_model_input_device(self.model))
+        cot_adapter = self._active_cot_adapter
+        self._progress_status = "Generating with prefill..."
+        self.model.eval()
+        with self.model_lock:
+            if cot_adapter and cot_adapter in self.model.peft_config:
+                self.model.set_adapter(cot_adapter)
+                with torch.no_grad():
+                    output = self.model.generate(input_ids, **gen_kwargs)
+            else:
+                with self.model.disable_adapter():
+                    with torch.no_grad():
+                        output = self.model.generate(input_ids, **gen_kwargs)
+        self._progress_status = ""
+
+        new_ids = output[0].tolist()
+        new_text = self.tokenizer.decode(new_ids, skip_special_tokens=False)
+        response_ids = new_ids[prompt_len:]
+        cot_response = self.tokenizer.decode(response_ids, skip_special_tokens=False)
+        cot_text, answer_text = split_cot_answer(cot_response)
+
+        self.state = SessionState(
+            question=self.state.question,
+            cot_response=cot_response,
+            cot_text=cot_text,
+            answer_text=answer_text,
+            full_text=new_text,
+            enable_thinking=self.state.enable_thinking,
+        )
+        self._timeline_index = len(self._timeline)
+
+        return {
+            "question": self.state.question,
+            "cot_response": cot_response,
+            "cot_text": cot_text,
+            "answer_text": answer_text,
+            "cot_adapter": cot_adapter or "base",
+            "timeline_index": self._timeline_index,
+            "timeline_length": len(self._timeline) + 1,
+            "barrier_token_index": barrier_cot_token_index,
+        }
+
     def _timeline_navigate(self, index):
         """Navigate to a specific timeline entry. Returns cot+activation data."""
         total = len(self._timeline) + (1 if self._timeline_index >= len(self._timeline) or self._timeline_index == -1 else 0)
@@ -2089,6 +2274,26 @@ class ChatCompareWebApp:
             extract_data = await asyncio.to_thread(self._extract_current_session)
             return {**cot_data, **extract_data}
 
+        @self.app.post("/api/force_answer")
+        async def force_answer(payload: dict):
+            barrier = int(payload["barrier_token_index"])
+            result = await asyncio.to_thread(self._force_answer_from, barrier)
+            return result
+
+        @self.app.post("/api/probe_answer_trajectory")
+        async def probe_answer_trajectory(payload: dict):
+            n_points = max(2, min(20, int(payload.get("n_points", 8))))
+            result = await asyncio.to_thread(self._probe_answer_trajectory, n_points)
+            return result
+
+        @self.app.post("/api/generate_with_prefill")
+        async def generate_with_prefill(payload: dict):
+            barrier = int(payload["barrier_token_index"])
+            prefill = str(payload["prefill_text"])
+            cot_data = await asyncio.to_thread(self._generate_with_prefill, barrier, prefill)
+            extract_data = await asyncio.to_thread(self._extract_current_session)
+            return {**cot_data, **extract_data}
+
         @self.app.post("/api/timeline_navigate")
         async def timeline_navigate(payload: dict):
             index = int(payload["index"])
@@ -2223,7 +2428,15 @@ class ChatCompareWebApp:
     #timelineBar button:disabled { opacity: 0.3; cursor: default; }
     #timelineLabel { font-size: 13px; color: #94a3b8; }
     #barrierModeBtn.active { background: #ef4444; color: white; }
-    #resampleBtn { display: none; }
+    #resampleBtn, #forceAnswerBtn, #prefillWrap { display: none; }
+    #prefillWrap { margin-top: 8px; }
+    #prefillWrap textarea { width: 100%; min-height: 40px; resize: vertical; }
+    #trajectoryPanel { margin-top: 12px; }
+    .trajectory-point { display: grid; grid-template-columns: 50px 1fr 2fr; gap: 8px; padding: 6px 8px; background: #1e293b; border-radius: 4px; margin-bottom: 4px; font-size: 13px; align-items: start; }
+    .trajectory-pct { color: #60a5fa; font-weight: bold; }
+    .trajectory-point.final { border-left: 3px solid #22c55e; }
+    .trajectory-preview { color: #94a3b8; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .trajectory-answer { color: #e2e8f0; word-break: break-word; }
     .selection-box { position: fixed; border: 1px solid #60a5fa; background: rgba(96, 165, 250, 0.14); pointer-events: none; display: none; z-index: 50; }
     .outputs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
     .text-block { white-space: normal; word-break: break-word; line-height: 1.5; }
@@ -2330,6 +2543,12 @@ class ChatCompareWebApp:
           <button id=\"clearBtn\" class=\"secondary\">Clear</button>
           <button id=\"barrierModeBtn\" class=\"secondary\" title=\"Click then click a CoT token to set a resample barrier\">&#9986; Barrier</button>
           <button id=\"resampleBtn\">Resample from barrier</button>
+          <button id=\"forceAnswerBtn\">Force answer</button>
+          <button id=\"probeTrajectoryBtn\" class=\"secondary\">Answer trajectory</button>
+        </div>
+        <div id=\"prefillWrap\">
+          <textarea id=\"prefillText\" placeholder=\"e.g. </think>  or  Wait, let me reconsider.\"></textarea>
+          <button id=\"prefillBtn\" class=\"secondary\">Generate with prefill</button>
         </div>
         <div class=\"small muted\" id=\"selectionInfo\" style=\"margin-top:8px\">No session yet.</div>
       </div>
@@ -2348,6 +2567,10 @@ class ChatCompareWebApp:
           <h3 style=\"margin-top:0\">Answer</h3>
           <div id=\"answerPreview\" class=\"text-block\" style=\"max-height:400px;overflow-y:auto\"></div>
         </div>
+      </div>
+      <div id=\"trajectoryPanel\" class=\"panel\" style=\"display:none\">
+        <h3 style=\"margin-top:0\">Answer Trajectory <span id=\"trajectoryInfo\" class=\"muted small\"></span></h3>
+        <div id=\"trajectoryTimeline\"></div>
       </div>
       <div id=\"chunkedPanel\" style=\"display:none\">
         <div style=\"display:grid;grid-template-columns:1fr 1fr;gap:12px\">
@@ -2770,6 +2993,8 @@ For your final answer, respond with "Answer: Yes" or "Answer: No" after the chai
             event.preventDefault();
             barrierTokenIndex = tokenIndex;
             document.getElementById('resampleBtn').style.display = '';
+            document.getElementById('forceAnswerBtn').style.display = '';
+            document.getElementById('prefillWrap').style.display = '';
             renderTokenRows();
             return;
           }
@@ -2846,6 +3071,8 @@ For your final answer, respond with "Answer: Yes" or "Answer: No" after the chai
         // Exiting barrier mode — clear barrier
         barrierTokenIndex = null;
         document.getElementById('resampleBtn').style.display = 'none';
+        document.getElementById('forceAnswerBtn').style.display = 'none';
+        document.getElementById('prefillWrap').style.display = 'none';
         renderTokenRows();
       }
     }
@@ -2854,6 +3081,8 @@ For your final answer, respond with "Answer: Yes" or "Answer: No" after the chai
       barrierMode = false;
       document.getElementById('barrierModeBtn').classList.remove('active');
       document.getElementById('resampleBtn').style.display = 'none';
+      document.getElementById('forceAnswerBtn').style.display = 'none';
+      document.getElementById('prefillWrap').style.display = 'none';
       renderTokenRows();
     }
     async function resampleFromBarrier() {
@@ -2885,6 +3114,100 @@ For your final answer, respond with "Answer: Yes" or "Answer: No" after the chai
         setStatus('Resample error: ' + e.message);
         setBusy(false);
       }
+    }
+    async function forceAnswerFromBarrier() {
+      if (barrierTokenIndex === null || !session) return;
+      setStatus('Forcing answer at barrier...');
+      setBusy(true, 'Forcing answer at barrier...', 15);
+      try {
+        const resp = await fetch('/api/force_answer', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ barrier_token_index: barrierTokenIndex }),
+        });
+        const data = await resp.json();
+        if (!resp.ok) { setStatus(data.detail || 'Force answer failed'); setBusy(false); return; }
+        document.getElementById('answerPreview').innerHTML =
+          '<div style=\"margin-bottom:6px;color:#60a5fa;font-size:12px\">Forced answer at token ' +
+          data.n_cot_tokens_used + '/' + data.n_cot_tokens_total + ' (' +
+          Math.round(100 * data.n_cot_tokens_used / data.n_cot_tokens_total) + '% through CoT)</div>' +
+          '<div>' + escapeHtml(data.forced_answer) + '</div>';
+        setStatus('Forced answer generated (read-only probe).');
+        setBusy(false);
+      } catch (e) {
+        setStatus('Force answer error: ' + e.message);
+        setBusy(false);
+      }
+    }
+    async function probeAnswerTrajectory() {
+      if (!session) return;
+      setStatus('Probing answer trajectory...');
+      setBusy(true, 'Probing answer trajectory...', 60);
+      try {
+        const resp = await fetch('/api/probe_answer_trajectory', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ n_points: 8 }),
+        });
+        const data = await resp.json();
+        if (!resp.ok) { setStatus(data.detail || 'Trajectory probe failed'); setBusy(false); return; }
+        const panel = document.getElementById('trajectoryPanel');
+        const timeline = document.getElementById('trajectoryTimeline');
+        const info = document.getElementById('trajectoryInfo');
+        panel.style.display = 'block';
+        info.textContent = data.trajectory.length + ' probe points';
+        timeline.innerHTML = '';
+        data.trajectory.forEach((pt, i) => {
+          const row = document.createElement('div');
+          row.className = 'trajectory-point' + (pt.fraction >= 1.0 ? ' final' : '');
+          row.innerHTML =
+            '<div class=\"trajectory-pct\">' + Math.round(pt.fraction * 100) + '%</div>' +
+            '<div class=\"trajectory-preview\" title=\"' + escapeHtml(pt.sentence_preview) + '\">' + escapeHtml(pt.sentence_preview) + '</div>' +
+            '<div class=\"trajectory-answer\">' + escapeHtml(pt.forced_answer) + '</div>';
+          timeline.appendChild(row);
+        });
+        setStatus('Answer trajectory complete.');
+        setBusy(false);
+      } catch (e) {
+        setStatus('Trajectory error: ' + e.message);
+        setBusy(false);
+      }
+    }
+    async function generateWithPrefill() {
+      if (barrierTokenIndex === null || !session) return;
+      const prefill = document.getElementById('prefillText').value;
+      if (!prefill.trim()) { setStatus('Enter prefill text first.'); return; }
+      const idx = barrierTokenIndex;
+      clearBarrier();
+      setStatus('Generating with prefill...');
+      setBusy(true, 'Generating with prefill...', 30);
+      try {
+        const resp = await fetch('/api/generate_with_prefill', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ barrier_token_index: idx, prefill_text: prefill }),
+        });
+        const data = await resp.json();
+        if (!resp.ok) { setStatus(data.detail || 'Prefill generation failed'); setBusy(false); return; }
+        data._resampledFromIndex = idx;
+        session = { ...session, ...data };
+        timelineIndex = data.timeline_index;
+        timelineLength = data.timeline_length;
+        document.getElementById('cotPreview').textContent = session.cot_text || '(no CoT)';
+        document.getElementById('answerPreview').textContent = session.answer_text || '(no answer)';
+        selectAll();
+        renderTokenRows();
+        setStatus('Generated with prefill. Use timeline arrows to navigate versions.');
+        setBusy(false);
+      } catch (e) {
+        setStatus('Prefill error: ' + e.message);
+        setBusy(false);
+      }
+    }
+    function escapeHtml(s) {
+      const d = document.createElement('div');
+      d.textContent = s;
+      return d.innerHTML;
     }
     function updateTimelineBar() {
       const bar = document.getElementById('timelineBar');
@@ -3100,6 +3423,7 @@ For your final answer, respond with "Answer: Yes" or "Answer: No" after the chai
       tagPills.innerHTML = session.layers.map(layer => `<span class=\"pill\">Layer ${layer}</span>`).join('');
       // Reset barrier/timeline on new generation
       clearBarrier();
+      document.getElementById('trajectoryPanel').style.display = 'none';
       timelineIndex = 0;
       timelineLength = 1;
       selectAll();
@@ -3306,6 +3630,9 @@ For your final answer, respond with "Answer: Yes" or "Answer: No" after the chai
     document.getElementById('clearBtn').addEventListener('click', clearSelection);
     document.getElementById('barrierModeBtn').addEventListener('click', toggleBarrierMode);
     document.getElementById('resampleBtn').addEventListener('click', resampleFromBarrier);
+    document.getElementById('forceAnswerBtn').addEventListener('click', forceAnswerFromBarrier);
+    document.getElementById('probeTrajectoryBtn').addEventListener('click', probeAnswerTrajectory);
+    document.getElementById('prefillBtn').addEventListener('click', generateWithPrefill);
     document.getElementById('timelinePrev').addEventListener('click', () => timelineNav(-1));
     document.getElementById('timelineNext').addEventListener('click', () => timelineNav(1));
     window.addEventListener('mousemove', event => {
