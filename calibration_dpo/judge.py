@@ -49,15 +49,25 @@ incomplete thoughts, garbled output, or failing to address all parts of a \
 multi-part question (e.g. if two questions were asked but only one was \
 answered). If so, set "malformed": true and provide a "reformatted" version \
 that preserves the exact same content but fixes the formatting.
-2. Flag if the response is vague — uses only generic statements that could \
-apply to any reasoning (e.g. "the model is thinking about the problem") \
-without specific details about WHAT is being thought about, computed, or \
-concluded. Set "vague": true if the response lacks concrete specifics. \
-Pay special attention to the oracle prompt — if it asks for something \
+2. Flag if the response is low-insight. Set "vague": true if ANY of these apply: \
+(a) Generic/vague — uses only statements that could apply to any reasoning \
+(e.g. "the model is thinking about the problem") without specific details \
+about WHAT is being thought about, computed, or concluded. \
+(b) Text echoing — merely restates words or phrases that are visible in the \
+nearby chain of thought without adding any deeper interpretation. The oracle \
+reads activations, not text — a useful response should describe computational \
+state (what operation is being performed, what intermediate value is being \
+tracked, what strategy shift is happening) rather than just parroting surface \
+text. For example, if the CoT says "let me try modular arithmetic" and the \
+oracle says "the model is thinking about modular arithmetic", that is text \
+echoing and should be flagged. A better response would be "the model is \
+switching from direct computation to a modular arithmetic approach to simplify \
+the problem." \
+(c) Fails to address the prompt — if the oracle prompt asks for something \
 specific (e.g. "What numbers is the model working with?") and the response \
-gives only generic commentary without addressing the actual question, that \
-is vague. If the prompt ends with "Be specific." then vagueness should be \
-flagged more aggressively — the response must contain concrete details.
+gives only generic commentary without addressing the actual question. \
+If the prompt ends with "Be specific." then flag vagueness more aggressively \
+— the response must contain concrete, non-obvious details.
 
 For "mixed" responses, provide a minimal "correction" — change as few words as \
 possible to fix the inaccurate parts while keeping everything else verbatim. \
