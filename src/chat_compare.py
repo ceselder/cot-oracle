@@ -423,7 +423,7 @@ def query_original_ao(model, tokenizer, acts_l50, prompt, model_name, injection_
     dtype = torch.bfloat16
     num_positions = acts_l50.shape[0]
     act_layer = layer_percent_to_layer(model_name, 50)
-    prefix = f"L{act_layer}:" + SPECIAL_TOKEN * num_positions + "\n"
+    prefix = f"L{act_layer}:" + SPECIAL_TOKEN * num_positions + ".\n"
     full_prompt = prefix + prompt
     label_len = len(f"L{act_layer}:")
     relative_spans = [(label_len + i * len(SPECIAL_TOKEN), label_len + (i + 1) * len(SPECIAL_TOKEN)) for i in range(num_positions)]
@@ -465,7 +465,7 @@ def query_trained_oracle(model, tokenizer, selected_acts, prompt, selected_layer
             prefix += TRAINED_PLACEHOLDER
             cursor += len(TRAINED_PLACEHOLDER)
             relative_spans.append((start, cursor))
-    prefix += "\n"
+    prefix += ".\n"
     full_prompt = prefix + prompt
     input_ids, positions = encode_prompt_with_positions(tokenizer, full_prompt, relative_spans)
     input_tensor = torch.tensor([input_ids], device=get_model_input_device(model))
@@ -1523,12 +1523,13 @@ class ChatCompareWebApp:
         self._progress_status = f"Generating CoT with {organism_info['label']}..."
 
         try:
-            # Generate CoT
+            # Generate CoT — force enable_thinking=False for full models
+            # (Qwen3-8B thinking mode generates 4K-8K+ <think> tokens without closing)
             messages = [{"role": "user", "content": question}]
-            formatted = self.tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True, enable_thinking=enable_thinking)
+            formatted = self.tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True, enable_thinking=False)
             inputs = self.tokenizer(formatted, return_tensors="pt").to(get_model_input_device(organism_model))
             with torch.no_grad():
-                output = organism_model.generate(**inputs, max_new_tokens=16384, do_sample=False)
+                output = organism_model.generate(**inputs, max_new_tokens=4096, do_sample=False)
             cot_response = self.tokenizer.decode(output[0][inputs["input_ids"].shape[1]:], skip_special_tokens=False)
             full_text = formatted + cot_response
             cot_text, answer_text = split_cot_answer(cot_response)
