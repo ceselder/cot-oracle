@@ -5,6 +5,10 @@ Evaluate hallucination detection: Oracle vs Adam's AO.
 Loads test split from HF, runs both our trained oracle and Adam's pretrained AO
 on each item, extracts hallucinated/factual logit-diff scores, and plots ROC curves.
 
+Key design: activations are extracted only from "claim sentences" in the CoT —
+sentences that assert facts, not meta-reasoning like "Let me think..." or "Wait...".
+Every token in a claim sentence gets its activation extracted (no stride subsampling).
+
 Usage (on GPU machine):
     cd /root/cot-oracle
     export HF_TOKEN=hf_...
@@ -19,6 +23,7 @@ Usage (on GPU machine):
 import argparse
 import json
 import os
+import re
 import sys
 import time
 
@@ -26,7 +31,6 @@ os.environ.setdefault("TORCHDYNAMO_DISABLE", "1")
 os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")
 
 import torch
-import torch.nn.functional as F
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "ao_reference"))
@@ -36,7 +40,6 @@ from core.ao import (
     SPECIAL_TOKEN,
     TRAINED_PLACEHOLDER,
     add_hook,
-    collect_activations,
     get_hf_submodule,
     get_steering_hook,
     load_model_with_ao,
@@ -48,12 +51,36 @@ MODEL_NAME = "Qwen/Qwen3-8B"
 OUR_LAYERS = [9, 18, 27]
 ADAM_LAYER = 18
 INJECTION_LAYER = 1
-STRIDE = 5
 HF_REPO = "ceselder/cot-oracle-hallucination-detection"
 
 # Oracle prompts
 OUR_PROMPT = "Is the model's reasoning factually accurate, or does it contain hallucinated information?"
 ADAM_PROMPT = "Is the model's reasoning factually accurate, or does it contain hallucinated information?"
+
+# Patterns that indicate meta-reasoning (NOT factual claims)
+META_PATTERNS = re.compile(
+    r"^("
+    r"(let me|i need to|i should|i('ll| will)|i think|i recall|i remember|i believe|"
+    r"i'm |i am |i don't|i can|i want|i have to|"
+    r"let's|we need|we should|we can|"
+    r"hmm|hm+|okay|ok |ok,|alright|well,|well |so,|so |"
+    r"wait|actually,|actually |hold on|now,|now |"
+    r"first,|second,|third,|next,|then,|finally,|"
+    r"to (answer|solve|figure|determine|find|calculate|check|verify|address|approach)|"
+    r"looking at|thinking about|considering|given that|"
+    r"this (means|suggests|implies|indicates|is|seems|looks)|"
+    r"that (means|suggests|implies|indicates|is|seems|looks)|"
+    r"so the (answer|result|solution|conclusion)|"
+    r"in (summary|conclusion|short)|to summarize|overall|"
+    r"the (question|problem|task|prompt) (is|asks|wants)|"
+    r"let me (think|consider|recall|check|verify|look|break|start|try|see|go|review|reconsider|re-examine)"
+    r")"
+    r")",
+    re.IGNORECASE,
+)
+
+# Short sentences are usually transitions, not claims
+MIN_CLAIM_CHARS = 30
 
 
 def load_test_data(max_items: int = 0) -> list[dict]:
@@ -80,54 +107,117 @@ def load_test_data(max_items: int = 0) -> list[dict]:
     return items
 
 
-def tokenize_cot(tokenizer, cot_text: str) -> list[int]:
-    """Tokenize a CoT text for activation extraction (raw text, no chat template)."""
-    return tokenizer.encode(cot_text, add_special_tokens=False)
+def split_sentences(text: str) -> list[str]:
+    """Split text into sentences. Handles common abbreviations."""
+    # Split on sentence-ending punctuation followed by space+uppercase or newline
+    parts = re.split(r'(?<=[.!?])\s+(?=[A-Z\n])|(?<=\n)\s*(?=\S)', text)
+    # Also split on double newlines
+    result = []
+    for p in parts:
+        if '\n\n' in p:
+            result.extend(s.strip() for s in p.split('\n\n') if s.strip())
+        else:
+            if p.strip():
+                result.append(p.strip())
+    return result
 
 
-def get_stride_positions(prompt_token_count: int, total_token_count: int) -> list[int]:
-    """Compute stride-5 positions over CoT region."""
-    positions = list(range(prompt_token_count, total_token_count, STRIDE))
-    # Always include last token
-    last = total_token_count - 1
-    if not positions or positions[-1] != last:
-        positions.append(last)
-    return positions
+def is_claim_sentence(sentence: str) -> bool:
+    """Return True if a sentence asserts factual content (not meta-reasoning)."""
+    s = sentence.strip()
+    if len(s) < MIN_CLAIM_CHARS:
+        return False
+    if META_PATTERNS.search(s):
+        return False
+    return True
 
 
-def extract_activations_single_layer(
-    model, tokenizer, input_ids: list[int], positions: list[int], layer: int, device: str
+def get_claim_positions(
+    tokenizer, question: str, cot_text: str
+) -> tuple[list[int], list[int], int, int]:
+    """Chat-template [user: question][assistant: cot_text], find token positions
+    for claim sentences in the CoT.
+
+    Returns:
+        (input_ids, claim_positions, n_claims, n_total_sentences)
+        claim_positions: list of token indices corresponding to claim sentences
+    """
+    # Build the chat-templated text
+    messages = [
+        {"role": "user", "content": question},
+        {"role": "assistant", "content": cot_text},
+    ]
+    formatted = tokenizer.apply_chat_template(
+        messages, tokenize=False, add_generation_prompt=False, enable_thinking=False,
+    )
+
+    # Tokenize with offset mapping so we can map character spans → token indices
+    encoded = tokenizer(formatted, add_special_tokens=False, return_offsets_mapping=True)
+    input_ids = encoded["input_ids"]
+    offsets = encoded["offset_mapping"]  # list of (char_start, char_end) per token
+
+    # Find where cot_text appears in the formatted string
+    cot_start_char = formatted.find(cot_text)
+    if cot_start_char == -1:
+        # Fallback: try to find it approximately (chat template may add whitespace)
+        # Use the assistant content which should appear after the last assistant header
+        cot_start_char = formatted.rfind(cot_text[:50])
+        if cot_start_char == -1:
+            # Last resort: assume CoT is in the latter half
+            cot_start_char = len(formatted) // 2
+    cot_end_char = cot_start_char + len(cot_text)
+
+    # Split CoT into sentences and classify
+    sentences = split_sentences(cot_text)
+    n_total = len(sentences)
+
+    # For each claim sentence, find its character span within formatted text,
+    # then map to token positions
+    claim_positions = []
+    n_claims = 0
+    search_from = cot_start_char
+
+    for sentence in sentences:
+        # Find this sentence in the formatted text
+        sent_start = formatted.find(sentence, search_from)
+        if sent_start == -1:
+            # Try partial match (first 40 chars)
+            sent_start = formatted.find(sentence[:40], search_from)
+            if sent_start == -1:
+                continue
+        sent_end = sent_start + len(sentence)
+        search_from = sent_start + 1  # advance for next search
+
+        if not is_claim_sentence(sentence):
+            continue
+
+        n_claims += 1
+
+        # Map character span to token indices
+        for tok_idx, (ts, te) in enumerate(offsets):
+            if te > sent_start and ts < sent_end:
+                claim_positions.append(tok_idx)
+
+    # Deduplicate and sort
+    claim_positions = sorted(set(claim_positions))
+
+    return input_ids, claim_positions, n_claims, n_total
+
+
+def extract_activations_at_positions(
+    model, input_ids: list[int], positions: list[int],
+    layers: list[int], device: str,
 ) -> torch.Tensor:
-    """Extract activations at stride positions for one layer. Returns [K, D]."""
-    input_tensor = torch.tensor([input_ids], dtype=torch.long, device=device)
-    attn_mask = torch.ones_like(input_tensor)
+    """Extract activations at given positions for multiple layers.
 
-    submodule = get_hf_submodule(model, layer, use_lora=True)
-    submodules = {layer: submodule}
-
-    with model.disable_adapter():
-        acts_by_layer = collect_activations_multiple_layers(
-            model=model,
-            submodules=submodules,
-            inputs_BL={"input_ids": input_tensor, "attention_mask": attn_mask},
-            min_offset=None,
-            max_offset=None,
-        )
-
-    acts_BLD = acts_by_layer[layer]  # [1, L, D]
-    return acts_BLD[0, positions, :].detach()  # [K, D]
-
-
-def extract_activations_multi_layer(
-    model, tokenizer, input_ids: list[int], positions: list[int], layers: list[int], device: str
-) -> torch.Tensor:
-    """Extract activations at stride positions for multiple layers. Returns [K*N, D]."""
+    Returns [K * N_layers, D] — K positions per layer, concatenated.
+    """
     input_tensor = torch.tensor([input_ids], dtype=torch.long, device=device)
     attn_mask = torch.ones_like(input_tensor)
 
     submodules = {layer: get_hf_submodule(model, layer, use_lora=True) for layer in layers}
 
-    with model.disable_adapter():
+    with using_adapter(model, None):
         acts_by_layer = collect_activations_multiple_layers(
             model=model,
             submodules=submodules,
@@ -147,36 +237,56 @@ def extract_activations_multi_layer(
 def build_prefix_and_find_positions(
     tokenizer, num_positions: int, layers: list[int] | int, ph_token: str, oracle_prompt: str
 ) -> tuple[list[int], list[int]]:
-    """Build oracle prompt with placeholders, tokenize, find placeholder positions.
+    """Build oracle prompt with placeholders via direct token ID insertion.
 
-    Returns (input_ids, placeholder_positions).
+    Avoids BPE boundary merges by inserting ph_id directly rather than encoding
+    the placeholder string. Mirrors _build_manual_prefix_token_ids in eval_loop.py.
     """
+    ph_id_list = tokenizer.encode(ph_token, add_special_tokens=False)
+    assert len(ph_id_list) == 1, f"Expected single token for '{ph_token}', got {len(ph_id_list)}"
+    ph_id = ph_id_list[0]
+
     if isinstance(layers, (list, tuple)):
-        N = len(layers)
+        prefix_layers = list(layers)
+        N = len(prefix_layers)
         K = num_positions // N
         assert K * N == num_positions, f"num_positions={num_positions} not divisible by {N} layers"
-        parts = [f"L{l}:" + ph_token * K for l in layers]
-        prefix = " ".join(parts) + "\n"
+        block_sizes = [K] * N
     else:
-        prefix = f"L{layers}:" + ph_token * num_positions + "\n"
+        prefix_layers = [layers]
+        block_sizes = [num_positions]
 
-    full_prompt = prefix + oracle_prompt
-    messages = [{"role": "user", "content": full_prompt}]
+    # Build prefix token IDs manually (no BPE merges on placeholders)
+    prefix_ids: list[int] = []
+    positions: list[int] = []
+    for i, (layer_idx, block_size) in enumerate(zip(prefix_layers, block_sizes)):
+        label = f"L{layer_idx}:"
+        if i > 0:
+            label = " " + label
+        prefix_ids.extend(tokenizer.encode(label, add_special_tokens=False))
+        positions.extend(range(len(prefix_ids), len(prefix_ids) + block_size))
+        prefix_ids.extend([ph_id] * block_size)
+    prefix_ids.extend(tokenizer.encode("\n", add_special_tokens=False))
+
+    # Build the rest of the prompt (oracle question + chat template wrapping)
+    prompt_text = oracle_prompt
+    messages = [{"role": "user", "content": "PLACEHOLDER"}]
     formatted = tokenizer.apply_chat_template(
         messages, tokenize=False, add_generation_prompt=True, enable_thinking=False,
     )
-    input_ids = tokenizer.encode(formatted, add_special_tokens=False)
+    # Split on PLACEHOLDER to get header/footer tokens
+    before, after = formatted.split("PLACEHOLDER", 1)
+    header_ids = tokenizer.encode(before, add_special_tokens=False)
+    prompt_ids = tokenizer.encode(prompt_text, add_special_tokens=False)
+    footer_ids = tokenizer.encode(after, add_special_tokens=False)
 
-    ph_id = tokenizer.encode(ph_token, add_special_tokens=False)
-    assert len(ph_id) == 1, f"Expected single token for '{ph_token}', got {len(ph_id)}"
-    ph_id = ph_id[0]
+    # Adjust positions for header offset
+    positions = [p + len(header_ids) for p in positions]
 
-    positions = []
-    for i, tid in enumerate(input_ids):
-        if tid == ph_id and len(positions) < num_positions:
-            positions.append(i)
+    input_ids = header_ids + prefix_ids + prompt_ids + footer_ids
+
     assert len(positions) == num_positions, (
-        f"Found {len(positions)} placeholder positions, expected {num_positions}"
+        f"Built {len(positions)} positions, expected {num_positions}"
     )
     return input_ids, positions
 
@@ -197,12 +307,8 @@ def score_item_with_oracle(
     )
 
     # Resolve answer token IDs
-    # Try "hallucinated" and "factual" first tokens
     hall_id = tokenizer.encode("hallucinated", add_special_tokens=False)[0]
     fact_id = tokenizer.encode("factual", add_special_tokens=False)[0]
-    # Also try Yes/No as fallback
-    yes_id = tokenizer.encode("Yes", add_special_tokens=False)[0]
-    no_id = tokenizer.encode("No", add_special_tokens=False)[0]
 
     input_tensor = torch.tensor([input_ids], device=device)
     attn_mask = torch.ones_like(input_tensor)
@@ -227,8 +333,6 @@ def score_item_with_oracle(
         outputs = model(input_ids=input_tensor, attention_mask=attn_mask)
 
     logits = outputs.logits[0, -1, :].float()  # [vocab_size]
-
-    # Primary: hallucinated vs factual first-token logit diff
     score = (logits[hall_id] - logits[fact_id]).item()
 
     return score
@@ -238,6 +342,7 @@ def score_item_with_oracle(
 def run_evaluation(
     model, tokenizer, test_data: list[dict],
     our_adapter: str, device: str,
+    max_positions_per_layer: int = 300,
 ) -> dict:
     """Run both oracle and Adam's AO on all test items."""
     model.eval()
@@ -246,34 +351,42 @@ def run_evaluation(
     adam_scores = []
     labels = []  # 1 = hallucinated, 0 = factual
     skipped = 0
+    claim_stats = []
 
     for i, item in enumerate(test_data):
         cot_text = item["cot_text"]
+        question = item["question"]
         label = 1 if item["label"] == "hallucinated" else 0
 
-        # Tokenize the CoT
-        input_ids = tokenize_cot(tokenizer, cot_text)
-        if len(input_ids) < STRIDE + 1:
+        # Get claim-sentence positions from chat-templated input
+        input_ids, claim_positions, n_claims, n_total = get_claim_positions(
+            tokenizer, question, cot_text
+        )
+
+        if len(claim_positions) < 3:
+            print(f"  [{i}] Only {len(claim_positions)} claim tokens "
+                  f"({n_claims}/{n_total} sentences) — skipping")
             skipped += 1
             continue
 
-        # Get stride positions (treat position 0 as "prompt" start since raw CoT has no prompt)
-        positions = list(range(0, len(input_ids), STRIDE))
-        last = len(input_ids) - 1
-        if not positions or positions[-1] != last:
-            positions.append(last)
+        # Cap positions to avoid OOM on the oracle prompt
+        if len(claim_positions) > max_positions_per_layer:
+            import numpy as np
+            indices = np.linspace(0, len(claim_positions) - 1,
+                                  max_positions_per_layer, dtype=int)
+            claim_positions = [claim_positions[j] for j in indices]
 
-        if len(positions) < 1:
-            skipped += 1
-            continue
+        claim_stats.append((n_claims, n_total, len(claim_positions)))
 
-        # Extract activations (multi-layer for ours, single-layer for Adam's)
+        # Extract activations at claim positions
         try:
-            acts_multi = extract_activations_multi_layer(
-                model, tokenizer, input_ids, positions, OUR_LAYERS, device
+            # Multi-layer for our oracle
+            acts_multi = extract_activations_at_positions(
+                model, input_ids, claim_positions, OUR_LAYERS, device
             )
-            acts_single = extract_activations_single_layer(
-                model, tokenizer, input_ids, positions, ADAM_LAYER, device
+            # Single layer for Adam's AO
+            acts_single = extract_activations_at_positions(
+                model, input_ids, claim_positions, [ADAM_LAYER], device
             )
         except Exception as e:
             print(f"  [{i}] Activation extraction failed: {e}")
@@ -298,7 +411,7 @@ def run_evaluation(
             adam_score = score_item_with_oracle(
                 model, tokenizer, acts_single,
                 layers=ADAM_LAYER, oracle_prompt=ADAM_PROMPT,
-                ph_token=SPECIAL_TOKEN, adapter_name=None,  # auto-detect AO adapter
+                ph_token=SPECIAL_TOKEN, adapter_name=None,
                 device=device,
             )
         except Exception as e:
@@ -312,9 +425,18 @@ def run_evaluation(
 
         if (i + 1) % 10 == 0 or i == 0:
             print(f"  [{i+1}/{len(test_data)}] label={item['label']}, "
+                  f"claims={n_claims}/{n_total} sents, "
+                  f"pos={len(claim_positions)}, "
                   f"our={our_score:.3f}, adam={adam_score:.3f}")
 
     print(f"\nProcessed {len(labels)} items, skipped {skipped}")
+    if claim_stats:
+        avg_claims = sum(c for c, _, _ in claim_stats) / len(claim_stats)
+        avg_total = sum(t for _, t, _ in claim_stats) / len(claim_stats)
+        avg_pos = sum(p for _, _, p in claim_stats) / len(claim_stats)
+        print(f"Claim stats: avg {avg_claims:.1f}/{avg_total:.1f} sentences, "
+              f"{avg_pos:.0f} tokens per item")
+
     return {
         "our_scores": our_scores,
         "adam_scores": adam_scores,
@@ -393,6 +515,8 @@ def main():
                         help="HF repo or local path for our oracle adapter")
     parser.add_argument("--max-items", type=int, default=0,
                         help="Max test items (0 = all)")
+    parser.add_argument("--max-positions", type=int, default=300,
+                        help="Max claim-token positions per layer (default 300)")
     parser.add_argument("--output", type=str, default="data/hallucination_auroc.png",
                         help="Output path for ROC plot")
     parser.add_argument("--device", type=str, default="cuda")
@@ -417,12 +541,19 @@ def main():
             args.checkpoint,
             adapter_name=our_adapter_name,
             is_trainable=False,
-            low_cpu_mem_usage=True,
         )
+    # Ensure ALL adapter params are on GPU (low_cpu_mem_usage can leave them on CPU)
+    target_device = next(model.base_model.parameters()).device
+    for name, param in model.named_parameters():
+        if param.device.type == "cpu":
+            param.data = param.data.to(target_device)
 
     print(f"\nRunning evaluation...")
     t0 = time.time()
-    results = run_evaluation(model, tokenizer, test_data, our_adapter_name, args.device)
+    results = run_evaluation(
+        model, tokenizer, test_data, our_adapter_name, args.device,
+        max_positions_per_layer=args.max_positions,
+    )
     elapsed = time.time() - t0
     print(f"Evaluation took {elapsed:.1f}s")
 
