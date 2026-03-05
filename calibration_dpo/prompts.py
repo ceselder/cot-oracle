@@ -239,16 +239,28 @@ def _make_compound(rng: random.Random) -> str:
     return q1 + connector + q2[0].lower() + q2[1:]
 
 
-def sample_prompt(rng: random.Random | None = None) -> str:
+SPECIFICITY_SUFFIX = " Be specific."
+
+
+def sample_prompt(rng: random.Random | None = None, force_specific: bool | None = None) -> str:
     """Sample a random oracle prompt.
 
     ~25% chance of a compound (multi-part) prompt to train
     instruction following on multi-question inputs.
+
+    ~50% chance of appending "Be specific." — when present, the model
+    should give maximally detailed answers (no refusal DPO pairs).
     """
     r = rng or random
     if r.random() < 0.25:
-        return _make_compound(r)
-    return r.choice(SINGLE_PROMPTS)
+        base = _make_compound(r)
+    else:
+        base = r.choice(SINGLE_PROMPTS)
+
+    be_specific = force_specific if force_specific is not None else (r.random() < 0.5)
+    if be_specific:
+        base += SPECIFICITY_SUFFIX
+    return base
 
 
 def sample_refusal(rng: random.Random | None = None) -> str:

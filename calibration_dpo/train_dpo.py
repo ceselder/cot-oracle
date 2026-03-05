@@ -43,7 +43,7 @@ from activations import extract_activations
 from data_sampler import CoTSampler
 from dpo_loss import DPOBatchItem, SFTItem, compute_dpo_loss, compute_sft_loss
 from judge import JudgeResult, RolloutRating, judge_batch
-from prompts import REFUSAL_PARAPHRASES, sample_prompt, sample_refusal
+from prompts import REFUSAL_PARAPHRASES, SPECIFICITY_SUFFIX, sample_prompt, sample_refusal
 from rollouts import generate_rollouts, _build_manual_prefix_token_ids, _build_oracle_prefix
 
 
@@ -175,6 +175,8 @@ def build_dpo_items(
     dpo_items = []
     sft_items = []
 
+    be_specific = oracle_prompt.endswith(SPECIFICITY_SUFFIX)
+
     # Map ratings by index
     rating_map: dict[int, RolloutRating] = {}
     for r in judge_result.ratings:
@@ -186,6 +188,7 @@ def build_dpo_items(
     )
 
     # If ALL rollouts are bad, skip DPO entirely — just do SFT on refusal
+    # (unless "be specific" mode — then still SFT on ideal, skip refusal SFT)
     if not all_bad:
         for i, rollout_text in enumerate(rollouts):
             rating = rating_map.get(i + 1)
@@ -237,6 +240,9 @@ def build_dpo_items(
                     ))
 
             elif rating.rating == "bad":
+                # Skip refusal pairs in "be specific" mode — we asked for detail
+                if be_specific:
+                    continue
                 # Refusal > bad rollout (capped to avoid overwhelming signal)
                 n_refusal_pairs = sum(1 for d in dpo_items if d.label == "refusal>model")
                 if n_refusal_pairs >= max_refusal_pairs:
@@ -292,8 +298,8 @@ def build_dpo_items(
             weight=weight,
         ))
 
-    # Extra refusal SFT if all bad
-    if all_bad:
+    # Extra refusal SFT if all bad (skip in "be specific" mode)
+    if all_bad and not be_specific:
         refusal = sample_refusal(rng)
         ref_ids, ref_labels = _make_full_ids(refusal)
         sft_items.append(SFTItem(
