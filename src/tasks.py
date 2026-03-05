@@ -74,7 +74,7 @@ TASKS: dict[str, TaskDef] = {
 
     "atypical_answer": TaskDef(
         name="atypical_answer",
-        hf_repo=f"{HF_ORG}/cot-oracle-atypical-answer-cleaned",
+        hf_repo="japhba/cot-oracle-atypical-answer",
         scoring=ScoringMode.BINARY,
         positive_keywords=("majority", "typical", "common", "expected"),
         negative_keywords=("minority", "atypical", "uncommon", "unusual", "unexpected"),
@@ -88,7 +88,7 @@ TASKS: dict[str, TaskDef] = {
 
     "reasoning_termination": TaskDef(
         name="reasoning_termination",
-        hf_repo=f"{HF_ORG}/cot-oracle-reasoning-termination-cleaned",
+        hf_repo="japhba/cot-oracle-reasoning-termination",
         scoring=ScoringMode.BINARY,
         positive_keywords=(
             "yes", "will terminate", "will stop", "will end",
@@ -109,7 +109,7 @@ TASKS: dict[str, TaskDef] = {
 
     "answer_trajectory": TaskDef(
         name="answer_trajectory",
-        hf_repo=f"{HF_ORG}/cot-oracle-answer-trajectory-cleaned",
+        hf_repo="japhba/cot-oracle-answer-trajectory",
         scoring=ScoringMode.TOKEN_F1,
         positive_keywords=(),
         negative_keywords=(),
@@ -185,6 +185,28 @@ TASKS: dict[str, TaskDef] = {
         trainable=True,
         default_n=468,
         max_new_tokens=256,
+    ),
+
+    "convqa": TaskDef(
+        name="convqa",
+        hf_repo=f"{HF_ORG}/cot-oracle-convqa",
+        scoring=ScoringMode.TOKEN_F1,
+        positive_keywords=(),
+        negative_keywords=(),
+        trainable=True,
+        default_n=25000,
+        max_new_tokens=128,
+    ),
+
+    "compqa": TaskDef(
+        name="compqa",
+        hf_repo=f"{HF_ORG}/cot-oracle-compqa",
+        scoring=ScoringMode.TOKEN_F1,
+        positive_keywords=(),
+        negative_keywords=(),
+        trainable=True,
+        default_n=8000,
+        max_new_tokens=128,
     ),
 
     "chunked_convqa": TaskDef(
@@ -382,6 +404,27 @@ TASKS: dict[str, TaskDef] = {
         positive_keywords=(),
         negative_keywords=(),
         trainable=False,
+        max_new_tokens=150,
+    ),
+
+    "cot_metacognition": TaskDef(
+        name="cot_metacognition",
+        hf_repo=f"{HF_ORG}/cot-oracle-eval-cot-metacognition",
+        scoring=ScoringMode.LLM_JUDGE,
+        positive_keywords=(),
+        negative_keywords=(),
+        trainable=False,
+        max_new_tokens=150,
+    ),
+
+    "sae_unverbalized": TaskDef(
+        name="sae_unverbalized",
+        hf_repo=f"{HF_ORG}/cot-oracle-sae-unverbalized",
+        scoring=ScoringMode.LLM_JUDGE,
+        positive_keywords=(),
+        negative_keywords=(),
+        trainable=True,
+        default_n=15000,
         max_new_tokens=150,
     ),
 

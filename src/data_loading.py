@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 import os
+import pickle
 import random
 from pathlib import Path
 from typing import Generator
@@ -29,6 +30,8 @@ _DEFAULT_PROMPTS: dict[str, str] = {
     "probe_sycophancy": "Is there sycophancy signal at this point in the reasoning?",
     "sentence_insertion": "Was a sentence inserted into this reasoning that doesn't belong? If yes, reproduce it exactly. If no, respond 'none'.",
     "cot_description": "Based on the model's activations, describe what the model is reasoning about. Include specific details such as names, numbers, and relationships.",
+    "cot_metacognition": "Describe the model's metacognitive state at this point in its reasoning. What is the model thinking about its own reasoning process?",
+    "sae_unverbalized": "Is there anything in the activations that is not verbalized in the CoT?",
 }
 
 
@@ -103,6 +106,15 @@ def load_task_data(
             # (e.g. chunked_convqa/compqa use cot_prefix for activations)
             if task_def.cot_field != "cot_text" and task_def.cot_field in item:
                 item["cot_text"] = item[task_def.cot_field]
+            # Map meta fields → standard fields (eval datasets with non-standard schemas)
+            if "cot_text" not in item and "meta_spliced_cot_text" in item:
+                item["cot_text"] = item["meta_spliced_cot_text"]
+            if "cot_text" not in item and "meta_cot_text" in item:
+                item["cot_text"] = item["meta_cot_text"]
+            if "question" not in item and "test_prompt" in item:
+                item["question"] = item["test_prompt"]
+            if "target_response" not in item and "meta_oracle_target" in item:
+                item["target_response"] = str(item["meta_oracle_target"])
             data.append(item)
 
     if n is not None and len(data) > n:
@@ -222,12 +234,19 @@ def prepare_context_ids(
     fingerprint = _tok_cache_fingerprint(items_to_tok, tokenizer, layers)
     cache_dir = _HF_CACHE_DIR / "_tok_cache"
     cache_dir.mkdir(parents=True, exist_ok=True)
-    cache_path = cache_dir / f"{fingerprint}.json"
+    cache_path = cache_dir / f"{fingerprint}.pkl"
+    json_cache_path = cache_dir / f"{fingerprint}.json"
 
-    if cache_path.exists():
-        print(f"  [data] Loading tokenization cache ({len(need_tokenize)} items) from {cache_path.name}...")
-        with open(cache_path) as f:
-            cached = json.load(f)
+    # Load from pickle cache (preferred) or legacy JSON cache
+    _load_path = cache_path if cache_path.exists() else json_cache_path if json_cache_path.exists() else None
+    if _load_path is not None:
+        print(f"  [data] Loading tokenization cache ({len(need_tokenize)} items) from {_load_path.name}...")
+        if _load_path.suffix == ".pkl":
+            with open(_load_path, "rb") as f:
+                cached = pickle.load(f)
+        else:
+            with open(_load_path) as f:
+                cached = json.load(f)
         assert len(cached) == len(need_tokenize), (
             f"Cache size mismatch: {len(cached)} vs {len(need_tokenize)}"
         )
@@ -300,13 +319,13 @@ def prepare_context_ids(
         print(f"  [data] Tokenized cot_text → context_input_ids for {prepared} items "
               f"(all positions, {n_layers} layers)")
 
-    # Save cache (atomic write via temp file + rename)
+    # Save cache (atomic write via temp file + rename, pickle for ~5x smaller files)
     for i, entry in enumerate(cache_entries):
         if entry is None:
             cache_entries[i] = {"context_input_ids": [], "context_positions": [], "num_positions": 0, "layer": layers[0]}
     tmp_path = cache_path.with_suffix(f".tmp.{os.getpid()}")
-    with open(tmp_path, "w") as f:
-        json.dump(cache_entries, f)
+    with open(tmp_path, "wb") as f:
+        pickle.dump(cache_entries, f, protocol=pickle.HIGHEST_PROTOCOL)
     tmp_path.rename(cache_path)
     print(f"  [data] Saved tokenization cache to {cache_path.name}")
 

@@ -39,15 +39,17 @@ SRC_DIR = ROOT / "src"
 sys.path.insert(0, str(SRC_DIR))
 
 import torch
+import torch.nn.functional as F
 from peft import LoraConfig, PeftModel, get_peft_model, prepare_model_for_kbit_training
 from tqdm.auto import tqdm
 from transformers import AutoModelForCausalLM, BitsAndBytesConfig
 
 import cot_utils
 import train as train_module
-from data_loading import load_futurelens_data, load_task_data, prepare_context_ids
+from data_loading import load_futurelens_data, load_pastlens_data, load_task_data, prepare_context_ids
 from nl_probes.utils.dataset_utils import TrainingDataPoint, construct_batch, create_training_datapoint
 from nl_probes.utils.activation_utils import get_hf_submodule
+from nl_probes.utils.steering_hooks import add_hook, get_hf_activation_steering_hook
 from tasks import get_eval_tasks, get_trainable_tasks
 
 
@@ -106,7 +108,6 @@ def _configure_runtime(args) -> list[int]:
     train_module.NO_ACTIVATIONS = False
     train_module.RANDOM_LAYERS = False
     train_module.LAYER_DROPOUT = False
-    train_module.NOISE_ACTIVATIONS = False
     train_module._MODEL_N_LAYERS = cot_utils.LAYER_COUNTS[args.model]
     if args.layers:
         layers = [int(layer) for layer in args.layers]
@@ -116,15 +117,11 @@ def _configure_runtime(args) -> list[int]:
         layers = [cot_utils.layer_percent_to_layer(args.model, pct) for pct in percents]
     train_module.MULTI_LAYERS = list(layers)
     cot_utils.CONFIGURED_LAYERS = list(layers)
-    train_module._PE_CONFIG["enabled"] = bool(args.position_encoding)
-    train_module._PE_CONFIG["alpha"] = float(args.pe_alpha)
-    train_module._POOLING_MODE = args.pooling_mode
-    train_module._LAYER_POOL = bool(args.layer_pool)
-    train_module._SPARSE_POSITIONS = bool(getattr(args, "sparse_positions", False))
-    train_module._SINGLE_POSITION = bool(args.single_position)
-    train_module._N_PROMPT_POSITIONS = int(args.n_prompt_positions)
-    import evals.activation_cache as activation_cache_module
-    activation_cache_module._POOLING_MODE = args.pooling_mode
+    train_module.POSITION_ENCODING = bool(args.position_encoding)
+    train_module.PE_ALPHA = float(args.pe_alpha)
+    train_module.STOCHASTIC_MAX_K = int(args.stochastic_max_k)
+    train_module.MAX_CONTEXT_LENGTH = int(args.max_context_length)
+    train_module.POSITION_MODE = "last_only" if args.single_position else str(args.position_mode)
     return layers
 
 
@@ -185,17 +182,57 @@ def _load_model(args, device: torch.device):
 def _load_task_rows(task_name: str, split: str, n: int, tokenizer, layers: list[int], args, seed: int) -> list[dict]:
     if task_name == "rot13_reconstruction":
         raise ValueError("rot13_reconstruction needs the dedicated ROT13 adapter and is not supported here")
+    max_ctx = int(args.max_context_length)
+    requested_n = n if max_ctx <= 0 else max(n * 4, n)
     if task_name == "futurelens":
-        rows = load_futurelens_data(tokenizer=tokenizer, n=n, split=split, layers=layers, seed=seed)
+        rows = load_futurelens_data(tokenizer=tokenizer, n=requested_n, split=split, layers=layers, seed=seed)
+    elif task_name == "pastlens":
+        rows = load_pastlens_data(tokenizer=tokenizer, n=requested_n, split=split, layers=layers, seed=seed)
     else:
-        rows = load_task_data(task_name, split=split, n=n, shuffle=True)
+        effective_split = "train" if split == "test" and task_name in {"compqa", "sentence_insertion", "cot_description"} else split
+        rows = load_task_data(task_name, split=effective_split, n=requested_n, shuffle=True)
+        for row in rows:
+            if "cot_text" not in row and "meta_spliced_cot_text" in row:
+                row["cot_text"] = row["meta_spliced_cot_text"]
+            if "cot_text" not in row and "meta_cot_text" in row:
+                row["cot_text"] = row["meta_cot_text"]
+            if "prompt" not in row and "test_prompt" in row:
+                row["prompt"] = row["test_prompt"]
+            if "target_response" not in row and "meta_oracle_target" in row:
+                row["target_response"] = str(row["meta_oracle_target"])
+            if "target_response" not in row and "correct_answer" in row:
+                row["target_response"] = row["correct_answer"]
         if any(not row.get("context_input_ids") for row in rows):
             if not isinstance(args.stride, int):
                 raise ValueError(f"Task {task_name} requires tokenizing cot_text but stride={args.stride!r} is not an integer")
             prepare_context_ids(rows, tokenizer, stride=args.stride, layers=layers, n_prompt_positions=args.n_prompt_positions)
+    if max_ctx > 0:
+        truncated = 0
+        dropped_no_positions = 0
+        kept_rows = []
+        for row in rows:
+            if "context_input_ids" not in row or not row["context_input_ids"]:
+                raise ValueError(f"Task {task_name} row missing context_input_ids before truncation")
+            if len(row["context_input_ids"]) <= max_ctx:
+                kept_rows.append(row)
+                continue
+            truncated += 1
+            row["context_input_ids"] = row["context_input_ids"][:max_ctx]
+            if "context_positions" not in row or not row["context_positions"]:
+                raise ValueError(f"Task {task_name} row missing context_positions before truncation")
+            row["context_positions"] = [int(pos) for pos in row["context_positions"] if int(pos) < max_ctx]
+            if not row["context_positions"]:
+                dropped_no_positions += 1
+                continue
+            if "num_positions" in row:
+                row["num_positions"] = len(row["context_positions"])
+            kept_rows.append(row)
+        rows = kept_rows
+        if truncated or dropped_no_positions:
+            print(f"  [data] Truncated {truncated}/{requested_n} rows for {task_name} to max_context_length={max_ctx} (dropped_no_positions={dropped_no_positions})")
     if len(rows) < n:
-        raise ValueError(f"Task {task_name} ({split}) only produced {len(rows)} rows, need {n}")
-    return rows
+        raise ValueError(f"Task {task_name} ({split}) only produced {len(rows)} usable rows, need {n}")
+    return rows[:n]
 
 
 def _sample_rows(rows: list, sample_n: int, rng: random.Random) -> list:
@@ -322,6 +359,30 @@ def _load_eval_items_for_name(eval_name: str, eval_dir: str) -> list[EvalItem]:
         return _load_chunked_convqa_eval_items()
     return _load_eval_items(eval_name, eval_dir=eval_dir)
 
+
+def _forward_compact_loss(batch, model, submodule, steering_coefficient: float, device: torch.device, dtype: torch.dtype) -> torch.Tensor:
+    hook_fn = get_hf_activation_steering_hook(
+        vectors=batch.steering_vectors,
+        positions=batch.positions,
+        steering_coefficient=steering_coefficient,
+        device=device,
+        dtype=dtype,
+    )
+    tokenized_input = {"input_ids": batch.input_ids, "attention_mask": batch.attention_mask}
+    labels = batch.labels
+    # Keep only the supervised tail for logits to avoid materializing full LxV logits.
+    target_tokens = int((labels[:, 1:] != -100).sum(dim=1).max().item())
+    if target_tokens <= 0:
+        raise ValueError("Encountered batch with zero supervised tokens")
+    logits_to_keep = target_tokens + 1
+    with add_hook(submodule, hook_fn):
+        outputs = model(**tokenized_input, labels=None, logits_to_keep=logits_to_keep)
+    shift_labels = F.pad(labels, (0, 1), value=-100)[:, 1:]
+    shift_labels = shift_labels[:, -logits_to_keep:]
+    logits = outputs.logits.float()
+    return F.cross_entropy(logits.reshape(-1, logits.shape[-1]), shift_labels.reshape(-1), ignore_index=-100, reduction="mean")
+
+
 def _compute_gradient_snapshot(model, submodule, tokenizer, datapoints: list[TrainingDataPoint], batch_size: int, steering_coefficient: float, device: torch.device) -> GradientSnapshot:
     total_tokens = sum(_label_token_count(dp) for dp in datapoints)
     if total_tokens <= 0:
@@ -334,9 +395,9 @@ def _compute_gradient_snapshot(model, submodule, tokenizer, datapoints: list[Tra
         batch_tokens = int((batch.labels[:, 1:] != -100).sum().item())
         scale = batch_tokens / total_tokens
         with torch.autocast(device_type=device.type, dtype=torch.bfloat16):
-            outputs = train_module.train_features_batch(batch, model, submodule, steering_coefficient, device, torch.bfloat16)
-        (outputs.loss * scale).backward()
-        total_weighted_loss += outputs.loss.item() * batch_tokens
+            loss = _forward_compact_loss(batch, model, submodule, steering_coefficient, device, torch.bfloat16)
+        (loss * scale).backward()
+        total_weighted_loss += loss.item() * batch_tokens
     grads = []
     grad_sq = 0.0
     for param in model.parameters():
@@ -402,6 +463,9 @@ def _parse_args():
     parser.add_argument("--layers", type=int, nargs="+", default=None)
     parser.add_argument("--position-encoding", action="store_true", default=False)
     parser.add_argument("--pe-alpha", type=float, default=0.1)
+    parser.add_argument("--position-mode", choices=["all", "last_only", "graduated", "stochastic", "mixed"], default="all")
+    parser.add_argument("--stochastic-max-k", type=int, default=100)
+    parser.add_argument("--max-context-length", type=int, default=0)
     parser.add_argument("--pooling-mode", choices=["none", "windows", "single", "chunks5"], default="none")
     parser.add_argument("--layer-pool", action="store_true", default=False)
     parser.add_argument("--single-position", action="store_true", default=False)
@@ -498,13 +562,22 @@ def main():
 
     trainable_tasks = get_trainable_tasks()
     eval_task_defs = get_eval_tasks()
-    train_task_names = list(args.train_tasks) if args.train_tasks else list(trainable_tasks.keys())
+    if args.train_tasks:
+        train_task_names = list(args.train_tasks)
+    else:
+        config_train = [task_name for task_name in trainable_tasks.keys() if hasattr(args, f"{task_name}_n") and int(getattr(args, f"{task_name}_n")) != 0]
+        train_task_names = config_train if config_train else list(trainable_tasks.keys())
     invalid_train = [task_name for task_name in train_task_names if task_name not in trainable_tasks]
     if invalid_train:
         raise ValueError(f"Unknown or non-trainable tasks: {invalid_train}")
     if not train_task_names:
         raise ValueError("No enabled train tasks")
-    eval_names = list(args.evals) if args.evals else [task_name for task_name in eval_task_defs.keys() if task_name != "rot13_reconstruction"]
+    if args.evals:
+        eval_names = list(args.evals)
+    elif hasattr(args, "eval_tasks") and args.eval_tasks:
+        eval_names = list(args.eval_tasks)
+    else:
+        eval_names = [task_name for task_name in eval_task_defs.keys() if task_name != "rot13_reconstruction"]
     invalid_evals = [eval_name for eval_name in eval_names if eval_name not in eval_task_defs]
     if invalid_evals:
         raise ValueError(f"Unknown eval tasks: {invalid_evals}")

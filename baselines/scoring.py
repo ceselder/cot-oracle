@@ -22,7 +22,7 @@ EVAL_TYPES = {
     "atypical_answer_riya": "binary",
     "atypical_answer_mcq": "binary",
     "cybercrime_ood": "binary",
-    "sentence_insertion": "binary",
+    "sentence_insertion": "generation",
     "chunked_convqa": "generation",
     "cot_hint_admission": "generation",
     "rot13_reconstruction": "generation",
@@ -47,6 +47,24 @@ EVAL_TYPES = {
     "cls_geometry_of_truth": "binary",
     "cls_relations": "binary",
     "taxonomy_ood": "binary",
+    # Training tasks (oracle task names for LLM monitor)
+    "hint_admission": "binary",
+    "atypical_answer": "binary",
+    "reasoning_termination": "binary",
+    "sycophancy": "binary",
+    "backtrack_prediction": "binary",
+    "correctness": "binary",
+    "truthfulqa_hint_verbalized": "binary",
+    "truthfulqa_hint": "binary",
+    "answer_trajectory": "generation",
+    "convqa": "generation",
+    "chunked_convqa": "generation",
+    "chunked_compqa": "generation",
+    "sqa": "generation",
+    "resampling_importance": "generation",
+    "sae_unverbalized": "generation",
+    "cot_description": "generation",
+    "cot_metacognition": "generation",
 }
 
 

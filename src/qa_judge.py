@@ -10,7 +10,7 @@ QA_GEMINI_SCORE_TASKS = frozenset({"sqa", "chunked_convqa", "chunked_compqa"})
 QA_GEMINI_SCORE_MODEL = os.environ["COT_ORACLE_QA_EVAL_MODEL"] if "COT_ORACLE_QA_EVAL_MODEL" in os.environ else "google/gemini-2.5-flash"
 OPENROUTER_API_BASE = os.environ["OPENROUTER_API_BASE"] if "OPENROUTER_API_BASE" in os.environ else "https://openrouter.ai/api/v1"
 OPENROUTER_CHAT_COMPLETIONS_URL = f"{OPENROUTER_API_BASE.rstrip('/')}/chat/completions"
-QA_GEMINI_SCORE_MAX_TOKENS = 160
+QA_GEMINI_SCORE_MAX_TOKENS = 256
 QA_GEMINI_SCORE_SYSTEM = (
     "You grade QA answers against a reference answer. "
     "Return ONLY JSON with keys `score` and `reason`. "
@@ -30,8 +30,17 @@ def extract_judge_json(text: str) -> dict[str, Any]:
         cleaned = re.sub(r"\s*```$", "", cleaned)
     start = cleaned.find("{")
     end = cleaned.rfind("}")
-    if start == -1 or end == -1 or end < start:
+    if start == -1:
         raise ValueError(f"Judge did not return JSON: {cleaned[:200]}")
+    if end == -1 or end <= start:
+        # Truncated JSON — try to close it
+        truncated = cleaned[start:]
+        # Close any open string, then close the object
+        truncated = re.sub(r',\s*"[^"]*$', '', truncated)  # remove trailing partial key
+        truncated = re.sub(r':\s*"[^"]*$', ': ""', truncated)  # close partial string value
+        if not truncated.rstrip().endswith("}"):
+            truncated = truncated.rstrip().rstrip(",") + "}"
+        return json.loads(truncated)
     return json.loads(cleaned[start:end + 1])
 
 
@@ -69,7 +78,7 @@ def build_trajectory_judge_prompt(gt_answer_label: str, gt_confidence: int | Non
 
 # ── LLM judge for cot_description eval ──
 
-LLM_JUDGE_TASKS = frozenset({"cot_description"})
+LLM_JUDGE_TASKS = frozenset({"cot_description", "cot_metacognition", "sae_unverbalized"})
 
 COT_DESCRIPTION_JUDGE_SYSTEM = (
     "You score an activation oracle's response against a reference answer on three dimensions. "
@@ -83,8 +92,42 @@ COT_DESCRIPTION_JUDGE_SYSTEM = (
     "`reason`: one sentence, at most 15 words."
 )
 
+COT_METACOGNITION_JUDGE_SYSTEM = (
+    "You evaluate whether an activation oracle correctly identified a model's metacognitive state "
+    "(uncertainty, backtracking, error recognition, alternative paths, missing info, or number prediction). "
+    "Return ONLY JSON with keys `correctness`, `specificity`, `vagueness_penalty`, `confidence`, `reason`.\n\n"
+    "`correctness` (float 0-1): 0.0 = fabricated/wrong metacognitive state, "
+    "0.5 = right category but wrong specifics, 1.0 = accurately identifies what the model is thinking about its own reasoning.\n\n"
+    "`specificity` (float 0-1): 0.0 = generic boilerplate ('the model is uncertain'), "
+    "0.5 = right topic but missing concrete values/steps, "
+    "1.0 = includes exact numbers, variable names, or specific reasoning steps from the reference.\n\n"
+    "`vagueness_penalty` (float 0-1): 1.0 = response is pure boilerplate that could apply to any problem "
+    "('the model is processing information', 'thinking about the problem'), "
+    "0.5 = somewhat generic but mentions the right domain, "
+    "0.0 = clearly problem-specific with concrete details.\n\n"
+    "`confidence` (float 0-1): 0.0 = fully hedged/declined ('I cannot determine'), "
+    "0.5 = partial hedging ('it seems to be...'), 1.0 = stated as fact with no caveats.\n\n"
+    "`reason`: one sentence, at most 15 words."
+)
+
+SAE_UNVERBALIZED_JUDGE_SYSTEM = (
+    "You evaluate whether an activation oracle correctly identified unverbalized content — "
+    "information present in the model's internal activations but NOT stated in the chain-of-thought text. "
+    "Return ONLY JSON with keys `correctness`, `specificity`, `confidence`, `reason`.\n\n"
+    "`correctness` (float 0-1): 0.0 = fabricated or wrong content, "
+    "0.5 = right domain but wrong specifics, 1.0 = accurately identifies the same unverbalized content as reference.\n\n"
+    "`specificity` (float 0-1): 0.0 = generic/unfalsifiable ('the model is processing information'), "
+    "0.5 = right topic but missing concrete details, "
+    "1.0 = includes specific concepts, domains, or signals matching the reference.\n\n"
+    "`confidence` (float 0-1): 0.0 = fully hedged/declined ('I cannot determine'), "
+    "0.5 = partial hedging ('it seems to be...'), 1.0 = stated as fact with no caveats.\n\n"
+    "`reason`: one sentence, at most 15 words."
+)
+
 _LLM_JUDGE_SYSTEMS = {
     "cot_description": COT_DESCRIPTION_JUDGE_SYSTEM,
+    "cot_metacognition": COT_METACOGNITION_JUDGE_SYSTEM,
+    "sae_unverbalized": SAE_UNVERBALIZED_JUDGE_SYSTEM,
 }
 
 

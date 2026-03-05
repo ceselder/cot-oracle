@@ -1,8 +1,49 @@
 LESSWRONG
 Current activation oracles are hard to use
+20 min read
+•
+What are activation oracles?
+•
+AOs are often quite vague
+•
+AOs tend to hallucinate
+•
+AOs are hard to evaluate because of text inversion
+•
+AOs do poorly on our tasks that control for text inversion
+•
+Sycophancy detection
+•
+Number prediction: confabulates regardless of the problem
+•
+Missing information: can't distinguish same tokens with different model states
+•
+Can AOs identify why a reasoning model will backtrack?
+•
+When we edit the upstream reasoning, AOs mostly track nearby keywords
+•
+Where AOs do show some signal
+•
+AOs perform well when given multiple plausible options
+•
+AOs are decent at predicting the next token in CoT
+•
+AOs can detect subtle steering
+•
+Can AOs extract censored knowledge from Chinese models?
+•
+Shared knowledge confounds the experiments
+•
+AO finetuning partially jailbreaks the model
+•
+Future work
+MATS Program
+AI
+Frontpage
+73
+Current activation oracles are hard to use
 by aryaj, Senthooran Rajamanoharan, Neel Nanda
-You have commenting access to this post. Contact aryaj if you wish to be able to edit directly.
-AnonymousNeel NandaaryajSenthooran Rajamanoharan
+3rd Mar 2026
 This work was conducted during the MATS 9.0 program under Neel Nanda and Senthooran Rajamanoharan.
 
 tldr;
@@ -205,7 +246,7 @@ Count
 
 % of total
 
-Reasoning turns flagged	2,300	
+Reasoning turns flagged	2,300	 
 Correct + specific	230	~10%
 After text inversion filter	100	~5%
 We ran two text baselines. Giving an LLM just the probe tokens (no activations) and asking the same questions: 0 out of 181 correct. Giving it the user prompt plus the probe tokens: 51 correct. The AO outperforms both, but a meaningful chunk of its performance can be explained by text that appears near the probe tokens.
@@ -318,7 +359,75 @@ Training on a larger variety of tasks and environments that are safety relevant
 Environments exhibiting sycophancy like the one we detailed earlier
 Environments involving some form of computation the model does that the AO has to reverse engineer eg. our number prediction setup
 Evaluate activation oracles by applying them to tasks that we know SAEs can already do well on.
+New to LessWrong?
+Getting Started
+
+FAQ
+
+Library
+
+73
+Current activation oracles are hard to use
+1
+beyarkay
+2
+Neel Nanda
+New Comment
 
 
-x
-Could not connect to the reCAPTCHA service. Please check your internet connection and reload to get a reCAPTCHA challenge.
+2 comments, sorted by top scoring
+Click to highlight new comments since: Today at 8:14 PM
+[
+-
+]
+beyarkay
+1d
+1
+0
+We saw this directly in the Chinese models experiments
+
+Could you add a link for these experiments?
+
+Reply
+[
+-
+]
+Neel Nanda
+5h
+2
+0
+It's a section of the post: https://www.lesswrong.com/posts/LXQBcztrWKhtcgQfJ/current-activation-oracles-are-hard-to-use?commentId=MKP8hB4Lik9FrHxfB#Can_AOs_extract_censored_knowledge_from_Chinese_models_
+
+Reply
+Moderation Log
+More from aryaj
+243
+models have some pretty funny attractor statesΩ
+aryaj, Senthooran Rajamanoharan, Neel Nanda
+1d
+33
+90
+Test your interpretability techniques by de-censoring Chinese modelsΩ
+Khoi Tran, aryaj, Senthooran Rajamanoharan, Neel Nanda
+2mo
+14
+View more
+Curated and popular this week
+243
+models have some pretty funny attractor statesΩ
+aryaj, Senthooran Rajamanoharan, Neel Nanda
+1d
+33
+169
+Persona Parasitology
+Raymond Douglas
+4d
+24
+151
+Are there lessons from high-reliability engineering for AGI safety?Ω
+Steven Byrnes
+6d
+15
+2
+Comments
+xaryaj

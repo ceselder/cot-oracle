@@ -71,3 +71,17 @@ We use Sparse Autoencoders (SAEs) from `adamkarvonen/qwen3-8b-saes` to get inter
 - **`model.eval()` before generation:** Otherwise gradient checkpointing disables KV caching → 20x slower.
 - **Qwen3-8B `enable_thinking=True` is unusable for bounded generation** — generates 4K-8K+ `<think>` tokens. Use `enable_thinking=False` with prompt-based CoT.
 - Probes should never use token-subsampling
+
+
+## Baselines
+- please always run baselines on all our evals, including the cls evals
+
+## Plots
+- please include in the title what model name we use
+- use layout="constrained"
+- always use a white or transparent background, no tint
+
+## Evals
+Please run all evals with /ceph/scratch/jbauer/checkpoints/cot_oracle_v15_stochastic
+
+

@@ -285,12 +285,20 @@ def _score_llm_judge(
     predictions: list[str],
     targets: list[str],
 ) -> dict[str, Any]:
-    """Score cot_description tasks with a 3-dimensional LLM judge (correctness, specificity, confidence)."""
+    """Score LLM judge tasks with multi-dimensional rubrics.
+
+    cot_description: 3 dimensions (correctness, specificity, confidence).
+    cot_metacognition: 4 dimensions (+ vagueness_penalty), per-category breakdowns.
+    """
+    is_metacog = task_name == "cot_metacognition"
     empty = {
         "llm_judge_score": 0.0, "specificity": 0.0, "calibration": 0.0, "overconfidence": 0.0,
         "n": 0, "_llm_judge_correctness": [], "_llm_judge_specificity": [], "_llm_judge_confidence": [],
         "_llm_judge_reasons": [], "_llm_judge_raw": [], "_llm_judge_model": QA_GEMINI_SCORE_MODEL,
     }
+    if is_metacog:
+        empty.update({"vagueness_rate": 0.0, "hallucination_rate": 0.0, "composite_score": 0.0,
+                       "_llm_judge_vagueness_penalty": []})
     if not predictions:
         return empty
 
@@ -302,8 +310,10 @@ def _score_llm_judge(
     correctness_scores = []
     specificity_scores = []
     confidence_scores = []
+    vagueness_scores = []
     reasons = []
     raw_responses = []
+    categories = []
 
     with httpx.Client(timeout=90.0) as client:
         for item, prediction, target in zip(eval_items, predictions, targets):
@@ -333,13 +343,20 @@ def _score_llm_judge(
             reasons.append(str(parsed["reason"]).strip())
             raw_responses.append(raw_text)
 
+            if is_metacog:
+                vp = float(parsed.get("vagueness_penalty", 0.0))
+                if vp < 0.0 or vp > 1.0:
+                    raise ValueError(f"LLM judge vagueness_penalty out of range: {vp}")
+                vagueness_scores.append(vp)
+                categories.append(item.get("category", "unknown"))
+
     n = len(correctness_scores)
     mean_correctness = sum(correctness_scores) / n
     mean_specificity = sum(specificity_scores) / n
     calibration = sum(abs(conf - cor) for conf, cor in zip(confidence_scores, correctness_scores)) / n
     overconfidence = sum(1 for conf, cor in zip(confidence_scores, correctness_scores) if conf > cor + 0.25) / n
 
-    return {
+    result = {
         "llm_judge_score": mean_correctness,
         "specificity": mean_specificity,
         "calibration": calibration,
@@ -352,6 +369,136 @@ def _score_llm_judge(
         "_llm_judge_raw": raw_responses,
         "_llm_judge_model": QA_GEMINI_SCORE_MODEL,
     }
+
+    if is_metacog:
+        mean_vagueness = sum(vagueness_scores) / n
+        vagueness_rate = sum(1 for v in vagueness_scores if v > 0.7) / n
+        hallucination_rate = sum(1 for c, conf in zip(correctness_scores, confidence_scores) if c < 0.3 and conf > 0.7) / n
+        composite_scores = [s * c * (1 - v) for s, c, v in zip(specificity_scores, correctness_scores, vagueness_scores)]
+        composite = sum(composite_scores) / n
+
+        result.update({
+            "vagueness_rate": vagueness_rate,
+            "hallucination_rate": hallucination_rate,
+            "composite_score": composite,
+            "_llm_judge_vagueness_penalty": vagueness_scores,
+        })
+
+        # Per-category breakdowns
+        from collections import defaultdict
+        cat_scores = defaultdict(lambda: {"correctness": [], "specificity": [], "composite": []})
+        for cat, c, s, v in zip(categories, correctness_scores, specificity_scores, vagueness_scores):
+            cat_scores[cat]["correctness"].append(c)
+            cat_scores[cat]["specificity"].append(s)
+            cat_scores[cat]["composite"].append(s * c * (1 - v))
+        for cat, scores in cat_scores.items():
+            cn = len(scores["correctness"])
+            result[f"cat_{cat}_correctness"] = sum(scores["correctness"]) / cn
+            result[f"cat_{cat}_specificity"] = sum(scores["specificity"]) / cn
+            result[f"cat_{cat}_composite"] = sum(scores["composite"]) / cn
+            result[f"cat_{cat}_n"] = cn
+
+    return result
+
+
+# ── Black-box monitor baseline ──
+
+BB_MONITOR_MODEL = os.environ.get("COT_ORACLE_BB_MONITOR_MODEL", "google/gemini-2.5-flash")
+
+
+def _bb_monitor_generate(
+    eval_items: list[dict],
+    max_new_tokens: int = 150,
+) -> list[str]:
+    """Generate responses using an external LLM that only sees CoT text (no activations).
+
+    This is the black-box baseline: can you answer the oracle's question just by
+    reading the chain-of-thought text?
+    """
+    api_key = os.environ["OPENROUTER_API_KEY"]
+    headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+
+    predictions = []
+    with httpx.Client(timeout=90.0) as client:
+        for item in eval_items:
+            cot_text = item.get("cot_text", "")
+            prompt = item["prompt"]
+            user_msg = f"Chain of thought:\n{cot_text}\n\n{prompt}"
+            body = {
+                "model": BB_MONITOR_MODEL,
+                "messages": [{"role": "user", "content": user_msg}],
+                "temperature": 0.0,
+                "max_tokens": max_new_tokens,
+            }
+            response = client.post(OPENROUTER_CHAT_COMPLETIONS_URL, json=body, headers=headers)
+            response.raise_for_status()
+            raw_text = response.json()["choices"][0]["message"]["content"]
+            raw_text = re.sub(r"<think>.*?</think>", "", raw_text, flags=re.DOTALL).strip()
+            predictions.append(raw_text)
+
+    return predictions
+
+
+def run_bb_monitor_eval(
+    task_name: str,
+    task_def: TaskDef,
+    max_items: int = 100,
+) -> dict[str, Any]:
+    """Run bb monitor baseline on an LLM-judge task. Returns metrics + traces."""
+    from data_loading import load_task_data, prepare_context_ids
+
+    if not is_llm_judge_task(task_name):
+        raise ValueError(f"BB monitor eval only supports LLM_JUDGE tasks, got {task_name}")
+
+    # Load test data
+    test_data = load_task_data(task_name, split="test", n=max_items, shuffle=False)
+    if not test_data:
+        test_data = load_task_data(task_name, split="train", n=max_items, shuffle=False)
+    if not test_data:
+        return {"n": 0}
+
+    # Ensure cot_text exists
+    test_data = [d for d in test_data if d.get("cot_text")]
+    if not test_data:
+        return {"n": 0}
+
+    print(f"    [{task_name}] BB monitor: generating {len(test_data)} responses with {BB_MONITOR_MODEL}...")
+    bb_predictions = _bb_monitor_generate(test_data, max_new_tokens=task_def.max_new_tokens)
+
+    targets = [item["target_response"] for item in test_data]
+
+    # Score with same LLM judge
+    print(f"    [{task_name}] BB monitor: scoring with LLM judge...")
+    bb_scores = _score_llm_judge(task_name, test_data, bb_predictions, targets)
+
+    # Build traces
+    traces = []
+    llm_cor = bb_scores.get("_llm_judge_correctness", [])
+    llm_spec = bb_scores.get("_llm_judge_specificity", [])
+    llm_conf = bb_scores.get("_llm_judge_confidence", [])
+    llm_reasons = bb_scores.get("_llm_judge_reasons", [])
+    llm_raw = bb_scores.get("_llm_judge_raw", [])
+    for i, (pred, tgt) in enumerate(zip(bb_predictions, targets)):
+        item = test_data[i]
+        trace = {
+            "question": item.get("question", ""),
+            "cot_text": item.get("cot_text", "")[:500],
+            "oracle_prompt": item["prompt"],
+            "expected": tgt,
+            "bb_predicted": pred,
+            "bb_model": BB_MONITOR_MODEL,
+        }
+        if i < len(llm_cor):
+            trace["bb_judge_correctness"] = llm_cor[i]
+            trace["bb_judge_specificity"] = llm_spec[i]
+            trace["bb_judge_confidence"] = llm_conf[i]
+            trace["bb_judge_reason"] = llm_reasons[i]
+            trace["bb_judge_raw"] = llm_raw[i]
+        traces.append(trace)
+
+    bb_scores["_traces"] = traces
+    bb_scores["_bb_model"] = BB_MONITOR_MODEL
+    return bb_scores
 
 
 def _score_parsed(
@@ -768,12 +915,10 @@ def _ensure_ao_imports():
     global _AO_IMPORTS_LOADED, _ao_modules
     if _AO_IMPORTS_LOADED:
         return
-    from nl_probes.utils.activation_utils import (
-        collect_activations_multiple_layers,
-        get_hf_submodule,
-    )
+    from nl_probes.utils.activation_utils import collect_activations_multiple_layers
     from nl_probes.utils.steering_hooks import add_hook
     from core.ao import (
+        get_hf_submodule,
         get_batched_steering_hook,
         _active_adapter_name,
         TRAINED_PLACEHOLDER,
@@ -824,13 +969,13 @@ def _resample_eval_positions(
             sampled = base_positions[-1:]
         elif position_mode == "graduated":
             sampled = base_positions[-2:]
-        elif position_mode == "mixed":
+        elif position_mode == "stochastic":
             rng = random.Random(f"{eval_position_seed}:{task_name}:{item_idx}")
             sampled = sample_endweighted_positions(base_positions, rng=rng)
         elif position_mode.startswith("last_"):
             n = int(position_mode.split("_", 1)[1])
             sampled = base_positions[-n:]
-        elif position_mode == "stochastic":
+        elif position_mode == "mixed":
             ctx_ids = item.get("context_input_ids", [])
             period_pos = None
             if sentence_delim_ids and ctx_ids:
@@ -894,7 +1039,21 @@ def _materialize_activations(
 
     was_training = model.training
     model.eval()
-    with model.disable_adapter():
+    import contextlib
+    @contextlib.contextmanager
+    def _disable_adapters_ctx():
+        if hasattr(model, "disable_adapter") and callable(getattr(type(model), "disable_adapter", None)):
+            with model.disable_adapter():
+                yield
+        elif hasattr(model, "disable_adapters") and hasattr(model, "enable_adapters"):
+            model.disable_adapters()
+            try:
+                yield
+            finally:
+                model.enable_adapters()
+        else:
+            yield
+    with _disable_adapters_ctx():
         acts_by_layer = collect_activations_multiple_layers(
             model=model,
             submodules=submodules,
@@ -1256,9 +1415,10 @@ def run_eval(
     skip_rot13: bool = True,
     activation_extract_batch_size: int = 4,
     no_activations: bool = False,
-    position_mode: str = "stochastic",
+    position_mode: str = "mixed",
     stochastic_max_k: int = 100,
     eval_position_seed: int = 0,
+    run_bb_monitor: bool = False,
 ) -> tuple[dict[str, float], dict[str, list[dict]]]:
     """Run eval for all (or specified) tasks.
 
@@ -1350,6 +1510,33 @@ def run_eval(
         gc.collect()
         torch.cuda.empty_cache()
 
+    # ── BB monitor baseline for LLM_JUDGE tasks ──
+    if run_bb_monitor:
+        for task_name, task_def in tasks_to_eval.items():
+            if not is_llm_judge_task(task_name):
+                continue
+            t0 = time.time()
+            try:
+                bb_result = run_bb_monitor_eval(task_name, task_def, max_items=max_items)
+                elapsed = time.time() - t0
+                bb_traces = bb_result.pop("_traces", [])
+                if bb_traces:
+                    all_traces[f"bb_monitor/{task_name}"] = bb_traces
+                bb_score = bb_result.get("llm_judge_score", 0.0)
+                metrics[f"bb_monitor/{task_name}"] = bb_score
+                for key, val in sorted(bb_result.items()):
+                    if key.startswith("_") or not isinstance(val, (int, float)):
+                        continue
+                    if key not in ("llm_judge_score", "n"):
+                        metrics[f"bb_monitor/{task_name}_{key}"] = val
+                metrics[f"bb_monitor_n/{task_name}"] = bb_result.get("n", 0)
+                extras = [f"spec={bb_result.get('specificity', 0):.3f}", f"cal={bb_result.get('calibration', 0):.3f}"]
+                table_rows.append((f"bb:{task_name}", "llm_judge", bb_score, "  ".join(extras), elapsed))
+            except Exception as e:
+                elapsed = time.time() - t0
+                print(f"  [bb_monitor] {task_name} FAILED: {e}")
+                table_rows.append((f"bb:{task_name}", "ERROR", 0.0, str(e)[:40], elapsed))
+
     # Print summary table
     if table_rows:
         _print_eval_table(table_rows)
@@ -1385,7 +1572,7 @@ def _eval_single_task(
     oracle_adapter_name: str,
     activation_extract_batch_size: int,
     no_activations: bool = False,
-    position_mode: str = "stochastic",
+    position_mode: str = "mixed",
     stochastic_max_k: int = 100,
     eval_position_seed: int = 0,
 ) -> dict[str, float]:
@@ -1483,6 +1670,10 @@ def _eval_single_task(
                 correct_str = _per_example_correct(task_name, task_def, pred, tgt)
             trace = {
                 "question": item.get("question", item.get("hinted_prompt", "")),
+                "cot_prefix": item.get("cot_prefix", ""),
+                "cot_suffix": item.get("cot_suffix", ""),
+                "cot_text": item.get("cot_text", ""),
+                "target_response": item.get("target_response", tgt),
                 "cot_field": item.get("cot_text", ""),
                 "masked_cot_field": item.get("cot_text", ""),
                 "oracle_prefix": "",
@@ -1675,12 +1866,14 @@ def _eval_single_task(
         # Build masked_cot_field: replace activation-position tokens with placeholder
         ctx_ids = item.get("context_input_ids", [])
         ctx_pos = item.get("context_positions", [])
-        base_pos = set(ctx_pos[:len(ctx_pos) // n_layers]) if ctx_pos else set()
+        base_positions = _extract_base_positions(ctx_pos, n_layers)
+        base_pos = set(base_positions)
         masked_ids = list(ctx_ids)
         for p in base_pos:
             if p < len(masked_ids):
                 masked_ids[p] = ph_id
-        masked_cot_field = tokenizer.decode(masked_ids, skip_special_tokens=False) if masked_ids else ""
+        masked_cot_ids = masked_ids[base_positions[0]:base_positions[-1] + 1] if base_positions else []
+        masked_cot_field = tokenizer.decode(masked_cot_ids, skip_special_tokens=False) if masked_cot_ids else ""
 
         if llm_judge_correctness is not None:
             correct_str = f"cor={llm_judge_correctness[i]:.2f} spec={llm_judge_specificity[i]:.2f} conf={llm_judge_confidence[i]:.2f}"
@@ -1692,6 +1885,10 @@ def _eval_single_task(
             correct_str = _per_example_correct(task_name, task_def, pred, tgt)
         trace = {
             "question": item.get("question", item.get("hinted_prompt", "")),
+            "cot_prefix": item.get("cot_prefix", ""),
+            "cot_suffix": item.get("cot_suffix", ""),
+            "cot_text": item.get("cot_text", ""),
+            "target_response": item.get("target_response", tgt),
             "cot_field": item.get("cot_text", ""),
             "masked_cot_field": masked_cot_field,
             "oracle_prompt": item["prompt"],

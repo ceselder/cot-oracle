@@ -17,6 +17,7 @@ if str(_SRC) not in sys.path:
 from core.ao import (
     EarlyStopException,
     generate_cot,
+    batch_generate_cot,
     get_hf_submodule,
     using_adapter,
 )
@@ -99,21 +100,63 @@ def load_baseline_inputs(
     device: str = "cuda",
     eval_dir: Path | None = None,
     generation_adapter_name: str | None = None,
+    max_items: int | None = None,
+    subsample_seed: int = 42,
 ) -> list[BaselineInput]:
     """Load eval items, run model for responses, extract multi-layer activations.
 
     Filters out items with indeterminate ground truth.
+
+    Args:
+        max_items: If set, randomly subsample this many items from the dataset
+            before running generation/activation extraction (efficient for large datasets).
+        subsample_seed: RNG seed for subsampling.
     """
+    import numpy as np
     items = load_eval_items_hf(eval_name, eval_dir=eval_dir)
     print(f"  Loaded {len(items)} items for {eval_name}")
 
+    if max_items is not None and len(items) > max_items:
+        rng = np.random.default_rng(subsample_seed)
+        idx = rng.choice(len(items), size=max_items, replace=False)
+        items = [items[i] for i in sorted(idx)]
+        print(f"  Subsampled to {len(items)} items before activation extraction")
+
     is_cls = eval_name.startswith("cls_")
 
+    # --- Pass 1: batch-generate responses for items without precomputed data ---
+    needs_gen_indices = []
+    clean_prompts_to_gen, test_prompts_to_gen = [], []
+    item_responses: list[tuple[str, str] | None] = [None] * len(items)
+
+    for i, item in enumerate(items):
+        if is_cls or eval_name == "sentence_insertion":
+            item_responses[i] = ("", "")  # no generation needed; handled below
+        else:
+            precomp_clean = item.metadata.get("qwen3_8b_clean_response")
+            precomp_test = item.metadata.get("qwen3_8b_test_response")
+            if precomp_clean and precomp_test:
+                item_responses[i] = (precomp_clean, precomp_test)
+            else:
+                needs_gen_indices.append(i)
+                clean_prompts_to_gen.append(item.clean_prompt)
+                test_prompts_to_gen.append(item.test_prompt)
+
+    if needs_gen_indices:
+        model.eval()
+        print(f"  Batch-generating {len(needs_gen_indices)} clean responses...")
+        clean_gen = batch_generate_cot(model, tokenizer, clean_prompts_to_gen, max_new_tokens=512, device=device, adapter_name=generation_adapter_name, enable_thinking=False)
+        print(f"  Batch-generating {len(needs_gen_indices)} test responses...")
+        test_gen = batch_generate_cot(model, tokenizer, test_prompts_to_gen, max_new_tokens=512, device=device, adapter_name=generation_adapter_name, enable_thinking=False)
+        for j, idx in enumerate(needs_gen_indices):
+            item_responses[idx] = (clean_gen[j], test_gen[j])
+
+    # --- Pass 2: resolve ground truth and extract activations ---
     results = []
     was_training = model.training
     model.eval()
 
-    for item in tqdm(items, desc=f"Loading {eval_name}"):
+    for item, responses in tqdm(zip(items, item_responses), total=len(items), desc=f"Loading {eval_name}"):
         if is_cls:
             # Classification evals: neutral prompt, text from metadata, ground truth = correct_answer
             cot_text = item.metadata.get("cot_text", "")
@@ -131,18 +174,9 @@ def load_baseline_inputs(
             gt = "inserted" if item.metadata.get("is_insertion") else "clean"
             extraction_prompt = item.test_prompt
         else:
-            # Standard evals: use precomputed responses if available, otherwise generate
-            precomp_clean = item.metadata.get("qwen3_8b_clean_response")
-            precomp_test = item.metadata.get("qwen3_8b_test_response")
-            if precomp_clean and precomp_test:
-                clean_response, test_response = precomp_clean, precomp_test
-                clean_answer = item.metadata.get("qwen3_8b_clean_answer") or _extract_answer(clean_response, eval_name)
-                test_answer = item.metadata.get("qwen3_8b_test_answer") or _extract_answer(test_response, eval_name)
-            else:
-                clean_response = generate_cot(model, tokenizer, item.clean_prompt, max_new_tokens=512, device=device, adapter_name=generation_adapter_name)
-                test_response = generate_cot(model, tokenizer, item.test_prompt, max_new_tokens=512, device=device, adapter_name=generation_adapter_name)
-                clean_answer = _extract_answer(clean_response, eval_name)
-                test_answer = _extract_answer(test_response, eval_name)
+            clean_response, test_response = responses
+            clean_answer = item.metadata.get("qwen3_8b_clean_answer") or _extract_answer(clean_response, eval_name)
+            test_answer = item.metadata.get("qwen3_8b_test_answer") or _extract_answer(test_response, eval_name)
 
             # Determine ground truth
             gt = determine_ground_truth(item, clean_answer, test_answer)

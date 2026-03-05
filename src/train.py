@@ -75,7 +75,7 @@ from nl_probes.utils.activation_utils import (
 from nl_probes.utils.common import load_tokenizer, set_seed
 
 from cot_utils import layer_percent_to_layer, sparse_sample_positions, sample_poisson_positions, sample_endweighted_positions
-from tasks import TASKS, get_trainable_tasks
+from tasks import TASKS, ScoringMode, get_trainable_tasks
 from data_loading import load_all_training_data
 from eval_loop import run_eval
 
@@ -88,7 +88,7 @@ MULTI_LAYERS: list[int] = []
 NO_ACTIVATIONS: bool = False
 RANDOM_LAYERS: bool = False
 LAYER_DROPOUT: bool = False
-POSITION_MODE: str = "stochastic"  # "last_only", "stochastic", "mixed", "all"
+POSITION_MODE: str = "mixed"  # "last_only", "stochastic", "mixed", "all"
 STOCHASTIC_MAX_K: int = 100  # upper bound for Poisson position sampling (random bucket)
 SENTENCE_DELIM_IDS: set[int] = set()  # token IDs for "." — set from tokenizer in main()
 MAX_CONTEXT_LENGTH: int = 0  # drop samples with context_input_ids longer than this (0 = no filter)
@@ -334,7 +334,7 @@ def dicts_to_training_data(
             sampled = sample_layers(_MODEL_N_LAYERS, mean=3)
 
             # Apply position mode to base positions
-            sampled_pos = _apply_position_mode(base_positions, period_pos)
+            sampled_pos, pos_tag = _apply_position_mode(base_positions, period_pos)
             ctx_pos = sampled_pos * len(sampled)
             num_pos = len(ctx_pos)
 
@@ -351,7 +351,7 @@ def dicts_to_training_data(
                 feature_idx=-1,
                 context_input_ids=item["context_input_ids"],
                 context_positions=ctx_pos,
-                meta_info={"prompt": item["prompt"], "layers": sampled},
+                meta_info={"prompt": item["prompt"], "layers": sampled, "pos_tag": pos_tag},
             )
             MULTI_LAYERS[:] = saved_layers
 
@@ -361,7 +361,7 @@ def dicts_to_training_data(
             sampled = sorted(random.sample(MULTI_LAYERS, k))
 
             # Apply position mode to base positions
-            sampled_pos = _apply_position_mode(base_positions, period_pos)
+            sampled_pos, pos_tag = _apply_position_mode(base_positions, period_pos)
             ctx_pos = sampled_pos * len(sampled)
             num_pos = len(ctx_pos)
 
@@ -378,13 +378,13 @@ def dicts_to_training_data(
                 feature_idx=-1,
                 context_input_ids=item["context_input_ids"],
                 context_positions=ctx_pos,
-                meta_info={"prompt": item["prompt"], "layers": sampled},
+                meta_info={"prompt": item["prompt"], "layers": sampled, "pos_tag": pos_tag},
             )
             MULTI_LAYERS[:] = saved_layers
 
         else:
             # Standard: all configured layers, apply position mode
-            sampled_pos = _apply_position_mode(base_positions, period_pos)
+            sampled_pos, pos_tag = _apply_position_mode(base_positions, period_pos)
             ctx_pos = sampled_pos * n_layers_runtime
             num_pos = len(ctx_pos)
 
@@ -407,7 +407,7 @@ def dicts_to_training_data(
                 feature_idx=-1,
                 context_input_ids=item["context_input_ids"],
                 context_positions=ctx_pos,
-                meta_info={"prompt": item["prompt"], "layers": list(MULTI_LAYERS) if MULTI_LAYERS else [item["layer"]]},
+                meta_info={"prompt": item["prompt"], "layers": list(MULTI_LAYERS) if MULTI_LAYERS else [item["layer"]], "pos_tag": pos_tag},
             )
 
         training_data.append(dp)
@@ -424,26 +424,27 @@ def _get_period_positions(context_input_ids: list[int], base_positions: list[int
             if context_input_ids[i] in SENTENCE_DELIM_IDS]
 
 
-def _apply_position_mode(base_positions: list[int], period_positions: list[int] | None = None) -> list[int]:
-    """Apply POSITION_MODE to base (single-layer) positions."""
+def _apply_position_mode(base_positions: list[int], period_positions: list[int] | None = None) -> tuple[list[int], str]:
+    """Apply POSITION_MODE to base (single-layer) positions. Returns (positions, tag)."""
     if not base_positions:
-        return base_positions
+        return base_positions, "empty"
     if POSITION_MODE == "last_only":
-        return base_positions[-1:]
+        return base_positions[-1:], "last_k"
     elif POSITION_MODE == "graduated":
         n = random.choice([1, 2, 3])
-        return base_positions[-n:]
-    elif POSITION_MODE == "mixed":
+        return base_positions[-n:], "last_k"
+    elif POSITION_MODE == "stochastic":
         r = random.random()
         if r < 0.3:
-            return base_positions[-1:]
+            return base_positions[-1:], "last_k"
         elif r < 0.6:
-            return base_positions[-3:]
+            return base_positions[-3:], "last_k"
         else:
-            return sample_endweighted_positions(base_positions)
-    elif POSITION_MODE == "stochastic":
-        return sample_poisson_positions(base_positions, max_k=STOCHASTIC_MAX_K, period_positions=period_positions)
-    return base_positions  # "all"
+            return sample_endweighted_positions(base_positions), "end_skewed"
+    elif POSITION_MODE == "mixed":
+        from cot_utils import sample_poisson_positions_tagged
+        return sample_poisson_positions_tagged(base_positions, max_k=STOCHASTIC_MAX_K, period_positions=period_positions)
+    return base_positions, "all"
 
 
 # ── Training infrastructure ──
@@ -730,8 +731,17 @@ def _run_unified_eval(model, tokenizer, model_name, global_step, args, log_dir=N
         stochastic_max_k=args.stochastic_max_k,
     )
 
+    # Aggregate mean metrics across eval tasks
+    # eval_scores: only primary per-task scores (eval/{task_name}), not sub-metrics like _gemini_score
+    eval_scores = {k: v for k, v in metrics.items() if k.startswith("eval/") and k.removeprefix("eval/") in TASKS}
+    acc_only = {k: v for k, v in eval_scores.items() if TASKS[k.removeprefix("eval/")].scoring == ScoringMode.BINARY}
+
     # Build wandb Tables for each task's per-example traces
     log_dict = {k: v for k, v in metrics.items() if not k.startswith("_")}
+    if eval_scores:
+        log_dict["eval/mean"] = sum(eval_scores.values()) / len(eval_scores)
+    if acc_only:
+        log_dict["eval/mean_acc"] = sum(acc_only.values()) / len(acc_only)
     # Include samples_seen so wandb can correlate eval metrics with training x-axis
     log_dict["train/samples_seen"] = global_step * getattr(args, "effective_batch_size", 256)
     trace_files = _write_eval_traces(log_dir, all_traces, global_step)
@@ -745,10 +755,14 @@ def _run_unified_eval(model, tokenizer, model_name, global_step, args, log_dir=N
 
     if wandb.run and all_traces:
         for task_name, traces in all_traces.items():
-            table = wandb.Table(columns=["question", "cot_field", "masked_cot_field", "oracle_prompt", "oracle_prefix", "expected", "predicted", "correct", "judge_score", "predicted_confidence", "judge_reason"])
+            table = wandb.Table(columns=["question", "cot_prefix", "cot_suffix", "cot_text", "target_response", "cot_field", "masked_cot_field", "oracle_prompt", "oracle_prefix", "expected", "predicted", "correct", "judge_score", "predicted_confidence", "judge_reason"])
             for t in traces:
                 table.add_data(
                     t.get("question", "")[:200],
+                    t.get("cot_prefix", "")[:500],
+                    t.get("cot_suffix", "")[:500],
+                    t.get("cot_text", "")[:500],
+                    t.get("target_response", "")[:200],
                     t.get("cot_field", "")[:500],
                     t.get("masked_cot_field", "")[:500],
                     t.get("oracle_prompt", "")[:300],
@@ -893,21 +907,26 @@ def _normalized_train_progress(global_step: int, total_steps: int) -> float:
     return min(global_step / (total_steps - 1), 1.0)
 
 
-def _build_progress_scatter(points: list[tuple[int, float, float]], x_key: str, title: str):
+def _build_scatter(points: list[tuple[int, float, str]], x_key: str, title: str):
+    """Build a scatter plot; sentence-boundary points are red, others blue."""
     import matplotlib.pyplot as plt
     import wandb
 
     xs = [x for x, _, _ in points]
     ys = [y for _, y, _ in points]
-    progress = [p for _, _, p in points]
+    tags = [t for _, _, t in points]
+    colors = ["red" if t == "sentence" else "steelblue" for t in tags]
 
     fig, ax = plt.subplots(figsize=(6, 4))
-    scatter = ax.scatter(xs, ys, c=progress, cmap="viridis", vmin=0.0, vmax=1.0, alpha=0.75, s=16, linewidths=0)
+    ax.scatter(xs, ys, c=colors, alpha=0.5, s=12, linewidths=0)
     ax.set_xlabel(x_key.replace("_", " ").title())
     ax.set_ylabel("Loss")
     ax.set_title(title)
-    cbar = fig.colorbar(scatter, ax=ax)
-    cbar.set_label("Training Progress")
+    # Legend
+    from matplotlib.lines import Line2D
+    handles = [Line2D([0], [0], marker='o', color='w', markerfacecolor='red', markersize=6, label='sentence boundaries'),
+               Line2D([0], [0], marker='o', color='w', markerfacecolor='steelblue', markersize=6, label='other')]
+    ax.legend(handles=handles, fontsize=8)
     fig.tight_layout()
     image = wandb.Image(fig)
     plt.close(fig)
@@ -1289,8 +1308,8 @@ def train(
     last_step_time = time.time()
     eval_time_total = 0.0
     scatter_image_every = 100
-    scatter_history_acts: list[tuple[int, float, float]] = []
-    scatter_history_layers: list[tuple[int, float, float]] = []
+    scatter_window_acts: list[tuple[int, float, str]] = []   # (n_acts, loss, pos_tag)
+    scatter_window_layers: list[tuple[int, float, str]] = [] # (n_layers, loss, pos_tag)
 
     prev_dominant_task = None  # Track task transitions for phase checkpoints
     micro_step = 0  # counts micro-batches within a gradient accumulation window
@@ -1315,8 +1334,8 @@ def train(
         accum_batch_tokens = 0
         accum_batch_splits = 0
         accum_context_lengths = []
-        accum_scatter_acts: list[tuple[float, int]] = []   # (loss, n_activations)
-        accum_scatter_layers: list[tuple[float, int]] = [] # (loss, n_layers)
+        accum_scatter_acts: list[tuple[float, int, str]] = []   # (loss, n_activations, pos_tag)
+        accum_scatter_layers: list[tuple[float, int, str]] = [] # (loss, n_layers, pos_tag)
 
         # Lookahead extraction: prefetch activations for multiple training batches at once
         ext_bs = args.extraction_batch_size if args.extraction_batch_size > 0 else args.batch_size
@@ -1425,8 +1444,9 @@ def train(
                     accum_task_losses[task_type].append(loss_val)
                     if dp.positions:
                         item_layers = dp.meta_info.get("layers", MULTI_LAYERS)
-                        accum_scatter_acts.append((loss_val, len(dp.positions)))
-                        accum_scatter_layers.append((loss_val, len(item_layers) if item_layers else 1))
+                        _tag = dp.meta_info.get("pos_tag", "unknown") if dp.meta_info else "unknown"
+                        accum_scatter_acts.append((loss_val, len(dp.positions), _tag))
+                        accum_scatter_layers.append((loss_val, len(item_layers) if item_layers else 1, _tag))
                 accum_loss_sum += outputs.loss.item() * loss_weight
                 accum_batch_types.extend(chunk_types)
                 accum_batch_tokens += batch_tokens
@@ -1480,16 +1500,25 @@ def train(
                 }
                 last_step_time = now
                 if accum_scatter_acts:
-                    for _lv, _na in accum_scatter_acts:
-                        scatter_history_acts.append((_na, _lv, train_progress))
+                    for _lv, _na, _tg in accum_scatter_acts:
+                        scatter_window_acts.append((_na, _lv, _tg))
                 if accum_scatter_layers:
-                    for _lv, _nl in accum_scatter_layers:
-                        scatter_history_layers.append((_nl, _lv, train_progress))
+                    for _lv, _nl, _tg in accum_scatter_layers:
+                        scatter_window_layers.append((_nl, _lv, _tg))
                 if global_step % scatter_image_every == 0:
-                    if scatter_history_acts:
-                        log_dict["train/loss_vs_n_activations"] = _build_progress_scatter(scatter_history_acts, "n_activations", "Loss vs N Activations")
-                    if scatter_history_layers:
-                        log_dict["train/loss_vs_n_layers"] = _build_progress_scatter(scatter_history_layers, "n_layers", "Loss vs N Layers")
+                    if scatter_window_acts:
+                        log_dict["train/loss_vs_n_activations"] = _build_scatter(scatter_window_acts, "n_activations", "Loss vs N Activations")
+                    if scatter_window_layers:
+                        log_dict["train/loss_vs_n_layers"] = _build_scatter(scatter_window_layers, "n_layers", "Loss vs N Layers")
+                    # Save raw scatter data to disk
+                    scatter_path = log_dir / f"scatter_step{global_step}.jsonl"
+                    with open(scatter_path, "w") as _sf:
+                        for _na, _lv, _tg in scatter_window_acts:
+                            _sf.write(json.dumps({"x": _na, "loss": _lv, "tag": _tg, "kind": "n_activations"}) + "\n")
+                        for _nl, _lv, _tg in scatter_window_layers:
+                            _sf.write(json.dumps({"x": _nl, "loss": _lv, "tag": _tg, "kind": "n_layers"}) + "\n")
+                    scatter_window_acts.clear()
+                    scatter_window_layers.clear()
                 parent_task_emas = defaultdict(list)
                 for subtype, ema_val in task_loss_ema.items():
                     parent = subtype_to_task.get(subtype, subtype)
@@ -1820,7 +1849,7 @@ def main():
     parser.add_argument("--seed", type=int, default=None)
     parser.add_argument("--gradient-checkpointing", action="store_true", default=None)
     parser.add_argument("--no-gradient-checkpointing", dest="gradient_checkpointing", action="store_false")
-    parser.add_argument("--position-mode", type=str, default=None, choices=["last_only", "graduated", "stochastic", "mixed", "all"], help="Position sampling: last_only (fastest), graduated (last 1-3), stochastic (default), mixed (30/30/40), all")
+    parser.add_argument("--position-mode", type=str, default=None, choices=["last_only", "graduated", "stochastic", "mixed", "all"], help="Position sampling: last_only (fastest), graduated (last 1-3), stochastic (30/30/40 last1/last3/endskewed), mixed (20/50/30 lastk/sentence/endskewed, default), all")
     parser.add_argument("--stochastic-max-k", type=int, default=None, help="Upper bound for Poisson position sampling")
     parser.add_argument("--max-context-length", type=int, default=None, help="Drop training samples with context_input_ids longer than this (0 = no filter)")
     parser.add_argument("--task-order", choices=["shuffled", "sequential", "interleaved"], default=None, help="'shuffled' mixes all tasks; 'sequential' trains one at a time; 'interleaved' round-robin blocks")
@@ -1984,8 +2013,8 @@ def main():
         if RANDOM_LAYERS:
             print("Ablation: RANDOM LAYERS (per-item random layer sampling)")
         print(f"Position mode: {POSITION_MODE}")
-        if POSITION_MODE == "stochastic":
-            print(f"Stochastic max_k: {STOCHASTIC_MAX_K}")
+        if POSITION_MODE == "mixed":
+            print(f"Mixed max_k: {STOCHASTIC_MAX_K}")
         if MAX_CONTEXT_LENGTH > 0:
             print(f"Max context length: {MAX_CONTEXT_LENGTH} (longer samples will be dropped)")
 

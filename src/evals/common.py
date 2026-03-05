@@ -697,6 +697,21 @@ def _write_cache(items_raw: list[dict], local_path: Path, meta_path: Path,
         )
 
 
+def _normalize_raw_item(d: dict, eval_name: str, i: int, valid_fields: set) -> dict:
+    """Map a raw HF row to EvalItem kwargs, handling non-standard schemas."""
+    if eval_name == "sentence_insertion":
+        meta_keys = {"cot_text", "is_insertion", "n_sentences", "original_n_sentences", "inserted_step", "question"}
+        return {
+            "eval_name": "sentence_insertion",
+            "example_id": d.get("host_id", f"sentence_insertion_{i:04d}"),
+            "clean_prompt": d.get("prompt", d.get("question", "")),
+            "test_prompt": d.get("prompt", d.get("question", "")),
+            "correct_answer": str(d.get("correct_answer", "")),
+            "metadata": {k: d[k] for k in meta_keys if k in d} | {"spliced_cot_text": d.get("cot_text", "")},
+        }
+    return {k: v for k, v in d.items() if k in valid_fields}
+
+
 def load_eval_items_hf(eval_name: str, eval_dir: Path | None = None,
                        split: str = "test") -> list[EvalItem]:
     """Load eval items with HF-first freshness validation.
@@ -776,7 +791,7 @@ def load_eval_items_hf(eval_name: str, eval_dir: Path | None = None,
             print(f"  [eval] Cached {len(items_raw)} items to {local_path}")
 
         valid_fields = {f.name for f in EvalItem.__dataclass_fields__.values()}
-        return [EvalItem(**{k: v for k, v in d.items() if k in valid_fields}) for d in items_raw]
+        return [EvalItem(**_normalize_raw_item(d, eval_name, i, valid_fields)) for i, d in enumerate(items_raw)]
 
     # HF unreachable — fall back to local cache
     if local_path and local_path.exists():
