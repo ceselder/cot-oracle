@@ -149,6 +149,8 @@ def build_dpo_items(
     rollouts: list[str],
     judge_result: JudgeResult,
     rng: random.Random,
+    max_refusal_pairs: int = 3,
+    refusal_sft_weight: float = 3.0,
 ) -> tuple[list[DPOBatchItem], list[SFTItem]]:
     """Construct DPO pairs and SFT targets from judge verdicts.
 
@@ -235,7 +237,10 @@ def build_dpo_items(
                     ))
 
             elif rating.rating == "bad":
-                # Refusal > bad rollout
+                # Refusal > bad rollout (capped to avoid overwhelming signal)
+                n_refusal_pairs = sum(1 for d in dpo_items if d.label == "refusal>model")
+                if n_refusal_pairs >= max_refusal_pairs:
+                    continue
                 chosen_ids, chosen_labels = _make_full_ids(refusal)
                 rejected_ids, rejected_labels = _make_full_ids(rollout_text)
                 dpo_items.append(DPOBatchItem(
@@ -287,7 +292,7 @@ def build_dpo_items(
             weight=weight,
         ))
 
-    # Extra refusal SFT if all bad (10× weight)
+    # Extra refusal SFT if all bad
     if all_bad:
         refusal = sample_refusal(rng)
         ref_ids, ref_labels = _make_full_ids(refusal)
@@ -296,7 +301,7 @@ def build_dpo_items(
             labels=ref_labels,
             activations=activations,
             ph_positions=ph_positions,
-            weight=10.0,
+            weight=refusal_sft_weight,
         ))
 
     return dpo_items, sft_items
@@ -477,6 +482,8 @@ def train(cfg: dict) -> None:
                         rollouts=prev_rollouts[i],
                         judge_result=judge_results[i],
                         rng=rng,
+                        max_refusal_pairs=dpo_cfg.get("max_refusal_pairs", 3),
+                        refusal_sft_weight=dpo_cfg.get("refusal_sft_weight", 3.0),
                     )
                     if i == 0:
                         first_ex_dpo = list(dpo_items)
