@@ -1787,6 +1787,7 @@ class ChatCompareWebApp:
             preview = sentences[sent_idx][:80] if sent_idx < len(sentences) else ""
             trajectory.append({
                 "fraction": round(fraction, 3),
+                "cot_token_index": cot_tok_idx,
                 "sentence_preview": preview,
                 "forced_answer": forced_answer,
             })
@@ -2416,7 +2417,7 @@ class ChatCompareWebApp:
     .layer-block { border: 1px solid #1e293b; border-radius: 12px; padding: 10px; background: #0b1220; margin-bottom: 10px; }
     .layer-label { display: inline-block; margin-bottom: 8px; padding: 4px 10px; border-radius: 999px; background: #1e293b; font-weight: 700; font-size: 12px; }
     .token-paragraph { white-space: pre-wrap; line-height: 1.8; user-select: none; }
-    .tok { border-radius: 6px; padding: 1px 2px; }
+    .tok { border-radius: 6px; padding: 1px 2px; position: relative; }
     .tok.sampled { cursor: pointer; background: rgba(51, 65, 85, 0.35); }
     .tok.sampled:hover { background: rgba(96, 165, 250, 0.22); }
     .tok.sampled.selected { background: #1d4ed8; color: #eff6ff; }
@@ -2439,6 +2440,8 @@ class ChatCompareWebApp:
     .trajectory-point.final { border-left: 3px solid #22c55e; }
     .trajectory-preview { color: #94a3b8; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .trajectory-answer { color: #e2e8f0; word-break: break-word; }
+    .tok.trajectory-probe { border-bottom: 2px solid #7c3aed; }
+    .tok.trajectory-probe::after { content: attr(data-probe-label); position: absolute; top: -14px; left: 50%; transform: translateX(-50%); font-size: 9px; color: #7c3aed; font-weight: bold; pointer-events: none; white-space: nowrap; }
     .selection-box { position: fixed; border: 1px solid #60a5fa; background: rgba(96, 165, 250, 0.14); pointer-events: none; display: none; z-index: 50; }
     .outputs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
     .text-block { white-space: normal; word-break: break-word; line-height: 1.5; }
@@ -2765,6 +2768,7 @@ class ChatCompareWebApp:
     let patchRefreshNonce = 0;
     let barrierMode = false;
     let barrierTokenIndex = null;
+    let lastClickedStride = null;
     let timelineIndex = 0;
     let timelineLength = 1;
     const statusEl = document.getElementById('status');
@@ -2986,6 +2990,14 @@ For your final answer, respond with "Answer: Yes" or "Answer: No" after the chai
         if (session._resampledFromIndex !== undefined && tokenIndex >= session._resampledFromIndex) {
           span.classList.add('resampled');
         }
+        // Trajectory probe markers
+        if (session._trajectoryProbes) {
+          const probe = session._trajectoryProbes.find(p => p.cot_token_index === tokenIndex);
+          if (probe) {
+            span.classList.add('trajectory-probe');
+            span.dataset.probeLabel = Math.round(probe.fraction * 100) + '%';
+          }
+        }
         if (strideIndex !== null) {
           span.dataset.position = strideIndex;
           span.title = `Stride position ${strideIndex}, model token ${session.stride_positions[strideIndex]}`;
@@ -3004,6 +3016,16 @@ For your final answer, respond with "Answer: Yes" or "Answer: No" after the chai
           }
           if (strideIndex !== null) {
             event.preventDefault();
+            if (event.shiftKey && lastClickedStride !== null) {
+              // Shift-click: select range from last click to this one
+              const lo = Math.min(lastClickedStride, strideIndex);
+              const hi = Math.max(lastClickedStride, strideIndex);
+              for (let s = lo; s <= hi; s++) selected.add(keyFor(null, s));
+              refreshCells();
+              lastClickedStride = strideIndex;
+              return;
+            }
+            lastClickedStride = strideIndex;
             const key = keyFor(null, strideIndex);
             dragMode = selected.has(key) ? 'remove' : 'add';
             dragStart = { x: event.clientX, y: event.clientY };
@@ -3155,6 +3177,9 @@ For your final answer, respond with "Answer: Yes" or "Answer: No" after the chai
         });
         const data = await resp.json();
         if (!resp.ok) { setStatus(data.detail || 'Trajectory probe failed'); setBusy(false); return; }
+        // Store probe points for token heatmap markers
+        session._trajectoryProbes = data.trajectory.filter(pt => pt.cot_token_index != null);
+        renderTokenRows();
         const panel = document.getElementById('trajectoryPanel');
         const timeline = document.getElementById('trajectoryTimeline');
         const info = document.getElementById('trajectoryInfo');
@@ -3409,7 +3434,7 @@ For your final answer, respond with "Answer: Yes" or "Answer: No" after the chai
       if (!extractResponse.ok) { setStatus(extractData.detail || 'Activation extraction failed'); return; }
       session = { ...cotData, ...extractData };
       const adapterLabel = session.cot_adapter && session.cot_adapter !== 'base' ? session.cot_adapter : 'base model';
-      document.getElementById('meta').textContent = `Generator: ${adapterLabel} | ${session.n_positions} stride positions x ${session.layers.length} layers = ${session.n_vectors} vectors | AO layer ${session.layer_50} | stride ${stride}`;
+      document.getElementById('meta').textContent = `Generator: ${adapterLabel} | stride ${stride} | layers ${session.layers.join(', ')}`;
       document.getElementById('aoOut').textContent = '';
       document.getElementById('patchOut').textContent = '';
       document.getElementById('bbOut').textContent = '';
@@ -3618,7 +3643,7 @@ For your final answer, respond with "Answer: Yes" or "Answer: No" after the chai
       setBusy(false);
       if (!resp.ok) { setStatus(data.detail || 'Re-extraction failed'); return; }
       Object.assign(session, data);
-      document.getElementById('meta').textContent = `Generator: ${session.cot_adapter || 'base model'} | ${session.n_positions} stride positions x ${session.layers.length} layers = ${session.n_vectors} vectors | AO layer ${session.layer_50} | stride ${stride}`;
+      document.getElementById('meta').textContent = `Generator: ${session.cot_adapter || 'base model'} | stride ${stride} | layers ${session.layers.join(', ')}`;
       selected.clear();
       selectAll();
       renderTokenRows();
