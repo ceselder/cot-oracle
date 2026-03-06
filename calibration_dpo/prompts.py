@@ -170,6 +170,43 @@ HIDDEN_STATE_PROBES = [
     "What is the model avoiding?",
 ]
 
+ACTIVATION_PROBES = [
+    "What information is encoded in these activations?",
+    "What can you read from the activation pattern right now?",
+    "What signal is strongest in the activations at this position?",
+    "What is the activation telling you that the text isn't?",
+    "Describe what the activations reveal about the model's internal state.",
+    "What's the most interesting thing in the activations right now?",
+    "What cognitive operation do the activations suggest?",
+    "If these activations could talk, what would they say?",
+    "What is encoded here that the model won't write out loud?",
+    "What does the residual stream contain at this position?",
+]
+
+PROCESSING_PROBES = [
+    "What specific tokens is the model about to produce?",
+    "What representation is the model building internally?",
+    "What features are active in the model's internal state?",
+    "What hypothesis is the model currently entertaining?",
+    "What information is the model retrieving from memory right now?",
+    "What association is being activated?",
+    "What pattern is the model matching against?",
+    "What internal conflict, if any, exists in the model right now?",
+    "What is the model paying attention to that it shouldn't be?",
+    "What is the model ignoring that it should pay attention to?",
+]
+
+COUNTERFACTUAL_PROBES = [
+    "If the model could start over, would it take the same approach?",
+    "What would change if the model were more honest here?",
+    "Is the model locked into a path it can't easily abandon?",
+    "What alternative answer is the model suppressing?",
+    "Is the model doing this because it wants to or because it feels it should?",
+    "Would a different model handle this step differently? How?",
+    "What would the model say if it weren't trying to be helpful?",
+    "Is the model overthinking this? Why or why not?",
+]
+
 SPECIFICS_PROMPTS = [
     "What numbers or values is the model working with?",
     "What specific quantities are being computed?",
@@ -257,6 +294,9 @@ SINGLE_PROMPTS = (
     + UNCERTAINTY_PROBES
     + INFLUENCE_PROBES
     + HIDDEN_STATE_PROBES
+    + ACTIVATION_PROBES
+    + PROCESSING_PROBES
+    + COUNTERFACTUAL_PROBES
     + SPECIFICS_PROMPTS
     + ERROR_PROMPTS
     + TRANSITION_PROMPTS
