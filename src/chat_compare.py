@@ -148,6 +148,7 @@ TRAINED_CHECKPOINTS = {
     "calibration-dpo": {"path": "ceselder/cot-oracle-calibration-dpo", "subfolder": "step_378_final/policy", "label": "calibration DPO"},
     "calibration-dpo-step200": {"path": "ceselder/cot-oracle-calibration-dpo", "subfolder": "step_200/policy", "label": "calibration DPO step 200"},
     "calibration-dpo-v3": {"path": "ceselder/cot-oracle-calibration-dpo-v3", "label": "calibration DPO v3"},
+    "v8-graduated-pos": {"path": "ceselder/cot-oracle-v8-graduated-pos-396k", "label": "v8 graduated-pos 396k"},
 }
 
 # Available checkpoints for the Finetuned Monitor (text baseline, no activations).
