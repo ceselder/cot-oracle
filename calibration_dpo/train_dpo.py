@@ -481,6 +481,7 @@ def train(cfg: dict) -> None:
                 adapter_name="policy",
                 device=device,
                 questions=questions_for_oracle,
+                repetition_penalty=rollout_cfg.get("repetition_penalty", 1.0),
             )
             gpu_time = time.time() - gpu_t0
 

@@ -72,6 +72,8 @@ def generate_rollouts(
     injection_layer: int = 1,
     adapter_name: str = "policy",
     device: str | torch.device = "cuda",
+    questions: list[str | None] | None = None,
+    repetition_penalty: float = 1.0,
 ) -> list[list[str]]:
     """Generate multiple rollouts per example.
 
@@ -88,6 +90,7 @@ def generate_rollouts(
         injection_layer: Layer to inject activations at.
         adapter_name: Adapter to use for generation.
         device: Target device.
+        questions: Optional list of question strings to prepend to oracle prompts.
 
     Returns:
         List of lists of rollout strings, one inner list per example.
@@ -115,7 +118,11 @@ def generate_rollouts(
 
             # Build oracle input
             prefix = _build_oracle_prefix(num_positions, layers, ph_token)
-            full_prompt = prefix + oracle_prompt
+            question = questions[ex_idx] if questions else None
+            if question:
+                full_prompt = prefix + f'The model is answering: "{question}"\n{oracle_prompt}'
+            else:
+                full_prompt = prefix + oracle_prompt
 
             messages = [{"role": "user", "content": full_prompt}]
             formatted = tokenizer.apply_chat_template(
@@ -156,15 +163,19 @@ def generate_rollouts(
                     dtype=dtype,
                 )
 
+                gen_kwargs = dict(
+                    input_ids=input_tensor,
+                    attention_mask=attn_mask,
+                    max_new_tokens=max_new_tokens,
+                    do_sample=True,
+                    temperature=temperature,
+                    pad_token_id=pad_id,
+                )
+                if repetition_penalty != 1.0:
+                    gen_kwargs["repetition_penalty"] = repetition_penalty
+
                 with add_hook(injection_submodule, hook_fn):
-                    outputs = model.generate(
-                        input_ids=input_tensor,
-                        attention_mask=attn_mask,
-                        max_new_tokens=max_new_tokens,
-                        do_sample=True,
-                        temperature=temperature,
-                        pad_token_id=pad_id,
-                    )
+                    outputs = model.generate(**gen_kwargs)
 
                 for j in range(batch_n):
                     generated = outputs[j][max_len:]
