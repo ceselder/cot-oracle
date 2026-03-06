@@ -1367,7 +1367,7 @@ class ChatCompareWebApp:
                 print(f"Loading adapter '{adapter_name}' from {path}...")
                 self._progress_status = f"Loading {options[key]['label']}..."
                 try:
-                    load_kwargs = dict(adapter_name=adapter_name, is_trainable=False)
+                    load_kwargs = dict(adapter_name=adapter_name, is_trainable=False, low_cpu_mem_usage=True)
                     if subfolder:
                         load_kwargs["subfolder"] = subfolder
                     self.model.load_adapter(path, **load_kwargs)
