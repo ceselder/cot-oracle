@@ -86,7 +86,7 @@ def interp_mean_std(score_lists_a, score_lists_b=None):
             continue
         all_interp.append(np.interp(np.linspace(0, 1, n_points), np.linspace(0, 1, n), ss[:n]))
     arr = np.array(all_interp)
-    return arr.mean(axis=0), arr.std(axis=0)
+    return arr.mean(axis=0), arr.std(axis=0) / np.sqrt(arr.shape[0])
 
 # Model verdict with std band
 model_mean, model_std = interp_mean_std(model_lists)
@@ -128,7 +128,7 @@ ax.legend(fontsize=10, loc='upper right')
 ax.text(0.02, 0.02,
         "solid = full CoT activations up to sentence boundary\n"
         "dashed = current sentence activations only\n"
-        "shaded = \u00b11 std across questions",
+        "shaded = \u00b11 SE across questions",
         transform=ax.transAxes, fontsize=8.5, va='bottom', ha='left',
         bbox=dict(boxstyle='round,pad=0.4', facecolor='white', alpha=0.9))
 
@@ -174,7 +174,7 @@ for ax_idx, prompt in enumerate(["yesno", "cot_aware"]):
     ax.legend(fontsize=8, loc='upper right')
     ax.set_ylim(-0.05, 1.05)
     ax.grid(True, alpha=0.3)
-    ax.text(0.02, 0.02, "solid = full CoT | dashed = sentence-only | shaded = \u00b11 std",
+    ax.text(0.02, 0.02, "solid = full CoT | dashed = sentence-only | shaded = \u00b11 SE",
             transform=ax.transAxes, fontsize=7.5, va='bottom', ha='left',
             bbox=dict(boxstyle='round,pad=0.3', facecolor='white', alpha=0.8))
 
