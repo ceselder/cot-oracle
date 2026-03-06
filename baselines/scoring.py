@@ -46,7 +46,7 @@ EVAL_TYPES = {
     "cls_singular_plural": "binary",
     "cls_geometry_of_truth": "binary",
     "cls_relations": "binary",
-    "taxonomy_ood": "binary",
+
     # Training tasks (oracle task names for LLM monitor)
     "hint_admission": "binary",
     "atypical_answer": "binary",

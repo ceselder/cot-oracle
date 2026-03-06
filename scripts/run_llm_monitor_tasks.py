@@ -44,7 +44,7 @@ SKIP_TASKS = {
     "futurelens", "pastlens", "resampling_importance",
     "futurelens_fineweb", "pastlens_fineweb", "reconstruction_fineweb",
     "rot13_reconstruction", "sae_unverbalized",
-    "probe_sycophancy", "taxonomy_ood", "deception_detection",
+    "probe_sycophancy", "deception_detection",
 }
 
 # Datasets with train/test schema mismatch on HF

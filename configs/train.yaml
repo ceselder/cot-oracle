@@ -102,7 +102,7 @@ tasks:
     eval: true
 
   cot_metacognition:
-    eval: true
+    eval: false
 
   sae_unverbalized:           # ~10.5K available
     n: -1
@@ -150,10 +150,10 @@ no_activations:
 # Activation extraction
 activations:
   layers: [9, 18, 27]        # injection layers (25%, 50%, 75% of Qwen3-8B's 36 layers)
-  position_mode: mixed  # "last_only", "stochastic" (30/30/40), "mixed" (20/50/30 lastk/sentence/endskewed, default), "all"
+  position_mode: end_rdm_stc  # "last_only", "stochastic", "end_rdm_stc" (20/50/30 lastk/sentence/endskewed), "all"
   stochastic_max_k: 100      # upper bound for Poisson position sampling
   max_context_length: 0      # drop samples longer than this (0 = no filter)
-  position_encoding: false
+  position_encoding: true
   pe_alpha: 0.1
   layer_dropout:
     train: false
@@ -180,7 +180,11 @@ baselines:
 
   # Our trained AO (run_comprehensive_eval.py uses --checkpoint or this field)
   our_ao:
-    checkpoint: checkpoints/cot_oracle_v15_stochastic
+    checkpoint: /ceph/scratch/jbauer/checkpoints/cot_oracle_v15_stochastic
+
+  # Celeste's DPO-calibrated AO (disabled — uncomment to enable)
+  # celeste_ao:
+  #   checkpoint: ceselder/cot-oracle-calibration-dpo-v3
 
   # Original (Adam's) pretrained AO — loaded via AO_CHECKPOINTS in core/ao.py
   original_ao:
@@ -195,9 +199,9 @@ baselines:
     temperature: 0.0
 
   llm_monitor_pro:
-    model: google/gemini-3.1-pro-preview  # strong model
+    model: google/gemini-3.1-pro-preview  # strong model (thinking model — needs large max_tokens budget)
     api_base: https://openrouter.ai/api/v1
-    max_tokens: 300
+    max_tokens: 2048
     temperature: 0.0
 
   # Linear probes: pretrained binary classifiers from HF (mats-10-sprint-cs-jb/qwen3-8b-linear-probes)

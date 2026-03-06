@@ -47,10 +47,12 @@ PROBE_GT_LABEL_MAP = {
 _PROBE_CACHE: dict[str, dict] = {}
 
 
-def _load_probe(probe_task: str, pooling: str, layer: int) -> dict:
+def _load_probe(probe_task: str, pooling: str, layer: int | str) -> dict:
+    """Load a probe checkpoint. layer can be an int (e.g. 9) or 'concat' (cross-layer)."""
     key = f"{probe_task}_{pooling}_L{layer}"
     if key not in _PROBE_CACHE:
-        fname = f"{probe_task}_{pooling}_linear_L{layer}.pt"
+        fname = (f"{probe_task}_{pooling}_linear_concat.pt" if layer == "concat"
+                 else f"{probe_task}_{pooling}_linear_L{layer}.pt")
         path = hf_hub_download(HF_PROBE_REPO, fname)
         _PROBE_CACHE[key] = torch.load(path, map_location="cpu", weights_only=True)
     return _PROBE_CACHE[key]

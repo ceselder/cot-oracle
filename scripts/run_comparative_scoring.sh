@@ -1,30 +1,21 @@
 #!/bin/bash
-# Launch run_comprehensive_eval.py in parallel across multiple GPUs.
-# Each GPU handles a subset of tasks from src/tasks.py.
-# LLM monitor results are cached on shared disk (FAST_CACHE_DIR).
+# Run comparative scoring for all tasks, parallelized across 4 GPUs.
+# Method results are cached; only activation extraction + LLM scoring runs.
 set -euo pipefail
 
 cd /nfs/nhome/live/jbauer/cot-oracle
 source /var/tmp/jbauer/venvs/cot-oracle/bin/activate
 source ~/.env 2>/dev/null || true
-
 export CACHE_DIR="${CACHE_DIR:-/ceph/scratch/jbauer}"
+
 LOG_DIR="logs"
 mkdir -p "$LOG_DIR"
 
 CHECKPOINT="/ceph/scratch/jbauer/checkpoints/cot_oracle_v15_stochastic"
 CONFIG="configs/train.yaml"
 N_EXAMPLES=25
-POSITION_MODE="all"
+OUTPUT_DIR="data/comprehensive_eval"
 
-# Build timestamped output dir: YYYYMMDD_HHMM_{ckpt_name}_{wandb_run_id}
-CKPT_NAME=$(basename "$CHECKPOINT")
-WANDB_RUN_ID=$(python3 -c "import torch; s=torch.load('$CHECKPOINT/training_state.pt',map_location='cpu',weights_only=False); print(s.get('wandb_run_id','unknown'))" 2>/dev/null || echo "unknown")
-TIMESTAMP=$(date +%Y%m%d_%H%M)
-OUTPUT_DIR="data/comprehensive_eval/${TIMESTAMP}_${CKPT_NAME}_${WANDB_RUN_ID}"
-echo "Output dir: $OUTPUT_DIR"
-
-# All tasks from src/tasks.py with valid HF repos (fineweb + rot13 excluded automatically)
 TASKS=(
   hint_admission
   atypical_answer
@@ -43,10 +34,11 @@ TASKS=(
   truthfulqa_hint
   sentence_insertion
   cot_description
+  cot_metacognition
   sae_unverbalized
 )
 
-N_GPUS=3
+N_GPUS=4
 declare -a GPU_TASKS
 for i in "${!TASKS[@]}"; do
   gpu=$((i % N_GPUS))
@@ -59,7 +51,7 @@ for gpu in $(seq 0 $((N_GPUS - 1))); do
   if [ -z "${tasks// }" ]; then
     continue
   fi
-  logfile="$LOG_DIR/parallel_eval_gpu${gpu}_$(date +%Y%m%d_%H%M%S).log"
+  logfile="$LOG_DIR/comparative_gpu${gpu}_$(date +%Y%m%d_%H%M%S).log"
   echo "GPU $gpu → tasks:$tasks → $logfile"
   nohup env CUDA_VISIBLE_DEVICES=$gpu python scripts/run_comprehensive_eval.py \
     --config "$CONFIG" \
@@ -67,7 +59,6 @@ for gpu in $(seq 0 $((N_GPUS - 1))); do
     --n-examples "$N_EXAMPLES" \
     --device cuda \
     --output-dir "$OUTPUT_DIR" \
-    --position-mode "$POSITION_MODE" \
     --tasks $tasks \
     >"$logfile" 2>&1 &
   PIDS+=($!)
@@ -88,15 +79,3 @@ for i in "${!PIDS[@]}"; do
 done
 
 echo "All workers done. Failed: $FAILED"
-
-# Final pass: generate combined plot (no GPU needed)
-echo "Generating combined plot..."
-python scripts/run_comprehensive_eval.py \
-  --config "$CONFIG" \
-  --checkpoint "$CHECKPOINT" \
-  --n-examples "$N_EXAMPLES" \
-  --output-dir "$OUTPUT_DIR" \
-  --plot-only \
-  >>"$LOG_DIR/parallel_eval_plot_$(date +%Y%m%d_%H%M%S).log" 2>&1
-
-echo "Done. Plot saved to $OUTPUT_DIR/comprehensive_eval.png"

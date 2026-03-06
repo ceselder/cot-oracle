@@ -33,7 +33,7 @@ NUM_GPUS_WANT=${NUM_GPUS:-4}
 echo "=== Searching for ${NUM_GPUS_WANT}xH100 spot offers (direct ports) ==="
 OFFER_ID=$(vastai search offers \
     "num_gpus=${NUM_GPUS_WANT} gpu_name=H100_SXM reliability>0.9 disk_space>=150 direct_port_count>=1" \
-    --type=bid -o 'dph_total' --raw 2>/dev/null \
+    --type=on-demand -o 'dph_total' --raw 2>/dev/null \
     | python3 -c "import sys,json; offers=json.load(sys.stdin); print(offers[0]['id'])" \
 )
 echo "Best offer: $OFFER_ID"
@@ -201,9 +201,11 @@ tmux new-session -d -s train bash -c "
         src/train.py \
         --config configs/train.yaml \
         --precomputed-dir data/precomputed \
-        --save-dir /workspace/checkpoints/cot_oracle \
-        --wandb-run vast_\$(date +%Y%m%d_%H%M) \
+        --save-dir /workspace/checkpoints/cot_oracle_v16_posembed \
+        --wandb-run v16_posembed \
         --wandb-group jan \
+        --position-encoding \
+        --no-cls-eval \
     2>&1 | tee /workspace/train.log
     echo 'TRAINING DONE'
     sleep infinity

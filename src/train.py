@@ -239,7 +239,7 @@ def materialize_multilayer_steering_vectors(
             layer_vecs = acts_BLD[b, adjusted, :]  # [K, D]
             if POSITION_ENCODING:
                 from position_encoding import apply_position_encoding
-                layer_vecs = apply_position_encoding(layer_vecs, chunk_positions, alpha=PE_ALPHA)
+                layer_vecs = apply_position_encoding(vectors=layer_vecs, source_positions=chunk_positions, alpha=PE_ALPHA)
             vectors_parts.append(layer_vecs)
 
         vectors = torch.cat(vectors_parts, dim=0).detach().contiguous()
@@ -440,7 +440,7 @@ def _apply_position_mode(base_positions: list[int], period_positions: list[int] 
             return base_positions[-3:], "last_k"
         else:
             return sample_endweighted_positions(base_positions), "end_skewed"
-    elif POSITION_MODE == "mixed":
+    elif POSITION_MODE == "end_rdm_stc":
         from cot_utils import sample_poisson_positions_tagged
         return sample_poisson_positions_tagged(base_positions, max_k=STOCHASTIC_MAX_K, period_positions=period_positions)
     return base_positions, "all"
@@ -675,6 +675,8 @@ def _save_training_state(save_path: Path, global_step, optimizer, scheduler):
         "random_state": random.getstate(),
         "wandb_run_id": wandb.run.id if wandb.run else None,
         "wandb_run_name": wandb.run.name if wandb.run else None,
+        "position_encoding": POSITION_ENCODING,
+        "pe_alpha": PE_ALPHA,
     }
     torch.save(state, save_path / "training_state.pt")
 
@@ -728,6 +730,8 @@ def _run_unified_eval(model, tokenizer, model_name, global_step, args, log_dir=N
         no_activations=no_activations,
         position_mode=args.position_mode,
         stochastic_max_k=args.stochastic_max_k,
+        position_encoding=args.position_encoding,
+        pe_alpha=args.pe_alpha,
     )
 
     # Aggregate mean metrics across eval tasks
@@ -871,6 +875,12 @@ def _run_cls_eval(model, tokenizer, submodule, global_step: int, args):
     log_dict = {}
 
     for ds_name, eval_data in cls_data.items():
+        if args.position_encoding:
+            for dp in eval_data:
+                assert dp.context_positions is not None
+                assert dp.context_input_ids is not None
+                dp.source_positions = list(dp.context_positions)
+                dp.source_total_length = len(dp.context_input_ids)
         results = run_evaluation(
             eval_data=eval_data,
             model=model,
@@ -883,6 +893,7 @@ def _run_cls_eval(model, tokenizer, submodule, global_step: int, args):
             eval_batch_size=args.eval_batch_size,
             steering_coefficient=args.steering_coefficient,
             generation_kwargs=generation_kwargs,
+            position_encoding_alpha=args.pe_alpha if args.position_encoding else None,
         )
         fmt_acc, ans_acc = score_eval_responses(results, eval_data)
         log_dict[f"cls_eval/{ds_name}/format_acc"] = fmt_acc
@@ -1848,7 +1859,7 @@ def main():
     parser.add_argument("--seed", type=int, default=None)
     parser.add_argument("--gradient-checkpointing", action="store_true", default=None)
     parser.add_argument("--no-gradient-checkpointing", dest="gradient_checkpointing", action="store_false")
-    parser.add_argument("--position-mode", type=str, default=None, choices=["last_only", "graduated", "stochastic", "mixed", "all"], help="Position sampling: last_only (fastest), graduated (last 1-3), stochastic (30/30/40 last1/last3/endskewed), mixed (20/50/30 lastk/sentence/endskewed, default), all")
+    parser.add_argument("--position-mode", type=str, default=None, choices=["last_only", "graduated", "stochastic", "end_rdm_stc", "all"], help="Position sampling: last_only (fastest), graduated (last 1-3), stochastic (30/30/40 last1/last3/endskewed), end_rdm_stc (20/50/30 lastk/sentence/endskewed), all")
     parser.add_argument("--stochastic-max-k", type=int, default=None, help="Upper bound for Poisson position sampling")
     parser.add_argument("--max-context-length", type=int, default=None, help="Drop training samples with context_input_ids longer than this (0 = no filter)")
     parser.add_argument("--task-order", choices=["shuffled", "sequential", "interleaved"], default=None, help="'shuffled' mixes all tasks; 'sequential' trains one at a time; 'interleaved' round-robin blocks")

@@ -8,7 +8,6 @@ to evaluate all tasks and baseline methods in a unified way.
 Methods:
   - our_ao_k{N}        : our LoRA checkpoint, k-sweep x layers [9,18,27], best layer per k
   - original_ao_k{N}   : Adam's AO checkpoint, layer 18, k positions
-  - llm_monitor_flash  : text-only black-box LLM (gemini-2.5-flash)
   - llm_monitor_pro    : text-only black-box LLM (gemini-2.5-pro)
   - linear_probes      : pretrained linear probes from HF
   - sae_probe          : SAE encode + LLM judge
@@ -56,10 +55,14 @@ from tasks import TASKS, TaskDef, ScoringMode
 from data_loading import load_task_data, prepare_context_ids
 from eval_loop import (
     _resample_eval_positions,
+    _apply_position_encoding_to_activations,
     _materialize_activations,
     _batched_oracle_generate,
     score_task,
     _primary_metric_name,
+    _score_trajectory,
+    _score_trajectory_llm,
+    _parse_trajectory,
 )
 from qa_judge import OPENROUTER_CHAT_COMPLETIONS_URL, compute_token_f1_scores
 from core.ao import AO_CHECKPOINTS, load_model_with_ao, load_extra_adapter
@@ -70,6 +73,100 @@ OUR_AO_LAYERS = [9, 18, 27]
 K_SWEEP = [1, 5, 10, 20, None]  # None = all stride-5 positions
 DEFAULT_LAYERS = [9, 18, 27]
 DEFAULT_N = 25
+
+# Tasks that cannot run through load_task_data (permanently skipped in eval).
+# This is the single authoritative list — both the runner and the plotter use it.
+_SKIP_TASKS: frozenset[str] = frozenset({
+    "futurelens", "pastlens",                        # no cot_text in corpus-v5
+    "futurelens_fineweb", "pastlens_fineweb",         # fineweb streaming, no hf_repo
+    "reconstruction_fineweb",                         # fineweb streaming, no hf_repo
+    "probe_sycophancy",                               # HF 404
+    "deception_detection",                            # HF 404
+    "cot_metacognition",                              # skipped per user request
+    "compqa",                                         # skipped per user request
+})
+
+
+def _checkpoint_meta(checkpoint: str | None) -> dict[str, str]:
+    """Extract wandb_run_id and wandb_run_name from a checkpoint's training_state.pt."""
+    if not checkpoint:
+        return {"run_id": "unknown", "run_name": "unknown", "ckpt_name": "unknown"}
+    ckpt_name = Path(checkpoint).name
+    state_path = Path(checkpoint) / "training_state.pt"
+    if state_path.exists():
+        state = torch.load(state_path, map_location="cpu", weights_only=False)
+        return {
+            "run_id": state.get("wandb_run_id", "unknown"),
+            "run_name": state.get("wandb_run_name", "unknown"),
+            "ckpt_name": ckpt_name,
+        }
+    return {"run_id": "unknown", "run_name": "unknown", "ckpt_name": ckpt_name}
+
+
+def _checkpoint_activation_settings(checkpoint: str | None) -> dict[str, float | bool]:
+    if not checkpoint:
+        return {}
+    state_path = Path(checkpoint) / "training_state.pt"
+    if not state_path.exists():
+        return {}
+    state = torch.load(state_path, map_location="cpu", weights_only=False)
+    settings: dict[str, float | bool] = {}
+    if "position_encoding" in state:
+        settings["position_encoding"] = bool(state["position_encoding"])
+    if "pe_alpha" in state:
+        settings["pe_alpha"] = float(state["pe_alpha"])
+    return settings
+
+
+def _make_output_dir(base: str, checkpoint: str | None) -> Path:
+    """Generate timestamped output dir: {base}/YYYYMMDD_HHMM_{ckpt_name}_{run_id}/"""
+    from datetime import datetime
+    meta = _checkpoint_meta(checkpoint)
+    ts = datetime.now().strftime("%Y%m%d_%H%M")
+    name = f"{ts}_{meta['ckpt_name']}_{meta['run_id']}"
+    return Path(base) / name
+
+
+def _canonical_task_names() -> list[str]:
+    """Sorted list of all tasks that should appear in every eval plot."""
+    canonical = sorted(
+        name for name, tdef in TASKS.items()
+        if tdef.hf_repo and not tdef.needs_rot13_adapter and name not in _SKIP_TASKS
+    )
+    # Insert virtual answer_confidence task right after answer_trajectory
+    if "answer_trajectory" in canonical:
+        idx = canonical.index("answer_trajectory") + 1
+        canonical.insert(idx, "answer_confidence")
+    return canonical
+
+
+def _our_ao_trained_tasks(cfg: dict) -> frozenset[str]:
+    """Return tasks our oracle was trained on (n != 0 in train.yaml)."""
+    return frozenset(
+        name for name, v in cfg.get("tasks", {}).items()
+        if isinstance(v, dict) and v.get("n", -1) != 0
+    )
+
+
+def _og_ao_trained_tasks() -> frozenset[str]:
+    """Return tasks original AO was trained on (from configs/og_ao.yaml)."""
+    og_cfg_path = Path(__file__).resolve().parent.parent / "configs" / "og_ao.yaml"
+    og_cfg = yaml.safe_load(og_cfg_path.read_text())
+    return frozenset(og_cfg.get("trained_tasks", []))
+
+
+def _build_per_method_trained(cfg: dict) -> dict[str, frozenset[str]]:
+    """Return per-method trained task sets for border rendering in plots.
+
+    Only oracle methods carry training history; LLM monitors, SAE probes
+    and linear probes are not trained on any of these tasks.
+    """
+    return {
+        "our_ao":      _our_ao_trained_tasks(cfg),
+        "celeste_ao":  frozenset(),  # trained tasks unknown; update if Celeste publishes metadata
+        "orig_ao":     _og_ao_trained_tasks(),
+        # llm_monitor_flash, llm_monitor_pro, linear_probes, sae_probe: empty
+    }
 
 # Pre-collected LLM monitor traces: task_name → filename prefix in logs/llm_monitor_tasks/
 # Traces are jsonl with: prompt_hash, example_id, llm_response, ground_truth, eval_type, prediction
@@ -132,10 +229,6 @@ def _per_example_scores(predictions: list[str], targets: list[str], task_def: Ta
 
     def _classify_target(text: str) -> str | None:
         t = text.strip().lower()
-        if pos_label and pos_label.lower() in t:
-            return pos_label
-        if neg_label and neg_label.lower() in t:
-            return neg_label
         for kw in sorted(neg_kw, key=len, reverse=True):
             if kw.lower() in t:
                 return neg_label
@@ -267,6 +360,7 @@ def _run_llm_monitor(
     example_ids: list[str],
     cache_dir: Path,
     rerun: bool = False,
+    max_tokens: int = 512,
 ) -> dict:
     """Run LLM monitor baseline. Loads from pre-collected traces or API cache, then API."""
     method = f"llm_monitor_{model.replace('/', '_').replace('.', '_')}"
@@ -290,7 +384,7 @@ def _run_llm_monitor(
     missing_idx = [i for i, p in enumerate(predictions) if p is None]
     if missing_idx:
         missing_items = [items[i] for i in missing_idx]
-        api_preds = _run_llm_monitor_api(missing_items, model, max_new_tokens=task_def.max_new_tokens)
+        api_preds = _run_llm_monitor_api(missing_items, model, max_new_tokens=max_tokens)
         for i, pred in zip(missing_idx, api_preds):
             predictions[i] = pred
 
@@ -374,12 +468,26 @@ def _run_our_ao_k_sweep(
     example_ids: list[str],
     cache_dir: Path,
     rerun: bool = False,
+    name: str = "our_ao",
+    position_encoding: bool = False,
+    pe_alpha: float = 0.1,
 ) -> dict[str, dict]:
-    """Run our_ao with k-sweep. Returns {k_label: result_dict} for best layer per k."""
+    """Run a LoRA AO with k-sweep, always using ALL trained layers simultaneously.
+
+    Matches the training format exactly: activations from every layer are
+    concatenated ([k*n_layers, D]) and the full multi-layer prefix is used.
+    No per-layer sweep — our oracle was never trained on a single layer in isolation.
+    Cache key includes 'all_layers_v2' to distinguish from the old (wrong) per-layer cache.
+    """
+    n_layers = len(layers)
     results = {}
+
     for k in K_SWEEP:
-        k_label = f"our_ao_k{'all' if k is None else k}"
-        key = _cache_key(task_name, k_label, {"adapter": adapter_name, "layers": layers}, example_ids)
+        k_label = f"{name}_k{'all' if k is None else k}"
+        # 'all_layers_v2' in the key invalidates old per-layer cache entries
+        key = _cache_key(task_name, k_label,
+                         {"adapter": adapter_name, "layers": layers, "mode": "all_layers_v2", "position_encoding": position_encoding, "pe_alpha": pe_alpha},
+                         example_ids)
 
         if not rerun:
             cached = _cache_load(cache_dir, key)
@@ -387,31 +495,43 @@ def _run_our_ao_k_sweep(
                 results[k_label] = cached
                 continue
 
-        # Run all layers, pick best
-        best_score = -1.0
-        best_result = None
-        for oracle_layer in layers:
-            preds, scores = _run_oracle(
-                model, tokenizer, items, activations, task_def,
-                layers, adapter_name, k, oracle_layer, device,
-            )
-            mean_score = float(np.mean(scores)) if scores else 0.0
-            if mean_score > best_score:
-                best_score = mean_score
-                best_result = {
-                    "predictions": preds,
-                    "targets": [item["target_response"] for item in items],
-                    "per_example_scores": scores,
-                    "primary_score": mean_score,
-                    "bootstrap_std": bootstrap_std(scores),
-                    "best_layer": oracle_layer,
-                    "k": k,
-                    "n": len(preds),
-                }
+        # Build batch: concatenate last k_actual positions from every layer.
+        # K_per_layer is computed per-item because CoT length (and thus stride-5
+        # position count) varies across examples.
+        batch_items = []
+        for i, item in enumerate(items):
+            acts = activations[i]  # [n_layers * K_i, D]
+            K_i = acts.shape[0] // n_layers
+            k_actual_i = K_i if k is None else min(k, K_i)
+            slices = [acts[li * K_i + (K_i - k_actual_i):li * K_i + K_i]
+                      for li in range(n_layers)]
+            combined = torch.cat(slices, dim=0).to(device)  # [k_actual_i * n_layers, D]
+            batch_items.append((combined, item["prompt"]))
 
-        if best_result:
-            _cache_save(cache_dir, key, best_result)
-            results[k_label] = best_result
+        responses = _batched_oracle_generate(
+            model, tokenizer, batch_items,
+            layers=layers,
+            device=device,
+            max_new_tokens=task_def.max_new_tokens,
+            eval_batch_size=8,
+            oracle_adapter_name=adapter_name,
+        )
+        targets = [item["target_response"] for item in items]
+        scores = _per_example_scores(responses, targets, task_def)
+        result = {
+            "predictions": responses,
+            "targets": targets,
+            "per_example_scores": scores,
+            "primary_score": float(np.mean(scores)) if scores else 0.0,
+            "bootstrap_std": bootstrap_std(scores),
+            "layers": layers,
+            "k": k,
+            "position_encoding": position_encoding,
+            "pe_alpha": pe_alpha,
+            "n": len(responses),
+        }
+        _cache_save(cache_dir, key, result)
+        results[k_label] = result
 
     return results
 
@@ -482,37 +602,68 @@ def _run_linear_probes_for_task(
     cache_dir: Path,
     rerun: bool = False,
 ) -> dict | None:
-    """Run linear probes if available for this task."""
+    """Run linear probes if available for this task.
+
+    Tries both 'mean' and 'last' pooling across all layers; picks the best
+    (pooling, layer) combination by stored balanced_accuracy.
+    Cache key uses 'best_pooling_v2' to invalidate old mean-only entries.
+    """
     from linear_probes import PROBE_TASK_MAP, PROBE_GT_LABEL_MAP, _load_probe
-    import torch
 
     probe_task = PROBE_TASK_MAP.get(task_name)
     if probe_task is None:
         return None
 
-    key = _cache_key(task_name, "linear_probes", {"probe_task": probe_task, "layers": layers}, example_ids)
+    key = _cache_key(task_name, "linear_probes",
+                     {"probe_task": probe_task, "layers": layers, "mode": "best_pooling_v2"},
+                     example_ids)
     if not rerun:
         cached = _cache_load(cache_dir, key)
         if cached is not None:
             return cached
 
     label_map = PROBE_GT_LABEL_MAP[probe_task]
-    probes = {layer: _load_probe(probe_task, "mean", layer) for layer in layers}
-    best_layer = max(probes, key=lambda l: probes[l]["balanced_accuracy"])
-    probe = probes[best_layer]
+
+    # Load all (pooling, layer) combinations; skip missing files gracefully.
+    # layer ∈ layers (per-layer probes) or "concat" (mean/last per layer, then cat across layers).
+    probes: dict[tuple[str, int | str], dict] = {}
+    for pooling in ("mean", "last"):
+        for layer in (*layers, "concat"):
+            try:
+                probes[(pooling, layer)] = _load_probe(probe_task, pooling, layer)
+            except Exception:
+                pass
+    if not probes:
+        return None
+
+    best_key = max(probes, key=lambda pk: probes[pk]["balanced_accuracy"])
+    best_pooling, best_layer = best_key
+    probe = probes[best_key]
     w = probe["weight"].float()
     b = probe["bias"].float()
     mu = probe["mu"].float()
     std_probe = probe["std"].float()
 
     K = activations[0].shape[0] // len(layers)
-    layer_idx = layers.index(best_layer)
 
     predictions = []
     targets = []
     for i, item in enumerate(items):
-        acts = activations[i][layer_idx * K:(layer_idx + 1) * K].cpu().float()  # [K, D]
-        x = acts.mean(dim=0, keepdim=True)
+        if best_layer == "concat":
+            # Apply pooling per layer, then concatenate across layers → [1, n_layers * D]
+            vecs = []
+            for li in range(len(layers)):
+                la = activations[i][li * K:(li + 1) * K].cpu().float()
+                vecs.append(la.mean(dim=0) if (best_pooling == "mean" or la.shape[0] == 0)
+                            else la[-1])
+            x = torch.stack(vecs).reshape(1, -1)
+        else:
+            layer_idx = layers.index(best_layer)
+            acts = activations[i][layer_idx * K:(layer_idx + 1) * K].cpu().float()
+            if acts.shape[0] == 0:
+                x = torch.zeros(1, w.shape[1])
+            else:
+                x = acts.mean(dim=0, keepdim=True) if best_pooling == "mean" else acts[-1:]
         x_norm = (x - mu) / (std_probe + 1e-8)
         logit = (x_norm @ w.T) + b
         pred_idx = int(logit.squeeze() > 0)
@@ -528,6 +679,8 @@ def _run_linear_probes_for_task(
         "primary_score": float(np.mean(scores)) if scores else 0.0,
         "bootstrap_std": bootstrap_std(scores),
         "best_layer": best_layer,
+        "best_pooling": best_pooling,
+        "probe_balanced_acc": probe["balanced_accuracy"],
         "n": len(predictions),
     }
     _cache_save(cache_dir, key, result)
@@ -547,19 +700,28 @@ def _run_sae_probe_for_task(
     example_ids: list[str],
     cache_dir: Path,
     rerun: bool = False,
+    output_dir: Path | None = None,
 ) -> dict | None:
     """Run SAE probe if available. Imports from baselines/sae_probe.py."""
     from scoring import EVAL_TYPES
     if task_name not in EVAL_TYPES:
         return None
-    # Skip LLM_JUDGE tasks — no automatic scoring possible
-    if task_def.scoring == ScoringMode.LLM_JUDGE:
-        return None
+
+    def _write_jsonl(traces):
+        if output_dir is None or not traces:
+            return
+        log_dir = output_dir / "logs" / task_name
+        log_dir.mkdir(parents=True, exist_ok=True)
+        with open(log_dir / "sae_probe_features.jsonl", "w") as f:
+            for t in traces:
+                f.write(json.dumps(t) + "\n")
 
     key = _cache_key(task_name, "sae_probe", sae_cfg, example_ids)
     if not rerun:
         cached = _cache_load(cache_dir, key)
         if cached is not None:
+            if output_dir is not None and not (output_dir / "logs" / task_name / "sae_probe_features.jsonl").exists():
+                _write_jsonl(cached.get("traces", []))
             return cached
 
     # Build BaselineInput-like objects for sae_probe (it uses activations_by_layer)
@@ -616,9 +778,144 @@ def _run_sae_probe_for_task(
         "primary_score": float(np.mean(scores)) if scores else 0.0,
         "bootstrap_std": bootstrap_std(scores),
         "n": len(predictions),
+        "traces": result_raw["traces"],  # includes feature_desc and full_prompt
     }
     _cache_save(cache_dir, key, result)
+    _write_jsonl(result_raw["traces"])
     return result
+
+
+# ── LLM_JUDGE rescoring for oracle predictions ──
+
+
+def _rescore_llm_judge(
+    task_name: str,
+    task_def,
+    task_results: dict,
+    items: list[dict],
+    example_ids: list[str],
+    output_dir: Path,
+    cache_dir: Path,
+    rerun: bool = False,
+) -> None:
+    """Re-score oracle/baseline predictions for LLM_JUDGE tasks via the LLM judge API."""
+    targets = [item["target_response"] for item in items]
+    for method_key, result in list(task_results.items()):
+        preds = result.get("predictions")
+        if not preds:
+            continue
+        judge_key = _cache_key(task_name, f"{method_key}_judge", {}, example_ids)
+        if not rerun:
+            cached = _cache_load(cache_dir, judge_key)
+            if cached is not None:
+                result.update(cached)
+                _save_task_results(output_dir, task_name, method_key, result)
+                continue
+        print(f"    [{method_key}] calling LLM judge...")
+        judge = score_task(task_def, preds, targets, eval_items=items)
+        update = {
+            "primary_score": judge["llm_judge_score"],
+            "bootstrap_std": bootstrap_std(judge.get("_llm_judge_correctness", [])),
+            "per_example_scores": judge.get("_llm_judge_correctness", []),
+            "llm_judge_specificity": judge.get("specificity"),
+        }
+        result.update(update)
+        _cache_save(cache_dir, judge_key, update)
+        _save_task_results(output_dir, task_name, method_key, result)
+
+
+# ── Trajectory LLM rescoring for answer_trajectory (same scorer as training) ──
+
+
+def _rescore_trajectory_llm(
+    task_name: str,
+    task_results: dict,
+    items: list[dict],
+    example_ids: list[str],
+    output_dir: Path,
+    cache_dir: Path,
+    rerun: bool = False,
+) -> None:
+    """Re-score oracle/baseline predictions for answer_trajectory via _score_trajectory_llm.
+
+    Matches the training scorer exactly: LLM judge evaluates whether the predicted
+    answer label is correct (answer_score) and extracts predicted confidence.
+    """
+    targets = [item["target_response"] for item in items]
+    for method_key, result in list(task_results.items()):
+        preds = result.get("predictions")
+        if not preds:
+            continue
+        traj_key = _cache_key(task_name, f"{method_key}_traj_llm", {}, example_ids)
+        if not rerun:
+            cached = _cache_load(cache_dir, traj_key)
+            if cached is not None:
+                result.update(cached)
+                _save_task_results(output_dir, task_name, method_key, result)
+                continue
+        print(f"    [{method_key}] calling trajectory LLM judge...")
+        traj = _score_trajectory_llm(preds, targets)
+        per_example = [s if s is not None else 0.0 for s in traj.get("_traj_answer_scores", [])]
+        update = {
+            "primary_score": traj["answer_score"],
+            "bootstrap_std": bootstrap_std(per_example),
+            "per_example_scores": per_example,
+            "confidence_mse": traj.get("confidence_mse"),
+            "_traj_pred_confidences": traj.get("_traj_pred_confidences", []),
+            "_traj_reasons": traj.get("_traj_reasons", []),
+        }
+        result.update(update)
+        _cache_save(cache_dir, traj_key, update)
+        _save_task_results(output_dir, task_name, method_key, result)
+
+
+# ── answer_confidence virtual task (derived from answer_trajectory) ──
+
+
+def _compute_answer_confidence(task_results: dict, items: list[dict]) -> dict[str, dict]:
+    """Derive answer_confidence results from answer_trajectory predictions.
+
+    Uses LLM-judged predicted confidences (_traj_pred_confidences) when available
+    (i.e. after _rescore_trajectory_llm), otherwise falls back to rule-based parser.
+    Confidence score = 1.0 - MAE/100 per example (MAE in percentage points).
+    """
+    targets = [item["target_response"] for item in items]
+    gt_confs = [
+        (parsed.get("confidence") if (parsed := _parse_trajectory(t)) else None)
+        for t in targets
+    ]
+    conf_results = {}
+    for method_key, result in task_results.items():
+        preds = result.get("predictions")
+        if not preds:
+            continue
+        pred_confs = result.get("_traj_pred_confidences")
+        if pred_confs:
+            # LLM-judged confidences (preferred — consistent with training scorer)
+            conf_errors = [
+                abs(pc - gc)
+                for pc, gc in zip(pred_confs, gt_confs)
+                if pc is not None and gc is not None
+            ]
+        else:
+            # Fall back to rule-based parser
+            conf_errors = _score_trajectory(preds, targets).get("_conf_errors", [])
+        if not conf_errors:
+            continue
+        conf_scores = [max(0.0, 1.0 - err / 100.0) for err in conf_errors]
+        conf_results[method_key] = {
+            "predictions": preds,
+            "targets": targets,
+            "per_example_scores": conf_scores,
+            "primary_score": float(np.mean(conf_scores)),
+            "bootstrap_std": bootstrap_std(conf_scores),
+            "confidence_mae": float(np.mean(conf_errors)),
+            "n": len(conf_scores),
+            "best_layer": result.get("best_layer"),
+            "layer": result.get("layer"),
+            "k": result.get("k"),
+        }
+    return conf_results
 
 
 # ── Log + save results ──
@@ -659,12 +956,17 @@ Prompt: {prompt}
 Chain of thought: {cot_field}
 Target response: {target_response}
 
-Rate each prediction below from 0.0 to 1.0 (1.0 = perfectly matches target, 0.0 = completely wrong).
+Rate each prediction from 0.0 to 1.0 (1.0 = perfectly matches target, 0.0 = completely wrong).
+Also give a one-sentence reason for each score.
 
 Predictions:
 {predictions_text}
 
-Return ONLY a JSON object, e.g. {{"our_ao": 0.9, "llm_monitor_flash": 0.4}}."""
+Return ONLY a JSON object with this structure:
+{{
+  "method_name": {{"score": 0.9, "reason": "Matches target exactly"}},
+  ...
+}}"""
 
 
 async def _score_one_example_comparative(
@@ -674,7 +976,7 @@ async def _score_one_example_comparative(
     task_name: str,
     method_names: list[str],
     model: str,
-) -> dict[str, float]:
+) -> dict[str, dict]:
     predictions_text = "\n".join(f"- {m}: {str(record.get(m, 'N/A'))[:300]}" for m in method_names)
     content = COMPARATIVE_SCORING_PROMPT.format(
         task_name=task_name,
@@ -689,19 +991,57 @@ async def _score_one_example_comparative(
                 resp = await client.chat.completions.create(
                     model=model,
                     messages=[{"role": "user", "content": content}],
-                    max_tokens=200,
+                    max_tokens=500,
                     temperature=0.0,
                 )
                 raw = resp.choices[0].message.content or "{}"
                 raw = re.sub(r"<think>.*?</think>", "", raw, flags=re.DOTALL).strip()
                 m = re.search(r"\{[\s\S]*\}", raw)
                 if m:
-                    return {k: float(v) for k, v in json.loads(m.group(0)).items()}
-                return {mn: 0.5 for mn in method_names}
+                    parsed = json.loads(m.group(0))
+                    # Normalise: accept both {method: {score, reason}} and {method: float}
+                    result = {}
+                    for k, v in parsed.items():
+                        if isinstance(v, dict):
+                            result[k] = {"score": float(v.get("score", 0.5)), "reason": str(v.get("reason", ""))}
+                        else:
+                            result[k] = {"score": float(v), "reason": ""}
+                    return result
+                return {mn: {"score": 0.5, "reason": ""} for mn in method_names}
             except Exception:
                 if attempt < 4:
                     await asyncio.sleep(2 ** attempt)
-    return {mn: 0.5 for mn in method_names}
+    return {mn: {"score": 0.5, "reason": ""} for mn in method_names}
+
+
+def _oracle_activation_str(item: dict, layers: list[int]) -> str:
+    """Build oracle prefix string exactly as used during training/eval (single source of truth)."""
+    from eval_loop import _build_oracle_prefix
+    from core.ao import TRAINED_PLACEHOLDER
+    positions = item.get("context_positions", [])
+    if not positions:
+        return ""
+    K = len(positions) // len(layers)
+    return _build_oracle_prefix(num_positions=K * len(layers), layers=layers,
+                                placeholder_token=TRAINED_PLACEHOLDER)
+
+
+def _compute_masked_cot(item: dict, tokenizer, layers: list[int]) -> str:
+    """Decode context_input_ids with oracle-sampled positions replaced by TRAINED_PLACEHOLDER."""
+    ctx_ids = item.get("context_input_ids")
+    positions = item.get("context_positions", [])
+    if not ctx_ids or not positions:
+        return item.get("cot_text", "")
+    from core.ao import TRAINED_PLACEHOLDER
+    K = len(positions) // len(layers)
+    unique_positions = set(positions[:K])
+    ph_ids = tokenizer.encode(TRAINED_PLACEHOLDER, add_special_tokens=False)
+    ph_id = ph_ids[0] if ph_ids else tokenizer.unk_token_id
+    masked = list(ctx_ids)
+    for p in unique_positions:
+        if 0 <= p < len(masked):
+            masked[p] = ph_id
+    return tokenizer.decode(masked, skip_special_tokens=True)
 
 
 def _build_and_score_per_example_records(
@@ -711,12 +1051,18 @@ def _build_and_score_per_example_records(
     task_results: dict,
     output_dir: Path,
     api_key: str,
+    tokenizer=None,
+    layers: list[int] | None = None,
     scoring_model: str = "google/gemini-2.5-flash",
     rerun: bool = False,
 ) -> None:
     """Build per-example records with all method predictions + LLM comparative scores."""
     log_path = output_dir / "logs" / task_name / "per_example_records.json"
-    if not rerun and log_path.exists():
+    if log_path.exists() and not rerun:
+        return
+    # Don't clobber existing records when only a subset of baselines was run
+    _core_methods = {"llm_monitor_pro", "original_ao", "our_ao"}
+    if log_path.exists() and not _core_methods.issubset(task_results.keys()):
         return
 
     def _best_k_preds(prefix: str) -> list | None:
@@ -731,7 +1077,7 @@ def _build_and_score_per_example_records(
         return best_preds
 
     method_preds: dict[str, list] = {}
-    for method in ["llm_monitor_flash", "llm_monitor_pro", "linear_probes", "sae_probe"]:
+    for method in ["llm_monitor_pro", "linear_probes", "sae_probe"]:
         res = task_results.get(method)
         if res and "predictions" in res:
             method_preds[method] = res["predictions"]
@@ -741,19 +1087,37 @@ def _build_and_score_per_example_records(
     ours = _best_k_preds("our_ao")
     if ours:
         method_preds["our_ao"] = ours
+    celeste = _best_k_preds("celeste_ao")
+    if celeste:
+        method_preds["celeste_ao"] = celeste
 
     if not method_preds:
         return
 
+    # Chunked tasks (cot_field="cot_prefix"): oracle reads cot_prefix only.
+    # Regular tasks: oracle reads full cot_text.
+    # In both cases data_loading maps the oracle-visible text to item["cot_text"].
+    uses_cot_prefix = TASKS[task_name].cot_field == "cot_prefix"
+    eff_layers = layers or [9, 18, 27]
+
+    cot_field_label = "cot_prefix" if uses_cot_prefix else "cot_text"
     records = []
     for i, (item, eid) in enumerate(zip(items, example_ids)):
+        # cot_field = what oracle saw (data_loading puts oracle-visible text in cot_text)
+        cot_field_val = item.get("cot_text", "")
+        act_str = _oracle_activation_str(item, eff_layers)
+        masked_cot = _compute_masked_cot(item, tokenizer, eff_layers) if tokenizer is not None else ""
         record = {
             "example_id": eid,
             "question": item.get("question", ""),
-            "cot_field": item.get("cot_text", ""),
-            "cot_field_masked": item.get("cot_text_masked", item.get("masked_cot", "")),
-            "prompt": item.get("question", item.get("hinted_prompt", item.get("prompt", ""))),
+            "cot_field": cot_field_val,
+            "cot_suffix": item.get("cot_suffix", ""),
+            "masked_cot_field": masked_cot,
+            "oracle_prefix": act_str,
+            "prompt": item.get("prompt", ""),
             "target_response": item.get("target_response", ""),
+            "_is_chunked": uses_cot_prefix,
+            "_cot_field_label": cot_field_label,
         }
         for method, preds in method_preds.items():
             if i < len(preds):
@@ -793,13 +1157,19 @@ def _build_and_score_per_example_records(
 
 
 def _plot(all_results: dict[str, dict[str, dict]], output_dir: Path, n_examples: int,
-          llm_monitor_flash_model: str = "", llm_monitor_pro_model: str = "") -> None:
+          llm_monitor_pro_model: str = "",
+          canonical_task_names: list[str] | None = None,
+          per_method_trained: dict[str, frozenset[str]] | None = None,
+          position_mode: str = "all",
+          ckpt_meta: dict | None = None) -> None:
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
     import matplotlib.patches as mpatches
 
-    tasks = sorted(all_results.keys())
+    # Always plot ALL canonical tasks, not just the ones that happen to have results.
+    # canonical_task_names is the authoritative list; tasks with no results show "pending".
+    tasks = canonical_task_names if canonical_task_names is not None else sorted(all_results.keys())
     n_tasks = len(tasks)
     if n_tasks == 0:
         print("No results to plot.")
@@ -810,9 +1180,9 @@ def _plot(all_results: dict[str, dict[str, dict]], output_dir: Path, n_examples:
     fig, axes = plt.subplots(nrows, ncols, figsize=(ncols * 4, nrows * 3.5), squeeze=False)
 
     # Color scheme
-    orig_blue = plt.cm.Blues(0.65)
-    our_green = plt.cm.Greens(0.65)
-    monitor_color = "#FF8C00"
+    orig_green_light = plt.cm.Greens(0.42)   # original_ao
+    our_green_dark   = plt.cm.Greens(0.75)   # our_ao
+    celeste_teal = plt.cm.GnBu(0.72)
     monitor_pro_color = "#E67E22"
     linear_probe_color = "#1ABC9C"
     sae_probe_color = "#9B59B6"
@@ -834,33 +1204,62 @@ def _plot(all_results: dict[str, dict[str, dict]], output_dir: Path, n_examples:
             return None
         return best_score, best_std
 
-    # Fixed method order: flash | pro | original_ao_best | our_ao_best | linear_probes | sae_probe
+    _METRIC_LABEL = {
+        ScoringMode.BINARY:        "acc",
+        ScoringMode.TOKEN_F1:      "tok-F1",
+        ScoringMode.STEP_ACCURACY: "step-acc",
+        ScoringMode.TOKEN_MATCH:   "tok-match",
+        ScoringMode.LLM_JUDGE:     "llm-judge",
+    }
+    _METRIC_LABEL_OVERRIDE = {"answer_confidence": "1-conf_mae/100"}
+
+    def _best_oracle_result(task_results: dict, prefix: str) -> dict | None:
+        """Return the result dict for the best-scoring k in prefix."""
+        k_labels = [f"k{'all' if k is None else k}" for k in K_SWEEP]
+        best_score, best_res = None, None
+        for kl in k_labels:
+            res = task_results.get(f"{prefix}_{kl}")
+            if res is None:
+                continue
+            s = res.get("primary_score")
+            if s is None:
+                continue
+            if best_score is None or s > best_score:
+                best_score, best_res = s, res
+        return best_res
+
+    # Fixed method order: pro | original_ao_best | our_ao_best | celeste_ao_best | linear_probes | sae_probe
     METHODS = [
-        ("llm_monitor_flash", "llm_monitor_flash", monitor_color),
         ("llm_monitor_pro",   "llm_monitor_pro",   monitor_pro_color),
-        ("orig_ao",           "original_ao",        orig_blue),
-        ("our_ao",            "our_ao",             our_green),
+        ("orig_ao",           "original_ao",        orig_green_light),
+        ("our_ao",            "our_ao",             our_green_dark),
+        ("celeste_ao",        "celeste_ao",          celeste_teal),
         ("linear_probes",     "linear_probes",      linear_probe_color),
         ("sae_probe",         "sae_probe",          sae_probe_color),
     ]
 
+    trained_edge_color = "black"
+    trained_edge_lw = 1.5
+
     legend_patches = [
-        mpatches.Patch(color=monitor_color,       label=f"llm_monitor_flash ({llm_monitor_flash_model})"),
         mpatches.Patch(color=monitor_pro_color,   label=f"llm_monitor_pro ({llm_monitor_pro_model})"),
-        mpatches.Patch(color=orig_blue,           label="original_ao (best k)"),
-        mpatches.Patch(color=our_green,           label="our_ao (best k, best layer)"),
+        mpatches.Patch(color=orig_green_light,    label="original_ao (best k)"),
+        mpatches.Patch(color=our_green_dark,      label="our_ao (best k, best layer)"),
+        mpatches.Patch(color=celeste_teal,        label="celeste_ao (best k, best layer)"),
         mpatches.Patch(color=linear_probe_color,  label="linear_probes"),
         mpatches.Patch(color=sae_probe_color,     label="sae_probe"),
+        mpatches.Patch(facecolor="white", edgecolor=trained_edge_color, linewidth=trained_edge_lw,
+                       label="trained on task (bar border)"),
     ]
 
     for t_idx, task_name in enumerate(tasks):
         row, col = divmod(t_idx, ncols)
         ax = axes[row][col]
-        task_results = all_results[task_name]
+        task_results = all_results.get(task_name, {})
 
-        xs, ys, errors, colors = [], [], [], []
+        xs, ys, errors, colors, edge_colors, edge_lws, method_keys_used = [], [], [], [], [], [], []
         for label, key, color in METHODS:
-            if key in ("original_ao", "our_ao"):
+            if key in ("original_ao", "our_ao", "celeste_ao"):
                 val = _best_oracle(task_results, key)
                 if val is None:
                     continue
@@ -873,23 +1272,43 @@ def _plot(all_results: dict[str, dict[str, dict]], output_dir: Path, n_examples:
                 if score is None:
                     continue
                 std = res.get("bootstrap_std", 0.0)
+            method_trained = per_method_trained.get(label, frozenset()) if per_method_trained else frozenset()
+            is_bar_trained = task_name in method_trained
             xs.append(label)
             ys.append(score)
             errors.append(std)
             colors.append(color)
+            edge_colors.append(trained_edge_color if is_bar_trained else "none")
+            edge_lws.append(trained_edge_lw if is_bar_trained else 0.0)
+            method_keys_used.append(key)
 
+        task_def = TASKS.get(task_name)
+        metric_lbl = _METRIC_LABEL_OVERRIDE.get(task_name) or (_METRIC_LABEL.get(task_def.scoring, "") if task_def else ("acc" if task_name.startswith("cls_") else ""))
         if not xs:
-            ax.text(0.5, 0.5, "no results", ha="center", va="center", transform=ax.transAxes)
-            ax.set_title(task_name, fontsize=7)
+            ax.text(0.5, 0.5, "pending", ha="center", va="center", transform=ax.transAxes, color="gray")
+            ax.set_title(f"{task_name}\n[{metric_lbl}]" if metric_lbl else task_name, fontsize=7)
             continue
 
         x_pos = np.arange(len(xs))
-        ax.bar(x_pos, ys, color=colors, width=0.6, yerr=errors, capsize=3, error_kw={"linewidth": 1.0})
+        bars = ax.bar(x_pos, ys, color=colors, width=0.6, yerr=errors, capsize=3, error_kw={"linewidth": 1.0},
+                      edgecolor=edge_colors, linewidth=edge_lws)
+        # Annotate oracle bars with layer info + position mode
+        for rect, mk in zip(bars, method_keys_used):
+            if mk == "our_ao":
+                lbl = f"all-L|{position_mode}"
+            elif mk == "original_ao":
+                best_res = _best_oracle_result(task_results, mk)
+                layer = (best_res.get("best_layer") or best_res.get("layer", 18)) if best_res else 18
+                lbl = f"L{layer}|{position_mode}"
+            else:
+                continue
+            ax.text(rect.get_x() + rect.get_width() / 2, rect.get_y() + 0.01,
+                    lbl, ha="center", va="bottom", fontsize=5, color="white")
         ax.axhline(0.5, color="red", linestyle="--", linewidth=0.7, alpha=0.6)
         ax.set_xticks(x_pos)
         ax.set_xticklabels(xs, rotation=40, ha="right", fontsize=6)
-        ax.set_ylim(0, 1.05)
-        ax.set_title(f"{task_name} (n={n_examples})", fontsize=7)
+        ax.set_ylim(0, 1.12)
+        ax.set_title(f"{task_name} (n={n_examples})\n[{metric_lbl}]" if metric_lbl else f"{task_name} (n={n_examples})", fontsize=7)
         ax.set_ylabel("score", fontsize=6)
         ax.tick_params(axis="y", labelsize=5)
 
@@ -900,10 +1319,25 @@ def _plot(all_results: dict[str, dict[str, dict]], output_dir: Path, n_examples:
 
     fig.legend(handles=legend_patches, loc="upper center", bbox_to_anchor=(0.5, 1.02),
                ncol=len(legend_patches), fontsize=7)
+    if ckpt_meta:
+        title = (f"Qwen3-8B  |  checkpoint: {ckpt_meta['ckpt_name']}"
+                 f"  |  wandb: {ckpt_meta['run_name']} ({ckpt_meta['run_id']})")
+        fig.suptitle(title, fontsize=8, y=1.06)
     fig.tight_layout(rect=[0, 0, 1, 0.97])
     output_dir.mkdir(parents=True, exist_ok=True)
-    out_path = output_dir / "comprehensive_eval.png"
+    # Tag filename with run metadata
+    if ckpt_meta:
+        tag = f"{ckpt_meta['run_id']}_{ckpt_meta['ckpt_name']}"
+        from datetime import datetime as _dt; ts = _dt.now().strftime("%Y%m%d_%H%M")
+        tagged_name = f"comprehensive_eval_{ts}_{tag}.png"
+    else:
+        tagged_name = "comprehensive_eval.png"
+    out_path = output_dir / tagged_name
     fig.savefig(out_path, dpi=150, bbox_inches="tight")
+    # Also save/overwrite the canonical untagged copy for easy access
+    canonical = output_dir / "comprehensive_eval.png"
+    if tagged_name != "comprehensive_eval.png":
+        import shutil; shutil.copy2(out_path, canonical)
     plt.close(fig)
     print(f"Saved plot to {out_path}")
 
@@ -928,60 +1362,83 @@ def main():
     with open(args.config) as f:
         cfg = yaml.safe_load(f)
 
-    output_dir = Path(args.output_dir)
+    our_checkpoint = args.checkpoint or cfg.get("baselines", {}).get("our_ao", {}).get("checkpoint")
+    ckpt_meta = _checkpoint_meta(our_checkpoint)
+
+    # Auto-generate timestamped output dir if using the default (skip for --plot-only)
+    if not args.plot_only and args.output_dir == "data/comprehensive_eval":
+        output_dir = _make_output_dir("data/comprehensive_eval", our_checkpoint)
+    else:
+        output_dir = Path(args.output_dir)
     fast_cache_dir = Path(os.environ.get("CACHE_DIR", "/ceph/scratch/jbauer")) / "comprehensive_eval_v2"
+
+    print(f"Output dir: {output_dir}")
 
     if args.plot_only:
         all_results = _load_all_results(output_dir)
         bl_cfg = cfg.get("baselines", {})
-        flash_model = bl_cfg.get("llm_monitor_flash", {}).get("model", "google/gemini-2.5-flash")
         pro_model = bl_cfg.get("llm_monitor_pro", {}).get("model", "google/gemini-2.5-pro-preview-03-25")
-        _plot(all_results, output_dir, args.n_examples, flash_model, pro_model)
+        canonical = _canonical_task_names()
+        cls_tasks = sorted(t for t in all_results if t.startswith("cls_") and t not in canonical)
+        tasks_to_plot = canonical + cls_tasks
+        _plot(all_results, output_dir, args.n_examples, pro_model,
+              tasks_to_plot, _build_per_method_trained(cfg),
+              position_mode=args.position_mode, ckpt_meta=ckpt_meta)
         return
 
-    # ── Load model ──
-    model_name = cfg.get("model", {}).get("name", "Qwen/Qwen3-8B")
-    layers = cfg.get("activations", {}).get("layers", DEFAULT_LAYERS)
-
-    print(f"Loading model {model_name}...")
-    model, tokenizer = load_model_with_ao(model_name, device=args.device)
-
-    # Load our LoRA adapter
-    our_checkpoint = args.checkpoint or cfg.get("baselines", {}).get("our_ao", {}).get("checkpoint")
-    our_ao_adapter = None
-    if our_checkpoint:
-        our_ao_adapter = load_extra_adapter(model, our_checkpoint, adapter_name="our_ao")
-        print(f"Loaded our_ao adapter from {our_checkpoint}")
-    else:
-        print("WARNING: No checkpoint specified. Skipping our_ao baselines.")
-
-    # Original AO adapter name: load_model_with_ao uses ao_path.replace(".", "_") as the adapter name
-    original_ao_adapter = AO_CHECKPOINTS[model_name].replace(".", "_")
-
-    # Determine which baselines to run
+    # ── Determine which baselines to run (needed before model load) ──
     bl_cfg = cfg.get("baselines", {})
-    flash_model = bl_cfg.get("llm_monitor_flash", {}).get("model", "google/gemini-2.5-flash")
     pro_model = bl_cfg.get("llm_monitor_pro", {}).get("model", "google/gemini-2.5-pro-preview-03-25")
     sae_cfg = bl_cfg.get("sae_probe", {})
-
-    all_baseline_groups = ["llm_monitor_flash", "llm_monitor_pro", "original_ao", "our_ao", "linear_probes", "sae_probe"]
+    all_baseline_groups = ["llm_monitor_pro", "original_ao", "our_ao", "celeste_ao", "linear_probes", "sae_probe"]
     active_baselines = set(args.baselines if args.baselines else all_baseline_groups)
 
+    # ── Load model (skip if only LLM-monitor baselines requested) ──
+    model_name = cfg.get("model", {}).get("name", "Qwen/Qwen3-8B")
+    layers = cfg.get("activations", {}).get("layers", DEFAULT_LAYERS)
+    _needs_model = active_baselines - {"llm_monitor_pro"}
+    if _needs_model:
+        checkpoint_activation_settings = _checkpoint_activation_settings(our_checkpoint)
+        oracle_position_encoding = bool(checkpoint_activation_settings["position_encoding"]) if "position_encoding" in checkpoint_activation_settings else bool(cfg.get("activations", {}).get("position_encoding", False))
+        oracle_pe_alpha = float(checkpoint_activation_settings["pe_alpha"]) if "pe_alpha" in checkpoint_activation_settings else float(cfg.get("activations", {}).get("pe_alpha", 0.1))
+
+        print(f"Loading model {model_name}...")
+        model, tokenizer = load_model_with_ao(model_name, device=args.device)
+
+        # Load our LoRA adapter
+        our_ao_adapter = None
+        if our_checkpoint:
+            our_ao_adapter = load_extra_adapter(model, our_checkpoint, adapter_name="our_ao")
+            print(f"Loaded our_ao adapter from {our_checkpoint}")
+        else:
+            print("WARNING: No checkpoint specified. Skipping our_ao baselines.")
+
+        # Load Celeste's LoRA adapter
+        celeste_checkpoint = cfg.get("baselines", {}).get("celeste_ao", {}).get("checkpoint")
+        celeste_ao_adapter = None
+        if celeste_checkpoint:
+            celeste_ao_adapter = load_extra_adapter(model, celeste_checkpoint, adapter_name="celeste_ao")
+            print(f"Loaded celeste_ao adapter from {celeste_checkpoint}")
+
+        # Original AO adapter name: load_model_with_ao uses ao_path.replace(".", "_") as the adapter name
+        original_ao_adapter = AO_CHECKPOINTS[model_name].replace(".", "_")
+    else:
+        print("Skipping model load (LLM-monitor-only run)")
+        model = tokenizer = our_ao_adapter = celeste_ao_adapter = None
+        original_ao_adapter = None
+        oracle_position_encoding = False
+        oracle_pe_alpha = 0.1
+
     # ── Determine tasks ──
-    # Use all tasks with a valid HF repo and standard load_task_data support.
-    # Skip: fineweb streaming tasks (no hf_repo), rot13 (needs special adapter),
-    #        futurelens/pastlens (cot-oracle-corpus-v5 doesn't have cot_text field).
-    # compqa: uses meta_cot_text (not cot_text) and has no test split — skip for now
-    _SKIP_TASKS = {"futurelens", "pastlens", "futurelens_fineweb", "pastlens_fineweb", "reconstruction_fineweb", "compqa", "probe_sycophancy", "deception_detection"}
-    all_tasks = {
-        name: tdef for name, tdef in TASKS.items()
-        if tdef.hf_repo and not tdef.needs_rot13_adapter and name not in _SKIP_TASKS
-    }
+    canonical = _canonical_task_names()
+    # answer_confidence is a virtual derived task — not a real TASKS entry
+    all_tasks = {name: TASKS[name] for name in canonical if name in TASKS}
     if args.tasks:
         all_tasks = {k: v for k, v in all_tasks.items() if k in args.tasks}
 
     print(f"\nRunning comprehensive eval on {len(all_tasks)} tasks, {args.n_examples} examples each")
     print(f"Position mode: {args.position_mode}")
+    print(f"Our oracle eval position encoding: {oracle_position_encoding} (alpha={oracle_pe_alpha})")
     print(f"Active baselines: {sorted(active_baselines)}")
 
     all_results: dict[str, dict[str, dict]] = {}
@@ -1007,76 +1464,69 @@ def main():
         # Assign example IDs
         example_ids = [f"{task_name}_{i}" for i in range(len(items))]
 
-        # Tokenize (prepare context_input_ids from cot_text if not already set)
-        items_need_context = [item for item in items if not item.get("context_input_ids")]
-        if items_need_context:
-            try:
-                prepare_context_ids(items, tokenizer, layers)
-            except Exception as e:
-                print(f"  SKIP: prepare_context_ids failed: {e}")
+        raw_activations = None
+        oracle_activations = None
+        if tokenizer is not None:
+            # Tokenize (prepare context_input_ids from cot_text if not already set)
+            items_need_context = [item for item in items if not item.get("context_input_ids")]
+            if items_need_context:
+                try:
+                    prepare_context_ids(items, tokenizer, layers)
+                except Exception as e:
+                    print(f"  SKIP: prepare_context_ids failed: {e}")
+                    continue
+
+            # Skip items missing context
+            valid = [i for i, item in enumerate(items) if item.get("context_input_ids")]
+            if not valid:
+                print(f"  SKIP: no items with context_input_ids")
                 continue
+            if len(valid) < len(items):
+                items = [items[i] for i in valid]
+                example_ids = [example_ids[i] for i in valid]
+                print(f"  Filtered to {len(items)} items with context_input_ids")
 
-        # Skip items missing context
-        valid = [i for i, item in enumerate(items) if item.get("context_input_ids")]
-        if not valid:
-            print(f"  SKIP: no items with context_input_ids")
-            continue
-        if len(valid) < len(items):
-            items = [items[i] for i in valid]
-            example_ids = [example_ids[i] for i in valid]
-            print(f"  Filtered to {len(items)} items with context_input_ids")
+            # Apply position mode
+            _resample_eval_positions(
+                items, task_name, layers,
+                position_mode=args.position_mode,
+                stochastic_max_k=100,
+                eval_position_seed=42,
+            )
 
-        # Apply position mode
-        _resample_eval_positions(
-            items, task_name, layers,
-            position_mode=args.position_mode,
-            stochastic_max_k=100,
-            eval_position_seed=42,
-        )
-
-        # Extract activations (single pass for all methods, with OOM fallback)
-        print(f"  Extracting activations for {len(items)} items...")
-        activations = None
-        for chunk_size in [len(items), 8, 4, 1]:
-            try:
-                chunks = [items[i:i+chunk_size] for i in range(0, len(items), chunk_size)]
-                activations = []
-                for chunk in chunks:
-                    activations.extend(_materialize_activations(model, tokenizer, chunk, layers, device=args.device))
-                    torch.cuda.empty_cache()
-                break
-            except torch.cuda.OutOfMemoryError as e:
-                activations = None
-                torch.cuda.empty_cache()
-                if chunk_size == 1:
-                    print(f"  SKIP: activation extraction failed (OOM even at chunk_size=1): {e}")
+            # Extract activations (single pass for all methods, with OOM fallback)
+            print(f"  Extracting activations for {len(items)} items...")
+            for chunk_size in [len(items), 8, 4, 1]:
+                try:
+                    chunks = [items[i:i+chunk_size] for i in range(0, len(items), chunk_size)]
+                    raw_activations = []
+                    for chunk in chunks:
+                        raw_activations.extend(_materialize_activations(model, tokenizer, chunk, layers, device=args.device))
+                        torch.cuda.empty_cache()
                     break
-                print(f"  OOM with chunk_size={chunk_size}, retrying with smaller chunks...")
-            except Exception as e:
-                print(f"  SKIP: activation extraction failed: {e}")
-                activations = None
-                break
-        if activations is None:
-            continue
+                except torch.cuda.OutOfMemoryError as e:
+                    raw_activations = None
+                    torch.cuda.empty_cache()
+                    if chunk_size == 1:
+                        print(f"  SKIP: activation extraction failed (OOM even at chunk_size=1): {e}")
+                        break
+                    print(f"  OOM with chunk_size={chunk_size}, retrying with smaller chunks...")
+                except Exception as e:
+                    print(f"  SKIP: activation extraction failed: {e}")
+                    raw_activations = None
+                    break
+            if raw_activations is None:
+                continue
+            oracle_activations = raw_activations if not oracle_position_encoding else _apply_position_encoding_to_activations(raw_activations, items, alpha=oracle_pe_alpha)
 
         task_results: dict[str, dict] = {}
-
-        # ── LLM monitor flash ──
-        if "llm_monitor_flash" in active_baselines:
-            try:
-                print(f"  [llm_monitor_flash] {flash_model}")
-                result = _run_llm_monitor(items, task_name, task_def, flash_model, example_ids, fast_cache_dir, args.rerun)
-                task_results["llm_monitor_flash"] = result
-                _save_task_results(output_dir, task_name, "llm_monitor_flash", result)
-                print(f"    score={result['primary_score']:.3f} ± {result['bootstrap_std']:.3f}")
-            except Exception as e:
-                print(f"  [llm_monitor_flash] FAILED: {e}")
 
         # ── LLM monitor pro ──
         if "llm_monitor_pro" in active_baselines:
             try:
                 print(f"  [llm_monitor_pro] {pro_model}")
-                result = _run_llm_monitor(items, task_name, task_def, pro_model, example_ids, fast_cache_dir, args.rerun)
+                pro_max_tokens = bl_cfg.get("llm_monitor_pro", {}).get("max_tokens", 512)
+                result = _run_llm_monitor(items, task_name, task_def, pro_model, example_ids, fast_cache_dir, args.rerun, max_tokens=pro_max_tokens)
                 task_results["llm_monitor_pro"] = result
                 _save_task_results(output_dir, task_name, "llm_monitor_pro", result)
                 print(f"    score={result['primary_score']:.3f} ± {result['bootstrap_std']:.3f}")
@@ -1084,14 +1534,11 @@ def main():
                 print(f"  [llm_monitor_pro] FAILED: {e}")
 
         # ── Original AO k-sweep ──
-        # Skip oracle methods on LLM_JUDGE tasks: oracle outputs are free-form and scoring
-        # requires expensive judge API calls not wired up here yet.
-        _is_llm_judge = task_def.scoring == ScoringMode.LLM_JUDGE
-        if "original_ao" in active_baselines and not _is_llm_judge:
+        if "original_ao" in active_baselines:
             try:
                 print(f"  [original_ao] k-sweep {K_SWEEP}")
                 results_k = _run_original_ao_k_sweep(
-                    model, tokenizer, items, activations, task_def, layers,
+                    model, tokenizer, items, raw_activations, task_def, layers,
                     original_ao_adapter, args.device, task_name, example_ids, fast_cache_dir, args.rerun,
                 )
                 for k_label, res in results_k.items():
@@ -1103,26 +1550,44 @@ def main():
                 print(f"  [original_ao] FAILED: {e}")
 
         # ── Our AO k-sweep ──
-        if "our_ao" in active_baselines and our_ao_adapter is not None and not _is_llm_judge:
+        if "our_ao" in active_baselines and our_ao_adapter is not None:
             try:
                 print(f"  [our_ao] k-sweep {K_SWEEP} x layers {layers}")
                 results_k = _run_our_ao_k_sweep(
-                    model, tokenizer, items, activations, task_def, layers,
+                    model, tokenizer, items, oracle_activations, task_def, layers,
                     our_ao_adapter, args.device, task_name, example_ids, fast_cache_dir, args.rerun,
+                    name="our_ao", position_encoding=oracle_position_encoding, pe_alpha=oracle_pe_alpha,
                 )
                 for k_label, res in results_k.items():
                     task_results[k_label] = res
                     _save_task_results(output_dir, task_name, k_label, res)
                 best_k = max(results_k, key=lambda kl: results_k[kl]["primary_score"])
-                print(f"    best: {best_k} (L{results_k[best_k]['best_layer']}) → {results_k[best_k]['primary_score']:.3f}")
+                print(f"    best: {best_k} (all layers) → {results_k[best_k]['primary_score']:.3f}")
             except Exception as e:
                 print(f"  [our_ao] FAILED: {e}")
+
+        # ── Celeste AO k-sweep ──
+        if "celeste_ao" in active_baselines and celeste_ao_adapter is not None:
+            try:
+                print(f"  [celeste_ao] k-sweep {K_SWEEP} x layers {layers}")
+                results_k = _run_our_ao_k_sweep(
+                    model, tokenizer, items, oracle_activations, task_def, layers,
+                    celeste_ao_adapter, args.device, task_name, example_ids, fast_cache_dir, args.rerun,
+                    name="celeste_ao", position_encoding=oracle_position_encoding, pe_alpha=oracle_pe_alpha,
+                )
+                for k_label, res in results_k.items():
+                    task_results[k_label] = res
+                    _save_task_results(output_dir, task_name, k_label, res)
+                best_k = max(results_k, key=lambda kl: results_k[kl]["primary_score"])
+                print(f"    best: {best_k} (all layers) → {results_k[best_k]['primary_score']:.3f}")
+            except Exception as e:
+                print(f"  [celeste_ao] FAILED: {e}")
 
         # ── Linear probes ──
         if "linear_probes" in active_baselines:
             try:
                 result = _run_linear_probes_for_task(
-                    activations, items, task_name, task_def, layers, example_ids, fast_cache_dir, args.rerun,
+                    raw_activations, items, task_name, task_def, layers, example_ids, fast_cache_dir, args.rerun,
                 )
                 if result is not None:
                     task_results["linear_probes"] = result
@@ -1135,7 +1600,7 @@ def main():
         if "sae_probe" in active_baselines and sae_cfg:
             try:
                 result = _run_sae_probe_for_task(
-                    activations, items, task_name, task_def, layers, sae_cfg, example_ids, fast_cache_dir, args.rerun,
+                    raw_activations, items, task_name, task_def, layers, sae_cfg, example_ids, fast_cache_dir, args.rerun, output_dir,
                 )
                 if result is not None:
                     task_results["sae_probe"] = result
@@ -1144,11 +1609,42 @@ def main():
             except Exception as e:
                 print(f"  [sae_probe] FAILED: {e}")
 
+        # ── Rescore LLM_JUDGE tasks (oracle predictions need judge API) ──
+        if task_def.scoring == ScoringMode.LLM_JUDGE:
+            try:
+                print(f"  [llm_judge_rescore] scoring oracle predictions via LLM judge...")
+                _rescore_llm_judge(task_name, task_def, task_results, items, example_ids,
+                                   output_dir, fast_cache_dir, args.rerun)
+            except Exception as e:
+                print(f"  [llm_judge_rescore] FAILED: {e}")
+
+        # ── Rescore answer_trajectory with same LLM judge as training ──
+        if task_name == "answer_trajectory":
+            try:
+                print(f"  [trajectory_llm_rescore] scoring predictions via trajectory LLM judge...")
+                _rescore_trajectory_llm(task_name, task_results, items, example_ids,
+                                        output_dir, fast_cache_dir, args.rerun)
+            except Exception as e:
+                print(f"  [trajectory_llm_rescore] FAILED: {e}")
+
+        # ── Derive answer_confidence virtual task ──
+        if task_name == "answer_trajectory":
+            try:
+                conf_results = _compute_answer_confidence(task_results, items)
+                for method_key, conf_res in conf_results.items():
+                    _save_task_results(output_dir, "answer_confidence", method_key, conf_res)
+                all_results["answer_confidence"] = conf_results
+                print(f"  [answer_confidence] derived {len(conf_results)} method results")
+            except Exception as e:
+                print(f"  [answer_confidence] FAILED: {e}")
+
         # ── Per-example comparative records ──
         try:
             _build_and_score_per_example_records(
                 items, example_ids, task_name, task_results,
                 output_dir, api_key=os.environ["OPENROUTER_API_KEY"],
+                tokenizer=tokenizer,
+                layers=layers,
                 scoring_model="google/gemini-2.5-flash",
                 rerun=args.rerun,
             )
@@ -1156,13 +1652,15 @@ def main():
             print(f"  [comparative scoring] FAILED: {e}")
 
         all_results[task_name] = task_results
-        del activations
+        del raw_activations, oracle_activations  # may be None if model not loaded
         gc.collect()
         torch.cuda.empty_cache()
         print(f"  Total time: {time.time() - t_start:.1f}s")
 
-    # Generate plot
-    _plot(all_results, output_dir, args.n_examples, flash_model, pro_model)
+    # Generate plot — always include ALL canonical tasks (missing ones show "pending")
+    _plot(all_results, output_dir, args.n_examples, pro_model,
+          canonical, _build_per_method_trained(cfg),
+          position_mode=args.position_mode, ckpt_meta=ckpt_meta)
     print(f"\nDone. Results in {output_dir}")
 
 

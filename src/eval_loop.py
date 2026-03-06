@@ -565,7 +565,7 @@ def _score_token_f1(
 def _score_trajectory(
     predictions: list[str],
     targets: list[str],
-) -> dict[str, float]:
+) -> dict:
     """Score answer_trajectory: token F1 on answer text + MAE on confidence/entropy."""
     if not predictions:
         return {"token_f1": 0.0, "n": 0}
@@ -601,9 +601,10 @@ def _score_trajectory(
         if pr and "entropy" in gt and "entropy" in pr:
             ent_errors.append(abs(pr["entropy"] - gt["entropy"]))
 
-    result: dict[str, float] = {
+    result: dict = {
         "token_f1": sum(f1_scores) / len(f1_scores) if f1_scores else 0.0,
         "n": len(f1_scores),
+        "_conf_errors": conf_errors,
     }
     if conf_errors:
         result["confidence_mae"] = sum(conf_errors) / len(conf_errors)
@@ -677,11 +678,6 @@ def _score_binary(
         return None
 
     def _classify_target(text: str) -> str | None:
-        t = text.strip().lower()
-        if pos_label and pos_label.lower() in t:
-            return pos_label
-        if neg_label and neg_label.lower() in t:
-            return neg_label
         return _classify(text)
 
     correct = 0
@@ -818,10 +814,10 @@ def _per_example_correct(
         def _classify(text, use_label=False):
             t = text.strip().lower()
             if use_label:
-                if pos_label and pos_label.lower() in t:
-                    return pos_label
                 if neg_label and neg_label.lower() in t:
                     return neg_label
+                if pos_label and pos_label.lower() in t:
+                    return pos_label
             for kw in sorted(neg_kw, key=len, reverse=True):
                 if kw.lower() in t:
                     return neg_label
@@ -829,7 +825,7 @@ def _per_example_correct(
                 if kw.lower() in t:
                     return pos_label
             return None
-        gt = _classify(target, use_label=True)
+        gt = _classify(target)
         pr = _classify(prediction)
         if gt is None:
             return "?"
@@ -975,7 +971,7 @@ def _resample_eval_positions(
         elif position_mode.startswith("last_"):
             n = int(position_mode.split("_", 1)[1])
             sampled = base_positions[-n:]
-        elif position_mode == "mixed":
+        elif position_mode in ("mixed", "end_rdm_stc"):
             ctx_ids = item.get("context_input_ids", [])
             period_pos = None
             if sentence_delim_ids and ctx_ids:
@@ -991,12 +987,32 @@ def _resample_eval_positions(
         item["layer"] = layers[0]
 
 
+def _apply_position_encoding_to_activations(
+    activations: list[torch.Tensor],
+    items: list[dict],
+    alpha: float,
+) -> list[torch.Tensor]:
+    from position_encoding import apply_position_encoding
+
+    encoded = []
+    for acts, item in zip(activations, items, strict=True):
+        source_positions = item["context_positions"]
+        if len(source_positions) != acts.shape[0]:
+            raise ValueError(
+                f"source_positions has length {len(source_positions)} but activations have {acts.shape[0]} rows"
+            )
+        encoded.append(apply_position_encoding(vectors=acts, source_positions=source_positions, alpha=alpha).detach().contiguous())
+    return encoded
+
+
 def _materialize_activations(
     model,
     tokenizer,
     items: list[dict],
     layers: list[int],
     device: str = "cuda",
+    position_encoding: bool = False,
+    pe_alpha: float = 0.1,
 ) -> list[torch.Tensor]:
     """Extract activation vectors from context_input_ids at context_positions.
 
@@ -1077,16 +1093,15 @@ def _materialize_activations(
             acts_BLD = acts_by_layer[layer]
             chunk_positions = positions[li * K : (li + 1) * K]
             adjusted = [p + left_offsets[b] for p in chunk_positions]
-            layer_vecs = acts_BLD[b, adjusted, :]
+            layer_vecs = acts_BLD[b, adjusted, :].to(device=device)
             vectors_parts.append(layer_vecs)
 
-        vectors = torch.cat(vectors_parts, dim=0).detach().contiguous()
-        result.append(vectors)
+        result.append(torch.cat(vectors_parts, dim=0).detach().contiguous())
 
     del acts_by_layer, inputs_BL
     torch.cuda.empty_cache()
 
-    return result
+    return _apply_position_encoding_to_activations(result, items, alpha=pe_alpha) if position_encoding else result
 
 
 # ── Batched oracle generation ──
@@ -1101,6 +1116,7 @@ def _batched_oracle_generate(
     injection_layer: int = 1,
     max_new_tokens: int = 64,
     eval_batch_size: int = 8,
+    generation_temperature: float = 0.0,
     oracle_adapter_name: str | None = "default",
 ) -> list[str]:
     """Batched oracle generation with per-item activation steering."""
@@ -1205,12 +1221,18 @@ def _batched_oracle_generate(
                     )
 
                     with add_hook(injection_submodule, hook_fn):
+                        do_sample = generation_temperature > 0.0
+                        gen_kwargs = {
+                            "input_ids": input_tensor,
+                            "attention_mask": attn_mask,
+                            "max_new_tokens": max_new_tokens,
+                            "do_sample": do_sample,
+                            "pad_token_id": pad_id,
+                        }
+                        if do_sample:
+                            gen_kwargs["temperature"] = generation_temperature
                         outputs = model.generate(
-                            input_ids=input_tensor,
-                            attention_mask=attn_mask,
-                            max_new_tokens=max_new_tokens,
-                            do_sample=False,
-                            pad_token_id=pad_id,
+                            **gen_kwargs,
                         )
 
                     for j, item_idx in enumerate(batch_indices):
@@ -1417,6 +1439,8 @@ def run_eval(
     no_activations: bool = False,
     position_mode: str = "mixed",
     stochastic_max_k: int = 100,
+    position_encoding: bool = False,
+    pe_alpha: float = 0.1,
     eval_position_seed: int = 0,
     run_bb_monitor: bool = False,
 ) -> tuple[dict[str, float], dict[str, list[dict]]]:
@@ -1460,6 +1484,8 @@ def run_eval(
                 no_activations=no_activations,
                 position_mode=position_mode,
                 stochastic_max_k=stochastic_max_k,
+                position_encoding=position_encoding,
+                pe_alpha=pe_alpha,
                 eval_position_seed=eval_position_seed,
             )
             elapsed = time.time() - t0
@@ -1574,6 +1600,8 @@ def _eval_single_task(
     no_activations: bool = False,
     position_mode: str = "mixed",
     stochastic_max_k: int = 100,
+    position_encoding: bool = False,
+    pe_alpha: float = 0.1,
     eval_position_seed: int = 0,
 ) -> dict[str, float]:
     """Eval a single task with activation caching (or text-baseline mode)."""
@@ -1713,7 +1741,7 @@ def _eval_single_task(
     # Check cache
     cache_key = (
         f"{task_name}:max={max_items}:layers={','.join(map(str, layers))}:"
-        f"mode={position_mode}:k={stochastic_max_k}:seed={eval_position_seed}"
+        f"mode={position_mode}:k={stochastic_max_k}:pe={int(position_encoding)}:alpha={pe_alpha}:seed={eval_position_seed}"
     )
     if cache_key in _eval_cache:
         cached = _eval_cache[cache_key]
@@ -1795,6 +1823,7 @@ def _eval_single_task(
             chunk = test_data[start:start + activation_extract_batch_size]
             chunk_acts = _materialize_activations(
                 model, tokenizer, chunk, layers=layers, device=device,
+                position_encoding=position_encoding, pe_alpha=pe_alpha,
             )
             all_activations.extend(chunk_acts)
 

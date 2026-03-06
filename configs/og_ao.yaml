@@ -1,0 +1,5 @@
+# Original AO (Adam Karvonen's checkpoint) training information.
+# This model was trained on SQA (sycophancy question-answering) only.
+# Used by run_comprehensive_eval.py and eval_viewer.py to indicate trained-on-task bars.
+trained_tasks:
+  - sqa

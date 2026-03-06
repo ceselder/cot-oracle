@@ -115,6 +115,8 @@ def load_task_data(
                 item["question"] = item["test_prompt"]
             if "target_response" not in item and "meta_oracle_target" in item:
                 item["target_response"] = str(item["meta_oracle_target"])
+            if "target_response" not in item and "correct_answer" in item:
+                item["target_response"] = str(item["correct_answer"])
             data.append(item)
 
     if n is not None and len(data) > n:
@@ -335,34 +337,20 @@ def prepare_context_ids(
 def _download_from_hf(task_def: TaskDef, split: str) -> Path:
     """Download a split from the task's HF repo, cache locally. Return local path.
 
-    Uses a filelock to prevent multi-rank races on NFS where concurrent
-    downloads corrupt the file (null bytes from overlapping writes).
+    Uses hf_hub_download's built-in etag cache to detect upstream changes —
+    if the remote file hasn't changed, no download occurs (just a HEAD request).
+    A filelock prevents multi-rank races on NFS.
     """
     from filelock import FileLock
+    from huggingface_hub import hf_hub_download
 
     cache_dir = _HF_CACHE_DIR / task_def.name
     cache_dir.mkdir(parents=True, exist_ok=True)
     local_path = cache_dir / f"{split}.jsonl"
     lock_path = cache_dir / f"{split}.jsonl.lock"
 
-    # Fast path: file exists and starts with '{' (not corrupted)
-    if local_path.exists() and local_path.stat().st_size > 0:
-        with open(local_path, "rb") as f:
-            if f.read(1) == b"{":
-                return local_path
-        # Corrupted (e.g. null bytes from NFS race) — will re-download under lock
-        print(f"  [data] Corrupt cache detected for {task_def.name}/{split}, re-downloading...")
-        local_path.unlink()
-
     with FileLock(lock_path, timeout=600):
-        # Re-check after acquiring lock (another rank may have downloaded)
-        if local_path.exists() and local_path.stat().st_size > 0:
-            return local_path
-
-        print(f"  [data] Downloading {task_def.hf_repo}/{split}.jsonl ...")
-
         try:
-            from huggingface_hub import hf_hub_download
             downloaded = hf_hub_download(
                 repo_id=task_def.hf_repo,
                 filename=f"{split}.jsonl",
@@ -372,9 +360,13 @@ def _download_from_hf(task_def: TaskDef, split: str) -> Path:
             # hf_hub_download may place it in a subdirectory — symlink if needed
             downloaded_path = Path(downloaded)
             if downloaded_path != local_path and downloaded_path.exists():
-                if not local_path.exists():
-                    local_path.symlink_to(downloaded_path)
+                if local_path.exists() or local_path.is_symlink():
+                    local_path.unlink()
+                local_path.symlink_to(downloaded_path)
         except Exception as e:
+            # If we already have a valid cached file, use it (offline/transient failure)
+            if local_path.exists() and local_path.stat().st_size > 0:
+                return local_path
             # Try loading via HuggingFace datasets library as fallback
             try:
                 _download_via_datasets_lib(task_def, split, local_path)

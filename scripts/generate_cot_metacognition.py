@@ -24,8 +24,10 @@ import sys
 import time
 from collections import Counter, defaultdict
 from pathlib import Path
+from textwrap import dedent, indent
 
 import httpx
+from dotenv import load_dotenv
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 sys.path.insert(0, str(Path(__file__).parent.parent / "src" / "data_pipeline"))
@@ -606,25 +608,173 @@ def balance_and_save(examples: list[dict], output_path: Path, seed: int):
     return balanced
 
 
+def load_rows(output_path: Path) -> list[dict]:
+    rows = []
+    with open(output_path) as f:
+        for line in f:
+            if line.strip():
+                rows.append(json.loads(line))
+    return rows
+
+
+def make_counter_table(counter: Counter) -> str:
+    total = sum(counter.values())
+    lines = ["| Value | Count | Share |", "|---|---:|---:|"]
+    for value, count in counter.most_common():
+        lines.append(f"| `{value}` | {count} | {100 * count / total:.1f}% |")
+    return "\n".join(lines)
+
+
+def build_dataset_card(rows: list[dict]) -> str:
+    total = len(rows)
+    category_counts = Counter(row["category"] for row in rows)
+    source_counts = Counter(row["source"] for row in rows)
+    domain_counts = Counter(row["domain"] for row in rows)
+    arya_count = sum(row["arya_example"] for row in rows)
+    avg_sent_idx = sum(row["sent_idx"] for row in rows) / total
+    avg_cot_chars = sum(len(row["cot_text"]) for row in rows) / total
+    top_domains = ", ".join(f"`{name}` ({count})" for name, count in domain_counts.most_common(5))
+
+    return dedent(
+        f"""\
+        ---
+        pretty_name: CoT Oracle Eval - CoT Metacognition
+        license: mit
+        language:
+          - en
+        size_categories:
+          - n<1K
+        tags:
+          - cot-oracle
+          - chain-of-thought
+          - metacognition
+          - eval
+          - qwen3
+          - reasoning
+        ---
+
+        # CoT Oracle Eval: CoT Metacognition
+
+        This dataset evaluates whether an activation oracle can recover a model's local metacognitive state from a partial chain-of-thought prefix.
+        Each example asks a targeted question about a Qwen3-8B reasoning trace, such as "What is the model not sure about right now?", and provides a short target answer grounded in the withheld continuation.
+
+        The current uploaded snapshot contains **{total} examples** in a single **`test`** split.
+
+        ## What Each Row Contains
+
+        Each row has:
+
+        - `cot_text`: a prefix of a Qwen3-8B chain of thought, cut at an automatically selected sentence boundary
+        - `prompt`: a category-specific metacognition question about that prefix
+        - `target_response`: the expected answer to that question
+        - metadata describing the source dataset, domain, cutoff location, and whether the example came from the hand-authored Arya seed set
+
+        This makes the dataset suitable for evaluating models that read hidden states or intermediate activations and then answer targeted questions about the supervisee model's reasoning state.
+
+        ## Construction
+
+        1. Problems were collected from **MATH**, **GSM8K**, **BBH**, **LogiQA**, plus a small set of hand-authored **Arya** seed examples.
+        2. A rollout model, **`qwen/qwen3-8b`**, generated full chains of thought with the system prompt `Think step by step. Show all your work.`
+        3. The chain of thought was split into sentences and candidate cutoff points were chosen with regex-based heuristics aimed at states like uncertainty, backtracking, error recognition, alternative paths, and missing information.
+        4. For each cutoff, the next few sentences were shown to **`google/gemini-3.1-flash-lite-preview`**, which produced a short, specific target label answering a category-specific question.
+        5. Labels judged too vague were filtered out, and the remaining examples were written to JSONL and uploaded to Hugging Face in Parquet format.
+
+        The upload logic lives in `scripts/generate_cot_metacognition.py` in the [cot-oracle](https://github.com/ceselder/cot-oracle) repo.
+
+        ## Snapshot Statistics
+
+        - Split: `test` only
+        - Rows: **{total}**
+        - Hand-authored Arya examples: **{arya_count}**
+        - Mean cutoff sentence index: **{avg_sent_idx:.2f}**
+        - Mean `cot_text` length: **{avg_cot_chars:.1f} characters**
+        - Top domains: {top_domains}
+
+        ### Category Distribution
+
+        {indent(make_counter_table(category_counts), "        ")}
+
+        ### Source Distribution
+
+        {indent(make_counter_table(source_counts), "        ")}
+
+        ## Important Caveats
+
+        - This snapshot is **highly imbalanced**: uncertainty accounts for most rows. The uploaded artifact should be treated as the current available eval snapshot, not as a balanced benchmark across all intended metacognition categories.
+        - The generator supports additional categories such as `number_prediction`, but no rows from that category survived into the current uploaded snapshot.
+        - `control_pair_id` is present for schema compatibility but is null for all rows in this snapshot.
+        - `cot_text` is only the prefix up to the cutoff point, not the full reasoning trace.
+
+        ## Schema
+
+        | Field | Type | Description |
+        |---|---|---|
+        | `task` | string | Always `cot_metacognition` for this dataset. |
+        | `prompt` | string | The metacognition question asked about the cutoff prefix. |
+        | `target_response` | string | The expected short answer, derived from the withheld continuation. |
+        | `cot_text` | string | Prefix of the model's chain of thought up to the selected cutoff. |
+        | `category` | string | Metacognition category such as `uncertainty` or `error_recognition`. |
+        | `domain` | string | Subject/domain label inherited from the source problem. |
+        | `source` | string | Source dataset, one of `MATH`, `GSM8K`, `BBH`, `LogiQA`, or `arya`. |
+        | `arya_example` | bool | Whether the example came from the hand-authored Arya seed set. |
+        | `control_pair_id` | null | Reserved field for paired controls; null in this snapshot. |
+        | `question` | string | Original problem shown to the rollout model. |
+        | `sent_idx` | int | Sentence index where the chain of thought was cut. |
+
+        ## Usage
+
+        ```python
+        from datasets import load_dataset
+
+        ds = load_dataset("mats-10-sprint-cs-jb/cot-oracle-eval-cot-metacognition", split="test")
+        row = ds[0]
+        print(row["prompt"])
+        print(row["cot_text"])
+        print(row["target_response"])
+        ```
+
+        ## Related Project Files
+
+        - Code: [cot-oracle](https://github.com/ceselder/cot-oracle)
+        - Generator: `scripts/generate_cot_metacognition.py`
+        - Task registry: `src/tasks.py`
+        """
+    ).strip() + "\n"
+
+
+def upload_dataset_card(output_path: Path):
+    rows = load_rows(output_path)
+    card = build_dataset_card(rows)
+    readme_path = output_path.with_name("README.md")
+    readme_path.write_text(card)
+
+    print(f"\nUploading dataset card to {HF_REPO}...")
+    from huggingface_hub import HfApi
+
+    api = HfApi(token=os.environ["HF_TOKEN"])
+    api.create_repo(HF_REPO, repo_type="dataset", exist_ok=True)
+    api.upload_file(path_or_fileobj=card.encode(), path_in_repo="README.md", repo_id=HF_REPO, repo_type="dataset", commit_message="Update dataset card")
+    print(f"  Wrote local README to {readme_path}")
+    print("  Uploaded README.md")
+
+
 def upload_to_hf(output_path: Path):
     """Upload to HuggingFace as Parquet."""
     print(f"\nUploading to {HF_REPO}...")
     from datasets import Dataset
     import pandas as pd
 
-    rows = []
-    with open(output_path) as f:
-        for line in f:
-            if line.strip():
-                rows.append(json.loads(line))
+    rows = load_rows(output_path)
 
     ds = Dataset.from_pandas(pd.DataFrame(rows))
     ds.to_parquet(str(output_path.with_suffix(".parquet")))
+    upload_dataset_card(output_path)
     ds.push_to_hub(HF_REPO, split="test")
     print(f"  Uploaded {len(rows)} examples to {HF_REPO}")
 
 
 def main():
+    load_dotenv(Path.home() / ".env")
     parser = argparse.ArgumentParser(description="Generate CoT metacognition eval dataset")
     parser.add_argument("--n", type=int, default=None, help="Limit total problems (for testing)")
     parser.add_argument("--n-per-source", type=int, default=150, help="Problems per dataset source")
@@ -633,13 +783,19 @@ def main():
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--dry-run", action="store_true", help="Only collect problems and find cutoffs, no API calls")
     parser.add_argument("--upload", action="store_true", help="Upload to HuggingFace after generation")
+    parser.add_argument("--upload-card-only", action="store_true", help="Upload only the dataset card for an existing output file")
     args = parser.parse_args()
+
+    output_path = Path(args.output)
+
+    if args.upload_card_only:
+        upload_dataset_card(output_path)
+        return
 
     api_key = os.environ.get("OPENROUTER_API_KEY")
     if not api_key and not args.dry_run:
         raise ValueError("OPENROUTER_API_KEY not set")
 
-    output_path = Path(args.output)
     t0 = time.time()
 
     # Phase 0: Collect problems

@@ -74,6 +74,14 @@ Most task data is normalized to the same shape before conversion to AO `Training
 }
 ```
 
+## Spec
+`question`: what the supervisee model is being asksed
+`cot_field`: the supervisee's response, or part thereof. For chunked tasks, this is cot_prefix.
+`masked_cot_field`: `cot_field`, but with the tokens fed to the supervisor oracle token replaced by the placeholder token
+`oracle_prefix`: Explanation of what is being fed to the oracle, e.g. "Activations: L11:??? L16:???". Prepended to `prompt`
+`prompt`: the prompt fed to the oracle
+`target_response`: the SFT target 
+
 If `context_input_ids` is missing but `cot_text` is present, `prepare_context_ids()` reconstructs the chat-formatted sequence and computes activation positions at load time.
 
 ## Training Pipeline

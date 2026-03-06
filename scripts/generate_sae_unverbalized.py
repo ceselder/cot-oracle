@@ -29,6 +29,7 @@ import sys
 import time
 from collections import Counter
 from pathlib import Path
+from statistics import mean
 
 import httpx
 
@@ -817,19 +818,197 @@ def split_and_save(examples: list[dict], output_dir: Path, seed: int = 42):
     return train_set, test_set
 
 
+def load_split_rows(output_dir: Path) -> dict[str, list[dict]]:
+    split_rows = {}
+    for split_name in ["train", "test"]:
+        path = output_dir / f"{split_name}.jsonl"
+        with open(path) as f:
+            split_rows[split_name] = [json.loads(line) for line in f if line.strip()]
+    return split_rows
+
+
+def _size_category(n_rows: int) -> str:
+    if n_rows < 1_000:
+        return "n<1K"
+    if n_rows < 10_000:
+        return "1K<n<10K"
+    if n_rows < 100_000:
+        return "10K<n<100K"
+    if n_rows < 1_000_000:
+        return "100K<n<1M"
+    return "n>1M"
+
+
+def _markdown_count_table(counter: Counter, limit: int | None = None) -> str:
+    items = counter.most_common(limit)
+    total = sum(counter.values())
+    lines = ["| Value | Count | Share |", "|---|---:|---:|"]
+    lines.extend(f"| `{value}` | {count} | {count / total * 100:.1f}% |" for value, count in items)
+    return "\n".join(lines)
+
+
+def build_dataset_card(split_rows: dict[str, list[dict]]) -> str:
+    all_rows = split_rows["train"] + split_rows["test"]
+    source_counts = Counter(row["source"] for row in all_rows)
+    category_counts = Counter(row["category"] for row in all_rows)
+    mean_n_positions = mean(row["n_positions"] for row in all_rows)
+    mean_n_cot_tokens = mean(row["n_cot_tokens"] for row in all_rows)
+    mean_prompt_chars = mean(len(row["prompt"]) for row in all_rows)
+    mean_target_chars = mean(len(row["target_response"]) for row in all_rows)
+    synthetic_rows = sum(1 for row in all_rows if row["source"].startswith("synthetic_"))
+
+    split_table = "\n".join([
+        "| Split | Rows |",
+        "|---|---:|",
+        f"| `train` | {len(split_rows['train'])} |",
+        f"| `test` | {len(split_rows['test'])} |",
+    ])
+
+    return f"""---
+pretty_name: CoT Oracle SAE Unverbalized
+license: mit
+language:
+  - en
+size_categories:
+  - {_size_category(len(all_rows))}
+tags:
+  - cot-oracle
+  - chain-of-thought
+  - reasoning
+  - activations
+  - sae
+  - qwen3
+  - eval
+---
+
+# CoT Oracle: SAE Unverbalized
+
+This dataset evaluates whether a monitor can recover content that was present in a model's activations but absent from its written chain of thought.
+Each row contains a generated question-answer pair where the answer is intended to be recoverable from sparse autoencoder feature labels extracted from Qwen3-8B residual activations, but not from the visible CoT text alone.
+
+The current snapshot contains **{len(all_rows):,}** rows split across **`train`** and **`test`**:
+
+{split_table}
+
+## What Each Row Contains
+
+Each row includes:
+
+- `question`: the original question shown to the rollout model
+- `cot_text`: the chain of thought written by the rollout model
+- `prompt`: a generated evaluation question about content that may have been internally processed but not verbalized
+- `target_response`: the expected answer to that evaluation question
+- `sae_features_summary`: a text summary of the filtered SAE feature labels used to construct the row
+- metadata describing source dataset, high-level category, and rollout length
+
+## Construction
+
+1. Source prompts were loaded from **`mats-10-sprint-cs-jb/cot-oracle-corpus-v5`**. The generator can also produce synthetic prompts, but the current uploaded snapshot contains **{synthetic_rows}** surviving `synthetic_*` rows.
+2. Qwen3-8B rollouts were analyzed with BatchTopK SAEs from **`adamkarvonen/qwen3-8b-saes`** at layers **9, 18, and 27**.
+3. Activations were sampled at stride-5 positions across the CoT region, then aggregated into per-layer feature counts and mean activations.
+4. Generic or structural features were filtered out with heuristics (`MIN_MEAN_ACT={MIN_MEAN_ACT}`, `MIN_COUNT={MIN_COUNT}`, `MAX_FEATURES_PER_LAYER={MAX_FEATURES_PER_LAYER}`).
+5. **`google/gemini-3.1-flash-lite-preview`** first filtered the active feature labels for relevance to the original question, then generated a question-answer pair intended to be answerable from the relevant SAE features but not from the CoT text.
+6. Rows marked low-quality or unparsable were discarded. Remaining rows were assigned a coarse category with lightweight heuristics over the generated answer text.
+7. Final examples were split **80/20 by `source`**, written to JSONL, converted to Parquet, and uploaded to Hugging Face.
+
+The upload logic lives in `scripts/generate_sae_unverbalized.py` in the [cot-oracle](https://github.com/ceselder/cot-oracle) repo.
+
+## Snapshot Statistics
+
+- Total rows: **{len(all_rows):,}**
+- Upstream sources: **{len(source_counts)}**
+- Mean stride positions per example: **{mean_n_positions:.1f}**
+- Mean CoT token count: **{mean_n_cot_tokens:.1f}**
+- Mean prompt length: **{mean_prompt_chars:.1f}** characters
+- Mean target-response length: **{mean_target_chars:.1f}** characters
+
+### Category Distribution
+
+{_markdown_count_table(category_counts)}
+
+### Source Distribution
+
+{_markdown_count_table(source_counts)}
+
+## Caveats
+
+- `prompt` and `target_response` are machine-generated and were not manually validated row by row.
+- `category` is a heuristic label inferred from the generated target answer, not a human annotation.
+- `sae_features_summary` is a filtered text summary of SAE labels, not the raw activations or full feature set.
+- This is a selected subset: rows only survive if the relevance filter and the generation step both succeed and produce a self-rated `good` example.
+
+## Schema
+
+| Field | Type | Description |
+|---|---|---|
+| `task` | string | Always `sae_unverbalized`. |
+| `prompt` | string | Generated eval question about content inferred from activations but omitted from the visible CoT. |
+| `target_response` | string | Expected answer to `prompt`. |
+| `cot_text` | string | Chain of thought generated by the rollout model. |
+| `question` | string | Original user-facing question given to the rollout model. |
+| `source` | string | Upstream dataset name from the corpus snapshot. |
+| `category` | string | Coarse automatic label such as `suppressed_computation` or `emotional_processing`. |
+| `sae_features_summary` | string | Human-readable summary of the relevant SAE labels retained for row construction. |
+| `n_positions` | int | Number of stride-5 activation positions extracted from the CoT region. |
+| `n_cot_tokens` | int | Token count of the CoT region analyzed for that row. |
+
+## Usage
+
+```python
+from datasets import load_dataset
+
+train = load_dataset("mats-10-sprint-cs-jb/cot-oracle-sae-unverbalized", split="train")
+row = train[0]
+print(row["prompt"])
+print(row["target_response"])
+print(row["sae_features_summary"])
+```
+
+## Related Project Files
+
+- Code: [cot-oracle](https://github.com/ceselder/cot-oracle)
+- Generator: `scripts/generate_sae_unverbalized.py`
+- Oracle eval script: `scripts/eval_sae_unverbalized.py`
+- Task registry: `src/tasks.py`
+""".strip() + "\n"
+
+
+def upload_dataset_card(output_dir: Path):
+    split_rows = load_split_rows(output_dir)
+    card = build_dataset_card(split_rows)
+    readme_path = output_dir / "README.md"
+    readme_path.write_text(card)
+
+    print(f"\nUploading dataset card to {HF_REPO}...")
+    from huggingface_hub import HfApi
+
+    api = HfApi(token=os.environ["HF_TOKEN"])
+    api.create_repo(HF_REPO, repo_type="dataset", exist_ok=True)
+    api.upload_file(
+        path_or_fileobj=card.encode(),
+        path_in_repo="README.md",
+        repo_id=HF_REPO,
+        repo_type="dataset",
+        commit_message="Update dataset card",
+    )
+    print(f"  Wrote local README to {readme_path}")
+    print("  Uploaded README.md")
+
+
 def upload_to_hf(output_dir: Path):
     """Upload train/test splits to HuggingFace as Parquet."""
     import pandas as pd
     from datasets import Dataset
 
     print(f"\nUploading to {HF_REPO}...")
+    upload_dataset_card(output_dir)
 
     for split_name in ["train", "test"]:
         path = output_dir / f"{split_name}.jsonl"
         rows = [json.loads(line) for line in open(path) if line.strip()]
         ds = Dataset.from_pandas(pd.DataFrame(rows))
         ds.to_parquet(str(path.with_suffix(".parquet")))
-        ds.push_to_hub(HF_REPO, split=split_name)
+        ds.push_to_hub(HF_REPO, split=split_name, token=os.environ["HF_TOKEN"])
         print(f"  Uploaded {len(rows)} {split_name} examples")
 
 
@@ -846,18 +1025,23 @@ def main():
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--dry-run", action="store_true", help="Print prompts, no API calls")
     parser.add_argument("--upload", action="store_true", help="Push to HF")
+    parser.add_argument("--upload-card-only", action="store_true", help="Upload only the dataset card from existing train/test JSONL files")
     parser.add_argument("--n-synthetic", type=int, default=200, help="Synthetic prompts per category")
     parser.add_argument("--skip-synthetic", action="store_true", help="Skip synthetic prompt generation")
     args = parser.parse_args()
 
     api_key = os.environ.get("OPENROUTER_API_KEY")
-    if not api_key and not args.dry_run and args.phase != "gpu":
+    if not api_key and not args.dry_run and not args.upload_card_only and args.phase != "gpu":
         raise ValueError("OPENROUTER_API_KEY not set")
 
     output_dir = Path(args.output)
     gpu_output = Path(args.gpu_output)
     gpu_output.parent.mkdir(parents=True, exist_ok=True)
     t0 = time.time()
+
+    if args.upload_card_only:
+        upload_dataset_card(output_dir)
+        return
 
     if args.dry_run:
         print("=== DRY RUN ===")
