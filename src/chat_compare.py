@@ -2555,7 +2555,9 @@ class ChatCompareWebApp:
     #timelineBar button:disabled { opacity: 0.3; cursor: default; }
     #timelineLabel { font-size: 13px; color: #94a3b8; }
     #barrierModeBtn.active { background: #ef4444; color: white; }
-    #resampleBtn, #forceAnswerBtn, #prefillWrap { display: none; }
+    #resampleBtn, #forceAnswerBtn { opacity: 0.3; }
+    #resampleBtn.barrier-active, #forceAnswerBtn.barrier-active { opacity: 1; }
+    #prefillWrap { display: none; }
     #prefillWrap { margin-top: 8px; }
     #prefillWrap textarea { width: 100%; min-height: 40px; resize: vertical; }
     #trajectoryPanel { margin-top: 12px; }
@@ -2649,8 +2651,7 @@ class ChatCompareWebApp:
         <div id=\"chunkedInfo\" class=\"small muted\" style=\"margin-top:4px;display:none\"></div>
         <label style=\"display:block;margin-top:10px\">Custom prompt</label>
         <textarea id=\"customPrompt\" placeholder=\"Used when Task preset = Custom prompt\"></textarea>
-        <label style=\"display:block;margin-top:10px\">train.yaml eval tags (logged only)</label>
-        <select id=\"evalTags\" multiple size=\"8\"></select>
+        <select id=\"evalTags\" multiple style=\"display:none\"></select>
         <label style=\"display:block;margin-top:10px\">Max new tokens</label>
         <input id=\"maxTokens\" type=\"number\" value=\"150\" min=\"1\" step=\"1\">
         <label style=\"display:block;margin-top:10px\" class=\"small\">Oracle temperature <span class=\"muted\" id=\"oracleTempVal\">0.0</span></label>
@@ -3142,8 +3143,8 @@ For your final answer, respond with "Answer: Yes" or "Answer: No" after the chai
           if (barrierMode) {
             event.preventDefault();
             barrierTokenIndex = tokenIndex;
-            document.getElementById('resampleBtn').style.display = '';
-            document.getElementById('forceAnswerBtn').style.display = '';
+            document.getElementById('resampleBtn').classList.add('barrier-active');
+            document.getElementById('forceAnswerBtn').classList.add('barrier-active');
             document.getElementById('prefillWrap').style.display = '';
             renderTokenRows();
             return;
@@ -3230,8 +3231,8 @@ For your final answer, respond with "Answer: Yes" or "Answer: No" after the chai
       if (!barrierMode) {
         // Exiting barrier mode — clear barrier
         barrierTokenIndex = null;
-        document.getElementById('resampleBtn').style.display = 'none';
-        document.getElementById('forceAnswerBtn').style.display = 'none';
+        document.getElementById('resampleBtn').classList.remove('barrier-active');
+        document.getElementById('forceAnswerBtn').classList.remove('barrier-active');
         document.getElementById('prefillWrap').style.display = 'none';
         renderTokenRows();
       }
@@ -3240,8 +3241,8 @@ For your final answer, respond with "Answer: Yes" or "Answer: No" after the chai
       barrierTokenIndex = null;
       barrierMode = false;
       document.getElementById('barrierModeBtn').classList.remove('active');
-      document.getElementById('resampleBtn').style.display = 'none';
-      document.getElementById('forceAnswerBtn').style.display = 'none';
+      document.getElementById('resampleBtn').classList.remove('barrier-active');
+      document.getElementById('forceAnswerBtn').classList.remove('barrier-active');
       document.getElementById('prefillWrap').style.display = 'none';
       renderTokenRows();
     }
