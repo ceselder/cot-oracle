@@ -229,6 +229,35 @@ def build_dpo_items(
                 label="correction>model",
             ))
 
+    # Instruction following DPO: following > not following
+    # Cap at 1 pair per example to avoid flooding with the same style signal
+    following = [
+        (i, rollouts[i]) for i in range(len(rollouts))
+        if rating_map.get(i + 1)
+        and rating_map[i + 1].instruction_following
+        and rating_map[i + 1].rating in ("good", "mixed")
+    ]
+    not_following = [
+        (i, rollouts[i]) for i in range(len(rollouts))
+        if rating_map.get(i + 1)
+        and not rating_map[i + 1].instruction_following
+        and rating_map[i + 1].rating in ("good", "mixed", "bad")
+    ]
+    if following and not_following:
+        f_text = rng.choice(following)[1]
+        nf_text = rng.choice(not_following)[1]
+        chosen_ids, chosen_labels = _make_full_ids(f_text)
+        rejected_ids, rejected_labels = _make_full_ids(nf_text)
+        dpo_items.append(DPOBatchItem(
+            chosen_ids=chosen_ids,
+            rejected_ids=rejected_ids,
+            chosen_labels=chosen_labels,
+            rejected_labels=rejected_labels,
+            activations=activations,
+            ph_positions=ph_positions,
+            label="following>not_following",
+        ))
+
     return dpo_items, sft_items
 
 
