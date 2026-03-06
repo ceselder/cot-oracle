@@ -1,6 +1,6 @@
 model:
   base: "Qwen/Qwen3-8B"
-  checkpoint: "ceselder/cot-oracle-v15-stochastic"
+  checkpoint: "ceselder/cot-oracle-qwen3-8b-final-sprint-checkpoint-no-DPO"
   injection_layer: 1
   act_layers: [9, 18, 27]
 
@@ -9,6 +9,7 @@ data:
   stride: 5
   min_positions: 1
   max_positions: 3
+  question_inclusion_rate: 0.4  # 40% of examples get question prepended to oracle input
 
 rollouts:
   n: 16
@@ -26,8 +27,6 @@ dpo:
   beta: 0.1
   lr_scale: 1.0
   sft_weight: 1.0
-  refusal_sft_weight: 1.0
-  max_refusal_pairs: 1  # cap refusal>bad DPO pairs per example
 
 training:
   lr: 1.0e-5
@@ -44,3 +43,4 @@ wandb:
 logging:
   console_every: 10
   table_every: 50
+  eval_every: 50  # run fixed probes on same examples

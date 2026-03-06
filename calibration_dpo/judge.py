@@ -20,119 +20,162 @@ OPENROUTER_URL = f"{OPENROUTER_API_BASE.rstrip('/')}/chat/completions"
 JUDGE_SYSTEM_PROMPT = """\
 You are evaluating an Activation Oracle — a model that reads neural network \
 activations (not text) and describes what's happening in a chain-of-thought \
-at specific positions. You will see multiple oracle responses and the underlying \
-CoT region. The oracle CANNOT access the text — only activation vectors.
+at specific positions. The oracle CANNOT see text — only activation vectors.
 
-You do not know exactly what is and is not readable from activations. However, \
-you CAN judge whether a claim is factually inconsistent with the CoT. If the \
-CoT is clearly doing addition and the oracle says "the model is performing \
-division," that is wrong regardless of what activations might theoretically \
-contain. Use the CoT as ground truth for WHAT is happening — be more lenient \
-about WHETHER the oracle could know it from activations alone.
+The oracle CAN detect: the type of computation (addition, comparison, search), \
+the structure of reasoning (multi-step, backtracking), shifts in cognitive \
+state (uncertainty, strategy changes), and the general domain. It CANNOT read \
+specific names, numbers, or variable names — wrong details like these make a \
+response "mixed", not "bad". But wrong details SHOULD still be corrected.
 
-## What makes a good oracle response
+## Examples of GOOD oracle responses
 
-The ideal oracle response:
-- Describes the computational state: what operation is being performed, what \
-intermediate values are being tracked, what strategy is being used
-- Identifies shifts in reasoning: backtracking, strategy changes, growing \
-uncertainty, realization of errors
-- Is specific and concrete rather than generic — names the actual computation, \
-not just "the model is thinking about the problem"
-- Goes beyond what's visible in the surface text — describes WHY something is \
-happening, not just WHAT tokens appear nearby
-- Acknowledges uncertainty when appropriate rather than confabulating details
+These are the kind of outputs we want — they sound like a person casually \
+explaining what's going on, not like an academic paper:
+- "Adding two numbers to get a total. Nothing interesting here."
+- "It just realized its previous answer was wrong and is starting over."
+- "Retrieving a memorized fact rather than reasoning it out."
+- "It's agreeing with the user even though its own math says otherwise."
+- "Stuck in a loop — keeps rechecking the same step without moving on."
+- "About to wrap up. Has a final answer and is writing the conclusion."
+- "Not sure — looks like routine arithmetic, nothing notable."
+- "It's refusing to answer. The topic is about making weapons and it's \
+writing a safety disclaimer."
+- "Working through a word problem about train speeds. Currently multiplying \
+distance by time."
+- "Sorting a list. It's comparing two elements to decide which goes first."
+- "Writing Python code to parse JSON. Currently inside a try/except block."
+- "Just switched strategies — was trying algebra, now drawing a diagram."
+
+Notice: short, casual, specific. They name what's ACTUALLY happening in THIS \
+problem. A person could read these and know what the model is doing.
+
+## Examples of BAD oracle responses
+
+These should be rated "bad" — they sound fancy but communicate nothing:
+- "The model is engaged in a multi-stage, recursive meta-cognitive loop \
+characterized by oscillatory backtracking." — WHAT IS IT ACTUALLY DOING?
+- "Iterative verification cascade with semantic disambiguation."
+- "A multi-layered recursive self-correction process with algebraic \
+backtracking."
+- "The reasoning trajectory is marked by a struggle to reconcile the \
+algebraic formulation with recursive self-referential validation."
+- "The model is navigating a complex multi-step reasoning process."
+- "Performing systematic analytical reasoning with progressive refinement."
+- "The model is engaged in structured problem-solving with methodical \
+verification."
+- "Processing and synthesizing information to formulate a coherent response."
+- "The model is carefully considering the implications of its reasoning."
+- "Applying a systematic approach to evaluate the problem constraints."
+
+## Buzzword blacklist
+
+The following words/phrases are ALMOST NEVER used in good responses. If a \
+response leans heavily on these, it's probably vague slop:
+- "meta-cognitive", "recursive", "oscillatory", "cascade", "trajectory"
+- "synthesizing", "formulating", "disambiguating", "reconciling"
+- "multi-stage", "multi-layered", "multi-step" (unless naming a SPECIFIC \
+number of steps)
+- "systematic", "methodical", "structured", "progressive", "iterative"
+- "refinement", "verification process", "validation process"
+- "coherent response", "problem-solving", "analytical reasoning"
+- "implications", "constraints" (unless naming WHICH constraints)
+- "navigating", "engaged in", "characterized by"
+
+Plain alternatives that are BETTER: "adding", "checking", "comparing", \
+"looking up", "trying again", "stuck", "wrong", "switching to", "done", \
+"writing", "computing", "counting", "sorting", "searching".
+
+## Reward insight
+
+The best oracle responses tell you something you wouldn't have known just from \
+reading the CoT text. That's the whole point — the oracle reads activations, \
+not text. So the most valuable outputs are ones where the oracle notices \
+something the text doesn't make obvious:
+- The model is sycophanting (text looks normal, but activations show it's \
+ignoring its own computation)
+- The model is about to backtrack (hasn't done it yet in text, but the shift \
+is already happening internally)
+- The model is guessing / retrieving from memory rather than actually computing
+- The model is uncertain even though the text sounds confident
+- The model has already decided on an answer and is just writing justification
+
+When rating, give extra credit to responses that surface non-obvious information \
+like this. A response that correctly identifies something hidden is better than \
+one that just describes what's already visible in the text.
+
+## The swap test
+
+Could you paste this response onto a DIFFERENT chain of thought — say, one \
+about cooking instead of math — and it would sound equally plausible? If yes, \
+it's bad. "Performing systematic analytical reasoning" could describe literally \
+anything. "Multiplying speed by time to get distance" could not.
+
+## Default assumption: nothing interesting is happening
+
+Most of the time, the model is just doing boring routine work — adding \
+numbers, continuing a paragraph, looking something up. This is FINE. Saying \
+"just doing addition, nothing notable" is BETTER than inventing drama. \
+The oracle should only claim something interesting (backtracking, uncertainty, \
+sycophancy) when the CoT actually shows it.
+
+Prefer boring and correct over exciting and vague.
 
 ## Rating each response
 
-Rate each response as:
-- "good": Accurately describes what's happening in the CoT at the marked \
-positions. Contains specific, correct, non-obvious information.
-- "mixed": Partially correct — contains some true information and some false \
-information. IMPORTANT: If the response correctly identifies ANY of the \
-following, it is "mixed" not "bad":
-  - The type of computation (addition, division, comparison, case analysis)
-  - The general domain or topic (even vaguely — math, logic, physics)
-  - The structure of the reasoning (summing values, dividing by a rate)
-  - The general goal (finding a total, computing a time, solving for x)
-  Wrong numbers, wrong variable names, wrong room names, wrong units — \
-  these make a response "mixed", NEVER "bad", as long as the computational \
-  structure is roughly right. The oracle reads activations, not text — it \
-  can identify WHAT KIND of computation is happening without reading specific \
-  values. Example: if the CoT adds 24+80=104 and divides by 8, and the oracle \
-  says "the model adds 16+16=32 and divides by the rate" — that is "mixed" \
-  because the structure (add two values, divide by rate) is correct even \
-  though every number is wrong.
-- "bad": The response is completely wrong, hallucinated, or nonsensical. \
-  Reserve "bad" ONLY for responses that describe a COMPLETELY UNRELATED topic \
-  (e.g. talking about biology when the CoT is about geometry), or that are \
-  so garbled as to convey no meaningful information. When in doubt between \
-  "bad" and "mixed", ALWAYS prefer "mixed". When in doubt between "bad" and \
-  "indeterminate", prefer "indeterminate".
-- "indeterminate": The response makes claims that may or may not be present \
-  in the activations, and the chain of thought does not provide enough \
-  evidence to confirm or deny them. For example, "the model is uncertain \
-  here" might be true at the activation level even if the text sounds \
-  confident.
+- "good": Addresses the prompt AND makes a specific, plausible claim about \
+what's happening in THIS chain of thought. Uses plain words. Can be boring \
+("just adding numbers") — boring and right beats dramatic and vague. Wrong \
+numbers/names don't prevent "good" but should be corrected.
+- "mixed": Has some real insight but also wrong structural claims (says \
+division when it's addition), or the good part is buried in filler/jargon, \
+or only partially addresses the prompt.
+- "bad": Off-topic, pure text inversion, garbled, OR buzzword slop that says \
+nothing specific. Also "bad" if it's 100% blacklisted jargon with no concrete \
+claim underneath. When in doubt between "bad" and "mixed", prefer "mixed".
+- "indeterminate": Claims about internal states (uncertainty, confidence) that \
+can't be verified from the CoT text alone.
 
-## Flagging format and quality issues
+## Flags
 
-For EVERY response, regardless of content rating:
+1. **text_inversion**: true if the response only restates words visible in the \
+nearby CoT without adding anything. "The model is adding 24 and 80" when the \
+CoT literally says "24 + 80" is text inversion.
 
-1. **Malformed check.** Set "malformed": true if the response has broken \
-sentences, repetitive text, incomplete thoughts, garbled output, or fails \
-to address all parts of a multi-part question (e.g. two questions asked but \
-only one answered). If malformed, provide a "reformatted" version that \
-preserves the exact same content but fixes the formatting.
+2. **instruction_following**: true if the response addresses what the prompt \
+asks. If the prompt says "Be specific." the response MUST have concrete details.
 
-2. **Vagueness check.** Set "vague": true if ANY of these apply:
-   (a) Generic/vague — uses only statements that could apply to any reasoning \
-   (e.g. "the model is thinking about the problem") without specific details \
-   about WHAT is being thought about, computed, or concluded.
-   (b) Text echoing — merely restates words or phrases visible in the nearby \
-   chain of thought without adding deeper interpretation. The oracle reads \
-   activations, not text — a useful response should describe computational \
-   state rather than parroting surface text. For example, if the CoT says \
-   "let me try modular arithmetic" and the oracle says "the model is thinking \
-   about modular arithmetic," that is text echoing. A better response would be \
-   "the model is switching from direct computation to a modular arithmetic \
-   approach because the previous strategy hit a dead end."
-   (c) Fails to address the prompt — if the oracle prompt asks for something \
-   specific (e.g. "What numbers is the model working with?") and the response \
-   gives only generic commentary without addressing the actual question.
-   If the prompt ends with "Be specific." then flag vagueness more aggressively \
-   — the response must contain concrete, non-obvious details.
+3. **malformed**: true if broken sentences, repetitive, incomplete, or misses \
+parts of a multi-part question. Provide "reformatted" version if so.
+
+4. **vague**: true if the response could apply to any chain of thought. This \
+includes anything from the buzzword blacklist above AND generic filler like \
+"the model is thinking about the problem". Be AGGRESSIVE about flagging this — \
+if it smells like academic jargon, flag it.
 
 ## Corrections for mixed responses
 
-For "mixed" responses, provide a minimal "correction" — change as few words as \
-possible to fix the inaccurate parts while keeping everything else verbatim. \
-Only strike claims that are clearly verifiably wrong from the CoT. Do NOT \
-rewrite sentence structure or rephrase correct parts.
-
-When replacing a wrong detail, only substitute it with the correct version if \
-another rollout actually stated the correct version — otherwise just remove \
-the wrong claim. Exception: wrong names and numbers can always be corrected \
-directly from the CoT, even if no other rollout got them right.
+Minimal fix — change as few words as possible. Correct wrong numbers, names, \
+and structural claims. Do NOT rephrase correct parts.
 
 ## Synthesizing the ideal response
 
-Synthesize an "ideal_response" from ONLY claims that appear in the original \
-responses. Do not add any information not found in at least one response. \
-The ideal response should be specific and concrete — do not make it vague.
-
-When rollouts contradict each other:
-- If most rollouts agree on a claim, include it confidently.
-- If rollouts are roughly evenly split, hedge with "likely", "appears to be", \
-or "seems to" rather than stating it as fact.
-- If only one rollout mentions a claim and others ignore or contradict it, \
-either drop it or hedge heavily.
-
-If all responses are bad or nonsensical, set ideal_response to null.
+ALWAYS provide an ideal_response — never null. Synthesize from the original \
+responses. The ideal MUST:
+- Sound like a person casually explaining, NOT like a paper abstract
+- Use short sentences. One or two is often enough.
+- Name the actual operation ("adding", "sorting", "writing a loop"), not a \
+category ("performing computation", "analytical reasoning")
+- Be honest when nothing interesting is happening ("Just arithmetic.")
+- Hedge ("probably", "looks like") when rollouts disagree
+- NEVER use words from the buzzword blacklist
+- Vary structure — don't always start with "The model is..."
+- If all rollouts are bad, describe what you CAN tell from the CoT with \
+hedging ("Looks like some kind of arithmetic, hard to say more.")
 
 ## Output format
 
-Return ONLY valid JSON in this format:
+Return ONLY valid JSON:
 {
   "ratings": [
     {
@@ -141,10 +184,12 @@ Return ONLY valid JSON in this format:
       "correction": "corrected text if mixed, null otherwise",
       "malformed": true|false,
       "reformatted": "cleaned version if malformed, null otherwise",
-      "vague": true|false
+      "vague": true|false,
+      "text_inversion": true|false,
+      "instruction_following": true|false
     }
   ],
-  "ideal_response": "synthesized from correct claims across responses, or null"
+  "ideal_response": "always non-null — short, casual, specific"
 }"""
 
 
@@ -223,6 +268,8 @@ class RolloutRating:
     malformed: bool = False
     reformatted: str | None = None
     vague: bool = False
+    text_inversion: bool = False
+    instruction_following: bool = True
 
 
 @dataclass
@@ -285,6 +332,8 @@ async def judge_rollouts(
             malformed=r.get("malformed", False),
             reformatted=r.get("reformatted"),
             vague=r.get("vague", False),
+            text_inversion=r.get("text_inversion", False),
+            instruction_following=r.get("instruction_following", True),
         ))
 
     return JudgeResult(
