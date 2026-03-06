@@ -139,7 +139,7 @@ TRAINED_CHECKPOINTS = {
     "v15-stochastic": {"path": "ceselder/cot-oracle-v15-stochastic", "label": "v15 stochastic"},
     "v15-last-pos-only": {"path": "ceselder/cot-oracle-v15-last-pos-only", "label": "v15 last-pos-only"},
     "final-sprint-no-dpo": {"path": "ceselder/cot-oracle-qwen3-8b-final-sprint-checkpoint-no-DPO", "label": "final sprint (no DPO)"},
-    "calibration-dpo-v4": {"path": "ceselder/cot-oracle-calibration-dpo-v4", "label": "calibration DPO v4"},
+    "calibration-dpo-v4": {"path": "ceselder/cot-oracle-calibration-dpo-v4", "subfolder": "policy", "label": "calibration DPO v4"},
 }
 
 # Available checkpoints for the Finetuned Monitor (text baseline, no activations).
