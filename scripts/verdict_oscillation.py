@@ -425,14 +425,19 @@ def get_oracle_verdict(model, tokenizer, formatted_prompt, partial_cot, layers, 
 
 
 def plot_oscillation(question_short, sentence_labels, model_scores, oracle_scores,
-                     adam_scores, output_path, question_idx, prompt_label=""):
+                     adam_scores, output_path, question_idx, prompt_label="",
+                     oracle_sent_scores=None, adam_sent_scores=None):
     """Plot verdict oscillation for one question."""
     fig, ax = plt.subplots(figsize=(14, 5))
     x = np.arange(len(sentence_labels))
 
     ax.plot(x, model_scores, 'b-o', label="Model verdict", linewidth=2.5, markersize=6)
-    ax.plot(x, oracle_scores, 'r-s', label="Trained oracle (3L)", linewidth=2, markersize=5)
-    ax.plot(x, adam_scores, 'g-^', label="Adam's AO (L18)", linewidth=2, markersize=5)
+    ax.plot(x, oracle_scores, 'r-s', label="Trained (cumul)", linewidth=2, markersize=5)
+    ax.plot(x, adam_scores, 'g-^', label="Adam's AO (cumul)", linewidth=2, markersize=5)
+    if oracle_sent_scores:
+        ax.plot(x, oracle_sent_scores, 'r--d', label="Trained (sent)", linewidth=1.5, markersize=4, alpha=0.6)
+    if adam_sent_scores:
+        ax.plot(x, adam_sent_scores, 'g--v', label="Adam's AO (sent)", linewidth=1.5, markersize=4, alpha=0.6)
     ax.axhline(y=0.5, color='gray', linestyle='--', alpha=0.5)
 
     ax.set_ylim(-0.05, 1.05)
@@ -442,7 +447,7 @@ def plot_oscillation(question_short, sentence_labels, model_scores, oracle_score
     if prompt_label:
         title += f"\nPrompt: {prompt_label}"
     ax.set_title(title, fontsize=10)
-    ax.legend(loc="upper right")
+    ax.legend(loc="upper right", fontsize=8)
 
     tick_labels = [f"S{i}" for i in range(len(sentence_labels))]
     ax.set_xticks(x)
@@ -551,53 +556,70 @@ def main():
             skip_result = {"idx": idx, "question": question, "skipped": True,
                            "model_scores": [], "sentences": []}
             for pname in ORACLE_PROMPTS:
-                skip_result[f"oracle_{pname}"] = []
-                skip_result[f"adam_{pname}"] = []
+                for mode in ["oracle_cumul", "adam_cumul", "oracle_sent", "adam_sent"]:
+                    skip_result[f"{mode}_{pname}"] = []
             all_results.append(skip_result)
             continue
 
         # 3. For each sentence boundary, get model verdict + oracle verdicts with both prompts
         model_scores = []
-        # Per-prompt score lists
-        prompt_scores = {pname: {"oracle": [], "adam": []} for pname in ORACLE_PROMPTS}
+        # Per-prompt, per-mode score lists: {prompt: {oracle_cumul, adam_cumul, oracle_sent, adam_sent}}
+        prompt_scores = {pname: {"oracle_cumul": [], "adam_cumul": [], "oracle_sent": [], "adam_sent": []}
+                         for pname in ORACLE_PROMPTS}
         sentence_labels = []
 
         for s_idx in tqdm(range(len(sentences)), desc=f"  Q{idx} sentences"):
             partial_cot = " ".join(sentences[:s_idx + 1])
+            current_sentence = sentences[s_idx]
             sentence_labels.append(sentences[s_idx][:60])
 
             # Model verdict via logprobs (only once, prompt-independent)
             guilty_score, probs_info = get_verdict_logprobs(model, tokenizer, formatted_prompt, partial_cot)
             model_scores.append(guilty_score)
 
-            # Query both oracles with each prompt variant
+            # Query both oracles with each prompt variant, both cumulative and sentence-only
             log_parts = [f"model={guilty_score:.3f}"]
             for pname, pprompt in ORACLE_PROMPTS.items():
-                # Trained oracle (3 layers, normal config)
+                # Cumulative CoT activations
                 oracle_score, _, _ = get_oracle_verdict(
                     model, tokenizer, formatted_prompt, partial_cot, layers, stride=args.stride,
                     oracle_prompt=pprompt,
                 )
-                prompt_scores[pname]["oracle"].append(oracle_score)
+                prompt_scores[pname]["oracle_cumul"].append(oracle_score)
 
-                # Adam's AO (layer 18, normal config)
                 adam_score, _ = get_adam_ao_verdict(
                     model, tokenizer, formatted_prompt, partial_cot, stride=args.stride,
                     oracle_prompt=pprompt,
                 )
-                prompt_scores[pname]["adam"].append(adam_score)
+                prompt_scores[pname]["adam_cumul"].append(adam_score)
 
-                log_parts.append(f"T_{pname[:6]}={oracle_score:.3f} A_{pname[:6]}={adam_score:.3f}")
+                # Sentence-only activations
+                oracle_sent, _, _ = get_oracle_verdict(
+                    model, tokenizer, formatted_prompt, current_sentence, layers, stride=args.stride,
+                    oracle_prompt=pprompt,
+                )
+                prompt_scores[pname]["oracle_sent"].append(oracle_sent)
 
-            print(f"    S{s_idx}: {' '.join(log_parts)} | {sentences[s_idx][:40]}...")
+                adam_sent, _ = get_adam_ao_verdict(
+                    model, tokenizer, formatted_prompt, current_sentence, stride=args.stride,
+                    oracle_prompt=pprompt,
+                )
+                prompt_scores[pname]["adam_sent"].append(adam_sent)
 
-        # 4. Plot — one plot per prompt variant
+                log_parts.append(f"T_{pname[:3]}c={oracle_score:.2f} A_{pname[:3]}c={adam_score:.2f} "
+                                 f"T_{pname[:3]}s={oracle_sent:.2f} A_{pname[:3]}s={adam_sent:.2f}")
+
+            print(f"    S{s_idx}: {' '.join(log_parts)} | {sentences[s_idx][:30]}...")
+
+        # 4. Plot — one plot per prompt variant (cumul + sent-only as solid/dashed)
         question_short = question.split('\n')[0]
         for pname in ORACLE_PROMPTS:
             plot_path = output_dir / f"q{idx:02d}_{pname}.png"
             plot_oscillation(question_short, sentence_labels, model_scores,
-                             prompt_scores[pname]["oracle"], prompt_scores[pname]["adam"],
-                             plot_path, idx, prompt_label=pname)
+                             prompt_scores[pname]["oracle_cumul"], prompt_scores[pname]["adam_cumul"],
+                             plot_path, idx, prompt_label=pname,
+                             oracle_sent_scores=prompt_scores[pname]["oracle_sent"],
+                             adam_sent_scores=prompt_scores[pname]["adam_sent"])
         print(f"  Plots saved for Q{idx}")
 
         # 5. Store result
@@ -611,18 +633,17 @@ def main():
             "skipped": False,
         }
         for pname in ORACLE_PROMPTS:
-            result[f"oracle_{pname}"] = prompt_scores[pname]["oracle"]
-            result[f"adam_{pname}"] = prompt_scores[pname]["adam"]
+            for mode in ["oracle_cumul", "adam_cumul", "oracle_sent", "adam_sent"]:
+                result[f"{mode}_{pname}"] = prompt_scores[pname][mode]
         all_results.append(result)
 
         # Save incremental results
         results_path = output_dir / "results.json"
         results_path.write_text(json.dumps(all_results, indent=2, default=str))
 
-    # 6. Summary plot (use first prompt variant for backwards compat)
-    first_pname = list(ORACLE_PROMPTS.keys())[0]
+    # 6. Summary plot (use cot_aware cumul for backwards compat)
     for r in all_results:
-        r["oracle_scores"] = r.get(f"oracle_{first_pname}", [])
+        r["oracle_scores"] = r.get("oracle_cumul_cot_aware", [])
     plot_summary(all_results, output_dir / "summary.png")
 
     # Final save
