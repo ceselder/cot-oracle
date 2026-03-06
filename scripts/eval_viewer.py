@@ -21,12 +21,19 @@ _ABS_TYPE = {
 }
 
 def _task_abs_type(task: str) -> str:
+    task_dir = LOGS_DIR / task
+    for fname in METHOD_TO_SCORE_FILE.values():
+        path = task_dir / f"{fname}.json"
+        if path.exists():
+            data = json.loads(path.read_text())
+            if data.get("score_type") == "llm":
+                return "llm"
     td = TASKS.get(task)
     return _ABS_TYPE.get(td.scoring, "acc") if td else "acc"
 
 app = Flask(__name__)
 LOGS_DIR = Path(__file__).resolve().parent.parent / "data" / "comprehensive_eval" / "logs"
-METHOD_ORDER = ["llm_monitor_pro", "original_ao", "our_ao", "celeste_ao", "linear_probes", "sae_probe"]
+METHOD_ORDER = ["llm_monitor_flash", "llm_monitor_pro", "original_ao", "our_ao", "celeste_ao", "linear_probes", "sae_probe"]
 
 _train_cfg = yaml.safe_load((Path(__file__).resolve().parent.parent / "configs/train.yaml").read_text())
 OUR_AO_TRAINING_TASKS = {k for k, v in _train_cfg["tasks"].items() if isinstance(v, dict) and v.get("n", 0) != 0}
@@ -102,7 +109,14 @@ def method_scores_api(task):
         trained = (method == "our_ao" and task in OUR_AO_TRAINING_TASKS) or \
                   (method == "original_ao" and (task in OG_AO_TRAINING_TASKS or is_cls_task))
         comp = comp_sums[method] / comp_counts[method] if method in comp_counts else None
-        result[method] = {"primary_score": data["primary_score"], "comparative_score": comp, "trained": trained, "model": data.get("model")}
+        result[method] = {
+            "primary_score": data.get("primary_score"),
+            "comparative_score": comp,
+            "trained": trained,
+            "model": data.get("model"),
+            "skipped": bool(data.get("skipped", False)),
+            "skip_reason": data.get("skip_reason", ""),
+        }
     return jsonify(result)
 
 
@@ -364,7 +378,7 @@ async function loadTask(task){
     fetch('/api/method_scores/'+task).then(r=>r.json()).catch(()=>({}))
   ]);
   recs=recResp.records; absType=recResp.abs_type||'acc'; methodScores=methodScoresResp;
-  methodCols=inferMethods(recs);
+  methodCols=inferMethods(recs, methodScores);
   visMethodCols=new Set(methodCols.filter(m=>m!=='llm_monitor_pro'));
   renderMcbs();
   renderMethodColToggles();
@@ -375,10 +389,11 @@ async function loadTask(task){
   _gsave();
 }
 
-function inferMethods(rs){
+function inferMethods(rs, scoreMap){
   const ord=['llm_monitor_flash','llm_monitor_pro','original_ao','our_ao','celeste_ao','linear_probes','sae_probe'];
   const have=new Set();
   rs.forEach(r=>ord.forEach(m=>{if(m in r)have.add(m)}));
+  Object.keys(scoreMap||{}).forEach(m=>{if(ord.includes(m))have.add(m)});
   return ord.filter(m=>have.has(m));
 }
 
@@ -692,15 +707,17 @@ function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').repl
 function thMethodLbl(m){
   const ms=methodScores[m];
   const tr=ms?.trained?`<span class="th-tr" title="trained on this task">†</span>`:'';
+  const skipped=ms?.skipped;
   let vbars='';
-  if(ms){
+  if(ms&&!skipped){
     const abs=ms.primary_score??0;
     const cmp=ms.comparative_score;
     const vbar=(lbl,val,cls)=>`<div class="th-vbg"><div class="th-vbt"><div class="th-vbf ${cls}" style="height:${(val*100).toFixed(0)}%" title="${lbl}: ${val.toFixed(2)}"></div></div><span class="th-vbl">${lbl}</span></div>`;
     vbars=`<div class="th-vbars">${vbar('abs('+absType+')',abs,'th-ba')}${cmp!=null?vbar('cmp',cmp,'th-bc'):''}</div>`;
   }
   const modelLbl=ms?.model?`<div class="th-model" title="${esc(ms.model)}">${esc(ms.model.split('/').pop())}</div>`:'';
-  return `<div class="th-mc"><div class="th-mn">${sn(m)}${tr}</div>${modelLbl}${vbars}</div>`;
+  const skippedLbl=skipped?`<div class="th-model" title="${esc(ms?.skip_reason||'skipped')}">skipped</div>`:'';
+  return `<div class="th-mc"><div class="th-mn">${sn(m)}${tr}</div>${modelLbl}${skippedLbl}${vbars}</div>`;
 }
 </script>
 </body>

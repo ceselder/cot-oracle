@@ -18,6 +18,17 @@ QA_GEMINI_SCORE_SYSTEM = (
     "`reason` must be one very short sentence, at most 12 words."
 )
 
+OPENENDED_REFERENCE_SCORE_MODEL = os.environ["COT_ORACLE_OPENENDED_EVAL_MODEL"] if "COT_ORACLE_OPENENDED_EVAL_MODEL" in os.environ else "google/gemini-3.1-flash-lite-preview"
+OPENENDED_REFERENCE_SCORE_MAX_TOKENS = 128
+OPENENDED_REFERENCE_SCORE_SYSTEM = (
+    "You grade a candidate response against a reference response for an evaluation benchmark. "
+    "Return ONLY JSON with keys `score` and `reason`. "
+    "`score` must be a float from 0.0 to 1.0 where 1.0 means the candidate matches the reference response essentially perfectly, "
+    "0.5 means it is partially correct or missing important details, and 0.0 means it is wrong, irrelevant, or contradicted by the reference. "
+    "Focus on semantic correctness rather than wording overlap. "
+    "`reason` must be one short sentence, at most 15 words."
+)
+
 
 def is_gemini_qa_task(task_name: str) -> bool:
     return task_name in QA_GEMINI_SCORE_TASKS
@@ -51,6 +62,16 @@ def build_qa_gemini_score_prompt(task_name: str, qa_prompt: str, target: str, pr
         f"Reference answer:\n{target}\n\n"
         f"Candidate answer:\n{prediction}\n\n"
         "Score the candidate answer against the reference answer."
+    )
+
+
+def build_openended_reference_score_prompt(task_name: str, query: str, target: str, prediction: str) -> str:
+    return (
+        f"Task: {task_name}\n\n"
+        f"Prompt:\n{query}\n\n"
+        f"Reference response:\n{target}\n\n"
+        f"Candidate response:\n{prediction}\n\n"
+        "Score the candidate response against the reference response."
     )
 
 

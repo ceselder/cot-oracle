@@ -8,6 +8,7 @@ to evaluate all tasks and baseline methods in a unified way.
 Methods:
   - our_ao_k{N}        : our LoRA checkpoint, k-sweep x layers [9,18,27], best layer per k
   - original_ao_k{N}   : Adam's AO checkpoint, layer 18, k positions
+  - llm_monitor_flash  : text-only black-box LLM (gemini flash)
   - llm_monitor_pro    : text-only black-box LLM (gemini-2.5-pro)
   - linear_probes      : pretrained linear probes from HF
   - sae_probe          : SAE encode + LLM judge
@@ -26,7 +27,6 @@ import argparse
 import asyncio
 import copy
 import gc
-import hashlib
 import json
 import os
 import re
@@ -39,6 +39,7 @@ import numpy as np
 import torch
 import yaml
 from dotenv import load_dotenv
+from joblib import Memory, hash as joblib_hash
 from tqdm.auto import tqdm
 
 _SRC = Path(__file__).resolve().parent.parent / "src"
@@ -55,6 +56,7 @@ from tasks import TASKS, TaskDef, ScoringMode
 from data_loading import load_task_data, prepare_context_ids
 from eval_loop import (
     _resample_eval_positions,
+    _extract_base_positions,
     _apply_position_encoding_to_activations,
     _materialize_activations,
     _batched_oracle_generate,
@@ -64,7 +66,15 @@ from eval_loop import (
     _score_trajectory_llm,
     _parse_trajectory,
 )
-from qa_judge import OPENROUTER_CHAT_COMPLETIONS_URL, compute_token_f1_scores
+from qa_judge import (
+    OPENROUTER_CHAT_COMPLETIONS_URL,
+    OPENENDED_REFERENCE_SCORE_MAX_TOKENS,
+    OPENENDED_REFERENCE_SCORE_MODEL,
+    OPENENDED_REFERENCE_SCORE_SYSTEM,
+    build_openended_reference_score_prompt,
+    compute_token_f1_scores,
+    extract_judge_json,
+)
 from core.ao import AO_CHECKPOINTS, load_model_with_ao, load_extra_adapter
 
 # ── Constants ──
@@ -73,6 +83,7 @@ OUR_AO_LAYERS = [9, 18, 27]
 K_SWEEP = [1, 5, 10, 20, None]  # None = all stride-5 positions
 DEFAULT_LAYERS = [9, 18, 27]
 DEFAULT_N = 25
+CACHE_SCHEMA_VERSION = "20260306_modality_cache_v1"
 
 # Tasks that cannot run through load_task_data (permanently skipped in eval).
 # This is the single authoritative list — both the runner and the plotter use it.
@@ -82,8 +93,6 @@ _SKIP_TASKS: frozenset[str] = frozenset({
     "reconstruction_fineweb",                         # fineweb streaming, no hf_repo
     "probe_sycophancy",                               # HF 404
     "deception_detection",                            # HF 404
-    "cot_metacognition",                              # skipped per user request
-    "compqa",                                         # skipped per user request
 })
 
 
@@ -196,11 +205,8 @@ _TRACE_DIR = _REPO_ROOT / "logs" / "llm_monitor_tasks"
 
 
 def _cache_key(task_name: str, method: str, cfg: dict, example_ids: list[str]) -> str:
-    payload = json.dumps(
-        {"task": task_name, "method": method, "cfg": cfg, "ids": sorted(example_ids)},
-        sort_keys=True,
-    )
-    return hashlib.sha256(payload.encode()).hexdigest()
+    payload = {"task": task_name, "method": method, "cfg": cfg, "ids": sorted(example_ids)}
+    return joblib_hash(payload)
 
 
 def _cache_load(cache_dir: Path, key: str) -> dict | None:
@@ -216,6 +222,93 @@ def _cache_save(cache_dir: Path, key: str, data: dict) -> None:
     path = cache_dir / f"{key}.json"
     with open(path, "w") as f:
         json.dump(data, f)
+
+
+def _task_result_path(output_dir: Path, task_name: str, method: str) -> Path:
+    return output_dir / "logs" / task_name / f"{method}.json"
+
+
+def _deps_hash(deps: dict) -> str:
+    return joblib_hash({"cache_schema": CACHE_SCHEMA_VERSION, "deps": deps})
+
+
+def _task_def_fingerprint(task_def: TaskDef) -> dict:
+    return {
+        "name": task_def.name,
+        "scoring": task_def.scoring.value,
+        "positive_keywords": list(task_def.positive_keywords),
+        "negative_keywords": list(task_def.negative_keywords),
+        "positive_label": task_def.positive_label,
+        "negative_label": task_def.negative_label,
+        "cot_field": task_def.cot_field,
+        "max_new_tokens": task_def.max_new_tokens,
+    }
+
+
+def _items_fingerprint(items: list[dict]) -> str:
+    per_item = []
+    for item in items:
+        payload = {
+            "question": item.get("question"),
+            "hinted_prompt": item.get("hinted_prompt"),
+            "prompt": item.get("prompt"),
+            "target_response": item.get("target_response"),
+            "cot_text": item.get("cot_text"),
+            "cot_prefix": item.get("cot_prefix"),
+            "cot_suffix": item.get("cot_suffix"),
+            "context_input_ids": item.get("context_input_ids"),
+            "context_positions": item.get("context_positions"),
+        }
+        per_item.append(joblib_hash(payload))
+    return joblib_hash(per_item)
+
+
+def _result_from_output_cache(output_dir: Path, task_name: str, method: str, deps: dict, rerun: bool) -> dict | None:
+    if rerun:
+        return None
+    path = _task_result_path(output_dir, task_name, method)
+    if not path.exists():
+        return None
+    with open(path) as f:
+        data = json.load(f)
+    meta = data.get("_cache_meta")
+    if not meta:
+        return None
+    if meta.get("cache_schema") != CACHE_SCHEMA_VERSION:
+        return None
+    if meta.get("deps_hash") != _deps_hash(deps):
+        return None
+    clean = dict(data)
+    clean.pop("_cache_meta", None)
+    return clean
+
+
+def _joblib_cache_runner(namespace: str, deps_hash: str, compute_fn):
+    return compute_fn()
+
+
+def _run_with_joblib_cache(memory: Memory, namespace: str, deps: dict, rerun: bool, compute_fn):
+    if rerun:
+        return compute_fn()
+    cached_runner = memory.cache(_joblib_cache_runner, ignore=["compute_fn"])
+    return cached_runner(namespace=namespace, deps_hash=_deps_hash(deps), compute_fn=compute_fn)
+
+
+def _skipped_result(reason: str, n: int, *, model: str | None = None) -> dict:
+    result = {
+        "skipped": True,
+        "skip_reason": reason,
+        "n": n,
+        "primary_score": None,
+        "bootstrap_std": None,
+    }
+    if model:
+        result["model"] = model
+    return result
+
+
+def _uses_openended_reference_judge(task_name: str, task_def: TaskDef) -> bool:
+    return task_def.scoring == ScoringMode.TOKEN_F1 and task_name != "answer_trajectory"
 
 
 # ── Bootstrap std ──
@@ -601,7 +694,7 @@ def _run_linear_probes_for_task(
     example_ids: list[str],
     cache_dir: Path,
     rerun: bool = False,
-) -> dict | None:
+) -> dict:
     """Run linear probes if available for this task.
 
     Tries both 'mean' and 'last' pooling across all layers; picks the best
@@ -612,7 +705,7 @@ def _run_linear_probes_for_task(
 
     probe_task = PROBE_TASK_MAP.get(task_name)
     if probe_task is None:
-        return None
+        return _skipped_result(f"no linear probe available for task {task_name}", len(items))
 
     key = _cache_key(task_name, "linear_probes",
                      {"probe_task": probe_task, "layers": layers, "mode": "best_pooling_v2"},
@@ -634,7 +727,7 @@ def _run_linear_probes_for_task(
             except Exception:
                 pass
     if not probes:
-        return None
+        return _skipped_result(f"no probe checkpoints found for task {probe_task}", len(items))
 
     best_key = max(probes, key=lambda pk: probes[pk]["balanced_accuracy"])
     best_pooling, best_layer = best_key
@@ -701,11 +794,11 @@ def _run_sae_probe_for_task(
     cache_dir: Path,
     rerun: bool = False,
     output_dir: Path | None = None,
-) -> dict | None:
+) -> dict:
     """Run SAE probe if available. Imports from baselines/sae_probe.py."""
     from scoring import EVAL_TYPES
     if task_name not in EVAL_TYPES:
-        return None
+        return _skipped_result(f"sae_probe unsupported for task {task_name}", len(items))
 
     def _write_jsonl(traces):
         if output_dir is None or not traces:
@@ -766,7 +859,7 @@ def _run_sae_probe_for_task(
         temperature=sae_cfg.get("temperature", 0.0),
     )
     if result_raw.get("skipped"):
-        return None
+        return _skipped_result(result_raw.get("reason", "sae_probe skipped"), len(items), model=sae_cfg.get("llm_model"))
 
     predictions = [t["prediction"] for t in result_raw["traces"]]
     targets = [item["target_response"] for item in items]
@@ -783,6 +876,127 @@ def _run_sae_probe_for_task(
     _cache_save(cache_dir, key, result)
     _write_jsonl(result_raw["traces"])
     return result
+
+
+# ── Open-ended reference-judge rescoring ──
+
+
+def _score_openended_reference_judge(task_name: str, eval_items: list[dict], predictions: list[str], targets: list[str], judge_model: str) -> dict:
+    if not predictions:
+        return {
+            "reference_judge_score": 0.0,
+            "n": 0,
+            "_reference_judge_scores": [],
+            "_reference_judge_reasons": [],
+            "_reference_judge_raw": [],
+            "_reference_judge_model": judge_model,
+        }
+    if len(eval_items) != len(predictions) or len(predictions) != len(targets):
+        raise ValueError(f"Open-ended judge length mismatch for {task_name}: items={len(eval_items)}, predictions={len(predictions)}, targets={len(targets)}")
+
+    print(f"    [{task_name}] Scoring {len(predictions)} responses with {judge_model}...")
+    api_key = os.environ["OPENROUTER_API_KEY"]
+    headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+    scores = []
+    reasons = []
+    raw_responses = []
+
+    with httpx.Client(timeout=90.0) as client:
+        for item, prediction, target in zip(eval_items, predictions, targets):
+            body = {
+                "model": judge_model,
+                "messages": [
+                    {"role": "system", "content": OPENENDED_REFERENCE_SCORE_SYSTEM},
+                    {"role": "user", "content": build_openended_reference_score_prompt(task_name, item["prompt"], target, prediction)},
+                ],
+                "temperature": 0.0,
+                "max_tokens": OPENENDED_REFERENCE_SCORE_MAX_TOKENS,
+            }
+            response = client.post(OPENROUTER_CHAT_COMPLETIONS_URL, json=body, headers=headers)
+            response.raise_for_status()
+            raw_text = response.json()["choices"][0]["message"]["content"]
+            raw_text = re.sub(r"<think>.*?</think>", "", raw_text, flags=re.DOTALL).strip()
+            parsed = extract_judge_json(raw_text)
+            score = float(parsed["score"])
+            if not 0.0 <= score <= 1.0:
+                raise ValueError(f"Open-ended judge score out of range for {task_name}: {score}")
+            scores.append(score)
+            reasons.append(str(parsed["reason"]).strip())
+            raw_responses.append(raw_text)
+
+    return {
+        "reference_judge_score": sum(scores) / len(scores),
+        "n": len(scores),
+        "_reference_judge_scores": scores,
+        "_reference_judge_reasons": reasons,
+        "_reference_judge_raw": raw_responses,
+        "_reference_judge_model": judge_model,
+    }
+
+
+def _rescore_openended_reference_judge(
+    task_name: str,
+    task_results: dict,
+    items: list[dict],
+    example_ids: list[str],
+    output_dir: Path,
+    cache_dir: Path,
+    judge_model: str,
+    rerun: bool = False,
+) -> None:
+    targets = [item["target_response"] for item in items]
+    for method_key, result in list(task_results.items()):
+        preds = result.get("predictions")
+        if not preds:
+            continue
+        judge_key = _cache_key(task_name, f"{method_key}_openended_reference_judge", {"judge_model": judge_model, "prompt_version": "v1"}, example_ids)
+        if not rerun:
+            cached = _cache_load(cache_dir, judge_key)
+            if cached is not None:
+                result.update(cached)
+                _save_task_results(output_dir, task_name, method_key, result)
+                if cached.get("_reference_judge_scores"):
+                    _write_openended_judge_log(
+                        output_dir,
+                        task_name,
+                        method_key,
+                        items,
+                        preds,
+                        targets,
+                        cached["_reference_judge_scores"],
+                        cached["_reference_judge_reasons"],
+                        cached["_reference_judge_raw"],
+                        cached["_reference_judge_model"],
+                    )
+                continue
+        print(f"    [{method_key}] calling open-ended reference judge...")
+        judge = _score_openended_reference_judge(task_name, items, preds, targets, judge_model)
+        update = {
+            "primary_score": judge["reference_judge_score"],
+            "bootstrap_std": bootstrap_std(judge["_reference_judge_scores"]),
+            "per_example_scores": judge["_reference_judge_scores"],
+            "score_type": "llm",
+            "metric_label": "llm-ref",
+            "_reference_judge_scores": judge["_reference_judge_scores"],
+            "_reference_judge_reasons": judge["_reference_judge_reasons"],
+            "_reference_judge_raw": judge["_reference_judge_raw"],
+            "_reference_judge_model": judge["_reference_judge_model"],
+        }
+        result.update(update)
+        _cache_save(cache_dir, judge_key, update)
+        _save_task_results(output_dir, task_name, method_key, result)
+        _write_openended_judge_log(
+            output_dir,
+            task_name,
+            method_key,
+            items,
+            preds,
+            targets,
+            judge["_reference_judge_scores"],
+            judge["_reference_judge_reasons"],
+            judge["_reference_judge_raw"],
+            judge["_reference_judge_model"],
+        )
 
 
 # ── LLM_JUDGE rescoring for oracle predictions ──
@@ -921,11 +1135,32 @@ def _compute_answer_confidence(task_results: dict, items: list[dict]) -> dict[st
 # ── Log + save results ──
 
 
-def _save_task_results(output_dir: Path, task_name: str, method: str, result: dict) -> None:
+def _save_task_results(output_dir: Path, task_name: str, method: str, result: dict, deps: dict | None = None) -> None:
     log_dir = output_dir / "logs" / task_name
     log_dir.mkdir(parents=True, exist_ok=True)
+    payload = dict(result)
+    if deps is not None:
+        payload["_cache_meta"] = {"cache_schema": CACHE_SCHEMA_VERSION, "deps_hash": _deps_hash(deps)}
     with open(log_dir / f"{method}.json", "w") as f:
-        json.dump(result, f, indent=2)
+        json.dump(payload, f, indent=2)
+
+
+def _write_openended_judge_log(output_dir: Path, task_name: str, method: str, items: list[dict], predictions: list[str], targets: list[str], scores: list[float], reasons: list[str], raw_responses: list[str], judge_model: str) -> None:
+    log_dir = output_dir / "logs" / task_name
+    log_dir.mkdir(parents=True, exist_ok=True)
+    with open(log_dir / f"{method}_openended_judge.jsonl", "w") as f:
+        for i, (item, prediction, target, score, reason, raw_text) in enumerate(zip(items, predictions, targets, scores, reasons, raw_responses)):
+            rec = {
+                "example_id": item.get("example_id", f"{task_name}_{i}"),
+                "prompt": item.get("prompt", ""),
+                "target_response": target,
+                "prediction": prediction,
+                "judge_score": score,
+                "judge_reason": reason,
+                "judge_raw": raw_text,
+                "judge_model": judge_model,
+            }
+            f.write(json.dumps(rec) + "\n")
 
 
 def _load_all_results(output_dir: Path) -> dict[str, dict[str, dict]]:
@@ -1026,22 +1261,42 @@ def _oracle_activation_str(item: dict, layers: list[int]) -> str:
                                 placeholder_token=TRAINED_PLACEHOLDER)
 
 
-def _compute_masked_cot(item: dict, tokenizer, layers: list[int]) -> str:
-    """Decode context_input_ids with oracle-sampled positions replaced by TRAINED_PLACEHOLDER."""
+def _find_subsequence(haystack: list[int], needle: list[int]) -> tuple[int, int] | None:
+    if not needle or len(needle) > len(haystack):
+        return None
+    end = len(haystack) - len(needle) + 1
+    for i in range(end):
+        if haystack[i:i + len(needle)] == needle:
+            return i, i + len(needle)
+    return None
+
+
+def _compute_masked_cot(item: dict, tokenizer, layers: list[int], cot_field_text: str) -> str:
+    """Return masked version of cot_field_text (Spec: cot_field with activation tokens replaced)."""
     ctx_ids = item.get("context_input_ids")
     positions = item.get("context_positions", [])
     if not ctx_ids or not positions:
-        return item.get("cot_text", "")
+        return cot_field_text
     from core.ao import TRAINED_PLACEHOLDER
-    K = len(positions) // len(layers)
-    unique_positions = set(positions[:K])
+    base_positions = _extract_base_positions(positions, len(layers))
+    if not base_positions:
+        return cot_field_text
+    unique_positions = set(base_positions)
     ph_ids = tokenizer.encode(TRAINED_PLACEHOLDER, add_special_tokens=False)
     ph_id = ph_ids[0] if ph_ids else tokenizer.unk_token_id
     masked = list(ctx_ids)
     for p in unique_positions:
         if 0 <= p < len(masked):
             masked[p] = ph_id
-    return tokenizer.decode(masked, skip_special_tokens=True)
+    cot_ids = tokenizer.encode(cot_field_text, add_special_tokens=False)
+    span = _find_subsequence(list(ctx_ids), cot_ids)
+    if span is not None:
+        start, end = span
+        masked_ids = masked[start:end]
+    else:
+        lo, hi = min(base_positions), max(base_positions)
+        masked_ids = masked[lo:hi + 1]
+    return tokenizer.decode(masked_ids, skip_special_tokens=False)
 
 
 def _build_and_score_per_example_records(
@@ -1061,8 +1316,9 @@ def _build_and_score_per_example_records(
     if log_path.exists() and not rerun:
         return
     # Don't clobber existing records when only a subset of baselines was run
-    _core_methods = {"llm_monitor_pro", "original_ao", "our_ao"}
-    if log_path.exists() and not _core_methods.issubset(task_results.keys()):
+    def _has_oracle(prefix: str) -> bool:
+        return any(f"{prefix}_k{'all' if k is None else k}" in task_results for k in K_SWEEP)
+    if log_path.exists() and not ("llm_monitor_pro" in task_results and _has_oracle("original_ao") and _has_oracle("our_ao")):
         return
 
     def _best_k_preds(prefix: str) -> list | None:
@@ -1072,12 +1328,14 @@ def _build_and_score_per_example_records(
             if res is None:
                 continue
             s = res.get("primary_score", -1.0)
+            if not isinstance(s, (int, float)):
+                continue
             if s > best_score:
                 best_score, best_preds = s, res.get("predictions")
         return best_preds
 
     method_preds: dict[str, list] = {}
-    for method in ["llm_monitor_pro", "linear_probes", "sae_probe"]:
+    for method in ["llm_monitor_flash", "llm_monitor_pro", "linear_probes", "sae_probe"]:
         res = task_results.get(method)
         if res and "predictions" in res:
             method_preds[method] = res["predictions"]
@@ -1091,25 +1349,22 @@ def _build_and_score_per_example_records(
     if celeste:
         method_preds["celeste_ao"] = celeste
 
-    if not method_preds:
-        return
-
     # Chunked tasks (cot_field="cot_prefix"): oracle reads cot_prefix only.
     # Regular tasks: oracle reads full cot_text.
     # In both cases data_loading maps the oracle-visible text to item["cot_text"].
-    uses_cot_prefix = TASKS[task_name].cot_field == "cot_prefix"
+    cot_field_key = TASKS[task_name].cot_field
+    uses_cot_prefix = cot_field_key == "cot_prefix"
     eff_layers = layers or [9, 18, 27]
 
-    cot_field_label = "cot_prefix" if uses_cot_prefix else "cot_text"
+    cot_field_label = cot_field_key
     records = []
     for i, (item, eid) in enumerate(zip(items, example_ids)):
-        # cot_field = what oracle saw (data_loading puts oracle-visible text in cot_text)
-        cot_field_val = item.get("cot_text", "")
+        cot_field_val = item.get(cot_field_key, item.get("cot_text", ""))
         act_str = _oracle_activation_str(item, eff_layers)
-        masked_cot = _compute_masked_cot(item, tokenizer, eff_layers) if tokenizer is not None else ""
+        masked_cot = _compute_masked_cot(item, tokenizer, eff_layers, cot_field_val) if tokenizer is not None else cot_field_val
         record = {
             "example_id": eid,
-            "question": item.get("question", ""),
+            "question": item.get("question", item.get("hinted_prompt", "")),
             "cot_field": cot_field_val,
             "cot_suffix": item.get("cot_suffix", ""),
             "masked_cot_field": masked_cot,
@@ -1126,6 +1381,14 @@ def _build_and_score_per_example_records(
         records.append(record)
 
     method_names = list(method_preds.keys())
+    if not method_names:
+        for record in records:
+            record["llm_comparative_score"] = {}
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(log_path, "w") as f:
+            json.dump(records, f, indent=2)
+        print(f"  [comparative scoring] saved {len(records)} records (no comparable methods) → {log_path.name}")
+        return
 
     async def _score_all():
         import openai
@@ -1157,6 +1420,7 @@ def _build_and_score_per_example_records(
 
 
 def _plot(all_results: dict[str, dict[str, dict]], output_dir: Path, n_examples: int,
+          llm_monitor_flash_model: str = "",
           llm_monitor_pro_model: str = "",
           canonical_task_names: list[str] | None = None,
           per_method_trained: dict[str, frozenset[str]] | None = None,
@@ -1183,6 +1447,7 @@ def _plot(all_results: dict[str, dict[str, dict]], output_dir: Path, n_examples:
     orig_green_light = plt.cm.Greens(0.42)   # original_ao
     our_green_dark   = plt.cm.Greens(0.75)   # our_ao
     celeste_teal = plt.cm.GnBu(0.72)
+    monitor_flash_color = "#D35400"
     monitor_pro_color = "#E67E22"
     linear_probe_color = "#1ABC9C"
     sae_probe_color = "#9B59B6"
@@ -1228,8 +1493,9 @@ def _plot(all_results: dict[str, dict[str, dict]], output_dir: Path, n_examples:
                 best_score, best_res = s, res
         return best_res
 
-    # Fixed method order: pro | original_ao_best | our_ao_best | celeste_ao_best | linear_probes | sae_probe
+    # Fixed method order: flash | pro | original_ao_best | our_ao_best | celeste_ao_best | linear_probes | sae_probe
     METHODS = [
+        ("llm_monitor_flash", "llm_monitor_flash", monitor_flash_color),
         ("llm_monitor_pro",   "llm_monitor_pro",   monitor_pro_color),
         ("orig_ao",           "original_ao",        orig_green_light),
         ("our_ao",            "our_ao",             our_green_dark),
@@ -1242,6 +1508,7 @@ def _plot(all_results: dict[str, dict[str, dict]], output_dir: Path, n_examples:
     trained_edge_lw = 1.5
 
     legend_patches = [
+        mpatches.Patch(color=monitor_flash_color, label=f"llm_monitor_flash ({llm_monitor_flash_model})"),
         mpatches.Patch(color=monitor_pro_color,   label=f"llm_monitor_pro ({llm_monitor_pro_model})"),
         mpatches.Patch(color=orig_green_light,    label="original_ao (best k)"),
         mpatches.Patch(color=our_green_dark,      label="our_ao (best k, best layer)"),
@@ -1273,7 +1540,8 @@ def _plot(all_results: dict[str, dict[str, dict]], output_dir: Path, n_examples:
                     continue
                 std = res.get("bootstrap_std", 0.0)
             method_trained = per_method_trained.get(label, frozenset()) if per_method_trained else frozenset()
-            is_bar_trained = task_name in method_trained
+            is_cls_task = task_name.startswith("cls_")
+            is_bar_trained = task_name in method_trained or (label == "orig_ao" and is_cls_task)
             xs.append(label)
             ys.append(score)
             errors.append(std)
@@ -1283,7 +1551,10 @@ def _plot(all_results: dict[str, dict[str, dict]], output_dir: Path, n_examples:
             method_keys_used.append(key)
 
         task_def = TASKS.get(task_name)
-        metric_lbl = _METRIC_LABEL_OVERRIDE.get(task_name) or (_METRIC_LABEL.get(task_def.scoring, "") if task_def else ("acc" if task_name.startswith("cls_") else ""))
+        if task_def and _uses_openended_reference_judge(task_name, task_def):
+            metric_lbl = "llm-ref"
+        else:
+            metric_lbl = _METRIC_LABEL_OVERRIDE.get(task_name) or (_METRIC_LABEL.get(task_def.scoring, "") if task_def else ("acc" if task_name.startswith("cls_") else ""))
         if not xs:
             ax.text(0.5, 0.5, "pending", ha="center", va="center", transform=ax.transAxes, color="gray")
             ax.set_title(f"{task_name}\n[{metric_lbl}]" if metric_lbl else task_name, fontsize=7)
@@ -1371,32 +1642,36 @@ def main():
     else:
         output_dir = Path(args.output_dir)
     fast_cache_dir = Path(os.environ.get("CACHE_DIR", "/ceph/scratch/jbauer")) / "comprehensive_eval_v2"
+    joblib_memory = Memory(str(fast_cache_dir / "joblib"), verbose=0)
 
     print(f"Output dir: {output_dir}")
 
     if args.plot_only:
         all_results = _load_all_results(output_dir)
         bl_cfg = cfg.get("baselines", {})
+        flash_model = bl_cfg.get("llm_monitor_flash", {}).get("model", "google/gemini-2.5-flash")
         pro_model = bl_cfg.get("llm_monitor_pro", {}).get("model", "google/gemini-2.5-pro-preview-03-25")
         canonical = _canonical_task_names()
         cls_tasks = sorted(t for t in all_results if t.startswith("cls_") and t not in canonical)
         tasks_to_plot = canonical + cls_tasks
-        _plot(all_results, output_dir, args.n_examples, pro_model,
+        _plot(all_results, output_dir, args.n_examples, flash_model, pro_model,
               tasks_to_plot, _build_per_method_trained(cfg),
               position_mode=args.position_mode, ckpt_meta=ckpt_meta)
         return
 
     # ── Determine which baselines to run (needed before model load) ──
     bl_cfg = cfg.get("baselines", {})
+    flash_model = bl_cfg.get("llm_monitor_flash", {}).get("model", "google/gemini-2.5-flash")
     pro_model = bl_cfg.get("llm_monitor_pro", {}).get("model", "google/gemini-2.5-pro-preview-03-25")
+    openended_judge_model = bl_cfg.get("openended_reference_judge", {}).get("model", OPENENDED_REFERENCE_SCORE_MODEL)
     sae_cfg = bl_cfg.get("sae_probe", {})
-    all_baseline_groups = ["llm_monitor_pro", "original_ao", "our_ao", "celeste_ao", "linear_probes", "sae_probe"]
+    all_baseline_groups = ["llm_monitor_flash", "llm_monitor_pro", "original_ao", "our_ao", "celeste_ao", "linear_probes", "sae_probe"]
     active_baselines = set(args.baselines if args.baselines else all_baseline_groups)
 
     # ── Load model (skip if only LLM-monitor baselines requested) ──
     model_name = cfg.get("model", {}).get("name", "Qwen/Qwen3-8B")
     layers = cfg.get("activations", {}).get("layers", DEFAULT_LAYERS)
-    _needs_model = active_baselines - {"llm_monitor_pro"}
+    _needs_model = active_baselines - {"llm_monitor_flash", "llm_monitor_pro"}
     if _needs_model:
         checkpoint_activation_settings = _checkpoint_activation_settings(our_checkpoint)
         oracle_position_encoding = bool(checkpoint_activation_settings["position_encoding"]) if "position_encoding" in checkpoint_activation_settings else bool(cfg.get("activations", {}).get("position_encoding", False))
@@ -1439,6 +1714,7 @@ def main():
     print(f"\nRunning comprehensive eval on {len(all_tasks)} tasks, {args.n_examples} examples each")
     print(f"Position mode: {args.position_mode}")
     print(f"Our oracle eval position encoding: {oracle_position_encoding} (alpha={oracle_pe_alpha})")
+    print(f"Open-ended judge model: {openended_judge_model}")
     print(f"Active baselines: {sorted(active_baselines)}")
 
     all_results: dict[str, dict[str, dict]] = {}
@@ -1467,7 +1743,6 @@ def main():
         raw_activations = None
         oracle_activations = None
         if tokenizer is not None:
-            # Tokenize (prepare context_input_ids from cot_text if not already set)
             items_need_context = [item for item in items if not item.get("context_input_ids")]
             if items_need_context:
                 try:
@@ -1475,8 +1750,6 @@ def main():
                 except Exception as e:
                     print(f"  SKIP: prepare_context_ids failed: {e}")
                     continue
-
-            # Skip items missing context
             valid = [i for i, item in enumerate(items) if item.get("context_input_ids")]
             if not valid:
                 print(f"  SKIP: no items with context_input_ids")
@@ -1485,8 +1758,6 @@ def main():
                 items = [items[i] for i in valid]
                 example_ids = [example_ids[i] for i in valid]
                 print(f"  Filtered to {len(items)} items with context_input_ids")
-
-            # Apply position mode
             _resample_eval_positions(
                 items, task_name, layers,
                 position_mode=args.position_mode,
@@ -1494,7 +1765,207 @@ def main():
                 eval_position_seed=42,
             )
 
-            # Extract activations (single pass for all methods, with OOM fallback)
+        item_sig = _items_fingerprint(items)
+        task_def_sig = _task_def_fingerprint(task_def)
+        common_deps = {
+            "task": task_name,
+            "example_ids": example_ids,
+            "task_def": task_def_sig,
+            "items_sig": item_sig,
+            "position_mode": args.position_mode,
+            "layers": layers,
+            "model_name": model_name,
+            "oracle_position_encoding": oracle_position_encoding,
+            "oracle_pe_alpha": oracle_pe_alpha,
+            "our_checkpoint": our_checkpoint,
+        }
+
+        def _method_deps(method_name: str, extra: dict | None = None) -> dict:
+            deps = dict(common_deps)
+            deps["method"] = method_name
+            if extra is not None:
+                deps["extra"] = extra
+            return deps
+
+        def _k_label(prefix: str, k_value: int | None) -> str:
+            return f"{prefix}_k{'all' if k_value is None else k_value}"
+
+        def _oracle_k_deps(prefix: str, adapter_ref: str, extra: dict | None = None) -> dict[str, dict]:
+            deps = {}
+            for k_value in K_SWEEP:
+                label = _k_label(prefix, k_value)
+                payload = {"k": k_value, "adapter": adapter_ref}
+                if extra is not None:
+                    payload.update(extra)
+                deps[label] = _method_deps(label, payload)
+            return deps
+
+        task_results: dict[str, dict] = {}
+
+        # ── LLM monitor flash ──
+        if "llm_monitor_flash" in active_baselines:
+            flash_max_tokens = bl_cfg.get("llm_monitor_flash", {}).get("max_tokens", 300)
+            flash_deps = _method_deps("llm_monitor_flash", {"model": flash_model, "max_tokens": flash_max_tokens})
+            cached = _result_from_output_cache(output_dir, task_name, "llm_monitor_flash", flash_deps, args.rerun)
+            if cached is not None:
+                task_results["llm_monitor_flash"] = cached
+                print(f"  [llm_monitor_flash] loaded output cache ({flash_model})")
+            else:
+                try:
+                    print(f"  [llm_monitor_flash] {flash_model}")
+                    result = _run_with_joblib_cache(
+                        joblib_memory, f"{task_name}:llm_monitor_flash", flash_deps, args.rerun,
+                        lambda: _run_llm_monitor(items, task_name, task_def, flash_model, example_ids, fast_cache_dir, args.rerun, max_tokens=flash_max_tokens),
+                    )
+                    task_results["llm_monitor_flash"] = result
+                    _save_task_results(output_dir, task_name, "llm_monitor_flash", result, deps=flash_deps)
+                    print(f"    score={result['primary_score']:.3f} ± {result['bootstrap_std']:.3f}")
+                except Exception as e:
+                    print(f"  [llm_monitor_flash] FAILED: {e}")
+                    skipped = _skipped_result(f"llm_monitor_flash failed: {e}", len(items), model=flash_model)
+                    task_results["llm_monitor_flash"] = skipped
+                    _save_task_results(output_dir, task_name, "llm_monitor_flash", skipped, deps=flash_deps)
+
+        # ── LLM monitor pro ──
+        if "llm_monitor_pro" in active_baselines:
+            pro_max_tokens = bl_cfg.get("llm_monitor_pro", {}).get("max_tokens", 512)
+            pro_deps = _method_deps("llm_monitor_pro", {"model": pro_model, "max_tokens": pro_max_tokens})
+            cached = _result_from_output_cache(output_dir, task_name, "llm_monitor_pro", pro_deps, args.rerun)
+            if cached is not None:
+                task_results["llm_monitor_pro"] = cached
+                print(f"  [llm_monitor_pro] loaded output cache ({pro_model})")
+            else:
+                try:
+                    print(f"  [llm_monitor_pro] {pro_model}")
+                    result = _run_with_joblib_cache(
+                        joblib_memory, f"{task_name}:llm_monitor_pro", pro_deps, args.rerun,
+                        lambda: _run_llm_monitor(items, task_name, task_def, pro_model, example_ids, fast_cache_dir, args.rerun, max_tokens=pro_max_tokens),
+                    )
+                    task_results["llm_monitor_pro"] = result
+                    _save_task_results(output_dir, task_name, "llm_monitor_pro", result, deps=pro_deps)
+                    print(f"    score={result['primary_score']:.3f} ± {result['bootstrap_std']:.3f}")
+                except Exception as e:
+                    print(f"  [llm_monitor_pro] FAILED: {e}")
+                    skipped = _skipped_result(f"llm_monitor_pro failed: {e}", len(items), model=pro_model)
+                    task_results["llm_monitor_pro"] = skipped
+                    _save_task_results(output_dir, task_name, "llm_monitor_pro", skipped, deps=pro_deps)
+
+        activation_needed = False
+        orig_k_deps: dict[str, dict] = {}
+        our_k_deps: dict[str, dict] = {}
+        celeste_k_deps: dict[str, dict] = {}
+        linear_deps: dict | None = None
+        sae_deps: dict | None = None
+
+        # ── Original AO output cache probe ──
+        if "original_ao" in active_baselines:
+            orig_k_deps = _oracle_k_deps("original_ao", str(original_ao_adapter), {"k_sweep": K_SWEEP, "layer": 18})
+            loaded = True
+            for label, deps in orig_k_deps.items():
+                cached = _result_from_output_cache(output_dir, task_name, label, deps, args.rerun)
+                if cached is None:
+                    loaded = False
+                    break
+                task_results[label] = cached
+            if loaded:
+                print("  [original_ao] loaded output cache (all k)")
+            else:
+                activation_needed = True
+
+        # ── Our AO output cache probe ──
+        if "our_ao" in active_baselines:
+            if our_ao_adapter is None:
+                our_skip_deps = _method_deps("our_ao_kall", {"adapter": "missing"})
+                cached_skip = _result_from_output_cache(output_dir, task_name, "our_ao_kall", our_skip_deps, args.rerun)
+                if cached_skip is not None:
+                    task_results["our_ao_kall"] = cached_skip
+                else:
+                    skipped = _skipped_result("our_ao checkpoint/adapter missing", len(items))
+                    task_results["our_ao_kall"] = skipped
+                    _save_task_results(output_dir, task_name, "our_ao_kall", skipped, deps=our_skip_deps)
+                print("  [our_ao] skipped: adapter missing")
+            else:
+                our_k_deps = _oracle_k_deps(
+                    "our_ao", str(our_ao_adapter),
+                    {"k_sweep": K_SWEEP, "layers": layers, "position_encoding": oracle_position_encoding, "pe_alpha": oracle_pe_alpha},
+                )
+                loaded = True
+                for label, deps in our_k_deps.items():
+                    cached = _result_from_output_cache(output_dir, task_name, label, deps, args.rerun)
+                    if cached is None:
+                        loaded = False
+                        break
+                    task_results[label] = cached
+                if loaded:
+                    print("  [our_ao] loaded output cache (all k)")
+                else:
+                    activation_needed = True
+
+        # ── Celeste AO output cache probe ──
+        if "celeste_ao" in active_baselines:
+            if celeste_ao_adapter is None:
+                celeste_skip_deps = _method_deps("celeste_ao_kall", {"adapter": "missing"})
+                cached_skip = _result_from_output_cache(output_dir, task_name, "celeste_ao_kall", celeste_skip_deps, args.rerun)
+                if cached_skip is not None:
+                    task_results["celeste_ao_kall"] = cached_skip
+                else:
+                    skipped = _skipped_result("celeste_ao checkpoint/adapter missing", len(items))
+                    task_results["celeste_ao_kall"] = skipped
+                    _save_task_results(output_dir, task_name, "celeste_ao_kall", skipped, deps=celeste_skip_deps)
+                print("  [celeste_ao] skipped: adapter missing")
+            else:
+                celeste_k_deps = _oracle_k_deps(
+                    "celeste_ao", str(celeste_ao_adapter),
+                    {"k_sweep": K_SWEEP, "layers": layers, "position_encoding": oracle_position_encoding, "pe_alpha": oracle_pe_alpha},
+                )
+                loaded = True
+                for label, deps in celeste_k_deps.items():
+                    cached = _result_from_output_cache(output_dir, task_name, label, deps, args.rerun)
+                    if cached is None:
+                        loaded = False
+                        break
+                    task_results[label] = cached
+                if loaded:
+                    print("  [celeste_ao] loaded output cache (all k)")
+                else:
+                    activation_needed = True
+
+        # ── Linear probes output cache probe ──
+        if "linear_probes" in active_baselines:
+            linear_deps = _method_deps("linear_probes", {"layers": layers})
+            cached = _result_from_output_cache(output_dir, task_name, "linear_probes", linear_deps, args.rerun)
+            if cached is not None:
+                task_results["linear_probes"] = cached
+                state = "skipped" if cached.get("skipped") else f"score={cached.get('primary_score', 0.0):.3f}"
+                print(f"  [linear_probes] loaded output cache ({state})")
+            else:
+                activation_needed = True
+
+        # ── SAE probe output cache probe ──
+        if "sae_probe" in active_baselines:
+            sae_deps = _method_deps("sae_probe", {"sae_cfg": sae_cfg, "layers": layers})
+            if not sae_cfg:
+                cached = _result_from_output_cache(output_dir, task_name, "sae_probe", sae_deps, args.rerun)
+                if cached is not None:
+                    task_results["sae_probe"] = cached
+                else:
+                    skipped = _skipped_result("sae_probe config missing", len(items))
+                    task_results["sae_probe"] = skipped
+                    _save_task_results(output_dir, task_name, "sae_probe", skipped, deps=sae_deps)
+                print("  [sae_probe] skipped: config missing")
+            else:
+                cached = _result_from_output_cache(output_dir, task_name, "sae_probe", sae_deps, args.rerun)
+                if cached is not None:
+                    task_results["sae_probe"] = cached
+                    state = "skipped" if cached.get("skipped") else f"score={cached.get('primary_score', 0.0):.3f}"
+                    print(f"  [sae_probe] loaded output cache ({state})")
+                else:
+                    activation_needed = True
+
+        if activation_needed:
+            if tokenizer is None:
+                print("  SKIP: activation-dependent baselines requested but model/tokenizer unavailable")
+                continue
             print(f"  Extracting activations for {len(items)} items...")
             for chunk_size in [len(items), 8, 4, 1]:
                 try:
@@ -1518,96 +1989,130 @@ def main():
             if raw_activations is None:
                 continue
             oracle_activations = raw_activations if not oracle_position_encoding else _apply_position_encoding_to_activations(raw_activations, items, alpha=oracle_pe_alpha)
-
-        task_results: dict[str, dict] = {}
-
-        # ── LLM monitor pro ──
-        if "llm_monitor_pro" in active_baselines:
-            try:
-                print(f"  [llm_monitor_pro] {pro_model}")
-                pro_max_tokens = bl_cfg.get("llm_monitor_pro", {}).get("max_tokens", 512)
-                result = _run_llm_monitor(items, task_name, task_def, pro_model, example_ids, fast_cache_dir, args.rerun, max_tokens=pro_max_tokens)
-                task_results["llm_monitor_pro"] = result
-                _save_task_results(output_dir, task_name, "llm_monitor_pro", result)
-                print(f"    score={result['primary_score']:.3f} ± {result['bootstrap_std']:.3f}")
-            except Exception as e:
-                print(f"  [llm_monitor_pro] FAILED: {e}")
+        else:
+            print("  Activation-dependent baselines fully cached; skipping activation extraction")
 
         # ── Original AO k-sweep ──
-        if "original_ao" in active_baselines:
+        if "original_ao" in active_baselines and any(label not in task_results for label in orig_k_deps):
             try:
                 print(f"  [original_ao] k-sweep {K_SWEEP}")
-                results_k = _run_original_ao_k_sweep(
-                    model, tokenizer, items, raw_activations, task_def, layers,
-                    original_ao_adapter, args.device, task_name, example_ids, fast_cache_dir, args.rerun,
+                sweep_deps = _method_deps("original_ao_sweep", {"adapter": str(original_ao_adapter), "k_sweep": K_SWEEP, "layer": 18})
+                results_k = _run_with_joblib_cache(
+                    joblib_memory, f"{task_name}:original_ao_sweep", sweep_deps, args.rerun,
+                    lambda: _run_original_ao_k_sweep(
+                        model, tokenizer, items, raw_activations, task_def, layers,
+                        original_ao_adapter, args.device, task_name, example_ids, fast_cache_dir, args.rerun,
+                    ),
                 )
                 for k_label, res in results_k.items():
                     task_results[k_label] = res
-                    _save_task_results(output_dir, task_name, k_label, res)
+                    _save_task_results(output_dir, task_name, k_label, res, deps=orig_k_deps[k_label])
                 best_k = max(results_k, key=lambda kl: results_k[kl]["primary_score"])
                 print(f"    best: {best_k} → {results_k[best_k]['primary_score']:.3f}")
             except Exception as e:
                 print(f"  [original_ao] FAILED: {e}")
+                fallback_deps = orig_k_deps.get("original_ao_kall", _method_deps("original_ao_kall"))
+                skipped = _skipped_result(f"original_ao failed: {e}", len(items))
+                task_results["original_ao_kall"] = skipped
+                _save_task_results(output_dir, task_name, "original_ao_kall", skipped, deps=fallback_deps)
 
         # ── Our AO k-sweep ──
-        if "our_ao" in active_baselines and our_ao_adapter is not None:
+        if "our_ao" in active_baselines and our_ao_adapter is not None and any(label not in task_results for label in our_k_deps):
             try:
                 print(f"  [our_ao] k-sweep {K_SWEEP} x layers {layers}")
-                results_k = _run_our_ao_k_sweep(
-                    model, tokenizer, items, oracle_activations, task_def, layers,
-                    our_ao_adapter, args.device, task_name, example_ids, fast_cache_dir, args.rerun,
-                    name="our_ao", position_encoding=oracle_position_encoding, pe_alpha=oracle_pe_alpha,
+                sweep_deps = _method_deps(
+                    "our_ao_sweep",
+                    {"adapter": str(our_ao_adapter), "k_sweep": K_SWEEP, "layers": layers, "position_encoding": oracle_position_encoding, "pe_alpha": oracle_pe_alpha},
+                )
+                results_k = _run_with_joblib_cache(
+                    joblib_memory, f"{task_name}:our_ao_sweep", sweep_deps, args.rerun,
+                    lambda: _run_our_ao_k_sweep(
+                        model, tokenizer, items, oracle_activations, task_def, layers,
+                        our_ao_adapter, args.device, task_name, example_ids, fast_cache_dir, args.rerun,
+                        name="our_ao", position_encoding=oracle_position_encoding, pe_alpha=oracle_pe_alpha,
+                    ),
                 )
                 for k_label, res in results_k.items():
                     task_results[k_label] = res
-                    _save_task_results(output_dir, task_name, k_label, res)
+                    _save_task_results(output_dir, task_name, k_label, res, deps=our_k_deps[k_label])
                 best_k = max(results_k, key=lambda kl: results_k[kl]["primary_score"])
                 print(f"    best: {best_k} (all layers) → {results_k[best_k]['primary_score']:.3f}")
             except Exception as e:
                 print(f"  [our_ao] FAILED: {e}")
+                fallback_deps = our_k_deps.get("our_ao_kall", _method_deps("our_ao_kall"))
+                skipped = _skipped_result(f"our_ao failed: {e}", len(items))
+                task_results["our_ao_kall"] = skipped
+                _save_task_results(output_dir, task_name, "our_ao_kall", skipped, deps=fallback_deps)
 
         # ── Celeste AO k-sweep ──
-        if "celeste_ao" in active_baselines and celeste_ao_adapter is not None:
+        if "celeste_ao" in active_baselines and celeste_ao_adapter is not None and any(label not in task_results for label in celeste_k_deps):
             try:
                 print(f"  [celeste_ao] k-sweep {K_SWEEP} x layers {layers}")
-                results_k = _run_our_ao_k_sweep(
-                    model, tokenizer, items, oracle_activations, task_def, layers,
-                    celeste_ao_adapter, args.device, task_name, example_ids, fast_cache_dir, args.rerun,
-                    name="celeste_ao", position_encoding=oracle_position_encoding, pe_alpha=oracle_pe_alpha,
+                sweep_deps = _method_deps(
+                    "celeste_ao_sweep",
+                    {"adapter": str(celeste_ao_adapter), "k_sweep": K_SWEEP, "layers": layers, "position_encoding": oracle_position_encoding, "pe_alpha": oracle_pe_alpha},
+                )
+                results_k = _run_with_joblib_cache(
+                    joblib_memory, f"{task_name}:celeste_ao_sweep", sweep_deps, args.rerun,
+                    lambda: _run_our_ao_k_sweep(
+                        model, tokenizer, items, oracle_activations, task_def, layers,
+                        celeste_ao_adapter, args.device, task_name, example_ids, fast_cache_dir, args.rerun,
+                        name="celeste_ao", position_encoding=oracle_position_encoding, pe_alpha=oracle_pe_alpha,
+                    ),
                 )
                 for k_label, res in results_k.items():
                     task_results[k_label] = res
-                    _save_task_results(output_dir, task_name, k_label, res)
+                    _save_task_results(output_dir, task_name, k_label, res, deps=celeste_k_deps[k_label])
                 best_k = max(results_k, key=lambda kl: results_k[kl]["primary_score"])
                 print(f"    best: {best_k} (all layers) → {results_k[best_k]['primary_score']:.3f}")
             except Exception as e:
                 print(f"  [celeste_ao] FAILED: {e}")
+                fallback_deps = celeste_k_deps.get("celeste_ao_kall", _method_deps("celeste_ao_kall"))
+                skipped = _skipped_result(f"celeste_ao failed: {e}", len(items))
+                task_results["celeste_ao_kall"] = skipped
+                _save_task_results(output_dir, task_name, "celeste_ao_kall", skipped, deps=fallback_deps)
 
         # ── Linear probes ──
-        if "linear_probes" in active_baselines:
+        if "linear_probes" in active_baselines and "linear_probes" not in task_results:
             try:
-                result = _run_linear_probes_for_task(
-                    raw_activations, items, task_name, task_def, layers, example_ids, fast_cache_dir, args.rerun,
+                result = _run_with_joblib_cache(
+                    joblib_memory, f"{task_name}:linear_probes", linear_deps, args.rerun,
+                    lambda: _run_linear_probes_for_task(
+                        raw_activations, items, task_name, task_def, layers, example_ids, fast_cache_dir, args.rerun,
+                    ),
                 )
-                if result is not None:
-                    task_results["linear_probes"] = result
-                    _save_task_results(output_dir, task_name, "linear_probes", result)
+                task_results["linear_probes"] = result
+                _save_task_results(output_dir, task_name, "linear_probes", result, deps=linear_deps)
+                if result.get("skipped"):
+                    print(f"  [linear_probes] skipped: {result['skip_reason']}")
+                else:
                     print(f"  [linear_probes] score={result['primary_score']:.3f} ± {result['bootstrap_std']:.3f}")
             except Exception as e:
                 print(f"  [linear_probes] FAILED: {e}")
+                skipped = _skipped_result(f"linear_probes failed: {e}", len(items))
+                task_results["linear_probes"] = skipped
+                _save_task_results(output_dir, task_name, "linear_probes", skipped, deps=linear_deps)
 
         # ── SAE probe ──
-        if "sae_probe" in active_baselines and sae_cfg:
+        if "sae_probe" in active_baselines and sae_cfg and "sae_probe" not in task_results:
             try:
-                result = _run_sae_probe_for_task(
-                    raw_activations, items, task_name, task_def, layers, sae_cfg, example_ids, fast_cache_dir, args.rerun, output_dir,
+                result = _run_with_joblib_cache(
+                    joblib_memory, f"{task_name}:sae_probe", sae_deps, args.rerun,
+                    lambda: _run_sae_probe_for_task(
+                        raw_activations, items, task_name, task_def, layers, sae_cfg, example_ids, fast_cache_dir, args.rerun, output_dir,
+                    ),
                 )
-                if result is not None:
-                    task_results["sae_probe"] = result
-                    _save_task_results(output_dir, task_name, "sae_probe", result)
+                task_results["sae_probe"] = result
+                _save_task_results(output_dir, task_name, "sae_probe", result, deps=sae_deps)
+                if result.get("skipped"):
+                    print(f"  [sae_probe] skipped: {result['skip_reason']}")
+                else:
                     print(f"  [sae_probe] score={result['primary_score']:.3f} ± {result['bootstrap_std']:.3f}")
             except Exception as e:
                 print(f"  [sae_probe] FAILED: {e}")
+                skipped = _skipped_result(f"sae_probe failed: {e}", len(items))
+                task_results["sae_probe"] = skipped
+                _save_task_results(output_dir, task_name, "sae_probe", skipped, deps=sae_deps)
 
         # ── Rescore LLM_JUDGE tasks (oracle predictions need judge API) ──
         if task_def.scoring == ScoringMode.LLM_JUDGE:
@@ -1617,6 +2122,23 @@ def main():
                                    output_dir, fast_cache_dir, args.rerun)
             except Exception as e:
                 print(f"  [llm_judge_rescore] FAILED: {e}")
+
+        # ── Rescore open-ended generation tasks against target_response ──
+        if _uses_openended_reference_judge(task_name, task_def):
+            try:
+                print(f"  [openended_judge_rescore] scoring predictions against target_response...")
+                _rescore_openended_reference_judge(
+                    task_name,
+                    task_results,
+                    items,
+                    example_ids,
+                    output_dir,
+                    fast_cache_dir,
+                    openended_judge_model,
+                    args.rerun,
+                )
+            except Exception as e:
+                print(f"  [openended_judge_rescore] FAILED: {e}")
 
         # ── Rescore answer_trajectory with same LLM judge as training ──
         if task_name == "answer_trajectory":
@@ -1658,7 +2180,7 @@ def main():
         print(f"  Total time: {time.time() - t_start:.1f}s")
 
     # Generate plot — always include ALL canonical tasks (missing ones show "pending")
-    _plot(all_results, output_dir, args.n_examples, pro_model,
+    _plot(all_results, output_dir, args.n_examples, flash_model, pro_model,
           canonical, _build_per_method_trained(cfg),
           position_mode=args.position_mode, ckpt_meta=ckpt_meta)
     print(f"\nDone. Results in {output_dir}")
