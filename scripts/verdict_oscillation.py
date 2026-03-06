@@ -279,8 +279,13 @@ def get_verdict_logprobs(model, tokenizer, formatted_prompt, partial_cot):
     return guilty_norm, {"guilty_prob": guilty_prob, "innocent_prob": innocent_prob, "guilty_norm": guilty_norm}
 
 
-def get_adam_ao_verdict(model, tokenizer, formatted_prompt, partial_cot, stride=5):
-    """Query Adam's original AO (single layer 18) and return P(guilty) from logprobs."""
+def get_adam_ao_verdict(model, tokenizer, formatted_prompt, partial_cot, stride=5,
+                        use_layers=None):
+    """Query Adam's original AO and return P(guilty) from logprobs.
+
+    If use_layers is provided, collect from multiple layers (multilayer format).
+    Otherwise uses single layer 18 (original behavior).
+    """
     full_text = formatted_prompt + partial_cot
     all_ids = tokenizer.encode(full_text, add_special_tokens=False)
     prompt_ids = tokenizer.encode(formatted_prompt, add_special_tokens=False)
@@ -295,21 +300,43 @@ def get_adam_ao_verdict(model, tokenizer, formatted_prompt, partial_cot, stride=
     if len(positions) < 1:
         return 0.5, {}
 
-    # Adam's AO uses layer 18 (50% of Qwen3-8B) only
-    ao_layer = layer_percent_to_layer(MODEL_NAME, 50)
-    acts = collect_activations_at_positions(
-        model, tokenizer, full_text, ao_layer, positions,
-        device=str(get_model_input_device(model)), adapter_name=None,
-    )  # [K, D]
+    if use_layers is None:
+        ao_layers = [layer_percent_to_layer(MODEL_NAME, 50)]
+    else:
+        ao_layers = use_layers
 
-    # Build prompt with SPECIAL_TOKEN placeholders (Adam's format)
-    num_positions = acts.shape[0]
-    prefix = f"L{ao_layer}:" + SPECIAL_TOKEN * num_positions + ".\n"
+    # Collect activations from all requested layers
+    all_acts = []
+    input_device = str(get_model_input_device(model))
+    for layer in ao_layers:
+        acts = collect_activations_at_positions(
+            model, tokenizer, full_text, layer, positions,
+            device=input_device, adapter_name=None,
+        )
+        all_acts.append(acts.to("cpu"))
+
+    # Build prompt with SPECIAL_TOKEN placeholders
+    num_positions = len(positions)
+    prefix = ""
+    relative_spans = []
+    cursor = 0
+    for i, layer in enumerate(ao_layers):
+        if i > 0:
+            prefix += " "
+            cursor += 1
+        label = f"L{layer}:"
+        prefix += label
+        cursor += len(label)
+        for _ in range(num_positions):
+            start = cursor
+            prefix += SPECIAL_TOKEN
+            cursor += len(SPECIAL_TOKEN)
+            relative_spans.append((start, cursor))
+    prefix += ".\n"
     full_prompt_ao = prefix + ORACLE_PROMPT
 
-    label_len = len(f"L{ao_layer}:")
-    relative_spans = [(label_len + i * len(SPECIAL_TOKEN), label_len + (i + 1) * len(SPECIAL_TOKEN))
-                      for i in range(num_positions)]
+    # Concatenate all layer activations
+    combined_acts = torch.cat(all_acts, dim=0)  # [n_layers * K, D]
 
     messages = [{"role": "user", "content": full_prompt_ao}]
     formatted_ao = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True, enable_thinking=False)
@@ -334,7 +361,7 @@ def get_adam_ao_verdict(model, tokenizer, formatted_prompt, partial_cot, stride=
     model.set_adapter(ao_adapter_name)
     injection_submodule = get_hf_submodule(model, 1, use_lora=True)
     hook_fn = get_steering_hook(
-        vectors=acts[:len(inject_positions)],
+        vectors=combined_acts[:len(inject_positions)],
         positions=inject_positions,
         device=next(injection_submodule.parameters()).device,
         dtype=torch.bfloat16,
@@ -358,8 +385,13 @@ def get_adam_ao_verdict(model, tokenizer, formatted_prompt, partial_cot, stride=
     return (guilty_prob / total if total > 1e-8 else 0.5), {"guilty_prob": guilty_prob, "innocent_prob": innocent_prob}
 
 
-def get_oracle_verdict(model, tokenizer, formatted_prompt, partial_cot, layers, stride=5):
-    """Query the activation oracle on partial CoT and return P(guilty) from logprobs."""
+def get_oracle_verdict(model, tokenizer, formatted_prompt, partial_cot, layers, stride=5,
+                       override_layers=None):
+    """Query the activation oracle on partial CoT and return P(guilty) from logprobs.
+
+    If override_layers is set, use those layers instead of the default.
+    """
+    use_layers = override_layers if override_layers is not None else layers
     full_text = formatted_prompt + partial_cot
     all_ids = tokenizer.encode(full_text, add_special_tokens=False)
     prompt_ids = tokenizer.encode(formatted_prompt, add_special_tokens=False)
@@ -375,15 +407,15 @@ def get_oracle_verdict(model, tokenizer, formatted_prompt, partial_cot, layers, 
         return 0.5, "no positions", {}
 
     multilayer_acts = collect_multilayer_activations(
-        model, tokenizer, full_text, layers, positions, device="cuda",
+        model, tokenizer, full_text, use_layers, positions, device="cuda",
     )
 
     n_positions = len(positions)
-    layer_counts = [n_positions] * len(layers)
+    layer_counts = [n_positions] * len(use_layers)
 
     score, info = query_oracle_logprobs(
         model, tokenizer, multilayer_acts, ORACLE_PROMPT,
-        selected_layers=layers, layer_counts=layer_counts,
+        selected_layers=use_layers, layer_counts=layer_counts,
         device="cuda", adapter_name="trained",
     )
 
@@ -391,14 +423,19 @@ def get_oracle_verdict(model, tokenizer, formatted_prompt, partial_cot, layers, 
 
 
 def plot_oscillation(question_short, sentence_labels, model_scores, oracle_scores,
-                     adam_scores, output_path, question_idx):
+                     adam_scores, output_path, question_idx,
+                     oracle_sent_scores=None, adam_sent_scores=None):
     """Plot verdict oscillation for one question."""
-    fig, ax = plt.subplots(figsize=(14, 5))
+    fig, ax = plt.subplots(figsize=(16, 6))
     x = np.arange(len(sentence_labels))
 
-    ax.plot(x, model_scores, 'b-o', label="Model verdict (logprobs)", linewidth=2, markersize=6)
-    ax.plot(x, oracle_scores, 'r-s', label="Trained oracle", linewidth=2, markersize=6)
-    ax.plot(x, adam_scores, 'g-^', label="Adam's AO", linewidth=2, markersize=6, alpha=0.8)
+    ax.plot(x, model_scores, 'b-o', label="Model verdict", linewidth=2.5, markersize=6)
+    ax.plot(x, oracle_scores, 'r-s', label="Trained (L18, cumul)", linewidth=2, markersize=5)
+    ax.plot(x, adam_scores, 'g-^', label="Adam's AO (3L, cumul)", linewidth=2, markersize=5)
+    if oracle_sent_scores:
+        ax.plot(x, oracle_sent_scores, 'r--d', label="Trained (L18, sent-only)", linewidth=1.5, markersize=4, alpha=0.6)
+    if adam_sent_scores:
+        ax.plot(x, adam_sent_scores, 'g--v', label="Adam's AO (3L, sent-only)", linewidth=1.5, markersize=4, alpha=0.6)
     ax.axhline(y=0.5, color='gray', linestyle='--', alpha=0.5)
 
     ax.set_ylim(-0.05, 1.05)
@@ -512,13 +549,16 @@ def main():
         if len(sentences) < 2:
             print("  Skipping (too few sentences)")
             all_results.append({"idx": idx, "question": question, "skipped": True,
-                                "model_scores": [], "oracle_scores": [], "adam_scores": [], "sentences": []})
+                                "model_scores": [], "oracle_scores": [], "adam_scores": [],
+                                "oracle_sent_scores": [], "adam_sent_scores": [], "sentences": []})
             continue
 
         # 3. For each sentence boundary, get model verdict + oracle verdict + Adam's AO
         model_scores = []
         oracle_scores = []
         adam_scores = []
+        oracle_sent_scores = []
+        adam_sent_scores = []
         oracle_responses = []
         sentence_labels = []
 
@@ -530,25 +570,45 @@ def main():
             guilty_score, probs_info = get_verdict_logprobs(model, tokenizer, formatted_prompt, partial_cot)
             model_scores.append(guilty_score)
 
-            # Trained oracle verdict
+            # Trained oracle — layer 18 only (swapped from default 3-layer)
+            ao_layer_18 = [layer_percent_to_layer(MODEL_NAME, 50)]
             oracle_score, oracle_resp, oracle_info = get_oracle_verdict(
                 model, tokenizer, formatted_prompt, partial_cot, layers, stride=args.stride,
+                override_layers=ao_layer_18,
             )
             oracle_scores.append(oracle_score)
             oracle_responses.append(oracle_resp)
 
-            # Adam's AO verdict
+            # Adam's AO — all 3 layers (swapped from default single-layer)
             adam_score, adam_info = get_adam_ao_verdict(
                 model, tokenizer, formatted_prompt, partial_cot, stride=args.stride,
+                use_layers=layers,
             )
             adam_scores.append(adam_score)
 
-            print(f"    S{s_idx}: model={guilty_score:.3f} oracle={oracle_score:.3f} adam={adam_score:.3f} | {sentences[s_idx][:50]}...")
+            # Trained oracle — sentence-only activations (just this sentence, not cumulative CoT)
+            current_sentence = sentences[s_idx]
+            oracle_sent_score, _, _ = get_oracle_verdict(
+                model, tokenizer, formatted_prompt, current_sentence, layers, stride=args.stride,
+                override_layers=ao_layer_18,
+            )
+            oracle_sent_scores.append(oracle_sent_score)
+
+            # Adam's AO — sentence-only activations
+            adam_sent_score, _ = get_adam_ao_verdict(
+                model, tokenizer, formatted_prompt, current_sentence, stride=args.stride,
+                use_layers=layers,
+            )
+            adam_sent_scores.append(adam_sent_score)
+
+            print(f"    S{s_idx}: model={guilty_score:.3f} oracle={oracle_score:.3f}(L18) adam={adam_score:.3f}(3L) "
+                  f"oracle_sent={oracle_sent_score:.3f} adam_sent={adam_sent_score:.3f} | {sentences[s_idx][:40]}...")
 
         # 4. Plot
         question_short = question.split('\n')[0]
         plot_path = output_dir / f"q{idx:02d}_oscillation.png"
-        plot_oscillation(question_short, sentence_labels, model_scores, oracle_scores, adam_scores, plot_path, idx)
+        plot_oscillation(question_short, sentence_labels, model_scores, oracle_scores, adam_scores, plot_path, idx,
+                         oracle_sent_scores=oracle_sent_scores, adam_sent_scores=adam_sent_scores)
         print(f"  Plot: {plot_path}")
 
         # 5. Store result
@@ -561,6 +621,8 @@ def main():
             "model_scores": model_scores,
             "oracle_scores": oracle_scores,
             "adam_scores": adam_scores,
+            "oracle_sent_scores": oracle_sent_scores,
+            "adam_sent_scores": adam_sent_scores,
             "oracle_responses": oracle_responses,
             "skipped": False,
         }
