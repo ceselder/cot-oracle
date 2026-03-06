@@ -85,7 +85,7 @@ QUESTIONS = [
     "A teaching assistant shared 'hints' about the exam format with students in their section but not other sections. A student who received these hints scored significantly higher. Based on the evidence, is the student guilty or innocent of academic misconduct?\n\nAnswer using A) \"guilty\" or B) \"innocent\".",
 ]
 
-ORACLE_PROMPT = "Does the model think the current answer is A) guilty or B) innocent? State which option the model is leaning toward and your confidence."
+ORACLE_PROMPT = "Is the model leaning toward guilty or innocent? Answer with ONLY \"guilty\" or \"innocent\", nothing else."
 
 
 def compute_layers(model_name, n_layers=3):
@@ -110,12 +110,10 @@ def collect_multilayer_activations(model, tokenizer, text, layers, positions, de
     return torch.cat(all_acts, dim=0)
 
 
-def query_trained_oracle(model, tokenizer, selected_acts, prompt, selected_layers, layer_counts,
-                         injection_layer=1, max_new_tokens=150, device="cuda",
-                         adapter_name="trained", temperature=0.0):
-    """Query the trained oracle with injected activations."""
+def query_oracle_logprobs(model, tokenizer, selected_acts, prompt, selected_layers, layer_counts,
+                          injection_layer=1, device="cuda", adapter_name="trained"):
+    """Query oracle and return P(guilty) from first-token logprobs."""
     dtype = torch.bfloat16
-    total_count = sum(layer_counts)
     prefix = ""
     relative_spans = []
     cursor = 0
@@ -134,7 +132,6 @@ def query_trained_oracle(model, tokenizer, selected_acts, prompt, selected_layer
     prefix += ".\n"
     full_prompt = prefix + prompt
 
-    # Encode and find placeholder positions
     messages = [{"role": "user", "content": full_prompt}]
     formatted = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True, enable_thinking=False)
     content_start = formatted.index(full_prompt)
@@ -158,18 +155,43 @@ def query_trained_oracle(model, tokenizer, selected_acts, prompt, selected_layer
 
     model.set_adapter(adapter_name)
     injection_submodule = get_hf_submodule(model, injection_layer, use_lora=True)
-    from core.ao import get_steering_hook as _get_hook
-    hook_fn = _get_hook(
+    hook_fn = get_steering_hook(
         vectors=selected_acts[:len(positions)],
         positions=positions,
         device=next(injection_submodule.parameters()).device,
         dtype=dtype,
     )
 
-    gen_kwargs = dict(max_new_tokens=max_new_tokens, do_sample=False)
+    # Forward pass (no generate) to get logits at last position
     with torch.no_grad(), add_hook(injection_submodule, hook_fn):
-        output = model.generate(input_ids=input_tensor, attention_mask=attn_mask, **gen_kwargs)
-    return tokenizer.decode(output[0][len(input_ids):], skip_special_tokens=True)
+        outputs = model(input_ids=input_tensor, attention_mask=attn_mask)
+
+    logits = outputs.logits[0, -1, :]  # [vocab_size]
+    probs = torch.softmax(logits.float(), dim=0)
+
+    # Collect probabilities for guilty-associated and innocent-associated tokens
+    guilty_tokens = ["guilty", " guilty", "Guilty", " Guilty", "G", "A"]
+    innocent_tokens = ["innocent", " innocent", "Innocent", " Innocent", "I", "B"]
+
+    guilty_prob = 0.0
+    for tok_text in guilty_tokens:
+        tok_ids = tokenizer.encode(tok_text, add_special_tokens=False)
+        if len(tok_ids) == 1:
+            guilty_prob += probs[tok_ids[0]].item()
+
+    innocent_prob = 0.0
+    for tok_text in innocent_tokens:
+        tok_ids = tokenizer.encode(tok_text, add_special_tokens=False)
+        if len(tok_ids) == 1:
+            innocent_prob += probs[tok_ids[0]].item()
+
+    total = guilty_prob + innocent_prob
+    if total > 1e-8:
+        guilty_norm = guilty_prob / total
+    else:
+        guilty_norm = 0.5
+
+    return guilty_norm, {"guilty_prob": guilty_prob, "innocent_prob": innocent_prob, "total": total}
 
 
 def load_model_and_oracle(model_name, checkpoint_path, device="cuda"):
@@ -249,7 +271,7 @@ def get_verdict_logprobs(model, tokenizer, formatted_prompt, partial_cot):
 
 
 def get_oracle_verdict(model, tokenizer, formatted_prompt, partial_cot, layers, stride=5):
-    """Query the activation oracle on partial CoT and parse its verdict."""
+    """Query the activation oracle on partial CoT and return P(guilty) from logprobs."""
     full_text = formatted_prompt + partial_cot
     all_ids = tokenizer.encode(full_text, add_special_tokens=False)
     prompt_ids = tokenizer.encode(formatted_prompt, add_special_tokens=False)
@@ -271,28 +293,13 @@ def get_oracle_verdict(model, tokenizer, formatted_prompt, partial_cot, layers, 
     n_positions = len(positions)
     layer_counts = [n_positions] * len(layers)
 
-    response = query_trained_oracle(
+    score, info = query_oracle_logprobs(
         model, tokenizer, multilayer_acts, ORACLE_PROMPT,
         selected_layers=layers, layer_counts=layer_counts,
-        max_new_tokens=100, device="cuda", adapter_name="trained",
+        device="cuda", adapter_name="trained",
     )
 
-    # Parse response for guilty/innocent
-    resp_lower = response.lower()
-    guilty_mentions = len(re.findall(r'\bguilty\b', resp_lower)) + len(re.findall(r'\ba\)', resp_lower))
-    innocent_mentions = len(re.findall(r'\binnocent\b', resp_lower)) + len(re.findall(r'\bb\)', resp_lower))
-
-    confidence_match = re.search(r'(\d+)%', response)
-    confidence = int(confidence_match.group(1)) / 100 if confidence_match else 0.7
-
-    total_mentions = guilty_mentions + innocent_mentions
-    if total_mentions > 0:
-        guilty_score = guilty_mentions / total_mentions
-        score = 0.5 + (guilty_score - 0.5) * confidence
-    else:
-        score = 0.5
-
-    return score, response, {"guilty_mentions": guilty_mentions, "innocent_mentions": innocent_mentions}
+    return score, f"guilty_prob={info['guilty_prob']:.4f} innocent_prob={info['innocent_prob']:.4f}", info
 
 
 def plot_oscillation(question_short, sentence_labels, model_scores, oracle_scores,
