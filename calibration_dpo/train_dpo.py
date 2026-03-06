@@ -164,12 +164,10 @@ def build_dpo_items(
     rng: random.Random,
     question: str | None = None,
 ) -> tuple[list[DPOBatchItem], list[SFTItem]]:
-    """Construct DPO pairs and SFT targets from judge verdicts.
+    """Construct DPO pairs from judge verdicts.
 
-    Key design choices:
-    - NO refusal signal at all (no refusal SFT, no refusal DPO)
-    - DPO on: correction>model, reformatted>malformed, specific>vague
-    - SFT on: ideal response (always non-null, hedged when uncertain)
+    Correction-only: just fix wrong details and broken formatting.
+    No style signal, no SFT — preserves the base model's voice.
 
     Returns (dpo_items, sft_items).
     """
@@ -214,7 +212,7 @@ def build_dpo_items(
                 label="reformatted>malformed",
             ))
 
-        # Correction DPO for mixed: correction > original (structural fixes only)
+        # Correction DPO for mixed: correction > original (fix wrong details)
         if rating.rating == "mixed" and rating.correction:
             chosen_text = rating.correction
             if rating.malformed and rating.reformatted:
@@ -230,85 +228,6 @@ def build_dpo_items(
                 ph_positions=ph_positions,
                 label="correction>model",
             ))
-
-    # Specificity DPO: specific > vague (among good/mixed rollouts)
-    specific_rollouts = [
-        (i, rollouts[i]) for i in range(len(rollouts))
-        if rating_map.get(i + 1)
-        and rating_map[i + 1].rating in ("good", "mixed")
-        and not rating_map[i + 1].vague
-    ]
-    vague_rollouts = [
-        (i, rollouts[i]) for i in range(len(rollouts))
-        if rating_map.get(i + 1)
-        and rating_map[i + 1].rating in ("good", "mixed")
-        and rating_map[i + 1].vague
-    ]
-    if specific_rollouts and vague_rollouts:
-        pairs = []
-        for _, specific_text in specific_rollouts:
-            for _, vague_text in vague_rollouts:
-                pairs.append((specific_text, vague_text))
-        rng.shuffle(pairs)
-        for specific_text, vague_text in pairs[:3]:
-            chosen_ids, chosen_labels = _make_full_ids(specific_text)
-            rejected_ids, rejected_labels = _make_full_ids(vague_text)
-            dpo_items.append(DPOBatchItem(
-                chosen_ids=chosen_ids,
-                rejected_ids=rejected_ids,
-                chosen_labels=chosen_labels,
-                rejected_labels=rejected_labels,
-                activations=activations,
-                ph_positions=ph_positions,
-                label="specific>vague",
-            ))
-
-    # Instruction following DPO: following > not following
-    following = [
-        (i, rollouts[i]) for i in range(len(rollouts))
-        if rating_map.get(i + 1)
-        and rating_map[i + 1].instruction_following
-        and rating_map[i + 1].rating in ("good", "mixed")
-    ]
-    not_following = [
-        (i, rollouts[i]) for i in range(len(rollouts))
-        if rating_map.get(i + 1)
-        and not rating_map[i + 1].instruction_following
-        and rating_map[i + 1].rating in ("good", "mixed", "bad")
-    ]
-    if following and not_following:
-        pairs = []
-        for _, f_text in following:
-            for _, nf_text in not_following:
-                pairs.append((f_text, nf_text))
-        rng.shuffle(pairs)
-        for f_text, nf_text in pairs[:3]:
-            chosen_ids, chosen_labels = _make_full_ids(f_text)
-            rejected_ids, rejected_labels = _make_full_ids(nf_text)
-            dpo_items.append(DPOBatchItem(
-                chosen_ids=chosen_ids,
-                rejected_ids=rejected_ids,
-                chosen_labels=chosen_labels,
-                rejected_labels=rejected_labels,
-                activations=activations,
-                ph_positions=ph_positions,
-                label="following>not_following",
-            ))
-
-    # SFT on ideal response (always — judge now always provides one)
-    ideal = judge_result.ideal_response
-    if not ideal:
-        # Fallback: hedged response if judge didn't provide one
-        ideal = sample_hedging(rng)
-
-    ideal_ids, ideal_labels = _make_full_ids(ideal)
-    sft_items.append(SFTItem(
-        input_ids=ideal_ids,
-        labels=ideal_labels,
-        activations=activations,
-        ph_positions=ph_positions,
-        weight=1.0,
-    ))
 
     return dpo_items, sft_items
 
@@ -618,7 +537,7 @@ def train(cfg: dict) -> None:
             pending_judge = True
 
             # If we have enough accumulated items, do a training step
-            if len(accum_dpo_items) >= grad_accum or len(accum_sft_items) >= grad_accum:
+            if len(accum_dpo_items) >= grad_accum:
                 model.train()
                 model.set_adapter("policy")
 
@@ -636,10 +555,14 @@ def train(cfg: dict) -> None:
                     beta=dpo_cfg["beta"],
                 )
 
-                # SFT loss
-                sft_loss, sft_metrics = compute_sft_loss(
-                    model, step_sft, injection_layer, device,
-                )
+                # SFT loss (only if we have items)
+                if step_sft:
+                    sft_loss, sft_metrics = compute_sft_loss(
+                        model, step_sft, injection_layer, device,
+                    )
+                else:
+                    sft_loss = torch.tensor(0.0, device=device)
+                    sft_metrics = {"sft_loss": 0.0}
 
                 dpo_lr_scale = dpo_cfg.get("lr_scale", 1.0)
                 total_loss = dpo_lr_scale * dpo_loss + dpo_cfg["sft_weight"] * sft_loss
