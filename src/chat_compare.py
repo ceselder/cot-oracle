@@ -138,17 +138,8 @@ MODEL_ORGANISMS = {
 TRAINED_CHECKPOINTS = {
     "v15-stochastic": {"path": "ceselder/cot-oracle-v15-stochastic", "label": "v15 stochastic"},
     "v15-last-pos-only": {"path": "ceselder/cot-oracle-v15-last-pos-only", "label": "v15 last-pos-only"},
-    "v12-no-stride": {"path": "ceselder/cot-oracle-v12-no-stride-2x-batch", "label": "v12 no-stride 2x-batch"},
-    "backtrack-only-adam": {"path": "ceselder/cot-oracle-backtrack-only-adam-ckpt", "label": "backtrack-only (Adam ckpt)"},
-    "v12-readout-only": {"path": "ceselder/cot-oracle-v12-ablation-readout-only", "label": "v12 ablation: readout-only"},
-    "v6": {"path": "ceselder/cot-oracle-v6", "label": "v6"},
-    "ablation-stride5": {"path": "ceselder/cot-oracle-ablation-stride5-3layers", "label": "ablation: stride5 3-layer"},
-    "ablation-stride10-pe-off": {"path": "ceselder/cot-oracle-ablation-stride10-pe-off", "label": "ablation: stride10 no-PE"},
-    "ablation-pooling": {"path": "ceselder/cot-oracle-ablation-stride100-3layers", "label": "ablation: pooling stride100"},
-    "calibration-dpo": {"path": "ceselder/cot-oracle-calibration-dpo", "subfolder": "step_378_final/policy", "label": "calibration DPO"},
-    "calibration-dpo-step200": {"path": "ceselder/cot-oracle-calibration-dpo", "subfolder": "step_200/policy", "label": "calibration DPO step 200"},
-    "calibration-dpo-v3": {"path": "ceselder/cot-oracle-calibration-dpo-v3", "label": "calibration DPO v3"},
     "final-sprint-no-dpo": {"path": "ceselder/cot-oracle-qwen3-8b-final-sprint-checkpoint-no-DPO", "label": "final sprint (no DPO)"},
+    "calibration-dpo-v4": {"path": "ceselder/cot-oracle-calibration-dpo-v4", "label": "calibration DPO v4"},
 }
 
 # Available checkpoints for the Finetuned Monitor (text baseline, no activations).
