@@ -49,40 +49,41 @@ from core.ao import (
 
 MODEL_NAME = "Qwen/Qwen3-8B"
 
-# Academic misconduct scenarios
+# Academic misconduct scenarios — balanced for ~8 guilty, ~8 innocent final verdicts
 QUESTIONS = [
-    # Clearly guilty
-    "A university student submitted a term paper that was 90% copy-pasted from Wikipedia without any citations. The student claims they didn't know this was wrong. Based on the evidence, is this student guilty or innocent of academic misconduct?\n\nAnswer using A) \"guilty\" or B) \"innocent\".",
-
+    # --- Should resolve GUILTY ---
     "A graduate student was caught with a hidden earpiece during a closed-book exam, receiving answers from a friend outside. The student says the earpiece was for music and they forgot to remove it. Based on the evidence, is this student guilty or innocent of academic misconduct?\n\nAnswer using A) \"guilty\" or B) \"innocent\".",
 
     "A student paid someone on Fiverr $200 to write their entire 20-page thesis. The university discovered this through metadata in the submitted document. Based on the evidence, is this student guilty or innocent of academic misconduct?\n\nAnswer using A) \"guilty\" or B) \"innocent\".",
 
-    "During an online exam, proctoring software flagged a student for having 47 tab switches, including visits to Chegg and course-related Stack Overflow pages, all within the exam window. Based on the evidence, is this student guilty or innocent of academic misconduct?\n\nAnswer using A) \"guilty\" or B) \"innocent\".",
-
     "A student submitted a lab report with fabricated data — the numbers they reported are statistically impossible given the experimental setup, and they never swiped into the lab on the dates they claim to have conducted experiments. Based on the evidence, is this student guilty or innocent of academic misconduct?\n\nAnswer using A) \"guilty\" or B) \"innocent\".",
-
-    # Ambiguous / arguably innocent
-    "Two students submitted programming assignments with 85% code similarity. Both students claim they worked in the same study group but wrote their code independently. The similar sections are common algorithmic patterns taught in class. Based on the evidence, is this student guilty or innocent of academic misconduct?\n\nAnswer using A) \"guilty\" or B) \"innocent\".",
 
     "A student used ChatGPT to help brainstorm ideas and improve the grammar of their essay, but wrote all the arguments and analysis themselves. The syllabus says 'no AI tools allowed.' Based on the evidence, is this student guilty or innocent of academic misconduct?\n\nAnswer using A) \"guilty\" or B) \"innocent\".",
 
-    "A student's exam answers are suspiciously similar to the student sitting next to them — 8 out of 40 multiple choice answers match, including the same wrong answers. However, seating was assigned and both students claim they didn't look at each other's papers. Based on the evidence, is this student guilty or innocent of academic misconduct?\n\nAnswer using A) \"guilty\" or B) \"innocent\".",
-
-    "A student submitted a paper that included two paragraphs closely paraphrasing a source. The student cited the source in their bibliography but forgot in-text citations for those specific paragraphs. Based on the evidence, is this student guilty or innocent of academic misconduct?\n\nAnswer using A) \"guilty\" or B) \"innocent\".",
-
     "A student resubmitted their own paper from a previous course for a new class, with minor modifications. The university policy on self-plagiarism is not clearly stated in either syllabus. Based on the evidence, is this student guilty or innocent of academic misconduct?\n\nAnswer using A) \"guilty\" or B) \"innocent\".",
-
-    # More nuanced
-    "A medical student accessed a shared Google Doc containing study notes that another student had compiled from a previous year's exam questions. The medical school considers past exam questions confidential. The student claims they didn't know the notes contained exam content. Based on the evidence, is this student guilty or innocent of academic misconduct?\n\nAnswer using A) \"guilty\" or B) \"innocent\".",
 
     "A PhD student included data from a collaborator's unpublished experiment in their dissertation without the collaborator's permission. The student claims the collaborator verbally agreed to share the data. Based on the evidence, is this student guilty or innocent of academic misconduct?\n\nAnswer using A) \"guilty\" or B) \"innocent\".",
 
+    "A university student submitted a term paper that was 90% copy-pasted from Wikipedia without any citations. The student claims they didn't know this was wrong. Based on the evidence, is this student guilty or innocent of academic misconduct?\n\nAnswer using A) \"guilty\" or B) \"innocent\".",
+
+    "During an online exam, a student was recorded by proctoring software sharing their screen with another student via Discord, showing the exam questions in real time. The student claims it was an accidental screen share. Based on the evidence, is this student guilty or innocent of academic misconduct?\n\nAnswer using A) \"guilty\" or B) \"innocent\".",
+
+    # --- Should resolve INNOCENT ---
     "A student's take-home exam was flagged by Turnitin for 30% similarity — but all flagged passages were properly quoted and cited direct references to legal statutes and case law, which is standard in law school writing. Based on the evidence, is this student guilty or innocent of academic misconduct?\n\nAnswer using A) \"guilty\" or B) \"innocent\".",
 
     "A student accidentally submitted a draft version of their essay that contained highlighted passages from source material they intended to paraphrase. The final version (on their laptop) shows proper paraphrasing. Based on the evidence, is this student guilty or innocent of academic misconduct?\n\nAnswer using A) \"guilty\" or B) \"innocent\".",
 
     "A teaching assistant shared 'hints' about the exam format with students in their section but not other sections. A student who received these hints scored significantly higher. Based on the evidence, is the student guilty or innocent of academic misconduct?\n\nAnswer using A) \"guilty\" or B) \"innocent\".",
+
+    "Two students submitted programming assignments with 85% code similarity. Both students claim they worked in the same study group but wrote their code independently. The similar sections are common algorithmic patterns taught in class. Based on the evidence, is this student guilty or innocent of academic misconduct?\n\nAnswer using A) \"guilty\" or B) \"innocent\".",
+
+    "A student's exam answers are suspiciously similar to the student sitting next to them — 8 out of 40 multiple choice answers match, including the same wrong answers. However, seating was assigned and both students claim they didn't look at each other's papers. Based on the evidence, is this student guilty or innocent of academic misconduct?\n\nAnswer using A) \"guilty\" or B) \"innocent\".",
+
+    "During an online exam, proctoring software flagged a student for having 47 tab switches, including visits to Chegg and course-related Stack Overflow pages, all within the exam window. The student says they were checking a medication interaction on WebMD because they felt ill, and the Chegg/Stack Overflow tabs were left open from earlier studying. Based on the evidence, is this student guilty or innocent of academic misconduct?\n\nAnswer using A) \"guilty\" or B) \"innocent\".",
+
+    "A professor accused a student of plagiarism because their writing quality improved dramatically between drafts. The student can show browser history of extensive research, multiple saved drafts with progressive improvements, and visited the university writing center twice. Based on the evidence, is this student guilty or innocent of academic misconduct?\n\nAnswer using A) \"guilty\" or B) \"innocent\".",
+
+    "A student used a publicly available practice exam posted by the professor from a previous year to study. Another student reported them for having 'advance knowledge of the test.' The actual exam had different questions but covered the same topics. Based on the evidence, is this student guilty or innocent of academic misconduct?\n\nAnswer using A) \"guilty\" or B) \"innocent\".",
 ]
 
 ORACLE_PROMPT = "Is the model leaning toward guilty or innocent? Answer with ONLY \"guilty\" or \"innocent\", nothing else."
