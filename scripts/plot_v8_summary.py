@@ -188,6 +188,49 @@ plt.tight_layout()
 plt.savefig(plots_dir / "averaged_v8_2panel.png", dpi=150, bbox_inches='tight')
 print(f"Saved {plots_dir / 'averaged_v8_2panel.png'}")
 
+# --- Sentence-only plot (cot_aware prompt) ---
+fig3, ax3 = plt.subplots(figsize=(14, 8))
+
+model_mean, model_std = interp_mean_std(model_lists)
+ax3.plot(x, model_mean, 'b-', linewidth=2.5, label='Model Verdict', zorder=10)
+ax3.fill_between(x, model_mean - model_std, model_mean + model_std, color='blue', alpha=0.1, zorder=1)
+
+prompt = "cot_aware"
+for oracle in ["oracle", "adam"]:
+    key = f"{oracle}_sent_{prompt}"
+    score_lists = [r.get(key, []) for r in results]
+    mean, std = interp_mean_std(score_lists, model_lists)
+    color = colors[oracle]
+    oracle_label = "Trained" if oracle == "oracle" else "Adam's AO"
+    name = f"{oracle_label} / sentence-only (r={all_corrs[key]:.3f})"
+    ax3.plot(x, mean, color=color, linestyle='-', linewidth=2, label=name)
+    ax3.fill_between(x, mean - std, mean + std, color=color, alpha=0.1)
+
+ax3.axhline(y=0.5, color='gray', linestyle='--', alpha=0.5)
+ax3.set_xlabel('CoT Progress (%)', fontsize=13)
+ax3.set_ylabel('P(guilty)', fontsize=13)
+ax3.set_ylim(-0.05, 1.05)
+ax3.grid(True, alpha=0.3)
+ax3.legend(fontsize=10, loc='upper right')
+
+ax3.text(0.02, 0.02,
+         "Activations from current sentence ONLY (not cumulative)\nshaded = \u00b11 std across questions",
+         transform=ax3.transAxes, fontsize=8.5, va='bottom', ha='left',
+         bbox=dict(boxstyle='round,pad=0.4', facecolor='white', alpha=0.9))
+
+ax3.set_title(
+    f'Verdict Oscillation: Sentence-Only Activations (n={len(results)} questions)\n'
+    f'Oracle prompt: {prompt_text_full[prompt]}\n'
+    f'Trained: ceselder/cot-oracle-v15-stochastic | '
+    f"Adam's AO: adamkarvonen/...Qwen3-8B\n"
+    f'Data: huggingface.co/datasets/ceselder/verdict-oscillation-v4',
+    fontsize=10, loc='left')
+
+plt.tight_layout()
+plt.savefig(plots_dir / "averaged_v8_sentonly.png", dpi=150, bbox_inches='tight')
+plt.savefig(results_dir / "averaged_v8_sentonly.png", dpi=150, bbox_inches='tight')
+print(f"Saved {plots_dir / 'averaged_v8_sentonly.png'}")
+
 # Copy per-question plots
 import shutil
 for f in results_dir.glob("q*.png"):
