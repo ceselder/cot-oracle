@@ -39,6 +39,8 @@ sys.path.insert(0, str(PROJECT_ROOT / "ao_reference"))
 
 from cot_utils import split_cot_into_sentences, get_cot_positions, layer_percent_to_layer
 from core.ao import (
+    AO_CHECKPOINTS,
+    SPECIAL_TOKEN,
     TRAINED_PLACEHOLDER,
     add_hook,
     collect_activations_at_positions,
@@ -211,6 +213,12 @@ def load_model_and_oracle(model_name, checkpoint_path, device="cuda"):
 
     print(f"Loading trained oracle from {checkpoint_path}...")
     model = PeftModel.from_pretrained(model, checkpoint_path, adapter_name="trained", is_trainable=False)
+
+    ao_path = AO_CHECKPOINTS[model_name]
+    ao_adapter_name = ao_path.replace(".", "_")
+    print(f"Loading Adam's AO from {ao_path}...")
+    model.load_adapter(ao_path, adapter_name=ao_adapter_name, is_trainable=False)
+
     model.eval()
     print(f"  Adapters: {list(model.peft_config.keys())}")
     return model, tokenizer
@@ -271,6 +279,85 @@ def get_verdict_logprobs(model, tokenizer, formatted_prompt, partial_cot):
     return guilty_norm, {"guilty_prob": guilty_prob, "innocent_prob": innocent_prob, "guilty_norm": guilty_norm}
 
 
+def get_adam_ao_verdict(model, tokenizer, formatted_prompt, partial_cot, stride=5):
+    """Query Adam's original AO (single layer 18) and return P(guilty) from logprobs."""
+    full_text = formatted_prompt + partial_cot
+    all_ids = tokenizer.encode(full_text, add_special_tokens=False)
+    prompt_ids = tokenizer.encode(formatted_prompt, add_special_tokens=False)
+    prompt_len = len(prompt_ids)
+    total_len = len(all_ids)
+
+    if total_len <= prompt_len + 2:
+        return 0.5, {}
+
+    positions = get_cot_positions(prompt_len, total_len, stride=stride,
+                                   tokenizer=tokenizer, input_ids=all_ids)
+    if len(positions) < 1:
+        return 0.5, {}
+
+    # Adam's AO uses layer 18 (50% of Qwen3-8B) only
+    ao_layer = layer_percent_to_layer(MODEL_NAME, 50)
+    acts = collect_activations_at_positions(
+        model, tokenizer, full_text, ao_layer, positions,
+        device=str(get_model_input_device(model)), adapter_name=None,
+    )  # [K, D]
+
+    # Build prompt with SPECIAL_TOKEN placeholders (Adam's format)
+    num_positions = acts.shape[0]
+    prefix = f"L{ao_layer}:" + SPECIAL_TOKEN * num_positions + ".\n"
+    full_prompt_ao = prefix + ORACLE_PROMPT
+
+    label_len = len(f"L{ao_layer}:")
+    relative_spans = [(label_len + i * len(SPECIAL_TOKEN), label_len + (i + 1) * len(SPECIAL_TOKEN))
+                      for i in range(num_positions)]
+
+    messages = [{"role": "user", "content": full_prompt_ao}]
+    formatted_ao = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True, enable_thinking=False)
+    content_start = formatted_ao.index(full_prompt_ao)
+    encoded = tokenizer(formatted_ao, add_special_tokens=False, return_offsets_mapping=True)
+    input_ids = encoded["input_ids"]
+    offsets = encoded["offset_mapping"]
+
+    inject_positions = []
+    for rel_start, rel_end in relative_spans:
+        abs_start = content_start + rel_start
+        abs_end = content_start + rel_end
+        token_positions = [i for i, (tok_start, tok_end) in enumerate(offsets)
+                          if tok_start < abs_end and tok_end > abs_start]
+        if token_positions:
+            inject_positions.append(token_positions[0])
+
+    ao_adapter_name = AO_CHECKPOINTS[MODEL_NAME].replace(".", "_")
+    input_tensor = torch.tensor([input_ids], device=get_model_input_device(model))
+    attn_mask = torch.ones_like(input_tensor)
+
+    model.set_adapter(ao_adapter_name)
+    injection_submodule = get_hf_submodule(model, 1, use_lora=True)
+    hook_fn = get_steering_hook(
+        vectors=acts[:len(inject_positions)],
+        positions=inject_positions,
+        device=next(injection_submodule.parameters()).device,
+        dtype=torch.bfloat16,
+    )
+
+    with torch.no_grad(), add_hook(injection_submodule, hook_fn):
+        outputs = model(input_ids=input_tensor, attention_mask=attn_mask)
+
+    logits = outputs.logits[0, -1, :]
+    probs = torch.softmax(logits.float(), dim=0)
+
+    guilty_tokens = ["guilty", " guilty", "Guilty", " Guilty", "G", "A"]
+    innocent_tokens = ["innocent", " innocent", "Innocent", " Innocent", "I", "B"]
+
+    guilty_prob = sum(probs[tokenizer.encode(t, add_special_tokens=False)[0]].item()
+                      for t in guilty_tokens if len(tokenizer.encode(t, add_special_tokens=False)) == 1)
+    innocent_prob = sum(probs[tokenizer.encode(t, add_special_tokens=False)[0]].item()
+                        for t in innocent_tokens if len(tokenizer.encode(t, add_special_tokens=False)) == 1)
+
+    total = guilty_prob + innocent_prob
+    return (guilty_prob / total if total > 1e-8 else 0.5), {"guilty_prob": guilty_prob, "innocent_prob": innocent_prob}
+
+
 def get_oracle_verdict(model, tokenizer, formatted_prompt, partial_cot, layers, stride=5):
     """Query the activation oracle on partial CoT and return P(guilty) from logprobs."""
     full_text = formatted_prompt + partial_cot
@@ -304,13 +391,14 @@ def get_oracle_verdict(model, tokenizer, formatted_prompt, partial_cot, layers, 
 
 
 def plot_oscillation(question_short, sentence_labels, model_scores, oracle_scores,
-                     output_path, question_idx):
+                     adam_scores, output_path, question_idx):
     """Plot verdict oscillation for one question."""
     fig, ax = plt.subplots(figsize=(14, 5))
     x = np.arange(len(sentence_labels))
 
     ax.plot(x, model_scores, 'b-o', label="Model verdict (logprobs)", linewidth=2, markersize=6)
-    ax.plot(x, oracle_scores, 'r-s', label="Oracle prediction", linewidth=2, markersize=6)
+    ax.plot(x, oracle_scores, 'r-s', label="Trained oracle", linewidth=2, markersize=6)
+    ax.plot(x, adam_scores, 'g-^', label="Adam's AO", linewidth=2, markersize=6, alpha=0.8)
     ax.axhline(y=0.5, color='gray', linestyle='--', alpha=0.5)
 
     ax.set_ylim(-0.05, 1.05)
@@ -424,12 +512,13 @@ def main():
         if len(sentences) < 2:
             print("  Skipping (too few sentences)")
             all_results.append({"idx": idx, "question": question, "skipped": True,
-                                "model_scores": [], "oracle_scores": [], "sentences": []})
+                                "model_scores": [], "oracle_scores": [], "adam_scores": [], "sentences": []})
             continue
 
-        # 3. For each sentence boundary, get model verdict + oracle verdict
+        # 3. For each sentence boundary, get model verdict + oracle verdict + Adam's AO
         model_scores = []
         oracle_scores = []
+        adam_scores = []
         oracle_responses = []
         sentence_labels = []
 
@@ -441,19 +530,25 @@ def main():
             guilty_score, probs_info = get_verdict_logprobs(model, tokenizer, formatted_prompt, partial_cot)
             model_scores.append(guilty_score)
 
-            # Oracle verdict
+            # Trained oracle verdict
             oracle_score, oracle_resp, oracle_info = get_oracle_verdict(
                 model, tokenizer, formatted_prompt, partial_cot, layers, stride=args.stride,
             )
             oracle_scores.append(oracle_score)
             oracle_responses.append(oracle_resp)
 
-            print(f"    S{s_idx}: model={guilty_score:.3f} oracle={oracle_score:.3f} | {sentences[s_idx][:50]}...")
+            # Adam's AO verdict
+            adam_score, adam_info = get_adam_ao_verdict(
+                model, tokenizer, formatted_prompt, partial_cot, stride=args.stride,
+            )
+            adam_scores.append(adam_score)
+
+            print(f"    S{s_idx}: model={guilty_score:.3f} oracle={oracle_score:.3f} adam={adam_score:.3f} | {sentences[s_idx][:50]}...")
 
         # 4. Plot
         question_short = question.split('\n')[0]
         plot_path = output_dir / f"q{idx:02d}_oscillation.png"
-        plot_oscillation(question_short, sentence_labels, model_scores, oracle_scores, plot_path, idx)
+        plot_oscillation(question_short, sentence_labels, model_scores, oracle_scores, adam_scores, plot_path, idx)
         print(f"  Plot: {plot_path}")
 
         # 5. Store result
@@ -465,6 +560,7 @@ def main():
             "sentence_labels": sentence_labels,
             "model_scores": model_scores,
             "oracle_scores": oracle_scores,
+            "adam_scores": adam_scores,
             "oracle_responses": oracle_responses,
             "skipped": False,
         }
