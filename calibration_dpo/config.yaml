@@ -25,7 +25,7 @@ judge:
   timeout_sec: 60
 
 dpo:
-  beta: 0.1
+  beta: 0.15
   lr_scale: 1.0
   sft_weight: 1.0
 
