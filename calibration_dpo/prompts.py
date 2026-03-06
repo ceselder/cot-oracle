@@ -1,8 +1,8 @@
-"""Curated oracle prompts and refusal paraphrases for calibration DPO."""
+"""Curated oracle prompts and hedging paraphrases for calibration DPO."""
 
 import random
 
-# --- Refusal paraphrases (randomly selected per DPO pair) ---
+# --- Legacy refusal paraphrases (kept for exact_refusal_frac detection) ---
 REFUSAL_PARAPHRASES = [
     "I cannot determine this from the available activations.",
     "The activation signal is insufficient to make a confident assessment.",
@@ -12,6 +12,18 @@ REFUSAL_PARAPHRASES = [
     "There isn't enough signal in the observed activations to answer this.",
     "I cannot make a confident claim based on the activation patterns observed.",
     "The available activation data does not support a definitive answer.",
+]
+
+# --- Hedging paraphrases (used instead of refusal when uncertain) ---
+HEDGING_PARAPHRASES = [
+    "The activation signal is unclear, but it appears the model may be performing some form of structured computation at this point.",
+    "The activations suggest some kind of reasoning process is occurring, though the specific operation is difficult to determine with confidence.",
+    "Based on the available activation patterns, the model seems to be working through a multi-step process, though the details are ambiguous.",
+    "The activation signal is weak here, but there are indications the model is engaged in some form of analytical reasoning.",
+    "It's difficult to determine the exact computation from these activations, but the model appears to be in an active reasoning phase.",
+    "The activations at this position are somewhat ambiguous — the model seems to be processing information, but the specific nature of the computation is unclear.",
+    "The signal is not strong enough for a confident assessment, but the activation pattern is consistent with the model working through a problem-solving step.",
+    "The available activations suggest the model is likely engaged in some form of computation, though the precise operation cannot be determined with certainty.",
 ]
 
 # --- Oracle prompts by category ---
@@ -145,6 +157,19 @@ INFLUENCE_PROBES = [
     "Is the model rationalizing a predetermined answer rather than reasoning freely?",
 ]
 
+HIDDEN_STATE_PROBES = [
+    "What is the model hiding?",
+    "What is the model secretly thinking but not saying?",
+    "What would surprise the user about what's happening internally?",
+    "Where is the model lying to itself?",
+    "What has the model already decided that it's pretending to still think about?",
+    "What is the model's real opinion vs what it's writing?",
+    "Is the model performing for the user right now? How?",
+    "What does the model actually believe vs what it's claiming?",
+    "Is there a gap between what the model is doing and what it's saying it's doing?",
+    "What is the model avoiding?",
+]
+
 SPECIFICS_PROMPTS = [
     "What numbers or values is the model working with?",
     "What specific quantities are being computed?",
@@ -154,6 +179,7 @@ SPECIFICS_PROMPTS = [
     "What intermediate result is being produced?",
     "What equation or formula is being applied?",
     "What numerical answer is the model arriving at?",
+    "If you forced it to answer, what does the model think the answer is right now?",
 ]
 
 ERROR_PROMPTS = [
@@ -230,6 +256,7 @@ SINGLE_PROMPTS = (
     + CONFIDENCE_PROMPTS
     + UNCERTAINTY_PROBES
     + INFLUENCE_PROBES
+    + HIDDEN_STATE_PROBES
     + SPECIFICS_PROMPTS
     + ERROR_PROMPTS
     + TRANSITION_PROMPTS
@@ -273,6 +300,12 @@ def sample_prompt(rng: random.Random | None = None, force_specific: bool | None 
 
 
 def sample_refusal(rng: random.Random | None = None) -> str:
-    """Sample a random refusal paraphrase."""
+    """Sample a random refusal paraphrase (legacy, use sample_hedging instead)."""
     r = rng or random
     return r.choice(REFUSAL_PARAPHRASES)
+
+
+def sample_hedging(rng: random.Random | None = None) -> str:
+    """Sample a random hedging paraphrase for uncertain/low-signal cases."""
+    r = rng or random
+    return r.choice(HEDGING_PARAPHRASES)

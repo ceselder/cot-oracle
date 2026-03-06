@@ -43,7 +43,8 @@ from activations import extract_activations
 from data_sampler import CoTSampler
 from dpo_loss import DPOBatchItem, SFTItem, compute_dpo_loss, compute_sft_loss
 from judge import JudgeResult, RolloutRating, judge_batch
-from prompts import REFUSAL_PARAPHRASES, SPECIFICITY_SUFFIX, sample_prompt, sample_refusal
+from prompts import HEDGING_PARAPHRASES, REFUSAL_PARAPHRASES, SPECIFICITY_SUFFIX, sample_hedging, sample_prompt, sample_refusal
+from fixed_eval import FixedEval
 from rollouts import generate_rollouts, _build_manual_prefix_token_ids, _build_oracle_prefix
 
 
@@ -112,8 +113,12 @@ def build_oracle_input_ids(
     activations: torch.Tensor,
     oracle_prompt: str,
     layers: list[int],
+    question: str | None = None,
 ) -> tuple[list[int], list[int]]:
     """Build tokenized oracle input with placeholder positions.
+
+    Args:
+        question: If provided, prepended as context before the oracle prompt.
 
     Returns (input_ids, ph_positions).
     """
@@ -124,7 +129,12 @@ def build_oracle_input_ids(
 
     num_positions = activations.shape[0]
     prefix = _build_oracle_prefix(num_positions, layers, ph_token)
-    full_prompt = prefix + oracle_prompt
+
+    # Optionally include the question the model was answering
+    if question:
+        full_prompt = prefix + f'The model is answering: "{question}"\n{oracle_prompt}'
+    else:
+        full_prompt = prefix + oracle_prompt
 
     messages = [{"role": "user", "content": full_prompt}]
     formatted = tokenizer.apply_chat_template(
@@ -152,112 +162,95 @@ def build_dpo_items(
     rollouts: list[str],
     judge_result: JudgeResult,
     rng: random.Random,
-    max_refusal_pairs: int = 3,
-    refusal_sft_weight: float = 3.0,
+    question: str | None = None,
 ) -> tuple[list[DPOBatchItem], list[SFTItem]]:
     """Construct DPO pairs and SFT targets from judge verdicts.
+
+    Key design choices:
+    - NO refusal signal at all (no refusal SFT, no refusal DPO)
+    - DPO on: correction>model, reformatted>malformed, specific>vague
+    - SFT on: ideal response (always non-null, hedged when uncertain)
 
     Returns (dpo_items, sft_items).
     """
     prompt_ids, ph_positions = build_oracle_input_ids(
-        tokenizer, activations, oracle_prompt, layers,
+        tokenizer, activations, oracle_prompt, layers, question=question,
     )
 
     def _make_full_ids(response_text: str) -> tuple[list[int], list[int]]:
         """Build full input_ids and labels for a response."""
         resp_ids = tokenizer.encode(response_text, add_special_tokens=False)
-        # Add EOS
         eos_id = tokenizer.eos_token_id
         if eos_id is not None:
             resp_ids = resp_ids + [eos_id]
         full_ids = prompt_ids + resp_ids
-        # Labels: -100 for prompt, actual ids for response
         labels = [-100] * len(prompt_ids) + resp_ids
         return full_ids, labels
 
     dpo_items = []
     sft_items = []
 
-    be_specific = oracle_prompt.endswith(SPECIFICITY_SUFFIX)
-
     # Map ratings by index
     rating_map: dict[int, RolloutRating] = {}
     for r in judge_result.ratings:
         rating_map[r.index] = r
 
-    all_bad = all(
-        rating_map.get(i + 1, RolloutRating(index=i+1, rating="bad")).rating == "bad"
-        for i in range(len(rollouts))
-    )
+    for i, rollout_text in enumerate(rollouts):
+        rating = rating_map.get(i + 1)
+        if rating is None or rating.rating == "indeterminate":
+            continue
 
-    # If ALL rollouts are bad, skip DPO entirely — just do SFT on refusal
-    # (unless "be specific" mode — then still SFT on ideal, skip refusal SFT)
-    if not all_bad:
-        for i, rollout_text in enumerate(rollouts):
-            rating = rating_map.get(i + 1)
-            if rating is None:
-                continue
+        # Format DPO: reformatted > malformed (any content rating)
+        if rating.malformed and rating.reformatted:
+            chosen_ids, chosen_labels = _make_full_ids(rating.reformatted)
+            rejected_ids, rejected_labels = _make_full_ids(rollout_text)
+            dpo_items.append(DPOBatchItem(
+                chosen_ids=chosen_ids,
+                rejected_ids=rejected_ids,
+                chosen_labels=chosen_labels,
+                rejected_labels=rejected_labels,
+                activations=activations,
+                ph_positions=ph_positions,
+                label="reformatted>malformed",
+            ))
 
-            if rating.rating == "indeterminate":
-                continue
+        # Correction DPO for mixed: correction > original (structural fixes only)
+        if rating.rating == "mixed" and rating.correction:
+            chosen_text = rating.correction
+            if rating.malformed and rating.reformatted:
+                chosen_text = rating.reformatted  # use reformatted correction
+            chosen_ids, chosen_labels = _make_full_ids(chosen_text)
+            rejected_ids, rejected_labels = _make_full_ids(rollout_text)
+            dpo_items.append(DPOBatchItem(
+                chosen_ids=chosen_ids,
+                rejected_ids=rejected_ids,
+                chosen_labels=chosen_labels,
+                rejected_labels=rejected_labels,
+                activations=activations,
+                ph_positions=ph_positions,
+                label="correction>model",
+            ))
 
-            if rating.rating == "good":
-                # If malformed, prefer reformatted over original
-                if rating.malformed and rating.reformatted:
-                    ref_chosen_ids, ref_chosen_labels = _make_full_ids(rating.reformatted)
-                    ref_rejected_ids, ref_rejected_labels = _make_full_ids(rollout_text)
-                    dpo_items.append(DPOBatchItem(
-                        chosen_ids=ref_chosen_ids,
-                        rejected_ids=ref_rejected_ids,
-                        chosen_labels=ref_chosen_labels,
-                        rejected_labels=ref_rejected_labels,
-                        activations=activations,
-                        ph_positions=ph_positions,
-                        label="reformatted>malformed",
-                    ))
-                # No model>refusal DPO — we don't want to push refusal
-                # probability down. SFT on ideal handles positive signal.
-
-            elif rating.rating == "mixed":
-                # Disabled: corrections inject judge's text-based interpretation
-                # which may not match what's actually in activations.
-                # SFT on ideal (synthesized from model's own outputs) handles this.
-                ENABLE_MIXED_DPO = True
-                if ENABLE_MIXED_DPO and rating.correction:
-                    chosen_text = rating.correction
-                    rejected_text = rollout_text
-                    if rating.malformed and rating.reformatted:
-                        chosen_text = rating.reformatted
-                    chosen_ids, chosen_labels = _make_full_ids(chosen_text)
-                    rejected_ids, rejected_labels = _make_full_ids(rejected_text)
-                    dpo_items.append(DPOBatchItem(
-                        chosen_ids=chosen_ids,
-                        rejected_ids=rejected_ids,
-                        chosen_labels=chosen_labels,
-                        rejected_labels=rejected_labels,
-                        activations=activations,
-                        ph_positions=ph_positions,
-                        label="correction>model",
-                    ))
-
-            elif rating.rating == "bad":
-                # Don't DPO individual bad rollouts — refusal>bad causes
-                # mode collapse. The model learns to avoid bad outputs via
-                # SFT on ideal + correction>model DPO on mixed outputs.
-                # Refusal is only taught via SFT when ALL rollouts are bad.
-                pass
-
-    # Specificity DPO: pair specific good rollouts against vague good rollouts
-    specific_good = [
+    # Specificity DPO: specific > vague (among good/mixed rollouts)
+    specific_rollouts = [
         (i, rollouts[i]) for i in range(len(rollouts))
-        if rating_map.get(i + 1) and rating_map[i + 1].rating == "good" and not rating_map[i + 1].vague
+        if rating_map.get(i + 1)
+        and rating_map[i + 1].rating in ("good", "mixed")
+        and not rating_map[i + 1].vague
     ]
-    vague_good = [
+    vague_rollouts = [
         (i, rollouts[i]) for i in range(len(rollouts))
-        if rating_map.get(i + 1) and rating_map[i + 1].rating == "good" and rating_map[i + 1].vague
+        if rating_map.get(i + 1)
+        and rating_map[i + 1].rating in ("good", "mixed")
+        and rating_map[i + 1].vague
     ]
-    for _, specific_text in specific_good:
-        for _, vague_text in vague_good:
+    if specific_rollouts and vague_rollouts:
+        pairs = []
+        for _, specific_text in specific_rollouts:
+            for _, vague_text in vague_rollouts:
+                pairs.append((specific_text, vague_text))
+        rng.shuffle(pairs)
+        for specific_text, vague_text in pairs[:3]:
             chosen_ids, chosen_labels = _make_full_ids(specific_text)
             rejected_ids, rejected_labels = _make_full_ids(vague_text)
             dpo_items.append(DPOBatchItem(
@@ -270,33 +263,52 @@ def build_dpo_items(
                 label="specific>vague",
             ))
 
-    # SFT on ideal response (always)
+    # Instruction following DPO: following > not following
+    following = [
+        (i, rollouts[i]) for i in range(len(rollouts))
+        if rating_map.get(i + 1)
+        and rating_map[i + 1].instruction_following
+        and rating_map[i + 1].rating in ("good", "mixed")
+    ]
+    not_following = [
+        (i, rollouts[i]) for i in range(len(rollouts))
+        if rating_map.get(i + 1)
+        and not rating_map[i + 1].instruction_following
+        and rating_map[i + 1].rating in ("good", "mixed", "bad")
+    ]
+    if following and not_following:
+        pairs = []
+        for _, f_text in following:
+            for _, nf_text in not_following:
+                pairs.append((f_text, nf_text))
+        rng.shuffle(pairs)
+        for f_text, nf_text in pairs[:3]:
+            chosen_ids, chosen_labels = _make_full_ids(f_text)
+            rejected_ids, rejected_labels = _make_full_ids(nf_text)
+            dpo_items.append(DPOBatchItem(
+                chosen_ids=chosen_ids,
+                rejected_ids=rejected_ids,
+                chosen_labels=chosen_labels,
+                rejected_labels=rejected_labels,
+                activations=activations,
+                ph_positions=ph_positions,
+                label="following>not_following",
+            ))
+
+    # SFT on ideal response (always — judge now always provides one)
     ideal = judge_result.ideal_response
-    if ideal is None and all_bad:
-        ideal = sample_refusal(rng)
+    if not ideal:
+        # Fallback: hedged response if judge didn't provide one
+        ideal = sample_hedging(rng)
 
-    if ideal:
-        ideal_ids, ideal_labels = _make_full_ids(ideal)
-        weight = 1.0  # refusal_sft_weight applied externally if all_bad
-        sft_items.append(SFTItem(
-            input_ids=ideal_ids,
-            labels=ideal_labels,
-            activations=activations,
-            ph_positions=ph_positions,
-            weight=weight,
-        ))
-
-    # Extra refusal SFT if all bad (skip in "be specific" mode)
-    if all_bad and not be_specific:
-        refusal = sample_refusal(rng)
-        ref_ids, ref_labels = _make_full_ids(refusal)
-        sft_items.append(SFTItem(
-            input_ids=ref_ids,
-            labels=ref_labels,
-            activations=activations,
-            ph_positions=ph_positions,
-            weight=refusal_sft_weight,
-        ))
+    ideal_ids, ideal_labels = _make_full_ids(ideal)
+    sft_items.append(SFTItem(
+        input_ids=ideal_ids,
+        labels=ideal_labels,
+        activations=activations,
+        ph_positions=ph_positions,
+        weight=1.0,
+    ))
 
     return dpo_items, sft_items
 
@@ -340,6 +352,15 @@ def train(cfg: dict) -> None:
         stride=cfg["data"]["stride"],
         min_positions=cfg["data"]["min_positions"],
         max_positions=cfg["data"]["max_positions"],
+    )
+
+    # Fixed eval (same examples + probes every eval_every steps)
+    eval_every = cfg.get("logging", {}).get("eval_every", 50)
+    fixed_eval = FixedEval(
+        sampler=sampler,
+        tokenizer=tokenizer,
+        layers=layers,
+        n_examples=5,
     )
 
     # Optimizer
@@ -399,13 +420,13 @@ def train(cfg: dict) -> None:
             item = judge_queue.get()
             if item is None:
                 break
-            examples, rollouts_list, oracle_prompts, acts_list = item
+            examples, rollouts_list, oracle_prompts, acts_list, questions_list = item
             t0 = time.time()
             results = _run_judge_async(
                 examples, rollouts_list, oracle_prompts, tokenizer, judge_cfg,
             )
             judge_time = time.time() - t0
-            result_queue.put((examples, rollouts_list, oracle_prompts, acts_list, results, judge_time))
+            result_queue.put((examples, rollouts_list, oracle_prompts, acts_list, questions_list, results, judge_time))
 
     judge_thread = Thread(target=judge_worker, daemon=True)
     judge_thread.start()
@@ -432,6 +453,13 @@ def train(cfg: dict) -> None:
             examples = sampler.sample_batch(batch_size)
             oracle_prompts = [sample_prompt(rng) for _ in range(batch_size)]
 
+            # Question inclusion: 40% of examples get the question prepended
+            question_inclusion_rate = cfg.get("data", {}).get("question_inclusion_rate", 0.4)
+            questions_for_oracle = [
+                ex["question"] if rng.random() < question_inclusion_rate else None
+                for ex in examples
+            ]
+
             # Extract activations (adapter disabled)
             activations_list = extract_activations(
                 model, tokenizer, examples, layers, device,
@@ -452,15 +480,16 @@ def train(cfg: dict) -> None:
                 injection_layer=injection_layer,
                 adapter_name="policy",
                 device=device,
+                questions=questions_for_oracle,
             )
             gpu_time = time.time() - gpu_t0
 
-            # Submit to judge (async) — include activations so they're available when results come back
-            judge_queue.put((examples, rollouts_list, oracle_prompts, activations_list))
+            # Submit to judge (async) — include activations and questions so they're available when results come back
+            judge_queue.put((examples, rollouts_list, oracle_prompts, activations_list, questions_for_oracle))
 
             # If we have pending results from previous batch, process them
             if pending_judge:
-                prev_examples, prev_rollouts, prev_prompts, prev_acts, judge_results, judge_time = result_queue.get()
+                prev_examples, prev_rollouts, prev_prompts, prev_acts, prev_questions, judge_results, judge_time = result_queue.get()
 
                 # Build DPO pairs
                 first_ex_dpo = []
@@ -476,8 +505,7 @@ def train(cfg: dict) -> None:
                         rollouts=prev_rollouts[i],
                         judge_result=judge_results[i],
                         rng=rng,
-                        max_refusal_pairs=dpo_cfg.get("max_refusal_pairs", 3),
-                        refusal_sft_weight=dpo_cfg.get("refusal_sft_weight", 3.0),
+                        question=prev_questions[i],
                     )
                     if i == 0:
                         first_ex_dpo = list(dpo_items)
@@ -499,11 +527,19 @@ def train(cfg: dict) -> None:
 
                 # Vague fraction (over all rated rollouts)
                 all_vague = []
+                all_text_inv = []
+                all_inst_follow = []
                 for jr in judge_results:
                     if jr and jr.ratings:
                         all_vague.extend(r.vague for r in jr.ratings)
+                        all_text_inv.extend(r.text_inversion for r in jr.ratings)
+                        all_inst_follow.extend(r.instruction_following for r in jr.ratings)
                 if all_vague:
                     metrics_accum["vague_frac"].append(sum(all_vague) / len(all_vague))
+                if all_text_inv:
+                    metrics_accum["text_inversion_frac"].append(sum(all_text_inv) / len(all_text_inv))
+                if all_inst_follow:
+                    metrics_accum["instruction_following_frac"].append(sum(all_inst_follow) / len(all_inst_follow))
 
                 # Exact refusal fraction (over raw rollouts)
                 refusal_set = set(REFUSAL_PARAPHRASES)
@@ -531,9 +567,22 @@ def train(cfg: dict) -> None:
                         print(f"\n{'═'*70}")
                         print(f"  EXAMPLE DETAIL")
                         print(f"{'═'*70}")
+                        q_included = prev_questions[0] is not None if prev_questions else False
                         print(f"  Question:  {ex['question'][:120]}...")
                         print(f"  CoT:       {ex['cot_response'][:120]}...")
                         print(f"  Prompt:    {prev_prompts[0]}")
+                        print(f"  Q incl:    {'YES' if q_included else 'no'}")
+                        # Show per-rollout ratings summary
+                        rating_summary = ", ".join(
+                            f"R{r.index}={r.rating}"
+                            + (" TI" if r.text_inversion else "")
+                            + (" !IF" if not r.instruction_following else "")
+                            + (" V" if r.vague else "")
+                            for r in jr.ratings[:8]  # first 8 to avoid overflow
+                        )
+                        print(f"  Ratings:   {rating_summary}")
+                        if len(jr.ratings) > 8:
+                            print(f"             ... and {len(jr.ratings) - 8} more")
                         print(f"{'─'*70}")
                         # Show DPO pairs with rating labels
                         if first_ex_dpo:
@@ -547,15 +596,12 @@ def train(cfg: dict) -> None:
                                     [t for t, l in zip(pair.rejected_ids, pair.rejected_labels) if l != -100],
                                     skip_special_tokens=True,
                                 )[:150].replace('\n', ' ')
-                                # Label shows pair type and which side is model-generated
                                 tag = pair.label or "?"
                                 print(f"  {pi+1}. [{tag}]")
-                                c_src = "model" if tag in ("specific>vague",) else "judge"
-                                r_src = "model" if tag in ("refusal>bad", "correction>model", "reformatted>malformed") else "judge"
-                                print(f"     ✓ ({c_src}) {chosen_text}")
-                                print(f"     ✗ ({r_src}) {rejected_text}")
+                                print(f"     ✓ {chosen_text}")
+                                print(f"     ✗ {rejected_text}")
                         elif first_ex_sft:
-                            print(f"  ALL BAD — SFT only:")
+                            print(f"  No DPO pairs — SFT only:")
                             for si, sft in enumerate(first_ex_sft):
                                 sft_text = tokenizer.decode(
                                     [t for t, l in zip(sft.input_ids, sft.labels) if l != -100],
@@ -622,7 +668,8 @@ def train(cfg: dict) -> None:
                     print(f"{'─'*60}")
                     print(f"  Loss     dpo: {avg.get('dpo_loss', 0):.4f}   sft: {avg.get('sft_loss', 0):.4f}   total: {avg.get('total_loss', 0):.4f}")
                     print(f"  Margin   {avg.get('reward_margin', 0):+.3f}")
-                    print(f"  Ratings  good: {avg.get('good_frac', 0):.1%}  bad: {avg.get('bad_frac', 0):.1%}  mixed: {avg.get('mixed_frac', 0):.1%}  vague: {avg.get('vague_frac', 0):.1%}")
+                    print(f"  Ratings  good: {avg.get('good_frac', 0):.1%}  bad: {avg.get('bad_frac', 0):.1%}  mixed: {avg.get('mixed_frac', 0):.1%}  indet: {avg.get('indeterminate_frac', 0):.1%}")
+                    print(f"  Flags    vague: {avg.get('vague_frac', 0):.1%}  text_inv: {avg.get('text_inversion_frac', 0):.1%}  inst_follow: {avg.get('instruction_following_frac', 0):.1%}")
                     print(f"  Refusal  exact: {avg.get('exact_refusal_frac', 0):.1%}")
                     print(f"  Timing   gpu: {avg.get('gpu_time_s', 0):.1f}s  judge: {avg.get('judge_time_s', 0):.1f}s")
 
@@ -684,6 +731,13 @@ def train(cfg: dict) -> None:
                         print(f"  Uploaded to HF: {repo_id}/step_{global_step}")
                     except Exception as e:
                         print(f"  HF upload failed: {e}")
+
+                # Fixed eval (same probes, same examples, every eval_every steps)
+                if global_step % eval_every == 0:
+                    try:
+                        fixed_eval.run_and_log(model, injection_layer, device, global_step)
+                    except Exception as e:
+                        print(f"  [fixed_eval] Failed: {e}")
 
                 # Clean up
                 del dpo_loss, sft_loss, total_loss
