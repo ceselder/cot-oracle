@@ -2471,6 +2471,11 @@ class ChatCompareWebApp:
             temperature = float(payload.get("temperature", 1.0))
             context_window = int(payload.get("context_window", 1))
             include_answer = payload.get("include_answer", False)
+            # Switch to the requested checkpoint (from slot 1) before computing
+            checkpoint_type = payload.get("checkpoint_type")
+            checkpoint_key = payload.get("checkpoint_key")
+            if checkpoint_type and checkpoint_key:
+                await asyncio.to_thread(self._switch_checkpoint, checkpoint_type, checkpoint_key)
             return await asyncio.to_thread(self._compute_ao_logprobs, prompt, answer_tokens, adapter, heatmap_stride, temperature, context_window, include_answer)
 
         @self.app.post("/api/heatmap/readout")
@@ -2783,11 +2788,7 @@ class ChatCompareWebApp:
             <input id=\"heatmapAoStride\" type=\"number\" value=\"5\" min=\"1\" step=\"1\" style=\"width:60px\">
           </div>
           <div id=\"heatmapAoAdapterDiv\" style=\"display:none\">
-            <label>Oracle adapter</label>
-            <select id=\"heatmapAoAdapter\">
-              <option value=\"trained\">Trained Oracle</option>
-              <option value=\"adam\">Original AO (Adam)</option>
-            </select>
+            <label class=\"muted small\">Uses Slot 1 checkpoint</label>
           </div>
           <div id=\"heatmapAoTempDiv\" style=\"display:none\">
             <label>Temp <span class=\"muted\">(sharpness)</span></label>
@@ -4242,15 +4243,18 @@ For your final answer, respond with "Answer: Yes" or "Answer: No" after the chai
         const prompt = aoTask === 'custom'
           ? document.getElementById('heatmapAoPrompt').value.trim()
           : (HEATMAP_PROMPTS[aoTask] || TASK_PROMPTS[aoTask]);
-        const adapter = document.getElementById('heatmapAoAdapter').value;
+        const slot1Val = document.getElementById('slot1Checkpoint').value || 'trained:__default__';
+        const [checkpointType, checkpointKey] = slot1Val.split(':');
+        const adapter = checkpointType === 'adam' ? 'original_ao' : 'trained';
         const heatmapStride = parseInt(document.getElementById('heatmapAoStride').value) || 5;
         if (!prompt) { setHeatmapStatus(false, 'Enter an oracle prompt'); return; }
-        setHeatmapStatus(true, `Running batched AO logprobs (stride ${heatmapStride})...`);
+        const slot1Label = document.getElementById('slot1Checkpoint').selectedOptions[0]?.textContent || 'Slot 1';
+        setHeatmapStatus(true, `Running batched AO logprobs with ${slot1Label} (stride ${heatmapStride})...`);
         try {
           const aoTemp = parseFloat(document.getElementById('heatmapAoTemp').value) || 1.0;
           const aoContext = parseInt(document.getElementById('heatmapAoContext').value) || 1;
           const includeAnswer = heatmapShowAnswer();
-          const data = await postJson('/api/heatmap/ao_logprobs', { prompt, answer_tokens: 'Yes,No', adapter, heatmap_stride: heatmapStride, temperature: aoTemp, context_window: aoContext, include_answer: includeAnswer });
+          const data = await postJson('/api/heatmap/ao_logprobs', { prompt, answer_tokens: 'Yes,No', adapter, checkpoint_type: checkpointType === 'adam' ? 'adam' : 'trained', checkpoint_key: checkpointKey || '__default__', heatmap_stride: heatmapStride, temperature: aoTemp, context_window: aoContext, include_answer: includeAnswer });
           heatmapScores = data;
           // Use normalized P(Yes) probability (0-1) if available, else fall back to logprob diff
           let scores, label, minS, maxS;
