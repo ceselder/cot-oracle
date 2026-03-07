@@ -62,9 +62,9 @@ from core.ao import (
 )
 from nl_probes.sae import load_dictionary_learning_batch_topk_sae
 from patchscopes import _run_patchscope_single as run_patchscope_single
-from sae_probe import _encode_and_aggregate as sae_probe_encode_and_aggregate
-from sae_probe import _format_features as sae_probe_format_features
-from sae_probe import GENERATION_PROMPT as SAE_LLM_GENERATION_PROMPT
+from sae_llm import _encode_and_aggregate as sae_llm_encode_and_aggregate
+from sae_llm import _format_features as sae_llm_format_features
+from sae_llm import GENERATION_PROMPT as SAE_LLM_GENERATION_PROMPT
 
 load_dotenv(PROJECT_ROOT / ".env")
 load_dotenv(Path.home() / ".env")
@@ -191,7 +191,10 @@ BUILTIN_TASK_PROMPTS = {
     "position_qa": "What reasoning function is the model performing at the selected positions?",
     "compqa": "Answer the user's question about the quality of this reasoning.",
     "chunked_convqa": "Answer the user's question about the later part of the chain-of-thought.",
-    "chunked_compqa": "Answer the user's question about the later part of the chain-of-thought.",
+    "chunked_compqa_backtrack": "Does the model revise or backtrack after this point?",
+    "chunked_compqa_self_correction": "Does the model notice and correct an error after this point?",
+    "chunked_compqa_verification": "Does the model verify or double-check its work after this point?",
+    "chunked_compqa_remaining_strategy": "Describe the reasoning approach the model uses in the remaining part of the chain-of-thought.",
 }
 
 # Binary yes/no prompts for AO heatmap — must elicit single-token Yes/No responses
@@ -208,7 +211,10 @@ HEATMAP_BINARY_PROMPTS = {
 
 CHUNKED_TASK_HF_REPOS = {
     "chunked_convqa": "mats-10-sprint-cs-jb/cot-oracle-convqa-chunked",
-    "chunked_compqa": "mats-10-sprint-cs-jb/cot-oracle-compqa-chunked",
+    "chunked_compqa_backtrack": "mats-10-sprint-cs-jb/cot-oracle-compqa-chunked",
+    "chunked_compqa_self_correction": "mats-10-sprint-cs-jb/cot-oracle-compqa-chunked",
+    "chunked_compqa_verification": "mats-10-sprint-cs-jb/cot-oracle-compqa-chunked",
+    "chunked_compqa_remaining_strategy": "mats-10-sprint-cs-jb/cot-oracle-compqa-chunked",
 }
 
 CLI_ALIASES = {
@@ -579,9 +585,9 @@ def load_sae_labels(layers):
 
 def build_sae_feature_description(saes, labels, layer_to_selected_acts, layers, top_k=20):
     cpu_acts = {layer: acts.to("cpu", dtype=torch.bfloat16) for layer, acts in layer_to_selected_acts.items()}
-    aggregated = sae_probe_encode_and_aggregate(saes, labels, cpu_acts, layers, top_k)
+    aggregated = sae_llm_encode_and_aggregate(saes, labels, cpu_acts, layers, top_k)
     n_positions = max((acts.shape[0] for acts in cpu_acts.values()), default=0)
-    return sae_probe_format_features(aggregated, n_positions)
+    return sae_llm_format_features(aggregated, n_positions)
 
 
 def query_openrouter(prompt, model, api_base=OPENROUTER_API_BASE, max_tokens=300, response_format=None):
@@ -2189,12 +2195,22 @@ class ChatCompareWebApp:
             if task not in CHUNKED_TASK_HF_REPOS:
                 raise HTTPException(status_code=400, detail=f"Not a chunked task: {task}")
             repo = CHUNKED_TASK_HF_REPOS[task]
-            offset = random.randint(0, 500)
-            params = urllib.parse.urlencode({"dataset": repo, "config": "default", "split": "test", "offset": offset, "limit": 20})
-            url = f"https://datasets-server.huggingface.co/rows?{params}"
-            with urllib.request.urlopen(url) as response:
-                payload = json.load(response)
-            row = random.choice(payload["rows"])["row"]
+            from tasks import TASKS
+            filter_dtype = TASKS[task].filter_datapoint_type if task in TASKS else ""
+            candidates = []
+            for attempt in range(10):
+                offset = random.randint(0, 500)
+                params = urllib.parse.urlencode({"dataset": repo, "config": "default", "split": "test", "offset": offset, "limit": 50})
+                url = f"https://datasets-server.huggingface.co/rows?{params}"
+                with urllib.request.urlopen(url) as response:
+                    payload = json.load(response)
+                rows = [r["row"] for r in payload["rows"]]
+                if filter_dtype:
+                    rows = [r for r in rows if r.get("datapoint_type") == filter_dtype]
+                if rows:
+                    candidates = rows
+                    break
+            row = random.choice(candidates)
             return {
                 "question": row["question"],
                 "prompt": row["prompt"],

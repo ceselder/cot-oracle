@@ -3,3 +3,7 @@
 # Used by run_comprehensive_eval.py and eval_viewer.py to indicate trained-on-task bars.
 trained_tasks:
   - sqa
+
+# Adam AO-compatible eval subset used for dedicated mean panels in comprehensive plots.
+eval_tasks:
+  - sqa

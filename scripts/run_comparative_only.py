@@ -20,9 +20,10 @@ if str(_SRC) not in sys.path:
 
 from tasks import TASKS
 from data_loading import load_task_data
+from qa_judge import get_score_model
 
 LOGS_DIR = Path("data/comprehensive_eval/logs")
-METHOD_ORDER = ["llm_monitor_flash", "llm_monitor_pro", "original_ao", "our_ao", "linear_probes", "sae_probe"]
+METHOD_ORDER = ["weak-llm", "strong-llm", "original_ao", "our_ao", "linear_probes", "sae_llm"]
 K_SWEEP = [1, 5, 10, 20, None]
 
 COMPARATIVE_SCORING_PROMPT = """\
@@ -96,16 +97,21 @@ def _best_k_preds(task_results, prefix):
     return best_preds
 
 
+_STEM_REMAP = {"sae_probe": "sae_llm", "llm_monitor_flash": "weak-llm", "llm_monitor_pro": "strong-llm"}
+
 def load_task_results(task_dir: Path) -> dict:
     results = {}
     for f in task_dir.glob("*.json"):
         if f.stem == "per_example_records":
             continue
-        results[f.stem] = json.loads(f.read_text())
+        key = _STEM_REMAP.get(f.stem, f.stem)
+        results[key] = json.loads(f.read_text())
     return results
 
 
-def process_task(task_name: str, model: str = "google/gemini-2.5-flash", rerun: bool = False):
+def process_task(task_name: str, model: str | None = None, rerun: bool = False):
+    if model is None:
+        model = get_score_model()
     log_path = LOGS_DIR / task_name / "per_example_records.json"
     if not rerun and log_path.exists():
         print(f"  [{task_name}] already done, skipping")
@@ -137,7 +143,7 @@ def process_task(task_name: str, model: str = "google/gemini-2.5-flash", rerun: 
     example_ids = [f"{task_name}_{i}" for i in range(len(items))]
 
     method_preds: dict[str, list] = {}
-    for method in ["llm_monitor_flash", "llm_monitor_pro", "linear_probes", "sae_probe"]:
+    for method in ["weak-llm", "strong-llm", "linear_probes", "sae_llm"]:
         res = task_results.get(method)
         if res and "predictions" in res:
             method_preds[method] = res["predictions"]
@@ -199,7 +205,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--tasks", nargs="+", default=None)
     parser.add_argument("--rerun", action="store_true")
-    parser.add_argument("--model", default="google/gemini-2.5-flash")
+    parser.add_argument("--model", default=None)
     args = parser.parse_args()
 
     tasks = args.tasks or [d.name for d in sorted(LOGS_DIR.iterdir()) if d.is_dir()]

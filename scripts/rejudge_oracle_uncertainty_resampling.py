@@ -5,6 +5,7 @@ import argparse
 import importlib.util
 import json
 import os
+import sys
 from collections import defaultdict
 from pathlib import Path
 
@@ -15,14 +16,20 @@ from tqdm.auto import tqdm
 
 
 ROOT = Path(__file__).resolve().parent.parent
+SRC_DIR = ROOT / "src"
+if str(SRC_DIR) not in sys.path:
+    sys.path.insert(0, str(SRC_DIR))
+
+from qa_judge import get_score_model
 
 
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Rejudge oracle uncertainty resampling artifacts without rerunning generation")
+    default_score_model = get_score_model()
     parser.add_argument("--run-dir", required=True, help="Existing merged run directory containing predictions and summary.json")
     parser.add_argument("--output-dir", default="", help="Default: <run-dir>_llm_variance")
     parser.add_argument("--variance-metric", default="llm", choices=["llm", "f1"])
-    parser.add_argument("--judge-model", default="google/gemini-2.5-flash")
+    parser.add_argument("--score-model", default=default_score_model)
     parser.add_argument("--judge-max-tokens", type=int, default=140)
     parser.add_argument("--min-variance-floor", type=float, default=1e-3)
     return parser.parse_args()
@@ -203,7 +210,7 @@ def main() -> None:
     eval_module = _load_eval_module()
     judge_args = argparse.Namespace(
         variance_metric=args.variance_metric,
-        judge_model=args.judge_model,
+        score_model=args.score_model,
         judge_max_tokens=args.judge_max_tokens,
         min_variance_floor=args.min_variance_floor,
     )
@@ -236,7 +243,7 @@ def main() -> None:
 
     out_summary = dict(summary)
     out_summary["variance_metric"] = args.variance_metric
-    out_summary["judge_model"] = args.judge_model
+    out_summary["score_model"] = args.score_model
     out_summary["judge_max_tokens"] = args.judge_max_tokens
     out_summary["min_variance_floor"] = args.min_variance_floor
     out_summary["source_run_dir"] = str(src_run_dir)

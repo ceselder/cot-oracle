@@ -732,6 +732,7 @@ def _run_unified_eval(model, tokenizer, model_name, global_step, args, log_dir=N
         stochastic_max_k=args.stochastic_max_k,
         position_encoding=args.position_encoding,
         pe_alpha=args.pe_alpha,
+        score_model=args.score_model,
     )
 
     # Aggregate mean metrics across eval tasks
@@ -1741,6 +1742,8 @@ def apply_config(args, config: dict):
             args.cls_eval_datasets = e["cls_eval_datasets"]
         if "cls_eval_n" in e and not getattr(args, "_cli_cls_eval_n", False):
             args.cls_eval_n = int(e["cls_eval_n"])
+        if "score_model" in e:
+            args.score_model = str(e["score_model"])
 
     # Data paths (unified: all data from HuggingFace, no local corpus/precomputed paths needed)
 

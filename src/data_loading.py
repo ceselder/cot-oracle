@@ -119,6 +119,9 @@ def load_task_data(
                 item["target_response"] = str(item["correct_answer"])
             data.append(item)
 
+    if task_def.filter_datapoint_type:
+        data = [item for item in data if item.get("datapoint_type") == task_def.filter_datapoint_type]
+
     if n is not None and len(data) > n:
         if shuffle:
             random.shuffle(data)
@@ -344,7 +347,7 @@ def _download_from_hf(task_def: TaskDef, split: str) -> Path:
     from filelock import FileLock
     from huggingface_hub import hf_hub_download
 
-    cache_dir = _HF_CACHE_DIR / task_def.name
+    cache_dir = _HF_CACHE_DIR / (task_def.hf_cache_name or task_def.name)
     cache_dir.mkdir(parents=True, exist_ok=True)
     local_path = cache_dir / f"{split}.jsonl"
     lock_path = cache_dir / f"{split}.jsonl.lock"

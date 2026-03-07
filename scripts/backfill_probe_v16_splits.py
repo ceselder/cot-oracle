@@ -37,7 +37,11 @@ SPLITS = ["train_1", "train_2", "eval"]
 SPLIT_DISPLAY = {"train_1": "train", "train_2": "test", "eval": "eval"}
 TASK_MAX_NEW_TOKENS = {"reasoning_termination": 64, "answer_trajectory": 64, "atypical_answer": 64}
 CHECKPOINT_ROOT = Path("/ceph/scratch/jbauer/checkpoints/cot_oracle_v16_posembed")
-CHECKPOINT_PATHS = {"step_2536": CHECKPOINT_ROOT / "step_2536", "final": CHECKPOINT_ROOT / "final"}
+CHECKPOINT_PATHS = {
+    "step_2536": CHECKPOINT_ROOT / "step_2536",
+    "final": CHECKPOINT_ROOT / "final",
+    "v15_stochastic": Path("/ceph/scratch/jbauer/checkpoints/cot_oracle_v15_stochastic"),
+}
 PROBE_RUN_IDS = {
     "reasoning_termination": "1ohxlpxm",
     "answer_trajectory": "vzg2cqdj",
@@ -298,40 +302,49 @@ def _compute_split_source_metadata(seed: int, max_train_total: int, max_eval: in
 
 def _plot_results(results: dict, plot_path: Path, ckpt_labels: list[str]) -> None:
     plt.rcParams["figure.autolayout"] = False
-    method_labels = ["probe"] + [f"v16_{c}" for c in ckpt_labels]
+    plot_tasks = ["reasoning_termination", "atypical_answer", "answer_trajectory"]
+    method_labels = ["probe"] + ckpt_labels
+    method_display = {
+        "probe": "probe",
+        "step_2536": "v16_step_2536",
+        "final": "AO, train=narrow",
+        "v15_stochastic": "AO, train=mixed",
+    }
     method_colors = {
         "probe": "C0",
-        "v16_step_2536": "C3",
-        "v16_final": "C1",
+        "step_2536": "C3",
+        "final": "C1",
+        "v15_stochastic": "C2",
     }
     fig, axes = plt.subplots(1, 3, figsize=(20, 7.4), layout="constrained")
     split_keys = ["train_1", "train_2", "eval"]
     split_labels = [SPLIT_DISPLAY[s] for s in split_keys]
     x = np.array([0.0, 0.58, 1.8], dtype=np.float64)
+    task_display = {"reasoning_termination": "reasoning_termination", "answer_trajectory": "answer_confidence", "atypical_answer": "atypical_answer"}
 
-    for ax, task_name in zip(axes, TASKS):
+    for ax, task_name in zip(axes, plot_tasks):
         width = 0.34 / len(method_labels)
         offsets = np.linspace(-(len(method_labels) - 1) * width / 2, (len(method_labels) - 1) * width / 2, len(method_labels))
-
+        is_answer_conf = task_name == "answer_trajectory"
         metric_key = "balanced_accuracy" if task_name in ("reasoning_termination", "atypical_answer") else "mae"
         for mi, method in enumerate(method_labels):
-            vals = []
+            raw_vals = []
             stds = []
             for split_name in split_keys:
                 if method == "probe":
-                    vals.append(results["probe"][task_name][split_name][metric_key])
+                    raw_vals.append(results["probe"][task_name][split_name][metric_key])
                     stds.append(results["probe"][task_name][split_name]["bootstrap_std"])
                 else:
-                    ck = method.replace("v16_", "")
-                    vals.append(results["v16"][ck][task_name][split_name][metric_key])
-                    stds.append(results["v16"][ck][task_name][split_name]["bootstrap_std"])
+                    raw_vals.append(results["v16"][method][task_name][split_name][metric_key])
+                    stds.append(results["v16"][method][task_name][split_name]["bootstrap_std"])
+            vals = [1.0 - v for v in raw_vals] if is_answer_conf else raw_vals
             bar_color = method_colors.get(method, "#4b5563")
             ax.bar(
                 x + offsets[mi],
                 vals,
                 width=width,
                 color=bar_color,
-                label=method,
+                label=method_display.get(method, method),
                 alpha=0.96,
                 yerr=stds,
                 capsize=3,
@@ -341,15 +354,18 @@ def _plot_results(results: dict, plot_path: Path, ckpt_labels: list[str]) -> Non
         ax.set_xticks(x)
         ax.set_xticklabels(split_labels)
         if metric_key == "balanced_accuracy":
-            ax.set_ylim(0.35, 1.04)
+            ax.set_ylim(0.0, 1.04)
             ax.set_ylabel("Balanced Accuracy")
+        elif is_answer_conf:
+            ax.set_ylim(0.0, 1.04)
+            ax.set_ylabel("1 - conf_MAE/100 (higher is better)")
         else:
             ymax = max(results["probe"][task_name][s][metric_key] + results["probe"][task_name][s]["bootstrap_std"] for s in split_keys)
             for ck in ckpt_labels:
                 ymax = max(ymax, *(results["v16"][ck][task_name][s][metric_key] + results["v16"][ck][task_name][s]["bootstrap_std"] for s in split_keys))
             ax.set_ylim(0.0, ymax * 1.3 + 0.01)
             ax.set_ylabel("MAE (lower is better)")
-        ax.set_title(task_name)
+        ax.set_title(task_display[task_name])
         split_sources = results["split_sources"][task_name]
         for xi, split_name in zip(x, split_keys):
             dataset_text = "\n".join(textwrap.wrap(", ".join(split_sources[split_name]), width=26))

@@ -260,7 +260,7 @@ async def _fetch_batch(client, sem, prompts, model, max_tokens, temperature, pba
     return await asyncio.gather(*[_wrapped(p) for p in prompts])
 
 
-def run_sae_probe(
+def run_sae_llm(
     inputs: list[BaselineInput], *,
     layers: list[int], top_k: int,
     sae_dir: str, sae_labels_dir: str, sae_trainer: int,
@@ -307,7 +307,7 @@ def run_sae_probe(
         trace = {
             "prompt_hash": _prompt_hash(prompt),
             "example_id": inp.example_id,
-            "llm_response": response[:500],
+            "llm_response": response,
             "ground_truth": inp.ground_truth_label,
             "eval_type": eval_type,
             "feature_desc": feature_desc,
@@ -322,8 +322,8 @@ def run_sae_probe(
         elif eval_type == "generation":
             predictions.append(response)
             reference = str(inp.metadata.get("plain_cot", inp.metadata.get("target_cot", inp.correct_answer)))
-            trace["prediction"] = response[:200]
-            trace["reference"] = reference[:200]
+            trace["prediction"] = response
+            trace["reference"] = reference
             trace["token_f1"] = token_f1(response, reference)
         elif eval_type == "ranking":
             chunks = inp.metadata.get("cot_chunks", [])

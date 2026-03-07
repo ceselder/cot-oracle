@@ -37,7 +37,7 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 from core.ao import choose_attn_implementation
 from data_loading import load_task_data, prepare_context_ids
 from eval_loop import _extract_base_positions, _materialize_activations, _batched_oracle_generate
-from qa_judge import OPENROUTER_CHAT_COMPLETIONS_URL, QA_GEMINI_SCORE_MODEL, extract_judge_json, compute_token_f1_scores
+from qa_judge import OPENROUTER_CHAT_COMPLETIONS_URL, compute_token_f1_scores, extract_judge_json, get_score_model
 
 load_dotenv(os.path.expanduser("~/.env"))
 load_dotenv()
@@ -110,6 +110,7 @@ LOW_INFO_WORDS = {
 
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Activation-oracle uncertainty via resampling")
+    default_score_model = get_score_model()
     parser.add_argument("--checkpoint", default="/ceph/scratch/jbauer/checkpoints/cot_oracle_v15_stochastic")
     parser.add_argument("--model", default="Qwen/Qwen3-8B")
     parser.add_argument("--split", default="train", choices=["train", "test"])
@@ -129,9 +130,9 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--panel-b-require-numeric", type=int, default=0, help="1=prefer/require numeric informative tokens")
     parser.add_argument("--panel-b-word-fallback", type=int, default=1, help="1=allow non-numeric fallback if not enough numeric probes")
     parser.add_argument("--panel-b-question-mode", default="token_recall", choices=["token_recall", "original", "natural"])
-    parser.add_argument("--panel-b-question-model", default=QA_GEMINI_SCORE_MODEL)
+    parser.add_argument("--panel-b-question-model", default=default_score_model)
     parser.add_argument("--panel-b-rerank", default="llm", choices=["none", "llm"])
-    parser.add_argument("--panel-b-rerank-model", default=QA_GEMINI_SCORE_MODEL)
+    parser.add_argument("--panel-b-rerank-model", default=default_score_model)
     parser.add_argument("--panel-b-rerank-top-k", type=int, default=8)
     parser.add_argument("--panel-b-rerank-context-chars", type=int, default=72)
     parser.add_argument("--panel-b-num-shards", type=int, default=1)
@@ -152,7 +153,7 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--max-new-tokens", type=int, default=120)
     parser.add_argument("--variance-metric", default="f1", choices=["f1", "llm"])
     parser.add_argument("--min-variance-floor", type=float, default=1e-3)
-    parser.add_argument("--judge-model", default=QA_GEMINI_SCORE_MODEL)
+    parser.add_argument("--score-model", default=default_score_model)
     parser.add_argument("--judge-max-tokens", type=int, default=140)
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--output-dir", default="eval_logs/oracle_uncertainty_resampling")
@@ -502,7 +503,7 @@ def _judge_variance_llm(
     client: httpx.Client,
     question: str,
     answers: list[str],
-    judge_model: str,
+    score_model: str,
     judge_max_tokens: int,
     min_variance_floor: float,
 ) -> dict:
@@ -513,7 +514,7 @@ def _judge_variance_llm(
         "Score semantic disagreement across answers."
     )
     body = {
-        "model": judge_model,
+        "model": score_model,
         "messages": [
             {"role": "system", "content": VARIANCE_JUDGE_SYSTEM},
             {"role": "user", "content": user_prompt},
@@ -590,7 +591,7 @@ def _judge_variance(
         client=client,
         question=question,
         answers=answers,
-        judge_model=args.judge_model,
+        score_model=args.score_model,
         judge_max_tokens=args.judge_max_tokens,
         min_variance_floor=args.min_variance_floor,
     )

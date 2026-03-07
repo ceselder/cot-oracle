@@ -34,6 +34,10 @@ load_dotenv(Path.home() / ".env")
 
 DEFAULT_TOKENIZER_MODEL = "Qwen/Qwen3-8B"
 
+import yaml as _yaml
+_train_cfg = _yaml.safe_load((PROJECT_ROOT / "configs" / "train.yaml").read_text())
+DEFAULT_MODEL = _train_cfg.get("eval", {}).get("score_model", "google/gemini-2.5-flash-lite")
+
 
 def default_layers_for_model(model_name: str) -> list[int]:
     if model_name == "Qwen/Qwen3-0.6B":
@@ -143,7 +147,7 @@ async def label_batch(client: AsyncOpenAI, semaphore: asyncio.Semaphore,
     async with semaphore:
         prompt = format_batch_prompt(feature_batch, layer, model_label)
         feat_ids = [f for f, _ in feature_batch]
-        max_tokens = 128 * len(feature_batch)
+        max_tokens = 512 * len(feature_batch)
 
         # Log prompt
         batch_name = f"batch_{feat_ids[0]:06d}-{feat_ids[-1]:06d}"
@@ -287,7 +291,7 @@ def main():
     parser.add_argument("--min-examples", type=int, default=10, help="Min alive count to label a feature")
     parser.add_argument("--n-examples", type=int, default=10, help="Top-N examples per prompt")
     parser.add_argument("--tokenizer-model", type=str, default=DEFAULT_TOKENIZER_MODEL)
-    parser.add_argument("--model", type=str, default="google/gemini-2.5-flash-lite")
+    parser.add_argument("--model", type=str, default=DEFAULT_MODEL)
     parser.add_argument("--max-concurrent", type=int, default=50)
     parser.add_argument("--batch-size", type=int, default=5, help="Features per LLM call")
     parser.add_argument("--output-dir", type=str, default=None)

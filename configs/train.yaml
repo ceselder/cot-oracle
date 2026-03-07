@@ -6,70 +6,80 @@ tasks:
   # n: how many to select from dataset (-1 = all, 0 = skip)
   # epochs: how many times to repeat the selected data (default 1)
 
-  hint_admission:           # ~3K available
+  hint_admission:           # ~3K available, (computation, supervised)
     n: -1
     epochs: 2
     eval: true
 
-  atypical_answer:          # ~20K available
+  atypical_answer:          # ~20K available (computation, supervised)
     n: -1
     eval: true
 
-  reasoning_termination:    # ~12K available
+  reasoning_termination:    # ~12K available  (computation, supervised)
     n: -1
     epochs: 2
     eval: true
 
-  answer_trajectory:        # ~42K available
+  answer_trajectory:        # ~42K available (computation, supervised)
     n: -1
     eval: true
 
-  futurelens:
+  futurelens:  # (pre/postdiction, unsupervised)
     n: 30000
     eval: true
 
-  pastlens:
+  pastlens: # (pre/postdiction, unsupervised)
     n: 30000
     eval: true
 
-  correctness:              # ~7.8K available
+  correctness:              # ~7.8K available (computation, supervised)
     n: -1
     epochs: 2
     eval: true
 
-  decorative_cot:           # ~4.1K available
+  decorative_cot:           # ~4.1K available (computation, supervised)
     n: -1
     epochs: 2
     eval: true
 
-  resampling_importance:    # ~468 available
-    n: -1
-    epochs: 4
+  resampling_importance:    # ~468 available (computation, supervised)
+    n: 0
     eval: true
 
-  convqa:                     # ~25K available
+  convqa:                     # ~25K available (reconstruction, self-supervised)
+    n: 0
+    eval: true
+
+  compqa:                     # ~8K available (reconstruction, self-supervised)
+    n: 0
+    eval: true
+
+  chunked_convqa:           # ~27K available (pre/postdiction, self-supervised)
     n: -1
     eval: true
 
-  compqa:                     # ~8K available
+  chunked_compqa_backtrack:        # ~10K available (computation, self-supervised)
+    n: -1
+    eval: true
+
+  chunked_compqa_self_correction:  # ~5K available (computation, self-supervised)
+    n: -1
+    eval: true
+
+  chunked_compqa_verification:     # ~5.5K available (computation, self-supervised)
+    n: -1
+    eval: true
+
+  chunked_compqa_remaining_strategy: # ~8K available (reconstruction, self-supervised)
+    n: -1
+    eval: true
+
+  backtrack_prediction:     # ~12K available (computation, supervised)
     n: -1
     epochs: 2
     eval: true
 
-  chunked_convqa:           # ~27K available
-    n: -1
-    eval: true
-
-  chunked_compqa:           # ~30K available
-    n: -1
-    eval: true
-
-  backtrack_prediction:     # ~12K available
-    n: -1
-    epochs: 2
-    eval: true
-
-  sycophancy:               # ~10K available
+  sycophancy:               # ~10K available (computation, supervised)
     n: -1
     epochs: 2
     eval: true
@@ -82,46 +92,48 @@ tasks:
     n: 0
     eval: false
 
-  sqa:                      # ~8.5K available
+  sqa:                      # ~8.5K available (pre/postdiction, self-supervised)
     n: -1
     epochs: 2
     eval: true
 
-  truthfulqa_hint:          # ~3.8K available
+  truthfulqa_hint:          # ~3.8K available (computation, supervised)
     n: -1
     epochs: 2
     eval: true
 
-  sentence_insertion:
+  sentence_insertion: # (computation, self-supervised)
     eval: true
 
   rot13_reconstruction:
     eval: false     # skip for now
 
-  cot_description:
+  cot_description:   # (reconstruction, supervised)
+    n: 0
     eval: true
 
   cot_metacognition:
+    n: 0
     eval: false
 
-  sae_unverbalized:           # ~10.5K available
-    n: -1
+  sae_unverbalized:           # ~10.5K available (reconstruction, supervised)
+    n: 0
     eval: true
 
   deception_detection:
     n: 0
     eval: false
 
-# FineWeb readout tasks
+# FineWeb readout tasks (reconstruction, unsupervised)
 fineweb:
   enabled: true
-  n: 60000                      # 20K futurelens + 20K pastlens + 20K reconstruction
-  variant: futurelens_fineweb,pastlens_fineweb,reconstruction_fineweb
+  n: 60000                      # 30K futurelens + 30K pastlens
+  variant: futurelens_fineweb,pastlens_fineweb
   max_context_tokens: 2000
   min_target_tokens: 5
   max_target_tokens: 25
 
-# Classification (matching Adam's AO training)
+# Classification (reconstruction, supervised)
 classification:
   enabled: true
   n: 20000
@@ -163,6 +175,7 @@ activations:
 eval:
   eval_steps: 2000
   max_items_per_eval: 25
+  score_model: google/gemini-2.5-flash-lite  # shared OpenRouter judge model for QA / trajectory / llm_judge / reference scoring
   cls_eval: false          # run AO classification evals (sst2, ag_news, etc.) at each eval step
   cls_eval_n: 25           # test examples per classification dataset
 
@@ -192,17 +205,24 @@ baselines:
 
   # Black-box LLM monitor: text-only CoT reading
   # Pre-collected traces in logs/llm_monitor_tasks/ are used first; API called for the rest
-  llm_monitor_flash:
+  weak-llm:
     model: google/gemini-3.1-flash-lite-preview  # fast model
     api_base: https://openrouter.ai/api/v1
     max_tokens: 300
+    max_concurrent: 8
     temperature: 0.0
+    include_question: true
 
-  llm_monitor_pro:
+  strong-llm:
     model: google/gemini-3.1-pro-preview  # strong model (thinking model — needs large max_tokens budget)
     api_base: https://openrouter.ai/api/v1
     max_tokens: 2048
+    max_concurrent: 8
     temperature: 0.0
+    include_question: true
+
+  openended_reference_judge:
+    max_concurrent: 8
 
   # Linear probes: pretrained binary classifiers from HF (mats-10-sprint-cs-jb/qwen3-8b-linear-probes)
   linear_probes:
@@ -210,16 +230,16 @@ baselines:
     layers: [9, 18, 27]
     pooling: mean
 
-  # SAE probe: SAE encode + LLM judge
-  sae_probe:
+  # SAE LLM: SAE encode + LLM judge
+  sae_llm:
     sae_dir: downloaded_saes
     sae_labels_dir: /ceph/scratch/jbauer/sae_features/trainer_2/trainer_2/labels
     sae_trainer: 2
     layers: [9, 18, 27]
     top_k: 20
-    llm_model: google/gemini-3.1-flash-lite-preview
+    llm_model: google/gemini-2.5-flash-lite
     api_base: https://openrouter.ai/api/v1
-    max_tokens: 300
+    max_tokens: 1024
     temperature: 0.0
 
   # Patchscopes: slow (~14 min/task). Disabled by default; re-enable via --baselines ... patchscopes

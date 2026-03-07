@@ -40,6 +40,10 @@ class TaskDef:
     cot_field: str = "cot_text"         # field to use for activation extraction
     # Maps datapoint_type in existing precomputed data → this task
     legacy_datapoint_type: str = ""
+    # If set, only load rows where datapoint_type == this value (for subtask splits)
+    filter_datapoint_type: str = ""
+    # If set, use this name for the HF cache dir (allows subtasks to share a downloaded file)
+    hf_cache_name: str = ""
 
 
 # ── HF org prefix ──
@@ -110,7 +114,7 @@ TASKS: dict[str, TaskDef] = {
     "answer_trajectory": TaskDef(
         name="answer_trajectory",
         hf_repo="japhba/cot-oracle-answer-trajectory",
-        scoring=ScoringMode.TOKEN_F1,
+        scoring=ScoringMode.LLM_JUDGE,
         positive_keywords=(),
         negative_keywords=(),
         trainable=True,
@@ -221,16 +225,60 @@ TASKS: dict[str, TaskDef] = {
         cot_field="cot_prefix",
     ),
 
-    "chunked_compqa": TaskDef(
-        name="chunked_compqa",
+    "chunked_compqa_backtrack": TaskDef(
+        name="chunked_compqa_backtrack",
         hf_repo=f"{HF_ORG}/cot-oracle-compqa-chunked",
         scoring=ScoringMode.TOKEN_F1,
         positive_keywords=(),
         negative_keywords=(),
         trainable=True,
-        default_n=30000,
+        default_n=10000,
         max_new_tokens=128,
         cot_field="cot_prefix",
+        filter_datapoint_type="cot_backtrack_pred",
+        hf_cache_name="chunked_compqa",
+    ),
+
+    "chunked_compqa_self_correction": TaskDef(
+        name="chunked_compqa_self_correction",
+        hf_repo=f"{HF_ORG}/cot-oracle-compqa-chunked",
+        scoring=ScoringMode.TOKEN_F1,
+        positive_keywords=(),
+        negative_keywords=(),
+        trainable=True,
+        default_n=5000,
+        max_new_tokens=128,
+        cot_field="cot_prefix",
+        filter_datapoint_type="cot_self_correction",
+        hf_cache_name="chunked_compqa",
+    ),
+
+    "chunked_compqa_verification": TaskDef(
+        name="chunked_compqa_verification",
+        hf_repo=f"{HF_ORG}/cot-oracle-compqa-chunked",
+        scoring=ScoringMode.TOKEN_F1,
+        positive_keywords=(),
+        negative_keywords=(),
+        trainable=True,
+        default_n=5000,
+        max_new_tokens=128,
+        cot_field="cot_prefix",
+        filter_datapoint_type="cot_verification",
+        hf_cache_name="chunked_compqa",
+    ),
+
+    "chunked_compqa_remaining_strategy": TaskDef(
+        name="chunked_compqa_remaining_strategy",
+        hf_repo=f"{HF_ORG}/cot-oracle-compqa-chunked",
+        scoring=ScoringMode.TOKEN_F1,
+        positive_keywords=(),
+        negative_keywords=(),
+        trainable=True,
+        default_n=8000,
+        max_new_tokens=128,
+        cot_field="cot_prefix",
+        filter_datapoint_type="cot_remaining_strategy",
+        hf_cache_name="chunked_compqa",
     ),
 
     "backtrack_prediction": TaskDef(

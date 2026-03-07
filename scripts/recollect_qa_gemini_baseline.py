@@ -24,13 +24,13 @@ load_dotenv(Path.home() / ".env")
 
 from data_loading import load_task_data
 from qa_judge import (
-    QA_GEMINI_SCORE_MODEL,
-    QA_GEMINI_SCORE_MAX_TOKENS,
+    QA_SCORE_MAX_TOKENS,
     OPENROUTER_CHAT_COMPLETIONS_URL,
-    QA_GEMINI_SCORE_SYSTEM,
-    build_qa_gemini_score_prompt,
+    QA_SCORE_SYSTEM,
+    build_qa_score_prompt,
     compute_token_f1_scores,
     extract_judge_json,
+    get_score_model,
 )
 
 
@@ -142,6 +142,7 @@ async def _run_task(
     baseline_model: str,
     baseline_max_tokens: int,
     baseline_temperature: float,
+    score_model: str,
     concurrency: int,
 ) -> tuple[dict, list[dict]]:
     baseline_messages = [
@@ -159,15 +160,15 @@ async def _run_task(
 
     judge_messages = [
         [
-            {"role": "system", "content": QA_GEMINI_SCORE_SYSTEM},
-            {"role": "user", "content": build_qa_gemini_score_prompt(task_name, item["prompt"], item["target_response"], baseline_response)},
+            {"role": "system", "content": QA_SCORE_SYSTEM},
+            {"role": "user", "content": build_qa_score_prompt(task_name, item["prompt"], item["target_response"], baseline_response)},
         ]
         for item, baseline_response in zip(items, baseline_responses)
     ]
     judge_responses = await _gather_text_responses(
         judge_messages,
-        model=QA_GEMINI_SCORE_MODEL,
-        max_tokens=QA_GEMINI_SCORE_MAX_TOKENS,
+        model=score_model,
+        max_tokens=QA_SCORE_MAX_TOKENS,
         temperature=0.0,
         concurrency=concurrency,
         desc=f"Judge ({task_name})",
@@ -193,7 +194,7 @@ async def _run_task(
             "target_response": item["target_response"],
             "baseline_model": baseline_model,
             "baseline_response": baseline_response,
-            "judge_model": QA_GEMINI_SCORE_MODEL,
+            "score_model": score_model,
             "judge_score": score,
             "token_f1": token_f1_scores[idx],
             "judge_reason": str(judged["reason"]).strip(),
@@ -204,7 +205,7 @@ async def _run_task(
         "task": task_name,
         "n_items": len(items),
         "baseline_model": baseline_model,
-        "judge_model": QA_GEMINI_SCORE_MODEL,
+        "score_model": score_model,
         "mean_gemini_score": sum(scores) / len(scores),
         "per_item_gemini_score": scores,
         "mean_token_f1": sum(token_f1_scores) / len(token_f1_scores),
@@ -216,6 +217,7 @@ async def _run_task(
 def main() -> None:
     args = parse_args()
     cfg = _load_config(args.config)
+    score_model = get_score_model(cfg)
     max_items = args.max_items if args.max_items is not None else int(cfg["eval"]["max_items_per_eval"])
     llm_cfg = cfg["baselines"]["llm_monitor"]
     baseline_model = args.baseline_model or llm_cfg["model"]
@@ -236,6 +238,7 @@ def main() -> None:
             baseline_model=baseline_model,
             baseline_max_tokens=baseline_max_tokens,
             baseline_temperature=baseline_temperature,
+            score_model=score_model,
             concurrency=args.concurrency,
         ))
         with open(output_dir / f"{task_name}_traces.jsonl", "w") as f:

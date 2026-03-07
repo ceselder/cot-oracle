@@ -202,7 +202,9 @@ baselines:
     model: google/gemini-3-flash-preview
     api_base: https://openrouter.ai/api/v1
     max_tokens: 300
+    max_concurrent: 8
     temperature: 0.0
+    include_question: true
 
   patchscopes:
     source_layers: [9, 18, 27]
@@ -222,7 +224,7 @@ baselines:
     patience: 10
     batch_size: 32
 
-  sae_probe:
+  sae_llm:
     sae_dir: downloaded_saes
     sae_labels_dir: /ceph/scratch/jbauer/sae_features/trainer_2/trainer_2/labels
     sae_trainer: 2

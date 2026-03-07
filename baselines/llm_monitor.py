@@ -12,12 +12,12 @@ import openai
 from tqdm.auto import tqdm
 
 from qa_judge import (
-    QA_GEMINI_SCORE_MODEL,
-    QA_GEMINI_SCORE_MAX_TOKENS,
+    QA_SCORE_MAX_TOKENS,
     OPENROUTER_CHAT_COMPLETIONS_URL,
-    QA_GEMINI_SCORE_SYSTEM,
-    build_qa_gemini_score_prompt,
+    QA_SCORE_SYSTEM,
+    build_qa_score_prompt,
     extract_judge_json,
+    get_score_model,
 )
 from shared import BaselineInput
 from scoring import EVAL_TYPES, score_binary, score_generation, score_ranking, token_f1
@@ -42,6 +42,7 @@ GENERATION_PROMPT = (
 
 COMPQA_PROMPT = (
     "You are analyzing the quality of a language model's chain-of-thought reasoning.\n\n"
+    "{original_question_block}"
     "The model's reasoning:\n{test_response}\n\n"
     "Question about the reasoning:\n{test_prompt}\n\n"
     "Give a concise answer to the question above. Be direct and brief."
@@ -207,9 +208,36 @@ def _parse_ranking_response(response: str, n_chunks: int) -> list[float]:
     return scores
 
 
-def _prompt_hash(prompt: str, model: str = "") -> str:
+def build_original_question_block(original_question: str, include_question: bool, task_prompt: str = "") -> str:
+    """Optional original-question context for prompts about reasoning."""
+    question = original_question.strip()
+    if not include_question or not question or question == task_prompt.strip():
+        return ""
+    return f"Original question the model was answering:\n{question}\n\n"
+
+
+def build_reasoning_monitor_user_message(cot_text: str, task_prompt: str, *, original_question: str = "", include_question: bool = False) -> str:
+    """User message for direct text-only monitoring runs."""
+    question_block = build_original_question_block(original_question, include_question, task_prompt)
+    return f"{question_block}Chain of thought:\n{cot_text}\n\n{task_prompt}"
+
+
+def prompt_hash(prompt: str, model: str = "") -> str:
     """Stable hash of the prompt + model sent to the LLM."""
     return hashlib.sha256(f"{model}\n{prompt}".encode()).hexdigest()[:16]
+
+
+def _infer_original_question(inp: BaselineInput) -> str:
+    question = str(inp.metadata.get("question", "")).strip()
+    if question:
+        return question
+    question = str(inp.metadata.get("clean_prompt", "")).strip()
+    if question:
+        return question
+    question = inp.clean_prompt.strip()
+    if question != inp.test_prompt.strip():
+        return question
+    return ""
 
 
 def _load_cache(cache_path: Path | None, response_field: str = "llm_response") -> dict[str, str]:
@@ -228,24 +256,25 @@ def _load_cache(cache_path: Path | None, response_field: str = "llm_response") -
     return cache
 
 
-async def _score_one_generation_with_gemini(
+async def _score_one_generation_with_model(
     client: httpx.AsyncClient,
     sem: asyncio.Semaphore,
     task_name: str,
     inp: BaselineInput,
     prediction: str,
     reference: str,
+    score_model: str,
     pbar: tqdm,
 ) -> dict:
     async with sem:
         body = {
-            "model": QA_GEMINI_SCORE_MODEL,
+            "model": score_model,
             "messages": [
-                {"role": "system", "content": QA_GEMINI_SCORE_SYSTEM},
-                {"role": "user", "content": build_qa_gemini_score_prompt(task_name, inp.test_prompt, reference, prediction)},
+                {"role": "system", "content": QA_SCORE_SYSTEM},
+                {"role": "user", "content": build_qa_score_prompt(task_name, inp.test_prompt, reference, prediction)},
             ],
             "temperature": 0.0,
-            "max_tokens": QA_GEMINI_SCORE_MAX_TOKENS,
+            "max_tokens": QA_SCORE_MAX_TOKENS,
         }
         response = await client.post(OPENROUTER_CHAT_COMPLETIONS_URL, json=body, headers={"Authorization": f"Bearer {os.environ['OPENROUTER_API_KEY']}", "Content-Type": "application/json"})
         response.raise_for_status()
@@ -257,21 +286,21 @@ async def _score_one_generation_with_gemini(
             raise ValueError(f"Judge score out of range for {task_name}: {score}")
         pbar.update(1)
         return {
-            "judge_model": QA_GEMINI_SCORE_MODEL,
+            "score_model": score_model,
             "judge_score": score,
             "judge_reason": str(parsed["reason"]).strip(),
             "judge_raw": raw_text,
         }
 
 
-def _score_generation_with_gemini(eval_name: str, inputs: list[BaselineInput], predictions: list[str], references: list[str]) -> tuple[dict, list[dict]]:
+def _score_generation_with_model(eval_name: str, inputs: list[BaselineInput], predictions: list[str], references: list[str], score_model: str) -> tuple[dict, list[dict]]:
     task_name = GENERATION_JUDGE_TASKS[eval_name]
     async def _run_all() -> list[dict]:
         sem = asyncio.Semaphore(QA_JUDGE_MAX_CONCURRENT)
         async with httpx.AsyncClient(timeout=90.0) as client:
             with tqdm(total=len(predictions), desc=f"QA judge ({eval_name})") as pbar:
                 coros = [
-                    _score_one_generation_with_gemini(client, sem, task_name, inp, prediction, reference, pbar)
+                    _score_one_generation_with_model(client, sem, task_name, inp, prediction, reference, score_model, pbar)
                     for inp, prediction, reference in zip(inputs, predictions, references)
                 ]
                 return await asyncio.gather(*coros)
@@ -286,7 +315,7 @@ def _score_generation_with_gemini(eval_name: str, inputs: list[BaselineInput], p
     }, scored_rows
 
 
-def _build_prompt(inp: BaselineInput, eval_name: str, eval_type: str) -> str | None:
+def _build_prompt(inp: BaselineInput, eval_name: str, eval_type: str, include_question: bool = False) -> str | None:
     """Construct the LLM prompt for a single input. Returns None if eval_type is unknown."""
     if eval_type == "binary":
         cfg = EVAL_BINARY_CONFIG[eval_name]
@@ -303,7 +332,9 @@ def _build_prompt(inp: BaselineInput, eval_name: str, eval_type: str) -> str | N
             test_response=inp.test_response[:4000],
         )
     elif eval_type == "generation" and eval_name in COT_QA_GENERATION_TASKS:
+        original_question_block = build_original_question_block(_infer_original_question(inp), include_question, inp.test_prompt)
         return COMPQA_PROMPT.format(
+            original_question_block=original_question_block[:2500],
             test_response=inp.test_response[:4000],
             test_prompt=inp.test_prompt[:2000],
         )
@@ -367,9 +398,13 @@ def run_llm_monitor(
     max_tokens: int = 300, temperature: float = 0.0,
     cache_path: Path | None = None,
     max_concurrent: int = 20,
+    include_question: bool = False,
+    score_model: str | None = None,
 ) -> dict:
     eval_name = inputs[0].eval_name
     eval_type = EVAL_TYPES[eval_name]
+    if score_model is None:
+        score_model = get_score_model()
 
     cache = _load_cache(cache_path)
 
@@ -377,10 +412,10 @@ def run_llm_monitor(
     prompt_data = []  # (index, inp, prompt, prompt_hash, cached_response_or_None)
     uncached_prompts = []  # (batch_idx, prompt) — batch_idx maps back to prompt_data index
     for i, inp in enumerate(inputs):
-        prompt = _build_prompt(inp, eval_name, eval_type)
+        prompt = _build_prompt(inp, eval_name, eval_type, include_question=include_question)
         if prompt is None:
             continue
-        ph = _prompt_hash(prompt, model)
+        ph = prompt_hash(prompt, model)
         cached = cache.get(ph)
         prompt_data.append((i, inp, prompt, ph, cached))
         if cached is None:
@@ -425,7 +460,11 @@ def run_llm_monitor(
             "llm_response": llm_response[:500],
             "ground_truth": inp.ground_truth_label,
             "eval_type": eval_type,
+            "include_question": include_question,
         }
+        original_question = _infer_original_question(inp)
+        if original_question:
+            trace["original_question"] = original_question[:500]
 
         if eval_type == "binary":
             cfg = EVAL_BINARY_CONFIG[eval_name]
@@ -461,7 +500,7 @@ def run_llm_monitor(
         ]
         metrics = score_generation(predictions, references)
         if eval_name in GENERATION_JUDGE_TASKS:
-            judge_metrics, judge_rows = _score_generation_with_gemini(eval_name, ordered_inputs, predictions, references)
+            judge_metrics, judge_rows = _score_generation_with_model(eval_name, ordered_inputs, predictions, references, score_model)
             metrics.update(judge_metrics)
             for trace, judge_row in zip(traces, judge_rows):
                 trace.update(judge_row)

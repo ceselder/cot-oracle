@@ -29,6 +29,8 @@ if str(_SRC) not in sys.path:
 load_dotenv(Path.home() / ".env")
 
 from evals.common import EvalItem, load_eval_items_hf, determine_ground_truth, extract_letter_answer
+from llm_monitor_registry import get_llm_monitor_config
+from qa_judge import get_score_model
 from scoring import EVAL_TYPES
 from shared import BaselineInput
 from llm_monitor import run_llm_monitor
@@ -162,7 +164,8 @@ def main():
     with open(args.config) as f:
         cfg = yaml.safe_load(f)
 
-    lm_cfg = cfg["baselines"]["llm_monitor"]
+    lm_cfg = get_llm_monitor_config(cfg, "weak-llm")
+    score_model = get_score_model(cfg)
     api_key = os.environ["OPENROUTER_API_KEY"]
     eval_dir = Path(cfg["eval"]["eval_dir"]) if "eval" in cfg and "eval_dir" in cfg["eval"] else (Path("data/evals") if Path("data/evals").exists() else None)
 
@@ -214,6 +217,9 @@ def main():
             api_key=api_key, max_tokens=lm_cfg["max_tokens"],
             temperature=lm_cfg["temperature"],
             cache_path=traces_path,
+            max_concurrent=lm_cfg.get("max_concurrent", 20),
+            include_question=lm_cfg.get("include_question", False),
+            score_model=score_model,
         )
 
         # Save JSONL traces (also serves as cache for next run)

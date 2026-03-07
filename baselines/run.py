@@ -31,6 +31,8 @@ load_dotenv(Path.home() / ".env")
 import torch
 from cot_utils import layer_percent_to_layer
 from core.ao import load_model_with_ao
+from llm_monitor_registry import get_llm_monitor_config
+from qa_judge import get_score_model
 
 from shared import load_baseline_inputs, load_cleaned_baseline_inputs, CLEANED_DATASET_NAMES, log_results
 from scoring import EVAL_TYPES
@@ -50,7 +52,7 @@ BASELINE_COMPATIBILITY = {
     "llm_monitor":      {"binary", "generation", "ranking"},
     "patchscopes":      {"binary", "generation"},
     "no_act_oracle":    {"binary", "generation"},
-    "sae_probe":        {"binary", "generation", "ranking"},
+    "sae_llm":          {"binary", "generation", "ranking"},
     "qwen_attention_probe": {"binary", "multiclass", "ranking"},
 }
 
@@ -88,6 +90,7 @@ def main():
     model_name = cfg["model"]["name"]
     output_dir = Path(bcfg["output_dir"])
     log_dir = Path(bcfg["log_dir"])
+    score_model = get_score_model(cfg)
     output_dir.mkdir(parents=True, exist_ok=True)
     log_dir.mkdir(parents=True, exist_ok=True)
 
@@ -114,8 +117,8 @@ def main():
         layers_needed.add(layer_percent_to_layer(model_name, 50))
     if "patchscopes" in baselines_to_run:
         layers_needed.update(bcfg["patchscopes"]["source_layers"])
-    if "sae_probe" in baselines_to_run:
-        layers_needed.update(bcfg["sae_probe"]["layers"])
+    if "sae_llm" in baselines_to_run:
+        layers_needed.update(bcfg["sae_llm"]["layers"])
     if "qwen_attention_probe" in baselines_to_run:
         layers_needed.update(bcfg["qwen_attention_probe"]["layers"])
     layers = sorted(layers_needed) or [layer_percent_to_layer(model_name, 50)]
@@ -201,12 +204,15 @@ def main():
                 )
 
             elif baseline_name == "llm_monitor":
-                lm_cfg = bcfg["llm_monitor"]
+                lm_cfg = get_llm_monitor_config(cfg, "weak-llm")
                 api_key = os.environ["OPENROUTER_API_KEY"]
                 results = run_llm_monitor(
                     inputs, model=lm_cfg["model"], api_base=lm_cfg["api_base"],
                     api_key=api_key, max_tokens=lm_cfg["max_tokens"],
                     temperature=lm_cfg["temperature"],
+                    max_concurrent=lm_cfg.get("max_concurrent", 20),
+                    include_question=lm_cfg.get("include_question", False),
+                    score_model=score_model,
                 )
 
             elif baseline_name == "patchscopes":
@@ -230,8 +236,8 @@ def main():
                     device=args.device,
                 )
 
-            elif baseline_name == "sae_probe":
-                sp_cfg = bcfg["sae_probe"]
+            elif baseline_name == "sae_llm":
+                sp_cfg = bcfg["sae_llm"]
                 api_key = os.environ["OPENROUTER_API_KEY"]
                 results = run_sae_probe(
                     inputs,
@@ -327,12 +333,15 @@ def main():
                         test_inputs=test_inputs,
                     )
                 elif baseline_name == "llm_monitor":
-                    lm_cfg = bcfg["llm_monitor"]
+                    lm_cfg = get_llm_monitor_config(cfg, "weak-llm")
                     api_key = os.environ["OPENROUTER_API_KEY"]
                     results = run_llm_monitor(
                         test_inputs, model=lm_cfg["model"], api_base=lm_cfg["api_base"],
                         api_key=api_key, max_tokens=lm_cfg["max_tokens"],
                         temperature=lm_cfg["temperature"],
+                        max_concurrent=lm_cfg.get("max_concurrent", 20),
+                        include_question=lm_cfg.get("include_question", False),
+                        score_model=score_model,
                     )
                 elif baseline_name == "original_ao":
                     ao_cfg = bcfg["original_ao"]
@@ -360,8 +369,8 @@ def main():
                         max_new_tokens=na_cfg["max_new_tokens"],
                         device=args.device,
                     )
-                elif baseline_name == "sae_probe":
-                    sp_cfg = bcfg["sae_probe"]
+                elif baseline_name == "sae_llm":
+                    sp_cfg = bcfg["sae_llm"]
                     api_key = os.environ["OPENROUTER_API_KEY"]
                     results = run_sae_probe(
                         test_inputs,

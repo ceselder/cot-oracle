@@ -3,8 +3,8 @@
 
 For each `cls_*` task directory, writes:
 - `original_ao_kall.json`, `our_ao_kall.json`, optional `celeste_ao_kall.json`
-- `llm_monitor_flash.json`, `llm_monitor_pro.json`
-- `linear_probes.json`, `sae_probe.json` (explicit skipped markers for cls)
+- `weak-llm.json`, `strong-llm.json`
+- `linear_probes.json`, `sae_llm.json` (explicit skipped markers for cls)
 - `per_example_records.json` (Spec fields + per-method predictions)
 """
 
@@ -17,6 +17,7 @@ from pathlib import Path
 
 import httpx
 import torch
+import yaml
 from dotenv import load_dotenv
 from joblib import Memory, hash as joblib_hash
 from tqdm.auto import tqdm
@@ -26,6 +27,8 @@ sys.path.insert(0, str(_ROOT / "ao_reference"))
 sys.path.insert(0, str(_ROOT / "src"))
 
 load_dotenv(Path.home() / ".env")
+
+from llm_monitor_registry import get_llm_monitor_configs
 
 CLS_DATASETS = [
     "sst2", "ag_news", "snli", "ner", "tense",
@@ -213,6 +216,7 @@ def _build_cls_record_fields(dp, tokenizer) -> dict:
 
 def main():
     parser = argparse.ArgumentParser()
+    parser.add_argument("--config", default="configs/train.yaml")
     parser.add_argument("--checkpoint", default="/ceph/scratch/jbauer/checkpoints/cot_oracle_v15_stochastic")
     parser.add_argument("--celeste-checkpoint", default=None)
     parser.add_argument("--output-dir", default="data/comprehensive_eval")
@@ -221,13 +225,23 @@ def main():
     parser.add_argument("--datasets", nargs="*", default=None)
     parser.add_argument("--methods", nargs="*", default=None, help="Subset of [original_ao, our_ao, celeste_ao]")
     parser.add_argument("--rerun", action="store_true", help="Ignore cached predictions, rerun everything")
-    parser.add_argument("--llm-monitor-flash-model", default="google/gemini-3.1-flash-lite-preview")
-    parser.add_argument("--llm-monitor-pro-model", default="google/gemini-3.1-pro-preview")
-    parser.add_argument("--llm-monitor-flash-max-tokens", type=int, default=300)
-    parser.add_argument("--llm-monitor-pro-max-tokens", type=int, default=2048)
+    parser.add_argument("--weak-llm-model", default=None)
+    parser.add_argument("--strong-llm-model", default=None)
+    parser.add_argument("--weak-llm-max-tokens", type=int, default=None)
+    parser.add_argument("--strong-llm-max-tokens", type=int, default=None)
     parser.add_argument("--no-llm-monitors", action="store_true")
-    parser.add_argument("--skip-llm-monitor-pro", action="store_true")
+    parser.add_argument("--skip-strong-llm", action="store_true")
     args = parser.parse_args()
+
+    with open(args.config) as f:
+        cfg = yaml.safe_load(f)
+    monitor_cfgs = get_llm_monitor_configs(cfg)
+    weak_cfg = monitor_cfgs["weak-llm"]
+    strong_cfg = monitor_cfgs["strong-llm"]
+    weak_llm_model = args.weak_llm_model or str(weak_cfg["model"])
+    strong_llm_model = args.strong_llm_model or str(strong_cfg["model"])
+    weak_llm_max_tokens = args.weak_llm_max_tokens or int(weak_cfg["max_tokens"])
+    strong_llm_max_tokens = args.strong_llm_max_tokens or int(strong_cfg["max_tokens"])
 
     from transformers import AutoModelForCausalLM, AutoTokenizer
     from nl_probes.utils.activation_utils import get_hf_submodule
@@ -269,11 +283,11 @@ def main():
     submodule = get_hf_submodule(model, INJECTION_LAYER, use_lora=True)
 
     monitor_cfgs = [
-        ("llm_monitor_flash", args.llm_monitor_flash_model, args.llm_monitor_flash_max_tokens),
-        ("llm_monitor_pro", args.llm_monitor_pro_model, args.llm_monitor_pro_max_tokens),
+        ("weak-llm", weak_llm_model, weak_llm_max_tokens),
+        ("strong-llm", strong_llm_model, strong_llm_max_tokens),
     ]
-    if args.skip_llm_monitor_pro:
-        monitor_cfgs = [cfg for cfg in monitor_cfgs if cfg[0] != "llm_monitor_pro"]
+    if args.skip_strong_llm:
+        monitor_cfgs = [cfg for cfg in monitor_cfgs if cfg[0] != "strong-llm"]
 
     for ds_name, eval_data in cls_data.items():
         task_dir = output_base / f"cls_{ds_name}"
@@ -336,7 +350,7 @@ def main():
                 "layers": LAYERS,
             }, method_deps)
 
-        # LLM monitor baselines (saved as llm_monitor_*.json)
+        # LLM monitor baselines (saved as weak-llm.json / strong-llm.json)
         for method_name, llm_model, max_tokens in monitor_cfgs:
             result_path = task_dir / f"{method_name}.json"
             method_deps = _method_deps(method_name, {"model": llm_model, "max_tokens": max_tokens})
@@ -381,17 +395,17 @@ def main():
                 "model": llm_model,
             }, method_deps)
 
-        if args.skip_llm_monitor_pro:
-            pro_path = task_dir / "llm_monitor_pro.json"
-            pro_deps = _method_deps("llm_monitor_pro", {"model": args.llm_monitor_pro_model, "max_tokens": args.llm_monitor_pro_max_tokens, "disabled": True})
-            if _read_cached_result(pro_path, pro_deps, args.rerun) is None:
-                pro_skipped = _skipped_result("llm_monitor_pro disabled (--skip-llm-monitor-pro)", len(eval_data), model=args.llm_monitor_pro_model)
-                _write_result(pro_path, pro_skipped, pro_deps)
+        if args.skip_strong_llm:
+            strong_path = task_dir / "strong-llm.json"
+            if not strong_path.exists():
+                strong_deps = _method_deps("strong-llm", {"model": strong_llm_model, "max_tokens": strong_llm_max_tokens, "disabled": True})
+                strong_skipped = _skipped_result("strong-llm disabled (--skip-strong-llm)", len(eval_data), model=strong_llm_model)
+                _write_result(strong_path, strong_skipped, strong_deps)
 
         # Explicit skipped markers so every baseline key exists for cls tasks.
         skipped_paths = {
             "linear_probes": task_dir / "linear_probes.json",
-            "sae_probe": task_dir / "sae_probe.json",
+            "sae_llm": task_dir / "sae_llm.json",
             "celeste_ao_kall": task_dir / "celeste_ao_kall.json",
         }
         if "celeste_ao" in methods:
@@ -400,7 +414,7 @@ def main():
             method_deps = _method_deps(method_name, {"skipped_marker": True})
             if _read_cached_result(path, method_deps, args.rerun) is not None:
                 continue
-            if method_name in ("linear_probes", "sae_probe"):
+            if method_name in ("linear_probes", "sae_llm"):
                 reason = f"{method_name} is not implemented for cls evals in run_cls_eval.py"
             else:
                 reason = "celeste_ao checkpoint/adapter not provided"

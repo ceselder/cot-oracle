@@ -10,6 +10,7 @@ import yaml
 from flask import Flask, jsonify
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
+from qa_judge import LLM_SCORE_LABEL
 from tasks import TASKS, ScoringMode
 
 _ABS_TYPE = {
@@ -33,16 +34,17 @@ def _task_abs_type(task: str) -> str:
 
 app = Flask(__name__)
 LOGS_DIR = Path(__file__).resolve().parent.parent / "data" / "comprehensive_eval" / "logs"
-METHOD_ORDER = ["llm_monitor_flash", "llm_monitor_pro", "original_ao", "our_ao", "celeste_ao", "linear_probes", "sae_probe"]
+METHOD_ORDER = ["weak-llm", "strong-llm", "original_ao", "our_ao", "linear_probes", "sae_llm", "sae_probe"]
 
 _train_cfg = yaml.safe_load((Path(__file__).resolve().parent.parent / "configs/train.yaml").read_text())
 OUR_AO_TRAINING_TASKS = {k for k, v in _train_cfg["tasks"].items() if isinstance(v, dict) and v.get("n", 0) != 0}
+_DEFAULT_SCORE_MODEL = _train_cfg.get("eval", {}).get("score_model", "")
 _og_ao_cfg = yaml.safe_load((Path(__file__).resolve().parent.parent / "configs/og_ao.yaml").read_text())
 OG_AO_TRAINING_TASKS = set(_og_ao_cfg.get("trained_tasks", []))
 METHOD_TO_SCORE_FILE = {
-    "llm_monitor_flash": "llm_monitor_flash", "llm_monitor_pro": "llm_monitor_pro",
-    "original_ao": "original_ao_kall", "our_ao": "our_ao_kall", "celeste_ao": "celeste_ao_kall",
-    "linear_probes": "linear_probes", "sae_probe": "sae_probe",
+    "weak-llm": "weak-llm", "strong-llm": "strong-llm",
+    "original_ao": "original_ao_kall", "our_ao": "our_ao_kall",
+    "linear_probes": "linear_probes", "sae_llm": "sae_llm",
 }
 
 
@@ -62,14 +64,33 @@ def get_records(task):
     from collections import Counter
     task_dir = LOGS_DIR / task
     records = json.loads((task_dir / "per_example_records.json").read_text())
-    # Load per-example abs scores from task result files
+    # Remap legacy keys to canonical names
+    _KEY_REMAP = {"sae_probe": "sae_llm", "llm_monitor_flash": "weak-llm", "llm_monitor_pro": "strong-llm"}
+    for r in records:
+        for old, new in _KEY_REMAP.items():
+            if old in r and new not in r:
+                r[new] = r.pop(old)
+        lcs = r.get("llm_comparative_score", {})
+        for old, new in _KEY_REMAP.items():
+            if old in lcs and new not in lcs:
+                lcs[new] = lcs.pop(old)
+    # Load per-example abs scores and inject missing predictions from score files
+    _SCORE_FILE_FALLBACKS = {"sae_llm": "sae_probe", "weak-llm": "llm_monitor_flash", "strong-llm": "llm_monitor_pro"}
     abs_score_data: dict[str, list] = {}
     for method, fname in METHOD_TO_SCORE_FILE.items():
         p = task_dir / f"{fname}.json"
-        if p.exists():
-            d = json.loads(p.read_text())
-            if "per_example_scores" in d:
-                abs_score_data[method] = d["per_example_scores"]
+        if not p.exists() and method in _SCORE_FILE_FALLBACKS:
+            p = task_dir / f"{_SCORE_FILE_FALLBACKS[method]}.json"
+        if not p.exists():
+            continue
+        d = json.loads(p.read_text())
+        if "per_example_scores" in d:
+            abs_score_data[method] = d["per_example_scores"]
+        # Always inject predictions from score file (authoritative source = comprehensive eval output)
+        if "predictions" in d:
+            for i, r in enumerate(records):
+                if i < len(d["predictions"]):
+                    r[method] = d["predictions"][i]
     for i, r in enumerate(records):
         raw = r.get("llm_comparative_score", {})
         normed = {}
@@ -86,22 +107,33 @@ def get_records(task):
         else:
             r["_pred_agreement"] = 1.0
         r["_abs_scores"] = {m: scores[i] for m, scores in abs_score_data.items() if i < len(scores)}
-    return jsonify({"records": records, "abs_type": _task_abs_type(task)})
+    score_model = records[0].get("_score_model", records[0].get("_judge_model", _DEFAULT_SCORE_MODEL)) if records else _DEFAULT_SCORE_MODEL
+    return jsonify({"records": records, "abs_type": _task_abs_type(task), "score_model": score_model, "score_label": LLM_SCORE_LABEL})
 
 
 @app.route("/api/method_scores/<task>")
 def method_scores_api(task):
     log_dir = LOGS_DIR / task
     records = json.loads((log_dir / "per_example_records.json").read_text())
+    # Remap legacy keys BEFORE aggregating comp scores
+    _KEY_REMAP = {"sae_probe": "sae_llm", "llm_monitor_flash": "weak-llm", "llm_monitor_pro": "strong-llm"}
+    for r in records:
+        lcs = r.get("llm_comparative_score", {})
+        for old, new in _KEY_REMAP.items():
+            if old in lcs and new not in lcs:
+                lcs[new] = lcs.pop(old)
     comp_sums, comp_counts = {}, {}
     for r in records:
         for m, v in r.get("llm_comparative_score", {}).items():
             s = v["score"] if isinstance(v, dict) else float(v)
             comp_sums[m] = comp_sums.get(m, 0) + s
             comp_counts[m] = comp_counts.get(m, 0) + 1
+    _SCORE_FILE_FALLBACKS = {"sae_llm": "sae_probe", "weak-llm": "llm_monitor_flash", "strong-llm": "llm_monitor_pro"}
     result = {}
     for method, fname in METHOD_TO_SCORE_FILE.items():
         path = log_dir / f"{fname}.json"
+        if not path.exists() and method in _SCORE_FILE_FALLBACKS:
+            path = log_dir / f"{_SCORE_FILE_FALLBACKS[method]}.json"
         if not path.exists():
             continue
         data = json.loads(path.read_text())
@@ -122,9 +154,11 @@ def method_scores_api(task):
 
 @app.route("/api/sae_features/<task>/<example_id>")
 def sae_features_api(task, example_id):
-    path = LOGS_DIR / task / "sae_probe_features.jsonl"
+    path = LOGS_DIR / task / "sae_llm_features.jsonl"
     if not path.exists():
-        return jsonify({"error": "no sae_probe_features.jsonl for this task"}), 404
+        path = LOGS_DIR / task / "sae_probe_features.jsonl"
+    if not path.exists():
+        return jsonify({"error": "no sae_llm_features.jsonl for this task"}), 404
     for line in path.read_text().splitlines():
         rec = json.loads(line)
         if str(rec.get("example_id")) == str(example_id):
@@ -208,6 +242,7 @@ td{padding:3px 5px;border-right:1px solid var(--bg3);overflow:hidden;text-overfl
 td.c-tog{text-align:center;cursor:pointer;color:var(--dim);padding-top:2px;font-size:13px}
 td.c-tog:hover{color:var(--accent)}
 td.c-idx{color:var(--dim);text-align:right}
+td.c-len{color:var(--dim);text-align:right}
 td.c-dis{font-weight:bold}
 .dh{color:var(--pink)} .dm{color:var(--orange)} .dl{color:var(--dim)}
 .ah{color:var(--green)} .am{color:var(--orange)} .al{color:var(--pink)}
@@ -233,7 +268,7 @@ tr.drow>td{padding:0;background:var(--bg2);white-space:normal;border:none}
 .dtbl tr:nth-child(even) td{background:var(--bg3)}
 .dtbl td.pred-cell{max-width:400px;white-space:pre-wrap;word-break:break-word;font-size:10px}
 .sbar{display:inline-block;height:6px;border-radius:2px;vertical-align:middle;margin-left:3px}
-.rsn{color:var(--dim);font-style:italic;font-size:10px}
+.rsn{color:var(--dim);font-style:italic;font-size:10px;white-space:pre-wrap;word-break:break-word}
 .sae-btn{font-size:9px;padding:1px 5px;cursor:pointer;background:var(--bg3);border:1px solid var(--border);border-radius:3px;color:var(--dim)}
 .sae-btn:hover{background:var(--border);color:var(--accent)}
 .sae-inline{margin-top:4px;background:var(--bg);border:1px solid var(--border);border-radius:3px;padding:5px 7px;font-size:10px;white-space:pre-wrap;max-height:300px;overflow-y:auto;color:var(--dim)}
@@ -261,6 +296,7 @@ tr.drow>td{padding:0;background:var(--bg2);white-space:normal;border:none}
     <div id="mcbs"></div>
     <button class="btn sm" onclick="mcbAll()">all</button>
     <button class="btn sm" onclick="mcbNone()">none</button>
+    <span id="cmp-judge-lbl" style="font-size:10px;color:var(--dim)"></span>
   </div>
 
   <div class="row">
@@ -282,8 +318,8 @@ tr.drow>td{padding:0;background:var(--bg2);white-space:normal;border:none}
     <div>
       <b>dis</b> = stdev of comparative scores across selected methods (high → methods disagree) &nbsp;|&nbsp;
       <b>agr</b> = fraction of methods sharing the majority raw prediction text &nbsp;|&nbsp;
-      <span class="bdg sh">abs:1</span> = absolute score (scorer type shown in column header bar); bright green/red &nbsp;|&nbsp;
-      <span class="bdg cph">cmp:.9</span>/<span class="bdg cpl">cmp:.1</span> = comparative LLM score; pale green/red
+      <span class="bdg sh">abs:1.0</span> = absolute score from score file (per_example_scores, same source as comprehensive eval plot); bright green/red &nbsp;|&nbsp;
+      <span class="bdg cph">cmp:0.9</span>/<span class="bdg cpl">cmp:0.1</span> = comparative LLM score (<span id="cmp-judge-legend" style="font-style:italic">?</span>); pale green/red
     </div>
   </div>
 </div>
@@ -301,6 +337,8 @@ let dragSrcCi=null;
 let resizingActive=false;
 let methodScores={};
 let currentTask='';
+let scoreModel='';
+let scoreLabel='llm-score';
 
 const TEXT_COLS=[
   {key:'question',          label:'question'},
@@ -320,6 +358,7 @@ function _tsave(){
   if(!currentTask)return;
   localStorage.setItem('ev_t_'+currentTask,JSON.stringify({
     vtc:[...visTextCols],vmc:[...visMethodCols],cw:colWidths,co:colOrderOverride,
+    mc:methodCols,
     ex:[...expanded],sel:Array.from(document.querySelectorAll('#mcbs input:checked')).map(x=>x.value),
     q:document.getElementById('search').value,sc:document.getElementById('wrap').scrollTop,
   }));
@@ -330,7 +369,11 @@ function _trestore(){
 function _applyTaskState(s){
   if(!s)return;
   if(s.vtc)visTextCols=new Set(s.vtc);
-  if(s.vmc)visMethodCols=new Set(s.vmc.filter(m=>methodCols.includes(m)));
+  if(s.vmc&&s.mc){
+    const prevMethods=new Set(s.mc);
+    visMethodCols=new Set(s.vmc.filter(m=>methodCols.includes(m)));
+    methodCols.forEach(m=>{if(!prevMethods.has(m))visMethodCols.add(m);});
+  }
   if(s.cw)colWidths=s.cw;
   if(s.co)colOrderOverride=s.co;
   if(s.ex)expanded=new Set(s.ex);
@@ -377,9 +420,16 @@ async function loadTask(task){
     fetch('/api/records/'+task).then(r=>r.json()),
     fetch('/api/method_scores/'+task).then(r=>r.json()).catch(()=>({}))
   ]);
-  recs=recResp.records; absType=recResp.abs_type||'acc'; methodScores=methodScoresResp;
+  recs=recResp.records; absType=recResp.abs_type||'acc'; scoreModel=recResp.score_model||''; scoreLabel=recResp.score_label||'llm-score'; methodScores=methodScoresResp;
+  const _smShort=scoreModel?scoreModel.split('/').pop():'?';
+  const cmpJudgeLbl=document.getElementById('cmp-judge-lbl');
+  if(cmpJudgeLbl)cmpJudgeLbl.textContent=scoreModel?`judged by: ${_smShort}`:'';
+  const cmpJudgeLegend=document.getElementById('cmp-judge-legend');
+  if(cmpJudgeLegend)cmpJudgeLegend.textContent=_smShort;
+
+  recs.forEach(r=>{r._len=(r.question||'').length+(r.cot_field||'').length;});
   methodCols=inferMethods(recs, methodScores);
-  visMethodCols=new Set(methodCols.filter(m=>m!=='llm_monitor_pro'));
+  visMethodCols=new Set(methodCols);
   renderMcbs();
   renderMethodColToggles();
   const saved=_trestore();
@@ -390,7 +440,7 @@ async function loadTask(task){
 }
 
 function inferMethods(rs, scoreMap){
-  const ord=['llm_monitor_flash','llm_monitor_pro','original_ao','our_ao','celeste_ao','linear_probes','sae_probe'];
+  const ord=['weak-llm','strong-llm','original_ao','our_ao','linear_probes','sae_llm'];
   const have=new Set();
   rs.forEach(r=>ord.forEach(m=>{if(m in r)have.add(m)}));
   Object.keys(scoreMap||{}).forEach(m=>{if(ord.includes(m))have.add(m)});
@@ -432,10 +482,19 @@ function onMcol(cb){
 }
 
 // ── Method checkboxes ────────────────────────────────────────────────
-const DEFAULT_CMP_METHODS=new Set(['our_ao','llm_monitor_flash']);
+const DEFAULT_CMP_METHODS=new Set(['our_ao','weak-llm']);
+function _mcbLabel(m){
+  const base=sn(m);
+  if(m==='weak-llm'||m==='strong-llm'){
+    const model=methodScores[m]?.model||'';
+    const short=model.split('/').pop();
+    if(short)return`${base} <span style="color:var(--dim);font-size:9px">(${short})</span>`;
+  }
+  return base;
+}
 function renderMcbs(){
   const c=document.getElementById('mcbs');
-  c.innerHTML=methodCols.map(m=>{const on=DEFAULT_CMP_METHODS.has(m)?'on':'';const chk=DEFAULT_CMP_METHODS.has(m)?'checked':'';return `<label class="mcb-lbl ${on}" id="ml-${m}"><input type="checkbox" value="${m}" ${chk} onchange="onMcb(this)"> ${sn(m)}</label>`;}).join('');
+  c.innerHTML=methodCols.map(m=>{const on=DEFAULT_CMP_METHODS.has(m)?'on':'';const chk=DEFAULT_CMP_METHODS.has(m)?'checked':'';return `<label class="mcb-lbl ${on}" id="ml-${m}"><input type="checkbox" value="${m}" ${chk} onchange="onMcb(this)"> ${_mcbLabel(m)}</label>`;}).join('');
   document.getElementById('cmp-row').style.display='flex';
 }
 
@@ -466,6 +525,7 @@ function rerender(){
     if(sortKey==='dis'){av=dis(a);bv=dis(b)}
     else if(sortKey==='agree'){av=a._pred_agreement;bv=b._pred_agreement}
     else if(sortKey==='idx'){av=recs.indexOf(a);bv=recs.indexOf(b)}
+    else if(sortKey==='len'){av=a._len||0;bv=b._len||0}
     else if(sortKey.startsWith('m:')){const m=sortKey.slice(2);av=String(a[m]??'');bv=String(b[m]??'')}
     else if(sortKey.startsWith('t:')){const k=sortKey.slice(2);av=String(a[k]??'');bv=String(b[k]??'')}
     else return 0;
@@ -497,9 +557,10 @@ function rerender(){
 function buildCols(){
   const cols=[
     {id:'idx', cc:'c-idx', lbl:'eval_id', sk:'idx', defaultW:140},
-    {id:'tog', cc:'c-tog', lbl:'',     sk:null,     defaultW:22},
-    {id:'dis', cc:'c-dis', lbl:'dis',  sk:'dis',    defaultW:58},
-    {id:'ag',  cc:'c-ag',  lbl:'agr',  sk:'agree',  defaultW:50},
+    {id:'tog', cc:'c-tog', lbl:'',        sk:null,  defaultW:22},
+    {id:'dis', cc:'c-dis', lbl:'dis',     sk:'dis', defaultW:58},
+    {id:'ag',  cc:'c-ag',  lbl:'agr',     sk:'agree', defaultW:50},
+    {id:'len', cc:'c-len', lbl:'chars',   sk:'len', defaultW:58},
   ];
   const cotLabel=recs.length&&recs[0]._cot_field_label?recs[0]._cot_field_label:null;
   TEXT_COLS.forEach(({key,label})=>{
@@ -526,6 +587,7 @@ function rowHtml(r,oi,vi,cols){
   h+=`<td class="c-tog" onclick="tog(${oi})">${isX?'▼':'▶'}</td>`;
   h+=`<td class="c-dis ${dcl}" title="${d.toFixed(3)}">${d.toFixed(3)}</td>`;
   h+=`<td class="c-ag  ${acl}" title="${(ag*100).toFixed(0)}%">${(ag*100).toFixed(0)}%</td>`;
+  h+=`<td class="c-len" title="question+cot_field chars">${r._len??0}</td>`;
   // text cols
   TEXT_COLS.forEach(({key})=>{
     if(!visTextCols.has(key))return;
@@ -539,10 +601,10 @@ function rowHtml(r,oi,vi,cols){
     const cv_raw=sc[m]; const cv=cv_raw!==undefined?(typeof cv_raw==='object'?cv_raw.score:cv_raw):undefined;
     const acl=av!==undefined?(av>=0.5?'sh':'sl'):'pu';
     const ccl=cv!==undefined?(cv>=0.6?'cph':cv>=0.4?'cpm':'cpl'):'';
-    const absVal=av!==undefined?(absType==='f1'?av.toFixed(2):av.toFixed(0)):'';
+    const absVal=av!==undefined?av.toFixed(1):'';
     const absBdg=av!==undefined?`<span class="bdg ${acl}">abs:${absVal}</span>`:'';
-    const cmpBdg=cv!==undefined?`<span class="bdg ${ccl}">cmp:${cv.toFixed(2)}</span>`:'';
-    const tip=`abs(${absType}):${absVal} cmp:${cv!==undefined?cv.toFixed(2):'—'}\n${esc(v)}`;
+    const cmpBdg=cv!==undefined?`<span class="bdg ${ccl}">cmp:${cv.toFixed(1)}</span>`:'';
+    const tip=`abs(${absType}):${absVal} cmp:${cv!==undefined?cv.toFixed(1):'—'}\n${esc(v)}`;
     h+=`<td class="c-meth" title="${tip}">${absBdg}${cmpBdg}<span class="pred-txt">${esc(v)}</span></td>`;
   });
   h+='</tr>';
@@ -572,7 +634,9 @@ function detailHtml(r,colspan){
   const hasPreds=methodCols.some(m=>r[m]!==undefined);
   if(hasPreds){
     const hasLcs=methodCols.some(m=>m in sc);
-    const dcols=[{id:'method',lbl:'method',dw:120},...(hasLcs?[{id:'score',lbl:'score (cmp)',dw:60},{id:'bar',lbl:'',dw:90}]:[]),{id:'pred',lbl:'prediction',dw:340},...(hasLcs?[{id:'reason',lbl:'cmp reason (gemini-flash)',dw:180}]:[]),{id:'btn',lbl:'',dw:80}];
+    const scoreShort=scoreModel?scoreModel.split('/').pop():'';
+    const scoreMethodLbl=(()=>{if(!scoreShort)return`${scoreLabel} reason`;const wm=methodScores['weak-llm']?.model||'';const sm=methodScores['strong-llm']?.model||'';if(scoreShort===wm.split('/').pop())return`${scoreLabel} reason (weak-llm)`;if(scoreShort===sm.split('/').pop())return`${scoreLabel} reason (strong-llm)`;return`${scoreLabel} reason (${scoreShort})`;})();
+    const dcols=[{id:'method',lbl:'method',dw:120},...(hasLcs?[{id:'score',lbl:'score (cmp)',dw:60},{id:'bar',lbl:'',dw:90}]:[]),{id:'pred',lbl:'prediction',dw:340},...(hasLcs?[{id:'reason',lbl:scoreMethodLbl,dw:180}]:[]),{id:'btn',lbl:'',dw:80}];
     const cg=`<colgroup>${dcols.map(c=>`<col data-dc="${c.id}" style="width:${dtblColWidths[c.id]??c.dw}px">`).join('')}</colgroup>`;
     const hdr=dcols.map(c=>`<th>${c.lbl}<div class="rh" onpointerdown="dsr(event,'${c.id}')"></div></th>`).join('');
     h+=`<div class="dtbl-wrap"><table class="dtbl">${cg}<tr>${hdr}</tr>`;
@@ -590,8 +654,9 @@ function detailHtml(r,colspan){
       const reasonCell=hasLcs?`<td class="rsn">${esc(rsn)}</td>`:'';
       const pred=r[m]!==undefined?esc(String(r[m])):'—';
       const saeCid=`sae-${esc(String(r.example_id??''))}`;
-      const saeBtn=m==='sae_probe'?`<button class="sae-btn" id="${saeCid}-btn" onclick="toggleSaeInline('${currentTask}','${esc(String(r.example_id??''))}','${saeCid}')">▶ features</button>`:'';
-      h+=`<tr><td style="white-space:nowrap">${m}</td>${scoreCell}<td class="pred-cell">${pred}${m==='sae_probe'?`<div id="${saeCid}"></div>`:''}</td>${reasonCell}<td>${saeBtn}</td></tr>`;
+      const isSae=m==='sae_llm'||m==='sae_probe';
+      const saeBtn=isSae?`<button class="sae-btn" id="${saeCid}-btn" onclick="toggleSaeInline('${currentTask}','${esc(String(r.example_id??''))}','${saeCid}')">▶ features</button>`:'';
+      h+=`<tr><td style="white-space:nowrap">${m}</td>${scoreCell}<td class="pred-cell">${pred}${isSae?`<div id="${saeCid}"></div>`:''}</td>${reasonCell}<td>${saeBtn}</td></tr>`;
     });
     h+=`</table></div>`;
   }
@@ -701,7 +766,7 @@ function thDrop(e,ci){
 }
 
 // ── Utils ─────────────────────────────────────────────────────────────
-function sn(m){return m.replace('llm_monitor_','').replace(/_/g,' ')}
+function sn(m){return m.replace(/_/g,' ')}
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
 
 function thMethodLbl(m){

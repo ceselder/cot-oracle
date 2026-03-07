@@ -17,6 +17,30 @@ from scoring import EVAL_TYPES, score_binary
 
 HF_PROBE_REPO = "mats-10-sprint-cs-jb/qwen3-8b-linear-probes"
 
+_PROBE_RESULTS_CACHE: dict | None = None
+
+def _load_probe_results() -> dict:
+    global _PROBE_RESULTS_CACHE
+    if _PROBE_RESULTS_CACHE is None:
+        from huggingface_hub import hf_hub_download
+        import json
+        path = hf_hub_download(HF_PROBE_REPO, "probe_results.json")
+        _PROBE_RESULTS_CACHE = json.load(open(path))
+    return _PROBE_RESULTS_CACHE
+
+
+def _best_pooling_and_layer(probe_task: str, layers: list[int]) -> tuple[str, int]:
+    """Return (pooling, layer) with highest balanced_accuracy for probe_task, restricted to given layers."""
+    results = _load_probe_results()[probe_task]
+    best_key, best_acc = None, -1.0
+    for pooling in ("mean", "last"):
+        for layer in layers:
+            key = f"{pooling}_linear_L{layer}"
+            acc = results.get(key, {}).get("balanced_accuracy", -1.0)
+            if acc > best_acc:
+                best_acc, best_key = acc, (pooling, layer)
+    return best_key
+
 # Maps eval_name → probe task name in HF repo
 PROBE_TASK_MAP = {
     # Old names
@@ -27,7 +51,10 @@ PROBE_TASK_MAP = {
     "hinted_mcq_truthfulqa": "truthfulqa_hint",
     # New canonical task names (from src/tasks.py)
     "atypical_answer": "atypical_answer",
+    "backtrack_prediction": "backtrack_prediction",
+    "correctness": "correctness",
     "decorative_cot": "decorative_cot",
+    "hint_admission": "hint_admission",
     "reasoning_termination": "reasoning_termination",
     "sycophancy": "sycophancy",
     "truthfulqa_hint": "truthfulqa_hint",
@@ -38,7 +65,10 @@ PROBE_TASK_MAP = {
 # Must produce strings that appear in the task's positive_keywords or negative_keywords.
 PROBE_GT_LABEL_MAP = {
     "atypical_answer": {"atypical": "minority", "typical": "majority"},
+    "backtrack_prediction": {"will_backtrack": "will backtrack", "will_continue": "will continue"},
+    "correctness": {"correct": "correct", "incorrect": "incorrect"},
     "decorative_cot": {"decorative": "decorative", "load_bearing": "load_bearing"},
+    "hint_admission": {"hint_used": "hint was used", "hint_resisted": "hint was not used"},
     "reasoning_termination": {"will_continue": "will continue", "will_terminate": "will terminate"},
     "sycophancy": {"sycophantic": "yes", "non_sycophantic": "not influenced"},
     "truthfulqa_hint": {"hint_used": "hint was used", "hint_resisted": "hint was not used"},
@@ -61,10 +91,9 @@ def _load_probe(probe_task: str, pooling: str, layer: int | str) -> dict:
 def run_linear_probes(
     inputs: list[BaselineInput], *,
     layers: list[int],
-    pooling: str = "mean",
     device: str = "cuda",
 ) -> dict:
-    """Run linear probes on activations. Selects best layer by stored balanced_accuracy."""
+    """Run linear probes on activations. Selects best (pooling, layer) from probe_results.json."""
     eval_name = inputs[0].eval_name
     probe_task = PROBE_TASK_MAP.get(eval_name)
     if probe_task is None:
@@ -74,10 +103,8 @@ def run_linear_probes(
     if eval_type != "binary":
         return {"skipped": True, "reason": "probes only support binary evals"}
 
-    # Load probes for all layers, pick best by stored balanced_accuracy
-    probes = {layer: _load_probe(probe_task, pooling, layer) for layer in layers}
-    best_layer = max(probes, key=lambda l: probes[l]["balanced_accuracy"])
-    probe = probes[best_layer]
+    pooling, best_layer = _best_pooling_and_layer(probe_task, layers)
+    probe = _load_probe(probe_task, pooling, best_layer)
     label_map = PROBE_GT_LABEL_MAP[probe_task]
 
     w = probe["weight"].float()   # [1, D]
@@ -86,7 +113,7 @@ def run_linear_probes(
     std = probe["std"].float()    # [1, D]
 
     predictions, traces = [], []
-    for inp in tqdm(inputs, desc=f"Linear probe ({probe_task}, L{best_layer})"):
+    for inp in tqdm(inputs, desc=f"Linear probe ({probe_task}, {pooling}, L{best_layer})"):
         acts = inp.activations_by_layer[best_layer].cpu().float()  # [K, D]
         x = acts.mean(dim=0, keepdim=True) if pooling == "mean" else acts[-1:]
         x_norm = (x - mu) / (std + 1e-8)
@@ -107,5 +134,5 @@ def run_linear_probes(
     return {
         "metrics": metrics, "traces": traces, "n_items": len(inputs),
         "predictions": predictions, "ground_truths": gt_labels,
-        "best_layer": best_layer, "probe_balanced_acc": probe["balanced_accuracy"],
+        "best_layer": best_layer, "best_pooling": pooling, "probe_balanced_acc": probe["balanced_accuracy"],
     }

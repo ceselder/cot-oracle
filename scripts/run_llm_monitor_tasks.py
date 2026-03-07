@@ -29,6 +29,8 @@ for p in [_DIR / "baselines", _DIR / "src"]:
 
 from shared import BaselineInput
 from llm_monitor import run_llm_monitor
+from llm_monitor_registry import get_llm_monitor_config
+from qa_judge import get_score_model
 from scoring import EVAL_TYPES
 from tasks import TASKS
 
@@ -124,6 +126,7 @@ def load_inputs(task_name, n):
     inputs = []
     for i, row in enumerate(ds):
         test_prompt, cot_text, reference = _extract_fields(task_name, row)
+        original_question = row.get("question", row.get("clean_prompt", test_prompt))
 
         if eval_type == "binary":
             raw_label = row["label"]
@@ -131,16 +134,20 @@ def load_inputs(task_name, n):
         else:
             label = reference
 
+        metadata = dict(row)
+        metadata["clean_prompt"] = original_question
+        if original_question and "question" not in metadata:
+            metadata["question"] = original_question
         inputs.append(BaselineInput(
             eval_name=task_name,
             example_id=f"{task_name}_{i}",
-            clean_prompt=test_prompt, test_prompt=test_prompt,
+            clean_prompt=original_question, test_prompt=test_prompt,
             correct_answer=reference,
             nudge_answer=row.get("nudge_answer"),
             ground_truth_label=label,
             clean_response=cot_text, test_response=cot_text,
             activations_by_layer={},
-            metadata=dict(row),
+            metadata=metadata,
         ))
     return inputs
 
@@ -158,12 +165,15 @@ def main():
     with open(args.config) as f:
         cfg = yaml.safe_load(f)
 
-    lm_cfg = cfg["baselines"]["llm_monitor"]
+    lm_cfg = get_llm_monitor_config(cfg, "weak-llm")
+    score_model = get_score_model(cfg)
     model = args.model or lm_cfg["model"]
     api_base = lm_cfg["api_base"]
     api_key = os.environ["OPENROUTER_API_KEY"]
     max_tokens = lm_cfg.get("max_tokens", 300)
     temperature = lm_cfg.get("temperature", 0.0)
+    max_concurrent = lm_cfg.get("max_concurrent", 20)
+    include_question = lm_cfg.get("include_question", False)
     n = args.n or cfg["eval"].get("max_items_per_eval", 25)
 
     # Determine tasks
@@ -207,6 +217,9 @@ def main():
                 inputs, model=model, api_base=api_base, api_key=api_key,
                 max_tokens=max_tokens, temperature=temperature,
                 cache_path=traces_path,
+                max_concurrent=max_concurrent,
+                include_question=include_question,
+                score_model=score_model,
             )
 
             with open(traces_path, "w") as f:

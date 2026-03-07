@@ -10,6 +10,7 @@ Activations are cached across eval steps (base model is frozen during LoRA train
 
 from __future__ import annotations
 
+import asyncio
 import gc
 import os
 import random
@@ -24,14 +25,15 @@ import torch
 from tasks import TASKS, TaskDef, ScoringMode, get_eval_tasks
 from data_loading import load_task_data, load_futurelens_data, load_pastlens_data, prepare_context_ids
 from qa_judge import (
-    QA_GEMINI_SCORE_MODEL,
-    QA_GEMINI_SCORE_MAX_TOKENS,
+    LLM_SCORE_LABEL,
+    QA_SCORE_MAX_TOKENS,
     OPENROUTER_CHAT_COMPLETIONS_URL,
-    QA_GEMINI_SCORE_SYSTEM,
-    build_qa_gemini_score_prompt,
+    QA_SCORE_SYSTEM,
+    build_qa_score_prompt,
     compute_token_f1_scores,
     extract_judge_json,
-    is_gemini_qa_task,
+    get_score_model,
+    is_qa_score_task,
     TRAJECTORY_JUDGE_SYSTEM,
     build_trajectory_judge_prompt,
     is_trajectory_judge_task,
@@ -40,6 +42,8 @@ from qa_judge import (
     get_llm_judge_system,
 )
 from cot_utils import sample_poisson_positions, sample_endweighted_positions, sentence_boundaries_plus_last5
+
+QA_JUDGE_MAX_CONCURRENT = int(os.environ.get("COT_ORACLE_QA_EVAL_MAX_CONCURRENT", "8"))
 
 
 # ── Per-task response parsers ──
@@ -151,37 +155,35 @@ TASK_PARSERS: dict[str, Any] = {
 
 # ── Scoring ──
 
-def _score_qa_gemini(
+def _score_qa_model(
     task_name: str,
     eval_items: list[dict],
     predictions: list[str],
     targets: list[str],
+    score_model: str,
 ) -> dict[str, Any]:
     if not predictions:
-        return {"gemini_score": 0.0, "token_f1": 0.0, "n": 0, "_qa_judge_scores": [], "_qa_token_f1_scores": [], "_qa_judge_reasons": [], "_qa_judge_raw": [], "_qa_judge_model": QA_GEMINI_SCORE_MODEL}
+        return {"gemini_score": 0.0, "token_f1": 0.0, "n": 0, "_qa_judge_scores": [], "_qa_token_f1_scores": [], "_qa_judge_reasons": [], "_qa_judge_raw": [], "_qa_score_model": score_model}
     if len(eval_items) != len(predictions) or len(predictions) != len(targets):
         raise ValueError(f"QA judge length mismatch for {task_name}: items={len(eval_items)}, predictions={len(predictions)}, targets={len(targets)}")
 
-    print(f"    [{task_name}] Scoring {len(predictions)} QA answers with {QA_GEMINI_SCORE_MODEL}...")
+    print(f"    [{task_name}] Scoring {len(predictions)} QA answers with {score_model}...")
     api_key = os.environ["OPENROUTER_API_KEY"]
     headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
     token_f1_scores = compute_token_f1_scores(predictions, targets)
-    scores = []
-    reasons = []
-    raw_responses = []
 
-    with httpx.Client(timeout=90.0) as client:
-        for item, prediction, target in zip(eval_items, predictions, targets):
+    async def _score_one(client: httpx.AsyncClient, sem: asyncio.Semaphore, item: dict, prediction: str, target: str) -> tuple[float, str, str]:
+        async with sem:
             body = {
-                "model": QA_GEMINI_SCORE_MODEL,
+                "model": score_model,
                 "messages": [
-                    {"role": "system", "content": QA_GEMINI_SCORE_SYSTEM},
-                    {"role": "user", "content": build_qa_gemini_score_prompt(task_name, item["prompt"], target, prediction)},
+                    {"role": "system", "content": QA_SCORE_SYSTEM},
+                    {"role": "user", "content": build_qa_score_prompt(task_name, item["prompt"], target, prediction)},
                 ],
                 "temperature": 0.0,
-                "max_tokens": QA_GEMINI_SCORE_MAX_TOKENS,
+                "max_tokens": QA_SCORE_MAX_TOKENS,
             }
-            response = client.post(OPENROUTER_CHAT_COMPLETIONS_URL, json=body, headers=headers)
+            response = await client.post(OPENROUTER_CHAT_COMPLETIONS_URL, json=body, headers=headers)
             response.raise_for_status()
             response_json = response.json()
             raw_text = response_json["choices"][0]["message"]["content"]
@@ -190,9 +192,21 @@ def _score_qa_gemini(
             score = float(parsed["score"])
             if score < 0.0 or score > 1.0:
                 raise ValueError(f"Judge score out of range for {task_name}: {score}")
-            scores.append(score)
-            reasons.append(str(parsed["reason"]).strip())
-            raw_responses.append(raw_text)
+            return score, str(parsed["reason"]).strip(), raw_text
+
+    async def _run_all() -> list[tuple[float, str, str]]:
+        sem = asyncio.Semaphore(QA_JUDGE_MAX_CONCURRENT)
+        async with httpx.AsyncClient(timeout=90.0) as client:
+            coros = [
+                _score_one(client, sem, item, prediction, target)
+                for item, prediction, target in zip(eval_items, predictions, targets)
+            ]
+            return await asyncio.gather(*coros)
+
+    scored_rows = asyncio.run(_run_all())
+    scores = [score for score, _, _ in scored_rows]
+    reasons = [reason for _, reason, _ in scored_rows]
+    raw_responses = [raw for _, _, raw in scored_rows]
 
     return {
         "gemini_score": sum(scores) / len(scores),
@@ -202,13 +216,14 @@ def _score_qa_gemini(
         "_qa_token_f1_scores": token_f1_scores,
         "_qa_judge_reasons": reasons,
         "_qa_judge_raw": raw_responses,
-        "_qa_judge_model": QA_GEMINI_SCORE_MODEL,
+        "_qa_score_model": score_model,
     }
 
 
 def _score_trajectory_llm(
     predictions: list[str],
     targets: list[str],
+    score_model: str,
 ) -> dict[str, Any]:
     """Score answer_trajectory with LLM judge.
 
@@ -217,11 +232,11 @@ def _score_trajectory_llm(
     Per-example arrays are aligned 1:1 with predictions (None where GT unparseable).
     """
     n = len(predictions)
-    _empty = {"answer_score": 0.0, "n": 0, "_traj_answer_scores": [], "_traj_pred_confidences": [], "_traj_reasons": [], "_traj_raw": [], "_traj_judge_model": QA_GEMINI_SCORE_MODEL}
+    _empty = {"answer_score": 0.0, "n": 0, "_traj_answer_scores": [], "_traj_pred_confidences": [], "_traj_reasons": [], "_traj_raw": [], "_traj_score_model": score_model}
     if not predictions:
         return _empty
 
-    print(f"    [answer_trajectory] Scoring {n} predictions with {QA_GEMINI_SCORE_MODEL}...")
+    print(f"    [answer_trajectory] Scoring {n} predictions with {score_model}...")
     api_key = os.environ["OPENROUTER_API_KEY"]
     headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
 
@@ -232,15 +247,18 @@ def _score_trajectory_llm(
     reasons_per: list[str | None] = [None] * n
     raw_per: list[str | None] = [None] * n
 
-    with httpx.Client(timeout=90.0) as client:
-        for i, (prediction, target) in enumerate(zip(predictions, targets)):
-            gt = _parse_trajectory(target)
-            if gt is None:
-                continue
-            gt_answer = gt["label"]
-            gt_confidence = gt.get("confidence")
+    parseable = []
+    for i, (prediction, target) in enumerate(zip(predictions, targets)):
+        gt = _parse_trajectory(target)
+        if gt is None:
+            continue
+        parseable.append((i, prediction, gt["label"], gt.get("confidence")))
+
+    async def _score_one(client: httpx.AsyncClient, sem: asyncio.Semaphore, row: tuple[int, str, str, int | None]) -> tuple[int, float, int | None, str, str, int | None]:
+        i, prediction, gt_answer, gt_confidence = row
+        async with sem:
             body = {
-                "model": QA_GEMINI_SCORE_MODEL,
+                "model": score_model,
                 "messages": [
                     {"role": "system", "content": TRAJECTORY_JUDGE_SYSTEM},
                     {"role": "user", "content": build_trajectory_judge_prompt(gt_answer, gt_confidence, prediction)},
@@ -248,7 +266,7 @@ def _score_trajectory_llm(
                 "temperature": 0.0,
                 "max_tokens": 80,
             }
-            response = client.post(OPENROUTER_CHAT_COMPLETIONS_URL, json=body, headers=headers)
+            response = await client.post(OPENROUTER_CHAT_COMPLETIONS_URL, json=body, headers=headers)
             response.raise_for_status()
             raw_text = response.json()["choices"][0]["message"]["content"]
             raw_text = re.sub(r"<think>.*?</think>", "", raw_text, flags=re.DOTALL).strip()
@@ -256,14 +274,25 @@ def _score_trajectory_llm(
             answer_score = float(parsed["answer_score"])
             if not (0.0 <= answer_score <= 1.0):
                 raise ValueError(f"answer_score out of range: {answer_score}")
-            answer_scores_all.append(answer_score)
-            answer_scores_per[i] = answer_score
             pred_conf = parsed.get("predicted_confidence")
-            pred_confs_per[i] = int(pred_conf) if pred_conf is not None else None
-            if pred_conf is not None and gt_confidence is not None:
-                conf_se_all.append((int(pred_conf) - gt_confidence) ** 2)
-            reasons_per[i] = str(parsed.get("reason", "")).strip()
-            raw_per[i] = raw_text
+            pred_conf_int = int(pred_conf) if pred_conf is not None else None
+            return i, answer_score, pred_conf_int, str(parsed.get("reason", "")).strip(), raw_text, gt_confidence
+
+    async def _run_all() -> list[tuple[int, float, int | None, str, str, int | None]]:
+        sem = asyncio.Semaphore(QA_JUDGE_MAX_CONCURRENT)
+        async with httpx.AsyncClient(timeout=90.0) as client:
+            coros = [_score_one(client, sem, row) for row in parseable]
+            return await asyncio.gather(*coros)
+
+    scored_rows = asyncio.run(_run_all())
+    for i, answer_score, pred_conf_int, reason, raw_text, gt_confidence in scored_rows:
+        answer_scores_all.append(answer_score)
+        answer_scores_per[i] = answer_score
+        pred_confs_per[i] = pred_conf_int
+        if pred_conf_int is not None and gt_confidence is not None:
+            conf_se_all.append((pred_conf_int - gt_confidence) ** 2)
+        reasons_per[i] = reason
+        raw_per[i] = raw_text
 
     result: dict[str, Any] = {
         "answer_score": sum(answer_scores_all) / len(answer_scores_all) if answer_scores_all else 0.0,
@@ -272,7 +301,7 @@ def _score_trajectory_llm(
         "_traj_pred_confidences": pred_confs_per,
         "_traj_reasons": reasons_per,
         "_traj_raw": raw_per,
-        "_traj_judge_model": QA_GEMINI_SCORE_MODEL,
+        "_traj_score_model": score_model,
     }
     if conf_se_all:
         result["confidence_mse"] = sum(conf_se_all) / len(conf_se_all)
@@ -284,6 +313,7 @@ def _score_llm_judge(
     eval_items: list[dict],
     predictions: list[str],
     targets: list[str],
+    score_model: str,
 ) -> dict[str, Any]:
     """Score LLM judge tasks with multi-dimensional rubrics.
 
@@ -294,7 +324,7 @@ def _score_llm_judge(
     empty = {
         "llm_judge_score": 0.0, "specificity": 0.0, "calibration": 0.0, "overconfidence": 0.0,
         "n": 0, "_llm_judge_correctness": [], "_llm_judge_specificity": [], "_llm_judge_confidence": [],
-        "_llm_judge_reasons": [], "_llm_judge_raw": [], "_llm_judge_model": QA_GEMINI_SCORE_MODEL,
+        "_llm_judge_reasons": [], "_llm_judge_raw": [], "_llm_score_model": score_model,
     }
     if is_metacog:
         empty.update({"vagueness_rate": 0.0, "hallucination_rate": 0.0, "composite_score": 0.0,
@@ -302,31 +332,23 @@ def _score_llm_judge(
     if not predictions:
         return empty
 
-    print(f"    [{task_name}] Scoring {len(predictions)} responses with {QA_GEMINI_SCORE_MODEL}...")
+    print(f"    [{task_name}] Scoring {len(predictions)} responses with {score_model}...")
     api_key = os.environ["OPENROUTER_API_KEY"]
     headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
     system_prompt = get_llm_judge_system(task_name)
 
-    correctness_scores = []
-    specificity_scores = []
-    confidence_scores = []
-    vagueness_scores = []
-    reasons = []
-    raw_responses = []
-    categories = []
-
-    with httpx.Client(timeout=90.0) as client:
-        for item, prediction, target in zip(eval_items, predictions, targets):
+    async def _score_one(client: httpx.AsyncClient, sem: asyncio.Semaphore, item: dict, prediction: str, target: str) -> tuple[float, float, float, float | None, str, str, str]:
+        async with sem:
             body = {
-                "model": QA_GEMINI_SCORE_MODEL,
+                "model": score_model,
                 "messages": [
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": build_llm_judge_prompt(task_name, item["prompt"], target, prediction)},
                 ],
                 "temperature": 0.0,
-                "max_tokens": QA_GEMINI_SCORE_MAX_TOKENS,
+                "max_tokens": QA_SCORE_MAX_TOKENS,
             }
-            response = client.post(OPENROUTER_CHAT_COMPLETIONS_URL, json=body, headers=headers)
+            response = await client.post(OPENROUTER_CHAT_COMPLETIONS_URL, json=body, headers=headers)
             response.raise_for_status()
             raw_text = response.json()["choices"][0]["message"]["content"]
             raw_text = re.sub(r"<think>.*?</think>", "", raw_text, flags=re.DOTALL).strip()
@@ -337,18 +359,30 @@ def _score_llm_judge(
             for v, name in [(c, "correctness"), (s, "specificity"), (conf, "confidence")]:
                 if v < 0.0 or v > 1.0:
                     raise ValueError(f"LLM judge {name} out of range for {task_name}: {v}")
-            correctness_scores.append(c)
-            specificity_scores.append(s)
-            confidence_scores.append(conf)
-            reasons.append(str(parsed["reason"]).strip())
-            raw_responses.append(raw_text)
-
+            vagueness_penalty = None
             if is_metacog:
-                vp = float(parsed.get("vagueness_penalty", 0.0))
-                if vp < 0.0 or vp > 1.0:
-                    raise ValueError(f"LLM judge vagueness_penalty out of range: {vp}")
-                vagueness_scores.append(vp)
-                categories.append(item.get("category", "unknown"))
+                vagueness_penalty = float(parsed.get("vagueness_penalty", 0.0))
+                if vagueness_penalty < 0.0 or vagueness_penalty > 1.0:
+                    raise ValueError(f"LLM judge vagueness_penalty out of range: {vagueness_penalty}")
+            return c, s, conf, vagueness_penalty, str(parsed["reason"]).strip(), raw_text, item.get("category", "unknown")
+
+    async def _run_all() -> list[tuple[float, float, float, float | None, str, str, str]]:
+        sem = asyncio.Semaphore(QA_JUDGE_MAX_CONCURRENT)
+        async with httpx.AsyncClient(timeout=90.0) as client:
+            coros = [
+                _score_one(client, sem, item, prediction, target)
+                for item, prediction, target in zip(eval_items, predictions, targets)
+            ]
+            return await asyncio.gather(*coros)
+
+    scored_rows = asyncio.run(_run_all())
+    correctness_scores = [c for c, _, _, _, _, _, _ in scored_rows]
+    specificity_scores = [s for _, s, _, _, _, _, _ in scored_rows]
+    confidence_scores = [conf for _, _, conf, _, _, _, _ in scored_rows]
+    vagueness_scores = [vp for _, _, _, vp, _, _, _ in scored_rows if vp is not None]
+    reasons = [reason for _, _, _, _, reason, _, _ in scored_rows]
+    raw_responses = [raw for _, _, _, _, _, raw, _ in scored_rows]
+    categories = [category for _, _, _, _, _, _, category in scored_rows if is_metacog]
 
     n = len(correctness_scores)
     mean_correctness = sum(correctness_scores) / n
@@ -367,7 +401,7 @@ def _score_llm_judge(
         "_llm_judge_confidence": confidence_scores,
         "_llm_judge_reasons": reasons,
         "_llm_judge_raw": raw_responses,
-        "_llm_judge_model": QA_GEMINI_SCORE_MODEL,
+        "_llm_score_model": score_model,
     }
 
     if is_metacog:
@@ -739,21 +773,24 @@ def score_task(
     targets: list[str],
     tokenizer=None,
     eval_items: list[dict] | None = None,
+    score_model: str | None = None,
 ) -> dict[str, Any]:
     """Score any task. Parser-based tasks get accuracy + numeric side-metrics.
     Remaining tasks fall through to generic scoring."""
+    if score_model is None:
+        score_model = get_score_model()
     if is_llm_judge_task(task_def.name):
         if eval_items is None:
             raise ValueError(f"LLM judge scoring needs eval_items for {task_def.name}")
-        return _score_llm_judge(task_def.name, eval_items, predictions, targets)
+        return _score_llm_judge(task_def.name, eval_items, predictions, targets, score_model)
 
-    if is_gemini_qa_task(task_def.name):
+    if is_qa_score_task(task_def.name):
         if eval_items is None:
-            raise ValueError(f"Gemini QA scoring needs eval_items for {task_def.name}")
-        return _score_qa_gemini(task_def.name, eval_items, predictions, targets)
+            raise ValueError(f"QA scoring needs eval_items for {task_def.name}")
+        return _score_qa_model(task_def.name, eval_items, predictions, targets, score_model)
 
     if is_trajectory_judge_task(task_def.name):
-        return _score_trajectory_llm(predictions, targets)
+        return _score_trajectory_llm(predictions, targets, score_model)
 
     parser = TASK_PARSERS.get(task_def.name)
     if parser is not None:
@@ -868,7 +905,7 @@ def _primary_metric_name(task_name: str, scoring: ScoringMode) -> str:
     """Map task to its primary metric key."""
     if is_llm_judge_task(task_name):
         return "llm_judge_score"
-    if is_gemini_qa_task(task_name):
+    if is_qa_score_task(task_name):
         return "gemini_score"
     if is_trajectory_judge_task(task_name):
         return "answer_score"
@@ -1443,6 +1480,7 @@ def run_eval(
     pe_alpha: float = 0.1,
     eval_position_seed: int = 0,
     run_bb_monitor: bool = False,
+    score_model: str | None = None,
 ) -> tuple[dict[str, float], dict[str, list[dict]]]:
     """Run eval for all (or specified) tasks.
 
@@ -1451,6 +1489,8 @@ def run_eval(
     """
     if layers is None:
         layers = [9, 18, 27]
+    if score_model is None:
+        score_model = get_score_model()
 
     all_tasks = get_eval_tasks()
     if task_names is not None:
@@ -1487,6 +1527,7 @@ def run_eval(
                 position_encoding=position_encoding,
                 pe_alpha=pe_alpha,
                 eval_position_seed=eval_position_seed,
+                score_model=score_model,
             )
             elapsed = time.time() - t0
 
@@ -1498,7 +1539,7 @@ def run_eval(
             primary_metric = _primary_metric_name(task_name, task_def.scoring)
             primary_score = result.get(primary_metric, 0.0)
             metrics[f"eval/{task_name}"] = primary_score
-            if is_gemini_qa_task(task_name):
+            if is_qa_score_task(task_name):
                 metrics[f"eval/{task_name}_gemini_score"] = result.get("gemini_score", 0.0)
             metrics[f"eval_n/{task_name}"] = result.get("n", 0)
             if result.get("unparsed", 0) > 0:
@@ -1523,7 +1564,7 @@ def run_eval(
             if n_unparsed > 0:
                 extras.append(f"unparsed={n_unparsed}/{n_total}")
             table_rows.append((
-                task_name, primary_metric, primary_score,
+                task_name, (LLM_SCORE_LABEL if primary_metric == "llm_judge_score" else primary_metric), primary_score,
                 "  ".join(extras), elapsed,
             ))
 
@@ -1557,7 +1598,7 @@ def run_eval(
                         metrics[f"bb_monitor/{task_name}_{key}"] = val
                 metrics[f"bb_monitor_n/{task_name}"] = bb_result.get("n", 0)
                 extras = [f"spec={bb_result.get('specificity', 0):.3f}", f"cal={bb_result.get('calibration', 0):.3f}"]
-                table_rows.append((f"bb:{task_name}", "llm_judge", bb_score, "  ".join(extras), elapsed))
+                table_rows.append((f"bb:{task_name}", LLM_SCORE_LABEL, bb_score, "  ".join(extras), elapsed))
             except Exception as e:
                 elapsed = time.time() - t0
                 print(f"  [bb_monitor] {task_name} FAILED: {e}")
@@ -1603,8 +1644,11 @@ def _eval_single_task(
     position_encoding: bool = False,
     pe_alpha: float = 0.1,
     eval_position_seed: int = 0,
+    score_model: str | None = None,
 ) -> dict[str, float]:
     """Eval a single task with activation caching (or text-baseline mode)."""
+    if score_model is None:
+        score_model = get_score_model()
 
     # ── No-activations (text-baseline) path ──
     if no_activations:
@@ -1668,23 +1712,23 @@ def _eval_single_task(
                 print(f"      pred: {pred_short}")
                 print(f"      tgt:  {tgt_short}")
 
-        result = score_task(task_def, predictions, targets, tokenizer=tokenizer, eval_items=test_data)
-        qa_judge_scores = result.get("_qa_judge_scores") if is_gemini_qa_task(task_name) else None
-        qa_token_f1_scores = result.get("_qa_token_f1_scores") if is_gemini_qa_task(task_name) else None
-        qa_judge_reasons = result.get("_qa_judge_reasons") if is_gemini_qa_task(task_name) else None
-        qa_judge_raw = result.get("_qa_judge_raw") if is_gemini_qa_task(task_name) else None
-        qa_judge_model = result.get("_qa_judge_model") if is_gemini_qa_task(task_name) else None
+        result = score_task(task_def, predictions, targets, tokenizer=tokenizer, eval_items=test_data, score_model=score_model)
+        qa_judge_scores = result.get("_qa_judge_scores") if is_qa_score_task(task_name) else None
+        qa_token_f1_scores = result.get("_qa_token_f1_scores") if is_qa_score_task(task_name) else None
+        qa_judge_reasons = result.get("_qa_judge_reasons") if is_qa_score_task(task_name) else None
+        qa_judge_raw = result.get("_qa_judge_raw") if is_qa_score_task(task_name) else None
+        qa_score_model = result.get("_qa_score_model") if is_qa_score_task(task_name) else None
         traj_answer_scores = result.get("_traj_answer_scores") if is_trajectory_judge_task(task_name) else None
         traj_pred_confs = result.get("_traj_pred_confidences") if is_trajectory_judge_task(task_name) else None
         traj_reasons = result.get("_traj_reasons") if is_trajectory_judge_task(task_name) else None
         traj_raw = result.get("_traj_raw") if is_trajectory_judge_task(task_name) else None
-        traj_judge_model = result.get("_traj_judge_model") if is_trajectory_judge_task(task_name) else None
+        traj_score_model = result.get("_traj_score_model") if is_trajectory_judge_task(task_name) else None
         llm_judge_correctness = result.get("_llm_judge_correctness") if is_llm_judge_task(task_name) else None
         llm_judge_specificity = result.get("_llm_judge_specificity") if is_llm_judge_task(task_name) else None
         llm_judge_confidence = result.get("_llm_judge_confidence") if is_llm_judge_task(task_name) else None
         llm_judge_reasons = result.get("_llm_judge_reasons") if is_llm_judge_task(task_name) else None
         llm_judge_raw = result.get("_llm_judge_raw") if is_llm_judge_task(task_name) else None
-        llm_judge_model = result.get("_llm_judge_model") if is_llm_judge_task(task_name) else None
+        llm_score_model = result.get("_llm_score_model") if is_llm_judge_task(task_name) else None
         traces = []
         for i, (pred, tgt) in enumerate(zip(predictions, targets)):
             item = test_data[i]
@@ -1715,20 +1759,20 @@ def _eval_single_task(
             if "answerable" in item:
                 trace["answerable"] = item["answerable"]
             if llm_judge_correctness is not None:
-                trace["judge_model"] = llm_judge_model
+                trace["score_model"] = llm_score_model
                 trace["judge_correctness"] = llm_judge_correctness[i]
                 trace["judge_specificity"] = llm_judge_specificity[i]
                 trace["judge_confidence"] = llm_judge_confidence[i]
                 trace["judge_reason"] = llm_judge_reasons[i]
                 trace["judge_raw"] = llm_judge_raw[i]
             if qa_judge_scores is not None:
-                trace["judge_model"] = qa_judge_model
+                trace["score_model"] = qa_score_model
                 trace["judge_score"] = qa_judge_scores[i]
                 trace["token_f1"] = qa_token_f1_scores[i]
                 trace["judge_reason"] = qa_judge_reasons[i]
                 trace["judge_raw"] = qa_judge_raw[i]
             if traj_answer_scores is not None and traj_answer_scores[i] is not None:
-                trace["judge_model"] = traj_judge_model
+                trace["score_model"] = traj_score_model
                 trace["judge_score"] = traj_answer_scores[i]
                 trace["predicted_confidence"] = traj_pred_confs[i]
                 trace["judge_reason"] = traj_reasons[i]
@@ -1864,23 +1908,23 @@ def _eval_single_task(
             print(f"      pred: {pred_short}")
             print(f"      tgt:  {tgt_short}")
 
-    result = score_task(task_def, predictions, targets, tokenizer=tokenizer, eval_items=test_data)
-    qa_judge_scores = result.get("_qa_judge_scores") if is_gemini_qa_task(task_name) else None
-    qa_token_f1_scores = result.get("_qa_token_f1_scores") if is_gemini_qa_task(task_name) else None
-    qa_judge_reasons = result.get("_qa_judge_reasons") if is_gemini_qa_task(task_name) else None
-    qa_judge_raw = result.get("_qa_judge_raw") if is_gemini_qa_task(task_name) else None
-    qa_judge_model = result.get("_qa_judge_model") if is_gemini_qa_task(task_name) else None
+    result = score_task(task_def, predictions, targets, tokenizer=tokenizer, eval_items=test_data, score_model=score_model)
+    qa_judge_scores = result.get("_qa_judge_scores") if is_qa_score_task(task_name) else None
+    qa_token_f1_scores = result.get("_qa_token_f1_scores") if is_qa_score_task(task_name) else None
+    qa_judge_reasons = result.get("_qa_judge_reasons") if is_qa_score_task(task_name) else None
+    qa_judge_raw = result.get("_qa_judge_raw") if is_qa_score_task(task_name) else None
+    qa_score_model = result.get("_qa_score_model") if is_qa_score_task(task_name) else None
     traj_answer_scores = result.get("_traj_answer_scores") if is_trajectory_judge_task(task_name) else None
     traj_pred_confs = result.get("_traj_pred_confidences") if is_trajectory_judge_task(task_name) else None
     traj_reasons = result.get("_traj_reasons") if is_trajectory_judge_task(task_name) else None
     traj_raw = result.get("_traj_raw") if is_trajectory_judge_task(task_name) else None
-    traj_judge_model = result.get("_traj_judge_model") if is_trajectory_judge_task(task_name) else None
+    traj_score_model = result.get("_traj_score_model") if is_trajectory_judge_task(task_name) else None
     llm_judge_correctness = result.get("_llm_judge_correctness") if is_llm_judge_task(task_name) else None
     llm_judge_specificity = result.get("_llm_judge_specificity") if is_llm_judge_task(task_name) else None
     llm_judge_confidence = result.get("_llm_judge_confidence") if is_llm_judge_task(task_name) else None
     llm_judge_reasons = result.get("_llm_judge_reasons") if is_llm_judge_task(task_name) else None
     llm_judge_raw = result.get("_llm_judge_raw") if is_llm_judge_task(task_name) else None
-    llm_judge_model = result.get("_llm_judge_model") if is_llm_judge_task(task_name) else None
+    llm_score_model = result.get("_llm_score_model") if is_llm_judge_task(task_name) else None
 
     # Attach per-example traces for wandb Tables
     _ensure_ao_imports()
@@ -1931,20 +1975,20 @@ def _eval_single_task(
         if "answerable" in item:
             trace["answerable"] = item["answerable"]
         if llm_judge_correctness is not None:
-            trace["judge_model"] = llm_judge_model
+            trace["score_model"] = llm_score_model
             trace["judge_correctness"] = llm_judge_correctness[i]
             trace["judge_specificity"] = llm_judge_specificity[i]
             trace["judge_confidence"] = llm_judge_confidence[i]
             trace["judge_reason"] = llm_judge_reasons[i]
             trace["judge_raw"] = llm_judge_raw[i]
         if qa_judge_scores is not None:
-            trace["judge_model"] = qa_judge_model
+            trace["score_model"] = qa_score_model
             trace["judge_score"] = qa_judge_scores[i]
             trace["token_f1"] = qa_token_f1_scores[i]
             trace["judge_reason"] = qa_judge_reasons[i]
             trace["judge_raw"] = qa_judge_raw[i]
         if traj_answer_scores is not None and traj_answer_scores[i] is not None:
-            trace["judge_model"] = traj_judge_model
+            trace["score_model"] = traj_score_model
             trace["judge_score"] = traj_answer_scores[i]
             trace["predicted_confidence"] = traj_pred_confs[i]
             trace["judge_reason"] = traj_reasons[i]
