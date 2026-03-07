@@ -142,6 +142,7 @@ TRAINED_CHECKPOINTS = {
     "calibration-dpo-v4": {"path": "ceselder/cot-oracle-calibration-dpo-v4", "subfolder": "policy", "label": "calibration DPO v4"},
     "dpo-final-1": {"path": "ceselder/cot-oracle-dpo-final-attempt-1", "subfolder": "policy", "label": "DPO final attempt 1"},
     "dpo-final-2": {"path": "ceselder/cot-oracle-dpo-final-attempt-2", "subfolder": "policy", "label": "DPO final attempt 2"},
+    "dpo-correction-only": {"path": "ceselder/cot-oracle-dpo-correction-only-step400", "label": "DPO correction-only (step 400)"},
 }
 
 # Available checkpoints for the Finetuned Monitor (text baseline, no activations).
