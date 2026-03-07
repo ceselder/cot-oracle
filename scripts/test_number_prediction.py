@@ -303,8 +303,19 @@ def main():
         import matplotlib
         matplotlib.use("Agg")
         import matplotlib.pyplot as plt
+        from scipy.stats import norm as scipy_norm
 
-        fig, axes = plt.subplots(1, 2, figsize=(14, 6))
+        def wilson_ci(k, n, z=1.96):
+            """Wilson score 95% confidence interval for binomial proportion."""
+            if n == 0:
+                return 0, 0
+            p = k / n
+            denom = 1 + z**2 / n
+            centre = (p + z**2 / (2 * n)) / denom
+            margin = z * ((p * (1 - p) / n + z**2 / (4 * n**2)) ** 0.5) / denom
+            return max(0, centre - margin), min(1, centre + margin)
+
+        fig, axes = plt.subplots(1, 2, figsize=(16, 7.5))
 
         for qi, q in enumerate(QUESTIONS):
             ax = axes[qi]
@@ -313,43 +324,68 @@ def main():
             ae = [r[f"adam_{qi}_exact"] for r in results]
             oe = [r[f"trained_{qi}_exact"] for r in results]
 
+            n = len(results)
             x = np.arange(2)
             width = 0.35
             f1_vals = [np.mean(af), np.mean(of)]
+            f1_stds = [np.std(af), np.std(of)]
             exact_vals = [np.mean(ae), np.mean(oe)]
-            f1_errs = [np.std(af)/np.sqrt(len(af)), np.std(of)/np.sqrt(len(of))]
+            f1_errs = [s / np.sqrt(n) for s in f1_stds]
 
-            b1 = ax.bar(x - width/2, f1_vals, width, yerr=f1_errs, label="Char F1",
-                        color=["#e74c3c", "#2ecc71"], alpha=0.85, capsize=4, edgecolor="black")
-            b2 = ax.bar(x + width/2, exact_vals, width, label="Exact Match",
-                        color=["#fadbd8", "#abebc6"], alpha=0.85, edgecolor="black")
+            # Wilson CI for exact match (binomial)
+            adam_k = int(sum(ae))
+            ours_k = int(sum(oe))
+            adam_lo, adam_hi = wilson_ci(adam_k, n)
+            ours_lo, ours_hi = wilson_ci(ours_k, n)
+            exact_lo = [exact_vals[0] - adam_lo, exact_vals[1] - ours_lo]
+            exact_hi = [adam_hi - exact_vals[0], ours_hi - exact_vals[1]]
+
+            b1 = ax.bar(x - width/2, f1_vals, width, yerr=f1_errs, label="Char F1 (±SEM)",
+                        color=["#e74c3c", "#2ecc71"], alpha=0.85, capsize=5, edgecolor="black", linewidth=0.8)
+            b2 = ax.bar(x + width/2, exact_vals, width, yerr=[exact_lo, exact_hi],
+                        label="Exact Match (Wilson 95% CI)",
+                        color=["#fadbd8", "#abebc6"], alpha=0.85, capsize=5, edgecolor="black", linewidth=0.8)
 
             ax.set_xticks(x)
-            ax.set_xticklabels(["Adam's AO\n(layer 16)", "Ours\n(layers 9,18,27)"], fontsize=11)
+            ax.set_xticklabels([
+                f"Adam's AO\n(single layer 16, 50% depth)",
+                f"Ours\n(layers 9, 18, 27 — 25/50/75%)"
+            ], fontsize=10)
             ax.set_ylabel("Score", fontsize=11)
             ax.set_title(f"Q: \"{q}\"", fontsize=12, fontweight="bold")
             ymax = max(max(f1_vals), max(exact_vals))
-            ax.set_ylim(0, max(0.15, ymax + 0.12))
-            ax.legend(loc="upper right", fontsize=9)
+            ax.set_ylim(0, max(0.15, ymax + 0.18))
+            ax.legend(loc="upper right", fontsize=8.5)
+            ax.grid(axis='y', alpha=0.3, linewidth=0.5)
 
-            for bar in b1:
+            # Annotate F1 bars with mean±std
+            for i, bar in enumerate(b1):
                 h = bar.get_height()
                 if h > 0.001:
-                    ax.text(bar.get_x() + bar.get_width()/2, h + 0.01,
-                            f"{h:.3f}", ha="center", va="bottom", fontsize=10, fontweight="bold")
-            for bar in b2:
+                    ax.text(bar.get_x() + bar.get_width()/2, h + f1_errs[i] + 0.012,
+                            f"{h:.3f}±{f1_stds[i]:.3f}", ha="center", va="bottom",
+                            fontsize=9, fontweight="bold")
+            # Annotate exact match bars with k/n
+            exact_ks = [adam_k, ours_k]
+            for i, bar in enumerate(b2):
                 h = bar.get_height()
-                if h > 0.001:
-                    ax.text(bar.get_x() + bar.get_width()/2, h + 0.01,
-                            f"{h:.3f}", ha="center", va="bottom", fontsize=10, fontweight="bold")
+                top = h + [exact_hi][0][i]
+                ax.text(bar.get_x() + bar.get_width()/2, top + 0.012,
+                        f"{exact_ks[i]}/{n}", ha="center", va="bottom",
+                        fontsize=9, fontweight="bold")
 
-        fig.suptitle(
-            f"Number Prediction from CoT Activations (n={len(results)}, stride-{STRIDE})\n"
-            f"Qwen3-8B solves arithmetic with CoT (greedy). Activations extracted at stride-{STRIDE}.\n"
-            f"Adam uses native single-layer L16 format. Ours uses native multi-layer L9,L18,L27 format.",
-            fontsize=10.5, fontweight="bold"
+        methodology = (
+            f"Number Prediction from CoT Activations  (n={len(results)})\n"
+            f"Task: Qwen3-8B (base, no adapter) solves random arithmetic (+-*) with greedy CoT (max 512 tokens, enable_thinking=False).\n"
+            f"Activations extracted from residual stream at stride-{STRIDE} over full CoT region, then injected via norm-matched addition at layer 1.\n"
+            f"Adam's AO (adamkarvonen/checkpoints_latentqa_cls_past_lens_addition_Qwen3-8B): single layer 16 (50% depth), prefix 'L16:¶¶¶...'\n"
+            f"Ours (ceselder/cot-oracle-qwen3-8b-final-sprint-checkpoint-no-DPO): layers 9,18,27 (25/50/75%), prefix 'L9:¶¶¶ L18:¶¶¶ L27:¶¶¶.'\n"
+            f"Each oracle queried with its native layer format. Oracle generates up to 32 tokens (greedy). First number extracted via regex.\n"
+            f"Char F1 = character-level F1 between predicted and target number strings. Error bars: SEM (F1), Wilson 95% CI (exact match)."
         )
-        plt.tight_layout(rect=[0, 0, 1, 0.87])
+        fig.suptitle(methodology, fontsize=8.5, fontweight="bold", family="monospace",
+                     linespacing=1.5, ha="center")
+        plt.tight_layout(rect=[0, 0, 1, 0.78])
         chart_path = "data/number_prediction_chart.png"
         plt.savefig(chart_path, dpi=150, bbox_inches="tight")
         print(f"\nChart saved to {chart_path}")
