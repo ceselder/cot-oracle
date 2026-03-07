@@ -234,10 +234,10 @@ def main():
     model, tokenizer = load_model_and_adapters()
     problems = generate_random_problems(N_PROBLEMS)
 
-    # Exact questions from Arya's post (Table in "Number prediction" section)
+    # Direct number-asking questions (inspired by Arya's post)
     questions = [
-        "About to produce a number?",
-        "Planning to answer?",
+        "What specific number is the model about to output?",
+        "What is the numerical answer the model has computed?",
     ]
 
     # Two conditions from the post: control tokens only, full user prompt
