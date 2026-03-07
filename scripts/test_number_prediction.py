@@ -1,14 +1,16 @@
 #!/usr/bin/env python3
 """
-Test: Can the oracle predict what number the model is computing?
+Replicate the number prediction test from:
+"Current activation oracles are hard to use" (LessWrong, March 2026)
 
-From the LessWrong post: Adam's AO confabulates "10" and "12" regardless of problem.
+Their setup:
+  - Arithmetic problems with NO chain of thought (think tags closed)
+  - Activations from control tokens only (<|im_start|>assistant)
+  - OR from the full user prompt
+  - Questions: "What number is the model about to produce?"
+  - Result: AO confabulates "10" and "12" regardless of problem
 
-Uses SPARSE positions across the full CoT (stride-20), not dense windows.
-This avoids text inversion of nearby tokens.
-
-n=100 random arithmetic problems, temperature=0.5 for variety.
-Computes token F1 on extracted numbers.
+We replicate this exactly, comparing Adam's AO vs our final sprint.
 """
 
 from __future__ import annotations
@@ -19,6 +21,7 @@ import random
 import re
 import sys
 import time
+from collections import Counter
 from pathlib import Path
 
 import torch
@@ -36,26 +39,32 @@ BASE_MODEL = "Qwen/Qwen3-8B"
 LAYERS = [9, 18, 27]
 INJECTION_LAYER = 1
 N_PROBLEMS = 100
-TEMPERATURE = 0.5
-STRIDE = 20  # sparse positions across CoT
 
 
 def generate_random_problems(n=100, seed=42):
     rng = random.Random(seed)
-    problems = []
+
+    # Start with examples from/inspired by the blog post
+    problems = [
+        {"problem": "What is -93 + (-42 % 162) + -8369?", "expression": "-93 + (-42 % 162) + -8369", "answer": -93 + (-42 % 162) + -8369},
+        {"problem": "What is (44 // -49) % ((15 - 51) * 25)?", "expression": "(44 // -49) % ((15 - 51) * 25)", "answer": (44 // -49) % ((15 - 51) * 25)},
+        {"problem": "What is (-60 * -44) + (-73 + -76)?", "expression": "(-60 * -44) + (-73 + -76)", "answer": (-60 * -44) + (-73 + -76)},
+        {"problem": "What is 87 - 38 + 68 - (-79 + 42)?", "expression": "87 - 38 + 68 - (-79 + 42)", "answer": 87 - 38 + 68 - (-79 + 42)},
+        {"problem": "What is 1 + 1?", "expression": "1 + 1", "answer": 2},
+    ]
+
+    # Fill rest with random arithmetic
     ops = ['+', '-', '*']
-    for _ in range(n):
+    while len(problems) < n:
         op = rng.choice(ops)
         if op == '*':
             a, b = rng.randint(2, 50), rng.randint(2, 50)
-        elif op == '+':
-            a, b = rng.randint(-500, 500), rng.randint(-500, 500)
         else:
             a, b = rng.randint(-500, 500), rng.randint(-500, 500)
         expr = f"{a} {op} {b}"
         answer = eval(expr)
         problems.append({"problem": f"What is {expr}?", "expression": expr, "answer": answer})
-    return problems
+    return problems[:n]
 
 
 def load_model_and_adapters():
@@ -64,12 +73,12 @@ def load_model_and_adapters():
         BASE_MODEL, torch_dtype=torch.bfloat16, device_map="auto", trust_remote_code=True,
     )
     tokenizer = AutoTokenizer.from_pretrained(BASE_MODEL, trust_remote_code=True)
-    print(f"Loading Adam's adapter...")
+    print("Loading Adam's adapter...")
     model = PeftModel.from_pretrained(
         base, ADAM_CHECKPOINT, adapter_name="adam",
         torch_dtype=torch.bfloat16, low_cpu_mem_usage=True,
     )
-    print(f"Loading final-sprint adapter...")
+    print("Loading final-sprint adapter...")
     model.load_adapter(
         FINAL_SPRINT_CHECKPOINT, adapter_name="trained",
         torch_dtype=torch.bfloat16, low_cpu_mem_usage=True,
@@ -78,41 +87,60 @@ def load_model_and_adapters():
     return model, tokenizer
 
 
-def generate_response(model, tokenizer, problem_text, temperature=0.0):
-    content = problem_text + " Think step by step."
-    messages = [{"role": "user", "content": content}]
+def build_no_cot_input(tokenizer, problem_text):
+    """Build input with no CoT — thinking disabled, model outputs answer directly.
+
+    Returns (full_ids_list, prompt_len, control_token_positions, user_prompt_positions).
+    """
+    # Format: <|im_start|>user\n{problem}<|im_end|>\n<|im_start|>assistant\n
+    messages = [{"role": "user", "content": problem_text}]
+    formatted = tokenizer.apply_chat_template(
+        messages, tokenize=False, add_generation_prompt=True, enable_thinking=False,
+    )
+    full_ids = tokenizer.encode(formatted, add_special_tokens=False)
+
+    # Find control tokens: <|im_start|>assistant\n at the end
+    # These are the last few tokens before generation starts
+    assistant_marker = tokenizer.encode("<|im_start|>assistant\n", add_special_tokens=False)
+    # Find where assistant marker starts
+    control_start = None
+    for i in range(len(full_ids) - len(assistant_marker), -1, -1):
+        if full_ids[i:i+len(assistant_marker)] == assistant_marker:
+            control_start = i
+            break
+
+    if control_start is None:
+        # Fallback: last 3 tokens
+        control_positions = list(range(max(0, len(full_ids) - 3), len(full_ids)))
+    else:
+        control_positions = list(range(control_start, len(full_ids)))
+
+    # User prompt positions: tokens between <|im_start|>user and <|im_end|>
+    user_start = len(tokenizer.encode("<|im_start|>user\n", add_special_tokens=False))
+    user_end = control_start if control_start else len(full_ids) - 3
+    user_positions = list(range(user_start, user_end))
+
+    return full_ids, len(full_ids), control_positions, user_positions
+
+
+def generate_no_cot_answer(model, tokenizer, problem_text):
+    """Generate answer with no CoT (direct answer)."""
+    messages = [{"role": "user", "content": problem_text + " Answer with just the number."}]
     formatted = tokenizer.apply_chat_template(
         messages, tokenize=False, add_generation_prompt=True, enable_thinking=False,
     )
     input_ids = tokenizer.encode(formatted, add_special_tokens=False, return_tensors="pt").to("cuda")
-    prompt_len = input_ids.shape[1]
-    gen_kwargs = dict(max_new_tokens=512, pad_token_id=tokenizer.eos_token_id)
-    if temperature > 0:
-        gen_kwargs["do_sample"] = True
-        gen_kwargs["temperature"] = temperature
-    else:
-        gen_kwargs["do_sample"] = False
     with model.disable_adapter(), torch.no_grad():
         model.eval()
-        outputs = model.generate(input_ids, **gen_kwargs)
-    full_ids = outputs[0].tolist()
-    response = tokenizer.decode(full_ids[prompt_len:], skip_special_tokens=True)
-    return response, full_ids, prompt_len
+        outputs = model.generate(
+            input_ids, max_new_tokens=20, do_sample=False,
+            pad_token_id=tokenizer.eos_token_id,
+        )
+    response_ids = outputs[0][input_ids.shape[1]:]
+    return tokenizer.decode(response_ids, skip_special_tokens=True)
 
 
-def get_sparse_positions(prompt_len, total_len, stride=20):
-    """Evenly-spaced positions across the CoT region."""
-    cot_region = list(range(prompt_len, total_len))
-    if not cot_region:
-        return [prompt_len]
-    positions = cot_region[::stride]
-    # Always include the last position
-    if cot_region[-1] not in positions:
-        positions.append(cot_region[-1])
-    return positions
-
-
-def extract_activations_at_positions(model, tokenizer, full_ids, positions, layers):
+def extract_activations_at_positions(model, full_ids, positions, layers):
     from nl_probes.utils.activation_utils import collect_activations_multiple_layers, get_hf_submodule
     input_tensor = torch.tensor([full_ids], device="cuda")
     attn_mask = torch.ones_like(input_tensor)
@@ -126,9 +154,8 @@ def extract_activations_at_positions(model, tokenizer, full_ids, positions, laye
         )
     vectors = []
     for layer in layers:
-        layer_acts = acts_by_layer[layer]
         for pos in positions:
-            vectors.append(layer_acts[0, pos, :].detach())
+            vectors.append(acts_by_layer[layer][0, pos, :].detach())
     if not vectors:
         return None
     return torch.stack(vectors, dim=0)
@@ -162,8 +189,7 @@ def query_oracle(model, tokenizer, activations, question, adapter_name, layers):
     model.set_adapter(adapter_name)
     injection_submodule = get_hf_submodule(model, INJECTION_LAYER, use_lora=True)
     hook_fn = get_batched_steering_hook(
-        vectors=[activations.to("cuda")],
-        positions=[positions],
+        vectors=[activations.to("cuda")], positions=[positions],
         device="cuda", dtype=torch.bfloat16,
     )
     with torch.no_grad(), add_hook(injection_submodule, hook_fn):
@@ -172,8 +198,7 @@ def query_oracle(model, tokenizer, activations, question, adapter_name, layers):
             input_ids=input_tensor, attention_mask=attn_mask,
             max_new_tokens=32, do_sample=False, pad_token_id=pad_id,
         )
-    response_ids = outputs[0][len(input_ids):]
-    return tokenizer.decode(response_ids, skip_special_tokens=True)
+    return tokenizer.decode(outputs[0][len(input_ids):], skip_special_tokens=True)
 
 
 def extract_number(text):
@@ -188,23 +213,20 @@ def extract_number(text):
 
 
 def number_token_f1(predicted, target):
-    """Char-level F1 between the predicted and target number strings."""
     pred_str = str(predicted) if predicted is not None else ""
     tgt_str = str(target)
     if not pred_str or not tgt_str:
         return 0.0
-    pred_chars = list(pred_str)
-    tgt_chars = list(tgt_str)
-    tgt_remaining = list(tgt_chars)
+    tgt_remaining = list(tgt_str)
     common = 0
-    for c in pred_chars:
+    for c in pred_str:
         if c in tgt_remaining:
             common += 1
             tgt_remaining.remove(c)
     if common == 0:
         return 0.0
-    precision = common / len(pred_chars)
-    recall = common / len(tgt_chars)
+    precision = common / len(pred_str)
+    recall = common / len(tgt_str)
     return 2 * precision * recall / (precision + recall)
 
 
@@ -212,100 +234,117 @@ def main():
     model, tokenizer = load_model_and_adapters()
     problems = generate_random_problems(N_PROBLEMS)
 
-    # Two questions: generic + our trained prompt style
-    questions = {
-        "generic": "What number is the model thinking about?",
-        "answer_trajectory": "What answer is the model converging toward? State the numerical answer.",
-    }
+    # Exact questions from Arya's post (Table in "Number prediction" section)
+    questions = [
+        "About to produce a number?",
+        "Planning to answer?",
+    ]
+
+    # Two conditions from the post: control tokens only, full user prompt
+    conditions = ["control_tokens", "full_prompt"]
 
     results = []
 
     print(f"\n{'=' * 80}")
-    print(f"NUMBER PREDICTION TEST (n={N_PROBLEMS}, temp={TEMPERATURE}, stride={STRIDE})")
-    print(f"Sparse positions across full CoT to avoid text inversion")
-    print(f"{'=' * 80}")
+    print(f"NUMBER PREDICTION — REPLICATING BLOGPOST (n={N_PROBLEMS})")
+    print(f"No chain of thought. Control tokens or full prompt activations.")
+    print(f"{'=' * 80}\n")
 
     for i, prob in enumerate(problems):
         problem_text = prob["problem"]
         true_answer = prob["answer"]
 
-        # Generate CoT response
-        response, full_ids, prompt_len = generate_response(
-            model, tokenizer, problem_text, temperature=TEMPERATURE,
-        )
+        # Build input (no CoT)
+        full_ids, prompt_len, control_positions, user_positions = \
+            build_no_cot_input(tokenizer, problem_text)
 
-        # Sparse positions across CoT
-        positions = get_sparse_positions(prompt_len, len(full_ids), stride=STRIDE)
-        n_pos = len(positions)
-
-        # Show what tokens we're actually feeding
-        pos_tokens = [tokenizer.decode([full_ids[p]]) for p in positions[:5]]
-
-        # Extract activations
-        activations = extract_activations_at_positions(model, tokenizer, full_ids, positions, LAYERS)
-        if activations is None:
-            continue
+        # Also get the model's actual answer for reference
+        model_answer = generate_no_cot_answer(model, tokenizer, problem_text)
 
         entry = {
-            "i": i, "problem": problem_text, "expression": prob["expression"],
-            "true_answer": true_answer, "n_positions": n_pos,
-            "response_snippet": response[:300],
-            "sample_tokens": pos_tokens,
+            "i": i, "expression": prob["expression"], "true_answer": true_answer,
+            "model_answer": model_answer,
+            "n_control_tokens": len(control_positions),
+            "n_user_tokens": len(user_positions),
         }
 
-        for q_key, question in questions.items():
-            for adapter in ["adam", "trained"]:
-                resp = query_oracle(model, tokenizer, activations, question, adapter, LAYERS)
-                predicted_num = extract_number(resp)
-                f1 = number_token_f1(predicted_num, true_answer)
-                exact = 1 if predicted_num == true_answer else 0
+        for cond in conditions:
+            positions = control_positions if cond == "control_tokens" else user_positions
+            if not positions:
+                continue
 
-                col = f"{adapter}_{q_key}"
-                entry[f"{col}_response"] = resp
-                entry[f"{col}_predicted"] = predicted_num
-                entry[f"{col}_f1"] = f1
-                entry[f"{col}_exact"] = exact
+            activations = extract_activations_at_positions(model, full_ids, positions, LAYERS)
+            if activations is None:
+                continue
+
+            for q in questions:
+                for adapter in ["adam", "trained"]:
+                    resp = query_oracle(model, tokenizer, activations, q, adapter, LAYERS)
+                    predicted = extract_number(resp)
+                    f1 = number_token_f1(predicted, true_answer)
+                    exact = 1 if predicted == true_answer else 0
+
+                    col = f"{adapter}_{cond}_{questions.index(q)}"
+                    entry[f"{col}_response"] = resp
+                    entry[f"{col}_predicted"] = predicted
+                    entry[f"{col}_f1"] = f1
+                    entry[f"{col}_exact"] = exact
 
         results.append(entry)
 
         if (i + 1) % 10 == 0 or i == 0:
-            for q_key in questions:
-                adam_f1s = [r[f"adam_{q_key}_f1"] for r in results]
-                trained_f1s = [r[f"trained_{q_key}_f1"] for r in results]
-                adam_exact = [r[f"adam_{q_key}_exact"] for r in results]
-                trained_exact = [r[f"trained_{q_key}_exact"] for r in results]
-                print(f"  [{i+1:>3}/{N_PROBLEMS}] q={q_key[:15]:>15}  "
-                      f"Adam: F1={np.mean(adam_f1s):.3f} ex={np.mean(adam_exact):.3f}  |  "
-                      f"Ours: F1={np.mean(trained_f1s):.3f} ex={np.mean(trained_exact):.3f}")
+            # Print progress for control_tokens, first question
+            for cond in conditions:
+                adam_f1 = np.mean([r.get(f"adam_{cond}_0_f1", 0) for r in results])
+                ours_f1 = np.mean([r.get(f"trained_{cond}_0_f1", 0) for r in results])
+                adam_ex = np.mean([r.get(f"adam_{cond}_0_exact", 0) for r in results])
+                ours_ex = np.mean([r.get(f"trained_{cond}_0_exact", 0) for r in results])
+                print(f"  [{i+1:>3}/{N_PROBLEMS}] {cond:>15}  "
+                      f"Adam: F1={adam_f1:.3f} ex={adam_ex:.3f}  |  "
+                      f"Ours: F1={ours_f1:.3f} ex={ours_ex:.3f}")
 
     # ── Final metrics ──
     print(f"\n{'=' * 80}")
-    print(f"FINAL RESULTS (n={len(results)}, stride={STRIDE})")
+    print(f"FINAL RESULTS (n={len(results)})")
     print(f"{'=' * 80}")
 
-    for q_key, question in questions.items():
-        adam_f1s = [r[f"adam_{q_key}_f1"] for r in results]
-        trained_f1s = [r[f"trained_{q_key}_f1"] for r in results]
-        adam_exact = [r[f"adam_{q_key}_exact"] for r in results]
-        trained_exact = [r[f"trained_{q_key}_exact"] for r in results]
-
-        print(f"\n  Question: \"{question}\"")
-        print(f"  Adam:    F1 = {np.mean(adam_f1s):.3f} ± {np.std(adam_f1s):.3f}   Exact = {np.mean(adam_exact):.3f}")
-        print(f"  Ours:    F1 = {np.mean(trained_f1s):.3f} ± {np.std(trained_f1s):.3f}   Exact = {np.mean(trained_exact):.3f}")
-        print(f"  Δ F1 = {np.mean(trained_f1s) - np.mean(adam_f1s):+.3f}   Δ Exact = {np.mean(trained_exact) - np.mean(adam_exact):+.3f}")
+    summary = {}
+    for cond in conditions:
+        for qi, q in enumerate(questions):
+            print(f"\n  Condition: {cond}")
+            print(f"  Question:  \"{q}\"")
+            for adapter in ["adam", "trained"]:
+                col = f"{adapter}_{cond}_{qi}"
+                f1s = [r.get(f"{col}_f1", 0) for r in results]
+                exacts = [r.get(f"{col}_exact", 0) for r in results]
+                print(f"    {adapter:>7}: F1={np.mean(f1s):.3f}±{np.std(f1s):.3f}  Exact={np.mean(exacts):.3f}")
+                summary[f"{col}_f1"] = round(float(np.mean(f1s)), 4)
+                summary[f"{col}_exact"] = round(float(np.mean(exacts)), 4)
 
     # ── Confabulation analysis ──
     print(f"\n{'=' * 80}")
-    print(f"CONFABULATION ANALYSIS (what numbers does each oracle default to?)")
+    print(f"CONFABULATION ANALYSIS")
     print(f"{'=' * 80}")
     for adapter in ["adam", "trained"]:
-        predictions = [r[f"{adapter}_generic_predicted"] for r in results if r[f"{adapter}_generic_predicted"] is not None]
-        from collections import Counter
-        counter = Counter(predictions)
-        top10 = counter.most_common(10)
-        print(f"\n  {adapter} top-10 predicted numbers:")
-        for num, count in top10:
-            print(f"    {num:>8}: {count}x ({count/len(predictions)*100:.0f}%)")
+        preds = [r.get(f"{adapter}_control_tokens_0_predicted") for r in results
+                 if r.get(f"{adapter}_control_tokens_0_predicted") is not None]
+        counter = Counter(preds)
+        top = counter.most_common(10)
+        print(f"\n  {adapter} (control tokens) top-10 predictions:")
+        for num, count in top:
+            print(f"    {num:>8}: {count}x ({count/len(preds)*100:.0f}%)")
+
+    # ── Sample outputs ──
+    print(f"\n{'=' * 80}")
+    print(f"SAMPLE OUTPUTS (first 10, control tokens)")
+    print(f"{'=' * 80}")
+    print(f"{'Expression':<20} {'True':>6} {'Model':>8} {'Adam':>8} {'Ours':>8}")
+    print("-" * 55)
+    for r in results[:10]:
+        adam_p = r.get("adam_control_tokens_0_predicted", "?")
+        ours_p = r.get("trained_control_tokens_0_predicted", "?")
+        model_a = extract_number(r.get("model_answer", ""))
+        print(f"{r['expression']:<20} {r['true_answer']:>6} {str(model_a):>8} {str(adam_p):>8} {str(ours_p):>8}")
 
     # ── Bar chart ──
     try:
@@ -313,44 +352,48 @@ def main():
         matplotlib.use("Agg")
         import matplotlib.pyplot as plt
 
-        fig, axes = plt.subplots(1, 2, figsize=(14, 5))
+        fig, axes = plt.subplots(1, 2, figsize=(14, 6))
 
-        for ax_idx, q_key in enumerate(questions):
+        for ax_idx, cond in enumerate(conditions):
             ax = axes[ax_idx]
-            adam_f1s = [r[f"adam_{q_key}_f1"] for r in results]
-            trained_f1s = [r[f"trained_{q_key}_f1"] for r in results]
-            adam_exact = [r[f"adam_{q_key}_exact"] for r in results]
-            trained_exact = [r[f"trained_{q_key}_exact"] for r in results]
+            cond_label = "Control Tokens Only" if cond == "control_tokens" else "Full User Prompt"
+
+            # Use first question
+            adam_f1s = [r.get(f"adam_{cond}_0_f1", 0) for r in results]
+            ours_f1s = [r.get(f"trained_{cond}_0_f1", 0) for r in results]
+            adam_exacts = [r.get(f"adam_{cond}_0_exact", 0) for r in results]
+            ours_exacts = [r.get(f"trained_{cond}_0_exact", 0) for r in results]
 
             x = np.arange(2)
             width = 0.35
-            f1_vals = [np.mean(adam_f1s), np.mean(trained_f1s)]
-            exact_vals = [np.mean(adam_exact), np.mean(trained_exact)]
+            f1_vals = [np.mean(adam_f1s), np.mean(ours_f1s)]
+            exact_vals = [np.mean(adam_exacts), np.mean(ours_exacts)]
             f1_errs = [np.std(adam_f1s)/np.sqrt(len(adam_f1s)),
-                       np.std(trained_f1s)/np.sqrt(len(trained_f1s))]
-            exact_errs = [np.std(adam_exact)/np.sqrt(len(adam_exact)),
-                          np.std(trained_exact)/np.sqrt(len(trained_exact))]
+                       np.std(ours_f1s)/np.sqrt(len(ours_f1s))]
 
-            b1 = ax.bar(x - width/2, f1_vals, width, yerr=f1_errs, label="Token F1",
+            b1 = ax.bar(x - width/2, f1_vals, width, yerr=f1_errs, label="Char F1",
                         color=["#ff6b6b", "#51cf66"], alpha=0.85, capsize=4, edgecolor="black")
-            b2 = ax.bar(x + width/2, exact_vals, width, yerr=exact_errs, label="Exact Match",
-                        color=["#ffa8a8", "#8ce99a"], alpha=0.85, capsize=4, edgecolor="black")
+            b2 = ax.bar(x + width/2, exact_vals, width, label="Exact Match",
+                        color=["#ffa8a8", "#8ce99a"], alpha=0.85, edgecolor="black")
 
             ax.set_xticks(x)
-            ax.set_xticklabels(["Adam's AO", "Ours"])
+            ax.set_xticklabels(["Adam's AO\n(original)", "Ours\n(final sprint)"])
             ax.set_ylabel("Score")
-            ax.set_title(f"Q: \"{q_key}\"")
-            ax.set_ylim(0, 1)
-            ax.legend()
+            ax.set_title(f"{cond_label}")
+            ax.set_ylim(0, max(0.6, max(f1_vals) + 0.1))
+            ax.legend(loc="upper right")
 
             for bar in b1:
-                ax.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 0.02,
-                        f"{bar.get_height():.2f}", ha="center", va="bottom", fontsize=9)
+                ax.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 0.01,
+                        f"{bar.get_height():.3f}", ha="center", va="bottom", fontsize=10, fontweight="bold")
             for bar in b2:
-                ax.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 0.02,
-                        f"{bar.get_height():.2f}", ha="center", va="bottom", fontsize=9)
+                if bar.get_height() > 0.001:
+                    ax.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 0.01,
+                            f"{bar.get_height():.3f}", ha="center", va="bottom", fontsize=10, fontweight="bold")
 
-        plt.suptitle(f"Number Prediction from Sparse CoT Activations (stride={STRIDE}, n={N_PROBLEMS})", fontweight="bold")
+        fig.suptitle("Number Prediction from Pre-Answer Activations (No CoT)\n"
+                     "Q: \"About to produce a number?\" (from Arya et al.)",
+                     fontweight="bold", fontsize=13)
         plt.tight_layout()
         chart_path = "data/number_prediction_chart.png"
         plt.savefig(chart_path, dpi=150, bbox_inches="tight")
@@ -362,20 +405,9 @@ def main():
     # Save
     output_path = "data/number_prediction_test.json"
     os.makedirs("data", exist_ok=True)
-    summary = {}
-    for q_key in questions:
-        for adapter in ["adam", "trained"]:
-            f1s = [r[f"{adapter}_{q_key}_f1"] for r in results]
-            exacts = [r[f"{adapter}_{q_key}_exact"] for r in results]
-            summary[f"{adapter}_{q_key}_f1"] = round(float(np.mean(f1s)), 4)
-            summary[f"{adapter}_{q_key}_exact"] = round(float(np.mean(exacts)), 4)
-
     with open(output_path, "w") as f:
-        json.dump({
-            "config": {"n": N_PROBLEMS, "temperature": TEMPERATURE, "stride": STRIDE, "layers": LAYERS},
-            "summary": summary,
-            "results": results,
-        }, f, indent=2, default=str)
+        json.dump({"config": {"n": N_PROBLEMS, "layers": LAYERS, "conditions": conditions},
+                   "summary": summary, "results": results}, f, indent=2, default=str)
     print(f"Results saved to {output_path}")
 
 
