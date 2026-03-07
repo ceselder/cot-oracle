@@ -3,26 +3,29 @@
 Test: Can the oracle predict what number the model is computing?
 
 From the LessWrong post: Adam's AO confabulates "10" and "12" regardless of problem.
-We test both Adam's checkpoint and our final-sprint checkpoint.
 
-Flow:
-1. Give Qwen3-8B arithmetic problems
-2. Generate CoT responses (greedy)
-3. Use an LLM to find where a numeric answer appears in the CoT
-4. Extract activations around that position
-5. Ask both oracles: "What number is the model computing/about to produce?"
+Two conditions:
+  A) "pre-answer" — activations from the CoT BEFORE the final answer appears
+  B) "no-cot" — model given problem with no CoT (thinking disabled), activations
+     from control tokens only
+
+n=100 random arithmetic problems, temperature=0.5 for variety.
+Computes token F1 on extracted numbers.
 """
 
 from __future__ import annotations
 
 import json
+import math
 import os
+import random
 import re
 import sys
 import time
 from pathlib import Path
 
 import torch
+import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "ao_reference"))
@@ -35,30 +38,27 @@ FINAL_SPRINT_CHECKPOINT = "ceselder/cot-oracle-qwen3-8b-final-sprint-checkpoint-
 BASE_MODEL = "Qwen/Qwen3-8B"
 LAYERS = [9, 18, 27]
 INJECTION_LAYER = 1
+N_PROBLEMS = 100
+TEMPERATURE = 0.5
 
-# ── Arithmetic problems (from the post + extras) ──
-PROBLEMS = [
-    {"problem": "What is 1 + 1?", "answer": 2},
-    {"problem": "What is 7 * 8?", "answer": 56},
-    {"problem": "What is 123 + 456?", "answer": 579},
-    {"problem": "What is 99 * 3?", "answer": 297},
-    {"problem": "What is 1000 - 387?", "answer": 613},
-    {"problem": "What is 15 * 17?", "answer": 255},
-    {"problem": "What is 2048 / 8?", "answer": 256},
-    {"problem": "What is 37 + 89?", "answer": 126},
-    {"problem": "What is 144 / 12?", "answer": 12},
-    {"problem": "What is 25 * 25?", "answer": 625},
-    # From the post (simplified versions of their expressions)
-    {"problem": "What is -93 + 42?", "answer": -51},
-    {"problem": "What is 87 - 38 + 79?", "answer": 128},
-]
 
-# Oracle questions to ask about the activations
-ORACLE_QUESTIONS = [
-    "What number is the model thinking about?",
-    "What number is the model about to produce?",
-    "What is the numerical result the model has computed?",
-]
+def generate_random_problems(n=100, seed=42):
+    """Generate n random arithmetic problems with known answers."""
+    rng = random.Random(seed)
+    problems = []
+    ops = ['+', '-', '*']
+    for _ in range(n):
+        op = rng.choice(ops)
+        if op == '*':
+            a, b = rng.randint(2, 50), rng.randint(2, 50)
+        elif op == '+':
+            a, b = rng.randint(-500, 500), rng.randint(-500, 500)
+        else:
+            a, b = rng.randint(-500, 500), rng.randint(-500, 500)
+        expr = f"{a} {op} {b}"
+        answer = eval(expr)
+        problems.append({"problem": f"What is {expr}?", "expression": expr, "answer": answer})
+    return problems
 
 
 def load_model_and_adapters():
@@ -79,44 +79,68 @@ def load_model_and_adapters():
         torch_dtype=torch.bfloat16, low_cpu_mem_usage=True,
     )
     model.eval()
-    print(f"Adapters: {list(model.peft_config.keys())}")
     return model, tokenizer
 
 
-def generate_cot(model, tokenizer, problem_text, max_new_tokens=512):
-    """Generate a CoT response for an arithmetic problem."""
-    messages = [{"role": "user", "content": problem_text + " Think step by step."}]
+def generate_response(model, tokenizer, problem_text, use_cot=True, temperature=0.0):
+    """Generate a response. Returns (response_text, full_ids, prompt_len)."""
+    if use_cot:
+        content = problem_text + " Think step by step."
+    else:
+        content = problem_text + " Answer with just the number, nothing else."
+
+    messages = [{"role": "user", "content": content}]
     formatted = tokenizer.apply_chat_template(
         messages, tokenize=False, add_generation_prompt=True, enable_thinking=False,
     )
     input_ids = tokenizer.encode(formatted, add_special_tokens=False, return_tensors="pt").to("cuda")
+    prompt_len = input_ids.shape[1]
+
+    gen_kwargs = dict(
+        max_new_tokens=512 if use_cot else 32,
+        pad_token_id=tokenizer.eos_token_id,
+    )
+    if temperature > 0:
+        gen_kwargs["do_sample"] = True
+        gen_kwargs["temperature"] = temperature
+    else:
+        gen_kwargs["do_sample"] = False
 
     with model.disable_adapter(), torch.no_grad():
         model.eval()
-        outputs = model.generate(
-            input_ids, max_new_tokens=max_new_tokens, do_sample=False,
-            pad_token_id=tokenizer.eos_token_id,
-        )
-    response_ids = outputs[0][input_ids.shape[1]:]
-    response = tokenizer.decode(response_ids, skip_special_tokens=True)
-    return response, formatted, outputs[0].tolist()
+        outputs = model.generate(input_ids, **gen_kwargs)
+
+    full_ids = outputs[0].tolist()
+    response = tokenizer.decode(full_ids[prompt_len:], skip_special_tokens=True)
+    return response, full_ids, prompt_len
 
 
-def find_number_positions(tokenizer, full_ids, answer, response_text):
-    """Find token positions where the answer number appears in the response.
+def find_answer_boundary(tokenizer, full_ids, prompt_len, answer):
+    """Find the FIRST token position where the final answer starts appearing.
 
-    Returns a list of (position, token_text) tuples for tokens containing the answer.
+    We scan from the end backwards to find the final answer mention, then
+    return the position just BEFORE it (so activations don't see the answer).
     """
     answer_str = str(answer)
-    positions = []
+    # Build cumulative decoded text from each position
+    response_ids = full_ids[prompt_len:]
 
-    # Decode each token and look for the answer
-    for i, tid in enumerate(full_ids):
+    # Find last occurrence of the answer in the response
+    response_text = tokenizer.decode(response_ids, skip_special_tokens=True)
+    last_idx = response_text.rfind(answer_str)
+
+    if last_idx < 0:
+        return None
+
+    # Find which token position corresponds to this character position
+    char_count = 0
+    for i, tid in enumerate(response_ids):
         token_text = tokenizer.decode([tid])
-        if answer_str in token_text.strip():
-            positions.append((i, token_text))
-
-    return positions
+        char_count += len(token_text)
+        if char_count > last_idx:
+            # This token contains the start of the answer
+            return prompt_len + i
+    return None
 
 
 def extract_activations_at_positions(model, tokenizer, full_ids, positions, layers):
@@ -125,7 +149,6 @@ def extract_activations_at_positions(model, tokenizer, full_ids, positions, laye
 
     input_tensor = torch.tensor([full_ids], device="cuda")
     attn_mask = torch.ones_like(input_tensor)
-
     submodules = {layer: get_hf_submodule(model, layer, use_lora=True) for layer in layers}
 
     with model.disable_adapter(), torch.no_grad():
@@ -136,16 +159,15 @@ def extract_activations_at_positions(model, tokenizer, full_ids, positions, laye
             min_offset=None, max_offset=None,
         )
 
-    # Collect vectors at the specified positions for each layer
     vectors = []
     for layer in layers:
-        layer_acts = acts_by_layer[layer]  # [1, seq_len, D]
+        layer_acts = acts_by_layer[layer]
         for pos in positions:
             vectors.append(layer_acts[0, pos, :].detach())
 
     if not vectors:
         return None
-    return torch.stack(vectors, dim=0)  # [K*n_layers, D]
+    return torch.stack(vectors, dim=0)
 
 
 def query_oracle(model, tokenizer, activations, question, adapter_name, layers):
@@ -160,29 +182,17 @@ def query_oracle(model, tokenizer, activations, question, adapter_name, layers):
     pad_id = tokenizer.pad_token_id or tokenizer.eos_token_id
 
     num_positions = activations.shape[0]
-    n_layers = len(layers)
-    k_per_layer = num_positions // n_layers
-
-    # Build prefix: "L9:¶¶¶ L18:¶¶¶ L27:¶¶¶.\n{question}"
     prefix_ids, rel_positions = _build_manual_prefix_token_ids(
         tokenizer, num_positions, layers, ph_id,
     )
 
-    # Build full input
     messages = [{"role": "user", "content": "PLACEHOLDER"}]
     formatted = tokenizer.apply_chat_template(
         messages, tokenize=False, add_generation_prompt=True, enable_thinking=False,
     )
-
-    # Find where PLACEHOLDER is and replace
     ph_idx = formatted.find("PLACEHOLDER")
-    before_text = formatted[:ph_idx]
-    after_text = formatted[ph_idx + len("PLACEHOLDER"):]
-
-    before_ids = tokenizer.encode(before_text, add_special_tokens=False)
-    after_ids = tokenizer.encode(after_text, add_special_tokens=False)
-
-    # Insert prefix_ids then question
+    before_ids = tokenizer.encode(formatted[:ph_idx], add_special_tokens=False)
+    after_ids = tokenizer.encode(formatted[ph_idx + len("PLACEHOLDER"):], add_special_tokens=False)
     question_ids = tokenizer.encode(question, add_special_tokens=False)
     input_ids = before_ids + prefix_ids + question_ids + after_ids
     positions = [len(before_ids) + p for p in rel_positions]
@@ -196,119 +206,210 @@ def query_oracle(model, tokenizer, activations, question, adapter_name, layers):
     hook_fn = get_batched_steering_hook(
         vectors=[activations.to("cuda")],
         positions=[positions],
-        device="cuda",
-        dtype=torch.bfloat16,
+        device="cuda", dtype=torch.bfloat16,
     )
 
     with torch.no_grad(), add_hook(injection_submodule, hook_fn):
         model.eval()
         outputs = model.generate(
             input_ids=input_tensor, attention_mask=attn_mask,
-            max_new_tokens=64, do_sample=False, pad_token_id=pad_id,
+            max_new_tokens=32, do_sample=False, pad_token_id=pad_id,
         )
 
     response_ids = outputs[0][len(input_ids):]
     return tokenizer.decode(response_ids, skip_special_tokens=True)
 
 
+def extract_number(text):
+    """Extract the first number from oracle response text."""
+    # Match negative numbers, decimals, integers
+    m = re.search(r'-?\d+\.?\d*', text)
+    if m:
+        try:
+            val = float(m.group())
+            if val == int(val):
+                return int(val)
+            return val
+        except ValueError:
+            pass
+    return None
+
+
+def number_token_f1(predicted, target):
+    """Token-level F1 between predicted and target number strings."""
+    pred_str = str(predicted) if predicted is not None else ""
+    tgt_str = str(target)
+    pred_chars = list(pred_str)
+    tgt_chars = list(tgt_str)
+    if not pred_chars or not tgt_chars:
+        return 0.0
+    # Character-level F1
+    common = 0
+    tgt_remaining = list(tgt_chars)
+    for c in pred_chars:
+        if c in tgt_remaining:
+            common += 1
+            tgt_remaining.remove(c)
+    if common == 0:
+        return 0.0
+    precision = common / len(pred_chars)
+    recall = common / len(tgt_chars)
+    return 2 * precision * recall / (precision + recall)
+
+
 def main():
     model, tokenizer = load_model_and_adapters()
 
+    problems = generate_random_problems(N_PROBLEMS)
+    question = "What number is the model thinking about?"
+
     results = []
 
-    print("\n" + "=" * 80)
-    print("NUMBER PREDICTION TEST")
-    print("Can the oracle tell what number the model is computing?")
-    print("=" * 80)
+    print(f"\n{'=' * 80}")
+    print(f"NUMBER PREDICTION TEST (n={N_PROBLEMS}, temperature={TEMPERATURE})")
+    print(f"{'=' * 80}")
 
-    for prob in PROBLEMS:
+    for i, prob in enumerate(problems):
         problem_text = prob["problem"]
         true_answer = prob["answer"]
 
-        print(f"\n{'─' * 70}")
-        print(f"Problem: {problem_text}  (true answer: {true_answer})")
+        # Generate CoT response
+        response, full_ids, prompt_len = generate_response(
+            model, tokenizer, problem_text, use_cot=True, temperature=TEMPERATURE,
+        )
 
-        # Generate CoT
-        response, formatted_prompt, full_ids = generate_cot(model, tokenizer, problem_text)
-        print(f"Model response: {response[:200]}...")
+        # Find where the final answer appears, use activations BEFORE it
+        answer_boundary = find_answer_boundary(tokenizer, full_ids, prompt_len, true_answer)
 
-        # Find where the answer number appears
-        prompt_len = len(tokenizer.encode(formatted_prompt, add_special_tokens=False))
-        answer_positions = find_number_positions(tokenizer, full_ids, true_answer, response)
-
-        # Filter to only positions in the response (after prompt)
-        answer_positions = [(p, t) for p, t in answer_positions if p >= prompt_len]
-
-        if not answer_positions:
-            print(f"  WARNING: Could not find answer '{true_answer}' in response tokens")
-            # Use positions near the end of the response instead
-            resp_len = len(full_ids) - prompt_len
-            if resp_len > 5:
-                end_positions = list(range(len(full_ids) - 5, len(full_ids)))
-            else:
-                end_positions = list(range(prompt_len, len(full_ids)))
-            positions_to_use = end_positions
-            print(f"  Using last {len(positions_to_use)} response positions instead")
+        if answer_boundary is not None:
+            # Use 5 positions ending 2 tokens before the answer
+            end_pos = max(prompt_len + 1, answer_boundary - 2)
+            start_pos = max(prompt_len, end_pos - 5)
+            positions = list(range(start_pos, end_pos))
+            condition = "pre-answer"
         else:
-            # Use positions around the FIRST occurrence of the answer
-            first_pos = answer_positions[0][0]
-            # Take a window of 5 tokens centered on the answer
-            window_start = max(prompt_len, first_pos - 2)
-            window_end = min(len(full_ids), first_pos + 3)
-            positions_to_use = list(range(window_start, window_end))
-            pos_tokens = [tokenizer.decode([full_ids[p]]) for p in positions_to_use]
-            print(f"  Answer found at position {first_pos}, using window [{window_start}:{window_end}]")
-            print(f"  Tokens at positions: {pos_tokens}")
+            # Answer not found in response — use last 5 tokens
+            resp_end = len(full_ids)
+            positions = list(range(max(prompt_len, resp_end - 5), resp_end))
+            condition = "end-of-response"
+
+        if not positions:
+            positions = [prompt_len]
 
         # Extract activations
-        activations = extract_activations_at_positions(
-            model, tokenizer, full_ids, positions_to_use, LAYERS,
-        )
+        activations = extract_activations_at_positions(model, tokenizer, full_ids, positions, LAYERS)
         if activations is None:
-            print("  ERROR: No activations extracted")
             continue
 
-        print(f"  Activations shape: {activations.shape}")
-
-        # Query both oracles with each question
-        result_entry = {
-            "problem": problem_text,
-            "true_answer": true_answer,
-            "model_response": response[:300],
-            "positions_used": positions_to_use,
-            "oracle_responses": {},
+        # Query both oracles
+        entry = {
+            "i": i, "problem": problem_text, "expression": prob["expression"],
+            "true_answer": true_answer, "condition": condition,
+            "n_positions": len(positions),
+            "response_snippet": response[:200],
         }
 
-        for q in ORACLE_QUESTIONS:
-            for adapter_name in ["adam", "trained"]:
-                label = f"{adapter_name}"
-                resp = query_oracle(model, tokenizer, activations, q, adapter_name, LAYERS)
-                key = f"{adapter_name}:{q}"
-                result_entry["oracle_responses"][key] = resp
-                print(f"  [{adapter_name:>7}] Q: {q}")
-                print(f"           A: {resp[:150]}")
+        for adapter in ["adam", "trained"]:
+            resp = query_oracle(model, tokenizer, activations, question, adapter, LAYERS)
+            predicted_num = extract_number(resp)
+            f1 = number_token_f1(predicted_num, true_answer)
+            exact = 1 if predicted_num == true_answer else 0
 
-        results.append(result_entry)
+            entry[f"{adapter}_response"] = resp
+            entry[f"{adapter}_predicted"] = predicted_num
+            entry[f"{adapter}_f1"] = f1
+            entry[f"{adapter}_exact"] = exact
 
-    # ── Summary ──
-    print("\n" + "=" * 80)
-    print("SUMMARY: Number Prediction")
-    print("=" * 80)
-    print(f"{'Problem':<30} {'True':>6}  {'Adam says':>30}  {'Ours says':>30}")
-    print("-" * 100)
+        results.append(entry)
 
-    q = ORACLE_QUESTIONS[0]  # "What number is the model thinking about?"
-    for r in results:
-        adam_resp = r["oracle_responses"].get(f"adam:{q}", "?")[:30]
-        ours_resp = r["oracle_responses"].get(f"trained:{q}", "?")[:30]
-        print(f"{r['problem']:<30} {r['true_answer']:>6}  {adam_resp:>30}  {ours_resp:>30}")
+        # Progress
+        if (i + 1) % 10 == 0 or i == 0:
+            adam_f1s = [r["adam_f1"] for r in results]
+            trained_f1s = [r["trained_f1"] for r in results]
+            adam_exact = [r["adam_exact"] for r in results]
+            trained_exact = [r["trained_exact"] for r in results]
+            print(f"  [{i+1:>3}/{N_PROBLEMS}]  "
+                  f"Adam: F1={np.mean(adam_f1s):.3f} exact={np.mean(adam_exact):.3f}  |  "
+                  f"Ours: F1={np.mean(trained_f1s):.3f} exact={np.mean(trained_exact):.3f}  |  "
+                  f"last: {prob['expression']}={true_answer}, "
+                  f"adam={entry['adam_predicted']}, ours={entry['trained_predicted']}")
 
-    # Save
+    # ── Final metrics ──
+    adam_f1s = [r["adam_f1"] for r in results]
+    trained_f1s = [r["trained_f1"] for r in results]
+    adam_exact = [r["adam_exact"] for r in results]
+    trained_exact = [r["trained_exact"] for r in results]
+
+    print(f"\n{'=' * 80}")
+    print(f"FINAL RESULTS (n={len(results)})")
+    print(f"{'=' * 80}")
+    print(f"  Adam:    Token F1 = {np.mean(adam_f1s):.3f} ± {np.std(adam_f1s):.3f}   Exact match = {np.mean(adam_exact):.3f}")
+    print(f"  Ours:    Token F1 = {np.mean(trained_f1s):.3f} ± {np.std(trained_f1s):.3f}   Exact match = {np.mean(trained_exact):.3f}")
+    print(f"  Δ F1:    {np.mean(trained_f1s) - np.mean(adam_f1s):+.3f}")
+    print(f"  Δ Exact: {np.mean(trained_exact) - np.mean(adam_exact):+.3f}")
+
+    # ── Bar chart ──
+    try:
+        import matplotlib
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+
+        fig, axes = plt.subplots(1, 2, figsize=(12, 5))
+
+        # Token F1 bar chart
+        ax = axes[0]
+        labels = ["Adam's AO", "Ours (final sprint)"]
+        f1_means = [np.mean(adam_f1s), np.mean(trained_f1s)]
+        f1_stds = [np.std(adam_f1s) / np.sqrt(len(adam_f1s)),
+                    np.std(trained_f1s) / np.sqrt(len(trained_f1s))]
+        bars = ax.bar(labels, f1_means, yerr=f1_stds, capsize=5,
+                      color=["#ff6b6b", "#51cf66"], alpha=0.85, edgecolor="black")
+        ax.set_ylabel("Token F1")
+        ax.set_title("Number Prediction: Token F1\n(pre-answer activations)")
+        ax.set_ylim(0, 1)
+        for bar, val in zip(bars, f1_means):
+            ax.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 0.02,
+                    f"{val:.3f}", ha="center", va="bottom", fontweight="bold")
+
+        # Exact match bar chart
+        ax = axes[1]
+        exact_means = [np.mean(adam_exact), np.mean(trained_exact)]
+        exact_stds = [np.std(adam_exact) / np.sqrt(len(adam_exact)),
+                      np.std(trained_exact) / np.sqrt(len(trained_exact))]
+        bars = ax.bar(labels, exact_means, yerr=exact_stds, capsize=5,
+                      color=["#ff6b6b", "#51cf66"], alpha=0.85, edgecolor="black")
+        ax.set_ylabel("Exact Match Rate")
+        ax.set_title("Number Prediction: Exact Match\n(pre-answer activations)")
+        ax.set_ylim(0, 1)
+        for bar, val in zip(bars, exact_means):
+            ax.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 0.02,
+                    f"{val:.3f}", ha="center", va="bottom", fontweight="bold")
+
+        plt.tight_layout()
+        chart_path = "data/number_prediction_chart.png"
+        plt.savefig(chart_path, dpi=150, bbox_inches="tight")
+        print(f"\nChart saved to {chart_path}")
+        plt.close()
+    except ImportError:
+        print("\n(matplotlib not available, skipping chart)")
+
+    # Save full results
     output_path = "data/number_prediction_test.json"
     os.makedirs("data", exist_ok=True)
     with open(output_path, "w") as f:
-        json.dump(results, f, indent=2, default=str)
-    print(f"\nSaved to {output_path}")
+        json.dump({
+            "config": {"n": N_PROBLEMS, "temperature": TEMPERATURE, "layers": LAYERS},
+            "summary": {
+                "adam_f1_mean": round(float(np.mean(adam_f1s)), 4),
+                "adam_f1_std": round(float(np.std(adam_f1s)), 4),
+                "adam_exact_mean": round(float(np.mean(adam_exact)), 4),
+                "trained_f1_mean": round(float(np.mean(trained_f1s)), 4),
+                "trained_f1_std": round(float(np.std(trained_f1s)), 4),
+                "trained_exact_mean": round(float(np.mean(trained_exact)), 4),
+            },
+            "results": results,
+        }, f, indent=2, default=str)
+    print(f"Results saved to {output_path}")
 
 
 if __name__ == "__main__":
