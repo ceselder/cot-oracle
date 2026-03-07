@@ -353,8 +353,8 @@ def main():
             ], fontsize=10)
             ax.set_ylabel("Score", fontsize=11)
             ax.set_title(f"Q: \"{q}\"", fontsize=12, fontweight="bold")
-            ymax = max(max(f1_vals), max(exact_vals))
-            ax.set_ylim(0, max(0.15, ymax + 0.18))
+            ax.set_ylim(0, 1.0)
+            ax.set_yticks(np.arange(0, 1.1, 0.1))
             ax.legend(loc="upper right", fontsize=8.5)
             ax.grid(axis='y', alpha=0.3, linewidth=0.5)
 
@@ -378,8 +378,8 @@ def main():
             f"Number Prediction from CoT Activations  (n={len(results)})\n"
             f"Task: Qwen3-8B (base, no adapter) solves random arithmetic (+-*) with greedy CoT (max 512 tokens, enable_thinking=False).\n"
             f"Activations extracted from residual stream at stride-{STRIDE} over full CoT region, then injected via norm-matched addition at layer 1.\n"
-            f"Adam's AO (adamkarvonen/checkpoints_latentqa_cls_past_lens_addition_Qwen3-8B): single layer 16 (50% depth), prefix 'L16:¶¶¶...'\n"
-            f"Ours (ceselder/cot-oracle-qwen3-8b-final-sprint-checkpoint-no-DPO): layers 9,18,27 (25/50/75%), prefix 'L9:¶¶¶ L18:¶¶¶ L27:¶¶¶.'\n"
+            f"Adam's AO (adamkarvonen/checkpoints_latentqa_cls_past_lens_addition_Qwen3-8B): single layer 16 (50% depth), prefix 'L16:???...'\n"
+            f"Ours (ceselder/cot-oracle-qwen3-8b-final-sprint-checkpoint-no-DPO): layers 9,18,27 (25/50/75%), prefix 'L9:??? L18:??? L27:???.'\n"
             f"Each oracle queried with its native layer format. Oracle generates up to 32 tokens (greedy). First number extracted via regex.\n"
             f"Char F1 = character-level F1 between predicted and target number strings. Error bars: SEM (F1), Wilson 95% CI (exact match)."
         )
@@ -389,6 +389,69 @@ def main():
         chart_path = "data/number_prediction_chart.png"
         plt.savefig(chart_path, dpi=150, bbox_inches="tight")
         print(f"\nChart saved to {chart_path}")
+        plt.close()
+
+        # Clean version (no methodology header) for slides
+        fig2, axes2 = plt.subplots(1, 2, figsize=(14, 5.5))
+        for qi, q in enumerate(QUESTIONS):
+            ax = axes2[qi]
+            af = [r[f"adam_{qi}_f1"] for r in results]
+            of = [r[f"trained_{qi}_f1"] for r in results]
+            ae = [r[f"adam_{qi}_exact"] for r in results]
+            oe = [r[f"trained_{qi}_exact"] for r in results]
+
+            n = len(results)
+            x = np.arange(2)
+            width = 0.35
+            f1_vals = [np.mean(af), np.mean(of)]
+            f1_stds = [np.std(af), np.std(of)]
+            exact_vals = [np.mean(ae), np.mean(oe)]
+            f1_errs = [s / np.sqrt(n) for s in f1_stds]
+
+            adam_k = int(sum(ae))
+            ours_k = int(sum(oe))
+            adam_lo, adam_hi = wilson_ci(adam_k, n)
+            ours_lo, ours_hi = wilson_ci(ours_k, n)
+            exact_lo = [exact_vals[0] - adam_lo, exact_vals[1] - ours_lo]
+            exact_hi = [adam_hi - exact_vals[0], ours_hi - exact_vals[1]]
+
+            b1 = ax.bar(x - width/2, f1_vals, width, yerr=f1_errs, label="Char F1 (±SEM)",
+                        color=["#e74c3c", "#2ecc71"], alpha=0.85, capsize=5, edgecolor="black", linewidth=0.8)
+            b2 = ax.bar(x + width/2, exact_vals, width, yerr=[exact_lo, exact_hi],
+                        label="Exact Match (Wilson 95% CI)",
+                        color=["#fadbd8", "#abebc6"], alpha=0.85, capsize=5, edgecolor="black", linewidth=0.8)
+
+            ax.set_xticks(x)
+            ax.set_xticklabels([
+                f"Adam's AO\n(single layer 16, 50% depth)",
+                f"Ours\n(layers 9, 18, 27 — 25/50/75%)"
+            ], fontsize=10)
+            ax.set_ylabel("Score", fontsize=11)
+            ax.set_title(f"Q: \"{q}\"", fontsize=12, fontweight="bold")
+            ax.set_ylim(0, 1.0)
+            ax.set_yticks(np.arange(0, 1.1, 0.1))
+            ax.legend(loc="upper right", fontsize=8.5)
+            ax.grid(axis='y', alpha=0.3, linewidth=0.5)
+
+            for i, bar in enumerate(b1):
+                h = bar.get_height()
+                if h > 0.001:
+                    ax.text(bar.get_x() + bar.get_width()/2, h + f1_errs[i] + 0.012,
+                            f"{h:.3f}±{f1_stds[i]:.3f}", ha="center", va="bottom",
+                            fontsize=9, fontweight="bold")
+            exact_ks = [adam_k, ours_k]
+            for i, bar in enumerate(b2):
+                h = bar.get_height()
+                top = h + [exact_hi][0][i]
+                ax.text(bar.get_x() + bar.get_width()/2, top + 0.012,
+                        f"{exact_ks[i]}/{n}", ha="center", va="bottom",
+                        fontsize=9, fontweight="bold")
+
+        fig2.suptitle(f"Number Prediction from CoT Activations  (n={len(results)})", fontsize=13, fontweight="bold")
+        plt.tight_layout(rect=[0, 0, 1, 0.93])
+        clean_path = "data/number_prediction_chart_clean.png"
+        plt.savefig(clean_path, dpi=150, bbox_inches="tight")
+        print(f"Clean chart saved to {clean_path}")
         plt.close()
     except ImportError:
         print("\n(matplotlib not available, skipping chart)")
