@@ -15,6 +15,8 @@ The oracle is Qwen3-8B fine-tuned with LoRA to accept its own activations via no
 **Eval-only:** rot13_reconstruction, sycophancy, truthfulqa_hint_verbalized, truthfulqa_hint_unverbalized, sentence_insertion
 
 Key files:
+- `configs/train.yaml` — Training config: task counts, hyperparams, activation settings, model
+- `configs/eval.yaml` — Eval config: task list, baselines list, method_config, score_model
 - `src/tasks.py` — TaskDef definitions, scoring modes, HF repos
 - `src/data_loading.py` — Unified HF data loading (replaces 30+ dataset loaders)
 - `src/eval_loop.py` — Unified eval with 4 scoring modes (replaces training_eval_hook.py)
@@ -64,6 +66,11 @@ We use Sparse Autoencoders (SAEs) from `adamkarvonen/qwen3-8b-saes` to get inter
 
 ## Workflow
 - **Push after every notable change.** If and only if you are Celeste (not Jan), Commit and push to remote after completing any meaningful unit of work, but only if you are Celeste (bug fix, feature, refactor).
+
+## Terminology
+- **Scorer** = the LLM (`score_model` in eval.yaml) that grades oracle/baseline outputs during training-time eval and comprehensive eval. Lives in `src/qa_scorer.py`. Use "scorer" everywhere in code.
+- **Judge** = reserved for the comparative eval UI in `scripts/eval_viewer.py` and `src/chat_compare.py`, where an LLM rates and compares multiple method outputs side-by-side.
+- **LLM monitor** = a baseline method (`baselines/llm_monitor.py`) where an external LLM reads the CoT text and answers the task question. Not the same as the scorer.
 
 ## Critical Lessons
 - **Mini corpus memorization:** 1,064 entries x 15K = 14x repetition → loss=0.01. Use medium corpus (47K+).

@@ -309,7 +309,7 @@ def load_train_task_config(config_path):
             continue
         task_options.append({
             "key": task_name,
-            "label": f"train.yaml: {task_name}",
+            "label": f"config.yaml: {task_name}",
             "prompt": prompt,
             "description": description,
         })
@@ -627,7 +627,7 @@ def build_answer_rating_prompt(question, prompt, answers):
     )
 
 
-def rate_answers_with_gemini(question, prompt, answers, model=OPENROUTER_RATER_MODEL):
+def rate_answers_with_judge(question, prompt, answers, model=OPENROUTER_RATER_MODEL):
     raw = query_openrouter(build_answer_rating_prompt(question, prompt, answers), model=model, max_tokens=500, response_format={"type": "json_object"})
     return parse_first_json_object(raw)
 
@@ -1400,7 +1400,7 @@ class ChatCompareWebApp:
 
     def _rate_answers(self, ctx, ao_prompt, ao_response, patchscopes_response, black_box_response, no_act_response, trained_response, sae_response):
         answers = self._collect_answers_for_rating(ctx, ao_prompt, ao_response, patchscopes_response, black_box_response, no_act_response, trained_response, sae_response)
-        return rate_answers_with_gemini(self.state.question, ctx["prompt"], answers)
+        return rate_answers_with_judge(self.state.question, ctx["prompt"], answers)
 
     def _rate_answers_from_payload(self, task_key, custom_prompt, ao_prompt, ao_response, patchscopes_response, black_box_response, no_act_response, trained_response, sae_response):
         resolved_key = CLI_ALIASES[task_key] if task_key in CLI_ALIASES else task_key
@@ -1462,11 +1462,11 @@ class ChatCompareWebApp:
             "",
             payload["sae_feature_desc"],
             "",
-            "## Gemini Ratings",
+            "## Judge Ratings",
             "",
             *[f"- {item['name']}: {item['score']} - {item['note']}" for item in payload.get("answer_ratings", [])],
             "",
-            "## Gemini Summary",
+            "## Judge Summary",
             "",
             payload.get("rating_summary", ""),
             "",
@@ -2645,7 +2645,7 @@ class ChatCompareWebApp:
         </div>
       </details>
       <div class=\"panel\">
-        <label>Task preset (from built-ins + enabled train.yaml tasks)</label>
+        <label>Task preset (from built-ins + enabled config.yaml tasks)</label>
         <select id=\"taskSelect\"></select>
         <div class=\"row\" style=\"margin-top:6px\"><button id=\"loadChunkedBtn\" class=\"secondary\" style=\"font-size:12px;display:none\">Load chunked sample</button></div>
         <div id=\"chunkedInfo\" class=\"small muted\" style=\"margin-top:4px;display:none\"></div>
@@ -2866,14 +2866,14 @@ class ChatCompareWebApp:
           <label style=\"float:right;font-size:12px;color:#94a3b8;cursor:pointer;user-select:none\"><input id=\"saeViewToggle\" type=\"checkbox\" style=\"width:auto;margin-right:4px\">Show raw features</label>
           <div style=\"clear:both\"></div>
           <div class=\"mini-status\" id=\"saeStatus\"><span class=\"mini-dot\"></span><span id=\"saeStatusText\"></span></div>
-          <div class=\"muted small\">Gemini via OpenRouter answers the oracle prompt using only SAE feature descriptions</div>
+          <div class=\"muted small\">LLM judge via OpenRouter answers the oracle prompt using only SAE feature descriptions</div>
           <div id=\"saeOut\" class=\"text-block\"></div>
           <div id=\"saeRawOut\" class=\"text-block\" style=\"display:none;white-space:pre-wrap;font-family:monospace;font-size:11px;color:#94a3b8\"></div>
         </div>
       </div>
       <div class=\"panel\">
-        <h3 style=\"margin-top:0\">Gemini Ratings</h3>
-        <div class=\"muted small\">Gemini rates each answer 0.0-1.0. Refreshes as results arrive.</div>
+        <h3 style=\"margin-top:0\">Judge Ratings</h3>
+        <div class=\"muted small\">Judge rates each answer 0.0-1.0. Refreshes as results arrive.</div>
         <div id=\"ratingScores\" class=\"text-block\" style=\"margin-top:8px;white-space:pre-wrap\">Run a comparison to generate ratings.</div>
         <div id=\"ratingSummary\" class=\"muted small\" style=\"margin-top:8px\"></div>
       </div>

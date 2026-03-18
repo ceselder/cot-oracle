@@ -715,6 +715,7 @@ def _write_eval_traces(log_dir: Path | None, all_traces: dict[str, list[dict]], 
 def _run_unified_eval(model, tokenizer, model_name, global_step, args, log_dir=None, no_activations=False):
     """Run all evals via unified eval loop."""
     import wandb
+    import math
 
     print(f"\n--- Evals at step {global_step} ---")
     eval_tasks = getattr(args, "eval_tasks", None)
@@ -729,10 +730,12 @@ def _run_unified_eval(model, tokenizer, model_name, global_step, args, log_dir=N
         no_activations=no_activations,
         position_mode=args.position_mode,
         stochastic_max_k=args.stochastic_max_k,
+        baselines_config=None,  # no baselines during training
     )
 
     # Build wandb Tables for each task's per-example traces
-    log_dict = {k: v for k, v in metrics.items() if not k.startswith("_")}
+    # Filter out NaN metrics (from skipped QA/LLM scorer tasks when OpenRouter is unavailable)
+    log_dict = {k: v for k, v in metrics.items() if not k.startswith("_") and not (isinstance(v, float) and math.isnan(v))}
     # Include samples_seen so wandb can correlate eval metrics with training x-axis
     log_dict["train/samples_seen"] = global_step * getattr(args, "effective_batch_size", 256)
     trace_files = _write_eval_traces(log_dir, all_traces, global_step)

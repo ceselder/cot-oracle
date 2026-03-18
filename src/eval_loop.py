@@ -23,17 +23,26 @@ import torch
 
 from tasks import TASKS, TaskDef, ScoringMode, get_eval_tasks
 from data_loading import load_task_data, load_futurelens_data, load_pastlens_data, prepare_context_ids
-from qa_judge import (
-    QA_GEMINI_SCORE_MODEL,
-    QA_GEMINI_SCORE_MAX_TOKENS,
+from qa_scorer import (
+    SCORE_MODEL,
+    QA_SCORE_MAX_TOKENS,
     OPENROUTER_CHAT_COMPLETIONS_URL,
-    QA_GEMINI_SCORE_SYSTEM,
-    build_qa_gemini_score_prompt,
+    QA_SCORE_SYSTEM,
+    TRAJECTORY_SCORER_SYSTEM,
+    build_qa_score_prompt,
+    build_trajectory_scorer_prompt,
+    build_llm_scorer_prompt,
+    get_llm_scorer_system,
     compute_token_f1_scores,
-    extract_judge_json,
-    is_gemini_qa_task,
+    extract_scorer_json,
+    is_qa_score_task,
+    is_trajectory_scorer_task,
+    is_llm_scorer_task,
+    check_openrouter_available,
+    get_score_model,
 )
 from cot_utils import sample_poisson_positions, sample_endweighted_positions
+
 
 
 # ── Per-task response parsers ──
@@ -145,21 +154,36 @@ TASK_PARSERS: dict[str, Any] = {
 
 # ── Scoring ──
 
-def _score_qa_gemini(
+def _score_qa_scorer(
     task_name: str,
     eval_items: list[dict],
     predictions: list[str],
     targets: list[str],
+    openrouter_available: bool = True,
 ) -> dict[str, Any]:
+    score_model = get_score_model()
     if not predictions:
-        return {"gemini_score": 0.0, "token_f1": 0.0, "n": 0, "_qa_judge_scores": [], "_qa_token_f1_scores": [], "_qa_judge_reasons": [], "_qa_judge_raw": [], "_qa_judge_model": QA_GEMINI_SCORE_MODEL}
+        return {"qa_scorer_score": 0.0, "token_f1": 0.0, "n": 0, "_qa_scorer_scores": [], "_qa_token_f1_scores": [], "_qa_scorer_reasons": [], "_qa_scorer_raw": [], "_qa_scorer_model": score_model}
     if len(eval_items) != len(predictions) or len(predictions) != len(targets):
-        raise ValueError(f"QA judge length mismatch for {task_name}: items={len(eval_items)}, predictions={len(predictions)}, targets={len(targets)}")
+        raise ValueError(f"QA scorer length mismatch for {task_name}: items={len(eval_items)}, predictions={len(predictions)}, targets={len(targets)}")
 
-    print(f"    [{task_name}] Scoring {len(predictions)} QA answers with {QA_GEMINI_SCORE_MODEL}...")
+    token_f1_scores = compute_token_f1_scores(predictions, targets)
+    token_f1_avg = sum(token_f1_scores) / len(token_f1_scores)
+
+    if not openrouter_available:
+        print(f"    [{task_name}] SKIPPING LLM scorer scoring — OpenRouter unavailable")
+        return {
+            "qa_scorer_score": float("nan"), "token_f1": token_f1_avg, "n": len(predictions),
+            "_qa_scorer_scores": [float("nan")] * len(predictions),
+            "_qa_token_f1_scores": token_f1_scores,
+            "_qa_scorer_reasons": ["skipped"] * len(predictions),
+            "_qa_scorer_raw": [""] * len(predictions),
+            "_qa_scorer_model": score_model, "_skipped": "openrouter_unavailable",
+        }
+
+    print(f"    [{task_name}] Scoring {len(predictions)} QA answers with {score_model}...")
     api_key = os.environ["OPENROUTER_API_KEY"]
     headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
-    token_f1_scores = compute_token_f1_scores(predictions, targets)
     scores = []
     reasons = []
     raw_responses = []
@@ -167,37 +191,154 @@ def _score_qa_gemini(
     with httpx.Client(timeout=90.0) as client:
         for item, prediction, target in zip(eval_items, predictions, targets):
             body = {
-                "model": QA_GEMINI_SCORE_MODEL,
+                "model": score_model,
                 "messages": [
-                    {"role": "system", "content": QA_GEMINI_SCORE_SYSTEM},
-                    {"role": "user", "content": build_qa_gemini_score_prompt(task_name, item["prompt"], target, prediction)},
+                    {"role": "system", "content": QA_SCORE_SYSTEM},
+                    {"role": "user", "content": build_qa_score_prompt(task_name, item["prompt"], target, prediction)},
                 ],
                 "temperature": 0.0,
-                "max_tokens": QA_GEMINI_SCORE_MAX_TOKENS,
+                "max_tokens": QA_SCORE_MAX_TOKENS,
             }
             response = client.post(OPENROUTER_CHAT_COMPLETIONS_URL, json=body, headers=headers)
             response.raise_for_status()
             response_json = response.json()
-            raw_text = response_json["choices"][0]["message"]["content"]
+            raw_text = response_json["choices"][0]["message"]["content"] or ""
             raw_text = re.sub(r"<think>.*?</think>", "", raw_text, flags=re.DOTALL).strip()
-            parsed = extract_judge_json(raw_text)
+            parsed = extract_scorer_json(raw_text)
             score = float(parsed["score"])
             if score < 0.0 or score > 1.0:
-                raise ValueError(f"Judge score out of range for {task_name}: {score}")
+                raise ValueError(f"Scorer score out of range for {task_name}: {score}")
             scores.append(score)
             reasons.append(str(parsed["reason"]).strip())
             raw_responses.append(raw_text)
 
     return {
-        "gemini_score": sum(scores) / len(scores),
-        "token_f1": sum(token_f1_scores) / len(token_f1_scores),
+        "qa_scorer_score": sum(scores) / len(scores),
+        "token_f1": token_f1_avg,
         "n": len(scores),
-        "_qa_judge_scores": scores,
+        "_qa_scorer_scores": scores,
         "_qa_token_f1_scores": token_f1_scores,
-        "_qa_judge_reasons": reasons,
-        "_qa_judge_raw": raw_responses,
-        "_qa_judge_model": QA_GEMINI_SCORE_MODEL,
+        "_qa_scorer_reasons": reasons,
+        "_qa_scorer_raw": raw_responses,
+        "_qa_scorer_model": score_model,
     }
+
+
+def _score_trajectory_llm(
+    eval_items: list[dict],
+    predictions: list[str],
+    targets: list[str],
+    openrouter_available: bool = True,
+) -> dict[str, Any]:
+    """Score answer_trajectory with LLM scorer: answer_score + confidence MSE."""
+    if not predictions:
+        return {"token_f1": 0.0, "n": 0}
+
+    # Always compute token F1 as fallback
+    token_f1_scores = compute_token_f1_scores(predictions, targets)
+    token_f1_avg = sum(token_f1_scores) / len(token_f1_scores)
+
+    if not openrouter_available:
+        print(f"    [answer_trajectory] SKIPPING LLM scorer scoring — OpenRouter unavailable")
+        return {"token_f1": token_f1_avg, "answer_score": float("nan"), "n": len(predictions), "_skipped": "openrouter_unavailable"}
+
+    score_model = get_score_model()
+    print(f"    [answer_trajectory] Scoring {len(predictions)} trajectory predictions with {score_model}...")
+    api_key = os.environ["OPENROUTER_API_KEY"]
+    headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+    answer_scores = []
+    conf_errors = []
+
+    with httpx.Client(timeout=90.0) as client:
+        for item, prediction, target in zip(eval_items, predictions, targets):
+            # Parse ground truth confidence from target
+            gt_conf_m = re.search(r'confidence:\s*(\d+)%', target)
+            gt_conf = int(gt_conf_m.group(1)) if gt_conf_m else None
+            # Extract answer label from target
+            gt_label = re.sub(r'\s*\(confidence:.*', '', target).strip()
+
+            body = {
+                "model": score_model,
+                "messages": [
+                    {"role": "system", "content": TRAJECTORY_SCORER_SYSTEM},
+                    {"role": "user", "content": build_trajectory_scorer_prompt(gt_label, gt_conf, prediction)},
+                ],
+                "temperature": 0.0,
+                "max_tokens": QA_SCORE_MAX_TOKENS,
+            }
+            response = client.post(OPENROUTER_CHAT_COMPLETIONS_URL, json=body, headers=headers)
+            response.raise_for_status()
+            raw_text = (response.json()["choices"][0]["message"]["content"] or "").strip()
+            raw_text = re.sub(r"<think>.*?</think>", "", raw_text, flags=re.DOTALL).strip()
+            parsed = extract_scorer_json(raw_text)
+            answer_scores.append(float(parsed.get("answer_score", 0.0)))
+            pred_conf = parsed.get("predicted_confidence")
+            if gt_conf is not None and pred_conf is not None:
+                conf_errors.append(abs(int(pred_conf) - gt_conf))
+
+    result = {
+        "token_f1": token_f1_avg,
+        "answer_score": sum(answer_scores) / len(answer_scores),
+        "n": len(predictions),
+    }
+    if conf_errors:
+        result["confidence_mae"] = sum(conf_errors) / len(conf_errors)
+    return result
+
+
+def _score_llm_scorer(
+    task_name: str,
+    eval_items: list[dict],
+    predictions: list[str],
+    targets: list[str],
+    openrouter_available: bool = True,
+) -> dict[str, Any]:
+    """Score LLM_SCORER tasks (cot_description, cot_metacognition, sae_unverbalized)."""
+    if not predictions:
+        return {"correctness": 0.0, "n": 0}
+
+    if not openrouter_available:
+        print(f"    [{task_name}] SKIPPING LLM scorer scoring — OpenRouter unavailable")
+        return {"correctness": float("nan"), "specificity": float("nan"), "confidence": float("nan"), "n": len(predictions), "_skipped": "openrouter_unavailable"}
+
+    score_model = get_score_model()
+    system_prompt = get_llm_scorer_system(task_name)
+    print(f"    [{task_name}] Scoring {len(predictions)} responses with {score_model}...")
+    api_key = os.environ["OPENROUTER_API_KEY"]
+    headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+
+    all_parsed = []
+    with httpx.Client(timeout=90.0) as client:
+        for item, prediction, target in zip(eval_items, predictions, targets):
+            body = {
+                "model": score_model,
+                "messages": [
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": build_llm_scorer_prompt(task_name, item.get("prompt", ""), target, prediction)},
+                ],
+                "temperature": 0.0,
+                "max_tokens": QA_SCORE_MAX_TOKENS,
+            }
+            response = client.post(OPENROUTER_CHAT_COMPLETIONS_URL, json=body, headers=headers)
+            response.raise_for_status()
+            raw_text = (response.json()["choices"][0]["message"]["content"] or "").strip()
+            raw_text = re.sub(r"<think>.*?</think>", "", raw_text, flags=re.DOTALL).strip()
+            all_parsed.append(extract_scorer_json(raw_text))
+
+    # Aggregate numeric fields
+    result: dict[str, Any] = {"n": len(predictions)}
+    numeric_keys = set()
+    for p in all_parsed:
+        for k, v in p.items():
+            if k == "reason":
+                continue
+            if isinstance(v, (int, float)):
+                numeric_keys.add(k)
+    for k in sorted(numeric_keys):
+        vals = [float(p.get(k, 0.0)) for p in all_parsed]
+        result[k] = sum(vals) / len(vals)
+    result["_llm_scorer_parsed"] = all_parsed
+    return result
 
 
 def _score_parsed(
@@ -442,17 +583,26 @@ def score_task(
     targets: list[str],
     tokenizer=None,
     eval_items: list[dict] | None = None,
+    openrouter_available: bool = True,
 ) -> dict[str, Any]:
     """Score any task. Parser-based tasks get accuracy + numeric side-metrics.
     Remaining tasks fall through to generic scoring."""
-    if is_gemini_qa_task(task_def.name):
+    if is_qa_score_task(task_def.name):
         if eval_items is None:
-            raise ValueError(f"Gemini QA scoring needs eval_items for {task_def.name}")
-        return _score_qa_gemini(task_def.name, eval_items, predictions, targets)
+            raise ValueError(f"QA scorer scoring needs eval_items for {task_def.name}")
+        return _score_qa_scorer(task_def.name, eval_items, predictions, targets, openrouter_available=openrouter_available)
 
-    # answer_trajectory: token F1 on the answer text + MAE on confidence/entropy
-    if task_def.name == "answer_trajectory":
-        return _score_trajectory(predictions, targets)
+    # answer_trajectory: LLM scorer (answer_score + confidence) with token F1 fallback
+    if is_trajectory_scorer_task(task_def.name):
+        if eval_items is None:
+            raise ValueError(f"Trajectory scorer scoring needs eval_items for {task_def.name}")
+        return _score_trajectory_llm(eval_items, predictions, targets, openrouter_available=openrouter_available)
+
+    # LLM_SCORER tasks (cot_description, cot_metacognition, sae_unverbalized)
+    if is_llm_scorer_task(task_def.name):
+        if eval_items is None:
+            raise ValueError(f"LLM scorer scoring needs eval_items for {task_def.name}")
+        return _score_llm_scorer(task_def.name, eval_items, predictions, targets, openrouter_available=openrouter_available)
 
     parser = TASK_PARSERS.get(task_def.name)
     if parser is not None:
@@ -466,6 +616,9 @@ def score_task(
         return _score_step_accuracy(predictions, targets)
     elif task_def.scoring == ScoringMode.TOKEN_MATCH:
         return _score_token_match(predictions, targets, tokenizer)
+    elif task_def.scoring == ScoringMode.LLM_SCORER:
+        # Generic LLM_SCORER fallback (not in specific scorer sets above) — use token F1
+        return _score_token_f1(predictions, targets)
     else:
         raise ValueError(f"No parser for {task_def.name!r} and unknown scoring {task_def.scoring}")
 
@@ -565,16 +718,19 @@ def _per_example_correct(
 
 def _primary_metric_name(task_name: str, scoring: ScoringMode) -> str:
     """Map task to its primary metric key."""
-    if is_gemini_qa_task(task_name):
-        return "gemini_score"
-    if task_name == "answer_trajectory":
+    if is_qa_score_task(task_name):
+        return "qa_scorer_score"
+    if is_trajectory_scorer_task(task_name):
         return "token_f1"
+    if is_llm_scorer_task(task_name):
+        return "correctness"
     if task_name in TASK_PARSERS:
         return "accuracy"
     return {
         ScoringMode.TOKEN_F1: "token_f1",
         ScoringMode.STEP_ACCURACY: "step_accuracy",
         ScoringMode.TOKEN_MATCH: "token_match_rate",
+        ScoringMode.LLM_SCORER: "correctness",
     }.get(scoring, "accuracy")
 
 
@@ -1097,14 +1253,24 @@ def run_eval(
     position_mode: str = "stochastic",
     stochastic_max_k: int = 100,
     eval_position_seed: int = 0,
+    baselines_config: dict | None = None,
+    openrouter_available: bool | None = None,
 ) -> tuple[dict[str, float], dict[str, list[dict]]]:
     """Run eval for all (or specified) tasks.
 
     Caches activations across calls (base model is frozen during LoRA training).
     Returns `(metrics, all_traces)` for wandb logging and disk trace dumps.
+
+    If baselines_config is provided, also runs enabled baselines after oracle eval.
+    If openrouter_available is None, probes OpenRouter once at the start.
     """
     if layers is None:
         layers = [9, 18, 27]
+
+    if openrouter_available is None:
+        openrouter_available = check_openrouter_available()
+        if not openrouter_available:
+            print("  [eval] OpenRouter unavailable — LLM scorer tasks will be skipped")
 
     all_tasks = get_eval_tasks()
     if task_names is not None:
@@ -1139,6 +1305,7 @@ def run_eval(
                 position_mode=position_mode,
                 stochastic_max_k=stochastic_max_k,
                 eval_position_seed=eval_position_seed,
+                openrouter_available=openrouter_available,
             )
             elapsed = time.time() - t0
 
@@ -1150,8 +1317,8 @@ def run_eval(
             primary_metric = _primary_metric_name(task_name, task_def.scoring)
             primary_score = result.get(primary_metric, 0.0)
             metrics[f"eval/{task_name}"] = primary_score
-            if is_gemini_qa_task(task_name):
-                metrics[f"eval/{task_name}_gemini_score"] = result.get("gemini_score", 0.0)
+            if is_qa_score_task(task_name):
+                metrics[f"eval/{task_name}_qa_scorer_score"] = result.get("qa_scorer_score", 0.0)
             metrics[f"eval_n/{task_name}"] = result.get("n", 0)
             if result.get("unparsed", 0) > 0:
                 metrics[f"eval_unparsed/{task_name}"] = result["unparsed"]
@@ -1226,6 +1393,7 @@ def _eval_single_task(
     position_mode: str = "stochastic",
     stochastic_max_k: int = 100,
     eval_position_seed: int = 0,
+    openrouter_available: bool = True,
 ) -> dict[str, float]:
     """Eval a single task with activation caching (or text-baseline mode)."""
 
@@ -1291,12 +1459,12 @@ def _eval_single_task(
                 print(f"      pred: {pred_short}")
                 print(f"      tgt:  {tgt_short}")
 
-        result = score_task(task_def, predictions, targets, tokenizer=tokenizer, eval_items=test_data)
-        qa_judge_scores = result["_qa_judge_scores"] if is_gemini_qa_task(task_name) else None
-        qa_token_f1_scores = result["_qa_token_f1_scores"] if is_gemini_qa_task(task_name) else None
-        qa_judge_reasons = result["_qa_judge_reasons"] if is_gemini_qa_task(task_name) else None
-        qa_judge_raw = result["_qa_judge_raw"] if is_gemini_qa_task(task_name) else None
-        qa_judge_model = result["_qa_judge_model"] if is_gemini_qa_task(task_name) else None
+        result = score_task(task_def, predictions, targets, tokenizer=tokenizer, eval_items=test_data, openrouter_available=openrouter_available)
+        qa_scorer_scores = result["_qa_scorer_scores"] if is_qa_score_task(task_name) else None
+        qa_token_f1_scores = result["_qa_token_f1_scores"] if is_qa_score_task(task_name) else None
+        qa_scorer_reasons = result["_qa_scorer_reasons"] if is_qa_score_task(task_name) else None
+        qa_scorer_raw = result["_qa_scorer_raw"] if is_qa_score_task(task_name) else None
+        qa_scorer_model = result["_qa_scorer_model"] if is_qa_score_task(task_name) else None
         traces = []
         for i, (pred, tgt) in enumerate(zip(predictions, targets)):
             item = test_data[i]
@@ -1308,14 +1476,14 @@ def _eval_single_task(
                 "oracle_prompt": item["prompt"],
                 "expected": tgt,
                 "predicted": pred,
-                "correct": f"Gemini={qa_judge_scores[i]:.2f}" if qa_judge_scores is not None else _per_example_correct(task_name, task_def, pred, tgt),
+                "correct": f"Scorer={qa_scorer_scores[i]:.2f}" if qa_scorer_scores is not None else _per_example_correct(task_name, task_def, pred, tgt),
             }
-            if qa_judge_scores is not None:
-                trace["judge_model"] = qa_judge_model
-                trace["judge_score"] = qa_judge_scores[i]
+            if qa_scorer_scores is not None:
+                trace["scorer_model"] = qa_scorer_model
+                trace["scorer_score"] = qa_scorer_scores[i]
                 trace["token_f1"] = qa_token_f1_scores[i]
-                trace["judge_reason"] = qa_judge_reasons[i]
-                trace["judge_raw"] = qa_judge_raw[i]
+                trace["scorer_reason"] = qa_scorer_reasons[i]
+                trace["scorer_raw"] = qa_scorer_raw[i]
             traces.append(trace)
         result["_traces"] = traces
         return result
@@ -1440,12 +1608,12 @@ def _eval_single_task(
             print(f"      pred: {pred_short}")
             print(f"      tgt:  {tgt_short}")
 
-    result = score_task(task_def, predictions, targets, tokenizer=tokenizer, eval_items=test_data)
-    qa_judge_scores = result["_qa_judge_scores"] if is_gemini_qa_task(task_name) else None
-    qa_token_f1_scores = result["_qa_token_f1_scores"] if is_gemini_qa_task(task_name) else None
-    qa_judge_reasons = result["_qa_judge_reasons"] if is_gemini_qa_task(task_name) else None
-    qa_judge_raw = result["_qa_judge_raw"] if is_gemini_qa_task(task_name) else None
-    qa_judge_model = result["_qa_judge_model"] if is_gemini_qa_task(task_name) else None
+    result = score_task(task_def, predictions, targets, tokenizer=tokenizer, eval_items=test_data, openrouter_available=openrouter_available)
+    qa_scorer_scores = result["_qa_scorer_scores"] if is_qa_score_task(task_name) else None
+    qa_token_f1_scores = result["_qa_token_f1_scores"] if is_qa_score_task(task_name) else None
+    qa_scorer_reasons = result["_qa_scorer_reasons"] if is_qa_score_task(task_name) else None
+    qa_scorer_raw = result["_qa_scorer_raw"] if is_qa_score_task(task_name) else None
+    qa_scorer_model = result["_qa_scorer_model"] if is_qa_score_task(task_name) else None
 
     # Attach per-example traces for wandb Tables
     _ensure_ao_imports()
@@ -1475,14 +1643,14 @@ def _eval_single_task(
             "oracle_prefix": oracle_prefix,
             "expected": tgt,
             "predicted": pred,
-            "correct": f"Gemini={qa_judge_scores[i]:.2f}" if qa_judge_scores is not None else _per_example_correct(task_name, task_def, pred, tgt),
+            "correct": f"Scorer={qa_scorer_scores[i]:.2f}" if qa_scorer_scores is not None else _per_example_correct(task_name, task_def, pred, tgt),
         }
-        if qa_judge_scores is not None:
-            trace["judge_model"] = qa_judge_model
-            trace["judge_score"] = qa_judge_scores[i]
+        if qa_scorer_scores is not None:
+            trace["scorer_model"] = qa_scorer_model
+            trace["scorer_score"] = qa_scorer_scores[i]
             trace["token_f1"] = qa_token_f1_scores[i]
-            trace["judge_reason"] = qa_judge_reasons[i]
-            trace["judge_raw"] = qa_judge_raw[i]
+            trace["scorer_reason"] = qa_scorer_reasons[i]
+            trace["scorer_raw"] = qa_scorer_raw[i]
         traces.append(trace)
     result["_traces"] = traces
 

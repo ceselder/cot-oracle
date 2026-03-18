@@ -103,6 +103,9 @@ def load_task_data(
             # (e.g. chunked_convqa/compqa use cot_prefix for activations)
             if task_def.cot_field != "cot_text" and task_def.cot_field in item:
                 item["cot_text"] = item[task_def.cot_field]
+            # Filter by datapoint_type if task requires it (subtask splits)
+            if task_def.filter_datapoint_type and item.get("datapoint_type") != task_def.filter_datapoint_type:
+                continue
             data.append(item)
 
     if n is not None and len(data) > n:
@@ -322,7 +325,9 @@ def _download_from_hf(task_def: TaskDef, split: str) -> Path:
     """
     from filelock import FileLock
 
-    cache_dir = _HF_CACHE_DIR / task_def.name
+    # Use hf_cache_name if set (allows subtasks to share a downloaded file)
+    cache_name = task_def.hf_cache_name or task_def.name
+    cache_dir = _HF_CACHE_DIR / cache_name
     cache_dir.mkdir(parents=True, exist_ok=True)
     local_path = cache_dir / f"{split}.jsonl"
     lock_path = cache_dir / f"{split}.jsonl.lock"

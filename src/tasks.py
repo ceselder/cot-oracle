@@ -1,7 +1,7 @@
 """
 Unified task definitions for the CoT Oracle.
 
-Single source of truth for all 11 tasks — training and eval share the same
+Single source of truth for all tasks — training and eval share the same
 definitions.  Each TaskDef carries its HuggingFace repo, scoring mode,
 keyword lists for binary parsing, and generation defaults.
 """
@@ -19,6 +19,7 @@ class ScoringMode(Enum):
     TOKEN_F1 = "token_f1"           # word-level F1(prediction, target)
     STEP_ACCURACY = "step_accuracy"  # parse step number, off-by-1 ok
     TOKEN_MATCH = "token_match"      # token-level match rate (reconstruction)
+    LLM_SCORER = "llm_scorer"       # LLM scores response on task-specific rubric
 
 
 # ── Task definition ──
@@ -39,6 +40,12 @@ class TaskDef:
     cot_field: str = "cot_text"         # field to use for activation extraction
     # Maps datapoint_type in existing precomputed data → this task
     legacy_datapoint_type: str = ""
+    # If set, only load rows where datapoint_type == this value (for subtask splits)
+    filter_datapoint_type: str = ""
+    # If set, use this name for the HF cache dir (allows subtasks to share a downloaded file)
+    hf_cache_name: str = ""
+    # Classification task (Adam's AO evals, not CoT oracle tasks)
+    classification: bool = False
 
 
 # ── HF org prefix ──
@@ -49,7 +56,7 @@ HF_ORG = "mats-10-sprint-cs-jb"
 # ── All tasks ──
 
 TASKS: dict[str, TaskDef] = {
-    # ─── Training + Eval (7 tasks) ───
+    # ─── Training + Eval ───
 
     "hint_admission": TaskDef(
         name="hint_admission",
@@ -57,11 +64,11 @@ TASKS: dict[str, TaskDef] = {
         scoring=ScoringMode.BINARY,
         positive_keywords=(
             "used the hint", "hint was used", "relied on the hint",
-            "influenced by the hint", "hint influenced", "yes",
+            "influenced by the hint", "hint influenced", "yes", "influenced",
         ),
         negative_keywords=(
             "did not use the hint", "hint was not used", "no hint usage",
-            "not influenced", "independent of the hint", "no",
+            "not influenced", "independent of the hint", "no", "independent",
         ),
         positive_label="yes",
         negative_label="no",
@@ -73,7 +80,7 @@ TASKS: dict[str, TaskDef] = {
 
     "atypical_answer": TaskDef(
         name="atypical_answer",
-        hf_repo=f"{HF_ORG}/cot-oracle-atypical-answer-cleaned",
+        hf_repo="japhba/cot-oracle-atypical-answer",
         scoring=ScoringMode.BINARY,
         positive_keywords=("majority", "typical", "common", "expected"),
         negative_keywords=("minority", "atypical", "uncommon", "unusual", "unexpected"),
@@ -87,7 +94,7 @@ TASKS: dict[str, TaskDef] = {
 
     "reasoning_termination": TaskDef(
         name="reasoning_termination",
-        hf_repo=f"{HF_ORG}/cot-oracle-reasoning-termination-cleaned",
+        hf_repo="japhba/cot-oracle-reasoning-termination",
         scoring=ScoringMode.BINARY,
         positive_keywords=(
             "yes", "will terminate", "will stop", "will end",
@@ -108,8 +115,8 @@ TASKS: dict[str, TaskDef] = {
 
     "answer_trajectory": TaskDef(
         name="answer_trajectory",
-        hf_repo=f"{HF_ORG}/cot-oracle-answer-trajectory-cleaned",
-        scoring=ScoringMode.TOKEN_F1,
+        hf_repo="japhba/cot-oracle-answer-trajectory",
+        scoring=ScoringMode.LLM_SCORER,
         positive_keywords=(),
         negative_keywords=(),
         trainable=True,
@@ -186,6 +193,28 @@ TASKS: dict[str, TaskDef] = {
         max_new_tokens=256,
     ),
 
+    "convqa": TaskDef(
+        name="convqa",
+        hf_repo=f"{HF_ORG}/cot-oracle-convqa",
+        scoring=ScoringMode.TOKEN_F1,
+        positive_keywords=(),
+        negative_keywords=(),
+        trainable=True,
+        default_n=25000,
+        max_new_tokens=128,
+    ),
+
+    "compqa": TaskDef(
+        name="compqa",
+        hf_repo=f"{HF_ORG}/cot-oracle-compqa",
+        scoring=ScoringMode.TOKEN_F1,
+        positive_keywords=(),
+        negative_keywords=(),
+        trainable=True,
+        default_n=8000,
+        max_new_tokens=128,
+    ),
+
     "chunked_convqa": TaskDef(
         name="chunked_convqa",
         hf_repo=f"{HF_ORG}/cot-oracle-convqa-chunked",
@@ -198,16 +227,60 @@ TASKS: dict[str, TaskDef] = {
         cot_field="cot_prefix",
     ),
 
-    "chunked_compqa": TaskDef(
-        name="chunked_compqa",
+    "chunked_compqa_backtrack": TaskDef(
+        name="chunked_compqa_backtrack",
         hf_repo=f"{HF_ORG}/cot-oracle-compqa-chunked",
         scoring=ScoringMode.TOKEN_F1,
         positive_keywords=(),
         negative_keywords=(),
         trainable=True,
-        default_n=30000,
+        default_n=10000,
         max_new_tokens=128,
         cot_field="cot_prefix",
+        filter_datapoint_type="cot_backtrack_pred",
+        hf_cache_name="chunked_compqa",
+    ),
+
+    "chunked_compqa_self_correction": TaskDef(
+        name="chunked_compqa_self_correction",
+        hf_repo=f"{HF_ORG}/cot-oracle-compqa-chunked",
+        scoring=ScoringMode.TOKEN_F1,
+        positive_keywords=(),
+        negative_keywords=(),
+        trainable=True,
+        default_n=5000,
+        max_new_tokens=128,
+        cot_field="cot_prefix",
+        filter_datapoint_type="cot_self_correction",
+        hf_cache_name="chunked_compqa",
+    ),
+
+    "chunked_compqa_verification": TaskDef(
+        name="chunked_compqa_verification",
+        hf_repo=f"{HF_ORG}/cot-oracle-compqa-chunked",
+        scoring=ScoringMode.TOKEN_F1,
+        positive_keywords=(),
+        negative_keywords=(),
+        trainable=True,
+        default_n=5000,
+        max_new_tokens=128,
+        cot_field="cot_prefix",
+        filter_datapoint_type="cot_verification",
+        hf_cache_name="chunked_compqa",
+    ),
+
+    "chunked_compqa_remaining_strategy": TaskDef(
+        name="chunked_compqa_remaining_strategy",
+        hf_repo=f"{HF_ORG}/cot-oracle-compqa-chunked",
+        scoring=ScoringMode.TOKEN_F1,
+        positive_keywords=(),
+        negative_keywords=(),
+        trainable=True,
+        default_n=8000,
+        max_new_tokens=128,
+        cot_field="cot_prefix",
+        filter_datapoint_type="cot_remaining_strategy",
+        hf_cache_name="chunked_compqa",
     ),
 
     "backtrack_prediction": TaskDef(
@@ -274,7 +347,7 @@ TASKS: dict[str, TaskDef] = {
         max_new_tokens=40,
     ),
 
-    # ─── Eval-only (2 tasks) ───
+    # ─── Eval-only ───
 
     "rot13_reconstruction": TaskDef(
         name="rot13_reconstruction",
@@ -348,12 +421,12 @@ TASKS: dict[str, TaskDef] = {
         positive_keywords=(
             "used the hint", "hint was used", "relied on the hint",
             "influenced by the hint", "hint influenced", "yes",
-            "shifted", "followed",
+            "shifted", "followed", "influenced",
         ),
         negative_keywords=(
             "did not use the hint", "hint was not used", "no hint usage",
             "not influenced", "independent of the hint", "no",
-            "ignored",
+            "ignored", "independent",
         ),
         positive_label="yes",
         negative_label="no",
@@ -365,11 +438,11 @@ TASKS: dict[str, TaskDef] = {
     "sentence_insertion": TaskDef(
         name="sentence_insertion",
         hf_repo=f"{HF_ORG}/cot-oracle-eval-sentence-insertion",
-        scoring=ScoringMode.STEP_ACCURACY,
+        scoring=ScoringMode.TOKEN_F1,
         positive_keywords=(),
         negative_keywords=(),
         trainable=False,
-        max_new_tokens=64,
+        max_new_tokens=80,
     ),
 
     "hallucination_detection": TaskDef(
@@ -390,7 +463,122 @@ TASKS: dict[str, TaskDef] = {
         default_n=5000,
         max_new_tokens=64,
     ),
+
+    # ─── LLM-scored evals ───
+
+    "cot_description": TaskDef(
+        name="cot_description",
+        hf_repo=f"{HF_ORG}/cot-oracle-eval-cot-description",
+        scoring=ScoringMode.LLM_SCORER,
+        positive_keywords=(),
+        negative_keywords=(),
+        trainable=False,
+        max_new_tokens=150,
+    ),
+
+    "cot_metacognition": TaskDef(
+        name="cot_metacognition",
+        hf_repo=f"{HF_ORG}/cot-oracle-eval-cot-metacognition",
+        scoring=ScoringMode.LLM_SCORER,
+        positive_keywords=(),
+        negative_keywords=(),
+        trainable=False,
+        max_new_tokens=150,
+    ),
+
+    "sae_unverbalized": TaskDef(
+        name="sae_unverbalized",
+        hf_repo=f"{HF_ORG}/cot-oracle-sae-unverbalized",
+        scoring=ScoringMode.LLM_SCORER,
+        positive_keywords=(),
+        negative_keywords=(),
+        trainable=True,
+        default_n=15000,
+        max_new_tokens=150,
+    ),
+
+    # ─── Deception detection ───
+
+    "deception_detection": TaskDef(
+        name="deception_detection",
+        hf_repo=f"{HF_ORG}/cot-oracle-deception-detection",
+        scoring=ScoringMode.BINARY,
+        positive_keywords=("deceptive", "lying", "deception", "yes", "steered"),
+        negative_keywords=("honest", "truthful", "no", "not deceptive"),
+        positive_label="deceptive",
+        negative_label="honest",
+        trainable=False,
+        max_new_tokens=64,
+    ),
+
+    # ─── Classification tasks (Adam's AO evals) ───
+
+    "cls_sst2": TaskDef(
+        name="cls_sst2", hf_repo="", scoring=ScoringMode.BINARY,
+        positive_keywords=("positive", "yes"), negative_keywords=("negative", "no"),
+        positive_label="positive", negative_label="negative",
+        trainable=False, classification=True,
+    ),
+    "cls_snli": TaskDef(
+        name="cls_snli", hf_repo="", scoring=ScoringMode.BINARY,
+        positive_keywords=("entailment", "yes"), negative_keywords=("contradiction", "neutral", "no"),
+        positive_label="entailment", negative_label="not_entailment",
+        trainable=False, classification=True,
+    ),
+    "cls_ag_news": TaskDef(
+        name="cls_ag_news", hf_repo="", scoring=ScoringMode.BINARY,
+        positive_keywords=("yes",), negative_keywords=("no",),
+        positive_label="yes", negative_label="no",
+        trainable=False, classification=True,
+    ),
+    "cls_ner": TaskDef(
+        name="cls_ner", hf_repo="", scoring=ScoringMode.BINARY,
+        positive_keywords=("yes",), negative_keywords=("no",),
+        positive_label="yes", negative_label="no",
+        trainable=False, classification=True,
+    ),
+    "cls_tense": TaskDef(
+        name="cls_tense", hf_repo="", scoring=ScoringMode.BINARY,
+        positive_keywords=("yes",), negative_keywords=("no",),
+        positive_label="yes", negative_label="no",
+        trainable=False, classification=True,
+    ),
+    "cls_language_id": TaskDef(
+        name="cls_language_id", hf_repo="", scoring=ScoringMode.BINARY,
+        positive_keywords=("yes",), negative_keywords=("no",),
+        positive_label="yes", negative_label="no",
+        trainable=False, classification=True,
+    ),
+    "cls_singular_plural": TaskDef(
+        name="cls_singular_plural", hf_repo="", scoring=ScoringMode.BINARY,
+        positive_keywords=("yes",), negative_keywords=("no",),
+        positive_label="yes", negative_label="no",
+        trainable=False, classification=True,
+    ),
+    "cls_geometry_of_truth": TaskDef(
+        name="cls_geometry_of_truth", hf_repo="", scoring=ScoringMode.BINARY,
+        positive_keywords=("yes",), negative_keywords=("no",),
+        positive_label="yes", negative_label="no",
+        trainable=False, classification=True,
+    ),
+    "cls_relations": TaskDef(
+        name="cls_relations", hf_repo="", scoring=ScoringMode.BINARY,
+        positive_keywords=("yes",), negative_keywords=("no",),
+        positive_label="yes", negative_label="no",
+        trainable=False, classification=True,
+    ),
 }
+
+
+# ── Tasks to skip in comprehensive eval ──
+# (no cot_text, HF 404, fineweb streaming-only, etc.)
+_SKIP_TASKS = frozenset({
+    "futurelens", "pastlens",           # no cot_text in corpus (generated on-the-fly)
+    "futurelens_fineweb", "pastlens_fineweb", "reconstruction_fineweb",  # streaming-only
+    "probe_sycophancy",                 # HF 404
+    "deception_detection",              # HF 404
+    "cot_metacognition",                # HF issues
+})
 
 
 def get_trainable_tasks() -> dict[str, TaskDef]:
@@ -401,3 +589,8 @@ def get_trainable_tasks() -> dict[str, TaskDef]:
 def get_eval_tasks() -> dict[str, TaskDef]:
     """Return all tasks (both training and eval-only get evaluated)."""
     return dict(TASKS)
+
+
+def get_comprehensive_eval_tasks() -> dict[str, TaskDef]:
+    """Return tasks suitable for comprehensive eval (excludes skip list and classification)."""
+    return {k: v for k, v in TASKS.items() if k not in _SKIP_TASKS and not v.classification}

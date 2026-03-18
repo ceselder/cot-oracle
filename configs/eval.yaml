@@ -1,0 +1,55 @@
+# CoT Oracle Evaluation Config
+# Used by scripts/eval_comprehensive.py, scripts/eval_viewer.py, src/qa_scorer.py
+#
+# Comment out tasks or baselines to skip them.
+
+score_model: google/gemini-2.5-flash-lite
+
+# Tasks to evaluate (subset of tasks defined in src/tasks.py).
+# Comment out a line to skip that task.
+tasks:
+  - hint_admission
+  - atypical_answer
+  - reasoning_termination
+  - answer_trajectory
+  - correctness
+  - decorative_cot
+  - backtrack_prediction
+  - sycophancy
+  - truthfulqa_hint
+  - sqa
+  - chunked_convqa
+  - chunked_compqa_backtrack
+  - sentence_insertion
+  - hallucination_detection
+  # - futurelens          # no cot_text
+  # - pastlens            # no cot_text
+  # - rot13_reconstruction
+
+# Baselines to run. Comment out a line to skip that method.
+baselines:
+  - weak-llm
+  # - strong-llm
+  - our_ao
+  - original_ao
+  - linear_probes
+  - sae_llm
+  # - patchscopes
+  # - attention_probe
+  # - no_act_oracle
+
+# Per-method settings (only for methods that need external config).
+# Methods not listed here use hardcoded defaults from baselines/*.py.
+method_config:
+  weak-llm:
+    # model: google/gemini-3.1-flash-lite-preview
+    model: google/gemini-2.5-flash-lite
+    max_tokens: 2048
+  strong-llm:
+    model: google/gemini-3.1-pro-preview
+    max_tokens: 2048
+  sae_llm:
+    sae_labels_dir: /ceph/scratch/jbauer/sae_features/trainer_2/trainer_2/labels
+    llm_model: google/gemini-2.5-flash-lite
+  no_act_oracle:
+    checkpoint: ""   # path to no-act LoRA
