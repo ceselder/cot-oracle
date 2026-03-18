@@ -4,7 +4,7 @@ Generate a hallucination detection dataset for the CoT Oracle.
 
 Three phases:
   1. Fire ~300 prompts at Qwen3-8B (thinking ON) via OpenRouter → ~600 raw CoTs
-  2. Judge each CoT with Gemini Flash Lite → binary "hallucinated"/"factual" labels
+  2. Judge each CoT with Gemini 3.1 Flash Lite → binary "hallucinated"/"factual" labels
   3. Balance, split 80/20 by prompt_id, upload to HuggingFace
 
 Usage:
@@ -26,7 +26,7 @@ import httpx
 
 ENDPOINT = "https://openrouter.ai/api/v1/chat/completions"
 QWEN_MODEL = "qwen/qwen3-8b"
-JUDGE_MODEL = "google/gemini-2.0-flash-lite-001"
+JUDGE_MODEL = "google/gemini-3.1-flash-lite-preview"
 CONCURRENCY = 20
 OUTPUT_DIR = Path("data/cot_hallucinations")
 HF_REPO = "ceselder/cot-oracle-hallucination-detection"

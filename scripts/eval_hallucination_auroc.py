@@ -206,7 +206,7 @@ def score_sentence(
     ph_token: str, adapter_name: str | None,
     device: str, hall_id: int, fact_id: int,
 ) -> float:
-    """Forward pass with activation injection, return logit(hallucinated) - logit(factual)."""
+    """Forward pass with activation injection, return P(positive_label) via softmax."""
     num_positions = activations.shape[0]
     input_ids, ph_positions = build_prefix_and_find_positions(
         tokenizer, num_positions, layers, ph_token, oracle_prompt
@@ -231,7 +231,9 @@ def score_sentence(
         outputs = model(input_ids=input_tensor, attention_mask=attn_mask)
 
     logits = outputs.logits[0, -1, :].float()
-    return (logits[hall_id] - logits[fact_id]).item()
+    pair = torch.stack([logits[hall_id], logits[fact_id]])
+    prob_positive = torch.softmax(pair, dim=0)[0]
+    return prob_positive.item()
 
 
 def _compute_positions(

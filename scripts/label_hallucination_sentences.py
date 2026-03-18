@@ -25,7 +25,7 @@ from pathlib import Path
 import httpx
 
 ENDPOINT = "https://openrouter.ai/api/v1/chat/completions"
-JUDGE_MODEL = "google/gemini-2.0-flash-lite-001"
+JUDGE_MODEL = "google/gemini-3.1-flash-lite-preview"
 CONCURRENCY = 20
 INPUT_DIR = Path("data/cot_hallucinations")
 OUTPUT_DIR = Path("data/cot_hallucinations")
