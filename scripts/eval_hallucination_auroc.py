@@ -55,6 +55,9 @@ HF_REPO = "ceselder/cot-oracle-hallucination-detection"
 OUR_PROMPT = "Is the model's reasoning factually accurate, or does it contain hallucinated information?"
 ADAM_PROMPT = "Is the model's reasoning factually accurate, or does it contain hallucinated information?"
 
+CONTEXT_MODES = ("sentence", "stride", "combined")
+DEFAULT_STRIDE = 5
+
 
 def load_sentence_data(max_items: int = 0) -> list[dict]:
     """Load sentence-level test data from HF."""
@@ -231,13 +234,36 @@ def score_sentence(
     return (logits[hall_id] - logits[fact_id]).item()
 
 
+def _compute_positions(
+    context_mode: str, sentence_positions: list[int],
+    cot_token_start: int, cot_token_end: int, stride: int,
+) -> list[int]:
+    """Compute activation positions based on context mode.
+
+    sentence: only the sentence's own token positions
+    stride:   stride-N positions across the full CoT region
+    combined: sentence positions + evenly-spaced CoT positions, deduplicated
+    """
+    if context_mode == "sentence":
+        return sentence_positions
+    elif context_mode == "stride":
+        return list(range(cot_token_start, cot_token_end, stride))
+    elif context_mode == "combined":
+        stride_positions = set(range(cot_token_start, cot_token_end, stride))
+        return sorted(stride_positions | set(sentence_positions))
+    else:
+        raise ValueError(f"Unknown context_mode: {context_mode}")
+
+
 @torch.no_grad()
 def run_evaluation(
     model, tokenizer, test_data: list[dict],
     our_adapter: str, device: str,
+    context_mode: str = "sentence", stride: int = DEFAULT_STRIDE,
 ) -> dict:
     """Score each sentence with both oracles."""
     model.eval()
+    print(f"  Context mode: {context_mode}, stride: {stride}")
 
     # Pre-resolve token IDs
     hall_id = tokenizer.encode("hallucinated", add_special_tokens=False)[0]
@@ -281,6 +307,18 @@ def run_evaluation(
             if cot_start_char == -1:
                 skipped += len(group)
                 continue
+        cot_end_char = cot_start_char + len(cot_text)
+
+        # Map CoT character span to token indices
+        cot_token_start = cot_token_end = None
+        for tok_idx, (ts, te) in enumerate(full_offsets):
+            if te > cot_start_char and cot_token_start is None:
+                cot_token_start = tok_idx
+            if ts < cot_end_char:
+                cot_token_end = tok_idx + 1
+        if cot_token_start is None or cot_token_end is None:
+            skipped += len(group)
+            continue
 
         # Extract activations for all layers in one forward pass
         try:
@@ -316,16 +354,26 @@ def run_evaluation(
                     continue
             sent_end = sent_start + len(sentence)
 
-            positions = []
+            sent_positions = []
             for tok_idx, (ts, te) in enumerate(full_offsets):
                 if te > sent_start and ts < sent_end:
-                    positions.append(tok_idx)
+                    sent_positions.append(tok_idx)
+
+            if len(sent_positions) < 3:
+                skipped += 1
+                continue
+
+            # Compute positions based on context mode
+            positions = _compute_positions(
+                context_mode, sent_positions,
+                cot_token_start, cot_token_end, stride,
+            )
 
             if len(positions) < 3:
                 skipped += 1
                 continue
 
-            # Slice activations for this sentence
+            # Slice activations
             try:
                 # Multi-layer for our oracle
                 acts_multi_parts = []
@@ -453,6 +501,13 @@ def main():
     parser.add_argument("--output", type=str, default="data/hallucination_auroc.png")
     parser.add_argument("--device", type=str, default="cuda")
     parser.add_argument("--use-8bit", action="store_true")
+    parser.add_argument("--context-mode", choices=CONTEXT_MODES, default="sentence",
+                        help="How to select activation positions: "
+                             "sentence=only sentence tokens, "
+                             "stride=stride-N across full CoT, "
+                             "combined=sentence + stride positions")
+    parser.add_argument("--stride", type=int, default=DEFAULT_STRIDE,
+                        help="Stride for CoT-wide position sampling (default: 5)")
     args = parser.parse_args()
 
     print("Loading sentence-level test data...")
@@ -477,13 +532,18 @@ def main():
 
     print("\nRunning evaluation...")
     t0 = time.time()
-    results = run_evaluation(model, tokenizer, test_data, our_adapter_name, args.device)
+    results = run_evaluation(
+        model, tokenizer, test_data, our_adapter_name, args.device,
+        context_mode=args.context_mode, stride=args.stride,
+    )
     print(f"Evaluation took {time.time() - t0:.1f}s")
 
     if not results["labels"]:
         print("No sentences scored!")
         sys.exit(1)
 
+    results["context_mode"] = args.context_mode
+    results["stride"] = args.stride
     results_path = args.output.replace(".png", "_results.json")
     os.makedirs(os.path.dirname(results_path) or ".", exist_ok=True)
     with open(results_path, "w") as f:
