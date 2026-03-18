@@ -1,9 +1,9 @@
-"""Log Gemini LLM-monitor + random/chance baselines as constant wandb runs."""
+"""Log LLM-judge monitor + random/chance baselines as constant wandb runs."""
 import json, wandb
 from pathlib import Path
 
 # ── Name mapping: old llm_monitor names → current eval task names ──
-GEMINI_TO_EVAL = {
+JUDGE_TO_EVAL = {
     "hinted_mcq": "hint_admission",
     "hinted_mcq_truthfulqa": "truthfulqa_hint",
     "sycophancy_v2_riya": "sycophancy",
@@ -43,56 +43,56 @@ CHANCE_BASELINES = {
 
 WANDB_PROJECT = "cot_oracle"
 WANDB_ENTITY = "MATS10-CS-JB"
-TASK_QA_RESULTS_PATH = Path("logs/gemini_qa_eval_baseline/results.json")
+TASK_QA_RESULTS_PATH = Path("logs/qa_judge_baseline/results.json")
 
-# ── 1) Gemini baseline ──
+# ── 1) LLM judge baseline ──
 results = json.load(open("logs/llm_monitor/results.json"))
 
-gemini_metrics = {}
+judge_metrics = {}
 acc_vals = []
 for old_name, data in results.items():
-    eval_name = GEMINI_TO_EVAL.get(old_name)
+    eval_name = JUDGE_TO_EVAL.get(old_name)
     if eval_name is None:
-        print(f"  Skipping unmapped Gemini result: {old_name}")
+        print(f"  Skipping unmapped judge result: {old_name}")
         continue
     m = data["metrics"]
     if "accuracy" in m:
-        gemini_metrics[f"eval/{eval_name}"] = m["accuracy"]
+        judge_metrics[f"eval/{eval_name}"] = m["accuracy"]
         acc_vals.append(m["accuracy"])
-    elif "mean_gemini_score" in m:
-        gemini_metrics[f"eval/{eval_name}"] = m["mean_gemini_score"]
-        gemini_metrics[f"eval/{eval_name}_gemini_score"] = m["mean_gemini_score"]
+    elif "mean_judge_score" in m:
+        judge_metrics[f"eval/{eval_name}"] = m["mean_judge_score"]
+        judge_metrics[f"eval/{eval_name}_qa_judge_score"] = m["mean_judge_score"]
     elif "mean_token_f1" in m:
-        gemini_metrics[f"eval/{eval_name}"] = m["mean_token_f1"]
-        gemini_metrics[f"eval/{eval_name}_token_f1"] = m["mean_token_f1"]
+        judge_metrics[f"eval/{eval_name}"] = m["mean_token_f1"]
+        judge_metrics[f"eval/{eval_name}_token_f1"] = m["mean_token_f1"]
 
 if TASK_QA_RESULTS_PATH.exists():
     task_results = json.load(open(TASK_QA_RESULTS_PATH))
     for task_name, data in task_results.items():
         m = data
-        if "mean_gemini_score" in m:
-            gemini_metrics[f"eval/{task_name}"] = m["mean_gemini_score"]
-            gemini_metrics[f"eval/{task_name}_gemini_score"] = m["mean_gemini_score"]
+        if "mean_judge_score" in m:
+            judge_metrics[f"eval/{task_name}"] = m["mean_judge_score"]
+            judge_metrics[f"eval/{task_name}_qa_judge_score"] = m["mean_judge_score"]
         if "mean_token_f1" in m:
-            gemini_metrics[f"eval/{task_name}_token_f1"] = m["mean_token_f1"]
-    print(f"Gemini QA eval-slice overrides: {sorted(task_results)}")
+            judge_metrics[f"eval/{task_name}_token_f1"] = m["mean_token_f1"]
+    print(f"QA judge eval-slice overrides: {sorted(task_results)}")
 else:
-    print(f"Gemini QA eval-slice overrides missing: {TASK_QA_RESULTS_PATH}")
+    print(f"QA judge eval-slice overrides missing: {TASK_QA_RESULTS_PATH}")
 
-print(f"Gemini: {len(gemini_metrics)} metrics mapped")
+print(f"LLM judge: {len(judge_metrics)} metrics mapped")
 
 run = wandb.init(
     project=WANDB_PROJECT, entity=WANDB_ENTITY,
-    name="baseline/gemini-flash",
-    tags=["baseline", "gemini"],
-    config={"model": "gemini-3-flash", "type": "baseline"},
+    name="baseline/llm-judge",
+    tags=["baseline", "llm_judge"],
+    config={"type": "baseline"},
 )
 wandb.define_metric("train/samples_seen")
 wandb.define_metric("*", step_metric="train/samples_seen")
 for step in [0, 100_000]:
-    wandb.log({**gemini_metrics, "train/samples_seen": step}, step=step)
+    wandb.log({**judge_metrics, "train/samples_seen": step}, step=step)
 wandb.finish()
-print("Logged Gemini baseline.")
+print("Logged LLM judge baseline.")
 
 # ── 2) Random/chance baseline ──
 chance_metrics = {f"eval/{name}": score for name, score in CHANCE_BASELINES.items()}

@@ -85,7 +85,7 @@ WANDB_ENTITY = "MATS10-CS-JB"
 # ── Model + probe imports ──
 
 sys.path.insert(0, str(_ROOT / "baselines"))
-from qwen_attention_probe import QwenAttentionProbe, _subsample_positions
+from attention_probe import QwenAttentionProbe, _subsample_positions
 
 
 class LinearConcatProbe(nn.Module):

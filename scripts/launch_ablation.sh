@@ -5,7 +5,7 @@
 #   bash scripts/launch_ablation.sh configs/ablation_stride10.yaml
 #   bash scripts/launch_ablation.sh configs/ablation_1layer.yaml
 #
-# Base config (train.yaml) is always loaded first, then the ablation overlay.
+# Base config (config.yaml) is always loaded first, then the ablation overlay.
 
 set -e
 

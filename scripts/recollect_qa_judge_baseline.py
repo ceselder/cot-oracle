@@ -23,16 +23,17 @@ if str(SRC_DIR) not in sys.path:
 load_dotenv(Path.home() / ".env")
 
 from data_loading import load_task_data
-from qa_judge import (
-    QA_GEMINI_SCORE_MODEL,
-    QA_GEMINI_SCORE_MAX_TOKENS,
+from qa_scorer import (
     OPENROUTER_CHAT_COMPLETIONS_URL,
-    QA_GEMINI_SCORE_SYSTEM,
-    build_qa_gemini_score_prompt,
+    QA_SCORE_SYSTEM,
+    QA_SCORE_MAX_TOKENS,
+    build_qa_score_prompt,
     compute_token_f1_scores,
     extract_judge_json,
+    get_score_model,
 )
 
+SCORE_MODEL = get_score_model()
 
 QA_TASKS = ("sqa", "chunked_convqa", "chunked_compqa")
 BASELINE_SYSTEM = (
@@ -43,15 +44,15 @@ BASELINE_SYSTEM = (
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Recollect Gemini QA baselines on the same eval slices as run_eval")
-    parser.add_argument("--config", default="configs/train.yaml")
+    parser = argparse.ArgumentParser(description="Recollect QA judge baselines on the same eval slices as run_eval")
+    parser.add_argument("--config", default="configs/eval.yaml")
     parser.add_argument("--tasks", nargs="+", default=list(QA_TASKS))
     parser.add_argument("--max-items", type=int, default=None, help="Override eval.max_items_per_eval from config")
     parser.add_argument("--baseline-model", default=None, help="Override baselines.llm_monitor.model from config")
     parser.add_argument("--max-tokens", type=int, default=None, help="Override baselines.llm_monitor.max_tokens from config")
     parser.add_argument("--temperature", type=float, default=None, help="Override baselines.llm_monitor.temperature from config")
     parser.add_argument("--concurrency", type=int, default=20)
-    parser.add_argument("--output-dir", default="logs/gemini_qa_eval_baseline")
+    parser.add_argument("--output-dir", default="logs/qa_scorer_baseline")
     return parser.parse_args()
 
 
@@ -159,15 +160,15 @@ async def _run_task(
 
     judge_messages = [
         [
-            {"role": "system", "content": QA_GEMINI_SCORE_SYSTEM},
-            {"role": "user", "content": build_qa_gemini_score_prompt(task_name, item["prompt"], item["target_response"], baseline_response)},
+            {"role": "system", "content": QA_SCORE_SYSTEM},
+            {"role": "user", "content": build_qa_score_prompt(task_name, item["prompt"], item["target_response"], baseline_response)},
         ]
         for item, baseline_response in zip(items, baseline_responses)
     ]
     judge_responses = await _gather_text_responses(
         judge_messages,
-        model=QA_GEMINI_SCORE_MODEL,
-        max_tokens=QA_GEMINI_SCORE_MAX_TOKENS,
+        model=SCORE_MODEL,
+        max_tokens=QA_SCORE_MAX_TOKENS,
         temperature=0.0,
         concurrency=concurrency,
         desc=f"Judge ({task_name})",
@@ -193,7 +194,7 @@ async def _run_task(
             "target_response": item["target_response"],
             "baseline_model": baseline_model,
             "baseline_response": baseline_response,
-            "judge_model": QA_GEMINI_SCORE_MODEL,
+            "judge_model": SCORE_MODEL,
             "judge_score": score,
             "token_f1": token_f1_scores[idx],
             "judge_reason": str(judged["reason"]).strip(),
@@ -204,9 +205,9 @@ async def _run_task(
         "task": task_name,
         "n_items": len(items),
         "baseline_model": baseline_model,
-        "judge_model": QA_GEMINI_SCORE_MODEL,
-        "mean_gemini_score": sum(scores) / len(scores),
-        "per_item_gemini_score": scores,
+        "judge_model": SCORE_MODEL,
+        "mean_judge_score": sum(scores) / len(scores),
+        "per_item_judge_score": scores,
         "mean_token_f1": sum(token_f1_scores) / len(token_f1_scores),
         "per_item_token_f1": token_f1_scores,
     }
@@ -244,7 +245,7 @@ def main() -> None:
         with open(output_dir / f"{task_name}_summary.json", "w") as f:
             json.dump(summary, f, indent=2)
         combined[task_name] = summary
-        print(f"[{task_name}] mean_gemini_score={summary['mean_gemini_score']:.3f} token_f1={summary['mean_token_f1']:.3f} over {summary['n_items']} items")
+        print(f"[{task_name}] mean_judge_score={summary['mean_judge_score']:.3f} token_f1={summary['mean_token_f1']:.3f} over {summary['n_items']} items")
 
     with open(output_dir / "results.json", "w") as f:
         json.dump(combined, f, indent=2)
