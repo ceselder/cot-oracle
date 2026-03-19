@@ -17,6 +17,7 @@ import argparse
 import asyncio
 import json
 import os
+import random
 import sys
 import time
 from pathlib import Path
@@ -27,7 +28,7 @@ import yaml
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(ROOT / "ao_reference"))
-sys.path.insert(0, str(ROOT / "calibration_dpo"))  # reuse activations, rollouts, data_sampler
+sys.path.insert(0, str(ROOT / "calibration_dpo"))
 sys.path.insert(0, str(ROOT / "calibration_grpo"))
 
 os.environ.setdefault("TORCHDYNAMO_DISABLE", "1")
@@ -40,22 +41,21 @@ import wandb
 from core.ao import (
     TRAINED_PLACEHOLDER,
     choose_attn_implementation,
-    get_hf_submodule,
-    get_steering_hook,
-    add_hook,
-    using_adapter,
 )
-from nl_probes.utils.activation_utils import collect_activations_multiple_layers
 
 # Reuse from calibration_dpo
 from activations import extract_activations
 from data_sampler import CoTSampler
-from rollouts import generate_rollouts, build_oracle_input_ids
+from rollouts import generate_rollouts
+from prompts import sample_prompt
 
 # GRPO modules
 from grpo_loss import GRPOItem, compute_grpo_loss, compute_old_logprobs
 from judge import judge_batch
-from reward import CRITERIA_NAMES, RubricResult, compute_group_advantages, compute_rewards
+from reward import CRITERIA_NAMES, compute_group_advantages, compute_rewards
+
+# Import build_oracle_input_ids from train_dpo (it lives there, not in rollouts.py)
+from train_dpo import build_oracle_input_ids
 
 
 def load_config(path: str = None) -> dict:
@@ -103,14 +103,12 @@ def train(cfg: dict):
     act_layers = cfg["model"]["act_layers"]
     injection_layer = cfg["model"]["injection_layer"]
 
-    ph_token = TRAINED_PLACEHOLDER
-    ph_id = tokenizer.encode(ph_token, add_special_tokens=False)
-    assert len(ph_id) == 1, f"Placeholder must be single token, got {ph_id}"
-    ph_id = ph_id[0]
-
-    # Data sampler
+    # Data sampler (needs tokenizer + layers)
+    rng = random.Random(42)
     sampler = CoTSampler(
-        corpus_repo=cfg["data"]["corpus"],
+        corpus_name=cfg["data"]["corpus"],
+        tokenizer=tokenizer,
+        layers=act_layers,
         stride=cfg["data"]["stride"],
         min_positions=cfg["data"]["min_positions"],
         max_positions=cfg["data"]["max_positions"],
@@ -120,21 +118,9 @@ def train(cfg: dict):
     trainable_params = [p for p in model.parameters() if p.requires_grad]
     optimizer = torch.optim.AdamW(trainable_params, lr=tcfg["lr"], weight_decay=0.01)
 
-    # Warmup scheduler
     from torch.optim.lr_scheduler import LinearLR
     scheduler = LinearLR(
-        optimizer,
-        start_factor=0.1,
-        end_factor=1.0,
-        total_iters=tcfg["warmup_steps"],
-    )
-
-    # Wandb
-    run_name = f"grpo-{time.strftime('%m%d-%H%M')}"
-    wandb.init(
-        project=cfg["wandb"]["project"],
-        name=run_name,
-        config=cfg,
+        optimizer, start_factor=0.1, end_factor=1.0, total_iters=tcfg["warmup_steps"],
     )
 
     # Training state
@@ -142,16 +128,18 @@ def train(cfg: dict):
     criteria_weights = cfg["reward"]["criteria_weights"]
     judge_model = cfg["judge"]["model"]
     max_concurrent = cfg["judge"]["max_concurrent"]
-
-    print(f"\nStarting GRPO training: {tcfg['max_steps']} steps")
-    print(f"  Rollouts per example: {rcfg['n']}")
-    print(f"  Batch size: {tcfg['batch_size']}")
-    print(f"  Clip eps: {gcfg['clip_eps']}")
-    print(f"  Criteria weights: {criteria_weights}")
+    question_inclusion_rate = cfg["data"].get("question_inclusion_rate", 0.4)
+    batch_size = tcfg["batch_size"]
 
     # Wandb
     run_name = f"grpo-{time.strftime('%m%d-%H%M')}"
     wandb.init(project=cfg["wandb"]["project"], name=run_name, config=cfg)
+
+    print(f"\nStarting GRPO training: {tcfg['max_steps']} steps")
+    print(f"  Rollouts per example: {rcfg['n']}")
+    print(f"  Batch size: {batch_size}")
+    print(f"  Clip eps: {gcfg['clip_eps']}")
+    print(f"  Criteria weights: {criteria_weights}")
 
     t0 = time.time()
     judge_loop = asyncio.new_event_loop()
@@ -159,48 +147,58 @@ def train(cfg: dict):
     while step < tcfg["max_steps"]:
         iter_t0 = time.time()
 
-        # ── 1. Sample CoT examples ──
-        examples = sampler.sample(tcfg["batch_size"])
+        # ── 1. Sample CoT examples + oracle prompts ──
+        examples = sampler.sample_batch(batch_size)
+        oracle_prompts = [sample_prompt(rng) for _ in range(batch_size)]
+
+        # Decide which examples get question prepended
+        questions = []
+        for ex in examples:
+            if rng.random() < question_inclusion_rate:
+                questions.append(ex.get("question", None))
+            else:
+                questions.append(None)
 
         # ── 2. Extract activations (base model, adapter disabled) ──
-        acts_list = []
-        for ex in examples:
-            acts = extract_activations(
-                model=model,
-                input_ids=ex["context_input_ids"],
-                positions=ex["selected_positions"],
-                layers=act_layers,
-                device=device,
-            )
-            acts_list.append(acts)
+        # extract_activations expects list[dict] with context_input_ids + selected_positions
+        acts_list = extract_activations(
+            model=model,
+            tokenizer=tokenizer,
+            examples=examples,
+            layers=act_layers,
+            device=device,
+        )
 
         # ── 3. Generate rollouts from current policy ──
         model.eval()
-        all_rollouts = []
-        for ex, acts in zip(examples, acts_list):
-            rollouts = generate_rollouts(
-                model=model,
-                tokenizer=tokenizer,
-                activations=acts,
-                oracle_prompt=ex["oracle_prompt"],
-                ph_token=ph_token,
-                layers=act_layers,
-                injection_layer=injection_layer,
-                n=rcfg["n"],
-                temperature=max(rcfg["temperature"], tcfg.get("temperature_floor", 0.6)),
-                max_new_tokens=rcfg["max_new_tokens"],
-                repetition_penalty=rcfg.get("repetition_penalty", 1.1),
-            )
-            all_rollouts.append(rollouts)
+        # generate_rollouts expects lists — processes all examples in one call
+        all_rollouts = generate_rollouts(
+            model=model,
+            tokenizer=tokenizer,
+            activations_list=acts_list,
+            oracle_prompts=oracle_prompts,
+            layers=act_layers,
+            n_rollouts=rcfg["n"],
+            temperature=max(rcfg["temperature"], tcfg.get("temperature_floor", 0.6)),
+            max_new_tokens=rcfg["max_new_tokens"],
+            generation_batch_size=rcfg.get("generation_batch_size", 8),
+            injection_layer=injection_layer,
+            device=device,
+            questions=questions,
+            repetition_penalty=rcfg.get("repetition_penalty", 1.1),
+        )
+        # all_rollouts: list[list[str]], one inner list per example
 
         # ── 4. Compute old log-probs (no grad, snapshot of current policy) ──
-        # Build GRPOItems for each (example, rollout) pair
-        all_items: list[list[GRPOItem]] = []  # [n_examples][n_rollouts]
-        for ex, acts, rollouts in zip(examples, acts_list, all_rollouts):
+        all_items: list[list[GRPOItem]] = []
+        for ex_idx, (ex, acts, rollouts, prompt, question) in enumerate(
+            zip(examples, acts_list, all_rollouts, oracle_prompts, questions)
+        ):
             ex_items = []
             for rollout_text in rollouts:
+                # build_oracle_input_ids(tokenizer, activations, oracle_prompt, layers, question)
                 prompt_ids, ph_pos = build_oracle_input_ids(
-                    tokenizer, acts.shape[0], act_layers, ph_token, ex["oracle_prompt"],
+                    tokenizer, acts, prompt, act_layers, question,
                 )
                 response_ids = tokenizer.encode(rollout_text, add_special_tokens=False)
                 full_ids = prompt_ids + response_ids
@@ -212,19 +210,18 @@ def train(cfg: dict):
                     advantage=0.0,
                     old_logprob=0.0,
                 ))
-            # Fill in old_logprobs
             old_lps = compute_old_logprobs(model, ex_items, injection_layer, device)
             for item, lp in zip(ex_items, old_lps):
                 item.old_logprob = lp
             all_items.append(ex_items)
 
-        # ── 5. Score with judge (synchronous — judge is fast, GPU is the bottleneck) ──
+        # ── 5. Score with judge ──
         judge_inputs = []
-        for ex, rollouts in zip(examples, all_rollouts):
+        for ex, rollouts, prompt in zip(examples, all_rollouts, oracle_prompts):
             judge_inputs.append({
                 "question": ex.get("question", ""),
-                "cot_text": ex.get("cot_text", ""),
-                "oracle_prompt": ex["oracle_prompt"],
+                "cot_text": ex.get("cot_response", ""),
+                "oracle_prompt": prompt,
                 "rollout_texts": rollouts,
             })
 
@@ -239,7 +236,7 @@ def train(cfg: dict):
         all_rewards = []
         n_judge_failures = 0
 
-        for ex_idx, (ex_items, rubrics) in enumerate(zip(all_items, rubric_results)):
+        for ex_items, rubrics in zip(all_items, rubric_results):
             if rubrics is None:
                 n_judge_failures += 1
                 continue
@@ -257,7 +254,7 @@ def train(cfg: dict):
             continue
 
         if n_judge_failures > 0:
-            print(f"  [iter] {n_judge_failures}/{len(examples)} judge failures")
+            print(f"  [iter] {n_judge_failures}/{batch_size} judge failures")
 
         # ── 7. Gradient step ──
         model.train()
@@ -308,7 +305,6 @@ def train(cfg: dict):
             **total_metrics,
         }
 
-        # Per-criterion pass rates
         all_rubrics = [r for rubrics in rubric_results if rubrics for r in rubrics]
         for crit in CRITERIA_NAMES:
             pass_rate = sum(
@@ -364,7 +360,6 @@ def main():
 
     cfg = load_config(args.config)
 
-    # Override from env
     if os.environ.get("WANDB_API_KEY"):
         wandb.login()
 
