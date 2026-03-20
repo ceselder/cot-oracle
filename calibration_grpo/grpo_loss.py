@@ -52,7 +52,8 @@ def _compute_sequence_logprob(
     start = pad_offset + response_start
     end = pad_offset + seq_len_original
     if start >= end - 1:
-        return torch.tensor(0.0, device=logits.device)
+        # No response tokens — need a grad-carrying zero
+        return logits.sum() * 0.0
 
     pred_logits = logits[start:end - 1]  # [T-1, vocab]
     target_ids = input_ids[start + 1:end]  # [T-1]
@@ -138,23 +139,12 @@ def compute_grpo_loss(
             outputs = model(input_ids=input_tensor, attention_mask=attn_mask)
 
         logits = outputs.logits[0].float()
-        # Debug grad flow
-        if not logits.requires_grad:
-            print(f"  [grpo_loss DEBUG] logits.requires_grad=False! Checking model state...")
-            print(f"    model.training={model.training}")
-            for n, p in model.named_parameters():
-                if p.requires_grad:
-                    print(f"    has trainable param: {n[:60]}")
-                    break
         new_logprob = _compute_sequence_logprob(
             logits, input_tensor[0],
             response_start=item.response_start,
             seq_len_original=len(item.input_ids),
             pad_offset=0,
         )
-        if not new_logprob.requires_grad:
-            print(f"  [grpo_loss DEBUG] new_logprob.requires_grad=False! logits.requires_grad={logits.requires_grad}")
-            print(f"    response_start={item.response_start}, seq_len={len(item.input_ids)}")
 
         old_lp = torch.tensor(item.old_logprob, device=device, dtype=torch.float32)
         log_ratio = new_logprob - old_lp
