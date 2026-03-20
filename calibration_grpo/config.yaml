@@ -3,7 +3,7 @@ model:
   checkpoint: "ceselder/cot-oracle-qwen3-8b-final-sprint-checkpoint-no-DPO"
   injection_layer: 1
   act_layers: [9, 18, 27]
-  use_8bit: false
+  use_8bit: true
 
 data:
   corpus: "ceselder/cot-oracle-corpus-v5"
