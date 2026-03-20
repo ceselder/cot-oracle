@@ -307,6 +307,10 @@ def train(cfg: dict):
         if n_judge_failures > 0:
             print(f"  [iter] {n_judge_failures}/{batch_size} judge failures")
 
+        # Log reward distribution for debugging
+        if all_rewards and max(all_rewards) - min(all_rewards) < 0.01:
+            print(f"  [iter] WARNING: all rewards identical ({all_rewards[0]:.3f}), advantages will be 0")
+
         # ── 7. Gradient step ──
         # compute_grpo_loss does per-item backward internally (1 graph at a time)
         model.train()
