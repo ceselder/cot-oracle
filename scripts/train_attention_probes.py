@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Train joint position-layer Qwen attention probe on 3 binary tasks.
+"""Train joint position-layer attention probe on 3 binary tasks.
 
 Two modes:
   --extract-only   Extract and cache activations for all 3 tasks, then exit.
@@ -9,12 +9,12 @@ Tasks: hint_admission, sycophancy, truthfulqa_hint
 
 Usage:
     # First run: extract activations for all tasks
-    python scripts/train_qwen_probe.py --extract-only
+    python scripts/train_attention_probe.py --extract-only
 
     # Then train on each task (skip extraction since cached)
-    python scripts/train_qwen_probe.py --task hint_admission --skip-extraction
-    python scripts/train_qwen_probe.py --task sycophancy --skip-extraction
-    python scripts/train_qwen_probe.py --task truthfulqa_hint --skip-extraction
+    python scripts/train_attention_probe.py --task hint_admission --skip-extraction
+    python scripts/train_attention_probe.py --task sycophancy --skip-extraction
+    python scripts/train_attention_probe.py --task truthfulqa_hint --skip-extraction
 """
 
 import argparse
@@ -40,11 +40,11 @@ load_dotenv(Path.home() / ".env")
 
 FAST_CACHE_DIR = Path(os.environ["FAST_CACHE_DIR"])
 CACHE_DIR = Path(os.environ["CACHE_DIR"])
-ACT_CACHE_SUBSAMPLED = FAST_CACHE_DIR / "qwen_probe_acts_s1"
-ACT_CACHE_FULL = FAST_CACHE_DIR / "qwen_probe_acts_s1_full"
+ACT_CACHE_SUBSAMPLED = FAST_CACHE_DIR / "attention_probe_acts_s1"
+ACT_CACHE_FULL = FAST_CACHE_DIR / "attention_probe_acts_s1_full"
 ACT_CACHE = ACT_CACHE_FULL  # default to full (no subsampling)
-CKPT_DIR = CACHE_DIR / "checkpoints" / "qwen_attention_probe"
-LOG_DIR = _ROOT / "logs" / "qwen_probe"
+CKPT_DIR = CACHE_DIR / "checkpoints" / "attention_probe"
+LOG_DIR = _ROOT / "logs" / "attention_probe"
 
 LAYERS = [9, 18, 27]
 STRIDE = 1
@@ -85,7 +85,7 @@ WANDB_ENTITY = "MATS10-CS-JB"
 # ── Model + probe imports ──
 
 sys.path.insert(0, str(_ROOT / "baselines"))
-from attention_probe import QwenAttentionProbe, _subsample_positions
+from attention_probe import AttentionProbe, _subsample_positions
 
 
 class LinearConcatProbe(nn.Module):
@@ -397,7 +397,7 @@ def evaluate_probe(
 # ── Max-activating token analysis ──
 
 def log_max_activating_tokens(
-    model: QwenAttentionProbe, items: list[dict], tokenizer,
+    model: AttentionProbe, items: list[dict], tokenizer,
     wandb_run, task_name: str, n_examples: int = 50, top_k: int = 10, device: str = "cuda",
 ):
     """Log top-K most-attended tokens per example to wandb as a Table."""
@@ -498,7 +498,7 @@ def main():
     parser.add_argument("--val-frac", type=float, default=0.15)
     parser.add_argument("--seed", type=int, default=SEED)
     parser.add_argument("--probe-type", type=str, choices=["attention", "linear"], default="attention",
-                        help="Probe type: 'attention' (joint QwenAttentionProbe) or 'linear' (concat linear)")
+                        help="Probe type: 'attention' (joint AttentionProbe) or 'linear' (concat linear)")
     parser.add_argument("--pooling", type=str, choices=["last", "mean"], default="last",
                         help="Pooling strategy for linear probe (default: last)")
     parser.add_argument("--no-wandb", action="store_true")
@@ -573,8 +573,8 @@ def main():
         wandb_group = "probes"
         default_lr = args.lr if args.lr != 1e-4 else 0.01  # higher default for linear
     else:
-        probe_model = QwenAttentionProbe(LAYERS, n_outputs=2).to(device=args.device, dtype=torch.bfloat16)
-        run_name = f"qwen-probe-{task}"
+        probe_model = AttentionProbe(LAYERS, n_outputs=2).to(device=args.device, dtype=torch.bfloat16)
+        run_name = f"attention-probe-{task}"
         wandb_group = "attprobes"
         default_lr = args.lr
 

@@ -372,7 +372,7 @@ def train_linear_probe(X_tr, y_tr, X_te, n_classes, *, lr=LINEAR_LR, epochs=LINE
     return preds, probe, mu.cpu(), std.cpu()
 
 
-# See also: baselines/qwen_attention_probe.py for the joint position-layer probe
+# See also: baselines/attention_probe.py for the joint position-layer probe
 # (full Qwen-architecture SwiGLU + 32-head attention over all positions and layers).
 class AttentionProbe(nn.Module):
     def __init__(self, d_model, n_layers, n_heads, hidden_dim, n_outputs):

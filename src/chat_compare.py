@@ -684,7 +684,7 @@ def split_cot_answer(response_text):
     return cot_part.strip(), answer_part.strip()
 
 
-# --- Minimal QwenAttentionProbe for inference (matches main branch baselines/qwen_attention_probe.py) ---
+# --- Minimal AttentionProbe for inference (matches main branch baselines/attention_probe.py) ---
 
 class _QwenSwiGLU(torch.nn.Module):
     def __init__(self, hidden_size=4096, intermediate_size=12288):
@@ -707,7 +707,7 @@ def _subsample_positions(acts, max_k):
     return acts[idx], idx
 
 
-class _QwenAttentionProbe(torch.nn.Module):
+class _AttentionProbe(torch.nn.Module):
     """Joint position-layer probe: SwiGLU per layer → concat → joint self-attention → pool → classify."""
 
     def __init__(self, layers, hidden_size=4096, intermediate_size=12288, n_heads=32, n_outputs=2,
@@ -929,14 +929,14 @@ class ChatCompareWebApp:
     # --- Attention probe loading for heatmap ---
 
     def _load_attention_probe(self, key):
-        """Load and cache a QwenAttentionProbe from HF."""
+        """Load and cache a AttentionProbe from HF."""
         if key in self._attn_probe_cache:
             return self._attn_probe_cache[key]
         from huggingface_hub import hf_hub_download
         info = ATTENTION_PROBES[key]
         path = hf_hub_download(info["repo"], "model.pt", repo_type="model")
         state_dict = torch.load(path, weights_only=True, map_location="cpu")
-        probe = _QwenAttentionProbe(layers=self.layers, n_outputs=2)
+        probe = _AttentionProbe(layers=self.layers, n_outputs=2)
         probe.load_state_dict(state_dict)
         probe.eval()
         self._attn_probe_cache[key] = probe

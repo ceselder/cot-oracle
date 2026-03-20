@@ -188,7 +188,7 @@ def build_generation_prompt(row: dict, ds_name: str, tokenizer) -> str:
 
 
 # ── Eleuther Attention Probe (exact architecture) ──────────────────────────
-# See also: baselines/qwen_attention_probe.py for the joint position-layer probe.
+# See also: baselines/attention_probe.py for the joint position-layer probe.
 
 class AttentionProbe(nn.Module):
     """Eleuther AI's attention probe architecture.

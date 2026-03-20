@@ -214,7 +214,7 @@ baselines:
     checkpoint: checkpoints/no_act_oracle
     max_new_tokens: 150
 
-  qwen_attention_probe:
+  attention_probe:
     layers: [9, 18, 27]
     k_folds: 5
     lr: 0.0001

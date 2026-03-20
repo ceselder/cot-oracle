@@ -39,7 +39,7 @@ def _subsample_positions(acts: torch.Tensor, max_k: int) -> torch.Tensor:
     return acts[idx]
 
 
-class QwenAttentionProbe(nn.Module):
+class AttentionProbe(nn.Module):
     """Joint position-layer probe with self-attention."""
 
     def __init__(self, layers: list[int], hidden_size: int = 4096, intermediate_size: int = 12288,
@@ -52,7 +52,7 @@ class QwenAttentionProbe(nn.Module):
         self.joint_attn = nn.MultiheadAttention(hidden_size, n_heads, batch_first=True)
         self.head = nn.Sequential(nn.LayerNorm(hidden_size), nn.Linear(hidden_size, n_outputs))
 
-    def forward(self, inputs: list[dict[int, torch.Tensor]]) -> torch.Tensor:
+    def forward(self, inputs: list[dict[int, torch.Tensor]], return_attention: bool = False):
         device = self.layer_embedding.weight.device
         dtype = self.layer_embedding.weight.dtype
         B = len(inputs)
@@ -79,19 +79,22 @@ class QwenAttentionProbe(nn.Module):
 
         joint_seq = torch.cat(all_seqs, dim=1)
         joint_mask = torch.cat(all_masks, dim=1)
-        joint_seq, _ = self.joint_attn(joint_seq, joint_seq, joint_seq, key_padding_mask=joint_mask)
+        joint_seq, attn_weights = self.joint_attn(joint_seq, joint_seq, joint_seq, key_padding_mask=joint_mask, average_attn_weights=True)
 
         valid = ~joint_mask
         pooled = (joint_seq * valid.unsqueeze(-1)).sum(dim=1) / valid.sum(dim=1, keepdim=True).clamp(min=1)
-        return self.head(pooled)
+        logits = self.head(pooled)
+        if return_attention:
+            return logits, attn_weights, valid
+        return logits
 
 
-def _train_qwen_probe_fold(
+def _train_attention_probe_fold(
     train_acts, y_train, test_acts, *,
     layers, n_outputs, lr, epochs, patience, batch_size, device,
 ):
-    """Train QwenAttentionProbe on one fold. Returns test predictions."""
-    model = QwenAttentionProbe(layers, n_outputs=n_outputs).to(device)
+    """Train AttentionProbe on one fold. Returns test predictions."""
+    model = AttentionProbe(layers, n_outputs=n_outputs).to(device)
     opt = torch.optim.AdamW(model.parameters(), lr=lr)
     loss_fn = nn.CrossEntropyLoss()
     y_train_d = y_train.to(device)
@@ -138,7 +141,7 @@ def _train_qwen_probe_fold(
         return torch.cat(all_preds).argmax(1).cpu()
 
 
-def run_qwen_attention_probe(
+def run_attention_probe(
     test_data: list[dict],
     activations: list[torch.Tensor],
     layers: list[int],
@@ -179,7 +182,7 @@ def run_qwen_attention_probe(
         test_acts_fold = [all_acts[i] for i in test_idx]
         y_tr = y_all[train_idx]
 
-        preds = _train_qwen_probe_fold(
+        preds = _train_attention_probe_fold(
             train_acts, y_tr, test_acts_fold,
             layers=layers, n_outputs=n_classes, lr=lr, epochs=epochs,
             patience=patience, batch_size=batch_size, device=device,

@@ -25,7 +25,7 @@ _ABS_TYPE = {
 app = Flask(__name__)
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_DB = PROJECT_ROOT / "data" / "comprehensive_eval" / "eval_cache.db"
-METHOD_ORDER = ["weak-llm", "strong-llm", "original_ao", "our_ao", "linear_probes", "sae_llm", "sae_probe"]
+METHOD_ORDER = ["weak-bb-monitor", "strong-bb-monitor", "original_ao", "our_ao", "linear_probes", "sae-llm-monitor"]
 
 # Config-derived metadata
 _train_cfg = yaml.safe_load((PROJECT_ROOT / "configs" / "train.yaml").read_text())
@@ -38,7 +38,8 @@ _og_ao_cfg_path = PROJECT_ROOT / "configs" / "og_ao.yaml"
 OG_AO_TRAINING_TASKS = set(yaml.safe_load(_og_ao_cfg_path.read_text()).get("trained_tasks", [])) if _og_ao_cfg_path.exists() else set()
 
 # Map method group → canonical k-variant used for display
-_METHOD_K_MAP = {"original_ao": "original_ao_kall", "our_ao": "our_ao_kall"}
+# original_ao uses best-scoring L{layer}_k{k} variant per task (resolved dynamically)
+_METHOD_K_MAP = {"our_ao": "our_ao_kall"}
 
 # Module-level cache reference (set in main)
 _cache: EvalCache | None = None
@@ -64,10 +65,10 @@ def _method_display_name(db_method: str) -> str:
 
 def _method_model(method_name: str) -> str | None:
     """Get model name for a method from config."""
-    if method_name in ("weak-llm", "strong-llm"):
+    if method_name in ("weak-bb-monitor", "strong-bb-monitor"):
         return _BASELINES_CFG.get(method_name, {}).get("model")
-    if method_name == "sae_llm":
-        return _BASELINES_CFG.get("sae_llm", {}).get("llm_model")
+    if method_name == "sae-llm-monitor":
+        return _BASELINES_CFG.get("sae-llm-monitor", {}).get("llm_model")
     return None
 
 
@@ -110,6 +111,7 @@ def get_records(task):
             "example_id": item.get("id", ""),
             "target_response": item.get("target_response", ""),
             "_abs_scores": {},
+            "_prompts": {},
             "llm_comparative_score": {},
         }
         # Add method predictions
@@ -119,6 +121,9 @@ def get_records(task):
             score = pred_data.get("score")
             if score is not None:
                 r["_abs_scores"][display] = score
+            prompt = pred_data.get("prompt")
+            if prompt:
+                r["_prompts"][display] = prompt
         records.append(r)
 
     # Compute agreement
@@ -150,11 +155,26 @@ def method_scores_api(task):
     task_results = all_results.get(task, {})
 
     result = {}
+    # For original_ao, pick the best layer×k variant
+    best_orig_ao = None
+    best_orig_ao_score = -1
+    for db_method, data in task_results.items():
+        if db_method.startswith("original_ao_"):
+            s = data.get("primary_score")
+            if s is not None and s > best_orig_ao_score:
+                best_orig_ao_score = s
+                best_orig_ao = db_method
+
     for db_method, data in task_results.items():
         display = _method_display_name(db_method)
-        # Only show kall variants and non-k methods
-        if "_k" in db_method and not db_method.endswith("kall"):
+        # For our_ao: only show kall
+        if db_method.startswith("our_ao_k") and not db_method.endswith("kall"):
             continue
+        # For original_ao: only show the best variant
+        if db_method.startswith("original_ao_") and db_method != best_orig_ao:
+            continue
+        if db_method.startswith("original_ao_"):
+            display = "original_ao"
         is_cls = task.startswith("cls_")
         trained = (display == "our_ao" and task in OUR_AO_TRAINING_TASKS) or \
                   (display == "original_ao" and (task in OG_AO_TRAINING_TASKS or is_cls))
@@ -173,7 +193,7 @@ def method_scores_api(task):
 def sae_features_api(task, example_id):
     # Try to find SAE features from the logs directory (legacy path)
     logs_dir = PROJECT_ROOT / "data" / "comprehensive_eval" / "logs"
-    for fname in ["sae_llm_features.jsonl", "sae_probe_features.jsonl"]:
+    for fname in ["sae_llm_features.jsonl"]:
         path = logs_dir / task / fname
         if path.exists():
             for line in path.read_text().splitlines():
@@ -447,7 +467,7 @@ async function loadTask(task){
 }
 
 function inferMethods(rs, scoreMap){
-  const ord=['weak-llm','strong-llm','original_ao','our_ao','linear_probes','sae_llm'];
+  const ord=['weak-bb-monitor','strong-bb-monitor','original_ao','our_ao','linear_probes','sae-llm-monitor'];
   const have=new Set();
   rs.forEach(r=>ord.forEach(m=>{if(m in r)have.add(m)}));
   Object.keys(scoreMap||{}).forEach(m=>{if(ord.includes(m))have.add(m)});
@@ -487,10 +507,10 @@ function onMcol(cb){
 }
 
 // ── Method checkboxes ────────────────────────────────────────────────
-const DEFAULT_CMP_METHODS=new Set(['our_ao','weak-llm']);
+const DEFAULT_CMP_METHODS=new Set(['our_ao','weak-bb-monitor']);
 function _mcbLabel(m){
   const base=sn(m);
-  if(m==='weak-llm'||m==='strong-llm'){
+  if(m==='weak-bb-monitor'||m==='strong-bb-monitor'){
     const model=methodScores[m]?.model||'';
     const short=model.split('/').pop();
     if(short)return`${base} <span style="color:var(--dim);font-size:9px">(${short})</span>`;
@@ -628,9 +648,11 @@ function detailHtml(r,colspan){
       })():`<td>—</td><td></td>`;
       const pred=esc(String(r[m]));
       const saeCid=`sae-${esc(String(r.example_id??''))}`;
-      const isSae=m==='sae_llm'||m==='sae_probe';
+      const isSae=m==='sae-llm-monitor';
       const saeBtn=isSae?` <button class="sae-btn" id="${saeCid}-btn" onclick="toggleSaeInline('${currentTask}','${esc(String(r.example_id??''))}','${saeCid}')">▶ features</button>`:'';
-      h+=`<tr><td style="white-space:nowrap">${m}</td>${scoreCell}<td class="pred-cell">${pred}${isSae?`<div id="${saeCid}"></div>`:''}${saeBtn}</td></tr>`;
+      const itemPrompt=r._prompts?.[m];
+      const promptRow=itemPrompt?`<div style="margin-top:3px;padding:3px 5px;background:var(--bg);border:1px solid var(--border);border-radius:2px;font-size:9px;color:var(--dim);white-space:pre-wrap;max-height:120px;overflow-y:auto"><b>prompt:</b> ${esc(itemPrompt)}</div>`:'';
+      h+=`<tr><td style="white-space:nowrap">${m}</td>${scoreCell}<td class="pred-cell">${pred}${promptRow}${isSae?`<div id="${saeCid}"></div>`:''}${saeBtn}</td></tr>`;
     });
     h+=`</table></div>`;
   }

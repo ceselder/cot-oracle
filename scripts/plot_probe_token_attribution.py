@@ -39,8 +39,8 @@ load_dotenv(Path.home() / ".env")
 
 FAST_CACHE_DIR = Path(os.environ["FAST_CACHE_DIR"])
 CACHE_DIR = Path(os.environ["CACHE_DIR"])
-ACT_CACHE = FAST_CACHE_DIR / "qwen_probe_acts_s1_full"
-CKPT_DIR = CACHE_DIR / "checkpoints" / "qwen_attention_probe"
+ACT_CACHE = FAST_CACHE_DIR / "attention_probe_acts_s1_full"
+CKPT_DIR = CACHE_DIR / "checkpoints" / "attention_probe"
 PLOT_DIR = _ROOT / "plots" / "probe_attribution"
 
 LAYERS = [9, 18, 27]
@@ -69,7 +69,7 @@ TASKS = {
 
 def load_probe(task_name: str, probe_type: str = "linear") -> torch.nn.Module:
     """Load trained probe checkpoint."""
-    from train_qwen_probe import LinearConcatProbe
+    from train_attention_probes import LinearConcatProbe
     ckpt_path = CKPT_DIR / f"{probe_type}_{task_name}" / "model.pt"
     model = LinearConcatProbe(LAYERS, d_model=D_MODEL, n_outputs=2, pooling="mean")
     model.load_state_dict(torch.load(ckpt_path, map_location="cpu", weights_only=True))
@@ -101,7 +101,7 @@ def compute_token_scores(acts: dict[int, torch.Tensor], direction: torch.Tensor)
 def load_test_items(task_name: str, max_items: int = 200):
     """Load test items with cached activations and tokenizer-decoded tokens."""
     from datasets import load_dataset
-    from train_qwen_probe import _process_split
+    from train_attention_probes import _process_split
 
     cfg = TASKS[task_name]
     if "hf_repo" in cfg:
