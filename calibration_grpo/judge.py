@@ -188,7 +188,7 @@ async def judge_rollouts(
         "model": model,
         "messages": messages,
         "temperature": temperature,
-        "max_tokens": 2048,
+        "max_tokens": 8192,
     }
 
     async with httpx.AsyncClient() as client:
