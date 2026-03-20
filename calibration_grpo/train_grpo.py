@@ -118,13 +118,18 @@ def load_model(cfg: dict, device: str = "cuda") -> tuple[PeftModel, AutoTokenize
     if tokenizer.pad_token_id is None:
         tokenizer.pad_token_id = tokenizer.eos_token_id
 
-    base = AutoModelForCausalLM.from_pretrained(
-        model_name,
+    load_kwargs = dict(
         torch_dtype=torch.bfloat16,
         device_map=device,
         trust_remote_code=True,
         attn_implementation=choose_attn_implementation(model_name),
     )
+    if cfg["model"].get("use_8bit", False):
+        from transformers import BitsAndBytesConfig
+        load_kwargs["quantization_config"] = BitsAndBytesConfig(load_in_8bit=True)
+        del load_kwargs["torch_dtype"]  # incompatible with 8bit
+        print("  Using 8-bit quantization")
+    base = AutoModelForCausalLM.from_pretrained(model_name, **load_kwargs)
     model = PeftModel.from_pretrained(base, checkpoint, is_trainable=True)
     model.print_trainable_parameters()
     return model, tokenizer
