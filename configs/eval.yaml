@@ -5,7 +5,7 @@
 
 score_model: openai/gpt-oss-20b
 score_model_local: Qwen/Qwen3-8B    # local vLLM scorer model (launched automatically if try_local_scorer is true)
-try_local_scorer: true               # auto-start vLLM on port 8788 if GPU is available
+try_local_scorer: true               # auto-start vLLM on port 8788 if GPU is available (capped at 30% VRAM)
 
 # Tasks to evaluate (subset of tasks defined in src/tasks.py).
 # Comment out a line to skip that task.

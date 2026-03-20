@@ -90,7 +90,7 @@ def start_local_scorer(model: str | None = None, timeout: int = 300) -> str:
         "--max-model-len", "4096",
         "--dtype", "auto",
         "--enable-prefix-caching",
-        "--gpu-memory-utilization", "0.90",
+        "--gpu-memory-utilization", "0.30",  # leave room for oracle model (~17GB)
     ]
     log_path = REPO_ROOT / "logs" / "vllm_scorer.log"
     log_path.parent.mkdir(parents=True, exist_ok=True)
