@@ -128,10 +128,12 @@ def _parse_rubric_response(content: str, n_rollouts: int) -> list[RubricResult] 
     """Parse JSON array of rubric results from judge response."""
     match = re.search(r"\[[\s\S]*\]", content)
     if not match:
+        print(f"  [judge] No JSON array found in response: {content[:200]}")
         return None
     try:
         parsed = json.loads(match.group())
-    except json.JSONDecodeError:
+    except json.JSONDecodeError as e:
+        print(f"  [judge] JSON parse error: {e}, content: {match.group()[:200]}")
         return None
 
     results = []
@@ -156,6 +158,7 @@ def _parse_rubric_response(content: str, n_rollouts: int) -> list[RubricResult] 
         results.append(RubricResult(rollout_idx=idx, criteria=criteria))
 
     if len(results) != n_rollouts:
+        print(f"  [judge] Expected {n_rollouts} rollouts, got {len(results)} in response")
         return None
     return results
 
