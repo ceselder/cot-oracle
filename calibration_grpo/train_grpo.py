@@ -226,6 +226,7 @@ def train(cfg: dict):
             max_new_tokens=rcfg["max_new_tokens"],
             generation_batch_size=rcfg.get("generation_batch_size", 8),
             injection_layer=injection_layer,
+            adapter_name="default",  # PeftModel.from_pretrained uses "default"
             device=device,
             questions=questions,
             repetition_penalty=rcfg.get("repetition_penalty", 1.1),
