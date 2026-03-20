@@ -1909,8 +1909,11 @@ def main():
         )
 
     # Ensure trainable params are fp32 (optimizer states stay fp32; autocast handles forward pass)
+    # Skip embedding weight when using per-layer tokens — it must stay bf16
+    # (mixed dtypes in the embedding table break downstream linear layers)
+    _embed_param_id = id(model.get_input_embeddings().weight) if PER_LAYER_TOKENS else None
     for p in model.parameters():
-        if p.requires_grad:
+        if p.requires_grad and id(p) != _embed_param_id:
             p.data = p.data.float()
 
     if rank == 0:
