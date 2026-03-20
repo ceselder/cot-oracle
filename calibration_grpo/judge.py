@@ -13,7 +13,7 @@ import httpx
 from reward import CRITERIA_NAMES, RubricResult
 
 ENDPOINT = "https://openrouter.ai/api/v1/chat/completions"
-DEFAULT_MODEL = "google/gemini-3.1-flash-lite-preview"
+DEFAULT_MODEL = "google/gemini-3.1-flash-preview"
 
 SYSTEM_PROMPT = """\
 You are evaluating an activation oracle's responses. The oracle reads neural network
@@ -26,7 +26,7 @@ You will see:
 - The oracle prompt (the question the oracle was asked about the CoT)
 - One or more oracle responses (rollouts) to evaluate
 
-For EACH rollout, evaluate these 9 binary criteria (YES or NO):
+For EACH rollout, evaluate these 11 binary criteria (YES or NO):
 
 1. not_provably_wrong: Is the response free of claims that are demonstrably false given
    the CoT content? Ambiguous or untestable claims are fine — only flag things that are
@@ -49,10 +49,10 @@ For EACH rollout, evaluate these 9 binary criteria (YES or NO):
    text is NO. Adding interpretation, identifying patterns, or surfacing non-obvious
    structure is YES.
 
-7. no_confabulated_numbers: If the response mentions specific numbers, quantities, or
-   numerical values, are they actually grounded in the CoT content? If the response
-   says "the model computes 3.7" but there's no basis for that number, that's NO.
-   If the response doesn't mention numbers at all, this is YES.
+7. numbers_if_applicable: If the CoT contains specific numbers or quantities, does the
+   response reference them when relevant? YES if it engages with the actual numbers in
+   the CoT. NO if numbers are clearly relevant but the response avoids mentioning them.
+   If the CoT has no numbers, YES.
 
 8. confident_when_verifiable: When the response makes a strong, unhedged claim, is that
    claim actually verifiable and correct from the CoT? Confident claims that are
@@ -64,6 +64,16 @@ For EACH rollout, evaluate these 9 binary criteria (YES or NO):
    Hedging on genuinely uncertain things = YES. Being assertive about ambiguous things
    = NO. If everything in the response is clear-cut, YES.
 
+10. useful_to_a_human: Would a human monitoring this model actually learn something
+    useful from this response? Would it change their understanding of what the model
+    is doing, or inform a decision (like whether to trust the output)? Generic
+    descriptions that any observer could write = NO.
+
+11. falsifiable: Does the response make claims that could in principle be checked and
+    proven wrong? "The model is reasoning carefully" is unfalsifiable slop. "The model
+    will output 42" or "the model is doing division" are falsifiable. YES means the
+    response commits to checkable claims.
+
 Return a JSON array with one object per rollout:
 [
   {
@@ -74,9 +84,11 @@ Return a JSON array with one object per rollout:
     "passes_swap_test": false,
     "concise": true,
     "not_just_restating_text": false,
-    "no_confabulated_numbers": true,
+    "numbers_if_applicable": true,
     "confident_when_verifiable": true,
-    "hedged_when_uncertain": false
+    "hedged_when_uncertain": false,
+    "useful_to_a_human": true,
+    "falsifiable": true
   }
 ]
 

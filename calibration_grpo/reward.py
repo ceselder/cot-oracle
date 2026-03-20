@@ -11,9 +11,11 @@ CRITERIA_NAMES = [
     "passes_swap_test",
     "concise",
     "not_just_restating_text",
-    "no_confabulated_numbers",
+    "numbers_if_applicable",
     "confident_when_verifiable",
     "hedged_when_uncertain",
+    "useful_to_a_human",
+    "falsifiable",
 ]
 
 

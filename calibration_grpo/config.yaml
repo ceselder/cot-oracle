@@ -3,7 +3,7 @@ model:
   checkpoint: "ceselder/cot-oracle-qwen3-8b-final-sprint-checkpoint-no-DPO"
   injection_layer: 1
   act_layers: [9, 18, 27]
-  use_8bit: true
+  use_8bit: false
 
 data:
   corpus: "ceselder/cot-oracle-corpus-v5"
@@ -16,11 +16,11 @@ rollouts:
   n: 16
   temperature: 0.8
   max_new_tokens: 150
-  generation_batch_size: 1  # generate one at a time to avoid OOM
+  generation_batch_size: 16
   repetition_penalty: 1.1
 
 judge:
-  model: "google/gemini-3.1-flash-lite-preview"
+  model: "google/gemini-3.1-flash-preview"
   temperature: 0.0
   max_concurrent: 16
   timeout_sec: 60
@@ -30,8 +30,6 @@ grpo:
   normalize_advantages: true
 
 reward:
-  # 8 binary criteria, "not_provably_wrong" weighted 3x
-  # reward = weighted_sum / total_weight
   criteria_weights:
     not_provably_wrong: 3.0
     specific: 1.0
@@ -39,15 +37,17 @@ reward:
     passes_swap_test: 1.0
     concise: 1.0
     not_just_restating_text: 1.0
-    no_confabulated_numbers: 1.0
+    numbers_if_applicable: 1.0
     confident_when_verifiable: 1.0
     hedged_when_uncertain: 1.0
+    useful_to_a_human: 1.0
+    falsifiable: 1.0
 
 training:
   lr: 1.0e-6
   warmup_steps: 20
   max_grad_norm: 1.0
-  batch_size: 1
+  batch_size: 4
   gradient_accumulation_steps: 2
   max_steps: 500
   save_every: 100
