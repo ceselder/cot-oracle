@@ -26,10 +26,11 @@ import torch
 import yaml
 
 ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT / "src"))
-sys.path.insert(0, str(ROOT / "ao_reference"))
+# calibration_grpo FIRST so our judge.py/reward.py take priority over calibration_dpo's judge.py
 sys.path.insert(0, str(ROOT / "calibration_dpo"))
-sys.path.insert(0, str(ROOT / "calibration_grpo"))
+sys.path.insert(0, str(ROOT / "calibration_grpo"))  # takes priority for judge, reward
+sys.path.insert(0, str(ROOT / "ao_reference"))
+sys.path.insert(0, str(ROOT / "src"))
 
 os.environ.setdefault("TORCHDYNAMO_DISABLE", "1")
 os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")
@@ -54,8 +55,50 @@ from grpo_loss import GRPOItem, compute_grpo_loss, compute_old_logprobs
 from judge import judge_batch
 from reward import CRITERIA_NAMES, compute_group_advantages, compute_rewards
 
-# Import build_oracle_input_ids from train_dpo (it lives there, not in rollouts.py)
-from train_dpo import build_oracle_input_ids
+# Reuse helpers from rollouts.py (but NOT train_dpo.py — it has import side effects)
+from rollouts import _build_oracle_prefix, _build_manual_prefix_token_ids
+
+
+def build_oracle_input_ids(
+    tokenizer,
+    activations: torch.Tensor,
+    oracle_prompt: str,
+    layers: list[int],
+    question: str | None = None,
+) -> tuple[list[int], list[int]]:
+    """Build tokenized oracle input with placeholder positions.
+
+    Copied from calibration_dpo/train_dpo.py to avoid import side effects.
+    """
+    ph_token = TRAINED_PLACEHOLDER
+    ph_id_list = tokenizer.encode(ph_token, add_special_tokens=False)
+    assert len(ph_id_list) == 1
+    ph_id = ph_id_list[0]
+
+    num_positions = activations.shape[0]
+    prefix = _build_oracle_prefix(num_positions, layers, ph_token)
+
+    if question:
+        full_prompt = prefix + f'The model is answering: "{question}"\n{oracle_prompt}'
+    else:
+        full_prompt = prefix + oracle_prompt
+
+    messages = [{"role": "user", "content": full_prompt}]
+    formatted = tokenizer.apply_chat_template(
+        messages, tokenize=False, add_generation_prompt=True, enable_thinking=False,
+    )
+
+    prefix_idx = formatted.find(prefix)
+    assert prefix_idx >= 0, "Prefix not found in formatted text"
+    before_ids = tokenizer.encode(formatted[:prefix_idx], add_special_tokens=False)
+    after_ids = tokenizer.encode(formatted[prefix_idx + len(prefix):], add_special_tokens=False)
+    prefix_ids, rel_positions = _build_manual_prefix_token_ids(
+        tokenizer, num_positions, layers, ph_id,
+    )
+
+    input_ids = before_ids + prefix_ids + after_ids
+    positions = [len(before_ids) + p for p in rel_positions]
+    return input_ids, positions
 
 
 def load_config(path: str = None) -> dict:
