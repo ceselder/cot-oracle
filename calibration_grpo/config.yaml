@@ -20,7 +20,7 @@ rollouts:
   repetition_penalty: 1.1
 
 judge:
-  model: "google/gemini-3-flash-preview"
+  model: "moonshotai/kimi-k2.5"
   temperature: 0.0
   max_concurrent: 16
   timeout_sec: 60
