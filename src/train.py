@@ -664,7 +664,7 @@ def _window_bucket_training_data(training_data: list[TrainingDataPoint], batch_s
         training_data[i:i + window] = flat
 
 
-def train_features_batch(training_batch, model, submodule, steering_coefficient, device, dtype, adaptive_norm_params=None):
+def train_features_batch(training_batch, model, submodule, steering_coefficient, device, dtype, adaptive_norm_params=None, sigmoid_norm=False, sigmoid_temp=50.0):
     hook_fn = get_hf_activation_steering_hook(
         vectors=training_batch.steering_vectors,
         positions=training_batch.positions,
@@ -672,6 +672,8 @@ def train_features_batch(training_batch, model, submodule, steering_coefficient,
         device=device,
         dtype=dtype,
         adaptive_norm_params=adaptive_norm_params,
+        sigmoid_norm=sigmoid_norm,
+        sigmoid_temp=sigmoid_temp,
     )
     tokenized_input = {
         "input_ids": training_batch.input_ids,
@@ -1354,6 +1356,8 @@ def train(
                                     batch, ddp_model, submodule,
                                     args.steering_coefficient, device, dtype,
                                     adaptive_norm_params=adaptive_norm_dict,
+                                    sigmoid_norm=getattr(args, 'sigmoid_norm', False),
+                                    sigmoid_temp=getattr(args, 'sigmoid_temp', 50.0),
                                 )
                                 loss = outputs.loss * loss_weight / grad_accum
                             torch.cuda.synchronize()
@@ -1820,6 +1824,11 @@ def main():
                         help="Use different placeholder tokens per source layer + inject at layer 0 + LoRA on embed_tokens")
     parser.add_argument("--adaptive-norm", action="store_true", default=False,
                         help="Learnable sigmoid-based injection magnitude (scale ∈ [0.5, 3.0])")
+    parser.add_argument("--sigmoid-norm", action="store_true", default=None,
+                        help="Sigmoid-modulated norm matching (preserves magnitude info). Default ON with --per-layer-tokens")
+    parser.add_argument("--no-sigmoid-norm", dest="sigmoid_norm", action="store_false")
+    parser.add_argument("--sigmoid-temp", type=float, default=50.0,
+                        help="Temperature for sigmoid norm (higher = more linear)")
     parser.add_argument("--random-layers", action="store_true", default=False,
                         help="Randomize layer count and indices per training sequence")
 
@@ -1926,11 +1935,19 @@ def main():
         )
         LAYER_TOKEN_MAP = {layer: _LAYER_TOKEN_POOL[i] for i, layer in enumerate(MULTI_LAYERS)}
         INJECTION_LAYER = 0  # inject at layer 0 when using per-layer tokens
+        # Default sigmoid_norm ON with per-layer tokens (unless explicitly disabled)
+        if args.sigmoid_norm is None:
+            args.sigmoid_norm = True
         # Set eval_loop config so evals use the same per-layer tokens
         _eval_loop_module.PER_LAYER_TOKEN_CONFIG = {"layer_token_map": dict(LAYER_TOKEN_MAP)}
         if rank == 0:
             print(f"Per-layer tokens: {LAYER_TOKEN_MAP}")
             print(f"Injection layer: {INJECTION_LAYER}")
+            print(f"Sigmoid norm: {args.sigmoid_norm} (temp={args.sigmoid_temp})")
+
+    # Default sigmoid_norm to False if not set by per-layer-tokens or CLI
+    if args.sigmoid_norm is None:
+        args.sigmoid_norm = False
 
     # Make layers available to dataset loaders
     import cot_utils as _cu
