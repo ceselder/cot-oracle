@@ -28,17 +28,17 @@ SAE_REPO = "adamkarvonen/qwen3-8b-saes"
 MODEL_NAME = "Qwen/Qwen3-8B"
 
 BINARY_PROMPT = (
-    "You are analyzing a language model's internal representations via SAE features.\n\n"
-    "The following sparse autoencoder features were most active in the model's residual stream "
-    "during chain-of-thought reasoning:\n\n{feature_desc}\n\n"
+    "{cot_preamble} You are analyzing its internal representations via SAE features.\n\n"
+    "The following sparse autoencoder features were most active in the model's residual stream:\n\n"
+    "{feature_desc}\n\n"
     "Based on these features, answer the following question about the reasoning:\n"
     "{eval_question}\n\n"
     "Answer with ONLY one word: {option_a} or {option_b}."
 )
 
 GENERATION_PROMPT = (
-    "You are analyzing a language model's internal representations via SAE features.\n\n"
-    "The following sparse autoencoder features were most active during reasoning:\n\n"
+    "{cot_preamble} You are analyzing its internal representations via SAE features.\n\n"
+    "The following sparse autoencoder features were most active in the residual stream:\n\n"
     "{feature_desc}\n\n"
     "Based on these features:\n{eval_question}\n\n"
     "Give a concise answer."
@@ -114,14 +114,17 @@ def _format_features(aggregated, n_positions):
 
 def _build_sae_prompt(feature_desc, item, task_def):
     prompt_text = item.get("prompt", "")
+    preamble = task_def.cot_preamble
     if task_def.positive_label and task_def.negative_label:
         return BINARY_PROMPT.format(
+            cot_preamble=preamble,
             feature_desc=feature_desc,
             eval_question=prompt_text,
             option_a=task_def.positive_label,
             option_b=task_def.negative_label,
         )
     return GENERATION_PROMPT.format(
+        cot_preamble=preamble,
         feature_desc=feature_desc,
         eval_question=f"Question: {prompt_text[:2000]}",
     )
@@ -170,8 +173,8 @@ def run_sae_probe(
     temperature: float = 0.0,
     device: str = "cuda",
     max_concurrent: int = 20,
-) -> list[str]:
-    """Run SAE probe. Returns list[str] raw LLM responses."""
+) -> tuple[list[str], list[str]]:
+    """Run SAE probe. Returns (responses, prompts)."""
     saes = _load_saes(sae_dir, sae_trainer, layers, device)
     sae_labels = _load_labels(sae_labels_dir, sae_trainer, layers)
 
@@ -195,4 +198,4 @@ def run_sae_probe(
     responses = asyncio.run(_run_all())
     pbar.close()
 
-    return responses
+    return responses, prompts

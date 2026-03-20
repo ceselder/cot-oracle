@@ -2,7 +2,7 @@
 """
 Comprehensive evaluation script for CoT Oracle.
 
-Runs all eval modalities (oracle, original AO, LLM monitors, linear probes, SAE+LLM,
+Runs all eval modalities (oracle, original AO, BB monitors, linear probes, SAE+LLM,
 patchscopes, no-act oracle, attention probe) across all tasks, caches results per-method
 in SQLite, and generates a summary plot.
 
@@ -13,7 +13,7 @@ Usage:
         --n-examples 100 \\
         --output-dir data/comprehensive_eval \\
         [--tasks hint_admission atypical_answer ...] \\
-        [--baselines weak-llm original_ao our_ao linear_probes sae_llm patchscopes ...] \\
+        [--baselines weak-bb-monitor original_ao our_ao linear_probes sae-llm-monitor patchscopes ...] \\
         [--rerun] [--rerun-methods METHOD...] [--rerun-tasks TASK...] [--plot-only]
 """
 
@@ -38,15 +38,15 @@ from tasks import TASKS, ScoringMode, get_comprehensive_eval_tasks
 from qa_scorer import check_openrouter_available, get_score_model
 from eval_cache import EvalCache
 
-K_SWEEP = [1, 5, 10, 20, None]
+DEFAULT_K_SWEEP = [1, 5, 10, 20, None]
 DEFAULT_LAYERS = [9, 18, 27]
-DEFAULT_BASELINES = ["weak-llm", "our_ao", "original_ao"]  # fallback if eval.yaml has no baselines list
+DEFAULT_BASELINES = ["weak-bb-monitor", "our_ao", "original_ao"]  # fallback if eval.yaml has no baselines list
 
 # Methods that need GPU model loaded
 _MODEL_METHODS = {"our_ao", "original_ao", "patchscopes", "no_act_oracle", "attention_probe",
-                  "linear_probes", "sae_llm"}
+                  "linear_probes", "sae-llm-monitor"}
 # Methods that need activations materialized
-_ACTIVATION_METHODS = {"linear_probes", "sae_llm", "patchscopes", "attention_probe"}
+_ACTIVATION_METHODS = {"linear_probes", "sae-llm-monitor", "patchscopes", "attention_probe"}
 
 
 def _bootstrap_std(scores: list[float], n_resamples: int = 5, frac: float = 0.5) -> float:
@@ -62,30 +62,34 @@ def _bootstrap_std(scores: list[float], n_resamples: int = 5, frac: float = 0.5)
 
 
 def _build_method_config(method_name: str, method_config: dict) -> dict:
-    if method_name.startswith("our_ao_k"):
-        k_str = method_name[len("our_ao_k"):]
-        k = None if k_str == "all" else int(k_str)
-        return {"type": "our_ao", "k_positions": k}
-    if method_name.startswith("original_ao_k"):
-        k_str = method_name[len("original_ao_k"):]
-        k = None if k_str == "all" else int(k_str)
-        return {"type": "original_ao", "k_positions": k}
-    if method_name in ("weak-llm", "strong-llm"):
+    import re as _re
+    for prefix, mtype in [("our_ao_", "our_ao"), ("original_ao_", "original_ao")]:
+        if method_name.startswith(prefix):
+            suffix = method_name[len(prefix):]
+            m = _re.match(r"L(\d+)_k(.+)", suffix)
+            if m:
+                layer, k_str = int(m.group(1)), m.group(2)
+                k = None if k_str == "all" else int(k_str)
+                return {"type": mtype, "layer": layer, "k_positions": k}
+            k_str = suffix.lstrip("k")
+            k = None if k_str == "all" else int(k_str)
+            return {"type": mtype, "k_positions": k}
+    if method_name in ("weak-bb-monitor", "strong-bb-monitor"):
         cfg = method_config.get(method_name, {})
-        return {"type": "llm_monitor", "model": cfg.get("model"), "max_tokens": cfg.get("max_tokens")}
+        return {"type": "bb_monitor", "model": cfg.get("model"), "max_tokens": cfg.get("max_tokens")}
     return {"type": method_name}
 
 
 # ── Data loading (shared across methods) ──
 
-def _load_and_normalize(task_name: str, n_examples: int) -> list[dict]:
+def _load_and_normalize(task_name: str, n_examples: int, split: str = "test") -> list[dict]:
     """Load task data, normalize fields. Returns list of dicts."""
     from data_loading import load_task_data
     try:
-        test_data = load_task_data(task_name, split="test", n=n_examples, shuffle=False)
+        test_data = load_task_data(task_name, split=split, n=n_examples, shuffle=False)
     except Exception:
         test_data = []
-    if not test_data:
+    if not test_data and split == "test":
         test_data = load_task_data(task_name, split="train", n=n_examples, shuffle=False)
     for item in test_data:
         if "meta_spliced_cot_text" in item and "cot_text" not in item:
@@ -209,7 +213,7 @@ def _extract_per_item_scores(result: dict, task_def, predictions: list[str], tar
 
 def _run_and_store_method(cache, run_id, task_name, task_def, method_name,
                           method_config, model, tokenizer, n_examples, layers,
-                          position_mode, openrouter_available):
+                          position_mode, openrouter_available, train_config=None):
     """Run a single method with incremental recovery."""
     from eval_loop import _primary_metric_name, score_task
 
@@ -229,16 +233,30 @@ def _run_and_store_method(cache, run_id, task_name, task_def, method_name,
     t0 = time.time()
 
     completed_indices = set(cached_preds.keys())
+    item_prompts = None     # per-item resolved prompts (for methods that build them)
 
     # ── Oracle methods (our_ao, original_ao) ──
-    if method_name.startswith("our_ao_k") or method_name.startswith("original_ao_k"):
-        is_our = method_name.startswith("our_ao_k")
-        k_str = method_name[len("our_ao_k" if is_our else "original_ao_k"):]
+    if method_name.startswith("our_ao_") or method_name.startswith("original_ao_"):
+        is_our = method_name.startswith("our_ao_")
+        from core.ao import AO_CHECKPOINTS
+        import re as _re
+        ao_adapter_name = AO_CHECKPOINTS["Qwen/Qwen3-8B"].replace(".", "_")
+        adapter = "default" if is_our else ao_adapter_name
+
+        # Parse method name: {prefix}_L{layer}_k{k} or {prefix}_k{k}
+        prefix = "our_ao_" if is_our else "original_ao_"
+        suffix = method_name[len(prefix):]
+        m = _re.match(r"L(\d+)_k(.+)", suffix)
+        if m:
+            eval_layers = [int(m.group(1))]
+            k_str = m.group(2)
+        else:
+            eval_layers = layers
+            k_str = suffix.lstrip("k")
         k = None if k_str == "all" else int(k_str)
-        adapter = "default" if is_our else "original_ao"
 
         predictions, targets, todo_indices = run_oracle_eval(
-            model, tokenizer, task_name, task_def, test_data, layers,
+            model, tokenizer, task_name, task_def, test_data, eval_layers,
             position_mode, oracle_adapter_name=adapter,
             openrouter_available=openrouter_available, k_positions=k,
             completed_indices=completed_indices,
@@ -251,6 +269,7 @@ def _run_and_store_method(cache, run_id, task_name, task_def, method_name,
                     new_pred_rows.append({
                         "item_idx": i, "item_id": f"{task_name}_{i}",
                         "prediction": predictions[i][:500], "score": None,
+                        "prompt": test_data[i].get("prompt", ""),
                     })
             if new_pred_rows:
                 cache.store_predictions(run_id, task_name, method_name, new_pred_rows)
@@ -263,13 +282,14 @@ def _run_and_store_method(cache, run_id, task_name, task_def, method_name,
         predictions = [predictions[i] for i in valid_mask]
         targets = [targets[i] for i in valid_mask]
         eval_items = [test_data[i] for i in valid_mask]
+        item_prompts = [test_data[i].get("prompt", "") for i in valid_mask]
 
-    # ── LLM monitor methods (weak-llm, strong-llm) ──
-    elif method_name in ("weak-llm", "strong-llm"):
-        from llm_monitor import run_llm_monitor
+    # ── BB monitor methods (weak-bb-monitor, strong-bb-monitor) ──
+    elif method_name in ("weak-bb-monitor", "strong-bb-monitor"):
+        from bb_monitor import run_bb_monitor
 
         llm_cfg = method_config.get(method_name, {})
-        predictions = run_llm_monitor(
+        predictions, item_prompts = run_bb_monitor(
             test_data, None, layers, task_def,
             model_name=llm_cfg["model"],
             max_tokens=llm_cfg.get("max_tokens", 300),
@@ -286,28 +306,44 @@ def _run_and_store_method(cache, run_id, task_name, task_def, method_name,
         predictions = [predictions[i] for i in valid_mask]
         targets = [targets[i] for i in valid_mask] if targets else []
         eval_items = [test_data[i] for i in valid_mask]
+        item_prompts = [item_prompts[i] for i in valid_mask] if item_prompts else [None] * len(valid_mask)
 
     # ── Linear probes ──
     elif method_name == "linear_probes":
         from linear_probe import run_linear_probe
 
-        valid_data, activations = _ensure_activations(model, tokenizer, test_data, layers, position_mode, task_name)
+        valid_data, test_acts = _ensure_activations(model, tokenizer, test_data, layers, position_mode, task_name)
         if not valid_data:
             print("no valid data for activations")
             return
 
-        predictions = run_linear_probe(valid_data, activations, layers, task_def, device="cuda")
+        # Load train split for probe training
+        task_n = -1
+        if train_config and "tasks" in train_config:
+            task_n = train_config["tasks"].get(task_name, {}).get("n", -1)
+        if task_n == 0:
+            print("task disabled in train config")
+            return
+        train_data = _load_and_normalize(task_name, task_n if task_n > 0 else 10000, split="train")
+        if not train_data:
+            print("no train data")
+            return
+        train_valid, train_acts = _ensure_activations(model, tokenizer, train_data, layers, position_mode, task_name)
+
+        predictions = run_linear_probe(
+            valid_data, test_acts, layers, task_def,
+            train_data=train_valid, train_activations=train_acts, device="cuda",
+        )
         targets = [d.get("target_response", "") for d in valid_data]
         eval_items = valid_data
         valid_mask = list(range(len(valid_data)))
 
-        # Store predictions
         new_pred_rows = [{"item_idx": i, "item_id": f"{task_name}_{i}", "prediction": (p or "")[:500], "score": None}
                          for i, p in enumerate(predictions)]
         cache.store_predictions(run_id, task_name, method_name, new_pred_rows)
 
     # ── SAE probe ──
-    elif method_name == "sae_llm":
+    elif method_name == "sae-llm-monitor":
         from sae_probe import run_sae_probe
 
         valid_data, activations = _ensure_activations(model, tokenizer, test_data, layers, position_mode, task_name)
@@ -315,19 +351,25 @@ def _run_and_store_method(cache, run_id, task_name, task_def, method_name,
             print("no valid data for activations")
             return
 
-        sae_cfg = method_config.get("sae_llm", {})
-        predictions = run_sae_probe(
+        sae_cfg = method_config.get("sae-llm-monitor", {})
+        predictions, item_prompts = run_sae_probe(
             valid_data, activations, layers, task_def,
             sae_labels_dir=sae_cfg.get("sae_labels_dir", ""),
+            sae_trainer=sae_cfg.get("sae_trainer", 2),
             llm_model=sae_cfg.get("llm_model", "google/gemini-2.5-flash-lite"),
             api_key=os.environ.get("OPENROUTER_API_KEY", ""),
+            max_tokens=sae_cfg.get("max_tokens", 300),
+            temperature=sae_cfg.get("temperature", 0.0),
+            max_concurrent=sae_cfg.get("max_concurrent", 20),
+            top_k=sae_cfg.get("top_k", 20),
             device="cuda",
         )
         targets = [d.get("target_response", "") for d in valid_data]
         eval_items = valid_data
         valid_mask = list(range(len(valid_data)))
 
-        new_pred_rows = [{"item_idx": i, "item_id": f"{task_name}_{i}", "prediction": (p or "")[:500], "score": None}
+        new_pred_rows = [{"item_idx": i, "item_id": f"{task_name}_{i}", "prediction": (p or "")[:500], "score": None,
+                          "prompt": item_prompts[i][:2000] if i < len(item_prompts) else None}
                          for i, p in enumerate(predictions)]
         cache.store_predictions(run_id, task_name, method_name, new_pred_rows)
 
@@ -340,14 +382,22 @@ def _run_and_store_method(cache, run_id, task_name, task_def, method_name,
             print("no valid data for activations")
             return
 
+        ps_cfg = method_config.get("patchscopes", {})
         predictions = run_patchscopes(
-            valid_data, activations, layers, task_def, model, tokenizer, device="cuda",
+            valid_data, activations, layers, task_def, model, tokenizer,
+            steering_coefficients=ps_cfg.get("steering_coefficients", [0.5, 1.0, 2.0]),
+            source_layers=ps_cfg.get("source_layers"),
+            injection_layer=ps_cfg.get("injection_layer", 1),
+            max_new_tokens=ps_cfg.get("max_new_tokens", 100),
+            device="cuda",
         )
         targets = [d.get("target_response", "") for d in valid_data]
         eval_items = valid_data
         valid_mask = list(range(len(valid_data)))
+        item_prompts = [d.get("prompt", "") for d in valid_data]
 
-        new_pred_rows = [{"item_idx": i, "item_id": f"{task_name}_{i}", "prediction": (p or "")[:500], "score": None}
+        new_pred_rows = [{"item_idx": i, "item_id": f"{task_name}_{i}", "prediction": (p or "")[:500], "score": None,
+                          "prompt": valid_data[i].get("prompt", "")}
                          for i, p in enumerate(predictions)]
         cache.store_predictions(run_id, task_name, method_name, new_pred_rows)
 
@@ -368,20 +418,23 @@ def _run_and_store_method(cache, run_id, task_name, task_def, method_name,
         eval_items = test_data
         valid_mask = list(range(len(test_data)))
 
-        new_pred_rows = [{"item_idx": i, "item_id": f"{task_name}_{i}", "prediction": (p or "")[:500], "score": None}
+        cot_field = task_def.cot_field
+        item_prompts = [f"Question: {d.get('question', d.get('prompt', ''))}\nChain of thought: {d.get(cot_field, '')[:4000]}\n\n{d.get('prompt', '')}" for d in test_data]
+        new_pred_rows = [{"item_idx": i, "item_id": f"{task_name}_{i}", "prediction": (p or "")[:500], "score": None,
+                          "prompt": item_prompts[i][:2000]}
                          for i, p in enumerate(predictions)]
         cache.store_predictions(run_id, task_name, method_name, new_pred_rows)
 
     # ── Attention probe ──
     elif method_name == "attention_probe":
-        from attention_probe import run_qwen_attention_probe
+        from attention_probe import run_attention_probe
 
         valid_data, activations = _ensure_activations(model, tokenizer, test_data, layers, position_mode, task_name)
         if not valid_data:
             print("no valid data for activations")
             return
 
-        predictions = run_qwen_attention_probe(
+        predictions = run_attention_probe(
             valid_data, activations, layers, task_def, device="cuda",
         )
         targets = [d.get("target_response", "") for d in valid_data]
@@ -391,6 +444,7 @@ def _run_and_store_method(cache, run_id, task_name, task_def, method_name,
         new_pred_rows = [{"item_idx": i, "item_id": f"{task_name}_{i}", "prediction": (p or "")[:500], "score": None}
                          for i, p in enumerate(predictions)]
         cache.store_predictions(run_id, task_name, method_name, new_pred_rows)
+        # attention probe is a learned classifier, no text prompt
 
     else:
         print(f"unknown method type")
@@ -407,14 +461,17 @@ def _run_and_store_method(cache, run_id, task_name, task_def, method_name,
     elapsed = time.time() - t0
     print(f"{score:.3f} ({elapsed:.1f}s)")
 
-    # Update per-item scores
+    # Update per-item scores (preserve prompt if available)
     score_updates = []
     for rank, orig_idx in enumerate(valid_mask):
         if rank < len(per_item_scores):
-            score_updates.append({
+            entry = {
                 "item_idx": orig_idx, "item_id": f"{task_name}_{orig_idx}",
                 "prediction": predictions[rank][:500], "score": per_item_scores[rank],
-            })
+            }
+            if item_prompts is not None and rank < len(item_prompts) and item_prompts[rank]:
+                entry["prompt"] = item_prompts[rank][:2000]
+            score_updates.append(entry)
     if score_updates:
         cache.store_predictions(run_id, task_name, method_name, score_updates)
 
@@ -424,15 +481,17 @@ def _run_and_store_method(cache, run_id, task_name, task_def, method_name,
     cache.store_items(run_id, task_name, items)
 
     # Store method result
+    extra = {}
+    if method_name in ("weak-bb-monitor", "strong-bb-monitor"):
+        llm_cfg = method_config.get(method_name, {})
+        extra["model"] = llm_cfg.get("model")
     method_result = {
         "primary_score": score,
         "bootstrap_std": _bootstrap_std(per_item_scores) if per_item_scores else 0.0,
         "primary_metric": primary,
         "n": result.get("n", len(predictions)),
+        "extra": extra,
     }
-    if method_name in ("weak-llm", "strong-llm"):
-        llm_cfg = method_config.get(method_name, {})
-        method_result["extra"] = {"model": llm_cfg.get("model")}
 
     deps_hash = cache.method_deps_hash(run_id, task_name, method_name, _build_method_config(method_name, method_config))
     cache.store_method_result(run_id, task_name, method_name, method_result, deps_hash)
@@ -448,11 +507,23 @@ def _expand_methods(active_baselines: list[str], method_config: dict) -> list[st
             continue
 
         if b == "our_ao":
-            for k in K_SWEEP:
-                methods.append(f"our_ao_k{'all' if k is None else k}")
+            k_sweep = cfg.get("k_sweep", DEFAULT_K_SWEEP)
+            if cfg.get("single_layer", False):
+                for layer in cfg.get("layers", DEFAULT_LAYERS):
+                    for k in k_sweep:
+                        methods.append(f"our_ao_L{layer}_k{'all' if k is None else k}")
+            else:
+                for k in k_sweep:
+                    methods.append(f"our_ao_k{'all' if k is None else k}")
         elif b == "original_ao":
-            for k in K_SWEEP:
-                methods.append(f"original_ao_k{'all' if k is None else k}")
+            k_sweep = cfg.get("k_sweep", DEFAULT_K_SWEEP)
+            if cfg.get("single_layer", True):
+                for layer in cfg.get("layers", DEFAULT_LAYERS):
+                    for k in k_sweep:
+                        methods.append(f"original_ao_L{layer}_k{'all' if k is None else k}")
+            else:
+                for k in k_sweep:
+                    methods.append(f"original_ao_k{'all' if k is None else k}")
         else:
             methods.append(b)
     return methods
@@ -509,8 +580,8 @@ def plot_results(output_dir: Path, cache: EvalCache | None = None, run_id: str |
         stds = []
         for task in task_order:
             m = results.get(task, {}).get(method, {})
-            s = m.get("primary_score", float("nan"))
-            scores.append(s if not math.isnan(s) else 0.0)
+            s = m.get("primary_score")
+            scores.append(s if s is not None and not math.isnan(s) else 0.0)
             stds.append(m.get("bootstrap_std", 0.0))
         offset = (j - len(method_order) / 2 + 0.5) * bar_width
         ax.bar(x + offset, scores, bar_width * 0.9, yerr=stds,
@@ -582,8 +653,13 @@ def main():
     needs_model = any(b in _MODEL_METHODS for b in active_baselines)
 
     openrouter_available = check_openrouter_available()
-    if not openrouter_available:
-        print("OpenRouter unavailable — LLM-based methods will be skipped or produce NaN scores")
+    needs_openrouter = any(b in ("weak-bb-monitor", "strong-bb-monitor", "sae-llm-monitor") for b in active_baselines)
+    if not openrouter_available and needs_openrouter:
+        raise RuntimeError(
+            "OpenRouter unavailable but required by: "
+            + ", ".join(b for b in active_baselines if b in ("weak-bb-monitor", "strong-bb-monitor", "sae-llm-monitor"))
+            + ". Set OPENROUTER_API_KEY or remove these baselines."
+        )
 
     model, tokenizer = None, None
     if needs_model:
@@ -591,10 +667,14 @@ def main():
         import torch
         from core.ao import load_model_with_ao, load_extra_adapter
 
-        model, tokenizer = load_model_with_ao(args.train_config)
+        train_cfg = yaml.safe_load(open(args.train_config))
+        model, tokenizer = load_model_with_ao(train_cfg["model"]["name"])
         model.eval()
 
         if "our_ao" in active_baselines:
+            # Delete the dummy "default" adapter so we can load the real one
+            if "default" in model.peft_config:
+                model.delete_adapter("default")
             load_extra_adapter(model, args.checkpoint, adapter_name="default")
             print(f"  Loaded our LoRA from {args.checkpoint}")
 
@@ -606,10 +686,6 @@ def main():
         print(f"\n  === {task_name} ===")
 
         for method_name in all_methods:
-            if method_name in ("weak-llm", "strong-llm") and not openrouter_available:
-                continue
-            if method_name == "sae_llm" and not openrouter_available:
-                continue
 
             mcfg = _build_method_config(method_name, method_config)
             deps_hash = cache.method_deps_hash(run_id, task_name, method_name, mcfg)
@@ -626,8 +702,10 @@ def main():
                     cache, run_id, task_name, task_def, method_name,
                     method_config, model, tokenizer, args.n_examples,
                     args.layers, args.position_mode, openrouter_available,
+                    train_config=train_cfg if needs_model else None,
                 )
             except Exception as e:
+                import traceback; traceback.print_exc()
                 print(f" FAILED: {e}")
                 cache.store_method_result(run_id, task_name, method_name, {
                     "primary_score": float("nan"),

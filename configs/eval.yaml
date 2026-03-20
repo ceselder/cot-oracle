@@ -28,28 +28,50 @@ tasks:
 
 # Baselines to run. Comment out a line to skip that method.
 baselines:
-  - weak-llm
-  # - strong-llm
+  - weak-bb-monitor
+  # - strong-bb-monitor
   - our_ao
   - original_ao
   - linear_probes
-  - sae_llm
+  - sae-llm-monitor
   # - patchscopes
   # - attention_probe
   # - no_act_oracle
 
-# Per-method settings (only for methods that need external config).
-# Methods not listed here use hardcoded defaults from baselines/*.py.
+# Per-method settings.
 method_config:
-  weak-llm:
-    # model: google/gemini-3.1-flash-lite-preview
-    model: google/gemini-2.5-flash-lite
+  our_ao:
+    layers: [9, 18, 27]        # all layers simultaneously
+    k_sweep: [1, 5, 10, 20, null]  # null = all positions
+    single_layer: false        # feed all layers at once
+
+  original_ao:
+    layers: [9, 18, 27]        # sweep each layer individually
+    k_sweep: [1, 5, 10, 20, null]
+    single_layer: true         # one layer at a time (matches Adam's training)
+
+  weak-bb-monitor:
+    model: nvidia/nemotron-3-super-120b-a12b:free
     max_tokens: 2048
-  strong-llm:
+
+  strong-bb-monitor:
     model: google/gemini-3.1-pro-preview
     max_tokens: 2048
-  sae_llm:
+
+  sae-llm-monitor:
     sae_labels_dir: /ceph/scratch/jbauer/sae_features/trainer_2/trainer_2/labels
-    llm_model: google/gemini-2.5-flash-lite
+    llm_model: nvidia/nemotron-3-super-120b-a12b:free
+    sae_trainer: 2
+    top_k: 20
+    max_tokens: 300
+    temperature: 0.0
+    max_concurrent: 20
+
+  patchscopes:
+    steering_coefficients: [0.5, 1.0, 2.0]
+    source_layers: null        # null = same as activation layers
+    injection_layer: 1
+    max_new_tokens: 100
+
   no_act_oracle:
-    checkpoint: ""   # path to no-act LoRA
+    checkpoint: ""             # path to no-act LoRA

@@ -171,15 +171,7 @@ def _score_qa_scorer(
     token_f1_avg = sum(token_f1_scores) / len(token_f1_scores)
 
     if not openrouter_available:
-        print(f"    [{task_name}] SKIPPING LLM scorer scoring — OpenRouter unavailable")
-        return {
-            "qa_scorer_score": float("nan"), "token_f1": token_f1_avg, "n": len(predictions),
-            "_qa_scorer_scores": [float("nan")] * len(predictions),
-            "_qa_token_f1_scores": token_f1_scores,
-            "_qa_scorer_reasons": ["skipped"] * len(predictions),
-            "_qa_scorer_raw": [""] * len(predictions),
-            "_qa_scorer_model": score_model, "_skipped": "openrouter_unavailable",
-        }
+        raise RuntimeError(f"QA scorer for {task_name} requires OpenRouter but it is unavailable. Set OPENROUTER_API_KEY.")
 
     print(f"    [{task_name}] Scoring {len(predictions)} QA answers with {score_model}...")
     api_key = os.environ["OPENROUTER_API_KEY"]
@@ -239,8 +231,7 @@ def _score_trajectory_llm(
     token_f1_avg = sum(token_f1_scores) / len(token_f1_scores)
 
     if not openrouter_available:
-        print(f"    [answer_trajectory] SKIPPING LLM scorer scoring — OpenRouter unavailable")
-        return {"token_f1": token_f1_avg, "answer_score": float("nan"), "n": len(predictions), "_skipped": "openrouter_unavailable"}
+        raise RuntimeError("Trajectory scorer for answer_trajectory requires OpenRouter but it is unavailable. Set OPENROUTER_API_KEY.")
 
     score_model = get_score_model()
     print(f"    [answer_trajectory] Scoring {len(predictions)} trajectory predictions with {score_model}...")
@@ -298,8 +289,7 @@ def _score_llm_scorer(
         return {"correctness": 0.0, "n": 0}
 
     if not openrouter_available:
-        print(f"    [{task_name}] SKIPPING LLM scorer scoring — OpenRouter unavailable")
-        return {"correctness": float("nan"), "specificity": float("nan"), "confidence": float("nan"), "n": len(predictions), "_skipped": "openrouter_unavailable"}
+        raise RuntimeError(f"LLM scorer for {task_name} requires OpenRouter but it is unavailable. Set OPENROUTER_API_KEY.")
 
     score_model = get_score_model()
     system_prompt = get_llm_scorer_system(task_name)
@@ -766,8 +756,8 @@ def _ensure_ao_imports():
         return
     from nl_probes.utils.activation_utils import (
         collect_activations_multiple_layers,
-        get_hf_submodule,
     )
+    from core.ao import get_hf_submodule
     from nl_probes.utils.steering_hooks import add_hook
     from core.ao import (
         get_batched_steering_hook,
@@ -888,14 +878,15 @@ def _materialize_activations(
 
     was_training = model.training
     model.eval()
-    with model.disable_adapter():
-        acts_by_layer = collect_activations_multiple_layers(
-            model=model,
-            submodules=submodules,
-            inputs_BL=inputs_BL,
-            min_offset=None,
-            max_offset=None,
-        )
+    model.disable_adapters()
+    acts_by_layer = collect_activations_multiple_layers(
+        model=model,
+        submodules=submodules,
+        inputs_BL=inputs_BL,
+        min_offset=None,
+        max_offset=None,
+    )
+    model.enable_adapters()
     if was_training:
         model.train()
 

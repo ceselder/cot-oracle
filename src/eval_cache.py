@@ -55,6 +55,7 @@ CREATE TABLE IF NOT EXISTS predictions (
     item_id TEXT NOT NULL,
     prediction TEXT,
     score REAL,
+    prompt TEXT,
     PRIMARY KEY (run_id, task_name, method_name, item_idx)
 );
 """
@@ -71,6 +72,11 @@ class EvalCache:
         self._conn = sqlite3.connect(str(self.db_path))
         self._conn.execute("PRAGMA journal_mode=WAL")
         self._conn.executescript(_SCHEMA)
+        # Migration: add prompt column to existing predictions tables
+        try:
+            self._conn.execute("ALTER TABLE predictions ADD COLUMN prompt TEXT")
+        except sqlite3.OperationalError:
+            pass  # column already exists
 
     def close(self):
         self._conn.close()
@@ -113,12 +119,12 @@ class EvalCache:
         return {r[0] for r in rows}
 
     def get_predictions(self, run_id: str, task_name: str, method_name: str) -> dict[int, dict]:
-        """Return {item_idx: {"prediction": str, "score": float|None}} for completed items."""
+        """Return {item_idx: {"prediction": str, "score": float|None, "prompt": str|None}} for completed items."""
         rows = self._conn.execute(
-            "SELECT item_idx, prediction, score FROM predictions WHERE run_id = ? AND task_name = ? AND method_name = ?",
+            "SELECT item_idx, prediction, score, prompt FROM predictions WHERE run_id = ? AND task_name = ? AND method_name = ?",
             (run_id, task_name, method_name),
         ).fetchall()
-        return {r[0]: {"prediction": r[1], "score": r[2]} for r in rows}
+        return {r[0]: {"prediction": r[1], "score": r[2], "prompt": r[3]} for r in rows}
 
     # ── Store ──
 
@@ -131,8 +137,8 @@ class EvalCache:
 
     def store_predictions(self, run_id: str, task_name: str, method_name: str, preds: list[dict]):
         self._conn.executemany(
-            "INSERT OR REPLACE INTO predictions (run_id, task_name, method_name, item_idx, item_id, prediction, score) VALUES (?, ?, ?, ?, ?, ?, ?)",
-            [(run_id, task_name, method_name, p["item_idx"], p["item_id"], p.get("prediction"), p.get("score")) for p in preds],
+            "INSERT OR REPLACE INTO predictions (run_id, task_name, method_name, item_idx, item_id, prediction, score, prompt) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            [(run_id, task_name, method_name, p["item_idx"], p["item_id"], p.get("prediction"), p.get("score"), p.get("prompt")) for p in preds],
         )
         self._conn.commit()
 
@@ -187,13 +193,16 @@ class EvalCache:
 
         # Predictions
         pred_rows = self._conn.execute(
-            "SELECT method_name, item_idx, prediction, score FROM predictions WHERE run_id = ? AND task_name = ?",
+            "SELECT method_name, item_idx, prediction, score, prompt FROM predictions WHERE run_id = ? AND task_name = ?",
             (run_id, task_name),
         ).fetchall()
         for pr in pred_rows:
-            method_name, item_idx, prediction, score = pr
+            method_name, item_idx, prediction, score, prompt = pr
             if item_idx in items_by_idx:
-                items_by_idx[item_idx]["methods"][method_name] = {"prediction": prediction, "score": score}
+                entry = {"prediction": prediction, "score": score}
+                if prompt:
+                    entry["prompt"] = prompt
+                items_by_idx[item_idx]["methods"][method_name] = entry
 
         # Run info
         run_row = self._conn.execute("SELECT checkpoint, n_examples, position_mode, layers FROM eval_runs WHERE run_id = ?", (run_id,)).fetchone()

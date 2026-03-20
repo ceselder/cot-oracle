@@ -72,6 +72,15 @@ def is_qa_score_task(task_name: str) -> bool:
 
 
 
+def _json_loads_lenient(s: str) -> dict:
+    """json.loads with fallback for invalid escape sequences and control chars."""
+    try:
+        return json.loads(s)
+    except json.JSONDecodeError:
+        fixed = re.sub(r'\\(?!["\\/bfnrtu])', r'\\\\', s)
+        return json.loads(fixed, strict=False)
+
+
 def extract_scorer_json(text: str) -> dict[str, Any]:
     cleaned = text.strip()
     if cleaned.startswith("```"):
@@ -85,14 +94,13 @@ def extract_scorer_json(text: str) -> dict[str, Any]:
         return {"score": float(score_match.group(1)), "reason": score_match.group(2).strip()}
     end = cleaned.rfind("}")
     if end == -1 or end <= start:
-        # Truncated JSON — try to close it
         truncated = cleaned[start:]
         truncated = re.sub(r',\s*"[^"]*$', '', truncated)
         truncated = re.sub(r':\s*"[^"]*$', ': ""', truncated)
         if not truncated.rstrip().endswith("}"):
             truncated = truncated.rstrip().rstrip(",") + "}"
-        return json.loads(truncated)
-    return json.loads(cleaned[start:end + 1])
+        return _json_loads_lenient(truncated)
+    return _json_loads_lenient(cleaned[start:end + 1])
 
 
 def build_qa_score_prompt(task_name: str, qa_prompt: str, target: str, prediction: str) -> str:
