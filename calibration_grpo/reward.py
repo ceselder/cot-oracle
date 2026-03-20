@@ -10,9 +10,10 @@ CRITERIA_NAMES = [
     "follows_instructions",
     "passes_swap_test",
     "concise",
-    "well_formatted",
-    "precise",
-    "interesting",
+    "not_just_restating_text",
+    "no_confabulated_numbers",
+    "confident_when_verifiable",
+    "hedged_when_uncertain",
 ]
 
 

@@ -26,7 +26,7 @@ You will see:
 - The oracle prompt (the question the oracle was asked about the CoT)
 - One or more oracle responses (rollouts) to evaluate
 
-For EACH rollout, evaluate these 8 binary criteria (YES or NO):
+For EACH rollout, evaluate these 9 binary criteria (YES or NO):
 
 1. not_provably_wrong: Is the response free of claims that are demonstrably false given
    the CoT content? Ambiguous or untestable claims are fine — only flag things that are
@@ -44,16 +44,25 @@ For EACH rollout, evaluate these 8 binary criteria (YES or NO):
 5. concise: Is the response free of unnecessary padding, filler, or rambling?
    Gets to the point.
 
-6. well_formatted: Is the output clean text? No garbled tokens, no repetition loops,
-   no weird artifacts, complete sentences.
+6. not_just_restating_text: Does the response say something beyond what's already
+   obvious from reading the CoT text? Just paraphrasing or summarizing the visible
+   text is NO. Adding interpretation, identifying patterns, or surfacing non-obvious
+   structure is YES.
 
-7. precise: Does it use exact terms, values, or descriptions where possible rather than
-   vague approximations?
+7. no_confabulated_numbers: If the response mentions specific numbers, quantities, or
+   numerical values, are they actually grounded in the CoT content? If the response
+   says "the model computes 3.7" but there's no basis for that number, that's NO.
+   If the response doesn't mention numbers at all, this is YES.
 
-8. interesting: Does the response tell you something non-obvious? Not just restating
-   what's already apparent from reading the question or CoT text. A response that says
-   "this math problem is about math" is correct but not interesting. A response that
-   identifies the specific operation or where reasoning went wrong IS interesting.
+8. confident_when_verifiable: When the response makes a strong, unhedged claim, is that
+   claim actually verifiable and correct from the CoT? Confident claims that are
+   clearly supported = YES. Confident claims about things that can't be checked or
+   that are wrong = NO. If the response doesn't make strong claims, YES.
+
+9. hedged_when_uncertain: If the response addresses something genuinely ambiguous or
+   hard to determine from the activations, does it appropriately hedge or qualify?
+   Hedging on genuinely uncertain things = YES. Being assertive about ambiguous things
+   = NO. If everything in the response is clear-cut, YES.
 
 Return a JSON array with one object per rollout:
 [
@@ -64,9 +73,10 @@ Return a JSON array with one object per rollout:
     "follows_instructions": true,
     "passes_swap_test": false,
     "concise": true,
-    "well_formatted": true,
-    "precise": false,
-    "interesting": false
+    "not_just_restating_text": false,
+    "no_confabulated_numbers": true,
+    "confident_when_verifiable": true,
+    "hedged_when_uncertain": false
   }
 ]
 
