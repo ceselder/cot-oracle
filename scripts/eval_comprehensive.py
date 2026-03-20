@@ -636,14 +636,16 @@ def main():
         _rescore_from_cache(cache, run_id, config, output_dir, args)
         return
 
-    all_tasks = get_comprehensive_eval_tasks()
-    # Tasks: CLI --tasks overrides, else eval.yaml list, else all comprehensive tasks
+    all_comprehensive = get_comprehensive_eval_tasks()
+    # Tasks: CLI --tasks or eval.yaml list can include any task from TASKS (including cls_).
+    # Only the fallback (no list specified) restricts to comprehensive-eval tasks.
     if args.tasks:
-        task_names = [t for t in args.tasks if t in all_tasks]
+        task_names = [t for t in args.tasks if t in TASKS]
     elif "tasks" in config and config["tasks"]:
-        task_names = [t for t in config["tasks"] if t in all_tasks]
+        task_names = [t for t in config["tasks"] if t in TASKS]
     else:
-        task_names = list(all_tasks.keys())
+        task_names = list(all_comprehensive.keys())
+    all_tasks = {t: TASKS[t] for t in task_names}
 
     # Baselines: CLI --baselines overrides, else eval.yaml list, else defaults
     if args.baselines != DEFAULT_BASELINES:
