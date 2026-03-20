@@ -308,33 +308,14 @@ def train(cfg: dict):
             print(f"  [iter] {n_judge_failures}/{batch_size} judge failures")
 
         # ── 7. Gradient step ──
+        # compute_grpo_loss does per-item backward internally (1 graph at a time)
         model.train()
         optimizer.zero_grad()
 
-        accum_steps = tcfg["gradient_accumulation_steps"]
-        items_per_accum = max(1, len(grpo_items) // accum_steps)
-        total_loss = 0.0
-        total_metrics: dict[str, float] = {}
-        n_accum = 0
-
-        for accum_idx in range(0, len(grpo_items), items_per_accum):
-            mini_batch = grpo_items[accum_idx:accum_idx + items_per_accum]
-            if not mini_batch:
-                continue
-
-            loss, metrics = compute_grpo_loss(
-                model, mini_batch, injection_layer, device,
-                clip_eps=gcfg["clip_eps"],
-            )
-            (loss / accum_steps).backward()
-            total_loss += loss.item()
-            n_accum += 1
-
-            for k, v in metrics.items():
-                total_metrics[k] = total_metrics.get(k, 0) + v
-
-        for k in total_metrics:
-            total_metrics[k] /= max(n_accum, 1)
+        total_loss, total_metrics = compute_grpo_loss(
+            model, grpo_items, injection_layer, device,
+            clip_eps=gcfg["clip_eps"],
+        )
 
         torch.nn.utils.clip_grad_norm_(trainable_params, tcfg["max_grad_norm"])
         optimizer.step()
@@ -347,7 +328,7 @@ def train(cfg: dict):
 
         log_dict = {
             "step": step,
-            "grpo/loss": total_loss / max(n_accum, 1),
+            "grpo/loss": total_loss,
             "grpo/mean_reward": mean_reward,
             "grpo/lr": scheduler.get_last_lr()[0],
             "grpo/iter_time": elapsed,
@@ -368,7 +349,7 @@ def train(cfg: dict):
         if step % cfg["logging"]["console_every"] == 0:
             print(
                 f"  step {step}/{tcfg['max_steps']}  "
-                f"loss={total_loss / max(n_accum, 1):.4f}  "
+                f"loss={total_loss:.4f}  "
                 f"reward={mean_reward:.3f}  "
                 f"clip={total_metrics.get('grpo/clip_frac', 0):.2f}  "
                 f"judge={judge_time:.1f}s  "
