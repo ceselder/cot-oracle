@@ -36,7 +36,7 @@ from qa_judge import (
 from cot_utils import sample_poisson_positions, sample_endweighted_positions
 
 # ── Per-layer token config (set by train.py when --per-layer-tokens is active) ──
-PER_LAYER_TOKEN_CONFIG: dict | None = None  # {"layer_token_map": {9: " ¶", 18: " §", 27: " ※"}}
+PER_LAYER_TOKEN_CONFIG: dict | None = None  # {"layer_token_map": {9: "<res_L9>", ...}}
 
 
 # ── Per-task response parsers ──
@@ -948,10 +948,10 @@ def _build_manual_prefix_token_ids(
         prefix_ids: list[int] = []
         positions: list[int] = []
         for i, layer_idx in enumerate(prefix_layers):
-            token_str = layer_map.get(layer_idx)
-            token_id = tokenizer.encode(token_str, add_special_tokens=False)
-            assert len(token_id) == 1, f"Per-layer token {repr(token_str)} must be single token"
-            token_id = token_id[0]
+            token_str = layer_map[layer_idx]
+            # Use convert_tokens_to_ids — encode() may split <res_L9> into sub-tokens
+            token_id = tokenizer.convert_tokens_to_ids(token_str)
+            assert token_id != tokenizer.unk_token_id, f"Special token {token_str} not in tokenizer"
             if i > 0:
                 # Space separator between layer blocks
                 prefix_ids.extend(tokenizer.encode(" ", add_special_tokens=False))
