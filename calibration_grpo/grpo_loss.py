@@ -83,7 +83,7 @@ def compute_old_logprobs(
                 device=device,
                 dtype=torch.bfloat16,
             )
-            injection_sub = get_hf_submodule(model, injection_layer, use_lora=True)
+            injection_sub = get_hf_submodule(model, injection_layer)
 
             with add_hook(injection_sub, hook_fn):
                 outputs = model(input_ids=input_tensor, attention_mask=attn_mask)
@@ -132,7 +132,7 @@ def compute_grpo_loss(
             device=device,
             dtype=torch.bfloat16,
         )
-        injection_sub = get_hf_submodule(model, injection_layer, use_lora=True)
+        injection_sub = get_hf_submodule(model, injection_layer)
 
         with add_hook(injection_sub, hook_fn):
             outputs = model(input_ids=input_tensor, attention_mask=attn_mask)
