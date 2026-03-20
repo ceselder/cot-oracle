@@ -590,13 +590,14 @@ def _window_bucket_training_data(training_data: list[TrainingDataPoint], batch_s
         training_data[i:i + window] = flat
 
 
-def train_features_batch(training_batch, model, submodule, steering_coefficient, device, dtype):
+def train_features_batch(training_batch, model, submodule, steering_coefficient, device, dtype, norm_mode="matched"):
     hook_fn = get_hf_activation_steering_hook(
         vectors=training_batch.steering_vectors,
         positions=training_batch.positions,
         steering_coefficient=steering_coefficient,
         device=device,
         dtype=dtype,
+        norm_mode=norm_mode,
     )
     tokenized_input = {
         "input_ids": training_batch.input_ids,
@@ -1252,6 +1253,7 @@ def train(
                                 outputs = train_features_batch(
                                     batch, ddp_model, submodule,
                                     args.steering_coefficient, device, dtype,
+                                    norm_mode=args.norm_mode,
                                 )
                                 loss = outputs.loss * loss_weight / grad_accum
                             torch.cuda.synchronize()
@@ -1703,6 +1705,10 @@ def main():
     parser.add_argument("--pe-alpha", type=float, default=None, help="Position encoding strength")
 
     # Ablations
+    parser.add_argument("--per-layer-tokens", action="store_true", default=False,
+                        help="Use new special tokens per source layer + inject at layer 0")
+    parser.add_argument("--norm-mode", choices=["matched", "sigmoid", "none"], default="matched",
+                        help="Injection normalization: matched (default), sigmoid, none (raw vectors)")
     parser.add_argument("--random-layers", action="store_true", default=False,
                         help="Randomize layer count and indices per training sequence")
 
@@ -1912,8 +1918,11 @@ def main():
         )
 
     # Ensure trainable params are fp32 (optimizer states stay fp32; autocast handles forward pass)
+    # Skip embedding weight when using per-layer tokens — it must stay bf16
+    # (mixed dtypes in the embedding table break downstream linear layers)
+    _embed_param_id = id(model.get_input_embeddings().weight) if PER_LAYER_TOKENS else None
     for p in model.parameters():
-        if p.requires_grad:
+        if p.requires_grad and id(p) != _embed_param_id:
             p.data = p.data.float()
 
     if rank == 0:
