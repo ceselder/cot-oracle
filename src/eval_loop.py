@@ -35,6 +35,9 @@ from qa_judge import (
 )
 from cot_utils import sample_poisson_positions, sample_endweighted_positions
 
+# ── Per-layer token config (set by train.py when --per-layer-tokens is active) ──
+PER_LAYER_TOKEN_CONFIG: dict | None = None  # {"layer_token_map": {9: " ¶", 18: " §", 27: " ※"}}
+
 
 # ── Per-task response parsers ──
 # Each returns {"label": str, ...numeric_extras} or None if unparseable.
@@ -936,6 +939,27 @@ def _build_manual_prefix_token_ids(
     path (_build_manual_prefix_tokens in dataset_utils.py).
     """
     prefix_layers = list(layers)
+
+    # Per-layer tokens: each layer gets its own token ID, no "L{n}:" labels
+    if PER_LAYER_TOKEN_CONFIG is not None:
+        layer_map = PER_LAYER_TOKEN_CONFIG["layer_token_map"]
+        k, rem = divmod(num_positions, len(prefix_layers))
+        assert rem == 0, f"num_positions={num_positions} not divisible by layers={prefix_layers}"
+        prefix_ids: list[int] = []
+        positions: list[int] = []
+        for i, layer_idx in enumerate(prefix_layers):
+            token_str = layer_map.get(layer_idx)
+            token_id = tokenizer.encode(token_str, add_special_tokens=False)
+            assert len(token_id) == 1, f"Per-layer token {repr(token_str)} must be single token"
+            token_id = token_id[0]
+            if i > 0:
+                # Space separator between layer blocks
+                prefix_ids.extend(tokenizer.encode(" ", add_special_tokens=False))
+            positions.extend(range(len(prefix_ids), len(prefix_ids) + k))
+            prefix_ids.extend([token_id] * k)
+        prefix_ids.extend(tokenizer.encode(".\n", add_special_tokens=False))
+        return prefix_ids, positions
+
     block_sizes = [num_positions]
     if len(prefix_layers) > 1:
         k, rem = divmod(num_positions, len(prefix_layers))
@@ -966,6 +990,17 @@ def _build_oracle_prefix(
     prefix_layers = list(layers) if layers else []
     if not prefix_layers:
         raise ValueError("layers must be provided for oracle prefix construction")
+    # Per-layer tokens: each layer segment uses its own token, no "L{n}:" labels
+    if PER_LAYER_TOKEN_CONFIG is not None:
+        layer_map = PER_LAYER_TOKEN_CONFIG["layer_token_map"]
+        k, rem = divmod(num_positions, len(prefix_layers))
+        if rem:
+            raise ValueError(f"num_positions={num_positions} not divisible by layers={prefix_layers}")
+        parts = []
+        for layer in prefix_layers:
+            token = layer_map.get(layer, placeholder_token)
+            parts.append(token * k)
+        return " ".join(parts) + ".\n"
     if len(prefix_layers) == 1:
         return f"L{prefix_layers[0]}:" + placeholder_token * num_positions + ".\n"
     k, rem = divmod(num_positions, len(prefix_layers))

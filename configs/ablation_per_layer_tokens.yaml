@@ -1,0 +1,13 @@
+# Ablation: per-layer tokens with learned embeddings
+# Each source layer gets its own placeholder token + LoRA on embed_tokens
+# Injection at layer 0 instead of layer 1
+# Inherits everything from train.yaml except overrides below
+
+training:
+  per_layer_tokens: true
+
+model:
+  fresh_lora: true  # required: need embed_tokens in LoRA targets
+
+output:
+  wandb_run: ablation-per-layer-tokens

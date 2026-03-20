@@ -77,11 +77,19 @@ from nl_probes.utils.common import load_tokenizer, set_seed
 from cot_utils import layer_percent_to_layer, sparse_sample_positions, sample_poisson_positions, sample_endweighted_positions
 from tasks import TASKS, get_trainable_tasks
 from data_loading import load_all_training_data
+import eval_loop as _eval_loop_module
 from eval_loop import run_eval
 
 # ── Override placeholder token ──
 PLACEHOLDER_TOKEN = " ?"
 du_module.SPECIAL_TOKEN = PLACEHOLDER_TOKEN
+
+# ── Per-layer token config ──
+# When PER_LAYER_TOKENS is True, each source layer gets its own placeholder token
+# so the model can learn distinct embeddings per layer via LoRA on embed_tokens.
+PER_LAYER_TOKENS: bool = False
+LAYER_TOKEN_MAP: dict[int, str] = {}  # layer_idx -> token string (set in main())
+INJECTION_LAYER: int = 1  # 0 when per_layer_tokens is on
 
 # ── Multi-layer config ──
 MULTI_LAYERS: list[int] = []
@@ -95,10 +103,23 @@ POSITION_ENCODING: bool = False
 PE_ALPHA: float = 0.1
 _MODEL_N_LAYERS: int = 36  # total layers in the model (set in main())
 
+# Pool of rare single-token strings for per-layer tokens (Qwen3-8B verified)
+_LAYER_TOKEN_POOL = [" ¶", " §", " ※", " ★", " ☆", " ●"]
+
 
 def _build_labeled_layer_prefix(num_positions: int, layers: list[int], placeholder_token: str = PLACEHOLDER_TOKEN) -> str:
     if not layers:
         raise ValueError("layers must be non-empty")
+    if PER_LAYER_TOKENS and LAYER_TOKEN_MAP:
+        # Per-layer tokens: each layer segment uses its own token, no "L{n}:" labels needed
+        k, rem = divmod(num_positions, len(layers))
+        if rem:
+            raise ValueError(f"num_positions={num_positions} not divisible by layers={layers}")
+        parts = []
+        for layer in layers:
+            token = LAYER_TOKEN_MAP.get(layer, placeholder_token)
+            parts.append(token * k)
+        return " ".join(parts) + ".\n"
     if len(layers) == 1:
         return f"L{layers[0]}:" + placeholder_token * num_positions + ".\n"
     k, rem = divmod(num_positions, len(layers))
@@ -113,6 +134,37 @@ def _patched_get_prefix(sae_layer: int, num_positions: int, layers: list[int] | 
 
 
 du_module.get_introspection_prefix = _patched_get_prefix
+
+# Save original find_pattern_in_tokens for fallback
+_orig_find_pattern = du_module.find_pattern_in_tokens
+
+
+def _patched_find_pattern_in_tokens(token_ids, special_token_str, num_positions, tokenizer):
+    """Find placeholder positions — supports per-layer tokens (multiple token types)."""
+    if not PER_LAYER_TOKENS or not LAYER_TOKEN_MAP:
+        return _orig_find_pattern(token_ids, special_token_str, num_positions, tokenizer)
+
+    # Collect all per-layer token IDs
+    all_token_ids = set()
+    for tok_str in LAYER_TOKEN_MAP.values():
+        ids = tokenizer.encode(tok_str, add_special_tokens=False)
+        assert len(ids) == 1, f"Per-layer token {repr(tok_str)} is {len(ids)} tokens"
+        all_token_ids.add(ids[0])
+
+    positions = []
+    for i, tid in enumerate(token_ids):
+        if len(positions) == num_positions:
+            break
+        if tid in all_token_ids:
+            positions.append(i)
+
+    assert len(positions) == num_positions, (
+        f"Per-layer tokens: expected {num_positions} positions, got {len(positions)}"
+    )
+    return positions
+
+
+du_module.find_pattern_in_tokens = _patched_find_pattern_in_tokens
 
 
 # ── Distributed helpers ──
@@ -726,6 +778,7 @@ def _run_unified_eval(model, tokenizer, model_name, global_step, args, log_dir=N
         eval_batch_size=args.eval_batch_size,
         device="cuda",
         layers=MULTI_LAYERS,
+        injection_layer=INJECTION_LAYER,
         no_activations=no_activations,
         position_mode=args.position_mode,
         stochastic_max_k=args.stochastic_max_k,
@@ -1496,7 +1549,7 @@ def apply_config(args, config: dict):
                      "interleave_blocks", "max_train_tokens_per_gpu", "max_extract_tokens_per_gpu",
                      "batch_size", "effective_batch_size", "extraction_batch_size",
                      "length_bucketing", "length_bucket_window_batches",
-                     "torch_compile", "torch_compile_mode"]:
+                     "torch_compile", "torch_compile_mode", "per_layer_tokens"]:
             if key in t and not getattr(args, f"_cli_{key}", False):
                 val = t[key]
                 if key in _float_keys:
@@ -1700,6 +1753,8 @@ def main():
     parser.add_argument("--pe-alpha", type=float, default=None, help="Position encoding strength")
 
     # Ablations
+    parser.add_argument("--per-layer-tokens", action="store_true", default=False,
+                        help="Use different placeholder tokens per source layer + inject at layer 0 + LoRA on embed_tokens")
     parser.add_argument("--random-layers", action="store_true", default=False,
                         help="Randomize layer count and indices per training sequence")
 
@@ -1780,7 +1835,7 @@ def main():
     set_seed(args.seed)
 
     # Multi-layer config
-    global MULTI_LAYERS, NO_ACTIVATIONS, RANDOM_LAYERS, LAYER_DROPOUT, POSITION_MODE, STOCHASTIC_MAX_K, MAX_CONTEXT_LENGTH, POSITION_ENCODING, PE_ALPHA, _MODEL_N_LAYERS
+    global MULTI_LAYERS, NO_ACTIVATIONS, RANDOM_LAYERS, LAYER_DROPOUT, POSITION_MODE, STOCHASTIC_MAX_K, MAX_CONTEXT_LENGTH, POSITION_ENCODING, PE_ALPHA, _MODEL_N_LAYERS, PER_LAYER_TOKENS, LAYER_TOKEN_MAP, INJECTION_LAYER
     NO_ACTIVATIONS = getattr(args, "no_activations", False)
     RANDOM_LAYERS = getattr(args, "random_layers", False)
     LAYER_DROPOUT = args.layer_dropout
@@ -1797,6 +1852,21 @@ def main():
         n_layers = getattr(args, "n_layers", 3)
         percents = [int(100 * (i + 1) / (n_layers + 1)) for i in range(n_layers)]
         MULTI_LAYERS = [layer_percent_to_layer(args.model, p) for p in percents]
+
+    # Per-layer tokens: assign a unique placeholder token to each source layer
+    PER_LAYER_TOKENS = getattr(args, "per_layer_tokens", False)
+    if PER_LAYER_TOKENS:
+        assert len(MULTI_LAYERS) <= len(_LAYER_TOKEN_POOL), (
+            f"Need {len(MULTI_LAYERS)} per-layer tokens but only have {len(_LAYER_TOKEN_POOL)} in pool"
+        )
+        LAYER_TOKEN_MAP = {layer: _LAYER_TOKEN_POOL[i] for i, layer in enumerate(MULTI_LAYERS)}
+        INJECTION_LAYER = 0  # inject at layer 0 when using per-layer tokens
+        # Set eval_loop config so evals use the same per-layer tokens
+        _eval_loop_module.PER_LAYER_TOKEN_CONFIG = {"layer_token_map": dict(LAYER_TOKEN_MAP)}
+        if rank == 0:
+            print(f"Per-layer tokens: {LAYER_TOKEN_MAP}")
+            print(f"Injection layer: {INJECTION_LAYER}")
+
     # Make layers available to dataset loaders
     import cot_utils as _cu
     _cu.CONFIGURED_LAYERS = MULTI_LAYERS
@@ -1846,7 +1916,7 @@ def main():
         )
 
     # Get hook submodule BEFORE LoRA
-    submodule = get_hf_submodule(base_model, 1)
+    submodule = get_hf_submodule(base_model, INJECTION_LAYER)
 
     # Resume state (loaded before wandb init so we can reuse the run ID)
     _resume_state = None
@@ -1867,7 +1937,12 @@ def main():
     elif args.fresh_lora:
         if rank == 0:
             print("Starting with FRESH LoRA (random init)")
-        if args.ao_checkpoint:
+        _lora_targets = ["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"]
+        if PER_LAYER_TOKENS:
+            _lora_targets.append("embed_tokens")
+            if rank == 0:
+                print("  Per-layer tokens: adding embed_tokens to LoRA targets")
+        if args.ao_checkpoint and not PER_LAYER_TOKENS:
             try:
                 # Try loading AO checkpoint structure, then reinit weights
                 model = PeftModel.from_pretrained(
@@ -1881,17 +1956,18 @@ def main():
                 from peft import LoraConfig, get_peft_model
                 lora_config = LoraConfig(
                     r=64, lora_alpha=16, lora_dropout=0.0,
-                    target_modules=["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"],
+                    target_modules=_lora_targets,
                     bias="none", task_type="CAUSAL_LM",
                 )
                 model = get_peft_model(base_model, lora_config)
         else:
             if rank == 0:
-                print("  No AO checkpoint, creating LoRA from scratch")
+                reason = "per-layer-tokens (needs embed_tokens in LoRA)" if PER_LAYER_TOKENS else "No AO checkpoint"
+                print(f"  {reason}, creating LoRA from scratch")
             from peft import LoraConfig, get_peft_model
             lora_config = LoraConfig(
                 r=64, lora_alpha=16, lora_dropout=0.0,
-                target_modules=["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"],
+                target_modules=_lora_targets,
                 bias="none", task_type="CAUSAL_LM",
             )
             model = get_peft_model(base_model, lora_config)
