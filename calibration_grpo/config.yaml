@@ -47,8 +47,8 @@ training:
   lr: 5.0e-7
   warmup_steps: 20
   max_grad_norm: 1.0
-  batch_size: 4
-  gradient_accumulation_steps: 2
+  batch_size: 2
+  gradient_accumulation_steps: 4
   max_steps: 500
   save_every: 100
   temperature_floor: 0.6
