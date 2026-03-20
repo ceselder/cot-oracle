@@ -398,7 +398,7 @@ def dicts_to_training_data(
     n_layers_runtime = len(MULTI_LAYERS) if MULTI_LAYERS else 3
     _reexpand_warned = False
 
-    for item in raw_data:
+    for item_idx, item in enumerate(tqdm(raw_data, desc="Converting to TrainingDataPoints", disable=len(raw_data) < 1000)):
         ctx_pos = item["context_positions"]
         num_pos = item["num_positions"]
 
