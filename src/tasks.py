@@ -37,7 +37,7 @@ class TaskDef:
     default_n: int = 15000
     max_new_tokens: int = 64
     needs_rot13_adapter: bool = False
-    cot_field: str = "cot_text"         # field to use for activation extraction
+    oracle_context: str = "cot_text"         # field to use for activation extraction
     # Preamble describing the reasoning context — used by LLM monitor and SAE probe prompts
     cot_preamble: str = "A language model produced the following chain-of-thought reasoning for a question."
     # Maps datapoint_type in existing precomputed data → this task
@@ -228,7 +228,7 @@ TASKS: dict[str, TaskDef] = {
         trainable=True,
         default_n=25000,
         max_new_tokens=128,
-        cot_field="cot_prefix",
+        oracle_context="cot_prefix",
         cot_preamble=_CHUNKED_PREAMBLE,
     ),
 
@@ -241,7 +241,7 @@ TASKS: dict[str, TaskDef] = {
         trainable=True,
         default_n=10000,
         max_new_tokens=128,
-        cot_field="cot_prefix",
+        oracle_context="cot_prefix",
         cot_preamble=_CHUNKED_PREAMBLE,
         filter_datapoint_type="cot_backtrack_pred",
         hf_cache_name="chunked_compqa",
@@ -256,7 +256,7 @@ TASKS: dict[str, TaskDef] = {
         trainable=True,
         default_n=5000,
         max_new_tokens=128,
-        cot_field="cot_prefix",
+        oracle_context="cot_prefix",
         cot_preamble=_CHUNKED_PREAMBLE,
         filter_datapoint_type="cot_self_correction",
         hf_cache_name="chunked_compqa",
@@ -271,7 +271,7 @@ TASKS: dict[str, TaskDef] = {
         trainable=True,
         default_n=5000,
         max_new_tokens=128,
-        cot_field="cot_prefix",
+        oracle_context="cot_prefix",
         cot_preamble=_CHUNKED_PREAMBLE,
         filter_datapoint_type="cot_verification",
         hf_cache_name="chunked_compqa",
@@ -286,7 +286,7 @@ TASKS: dict[str, TaskDef] = {
         trainable=True,
         default_n=8000,
         max_new_tokens=128,
-        cot_field="cot_prefix",
+        oracle_context="cot_prefix",
         cot_preamble=_CHUNKED_PREAMBLE,
         filter_datapoint_type="cot_remaining_strategy",
         hf_cache_name="chunked_compqa",

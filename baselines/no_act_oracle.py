@@ -36,13 +36,13 @@ def run_no_act_oracle(
         return [""] * len(test_data)
 
     adapter_name = load_extra_adapter(model, checkpoint, adapter_name="no_act")
-    cot_field = task_def.cot_field
+    oracle_context = task_def.oracle_context
 
     predictions = []
     model.eval()
 
     for item in tqdm(test_data, desc="No-act oracle"):
-        cot_text = item.get(cot_field, "")[:4000]
+        cot_text = item.get(oracle_context, "")[:4000]
         question = item.get("question", item.get("prompt", ""))
         prompt_text = f"Question: {question}\nChain of thought: {cot_text}\n\n{item.get('prompt', '')}"
 

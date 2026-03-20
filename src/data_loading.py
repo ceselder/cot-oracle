@@ -99,10 +99,10 @@ def load_task_data(
             # Inject default prompt if missing (e.g. truthfulqa eval datasets)
             if "prompt" not in item or item["prompt"] is None:
                 item["prompt"] = _default_prompt(task_name)
-            # Map cot_field → cot_text for tasks that use a different field
+            # Map oracle_context → cot_text for tasks that use a different field
             # (e.g. chunked_convqa/compqa use cot_prefix for activations)
-            if task_def.cot_field != "cot_text" and task_def.cot_field in item:
-                item["cot_text"] = item[task_def.cot_field]
+            if task_def.oracle_context != "cot_text" and task_def.oracle_context in item:
+                item["cot_text"] = item[task_def.oracle_context]
             # Filter by datapoint_type if task requires it (subtask splits)
             if task_def.filter_datapoint_type and item.get("datapoint_type") != task_def.filter_datapoint_type:
                 continue

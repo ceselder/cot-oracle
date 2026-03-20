@@ -24,7 +24,7 @@ ROOT = Path(__file__).resolve().parents[1]
 load_dotenv(Path.home() / ".env")
 
 PLACEHOLDER_TOKEN = " ?"
-FIELDS = ("question", "cot_field", "oracle_prefix", "prompt")
+FIELDS = ("question", "cot_text", "oracle_prefix", "prompt")
 READOUT_TASKS = {"futurelens_cot", "futurelens_fineweb", "pastlens_cot", "pastlens_fineweb", "reconstruction_cot", "reconstruction_fineweb"}
 DEFAULT_PROMPTS = {
     "truthfulqa_hint_verbalized": "Did the model use an external hint in its reasoning? Describe the hint usage and its effect.",
@@ -38,7 +38,7 @@ DEFAULT_PROMPTS = {
 @dataclass(frozen=True)
 class TaskSpec:
     hf_repo: str
-    cot_field: str = "cot_text"
+    oracle_context: str = "cot_text"
 
 
 TASK_SPECS: dict[str, TaskSpec] = {
@@ -47,17 +47,17 @@ TASK_SPECS: dict[str, TaskSpec] = {
     "reasoning_termination": TaskSpec("mats-10-sprint-cs-jb/cot-oracle-reasoning-termination-cleaned"),
     "answer_trajectory": TaskSpec("mats-10-sprint-cs-jb/cot-oracle-answer-trajectory-cleaned"),
     "futurelens_cot": TaskSpec(""),
-    "futurelens_fineweb": TaskSpec("mats-10-sprint-cs-jb/fineweb-futurelens", cot_field="excerpt"),
+    "futurelens_fineweb": TaskSpec("mats-10-sprint-cs-jb/fineweb-futurelens", oracle_context="excerpt"),
     "pastlens_cot": TaskSpec(""),
-    "pastlens_fineweb": TaskSpec("mats-10-sprint-cs-jb/fineweb-pastlens", cot_field="excerpt"),
+    "pastlens_fineweb": TaskSpec("mats-10-sprint-cs-jb/fineweb-pastlens", oracle_context="excerpt"),
     "reconstruction_cot": TaskSpec(""),
-    "reconstruction_fineweb": TaskSpec("mats-10-sprint-cs-jb/fineweb-reconstruction", cot_field="excerpt"),
+    "reconstruction_fineweb": TaskSpec("mats-10-sprint-cs-jb/fineweb-reconstruction", oracle_context="excerpt"),
     "correctness": TaskSpec("mats-10-sprint-cs-jb/cot-oracle-correctness-cleaned"),
     "decorative_cot": TaskSpec("mats-10-sprint-cs-jb/cot-oracle-decorative-cot-cleaned"),
-    "chunked_convqa": TaskSpec("mats-10-sprint-cs-jb/cot-oracle-convqa-chunked", cot_field="cot_prefix"),
-    "chunked_compqa": TaskSpec("mats-10-sprint-cs-jb/cot-oracle-compqa-chunked", cot_field="cot_prefix"),
+    "chunked_convqa": TaskSpec("mats-10-sprint-cs-jb/cot-oracle-convqa-chunked", oracle_context="cot_prefix"),
+    "chunked_compqa": TaskSpec("mats-10-sprint-cs-jb/cot-oracle-compqa-chunked", oracle_context="cot_prefix"),
     "convqa": TaskSpec("mats-10-sprint-cs-jb/cot-oracle-convqa"),
-    "fineweb_convqa": TaskSpec("mats-10-sprint-cs-jb/fineweb-convqa", cot_field="excerpt"),
+    "fineweb_convqa": TaskSpec("mats-10-sprint-cs-jb/fineweb-convqa", oracle_context="excerpt"),
     "sycophancy": TaskSpec("mats-10-sprint-cs-jb/cot-oracle-sycophancy-cleaned"),
     "backtrack_prediction": TaskSpec("mats-10-sprint-cs-jb/cot-oracle-backtrack-prediction-cleaned"),
     "truthfulqa_hint_verbalized": TaskSpec("mats-10-sprint-cs-jb/cot-oracle-truthfulqa-hint-verbalized-cleaned"),
@@ -124,7 +124,7 @@ def default_prompt(task_name: str) -> str:
     return "Analyze the model's reasoning based on its activations."
 
 
-def normalize_item(task_name: str, item: dict, cot_field: str) -> dict:
+def normalize_item(task_name: str, item: dict, oracle_context: str) -> dict:
     row = dict(item)
     row["task"] = task_name
     if "datapoint_type" not in row:
@@ -142,8 +142,8 @@ def normalize_item(task_name: str, item: dict, cot_field: str) -> dict:
             row["target_response"] = row["label"]
     if "prompt" not in row or row["prompt"] is None:
         row["prompt"] = default_prompt(task_name)
-    if cot_field != "cot_text" and cot_field in row:
-        row["cot_text"] = row[cot_field]
+    if oracle_context != "cot_text" and oracle_context in row:
+        row["cot_text"] = row[oracle_context]
     if "num_positions" not in row and "context_positions" in row:
         row["num_positions"] = len(row["context_positions"])
     return row
@@ -294,12 +294,12 @@ def load_hf_task_data(task_name: str, n: int, split: str) -> list[dict]:
                 text = line.strip()
                 if not text:
                     continue
-                rows.append(normalize_item(task_name, json.loads(text), spec.cot_field))
+                rows.append(normalize_item(task_name, json.loads(text), spec.oracle_context))
         return rows
     ds = load_dataset(spec.hf_repo, split=hf_slice(split, n))
     rows: list[dict] = []
     for item in ds:
-        rows.append(normalize_item(task_name, item, spec.cot_field))
+        rows.append(normalize_item(task_name, item, spec.oracle_context))
     return rows
 
 
@@ -508,7 +508,7 @@ def plot_histograms(per_task_lengths: dict[str, dict[str, list[int]]], output_pa
     task_names = list(per_task_lengths)
     n_rows = len(task_names)
     fig, axes = plt.subplots(n_rows, len(FIELDS), figsize=(18, max(2.2 * n_rows, 4.5)), squeeze=False, sharex="col")
-    colors = {"question": "#3b82f6", "cot_field": "#16a34a", "oracle_prefix": "#d97706", "prompt": "#dc2626"}
+    colors = {"question": "#3b82f6", "cot_text": "#16a34a", "oracle_prefix": "#d97706", "prompt": "#dc2626"}
     column_max = {field: max(max(per_task_lengths[task_name][field]) for task_name in task_names) for field in FIELDS}
 
     for row_idx, task_name in enumerate(task_names):
@@ -569,7 +569,7 @@ def main() -> None:
         "layers": layers,
         "seed": seed,
         "measure": "tokens",
-        "cot_field_measure": "len(context_input_ids)",
+        "cot_text_measure": "len(context_input_ids)",
         "oracle_prefix_measure": "tokenized length of 'Activations: ' + PLACEHOLDER_TOKEN * num_positions + newline",
         "tasks": [],
     }
@@ -586,7 +586,7 @@ def main() -> None:
 
         per_task_lengths[task_name] = {
             "question": question_lengths,
-            "cot_field": cot_lengths,
+            "cot_text": cot_lengths,
             "oracle_prefix": prefix_lengths,
             "prompt": prompt_lengths,
         }

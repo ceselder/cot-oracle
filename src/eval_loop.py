@@ -22,6 +22,7 @@ import httpx
 import torch
 
 from tasks import TASKS, TaskDef, ScoringMode, get_eval_tasks
+import math
 from data_loading import load_task_data, load_futurelens_data, load_pastlens_data, prepare_context_ids
 from qa_scorer import (
     SCORE_MODEL,
@@ -35,6 +36,8 @@ from qa_scorer import (
     get_llm_scorer_system,
     compute_token_f1_scores,
     extract_scorer_json,
+    _scored_api_call,
+    _get_scorer_endpoint,
     is_qa_score_task,
     is_trajectory_scorer_task,
     is_llm_scorer_task,
@@ -177,8 +180,7 @@ def _score_qa_scorer(
         raise RuntimeError(f"QA scorer for {task_name} requires OpenRouter but it is unavailable. Set OPENROUTER_API_KEY.")
 
     print(f"    [{task_name}] Scoring {len(predictions)} QA answers with {score_model}...")
-    api_key = os.environ["OPENROUTER_API_KEY"]
-    headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+    scorer_url, headers = _get_scorer_endpoint()
     scores = []
     reasons = []
     raw_responses = []
@@ -194,11 +196,7 @@ def _score_qa_scorer(
                 "temperature": 0.0,
                 "max_tokens": QA_SCORE_MAX_TOKENS,
             }
-            response = client.post(OPENROUTER_CHAT_COMPLETIONS_URL, json=body, headers=headers)
-            response.raise_for_status()
-            response_json = response.json()
-            raw_text = response_json["choices"][0]["message"]["content"] or ""
-            raw_text = re.sub(r"<think>.*?</think>", "", raw_text, flags=re.DOTALL).strip()
+            raw_text = _scored_api_call(client, headers, body, url=scorer_url)
             parsed = extract_scorer_json(raw_text)
             score = float(parsed["score"])
             if score < 0.0 or score > 1.0:
@@ -238,8 +236,7 @@ def _score_trajectory_llm(
 
     score_model = get_score_model()
     print(f"    [answer_trajectory] Scoring {len(predictions)} trajectory predictions with {score_model}...")
-    api_key = os.environ["OPENROUTER_API_KEY"]
-    headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+    scorer_url, headers = _get_scorer_endpoint()
     answer_scores = []
     conf_errors = []
 
@@ -260,10 +257,7 @@ def _score_trajectory_llm(
                 "temperature": 0.0,
                 "max_tokens": QA_SCORE_MAX_TOKENS,
             }
-            response = client.post(OPENROUTER_CHAT_COMPLETIONS_URL, json=body, headers=headers)
-            response.raise_for_status()
-            raw_text = (response.json()["choices"][0]["message"]["content"] or "").strip()
-            raw_text = re.sub(r"<think>.*?</think>", "", raw_text, flags=re.DOTALL).strip()
+            raw_text = _scored_api_call(client, headers, body, url=scorer_url)
             parsed = extract_scorer_json(raw_text)
             answer_scores.append(float(parsed.get("answer_score", 0.0)))
             pred_conf = parsed.get("predicted_confidence")
@@ -297,8 +291,7 @@ def _score_llm_scorer(
     score_model = get_score_model()
     system_prompt = get_llm_scorer_system(task_name)
     print(f"    [{task_name}] Scoring {len(predictions)} responses with {score_model}...")
-    api_key = os.environ["OPENROUTER_API_KEY"]
-    headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+    scorer_url, headers = _get_scorer_endpoint()
 
     all_parsed = []
     with httpx.Client(timeout=90.0) as client:
@@ -312,10 +305,7 @@ def _score_llm_scorer(
                 "temperature": 0.0,
                 "max_tokens": QA_SCORE_MAX_TOKENS,
             }
-            response = client.post(OPENROUTER_CHAT_COMPLETIONS_URL, json=body, headers=headers)
-            response.raise_for_status()
-            raw_text = (response.json()["choices"][0]["message"]["content"] or "").strip()
-            raw_text = re.sub(r"<think>.*?</think>", "", raw_text, flags=re.DOTALL).strip()
+            raw_text = _scored_api_call(client, headers, body, url=scorer_url)
             all_parsed.append(extract_scorer_json(raw_text))
 
     # Aggregate numeric fields
@@ -488,54 +478,25 @@ def _score_binary(
     predictions: list[str],
     targets: list[str],
     task_def: TaskDef,
+    openrouter_available: bool = True,
 ) -> dict[str, float]:
-    """Generic binary classification scoring using TaskDef keywords."""
+    """Binary classification scoring via LLM scorer."""
     if not predictions:
         return {"accuracy": 0.0, "n": 0}
 
-    pos_kw = task_def.positive_keywords
-    neg_kw = task_def.negative_keywords
-    pos_label = task_def.positive_label
-    neg_label = task_def.negative_label
+    if not openrouter_available:
+        raise RuntimeError(f"Binary LLM scorer for {task_def.name} requires OpenRouter but it is unavailable.")
 
-    def _classify(text: str) -> str | None:
-        t = text.strip().lower()
-        # Check longer keywords first to avoid substring issues
-        for kw in sorted(neg_kw, key=len, reverse=True):
-            if kw.lower() in t:
-                return neg_label
-        for kw in sorted(pos_kw, key=len, reverse=True):
-            if kw.lower() in t:
-                return pos_label
-        return None
-
-    def _classify_target(text: str) -> str | None:
-        t = text.strip().lower()
-        if pos_label and pos_label.lower() in t:
-            return pos_label
-        if neg_label and neg_label.lower() in t:
-            return neg_label
-        return _classify(text)
-
-    correct = 0
-    total = 0
-    unparsed = 0
-    for pred_text, target_text in zip(predictions, targets):
-        gt = _classify_target(target_text)
-        if gt is None:
-            continue
-        pr = _classify(pred_text)
-        total += 1
-        if pr is None:
-            unparsed += 1
-            # Count as wrong — don't skip
-        elif pr == gt:
-            correct += 1
+    from qa_scorer import score_binary_llm
+    results = score_binary_llm(predictions, targets)
+    scores = [s for s, _ in results]
+    raw_responses = [r for _, r in results]
 
     return {
-        "accuracy": correct / total if total > 0 else 0.0,
-        "n": total,
-        "unparsed": unparsed,
+        "accuracy": sum(scores) / len(scores) if scores else 0.0,
+        "n": len(scores),
+        "_binary_scores": scores,
+        "_binary_scorer_raw": raw_responses,
     }
 
 
@@ -602,7 +563,7 @@ def score_task(
         return _score_parsed(parser, predictions, targets)
 
     if task_def.scoring == ScoringMode.BINARY:
-        return _score_binary(predictions, targets, task_def)
+        return _score_binary(predictions, targets, task_def, openrouter_available=openrouter_available)
     elif task_def.scoring == ScoringMode.TOKEN_F1:
         return _score_token_f1(predictions, targets)
     elif task_def.scoring == ScoringMode.STEP_ACCURACY:
@@ -725,6 +686,306 @@ def _primary_metric_name(task_name: str, scoring: ScoringMode) -> str:
         ScoringMode.TOKEN_MATCH: "token_match_rate",
         ScoringMode.LLM_SCORER: "correctness",
     }.get(scoring, "accuracy")
+
+
+# ── Public helpers (shared with eval_comprehensive.py) ──
+
+
+def load_and_normalize(task_name: str, n: int, split: str = "test") -> list[dict]:
+    """Load task data, normalize fields, add _task_name. Falls back to train split."""
+    try:
+        data = load_task_data(task_name, split=split, n=n, shuffle=False)
+    except Exception:
+        data = []
+    if not data and split == "test":
+        data = load_task_data(task_name, split="train", n=n, shuffle=False)
+    for item in data:
+        if "meta_spliced_cot_text" in item and "cot_text" not in item:
+            item["cot_text"] = item["meta_spliced_cot_text"]
+        if "test_prompt" in item and "question" not in item:
+            item["question"] = item["test_prompt"]
+        if "target_response" not in item and "meta_oracle_target" in item:
+            item["target_response"] = str(item["meta_oracle_target"])
+        item["_task_name"] = task_name
+    return data
+
+
+def materialize_activations_chunked(
+    model, tokenizer, items: list[dict], layers: list[int],
+    position_mode: str = "all", task_name: str = "", chunk_size: int = 4,
+    device: str = "cuda", stochastic_max_k: int = 100, eval_position_seed: int = 0,
+) -> tuple[list[dict], list[torch.Tensor]]:
+    """Prepare context, resample positions, and materialize activations with OOM-safe chunking.
+
+    Returns (valid_items, activations) where valid_items have context_input_ids.
+    """
+    prepare_context_ids(items, tokenizer, layers=layers)
+    valid = [d for d in items if d.get("context_input_ids")]
+    if not valid:
+        return [], []
+    _resample_eval_positions(
+        test_data=valid, task_name=task_name, layers=layers,
+        position_mode=position_mode, stochastic_max_k=stochastic_max_k,
+        eval_position_seed=eval_position_seed,
+    )
+    all_acts: list[torch.Tensor] = []
+    for start in range(0, len(valid), chunk_size):
+        chunk = valid[start:start + chunk_size]
+        chunk_acts = _materialize_activations(model, tokenizer, chunk, layers=layers, device=device)
+        all_acts.extend(chunk_acts)
+    return valid, all_acts
+
+
+def parse_position_slice(s: str) -> slice:
+    """Parse numpy-style slice string into a slice object.
+
+    Examples: "::" → all, "::5" → every 5th, "-5:" → last 5, "-10::2" → last 10, every 2nd
+    """
+    parts = s.split(":")
+    if len(parts) == 2:
+        parts.append(None)
+    if len(parts) != 3:
+        raise ValueError(f"Invalid slice string: {s!r}")
+    start = int(parts[0]) if parts[0] else None
+    stop = int(parts[1]) if parts[1] else None
+    step = int(parts[2]) if parts[2] else None
+    return slice(start, stop, step)
+
+
+def slice_to_method_tag(s: str) -> str:
+    """Convert slice string to a method-name-safe tag.
+
+    "::" → "all", "::5" → "stride5", "-5:" → "tail5", "-10::2" → "tail10_stride2"
+    """
+    sl = parse_position_slice(s)
+    parts = []
+    if sl.start is not None and sl.start < 0:
+        parts.append(f"tail{abs(sl.start)}")
+    elif sl.start is not None and sl.start > 0:
+        parts.append(f"from{sl.start}")
+    if sl.stop is not None:
+        parts.append(f"to{sl.stop}")
+    if sl.step is not None and sl.step != 1:
+        parts.append(f"stride{sl.step}")
+    return "_".join(parts) if parts else "all"
+
+
+def method_tag_to_slice(tag: str) -> str:
+    """Convert method tag back to slice string.
+
+    "all" → "::", "stride5" → "::5", "tail5" → "-5:", "tail10_stride2" → "-10::2"
+    """
+    if tag == "all":
+        return "::"
+    start, stop, step = "", "", ""
+    for part in tag.split("_"):
+        if part.startswith("tail"):
+            start = f"-{part[4:]}"
+        elif part.startswith("from"):
+            start = part[4:]
+        elif part.startswith("to"):
+            stop = part[2:]
+        elif part.startswith("stride"):
+            step = part[6:]
+    return f"{start}:{stop}:{step}"
+
+
+def _filter_activations(act: torch.Tensor, n_layers: int, pos_slice: slice, include_last: bool = False) -> torch.Tensor:
+    """Subsample activation positions per layer using a slice.
+
+    Args:
+        act: [n_layers * K, D] activation tensor
+        n_layers: number of layers
+        pos_slice: slice applied to each layer's K positions
+        include_last: if True, always include the last position (end of CoT)
+    """
+    K = act.shape[0] // n_layers
+    base = list(range(K))
+    selected = base[pos_slice]
+    if include_last and selected and selected[-1] != K - 1:
+        selected.append(K - 1)
+    if len(selected) == K:
+        return act
+    indices = []
+    for l in range(n_layers):
+        layer_start = l * K
+        indices.extend(layer_start + s for s in selected)
+    return act[indices]
+
+
+def run_oracle_eval(
+    model, tokenizer, task_name: str, task_def: TaskDef, test_data: list[dict],
+    layers: list[int], position_mode: str, oracle_adapter_name: str,
+    position_slice: str = "::",
+    completed_indices: set[int] | None = None, chunk_size: int = 4,
+) -> tuple[list[str | None], list[str], list[int]]:
+    """Run oracle eval pipeline. Returns (predictions, targets, todo_indices).
+
+    Args:
+        position_slice: numpy-style slice string applied per layer (e.g. "::" for all,
+            "::5" for every 5th, "-5:" for last 5)
+    """
+    completed = completed_indices or set()
+
+    prepare_context_ids(test_data, tokenizer, layers=layers)
+    valid_data = [(i, d) for i, d in enumerate(test_data) if d.get("context_input_ids")]
+    if not valid_data:
+        return [None] * len(test_data), [d.get("target_response", "") for d in test_data], []
+
+    todo_indices = [i for i, _ in valid_data if i not in completed]
+    todo_items = [test_data[i] for i in todo_indices]
+
+    if todo_items:
+        _resample_eval_positions(
+            test_data=todo_items, task_name=task_name, layers=layers,
+            position_mode=position_mode, stochastic_max_k=100, eval_position_seed=0,
+        )
+
+        all_activations: list[torch.Tensor] = []
+        for start in range(0, len(todo_items), chunk_size):
+            chunk = todo_items[start:start + chunk_size]
+            chunk_acts = _materialize_activations(model, tokenizer, chunk, layers=layers, device="cuda")
+            all_activations.extend(chunk_acts)
+
+        n_layers = len(layers)
+        pos_sl = parse_position_slice(position_slice)
+        oracle_items = []
+        for act, item in zip(all_activations, todo_items):
+            act = _filter_activations(act, n_layers, pos_sl, include_last=True)
+            oracle_items.append((act, item["prompt"]))
+
+        new_predictions = _batched_oracle_generate(
+            model=model, tokenizer=tokenizer, items=oracle_items,
+            layers=layers, device="cuda", injection_layer=1,
+            max_new_tokens=task_def.max_new_tokens, eval_batch_size=8,
+            oracle_adapter_name=oracle_adapter_name,
+        )
+    else:
+        new_predictions = []
+
+    predictions: list[str | None] = [None] * len(test_data)
+    for idx, pred in zip(todo_indices, new_predictions):
+        predictions[idx] = pred
+
+    targets = [d.get("target_response", "") for d in test_data]
+    return predictions, targets, todo_indices
+
+
+def extract_per_item_scores(result: dict, task_def: TaskDef, predictions: list[str], targets: list[str]) -> tuple[list[float], list[str | None]]:
+    """Extract per-item scores and scorer raw responses from a score_task result."""
+    if "_qa_scorer_scores" in result:
+        scores = [s for s in result["_qa_scorer_scores"] if not (isinstance(s, float) and math.isnan(s))]
+        raw = result.get("_qa_scorer_raw", [None] * len(scores))
+        return scores, raw
+    if "_llm_scorer_parsed" in result:
+        scores = [float(p.get("correctness", 0.0)) for p in result["_llm_scorer_parsed"]]
+        return scores, [None] * len(scores)
+    if "_binary_scores" in result:
+        return result["_binary_scores"], result.get("_binary_scorer_raw", [None] * len(result["_binary_scores"]))
+    scores = []
+    for pred, tgt in zip(predictions, targets):
+        c = _per_example_correct(task_def.name, task_def, pred, tgt)
+        if c == "yes":
+            scores.append(1.0)
+        elif c.startswith("F1="):
+            scores.append(float(c[3:]))
+        else:
+            scores.append(0.0)
+    return scores, [None] * len(scores)
+
+
+def bootstrap_std(scores: list[float], n_resamples: int = 5, frac: float = 0.5) -> float:
+    """Bootstrap standard deviation of the mean."""
+    if len(scores) < 4:
+        return 0.0
+    k = max(2, int(len(scores) * frac))
+    means = []
+    for _ in range(n_resamples):
+        sub = random.choices(scores, k=k)
+        means.append(sum(sub) / len(sub))
+    return (sum((m - sum(means) / len(means)) ** 2 for m in means) / len(means)) ** 0.5
+
+
+def build_method_config(method_name: str, method_config: dict) -> dict:
+    """Parse method name into structured config dict.
+
+    Naming uses slice tags:
+        our_ao_stride5        →  position_slice "::5"
+        our_ao_all            →  position_slice "::"
+        original_ao_L9_tail5  →  position_slice "-5:"
+        original_ao_L9_all    →  position_slice "::"
+    Legacy k-names are mapped: our_ao_k5 → stride5, original_ao_L9_k5 → tail5
+    """
+    for prefix, mtype in [("our_ao_", "our_ao"), ("original_ao_", "original_ao")]:
+        if not method_name.startswith(prefix):
+            continue
+        suffix = method_name[len(prefix):]
+
+        # Try L{layer}_{tag} pattern
+        m = re.match(r"L(\d+)_(.*)", suffix)
+        if m:
+            layer = int(m.group(1))
+            tag = m.group(2)
+        else:
+            layer = None
+            tag = suffix
+
+        # Legacy k-names: our_ao_k5 → stride5, original_ao_k5 → tail5
+        km = re.match(r"k(.+)", tag)
+        if km:
+            k_str = km.group(1)
+            if k_str == "all":
+                tag = "all"
+            elif mtype == "our_ao":
+                tag = f"stride{k_str}"
+            else:
+                tag = f"tail{k_str}"
+
+        pos_slice = method_tag_to_slice(tag)
+        result = {"type": mtype, "position_slice": pos_slice}
+        if layer is not None:
+            result["layer"] = layer
+        return result
+
+    if method_name in ("weak-bb-monitor", "strong-bb-monitor"):
+        cfg = method_config.get(method_name, {})
+        return {"type": "bb_monitor", "model": cfg.get("model"), "max_tokens": cfg.get("max_tokens")}
+    return {"type": method_name}
+
+
+_DEFAULT_OUR_AO_SLICES = ["::20", "::10", "::5", "::2", "::"]
+_DEFAULT_ORIGINAL_AO_SLICES = ["-1:", "-5:", "-10:", "-20:", "::"]
+
+
+def expand_methods(active_baselines: list[str], method_config: dict, default_layers: list[int] | None = None) -> list[str]:
+    """Expand baseline names into concrete method names.
+
+    position_slices in config use numpy-style slice strings:
+        our_ao:      ["::20", "::10", "::5", "::"]  →  our_ao_stride20, ..., our_ao_all
+        original_ao: ["-1:", "-5:", "-20:", "::"]    →  original_ao_L9_tail1, ..., original_ao_L9_all
+    """
+    if default_layers is None:
+        default_layers = [9, 18, 27]
+    methods = []
+    for b in active_baselines:
+        cfg = method_config.get(b, {})
+        if b == "no_act_oracle" and not cfg.get("checkpoint", ""):
+            continue
+        if b in ("our_ao", "original_ao"):
+            default_slices = _DEFAULT_OUR_AO_SLICES if b == "our_ao" else _DEFAULT_ORIGINAL_AO_SLICES
+            slices = cfg.get("position_slices", default_slices)
+            use_single_layer = cfg.get("single_layer", b == "original_ao")
+            layer_list = cfg.get("layers", default_layers)
+            for sl in slices:
+                tag = slice_to_method_tag(sl)
+                if use_single_layer:
+                    for layer in layer_list:
+                        methods.append(f"{b}_L{layer}_{tag}")
+                else:
+                    methods.append(f"{b}_{tag}")
+        else:
+            methods.append(b)
+    return methods
 
 
 # ── Activation cache ──
@@ -1433,24 +1694,7 @@ def _eval_single_task(
             if task_name in ("futurelens", "pastlens", "futurelens_fineweb", "pastlens_fineweb", "reconstruction_fineweb"):
                 return {"n": 0}
 
-            try:
-                test_data = load_task_data(task_name, split="test", n=max_items, shuffle=False)
-            except Exception:
-                test_data = []
-            if not test_data:
-                test_data = load_task_data(task_name, split="train", n=max_items, shuffle=False)
-            if not test_data:
-                return {"n": 0}
-
-            # Normalize field names
-            for item in test_data:
-                if "meta_spliced_cot_text" in item and "cot_text" not in item:
-                    item["cot_text"] = item["meta_spliced_cot_text"]
-                if "test_prompt" in item and "question" not in item:
-                    item["question"] = item["test_prompt"]
-                if "target_response" not in item and "meta_oracle_target" in item:
-                    item["target_response"] = str(item["meta_oracle_target"])
-
+            test_data = load_and_normalize(task_name, max_items)
             test_data = [d for d in test_data if d.get("cot_text")]
             if not test_data:
                 return {"n": 0}
@@ -1496,8 +1740,8 @@ def _eval_single_task(
             item = test_data[i]
             trace = {
                 "question": item.get("question", item.get("hinted_prompt", "")),
-                "cot_field": item.get("cot_text", ""),
-                "masked_cot_field": item.get("cot_text", ""),
+                "cot_text": item.get("cot_text", ""),
+                "masked_cot_text": item.get("cot_text", ""),
                 "oracle_prefix": "",
                 "oracle_prompt": item["prompt"],
                 "expected": tgt,
@@ -1549,53 +1793,19 @@ def _eval_single_task(
                 variant=task_name,
             )
         else:
-            # Try test split first, fall back to tail of train split
-            try:
-                test_data = load_task_data(task_name, split="test", n=max_items, shuffle=False)
-            except Exception:
-                test_data = []
-            if not test_data:
-                test_data = load_task_data(task_name, split="train", n=max_items, shuffle=False)
+            test_data = load_and_normalize(task_name, max_items)
         if not test_data:
             return {"n": 0}
 
-        # Normalize field names for special eval datasets
-        for item in test_data:
-            # sentence_insertion: map spliced CoT and prompt fields
-            if "meta_spliced_cot_text" in item and "cot_text" not in item:
-                item["cot_text"] = item["meta_spliced_cot_text"]
-            if "test_prompt" in item and "question" not in item:
-                item["question"] = item["test_prompt"]
-            # Build target_response from meta fields if missing
-            if "target_response" not in item and "meta_oracle_target" in item:
-                item["target_response"] = str(item["meta_oracle_target"])
-
-        # Prepare context_input_ids for items with cot_text (futurelens already has them)
-        prepare_context_ids(
-            test_data, tokenizer, layers=layers,
+        # Materialize activations (prepare_context_ids + resample + extract, chunked)
+        test_data, all_activations = materialize_activations_chunked(
+            model, tokenizer, test_data, layers,
+            position_mode=position_mode, task_name=task_name,
+            chunk_size=activation_extract_batch_size, device=device,
+            stochastic_max_k=stochastic_max_k, eval_position_seed=eval_position_seed,
         )
-        n_layers = len(layers)
-
-        test_data = [d for d in test_data if d.get("context_input_ids")]
         if not test_data:
             return {"n": 0}
-        _resample_eval_positions(
-            test_data=test_data,
-            task_name=task_name,
-            layers=layers,
-            position_mode=position_mode,
-            stochastic_max_k=stochastic_max_k,
-            eval_position_seed=eval_position_seed,
-        )
-
-        # Materialize activations in mini-batches
-        all_activations: list[torch.Tensor] = []
-        for start in range(0, len(test_data), activation_extract_batch_size):
-            chunk = test_data[start:start + activation_extract_batch_size]
-            chunk_acts = _materialize_activations(
-                model, tokenizer, chunk, layers=layers, device=device,
-            )
-            all_activations.extend(chunk_acts)
 
         # Cache on CPU (base model frozen, activations won't change)
         _eval_cache[cache_key] = _CachedEvalData(
@@ -1651,7 +1861,7 @@ def _eval_single_task(
         item = test_data[i]
         oracle_prefix = _build_oracle_prefix(all_activations[i].shape[0], layers=layers, placeholder_token=ph_token)
 
-        # Build masked_cot_field: replace activation-position tokens with placeholder
+        # Build masked_cot_text: replace activation-position tokens with placeholder
         ctx_ids = item.get("context_input_ids", [])
         ctx_pos = item.get("context_positions", [])
         base_pos = set(ctx_pos[:len(ctx_pos) // n_layers]) if ctx_pos else set()
@@ -1659,12 +1869,12 @@ def _eval_single_task(
         for p in base_pos:
             if p < len(masked_ids):
                 masked_ids[p] = ph_id
-        masked_cot_field = tokenizer.decode(masked_ids, skip_special_tokens=False) if masked_ids else ""
+        masked_cot_text = tokenizer.decode(masked_ids, skip_special_tokens=False) if masked_ids else ""
 
         trace = {
             "question": item.get("question", item.get("hinted_prompt", "")),
-            "cot_field": item.get("cot_text", ""),
-            "masked_cot_field": masked_cot_field,
+            "cot_text": item.get("cot_text", ""),
+            "masked_cot_text": masked_cot_text,
             "oracle_prompt": item["prompt"],
             "oracle_prefix": oracle_prefix,
             "expected": tgt,

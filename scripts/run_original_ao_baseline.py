@@ -98,12 +98,12 @@ def main():
 
         # Log trace tables
         for task_name, traces in all_traces.items():
-            table = wandb.Table(columns=["question", "cot_field", "masked_cot_field", "oracle_prompt", "oracle_prefix", "expected", "predicted", "correct"])
+            table = wandb.Table(columns=["question", "cot_text", "masked_cot_text", "oracle_prompt", "oracle_prefix", "expected", "predicted", "correct"])
             for t in traces:
                 table.add_data(
                     t.get("question", "")[:200],
-                    t.get("cot_field", "")[:500],
-                    t.get("masked_cot_field", "")[:500],
+                    t.get("cot_text", "")[:500],
+                    t.get("masked_cot_text", "")[:500],
                     t.get("oracle_prompt", "")[:300],
                     t.get("oracle_prefix", "")[:300],
                     t.get("expected", "")[:200],
