@@ -7,12 +7,7 @@ A white-box chain-of-thought (CoT) monitoring system built on Activation Oracles
 The oracle is Qwen3-8B fine-tuned with LoRA to accept its own activations via norm-matched injection at layer 1.
 
 ### Unified Task System
-
-11 tasks total (6 trainable + 5 eval-only), defined in `src/tasks.py`:
-
-**Training + Eval:** hint_admission, atypical_answer, reasoning_termination, answer_trajectory, futurelens, backtrack_prediction
-
-**Eval-only:** rot13_reconstruction, sycophancy, truthfulqa_hint_verbalized, truthfulqa_hint_unverbalized, sentence_insertion
+Tasks defined in `tasks.py`
 
 Key files:
 - `configs/train.yaml` — Training config: task counts, hyperparams, activation settings, model
@@ -22,13 +17,6 @@ Key files:
 - `src/eval_loop.py` — Unified eval with 4 scoring modes (replaces training_eval_hook.py)
 
 All data uses the same schema: `{task, prompt, target_response, context_input_ids, context_positions, layers}`
-
-### Stochastic position sampling (training)
-Base positions are computed at stride=5 over the CoT region. During training, stochastic subsampling (default):
-- **40%** of examples: only the **last position** per layer (minimal context)
-- **60%** of examples: sample `k` from a log-uniform distribution over `[2, min(100, K)]`, then draw `k` Poisson-process positions (uniform iid, deduplicated), always including the last position
-
-At **eval time**, all stride-5 positions are used (no subsampling).
 
 ## Training
 
@@ -42,17 +30,6 @@ Instead, try to log the number of gpus to metadata but dont put it in the runnam
 - **ALL training data comes from HuggingFace.** The training script downloads precomputed JSONL from HF automatically. Never bake activation positions or limits into precomputed data — precomputed data stores `context_input_ids` and `context_positions`, and activation extraction happens at training time on GPU.
 - **NEVER cap or truncate activation positions.** Do not set `max_positions_per_layer` or any limit on the number of stride positions fed to the oracle. The oracle should see ALL stride positions from the CoT. Stride=5 already controls density.
 - **NEVER fail silently.** If a task is enabled (n > 0) but its data can't be loaded, raise an error. Do not silently skip tasks or swallow exceptions.
-
-
-## SAE Feature Analysis
-
-We use Sparse Autoencoders (SAEs) from `adamkarvonen/qwen3-8b-saes` to get interpretable feature-level decompositions of the same residual stream the oracle reads. SAEs are available at layers 9, 18, 27 (same as oracle layers) with 65K features each (trainer 2, BatchTopK architecture).
-
-**How it works:** The SAE encoder projects a residual stream vector `x ∈ R^d_model` into a sparse feature space `f ∈ R^d_sae` via `f = ReLU((x - b_dec) @ W_enc + b_enc)`, then applies a threshold to keep only strongly active features. The decoder reconstructs `x_hat = f @ W_dec + b_dec`. Each feature has a human-readable label generated from its max-activating examples (stored as JSON per layer).
-
-**Loading:** `ao_reference/nl_probes/sae.py` → `load_dictionary_learning_batch_topk_sae()`. Labels at `$CACHE_DIR/sae_features/trainer_2/trainer_2/labels/labels_layer{9,18,27}_trainer2.json` (also on HF: `japhba/qwen3-8b-sae-max-activations`).
-
-**Oracle vs SAE comparison:** `scripts/compare_oracle_sae.py` runs both the trained oracle and SAEs on the same CoT rollouts, producing per-example markdown logs with oracle task outputs alongside top-K SAE features at stride positions.
 
 ## References
 - Activation Oracles: [arXiv:2512.15674](https://arxiv.org/abs/2512.15674), [GitHub](https://github.com/adamkarvonen/activation_oracles)
@@ -70,7 +47,7 @@ We use Sparse Autoencoders (SAEs) from `adamkarvonen/qwen3-8b-saes` to get inter
 ## Terminology
 - **Scorer** = the LLM (`score_model` in eval.yaml) that grades oracle/baseline outputs during training-time eval and comprehensive eval. Lives in `src/qa_scorer.py`. Use "scorer" everywhere in code.
 - **Judge** = reserved for the comparative eval UI in `scripts/eval_viewer.py` and `src/chat_compare.py`, where an LLM rates and compares multiple method outputs side-by-side.
-- **LLM monitor** = a baseline method (`baselines/llm_monitor.py`) where an external LLM reads the CoT text and answers the task question. Not the same as the scorer.
+- ****BB** monitor** = a baseline method (`baselines/bb_monitor.py`) where an external LLM reads the CoT text and answers the task question. Not the same as the scorer.
 
 ## Critical Lessons
 - **Mini corpus memorization:** 1,064 entries x 15K = 14x repetition → loss=0.01. Use medium corpus (47K+).
