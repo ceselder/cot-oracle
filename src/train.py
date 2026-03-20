@@ -125,8 +125,9 @@ POSITION_ENCODING: bool = False
 PE_ALPHA: float = 0.1
 _MODEL_N_LAYERS: int = 36  # total layers in the model (set in main())
 
-# Pool of rare single-token strings for per-layer tokens (Qwen3-8B verified)
-_LAYER_TOKEN_POOL = [" ¶", " §", " ※", " ★", " ☆", " ●"]
+# New special tokens for per-layer activation injection
+# These get added to the tokenizer and their embeddings train from scratch
+_LAYER_TOKEN_TEMPLATE = "<res_L{}>"  # e.g. <res_L9>, <res_L18>, <res_L27>
 
 
 def _build_labeled_layer_prefix(num_positions: int, layers: list[int], placeholder_token: str = PLACEHOLDER_TOKEN) -> str:
@@ -169,9 +170,13 @@ def _patched_find_pattern_in_tokens(token_ids, special_token_str, num_positions,
     # Collect all per-layer token IDs
     all_token_ids = set()
     for tok_str in LAYER_TOKEN_MAP.values():
-        ids = tokenizer.encode(tok_str, add_special_tokens=False)
-        assert len(ids) == 1, f"Per-layer token {repr(tok_str)} is {len(ids)} tokens"
-        all_token_ids.add(ids[0])
+        tid = tokenizer.convert_tokens_to_ids(tok_str)
+        if tid == tokenizer.unk_token_id:
+            # Fallback: try encode
+            ids = tokenizer.encode(tok_str, add_special_tokens=False)
+            assert len(ids) == 1, f"Per-layer token {repr(tok_str)} is {len(ids)} tokens"
+            tid = ids[0]
+        all_token_ids.add(tid)
 
     positions = []
     for i, tid in enumerate(token_ids):
@@ -745,6 +750,16 @@ def _save_adaptive_norm(save_path: Path, adaptive_norm_module):
     """Save adaptive norm parameters alongside a checkpoint."""
     if adaptive_norm_module is not None:
         torch.save(adaptive_norm_module.state_dict(), save_path / "adaptive_norm.pt")
+
+
+def _save_per_layer_token_state(save_path: Path, model, tokenizer, new_token_ids: dict):
+    """Save tokenizer + new token embeddings alongside a checkpoint."""
+    if not new_token_ids:
+        return
+    tokenizer.save_pretrained(str(save_path))
+    embed_weight = model.get_input_embeddings().weight
+    token_embeds = {tid: embed_weight[tid].detach().cpu() for tid in new_token_ids.values()}
+    torch.save(token_embeds, save_path / "per_layer_token_embeds.pt")
 
 
 def _save_training_state(save_path: Path, global_step, optimizer, scheduler):
@@ -1504,6 +1519,7 @@ def train(
                 print(f"  Saving phase checkpoint to {ckpt_path}")
                 model.save_pretrained(str(ckpt_path))
                 _save_adaptive_norm(ckpt_path, adaptive_norm_module)
+                _save_per_layer_token_state(ckpt_path, model, tokenizer, _new_token_ids)
                 _save_training_state(ckpt_path, global_step, optimizer, scheduler)
             if world_size > 1 and task_order in ("sequential", "interleaved") and prev_dominant_task is not None and dominant_task != prev_dominant_task:
                 dist.barrier()
@@ -1527,6 +1543,7 @@ def train(
                     print(f"  Saving checkpoint to {ckpt_path}")
                     model.save_pretrained(str(ckpt_path))
                     _save_adaptive_norm(ckpt_path, adaptive_norm_module)
+                    _save_per_layer_token_state(ckpt_path, model, tokenizer, _new_token_ids)
                     _save_training_state(ckpt_path, global_step, optimizer, scheduler)
                 if world_size > 1:
                     dist.barrier()
@@ -1537,6 +1554,7 @@ def train(
                 latest_path.mkdir(parents=True, exist_ok=True)
                 model.save_pretrained(str(latest_path))
                 _save_adaptive_norm(latest_path, adaptive_norm_module)
+                _save_per_layer_token_state(latest_path, model, tokenizer, _new_token_ids)
                 _upload_checkpoint_to_hf(latest_path, args, global_step)
 
             # Reset accumulators for next grad_accum window
@@ -1558,6 +1576,7 @@ def train(
         print(f"  Saving final checkpoint to {final_path}")
         model.save_pretrained(str(final_path))
         _save_adaptive_norm(final_path, adaptive_norm_module)
+        _save_per_layer_token_state(final_path, model, tokenizer, _new_token_ids)
         _save_training_state(final_path, global_step, optimizer, scheduler)
         _log_final_checkpoint_to_wandb(final_path, global_step)
 
@@ -1927,13 +1946,10 @@ def main():
         percents = [int(100 * (i + 1) / (n_layers + 1)) for i in range(n_layers)]
         MULTI_LAYERS = [layer_percent_to_layer(args.model, p) for p in percents]
 
-    # Per-layer tokens: assign a unique placeholder token to each source layer
+    # Per-layer tokens: assign a unique NEW special token to each source layer
     PER_LAYER_TOKENS = getattr(args, "per_layer_tokens", False)
     if PER_LAYER_TOKENS:
-        assert len(MULTI_LAYERS) <= len(_LAYER_TOKEN_POOL), (
-            f"Need {len(MULTI_LAYERS)} per-layer tokens but only have {len(_LAYER_TOKEN_POOL)} in pool"
-        )
-        LAYER_TOKEN_MAP = {layer: _LAYER_TOKEN_POOL[i] for i, layer in enumerate(MULTI_LAYERS)}
+        LAYER_TOKEN_MAP = {layer: _LAYER_TOKEN_TEMPLATE.format(layer) for layer in MULTI_LAYERS}
         INJECTION_LAYER = 0  # inject at layer 0 when using per-layer tokens
         # Default sigmoid_norm ON with per-layer tokens (unless explicitly disabled)
         if args.sigmoid_norm is None:
@@ -1970,6 +1986,18 @@ def main():
 
     tokenizer = load_tokenizer(args.model)
 
+    # Add per-layer special tokens to tokenizer BEFORE model loading
+    _new_token_ids = {}
+    if PER_LAYER_TOKENS:
+        new_tokens = list(LAYER_TOKEN_MAP.values())
+        num_added = tokenizer.add_special_tokens({"additional_special_tokens": new_tokens})
+        for layer, tok_str in LAYER_TOKEN_MAP.items():
+            tid = tokenizer.convert_tokens_to_ids(tok_str)
+            _new_token_ids[layer] = tid
+            assert tid != tokenizer.unk_token_id, f"Token {tok_str} not found after adding"
+        if rank == 0:
+            print(f"Added {num_added} special tokens: {_new_token_ids}")
+
     # Verify placeholder
     tok_ids = tokenizer.encode(PLACEHOLDER_TOKEN, add_special_tokens=False)
     assert len(tok_ids) == 1, f"Placeholder '{PLACEHOLDER_TOKEN}' is {len(tok_ids)} tokens"
@@ -1990,6 +2018,18 @@ def main():
         attn_implementation=args.attn_implementation,
     )
     base_model.enable_input_require_grads()
+
+    # Resize embeddings for new special tokens and make them trainable
+    if PER_LAYER_TOKENS and _new_token_ids:
+        base_model.resize_token_embeddings(len(tokenizer))
+        # Initialize new token embeddings from the mean of existing embeddings
+        with torch.no_grad():
+            embed_weight = base_model.get_input_embeddings().weight
+            mean_embed = embed_weight[:-len(_new_token_ids)].mean(dim=0)
+            for tid in _new_token_ids.values():
+                embed_weight[tid] = mean_embed
+        if rank == 0:
+            print(f"  Resized embeddings to {len(tokenizer)}, initialized {len(_new_token_ids)} new token embeddings")
 
     if args.gradient_checkpointing:
         base_model.use_cache = False
@@ -2020,10 +2060,6 @@ def main():
         if rank == 0:
             print("Starting with FRESH LoRA (random init)")
         _lora_targets = ["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"]
-        if PER_LAYER_TOKENS:
-            _lora_targets.append("embed_tokens")
-            if rank == 0:
-                print("  Per-layer tokens: adding embed_tokens to LoRA targets")
         if args.ao_checkpoint and not PER_LAYER_TOKENS:
             try:
                 # Try loading AO checkpoint structure, then reinit weights
@@ -2065,6 +2101,29 @@ def main():
             base_model, args.ao_checkpoint,
             is_trainable=True, autocast_adapter_dtype=False,
         )
+
+    # Make new special token embeddings trainable (outside LoRA — direct parameter training)
+    if PER_LAYER_TOKENS and _new_token_ids:
+        embed_layer = model.get_input_embeddings()
+        # Freeze all embeddings, then unfreeze only the new tokens
+        embed_layer.weight.requires_grad_(False)
+        for tid in _new_token_ids.values():
+            embed_layer.weight.data[tid].requires_grad = True
+        # Can't set requires_grad per-row on a single Parameter, so we need a different approach:
+        # Make the whole embedding weight require grad, but only the new token rows will get updates
+        # because we zero out gradients for all other rows in a hook
+        embed_layer.weight.requires_grad_(True)
+
+        def _zero_old_embed_grads(grad):
+            """Zero out gradients for all embedding rows except new special tokens."""
+            mask = torch.zeros(grad.shape[0], 1, device=grad.device, dtype=grad.dtype)
+            for tid in _new_token_ids.values():
+                mask[tid] = 1.0
+            return grad * mask
+
+        embed_layer.weight.register_hook(_zero_old_embed_grads)
+        if rank == 0:
+            print(f"  New token embeddings trainable (IDs: {list(_new_token_ids.values())}), all others frozen via grad mask")
 
     # Ensure trainable params are fp32 (optimizer states stay fp32; autocast handles forward pass)
     for p in model.parameters():
