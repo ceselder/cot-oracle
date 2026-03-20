@@ -108,18 +108,16 @@ def compute_grpo_loss(
     device: torch.device,
     clip_eps: float = 0.2,
     pad_id: int = 0,
-) -> tuple[torch.Tensor, dict[str, float]]:
-    """Compute DR-GRPO clipped surrogate loss.
+) -> tuple[float, dict[str, float]]:
+    """Compute DR-GRPO clipped surrogate loss with per-item backward.
 
-    For each item:
-      ratio = exp(new_logprob - old_logprob)
-      clipped_ratio = clip(ratio, 1-eps, 1+eps)
-      loss_i = -min(ratio * advantage, clipped_ratio * advantage)
+    Processes one rollout at a time: forward → loss → backward → free graph.
+    This keeps only 1 computation graph in memory instead of N.
+    Returns (total_loss_value, metrics) — gradients already accumulated on params.
     """
     model.train()
-
-    # Process items one at a time (each has different activations/positions)
-    losses = []
+    n = len(items)
+    total_loss = 0.0
     ratios = []
     advantages = []
 
@@ -153,17 +151,20 @@ def compute_grpo_loss(
 
         clipped_ratio = torch.clamp(ratio, 1.0 - clip_eps, 1.0 + clip_eps)
         surrogate = torch.min(ratio * adv, clipped_ratio * adv)
-        losses.append(-surrogate)
+        item_loss = -surrogate / n  # scale by 1/N for mean
+
+        # Backward immediately — frees the computation graph
+        item_loss.backward()
+
+        total_loss += item_loss.item()
         ratios.append(ratio.item())
         advantages.append(item.advantage)
 
-    loss = torch.stack(losses).mean()
-
     metrics = {
-        "grpo/loss": loss.item(),
+        "grpo/loss": total_loss,
         "grpo/mean_ratio": sum(ratios) / len(ratios),
         "grpo/mean_advantage": sum(advantages) / len(advantages),
         "grpo/clip_frac": sum(1 for r in ratios if abs(r - 1.0) > clip_eps) / len(ratios),
     }
 
-    return loss, metrics
+    return total_loss, metrics
