@@ -131,6 +131,8 @@ def load_model(cfg: dict, device: str = "cuda") -> tuple[PeftModel, AutoTokenize
         print("  Using 8-bit quantization")
     base = AutoModelForCausalLM.from_pretrained(model_name, **load_kwargs)
     model = PeftModel.from_pretrained(base, checkpoint, is_trainable=True)
+    # Required for 8-bit: ensure input embeddings produce gradients
+    model.enable_input_require_grads()
     model.print_trainable_parameters()
     return model, tokenizer
 

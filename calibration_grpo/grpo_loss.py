@@ -145,7 +145,9 @@ def compute_grpo_loss(
             pad_offset=0,
         )
 
-        ratio = torch.exp(new_logprob - item.old_logprob)
+        old_lp = torch.tensor(item.old_logprob, device=device, dtype=torch.float32)
+        log_ratio = new_logprob - old_lp  # keeps grad through new_logprob
+        ratio = torch.exp(log_ratio)
         adv = torch.tensor(item.advantage, device=device, dtype=torch.float32)
 
         clipped_ratio = torch.clamp(ratio, 1.0 - clip_eps, 1.0 + clip_eps)
