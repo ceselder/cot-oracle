@@ -1,0 +1,9 @@
+# Ablation: adaptive norm scaling for activation injection
+# Replaces fixed steering_coefficient with learnable sigmoid-based scale ∈ [0.5, 3.0]
+# Inherits everything from train.yaml except overrides below
+
+training:
+  adaptive_norm: true
+
+output:
+  wandb_run: ablation-adaptive-norm
