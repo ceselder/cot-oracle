@@ -13,7 +13,7 @@ import httpx
 from reward import CRITERIA_NAMES, RubricResult
 
 ENDPOINT = "https://openrouter.ai/api/v1/chat/completions"
-DEFAULT_MODEL = "google/gemini-3.1-flash-preview"
+DEFAULT_MODEL = "google/gemini-3-flash-preview"
 
 SYSTEM_PROMPT = """\
 You are evaluating an activation oracle's responses. The oracle reads neural network

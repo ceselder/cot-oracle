@@ -20,7 +20,7 @@ rollouts:
   repetition_penalty: 1.1
 
 judge:
-  model: "google/gemini-3.1-flash-preview"
+  model: "google/gemini-3-flash-preview"
   temperature: 0.0
   max_concurrent: 16
   timeout_sec: 60
