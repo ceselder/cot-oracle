@@ -35,7 +35,7 @@ if str(_BASELINES) not in sys.path:
     sys.path.insert(0, str(_BASELINES))
 
 from tasks import TASKS, ScoringMode, get_comprehensive_eval_tasks
-from qa_scorer import check_openrouter_available, get_score_model
+from qa_scorer import check_openrouter_available, get_score_model, stop_local_scorer
 from eval_cache import EvalCache
 from eval_loop import (
     load_and_normalize, materialize_activations_chunked, run_oracle_eval,
@@ -190,7 +190,7 @@ def _run_and_store_method(cache, run_id, task_name, task_def, method_name,
 
     # ── SAE probe ──
     elif method_name == "sae-llm-monitor":
-        from sae_probe import run_sae_probe
+        from sae_llm_monitor import run_sae_probe
 
         valid_data, activations = materialize_activations_chunked(model, tokenizer, test_data, layers, position_mode=position_mode, task_name=task_name)
         if not valid_data:
@@ -399,8 +399,8 @@ def plot_results(output_dir: Path, cache: EvalCache | None = None, run_id: str |
         print("  No matching tasks to plot.")
         return
 
-    # ── Collapse to best-per-family: pick the slice/layer variant with highest
-    #    average score across tasks for each method family ──
+    # ── Collapse to best-per-family-per-task: for each task, pick the variant
+    #    with the highest score within each method family ──
     def _method_family(name: str) -> str:
         """our_ao_k5 / our_ao_stride10 / our_ao_L9_tail5 → 'our_ao'"""
         for prefix in ("our_ao", "original_ao"):
@@ -415,29 +415,23 @@ def plot_results(output_dir: Path, cache: EvalCache | None = None, run_id: str |
             if m not in families[_method_family(m)]:
                 families[_method_family(m)].append(m)
 
-    # For each family with multiple variants, pick the one with the best mean score
-    best_methods: dict[str, str] = {}  # family → best variant name
-    for family, variants in families.items():
-        if len(variants) == 1:
-            best_methods[family] = variants[0]
-            continue
-        best_variant, best_mean = variants[0], -1.0
-        for v in variants:
-            scores = []
-            for task in task_order:
+    # For each (task, family), find the best variant
+    best_per_task: dict[str, dict[str, tuple[str, float, float]]] = {}  # task → family → (variant, score, std)
+    for task in task_order:
+        best_per_task[task] = {}
+        for family, variants in families.items():
+            best_v, best_s, best_std = variants[0], -1.0, 0.0
+            for v in variants:
                 m = results.get(task, {}).get(v, {})
                 s = m.get("primary_score")
-                if s is not None and not math.isnan(s):
-                    scores.append(s)
-            mean = sum(scores) / len(scores) if scores else 0.0
-            if mean > best_mean:
-                best_mean = mean
-                best_variant = v
-        best_methods[family] = best_variant
+                if s is not None and not math.isnan(s) and s > best_s:
+                    best_s = s
+                    best_v = v
+                    best_std = m.get("bootstrap_std", 0.0)
+            if best_s >= 0:
+                best_per_task[task][family] = (best_v, best_s, best_std)
 
-    method_order = []
-    for family in sorted(best_methods, key=lambda f: (0 if f == "our_ao" else 1 if f == "original_ao" else 2, f)):
-        method_order.append(best_methods[family])
+    method_order = sorted(families.keys(), key=lambda f: (0 if f == "our_ao" else 1 if f == "original_ao" else 2, f))
 
     # ── Colors ──
     _FAMILY_COLORS = {
@@ -456,49 +450,71 @@ def plot_results(output_dir: Path, cache: EvalCache | None = None, run_id: str |
     cmap = plt.cm.tab10
     fallback_idx = 0
     method_colors = {}
-    for m in method_order:
-        c = _method_color(m)
+    for family in method_order:
+        c = _method_color(family)
         if c is None:
-            method_colors[m] = cmap(fallback_idx / max(len(method_order), 1))
+            method_colors[family] = cmap(fallback_idx / max(len(method_order), 1))
             fallback_idx += 1
         else:
-            method_colors[m] = c
+            method_colors[family] = c
 
-    # ── Labels: show family name (best variant in parentheses) ──
-    def _method_label(name):
-        family = _method_family(name)
-        if name == family:
-            return name
-        suffix = name[len(family) + 1:]  # strip "family_"
-        return f"{family} ({suffix})"
+    # ── Split tasks into subsets ──
+    adam_tasks = [t for t in task_order if t.startswith("cls_")]
+    our_tasks = [t for t in task_order if not t.startswith("cls_")]
+
+    # Build subplot rows: (title, task_list)
+    rows = [("All tasks", task_order)]
+    if our_tasks and our_tasks != task_order:
+        rows.append(("Our tasks", our_tasks))
+    if adam_tasks:
+        rows.append(("Original AO tasks", adam_tasks))
+
+    def _plot_row(ax, tasks, title):
+        # Add "avg" pseudo-task
+        plot_tasks = tasks + ["avg"]
+        x = np.arange(len(plot_tasks))
+        bar_width = 0.8 / max(len(method_order), 1)
+
+        for j, family in enumerate(method_order):
+            scores, stds = [], []
+            for task in tasks:
+                entry = best_per_task.get(task, {}).get(family)
+                scores.append(entry[1] if entry else 0.0)
+                stds.append(entry[2] if entry else 0.0)
+            # Compute average
+            valid = [s for s in scores if s > 0]
+            avg = sum(valid) / len(valid) if valid else 0.0
+            scores.append(avg)
+            stds.append(0.0)
+
+            offset = (j - len(method_order) / 2 + 0.5) * bar_width
+            ax.bar(x + offset, scores, bar_width * 0.9, yerr=stds,
+                   label=family if title == rows[0][0] else None,
+                   color=method_colors[family], alpha=0.85, capsize=2)
+
+        # Separator line before avg
+        ax.axvline(len(tasks) - 0.5, color="gray", linewidth=0.5, linestyle="--")
+        ax.set_xticks(x)
+        ax.set_xticklabels(plot_tasks, rotation=45, ha="right", fontsize=8)
+        ax.set_ylabel("Score")
+        ax.set_ylim(0, 1)
+        ax.set_title(title, fontsize=10)
+        ax.grid(axis="y", alpha=0.3)
 
     # ── Plot ──
-    fig, ax = plt.subplots(1, 1, figsize=(max(14, len(task_order) * 0.8), 7))
-    x = np.arange(len(task_order))
-    bar_width = 0.8 / max(len(method_order), 1)
+    n_rows = len(rows)
+    fig, axes = plt.subplots(n_rows, 1, figsize=(max(14, len(task_order) * 0.8), 5 * n_rows))
+    if n_rows == 1:
+        axes = [axes]
 
-    for j, method in enumerate(method_order):
-        scores = []
-        stds = []
-        for task in task_order:
-            m = results.get(task, {}).get(method, {})
-            s = m.get("primary_score")
-            scores.append(s if s is not None and not math.isnan(s) else 0.0)
-            stds.append(m.get("bootstrap_std", 0.0))
-        offset = (j - len(method_order) / 2 + 0.5) * bar_width
-        ax.bar(x + offset, scores, bar_width * 0.9, yerr=stds,
-               label=_method_label(method), color=method_colors[method], alpha=0.85, capsize=2)
+    for ax, (title, tasks) in zip(axes, rows):
+        _plot_row(ax, tasks, title)
 
-    ax.set_xticks(x)
-    ax.set_xticklabels(task_order, rotation=45, ha="right", fontsize=9)
-    ax.set_ylabel("Score")
-    ax.set_ylim(0, 1)
-    ax.set_title("Comprehensive Evaluation — CoT Oracle (best variant per method)")
-    ax.legend(fontsize=8, ncol=min(3, len(method_order)), loc="upper right")
-    ax.grid(axis="y", alpha=0.3)
+    axes[0].legend(fontsize=8, ncol=min(4, len(method_order)), loc="upper right")
+    fig.suptitle("Comprehensive Evaluation — CoT Oracle (best variant per task)", fontsize=12, y=1.01)
     plt.tight_layout()
     out_path = output_dir / "comprehensive_eval.png"
-    plt.savefig(out_path, dpi=150)
+    plt.savefig(out_path, dpi=150, bbox_inches="tight")
     plt.close()
     print(f"  Plot saved to {out_path}")
 
@@ -566,6 +582,7 @@ def _rescore_from_cache(cache, run_id, config, output_dir, args):
         (output_dir / f"{task_name}.json").write_text(json.dumps(task_json, indent=2, default=str))
 
     plot_results(output_dir, cache=cache, run_id=run_id, tasks_order=task_names)
+    stop_local_scorer()
     print("\nRescore done!")
 
 
@@ -573,7 +590,7 @@ def main():
     parser = argparse.ArgumentParser(description="Comprehensive CoT Oracle Evaluation")
     parser.add_argument("--config", default="configs/eval.yaml", help="Eval config (baselines, score_model)")
     parser.add_argument("--train-config", default="configs/train.yaml", help="Train config (model, activations)")
-    parser.add_argument("--checkpoint", required=True, help="Our LoRA checkpoint path")
+    parser.add_argument("--checkpoint", default="", help="Our LoRA checkpoint path (default: from eval.yaml method_config.our_ao.checkpoint)")
     parser.add_argument("--n-examples", type=int, default=100)
     parser.add_argument("--output-dir", default="data/comprehensive_eval")
     parser.add_argument("--tasks", nargs="*", default=None, help="Specific tasks (default: all comprehensive eval tasks)")
@@ -595,8 +612,11 @@ def main():
     config = yaml.safe_load(open(args.config))
     method_config = config.get("method_config", {})
 
+    # Resolve checkpoint: CLI > config > empty
+    checkpoint = args.checkpoint or method_config.get("our_ao", {}).get("checkpoint", "")
+
     cache = EvalCache(output_dir / "eval_cache.db")
-    run_id = cache.get_or_create_run(args.checkpoint, args.n_examples, args.position_mode, args.layers)
+    run_id = cache.get_or_create_run(checkpoint, args.n_examples, args.position_mode, args.layers)
 
     if args.list_failed:
         failed = cache.get_failed_methods(run_id)
@@ -657,11 +677,13 @@ def main():
         model.eval()
 
         if "our_ao" in active_baselines:
-            # Delete the dummy "default" adapter so we can load the real one
+            our_ckpt = args.checkpoint or method_config.get("our_ao", {}).get("checkpoint", "")
+            if not our_ckpt:
+                raise ValueError("our_ao requires a checkpoint: set --checkpoint or method_config.our_ao.checkpoint in eval.yaml")
             if "default" in model.peft_config:
                 model.delete_adapter("default")
-            load_extra_adapter(model, args.checkpoint, adapter_name="default")
-            print(f"  Loaded our LoRA from {args.checkpoint}")
+            load_extra_adapter(model, our_ckpt, adapter_name="default")
+            print(f"  Loaded our LoRA from {our_ckpt}")
 
     rerun_methods = set(args.rerun_methods) if args.rerun_methods else set()
     rerun_tasks = set(args.rerun_tasks) if args.rerun_tasks else set()
@@ -711,6 +733,7 @@ def main():
 
     plot_results(output_dir, cache=cache, run_id=run_id, tasks_order=task_names)
     cache.close()
+    stop_local_scorer()
     print("\nDone!")
 
 

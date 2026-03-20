@@ -62,9 +62,9 @@ from core.ao import (
 )
 from nl_probes.sae import load_dictionary_learning_batch_topk_sae
 from patchscopes import _run_patchscope_single as run_patchscope_single
-from sae_probe import _encode_and_aggregate as sae_probe_encode_and_aggregate
-from sae_probe import _format_features as sae_probe_format_features
-from sae_probe import GENERATION_PROMPT as SAE_LLM_GENERATION_PROMPT
+from sae_llm_monitor import _encode_and_aggregate as sae_probe_encode_and_aggregate
+from sae_llm_monitor import _format_features as sae_probe_format_features
+from sae_llm_monitor import GENERATION_PROMPT as SAE_LLM_GENERATION_PROMPT
 
 load_dotenv(PROJECT_ROOT / ".env")
 load_dotenv(Path.home() / ".env")

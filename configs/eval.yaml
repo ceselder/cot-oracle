@@ -3,7 +3,9 @@
 #
 # Comment out tasks or baselines to skip them.
 
-score_model: google/gemini-2.5-flash-lite
+score_model: openai/gpt-oss-20b
+score_model_local: Qwen/Qwen3-8B    # local vLLM scorer model (launched automatically if try_local_scorer is true)
+try_local_scorer: true               # auto-start vLLM on port 8788 if GPU is available
 
 # Tasks to evaluate (subset of tasks defined in src/tasks.py).
 # Comment out a line to skip that task.
@@ -25,6 +27,16 @@ tasks:
   # - futurelens          # no cot_text
   # - pastlens            # no cot_text
   # - rot13_reconstruction
+  # ── Adam's original AO tasks (classification) ──
+  - cls_sst2
+  - cls_ag_news
+  - cls_ner
+  # - cls_snli
+  # - cls_singular_plural
+  # - cls_tense
+  # - cls_relations
+  # - cls_language_id
+  # - cls_geometry_of_truth
 
 # Baselines to run. Comment out a line to skip that method.
 baselines:
@@ -41,17 +53,19 @@ baselines:
 # Per-method settings.
 method_config:
   our_ao:
+    checkpoint: /ceph/scratch/jbauer/checkpoints/cot_oracle_v15_stochastic
     layers: [9, 18, 27]        # all layers simultaneously
-    k_sweep: [1, 5, 10, 20, null]  # null = all positions
+    position_slices: ["::20", "::5"]  # numpy slicing: every 20th, 5th
     single_layer: false        # feed all layers at once
 
   original_ao:
+    checkpoint: adamkarvonen/checkpoints_latentqa_cls_past_lens_addition_Qwen3-8B
     layers: [9, 18, 27]        # sweep each layer individually
-    k_sweep: [1, 5, 10, 20, null]
+    position_slices: ["-1:", "-5:"]    # numpy slicing: last 1, last 5
     single_layer: true         # one layer at a time (matches Adam's training)
 
   weak-bb-monitor:
-    model: nvidia/nemotron-3-super-120b-a12b:free
+    model: xiaomi/mimo-v2-flash
     max_tokens: 2048
 
   strong-bb-monitor:
@@ -60,7 +74,7 @@ method_config:
 
   sae-llm-monitor:
     sae_labels_dir: /ceph/scratch/jbauer/sae_features/trainer_2/trainer_2/labels
-    llm_model: nvidia/nemotron-3-super-120b-a12b:free
+    llm_model: xiaomi/mimo-v2-flash
     sae_trainer: 2
     top_k: 20
     max_tokens: 300
@@ -71,7 +85,7 @@ method_config:
     steering_coefficients: [0.5, 1.0, 2.0]
     source_layers: null        # null = same as activation layers
     injection_layer: 1
-    max_new_tokens: 100
+    max_new_tokens: 2048
 
   no_act_oracle:
     checkpoint: ""             # path to no-act LoRA

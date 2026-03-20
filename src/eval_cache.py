@@ -56,6 +56,7 @@ CREATE TABLE IF NOT EXISTS predictions (
     prediction TEXT,
     score REAL,
     prompt TEXT,
+    scorer_response TEXT,
     PRIMARY KEY (run_id, task_name, method_name, item_idx)
 );
 """
@@ -72,11 +73,12 @@ class EvalCache:
         self._conn = sqlite3.connect(str(self.db_path))
         self._conn.execute("PRAGMA journal_mode=WAL")
         self._conn.executescript(_SCHEMA)
-        # Migration: add prompt column to existing predictions tables
-        try:
-            self._conn.execute("ALTER TABLE predictions ADD COLUMN prompt TEXT")
-        except sqlite3.OperationalError:
-            pass  # column already exists
+        # Migrations for existing DBs
+        for col in ["prompt TEXT", "scorer_response TEXT"]:
+            try:
+                self._conn.execute(f"ALTER TABLE predictions ADD COLUMN {col}")
+            except sqlite3.OperationalError:
+                pass  # column already exists
 
     def close(self):
         self._conn.close()
@@ -104,12 +106,61 @@ class EvalCache:
 
     # ── Query ──
 
+    # Incomplete markers: primary_metric values that indicate incomplete eval
+    FAILURE_METRICS = {"error", "failed"}      # hard failures — need full rerun
+    INCOMPLETE_METRICS = {"error", "failed", "unscored"}  # any non-final state
+
     def has_method(self, run_id: str, task_name: str, method_name: str, expected_deps_hash: str) -> bool:
         row = self._conn.execute(
-            "SELECT deps_hash FROM method_results WHERE run_id = ? AND task_name = ? AND method_name = ?",
+            "SELECT deps_hash, primary_metric FROM method_results WHERE run_id = ? AND task_name = ? AND method_name = ?",
             (run_id, task_name, method_name),
         ).fetchone()
-        return row is not None and row[0] == expected_deps_hash
+        if row is None:
+            return False
+        # Incomplete results don't count — they should be retried
+        if row[1] in self.INCOMPLETE_METRICS:
+            return False
+        return row[0] == expected_deps_hash
+
+    def get_method_status(self, run_id: str, task_name: str, method_name: str) -> str | None:
+        """Return primary_metric for this method, or None if not present."""
+        row = self._conn.execute(
+            "SELECT primary_metric FROM method_results WHERE run_id = ? AND task_name = ? AND method_name = ?",
+            (run_id, task_name, method_name),
+        ).fetchone()
+        return row[0] if row else None
+
+    def get_failed_methods(self, run_id: str) -> list[tuple[str, str, str]]:
+        """Return [(task_name, method_name, reason)] for all failed/unscored evals."""
+        rows = self._conn.execute(
+            "SELECT task_name, method_name, primary_metric, extra_json FROM method_results WHERE run_id = ? AND primary_metric IN ('error', 'failed', 'unscored')",
+            (run_id,),
+        ).fetchall()
+        result = []
+        for task, method, metric, extra_json in rows:
+            extra = json.loads(extra_json) if extra_json else {}
+            if metric == "unscored":
+                reason = "unscored (predictions cached, scoring failed)"
+            else:
+                reason = extra.get("error", extra.get("reason", "unknown"))
+            result.append((task, method, reason))
+        return result
+
+    def get_unscored_methods(self, run_id: str) -> list[tuple[str, str]]:
+        """Return [(task_name, method_name)] for methods with predictions but no scores."""
+        rows = self._conn.execute(
+            "SELECT task_name, method_name FROM method_results WHERE run_id = ? AND primary_metric = 'unscored'",
+            (run_id,),
+        ).fetchall()
+        return [(r[0], r[1]) for r in rows]
+
+    def has_predictions(self, run_id: str, task_name: str, method_name: str) -> bool:
+        """Check if any predictions exist for this method (regardless of scoring status)."""
+        row = self._conn.execute(
+            "SELECT COUNT(*) FROM predictions WHERE run_id = ? AND task_name = ? AND method_name = ?",
+            (run_id, task_name, method_name),
+        ).fetchone()
+        return row[0] > 0
 
     def get_completed_item_indices(self, run_id: str, task_name: str, method_name: str) -> set[int]:
         rows = self._conn.execute(
@@ -119,12 +170,12 @@ class EvalCache:
         return {r[0] for r in rows}
 
     def get_predictions(self, run_id: str, task_name: str, method_name: str) -> dict[int, dict]:
-        """Return {item_idx: {"prediction": str, "score": float|None, "prompt": str|None}} for completed items."""
+        """Return {item_idx: {"prediction": str, "score": float|None, "prompt": str|None, "scorer_response": str|None}}."""
         rows = self._conn.execute(
-            "SELECT item_idx, prediction, score, prompt FROM predictions WHERE run_id = ? AND task_name = ? AND method_name = ?",
+            "SELECT item_idx, prediction, score, prompt, scorer_response FROM predictions WHERE run_id = ? AND task_name = ? AND method_name = ?",
             (run_id, task_name, method_name),
         ).fetchall()
-        return {r[0]: {"prediction": r[1], "score": r[2], "prompt": r[3]} for r in rows}
+        return {r[0]: {"prediction": r[1], "score": r[2], "prompt": r[3], "scorer_response": r[4]} for r in rows}
 
     # ── Store ──
 
@@ -137,8 +188,8 @@ class EvalCache:
 
     def store_predictions(self, run_id: str, task_name: str, method_name: str, preds: list[dict]):
         self._conn.executemany(
-            "INSERT OR REPLACE INTO predictions (run_id, task_name, method_name, item_idx, item_id, prediction, score, prompt) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-            [(run_id, task_name, method_name, p["item_idx"], p["item_id"], p.get("prediction"), p.get("score"), p.get("prompt")) for p in preds],
+            "INSERT OR REPLACE INTO predictions (run_id, task_name, method_name, item_idx, item_id, prediction, score, prompt, scorer_response) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            [(run_id, task_name, method_name, p["item_idx"], p["item_id"], p.get("prediction"), p.get("score"), p.get("prompt"), p.get("scorer_response")) for p in preds],
         )
         self._conn.commit()
 
@@ -193,15 +244,17 @@ class EvalCache:
 
         # Predictions
         pred_rows = self._conn.execute(
-            "SELECT method_name, item_idx, prediction, score, prompt FROM predictions WHERE run_id = ? AND task_name = ?",
+            "SELECT method_name, item_idx, prediction, score, prompt, scorer_response FROM predictions WHERE run_id = ? AND task_name = ?",
             (run_id, task_name),
         ).fetchall()
         for pr in pred_rows:
-            method_name, item_idx, prediction, score, prompt = pr
+            method_name, item_idx, prediction, score, prompt, scorer_response = pr
             if item_idx in items_by_idx:
                 entry = {"prediction": prediction, "score": score}
                 if prompt:
                     entry["prompt"] = prompt
+                if scorer_response:
+                    entry["scorer_response"] = scorer_response
                 items_by_idx[item_idx]["methods"][method_name] = entry
 
         # Run info

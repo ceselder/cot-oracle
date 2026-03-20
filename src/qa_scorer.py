@@ -3,6 +3,10 @@ from __future__ import annotations
 import json
 import os
 import re
+import subprocess
+import time
+
+import httpx
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
@@ -18,7 +22,13 @@ def _load_eval_config() -> dict[str, Any]:
     return yaml.safe_load(EVAL_CONFIG_PATH.read_text())
 
 
+_scorer_endpoint_cache: tuple[str, dict, str | None] | None = None
+
+
 def get_score_model(cfg: dict[str, Any] | None = None) -> str:
+    # If a local endpoint was detected, use its model name
+    if _scorer_endpoint_cache is not None and _scorer_endpoint_cache[2] is not None:
+        return _scorer_endpoint_cache[2]
     if cfg is not None:
         if "score_model" in cfg:
             return str(cfg["score_model"])
@@ -34,19 +44,132 @@ LLM_SCORE_VALUES_TEXT = ", ".join(LLM_SCORE_VALUES)
 LLM_SCORE_GRANULARITY_TEXT = f"Use only 0.1 increments: {LLM_SCORE_VALUES_TEXT}."
 
 QA_SCORE_TASKS = frozenset({"sqa", "chunked_convqa", "chunked_compqa"})
-OPENROUTER_API_BASE = os.environ["OPENROUTER_API_BASE"] if "OPENROUTER_API_BASE" in os.environ else "https://openrouter.ai/api/v1"
+OPENROUTER_API_BASE = os.environ.get("OPENROUTER_API_BASE", "https://openrouter.ai/api/v1")
 OPENROUTER_CHAT_COMPLETIONS_URL = f"{OPENROUTER_API_BASE.rstrip('/')}/chat/completions"
 QA_SCORE_MAX_TOKENS = 256
 
 
-def check_openrouter_available() -> bool:
-    """Probe OpenRouter /models endpoint. Returns False if no API key, connection error, or non-200."""
-    api_key = os.environ.get("OPENROUTER_API_KEY", "")
-    if not api_key:
-        return False
-    import httpx
+_VLLM_PORT = 8788
+_VLLM_BASE = f"http://localhost:{_VLLM_PORT}/v1"
+_vllm_process: "subprocess.Popen | None" = None
+
+
+def _vllm_is_ready() -> str | None:
+    """Check if local vLLM is serving. Returns model name or None."""
     try:
-        resp = httpx.get(f"{OPENROUTER_API_BASE.rstrip('/')}/models", headers={"Authorization": f"Bearer {api_key}"}, timeout=10.0)
+        resp = httpx.get(f"{_VLLM_BASE}/models", timeout=2.0)
+        if resp.status_code == 200:
+            return resp.json()["data"][0]["id"]
+    except Exception:
+        pass
+    return None
+
+
+def start_local_scorer(model: str | None = None, timeout: int = 300) -> str:
+    """Start a local vLLM scorer server if not already running. Returns model name.
+
+    Uses score_model_local from eval.yaml if model is not specified.
+    """
+    import subprocess
+
+    # Already running?
+    existing = _vllm_is_ready()
+    if existing:
+        print(f"  [scorer] Local vLLM already running: {existing}")
+        return existing
+
+    global _vllm_process
+    cfg = _load_eval_config()
+    if model is None:
+        model = cfg.get("score_model_local", "Qwen/Qwen3-8B")
+
+    print(f"  [scorer] Starting local vLLM: {model} on port {_VLLM_PORT}...")
+    cmd = [
+        "vllm", "serve", model,
+        "--port", str(_VLLM_PORT),
+        "--max-model-len", "4096",
+        "--dtype", "auto",
+        "--enable-prefix-caching",
+        "--gpu-memory-utilization", "0.90",
+    ]
+    log_path = REPO_ROOT / "logs" / "vllm_scorer.log"
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    log_file = open(log_path, "w")
+    _vllm_process = subprocess.Popen(cmd, stdout=log_file, stderr=subprocess.STDOUT)
+
+    # Wait for ready
+    for i in range(timeout):
+        time.sleep(1)
+        if _vllm_process.poll() is not None:
+            raise RuntimeError(f"vLLM exited with code {_vllm_process.returncode}. Check {log_path}")
+        ready = _vllm_is_ready()
+        if ready:
+            print(f"  [scorer] Local vLLM ready: {ready} (took {i+1}s)")
+            return ready
+
+    _vllm_process.terminate()
+    raise RuntimeError(f"vLLM failed to start within {timeout}s. Check {log_path}")
+
+
+def stop_local_scorer():
+    """Stop the local vLLM scorer if we started it."""
+    global _vllm_process
+    if _vllm_process is not None:
+        print("  [scorer] Stopping local vLLM...")
+        _vllm_process.terminate()
+        _vllm_process.wait(timeout=10)
+        _vllm_process = None
+
+
+def _get_scorer_endpoint() -> tuple[str, dict]:
+    """Return (chat_completions_url, headers) for the scorer.
+
+    Priority: SCORER_API_BASE env var > local vLLM on port 8788
+              (auto-started if try_local_scorer=true) > OpenRouter.
+    """
+    global _scorer_endpoint_cache
+    if _scorer_endpoint_cache is not None:
+        return _scorer_endpoint_cache[0], _scorer_endpoint_cache[1]
+
+    cfg = _load_eval_config()
+    local_headers = {"Content-Type": "application/json"}
+
+    # Explicit scorer endpoint (env var or config)
+    base = os.environ.get("SCORER_API_BASE", cfg.get("scorer_api_base", ""))
+    if base:
+        url = f"{base.rstrip('/')}/chat/completions"
+        model = _vllm_is_ready() if "localhost" in base else None
+        _scorer_endpoint_cache = (url, local_headers, model)
+        return url, local_headers
+
+    # Try existing local vLLM
+    model = _vllm_is_ready()
+    if model:
+        print(f"  [scorer] Using local vLLM: {model}")
+        _scorer_endpoint_cache = (f"{_VLLM_BASE}/chat/completions", local_headers, model)
+        return _scorer_endpoint_cache[0], local_headers
+
+    # Auto-start local vLLM if configured
+    if cfg.get("try_local_scorer", False):
+        import torch
+        if torch.cuda.is_available():
+            model = start_local_scorer(cfg.get("score_model_local"))
+            _scorer_endpoint_cache = (f"{_VLLM_BASE}/chat/completions", local_headers, model)
+            return _scorer_endpoint_cache[0], local_headers
+
+    # Fall back to OpenRouter
+    api_key = os.environ.get("OPENROUTER_API_KEY", "")
+    _scorer_endpoint_cache = (OPENROUTER_CHAT_COMPLETIONS_URL, {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}, None)
+    return _scorer_endpoint_cache[0], _scorer_endpoint_cache[1]
+
+
+def check_openrouter_available() -> bool:
+    """Check if any scorer endpoint is reachable (local vLLM, explicit endpoint, or OpenRouter)."""
+    url, headers = _get_scorer_endpoint()
+    # For local/explicit endpoints, probe the models endpoint
+    base = url.rsplit("/chat/completions", 1)[0]
+    try:
+        resp = httpx.get(f"{base}/models", headers=headers, timeout=5.0)
         return resp.status_code == 200
     except Exception:
         return False
@@ -101,6 +224,79 @@ def extract_scorer_json(text: str) -> dict[str, Any]:
             truncated = truncated.rstrip().rstrip(",") + "}"
         return _json_loads_lenient(truncated)
     return _json_loads_lenient(cleaned[start:end + 1])
+
+
+def _scored_api_call(client: httpx.Client, headers: dict, body: dict, url: str | None = None, max_retries: int = 3) -> str:
+    """Make a scorer API call with retry on 429 and empty/non-JSON responses."""
+    if url is None:
+        url = OPENROUTER_CHAT_COMPLETIONS_URL
+    # Disable thinking for local Qwen models (they output <think> blocks that eat max_tokens)
+    if "localhost" in url and "chat_template_kwargs" not in body:
+        body = {**body, "chat_template_kwargs": {"enable_thinking": False}}
+    for attempt in range(max_retries):
+        try:
+            resp = client.post(url, json=body, headers=headers)
+            if resp.status_code == 429:
+                wait = min(2 ** attempt * 5, 60)
+                print(f"    [scorer] 429 rate limited, retrying in {wait}s...")
+                time.sleep(wait)
+                continue
+            resp.raise_for_status()
+            raw = (resp.json()["choices"][0]["message"]["content"] or "").strip()
+            raw = re.sub(r"<think>.*?</think>", "", raw, flags=re.DOTALL).strip()
+            if not raw:
+                if attempt < max_retries - 1:
+                    time.sleep(2 ** attempt)
+                    continue
+            return raw
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code == 429 and attempt < max_retries - 1:
+                wait = min(2 ** attempt * 5, 60)
+                print(f"    [scorer] 429 rate limited, retrying in {wait}s...")
+                time.sleep(wait)
+                continue
+            raise
+    return raw
+
+
+# ── Binary LLM scorer (replaces keyword matching) ──
+
+BINARY_SCORE_SYSTEM = (
+    "You judge whether a candidate answer matches a reference answer in meaning. "
+    "Output ONLY a JSON object: {\"match\": 1} if they agree, {\"match\": 0} if they disagree. "
+    "Ignore differences in phrasing, length, or style — only check semantic agreement."
+)
+
+
+def score_binary_llm(
+    predictions: list[str],
+    targets: list[str],
+    score_model: str | None = None,
+) -> list[tuple[float, str]]:
+    """Score binary predictions via LLM. Returns [(score, raw_response), ...]."""
+    if score_model is None:
+        score_model = get_score_model()
+
+    url, headers = _get_scorer_endpoint()
+
+    results = []
+    with httpx.Client(timeout=90.0) as client:
+        for prediction, target in zip(predictions, targets):
+            user_msg = f"Reference: {target}\nCandidate: {prediction}"
+            body = {
+                "model": score_model,
+                "messages": [
+                    {"role": "system", "content": BINARY_SCORE_SYSTEM},
+                    {"role": "user", "content": user_msg},
+                ],
+                "temperature": 0.0,
+                "max_tokens": 32,
+            }
+            raw = _scored_api_call(client, headers, body, url=url)
+            parsed = _json_loads_lenient(raw) if "{" in raw else {}
+            score = float(parsed.get("match", 0))
+            results.append((score, raw))
+    return results
 
 
 def build_qa_score_prompt(task_name: str, qa_prompt: str, target: str, prediction: str) -> str:
