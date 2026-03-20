@@ -203,7 +203,13 @@ async def judge_rollouts(
                     await asyncio.sleep(2 ** attempt)
                     continue
 
-                content = resp.json()["choices"][0]["message"]["content"]
+                msg = resp.json()["choices"][0]["message"]
+                content = msg.get("content") or msg.get("reasoning") or ""
+                content = content.strip()
+                if not content:
+                    if attempt == retries - 1:
+                        return None
+                    continue
                 return _parse_rubric_response(content, len(rollout_texts))
 
             except Exception:
