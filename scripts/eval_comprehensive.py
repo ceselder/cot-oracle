@@ -67,7 +67,7 @@ def _store_failure(cache, run_id, task_name, method_name, method_config, reason:
 
 def _run_and_store_method(cache, run_id, task_name, task_def, method_name,
                           method_config, model, tokenizer, n_examples, layers,
-                          position_mode, openrouter_available, train_config=None):
+                          openrouter_available, train_config=None):
     """Run a single method with incremental recovery."""
     primary = _primary_metric_name(task_name, task_def.scoring)
 
@@ -101,7 +101,7 @@ def _run_and_store_method(cache, run_id, task_name, task_def, method_name,
 
         predictions, targets, todo_indices = run_oracle_eval(
             model, tokenizer, task_name, task_def, test_data, eval_layers,
-            position_mode, oracle_adapter_name=adapter,
+            "all", oracle_adapter_name=adapter,
             position_slice=pos_slice, completed_indices=completed_indices,
         )
 
@@ -155,7 +155,7 @@ def _run_and_store_method(cache, run_id, task_name, task_def, method_name,
     elif method_name == "linear_probes":
         from linear_probe import run_linear_probe
 
-        valid_data, test_acts = materialize_activations_chunked(model, tokenizer, test_data, layers, position_mode=position_mode, task_name=task_name)
+        valid_data, test_acts = materialize_activations_chunked(model, tokenizer, test_data, layers, position_mode="all", task_name=task_name)
         if not valid_data:
             print("no valid data for activations")
             _store_failure(cache, run_id, task_name, method_name, method_config, "no valid data for activations")
@@ -174,7 +174,7 @@ def _run_and_store_method(cache, run_id, task_name, task_def, method_name,
             print("no train data")
             _store_failure(cache, run_id, task_name, method_name, method_config, "no train data")
             return
-        train_valid, train_acts = materialize_activations_chunked(model, tokenizer, train_data, layers, position_mode=position_mode, task_name=task_name)
+        train_valid, train_acts = materialize_activations_chunked(model, tokenizer, train_data, layers, position_mode="all", task_name=task_name)
 
         predictions = run_linear_probe(
             valid_data, test_acts, layers, task_def,
@@ -192,7 +192,7 @@ def _run_and_store_method(cache, run_id, task_name, task_def, method_name,
     elif method_name == "sae-llm-monitor":
         from sae_llm_monitor import run_sae_probe
 
-        valid_data, activations = materialize_activations_chunked(model, tokenizer, test_data, layers, position_mode=position_mode, task_name=task_name)
+        valid_data, activations = materialize_activations_chunked(model, tokenizer, test_data, layers, position_mode="all", task_name=task_name)
         if not valid_data:
             print("no valid data for activations")
             _store_failure(cache, run_id, task_name, method_name, method_config, "no valid data for activations")
@@ -224,7 +224,7 @@ def _run_and_store_method(cache, run_id, task_name, task_def, method_name,
     elif method_name == "patchscopes":
         from patchscopes import run_patchscopes
 
-        valid_data, activations = materialize_activations_chunked(model, tokenizer, test_data, layers, position_mode=position_mode, task_name=task_name)
+        valid_data, activations = materialize_activations_chunked(model, tokenizer, test_data, layers, position_mode="all", task_name=task_name)
         if not valid_data:
             print("no valid data for activations")
             _store_failure(cache, run_id, task_name, method_name, method_config, "no valid data for activations")
@@ -278,7 +278,7 @@ def _run_and_store_method(cache, run_id, task_name, task_def, method_name,
     elif method_name == "attention_probe":
         from attention_probe import run_attention_probe
 
-        valid_data, activations = materialize_activations_chunked(model, tokenizer, test_data, layers, position_mode=position_mode, task_name=task_name)
+        valid_data, activations = materialize_activations_chunked(model, tokenizer, test_data, layers, position_mode="all", task_name=task_name)
         if not valid_data:
             print("no valid data for activations")
             _store_failure(cache, run_id, task_name, method_name, method_config, "no valid data for activations")
@@ -596,7 +596,6 @@ def main():
     parser.add_argument("--tasks", nargs="*", default=None, help="Specific tasks (default: all comprehensive eval tasks)")
     parser.add_argument("--baselines", nargs="*", default=DEFAULT_BASELINES, help="Baselines to run")
     parser.add_argument("--layers", nargs="*", type=int, default=DEFAULT_LAYERS)
-    parser.add_argument("--position-mode", default="all")
     parser.add_argument("--rerun", action="store_true", help="Ignore cache, rerun everything")
     parser.add_argument("--rerun-methods", nargs="*", default=None, help="Rerun specific methods only")
     parser.add_argument("--rerun-tasks", nargs="*", default=None, help="Rerun specific tasks only")
@@ -616,7 +615,7 @@ def main():
     checkpoint = args.checkpoint or method_config.get("our_ao", {}).get("checkpoint", "")
 
     cache = EvalCache(output_dir / "eval_cache.db")
-    run_id = cache.get_or_create_run(checkpoint, args.n_examples, args.position_mode, args.layers)
+    run_id = cache.get_or_create_run(checkpoint, args.n_examples, "all", args.layers)
 
     if args.list_failed:
         failed = cache.get_failed_methods(run_id)
@@ -717,7 +716,7 @@ def main():
                 _run_and_store_method(
                     cache, run_id, task_name, task_def, method_name,
                     method_config, model, tokenizer, args.n_examples,
-                    args.layers, args.position_mode, openrouter_available,
+                    args.layers, openrouter_available,
                     train_config=train_cfg if needs_model else None,
                 )
             except Exception as e:
