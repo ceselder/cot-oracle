@@ -274,7 +274,7 @@ def add_hook(module, hook):
         handle.remove()
 
 
-def get_steering_hook(vectors, positions, device, dtype, steering_coefficient=1.0):
+def get_steering_hook(vectors, positions, device, dtype, steering_coefficient=1.0, adaptive_norm_params=None):
     """Norm-matched additive steering hook (batch=1 only)."""
     normed = torch.nn.functional.normalize(vectors, dim=-1).detach()
 
@@ -295,7 +295,14 @@ def get_steering_hook(vectors, positions, device, dtype, steering_coefficient=1.
         pos = torch.tensor(positions, dtype=torch.long, device=resid.device)
         orig = resid[0, pos, :]
         norms = orig.norm(dim=-1, keepdim=True)
-        steered = (normed.to(device=orig.device, dtype=orig.dtype) * norms.to(orig.dtype) * steering_coefficient).to(orig.dtype).detach()
+        if adaptive_norm_params is not None:
+            raw_norms = vectors.norm(dim=-1, keepdim=True).detach()
+            gain = adaptive_norm_params["gain"]
+            bias = adaptive_norm_params["bias"]
+            scale = 0.5 + 2.5 * torch.sigmoid(gain * raw_norms + bias)
+            steered = (normed.to(device=orig.device, dtype=orig.dtype) * norms.to(orig.dtype) * scale.to(orig.dtype)).detach()
+        else:
+            steered = (normed.to(device=orig.device, dtype=orig.dtype) * norms.to(orig.dtype) * steering_coefficient).to(orig.dtype).detach()
         resid[0, pos, :] = steered + orig
 
         return (resid, *rest) if is_tuple else resid
@@ -309,6 +316,7 @@ def get_batched_steering_hook(
     device: str | torch.device,
     dtype: torch.dtype,
     steering_coefficient: float = 1.0,
+    adaptive_norm_params: dict | None = None,
 ):
     """Batched norm-matched additive steering hook.
 
@@ -321,6 +329,7 @@ def get_batched_steering_hook(
         device: Target device.
         dtype: Target dtype.
         steering_coefficient: Scaling factor for injected vectors.
+        adaptive_norm_params: Optional dict with learnable 'gain' and 'bias' parameters.
     """
     assert len(vectors) == len(positions)
     B = len(vectors)
@@ -345,7 +354,14 @@ def get_batched_steering_hook(
             pos_b = torch.tensor(positions[b], dtype=torch.long, device=device)
             orig = resid[b, pos_b, :]
             norms = orig.norm(dim=-1, keepdim=True)
-            steered = (normed_list[b].to(device, dtype) * norms * steering_coefficient).detach()
+            if adaptive_norm_params is not None:
+                raw_norms = vectors[b].norm(dim=-1, keepdim=True).detach()
+                gain = adaptive_norm_params["gain"]
+                bias = adaptive_norm_params["bias"]
+                scale = 0.5 + 2.5 * torch.sigmoid(gain * raw_norms + bias)
+                steered = (normed_list[b].to(device, dtype) * norms * scale.to(dtype)).detach()
+            else:
+                steered = (normed_list[b].to(device, dtype) * norms * steering_coefficient).detach()
             resid[b, pos_b, :] = steered + orig
 
         return (resid, *rest) if is_tuple else resid

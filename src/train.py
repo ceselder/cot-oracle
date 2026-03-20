@@ -75,6 +75,28 @@ from nl_probes.utils.activation_utils import (
 from nl_probes.utils.common import load_tokenizer, set_seed
 
 from cot_utils import layer_percent_to_layer, sparse_sample_positions, sample_poisson_positions, sample_endweighted_positions
+
+
+class AdaptiveNormScale(torch.nn.Module):
+    """Learnable sigmoid-based scaling for activation injection magnitude.
+
+    Maps raw activation norms to a scale factor in [0.5, 3.0] via:
+        scale = 0.5 + 2.5 * sigmoid(gain * raw_norm + bias)
+
+    gain and bias are learnable parameters optimized alongside LoRA weights.
+    """
+
+    def __init__(self, init_gain: float = 1.0, init_bias: float = 0.0):
+        super().__init__()
+        self.gain = torch.nn.Parameter(torch.tensor(init_gain))
+        self.bias = torch.nn.Parameter(torch.tensor(init_bias))
+
+    def get_params_dict(self) -> dict:
+        """Return dict suitable for passing to steering hooks."""
+        return {"gain": self.gain, "bias": self.bias}
+
+    def extra_repr(self) -> str:
+        return f"gain={self.gain.item():.4f}, bias={self.bias.item():.4f}"
 from tasks import TASKS, get_trainable_tasks
 from data_loading import load_all_training_data
 import eval_loop as _eval_loop_module
@@ -642,13 +664,14 @@ def _window_bucket_training_data(training_data: list[TrainingDataPoint], batch_s
         training_data[i:i + window] = flat
 
 
-def train_features_batch(training_batch, model, submodule, steering_coefficient, device, dtype):
+def train_features_batch(training_batch, model, submodule, steering_coefficient, device, dtype, adaptive_norm_params=None):
     hook_fn = get_hf_activation_steering_hook(
         vectors=training_batch.steering_vectors,
         positions=training_batch.positions,
         steering_coefficient=steering_coefficient,
         device=device,
         dtype=dtype,
+        adaptive_norm_params=adaptive_norm_params,
     )
     tokenized_input = {
         "input_ids": training_batch.input_ids,
@@ -714,6 +737,12 @@ def _log_final_checkpoint_to_wandb(checkpoint_path: Path, global_step: int):
         artifact.add_file(str(path), name=path.name)
     wandb.run.log_artifact(artifact)
 
+
+
+def _save_adaptive_norm(save_path: Path, adaptive_norm_module):
+    """Save adaptive norm parameters alongside a checkpoint."""
+    if adaptive_norm_module is not None:
+        torch.save(adaptive_norm_module.state_dict(), save_path / "adaptive_norm.pt")
 
 
 def _save_training_state(save_path: Path, global_step, optimizer, scheduler):
@@ -1115,7 +1144,29 @@ def train(
             print(f"    eval_steps: {args.eval_steps} (~{reference_steps // max(args.eval_steps, 1)}x)")
             print(f"    save_steps: {args.save_steps}")
 
-    optimizer = torch.optim.AdamW(ddp_model.parameters(), lr=args.lr)
+    # Adaptive norm scaling (learnable sigmoid-based injection magnitude)
+    adaptive_norm_module = None
+    adaptive_norm_dict = None
+    if getattr(args, "adaptive_norm", False):
+        adaptive_norm_module = AdaptiveNormScale(init_gain=1.0, init_bias=0.0).to(device)
+        # Load from checkpoint if resuming
+        if args.resume_from:
+            anorm_path = Path(args.resume_from) / "adaptive_norm.pt"
+            if anorm_path.exists():
+                adaptive_norm_module.load_state_dict(torch.load(anorm_path, map_location=device, weights_only=True))
+                if rank == 0:
+                    print(f"  Loaded adaptive norm params from {anorm_path}: {adaptive_norm_module}")
+        adaptive_norm_module.gain.data = adaptive_norm_module.gain.data.float()
+        adaptive_norm_module.bias.data = adaptive_norm_module.bias.data.float()
+        adaptive_norm_dict = adaptive_norm_module.get_params_dict()
+        if rank == 0:
+            print(f"  Adaptive norm scaling: ON (gain={adaptive_norm_module.gain.item():.4f}, bias={adaptive_norm_module.bias.item():.4f})")
+
+    # Build optimizer param groups: LoRA + optional adaptive norm
+    optim_params = list(ddp_model.parameters())
+    if adaptive_norm_module is not None:
+        optim_params.extend(adaptive_norm_module.parameters())
+    optimizer = torch.optim.AdamW(optim_params, lr=args.lr)
     scheduler = get_linear_schedule_with_warmup(
         optimizer, num_warmup_steps=warmup_steps, num_training_steps=total_steps,
     )
@@ -1302,6 +1353,7 @@ def train(
                                 outputs = train_features_batch(
                                     batch, ddp_model, submodule,
                                     args.steering_coefficient, device, dtype,
+                                    adaptive_norm_params=adaptive_norm_dict,
                                 )
                                 loss = outputs.loss * loss_weight / grad_accum
                             torch.cuda.synchronize()
@@ -1386,6 +1438,13 @@ def train(
                     "train/samples_seen": global_step * args.effective_batch_size,
                 }
                 last_step_time = now
+                # Log adaptive norm params
+                if adaptive_norm_module is not None:
+                    log_dict["train/adaptive_norm_gain"] = adaptive_norm_module.gain.item()
+                    log_dict["train/adaptive_norm_bias"] = adaptive_norm_module.bias.item()
+                    # Compute the scale at the sigmoid midpoint (raw_norm=0) for interpretability
+                    mid_scale = 0.5 + 2.5 * torch.sigmoid(adaptive_norm_module.bias).item()
+                    log_dict["train/adaptive_norm_mid_scale"] = mid_scale
                 parent_task_emas = defaultdict(list)
                 for subtype, ema_val in task_loss_ema.items():
                     parent = subtype_to_task.get(subtype, subtype)
@@ -1440,6 +1499,7 @@ def train(
                 print(f"\n  Phase transition: {prev_dominant_task} -> {dominant_task}")
                 print(f"  Saving phase checkpoint to {ckpt_path}")
                 model.save_pretrained(str(ckpt_path))
+                _save_adaptive_norm(ckpt_path, adaptive_norm_module)
                 _save_training_state(ckpt_path, global_step, optimizer, scheduler)
             if world_size > 1 and task_order in ("sequential", "interleaved") and prev_dominant_task is not None and dominant_task != prev_dominant_task:
                 dist.barrier()
@@ -1462,6 +1522,7 @@ def train(
                     ckpt_path = save_dir / f"step_{global_step}"
                     print(f"  Saving checkpoint to {ckpt_path}")
                     model.save_pretrained(str(ckpt_path))
+                    _save_adaptive_norm(ckpt_path, adaptive_norm_module)
                     _save_training_state(ckpt_path, global_step, optimizer, scheduler)
                 if world_size > 1:
                     dist.barrier()
@@ -1471,6 +1532,7 @@ def train(
                 latest_path = save_dir / "latest"
                 latest_path.mkdir(parents=True, exist_ok=True)
                 model.save_pretrained(str(latest_path))
+                _save_adaptive_norm(latest_path, adaptive_norm_module)
                 _upload_checkpoint_to_hf(latest_path, args, global_step)
 
             # Reset accumulators for next grad_accum window
@@ -1491,6 +1553,7 @@ def train(
         final_path = save_dir / "final"
         print(f"  Saving final checkpoint to {final_path}")
         model.save_pretrained(str(final_path))
+        _save_adaptive_norm(final_path, adaptive_norm_module)
         _save_training_state(final_path, global_step, optimizer, scheduler)
         _log_final_checkpoint_to_wandb(final_path, global_step)
 
@@ -1549,7 +1612,7 @@ def apply_config(args, config: dict):
                      "interleave_blocks", "max_train_tokens_per_gpu", "max_extract_tokens_per_gpu",
                      "batch_size", "effective_batch_size", "extraction_batch_size",
                      "length_bucketing", "length_bucket_window_batches",
-                     "torch_compile", "torch_compile_mode", "per_layer_tokens"]:
+                     "torch_compile", "torch_compile_mode", "per_layer_tokens", "adaptive_norm"]:
             if key in t and not getattr(args, f"_cli_{key}", False):
                 val = t[key]
                 if key in _float_keys:
@@ -1755,6 +1818,8 @@ def main():
     # Ablations
     parser.add_argument("--per-layer-tokens", action="store_true", default=False,
                         help="Use different placeholder tokens per source layer + inject at layer 0 + LoRA on embed_tokens")
+    parser.add_argument("--adaptive-norm", action="store_true", default=False,
+                        help="Learnable sigmoid-based injection magnitude (scale ∈ [0.5, 3.0])")
     parser.add_argument("--random-layers", action="store_true", default=False,
                         help="Randomize layer count and indices per training sequence")
 
