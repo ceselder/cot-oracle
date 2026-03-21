@@ -1142,8 +1142,7 @@ def _materialize_activations(
 
     was_training = model.training
     model.eval()
-    # Use peft-native disable (transformers 5.3+ breaks with model.disable_adapters())
-    model.disable_adapter_layers()
+    model.disable_adapters()
     acts_by_layer = collect_activations_multiple_layers(
         model=model,
         submodules=submodules,
@@ -1151,7 +1150,7 @@ def _materialize_activations(
         min_offset=None,
         max_offset=None,
     )
-    model.enable_adapter_layers()
+    model.enable_adapters()
     if was_training:
         model.train()
 
