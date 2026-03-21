@@ -18,26 +18,32 @@ def _standardize(X_tr: torch.Tensor, X_te: torch.Tensor):
     return (X_tr - mu) / std, (X_te - mu) / std
 
 
-def _train_and_predict(X_tr, y_tr, X_te, n_classes, *, lr, epochs, weight_decay, patience, device, wandb_run=None, tag=""):
-    """Train linear classifier on train set, predict on test set."""
-    X_tr_s, X_te_s = _standardize(X_tr.to(device), X_te.to(device))
-    y_tr_d = y_tr.to(device)
+def _train_and_predict(X_tr, y_tr, X_te, n_classes, *, lr, epochs, weight_decay, patience, val_frac=0.2, device, wandb_run=None, tag=""):
+    """Train linear classifier with val-based early stopping, predict on test set."""
+    # Hold out val split from training data
+    n_val = max(1, int(X_tr.shape[0] * val_frac))
+    perm = torch.randperm(X_tr.shape[0])
+    val_idx, train_idx = perm[:n_val], perm[n_val:]
+
+    X_all_s, X_te_s = _standardize(X_tr.to(device), X_te.to(device))
+    X_tr_s, X_val_s = X_all_s[train_idx], X_all_s[val_idx]
+    y_tr_d, y_val_d = y_tr[train_idx].to(device), y_tr[val_idx].to(device)
 
     probe = nn.Linear(X_tr.shape[1], n_classes).to(device)
     opt = torch.optim.AdamW(probe.parameters(), lr=lr, weight_decay=weight_decay)
     loss_fn = nn.CrossEntropyLoss()
 
-    best_loss = float("inf")
+    best_val_loss = float("inf")
     patience_counter = 0
     best_state = None
 
     for epoch in range(epochs):
         probe.train()
-        perm = torch.randperm(X_tr_s.shape[0], device=device)
+        batch_perm = torch.randperm(X_tr_s.shape[0], device=device)
         epoch_loss = 0.0
         n_batches = 0
         for start in range(0, X_tr_s.shape[0], 512):
-            idx = perm[start:start + 512]
+            idx = batch_perm[start:start + 512]
             opt.zero_grad(set_to_none=True)
             loss = loss_fn(probe(X_tr_s[idx]), y_tr_d[idx])
             loss.backward()
@@ -45,16 +51,22 @@ def _train_and_predict(X_tr, y_tr, X_te, n_classes, *, lr, epochs, weight_decay,
             epoch_loss += loss.item()
             n_batches += 1
 
-        avg_loss = epoch_loss / n_batches
+        avg_train_loss = epoch_loss / n_batches
         probe.eval()
         with torch.no_grad():
+            val_loss = loss_fn(probe(X_val_s), y_val_d).item()
             train_acc = (probe(X_tr_s).argmax(1) == y_tr_d).float().mean().item()
+            val_acc = (probe(X_val_s).argmax(1) == y_val_d).float().mean().item()
 
         if wandb_run:
-            wandb_run.log({f"probe/{tag}/train_loss": avg_loss, f"probe/{tag}/train_acc": train_acc, "probe/epoch": epoch})
+            wandb_run.log({
+                f"probe/{tag}/train_loss": avg_train_loss, f"probe/{tag}/train_acc": train_acc,
+                f"probe/{tag}/val_loss": val_loss, f"probe/{tag}/val_acc": val_acc,
+                "probe/epoch": epoch,
+            })
 
-        if avg_loss < best_loss:
-            best_loss = avg_loss
+        if val_loss < best_val_loss:
+            best_val_loss = val_loss
             patience_counter = 0
             best_state = {k: v.cpu().clone() for k, v in probe.state_dict().items()}
         else:

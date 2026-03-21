@@ -11,7 +11,7 @@ import sqlite3
 from datetime import datetime
 from pathlib import Path
 
-SCHEMA_VERSION = "v1"
+SCHEMA_VERSION = "v2"
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS eval_runs (
@@ -59,6 +59,17 @@ CREATE TABLE IF NOT EXISTS predictions (
     scorer_response TEXT,
     PRIMARY KEY (run_id, task_name, method_name, item_idx)
 );
+
+CREATE TABLE IF NOT EXISTS comparative_scores (
+    run_id TEXT NOT NULL,
+    task_name TEXT NOT NULL,
+    item_idx INTEGER NOT NULL,
+    best_method TEXT NOT NULL,
+    justification TEXT,
+    method_scores_json TEXT,
+    computed_at TEXT NOT NULL,
+    PRIMARY KEY (run_id, task_name, item_idx)
+);
 """
 
 
@@ -70,7 +81,7 @@ class EvalCache:
     def __init__(self, db_path: Path | str):
         self.db_path = Path(db_path)
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
-        self._conn = sqlite3.connect(str(self.db_path))
+        self._conn = sqlite3.connect(str(self.db_path), check_same_thread=False)
         self._conn.execute("PRAGMA journal_mode=WAL")
         self._conn.executescript(_SCHEMA)
         # Migrations for existing DBs
@@ -78,7 +89,18 @@ class EvalCache:
             try:
                 self._conn.execute(f"ALTER TABLE predictions ADD COLUMN {col}")
             except sqlite3.OperationalError:
-                pass  # column already exists
+                pass
+        # v2: comparative_scores table
+        try:
+            self._conn.execute("SELECT 1 FROM comparative_scores LIMIT 1")
+        except sqlite3.OperationalError:
+            self._conn.executescript("""
+                CREATE TABLE IF NOT EXISTS comparative_scores (
+                    run_id TEXT NOT NULL, task_name TEXT NOT NULL, item_idx INTEGER NOT NULL,
+                    best_method TEXT NOT NULL, justification TEXT, method_scores_json TEXT,
+                    computed_at TEXT NOT NULL, PRIMARY KEY (run_id, task_name, item_idx)
+                );
+            """)
 
     def close(self):
         self._conn.close()
@@ -201,6 +223,32 @@ class EvalCache:
              deps_hash, datetime.now().isoformat()),
         )
         self._conn.commit()
+
+    # ── Comparative scores ──
+
+    def store_comparative_scores(self, run_id: str, task_name: str, scores: list[dict]):
+        """Store per-item comparative scores. Each dict: {item_idx, best_method, justification, method_scores}."""
+        self._conn.executemany(
+            "INSERT OR REPLACE INTO comparative_scores (run_id, task_name, item_idx, best_method, justification, method_scores_json, computed_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            [(run_id, task_name, s["item_idx"], s["best_method"], s.get("justification", ""),
+              json.dumps(s.get("method_scores", {})), datetime.now().isoformat()) for s in scores],
+        )
+        self._conn.commit()
+
+    def get_comparative_scores(self, run_id: str, task_name: str) -> dict[int, dict]:
+        """Return {item_idx: {best_method, justification, method_scores}}."""
+        rows = self._conn.execute(
+            "SELECT item_idx, best_method, justification, method_scores_json FROM comparative_scores WHERE run_id = ? AND task_name = ?",
+            (run_id, task_name),
+        ).fetchall()
+        return {r[0]: {"best_method": r[1], "justification": r[2], "method_scores": json.loads(r[3]) if r[3] else {}} for r in rows}
+
+    def has_comparative_scores(self, run_id: str, task_name: str) -> bool:
+        row = self._conn.execute(
+            "SELECT COUNT(*) FROM comparative_scores WHERE run_id = ? AND task_name = ?",
+            (run_id, task_name),
+        ).fetchone()
+        return row[0] > 0
 
     # ── Delete ──
 

@@ -16,6 +16,7 @@ import random
 import re
 import time
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 import httpx
@@ -737,10 +738,10 @@ def _activation_cache_key(model_name: str, task_name: str, n_items: int, layers:
 
 def materialize_activations_chunked(
     model, tokenizer, items: list[dict], layers: list[int],
-    position_mode: str = "all", task_name: str = "", chunk_size: int = 4,
+    position_mode: str = "all", task_name: str = "", chunk_size: int = 8,
     device: str = "cuda", stochastic_max_k: int = 100, eval_position_seed: int = 0,
 ) -> tuple[list[dict], list[torch.Tensor]]:
-    """Prepare context, resample positions, and materialize activations with OOM-safe chunking.
+    """Prepare context, resample positions, and materialize activations.
 
     Returns (valid_items, activations) where valid_items have context_input_ids.
     Caches activations to disk keyed by (model_name, task_name, n_items, layers, position_mode).
@@ -766,12 +767,19 @@ def materialize_activations_chunked(
             print(f"    [acts] loaded from cache ({cache_path.name})")
             return valid, cached
 
-    # Extract
-    all_acts: list[torch.Tensor] = []
-    for start in range(0, len(valid), chunk_size):
-        chunk = valid[start:start + chunk_size]
+    # Sort by sequence length for efficient batching (less padding waste), then unsort
+    sorted_indices = sorted(range(len(valid)), key=lambda i: len(valid[i]["context_input_ids"]))
+    sorted_valid = [valid[i] for i in sorted_indices]
+
+    sorted_acts: list[torch.Tensor] = []
+    for start in range(0, len(sorted_valid), chunk_size):
+        chunk = sorted_valid[start:start + chunk_size]
         chunk_acts = _materialize_activations(model, tokenizer, chunk, layers=layers, device=device)
-        all_acts.extend(a.cpu() for a in chunk_acts)
+        sorted_acts.extend(a.cpu() for a in chunk_acts)
+
+    all_acts = [None] * len(valid)
+    for new_idx, orig_idx in enumerate(sorted_indices):
+        all_acts[orig_idx] = sorted_acts[new_idx]
 
     # Save to disk
     torch.save(all_acts, cache_path)
@@ -861,7 +869,7 @@ def run_oracle_eval(
     model, tokenizer, task_name: str, task_def: TaskDef, test_data: list[dict],
     layers: list[int], position_mode: str, oracle_adapter_name: str,
     position_slice: str = "::",
-    completed_indices: set[int] | None = None, chunk_size: int = 4,
+    completed_indices: set[int] | None = None, chunk_size: int = 8,
 ) -> tuple[list[str | None], list[str], list[int]]:
     """Run oracle eval pipeline. Returns (predictions, targets, todo_indices).
 
@@ -885,11 +893,19 @@ def run_oracle_eval(
             position_mode=position_mode, stochastic_max_k=100, eval_position_seed=0,
         )
 
-        all_activations: list[torch.Tensor] = []
-        for start in range(0, len(todo_items), chunk_size):
-            chunk = todo_items[start:start + chunk_size]
+        # Sort by length for efficient batching
+        length_order = sorted(range(len(todo_items)), key=lambda i: len(todo_items[i]["context_input_ids"]))
+        sorted_items = [todo_items[i] for i in length_order]
+
+        sorted_acts: list[torch.Tensor] = []
+        for start in range(0, len(sorted_items), chunk_size):
+            chunk = sorted_items[start:start + chunk_size]
             chunk_acts = _materialize_activations(model, tokenizer, chunk, layers=layers, device="cuda")
-            all_activations.extend(chunk_acts)
+            sorted_acts.extend(chunk_acts)
+
+        all_activations = [None] * len(todo_items)
+        for new_idx, orig_idx in enumerate(length_order):
+            all_activations[orig_idx] = sorted_acts[new_idx]
 
         n_layers = len(layers)
         pos_sl = parse_position_slice(position_slice)
@@ -1578,7 +1594,6 @@ def run_eval(
     injection_layer: int = 1,
     oracle_adapter_name: str = "default",
     skip_rot13: bool = True,
-    activation_extract_batch_size: int = 4,
     no_activations: bool = False,
     position_mode: str = "stochastic",
     stochastic_max_k: int = 100,
@@ -1630,7 +1645,6 @@ def run_eval(
                 layers=layers,
                 injection_layer=injection_layer,
                 oracle_adapter_name=oracle_adapter_name,
-                activation_extract_batch_size=activation_extract_batch_size,
                 no_activations=no_activations,
                 position_mode=position_mode,
                 stochastic_max_k=stochastic_max_k,
@@ -1718,7 +1732,6 @@ def _eval_single_task(
     layers: list[int],
     injection_layer: int,
     oracle_adapter_name: str,
-    activation_extract_batch_size: int,
     no_activations: bool = False,
     position_mode: str = "stochastic",
     stochastic_max_k: int = 100,
@@ -1843,8 +1856,7 @@ def _eval_single_task(
         # Materialize activations (prepare_context_ids + resample + extract, chunked)
         test_data, all_activations = materialize_activations_chunked(
             model, tokenizer, test_data, layers,
-            position_mode=position_mode, task_name=task_name,
-            chunk_size=activation_extract_batch_size, device=device,
+            position_mode=position_mode, task_name=task_name, device=device,
             stochastic_max_k=stochastic_max_k, eval_position_seed=eval_position_seed,
         )
         if not test_data:

@@ -44,6 +44,123 @@ from eval_loop import (
     score_task, _primary_metric_name, _per_example_correct,
 )
 
+_COMPARATIVE_PROMPT = """You are evaluating multiple monitoring methods on the same example.
+
+Target answer: {target}
+
+{method_predictions}
+
+Which method's prediction best matches the target? Consider both correctness and quality of reasoning.
+
+Respond in this exact format:
+BEST: <method_name>
+SCORES: <method1>=<score>, <method2>=<score>, ...
+JUSTIFICATION: <1-2 sentence explanation>
+
+Score each method 0-10 (10 = perfect match with target)."""
+
+
+def _run_comparative_scoring(cache, run_id, task_name, task_def):
+    """Compare all methods' predictions per-item using the scorer LLM."""
+    import re
+    from qa_scorer import _get_scorer_endpoint, get_score_model
+    import httpx
+
+    if cache.has_comparative_scores(run_id, task_name):
+        print(f"    [compare] cached, skipping")
+        return
+
+    # Gather all predictions per item
+    all_method_preds = {}  # method → {item_idx → prediction}
+    all_results = cache.get_all_method_results(run_id)
+    task_methods = all_results.get(task_name, {})
+    scored_methods = [m for m, d in task_methods.items() if d.get("primary_score") is not None and d["primary_metric"] not in ("error", "failed")]
+    if len(scored_methods) < 2:
+        print(f"    [compare] <2 scored methods, skipping")
+        return
+
+    # Collapse to best-per-family
+    def _family(name):
+        for prefix in ("our_ao", "original_ao"):
+            if name.startswith(prefix):
+                return prefix
+        return name
+
+    family_best = {}
+    for m in scored_methods:
+        fam = _family(m)
+        s = task_methods[m].get("primary_score", -1)
+        if fam not in family_best or s > family_best[fam][1]:
+            family_best[fam] = (m, s)
+    compare_methods = {fam: variant for fam, (variant, _) in family_best.items()}
+
+    for fam, variant in compare_methods.items():
+        preds = cache.get_predictions(run_id, task_name, variant)
+        all_method_preds[fam] = {idx: p["prediction"] for idx, p in preds.items() if p["prediction"]}
+
+    # Get items
+    item_rows = cache._conn.execute(
+        "SELECT item_idx, target_response FROM items WHERE run_id = ? AND task_name = ? ORDER BY item_idx",
+        (run_id, task_name),
+    ).fetchall()
+
+    url, headers = _get_scorer_endpoint()
+    score_model = get_score_model()
+
+    comparative_results = []
+    for item_idx, target in item_rows:
+        preds_for_item = {fam: all_method_preds[fam].get(item_idx, "") for fam in compare_methods if all_method_preds[fam].get(item_idx)}
+        if len(preds_for_item) < 2:
+            continue
+
+        method_block = "\n".join(f"Method '{fam}': {pred}" for fam, pred in preds_for_item.items())
+        prompt = _COMPARATIVE_PROMPT.format(target=target, method_predictions=method_block)
+
+        body = {
+            "model": score_model,
+            "messages": [{"role": "user", "content": prompt}],
+            "temperature": 0.0,
+            "max_tokens": 300,
+        }
+        try:
+            resp = httpx.post(url, json=body, headers=headers, timeout=30.0)
+            resp.raise_for_status()
+            raw = (resp.json()["choices"][0]["message"]["content"] or "").strip()
+            raw = re.sub(r"<think>.*?</think>", "", raw, flags=re.DOTALL).strip()
+        except Exception:
+            continue
+
+        # Parse response
+        best_match = re.search(r"BEST:\s*(\S+)", raw)
+        scores_match = re.search(r"SCORES:\s*(.+)", raw)
+        just_match = re.search(r"JUSTIFICATION:\s*(.+)", raw, re.DOTALL)
+
+        best_method = best_match.group(1).strip("'\"") if best_match else ""
+        justification = just_match.group(1).strip() if just_match else raw
+
+        method_scores = {}
+        if scores_match:
+            for pair in scores_match.group(1).split(","):
+                pair = pair.strip()
+                if "=" in pair:
+                    k, v = pair.split("=", 1)
+                    try:
+                        method_scores[k.strip().strip("'\"")] = float(v.strip())
+                    except ValueError:
+                        pass
+
+        comparative_results.append({
+            "item_idx": item_idx,
+            "best_method": best_method,
+            "justification": justification,
+            "method_scores": method_scores,
+        })
+
+    if comparative_results:
+        cache.store_comparative_scores(run_id, task_name, comparative_results)
+        print(f"    [compare] scored {len(comparative_results)} items across {len(compare_methods)} method families")
+
+
 DEFAULT_K_SWEEP = [1, 5, 10, 20, None]
 DEFAULT_LAYERS = [9, 18, 27]
 DEFAULT_BASELINES = ["weak-bb-monitor", "our_ao", "original_ao"]  # fallback if eval.yaml has no baselines list
@@ -112,7 +229,7 @@ def _run_and_store_method(cache, run_id, task_name, task_def, method_name,
                 if predictions[i] is not None:
                     new_pred_rows.append({
                         "item_idx": i, "item_id": f"{task_name}_{i}",
-                        "prediction": predictions[i][:500], "score": None,
+                        "prediction": predictions[i], "score": None,
                         "prompt": test_data[i].get("prompt", ""),
                     })
             if new_pred_rows:
@@ -190,7 +307,7 @@ def _run_and_store_method(cache, run_id, task_name, task_def, method_name,
         eval_items = valid_data
         valid_mask = list(range(len(valid_data)))
 
-        new_pred_rows = [{"item_idx": i, "item_id": f"{task_name}_{i}", "prediction": (p or "")[:500], "score": None}
+        new_pred_rows = [{"item_idx": i, "item_id": f"{task_name}_{i}", "prediction": (p or ""), "score": None}
                          for i, p in enumerate(predictions)]
         cache.store_predictions(run_id, task_name, method_name, new_pred_rows)
 
@@ -221,8 +338,8 @@ def _run_and_store_method(cache, run_id, task_name, task_def, method_name,
         eval_items = valid_data
         valid_mask = list(range(len(valid_data)))
 
-        new_pred_rows = [{"item_idx": i, "item_id": f"{task_name}_{i}", "prediction": (p or "")[:500], "score": None,
-                          "prompt": item_prompts[i][:2000] if i < len(item_prompts) else None}
+        new_pred_rows = [{"item_idx": i, "item_id": f"{task_name}_{i}", "prediction": (p or ""), "score": None,
+                          "prompt": item_prompts[i] if i < len(item_prompts) else None}
                          for i, p in enumerate(predictions)]
         cache.store_predictions(run_id, task_name, method_name, new_pred_rows)
 
@@ -250,7 +367,7 @@ def _run_and_store_method(cache, run_id, task_name, task_def, method_name,
         valid_mask = list(range(len(valid_data)))
         item_prompts = [d.get("prompt", "") for d in valid_data]
 
-        new_pred_rows = [{"item_idx": i, "item_id": f"{task_name}_{i}", "prediction": (p or "")[:500], "score": None,
+        new_pred_rows = [{"item_idx": i, "item_id": f"{task_name}_{i}", "prediction": (p or ""), "score": None,
                           "prompt": valid_data[i].get("prompt", "")}
                          for i, p in enumerate(predictions)]
         cache.store_predictions(run_id, task_name, method_name, new_pred_rows)
@@ -275,8 +392,8 @@ def _run_and_store_method(cache, run_id, task_name, task_def, method_name,
 
         supervisor_context = task_def.supervisor_context
         item_prompts = [f"Question: {d.get('question', d.get('prompt', ''))}\nChain of thought: {d.get(supervisor_context, '')[:4000]}\n\n{d.get('prompt', '')}" for d in test_data]
-        new_pred_rows = [{"item_idx": i, "item_id": f"{task_name}_{i}", "prediction": (p or "")[:500], "score": None,
-                          "prompt": item_prompts[i][:2000]}
+        new_pred_rows = [{"item_idx": i, "item_id": f"{task_name}_{i}", "prediction": (p or ""), "score": None,
+                          "prompt": item_prompts[i]}
                          for i, p in enumerate(predictions)]
         cache.store_predictions(run_id, task_name, method_name, new_pred_rows)
 
@@ -302,7 +419,7 @@ def _run_and_store_method(cache, run_id, task_name, task_def, method_name,
         eval_items = valid_data
         valid_mask = list(range(len(valid_data)))
 
-        new_pred_rows = [{"item_idx": i, "item_id": f"{task_name}_{i}", "prediction": (p or "")[:500], "score": None}
+        new_pred_rows = [{"item_idx": i, "item_id": f"{task_name}_{i}", "prediction": (p or ""), "score": None}
                          for i, p in enumerate(predictions)]
         cache.store_predictions(run_id, task_name, method_name, new_pred_rows)
         # attention probe is a learned classifier, no text prompt
@@ -318,7 +435,7 @@ def _run_and_store_method(cache, run_id, task_name, task_def, method_name,
         return
 
     # Store items (targets) and mark as "unscored" before attempting scoring
-    items = [{"item_idx": i, "item_id": f"{task_name}_{i}", "target_response": tgt[:500]}
+    items = [{"item_idx": i, "item_id": f"{task_name}_{i}", "target_response": tgt}
              for i, tgt in enumerate([d.get("target_response", "") for d in test_data]) if tgt]
     cache.store_items(run_id, task_name, items)
 
@@ -354,12 +471,12 @@ def _score_and_store(cache, run_id, task_name, task_def, method_name, method_con
         if rank < len(per_item_scores):
             entry = {
                 "item_idx": orig_idx, "item_id": f"{task_name}_{orig_idx}",
-                "prediction": predictions[rank][:500], "score": per_item_scores[rank],
+                "prediction": predictions[rank], "score": per_item_scores[rank],
             }
             if item_prompts is not None and rank < len(item_prompts) and item_prompts[rank]:
-                entry["prompt"] = item_prompts[rank][:2000]
+                entry["prompt"] = item_prompts[rank]
             if rank < len(scorer_responses) and scorer_responses[rank]:
-                entry["scorer_response"] = str(scorer_responses[rank])[:500]
+                entry["scorer_response"] = str(scorer_responses[rank])
             score_updates.append(entry)
     if score_updates:
         cache.store_predictions(run_id, task_name, method_name, score_updates)
@@ -480,6 +597,11 @@ def plot_results(output_dir: Path, cache: EvalCache | None = None, run_id: str |
     if adam_tasks:
         rows.append(("Original AO tasks", adam_tasks))
 
+    def _variant_label(family: str, variant: str) -> str:
+        """Short label for the best sweep variant, e.g. 'L9_tail5' or 'stride5'."""
+        suffix = variant[len(family):].lstrip("_")
+        return suffix if suffix else ""
+
     def _plot_row(ax, tasks, title):
         # Add "avg" pseudo-task
         plot_tasks = tasks + ["avg"]
@@ -487,24 +609,41 @@ def plot_results(output_dir: Path, cache: EvalCache | None = None, run_id: str |
         bar_width = 0.8 / max(len(method_order), 1)
 
         for j, family in enumerate(method_order):
-            scores, stds = [], []
+            scores, stds, variant_labels = [], [], []
+            has_sweep = len(families.get(family, [])) > 1
             for task in tasks:
                 entry = best_per_task.get(task, {}).get(family)
                 scores.append(entry[1] if entry else 0.0)
                 stds.append(entry[2] if entry else 0.0)
-            # Compute average
-            valid = [s for s in scores if s > 0]
-            avg = sum(valid) / len(valid) if valid else 0.0
+                variant_labels.append(_variant_label(family, entry[0]) if entry and has_sweep else "")
+            # Compute average + propagated std (std of mean = sqrt(sum(std_i^2)) / n)
+            valid_scores = [s for s in scores if s > 0]
+            valid_stds = [st for s, st in zip(scores, stds) if s > 0]
+            n_valid = len(valid_scores)
+            avg = sum(valid_scores) / n_valid if n_valid else 0.0
+            avg_std = (sum(s**2 for s in valid_stds) ** 0.5) / n_valid if n_valid else 0.0
             scores.append(avg)
-            stds.append(0.0)
+            stds.append(avg_std)
+            variant_labels.append("")
 
             offset = (j - len(method_order) / 2 + 0.5) * bar_width
-            ax.bar(x + offset, scores, bar_width * 0.9, yerr=stds,
-                   label=family if title == rows[0][0] else None,
-                   color=method_colors[family], alpha=0.85, capsize=2)
+            bars = ax.bar(x + offset, scores, bar_width * 0.9, yerr=stds,
+                          label=family if title == rows[0][0] else None,
+                          color=method_colors[family], alpha=0.85, capsize=2)
 
-        # Separator line before avg
-        ax.axvline(len(tasks) - 0.5, color="gray", linewidth=0.5, linestyle="--")
+            # Annotate best variant at bar bottom for sweep families
+            if has_sweep:
+                for bar, lbl in zip(bars, variant_labels):
+                    if lbl and bar.get_height() > 0:
+                        ax.text(bar.get_x() + bar.get_width() / 2, 0.01,
+                                lbl, ha="center", va="bottom",
+                                fontsize=4.5, rotation=90, color="white", fontweight="bold")
+
+        # Vertical lines between tasks
+        for i in range(1, len(plot_tasks)):
+            ax.axvline(i - 0.5, color="gray", linewidth=0.3, alpha=0.4)
+        # Heavier separator before avg
+        ax.axvline(len(tasks) - 0.5, color="gray", linewidth=1.0, linestyle="--")
         ax.set_xticks(x)
         ax.set_xticklabels(plot_tasks, rotation=45, ha="right", fontsize=8)
         ax.set_ylabel("Score")
@@ -602,7 +741,7 @@ def main():
     parser.add_argument("--config", default="configs/eval.yaml", help="Eval config (baselines, score_model)")
     parser.add_argument("--train-config", default="configs/train.yaml", help="Train config (model, activations)")
     parser.add_argument("--checkpoint", default="", help="Our LoRA checkpoint path (default: from eval.yaml method_config.our_ao.checkpoint)")
-    parser.add_argument("--n-examples", type=int, default=100)
+    parser.add_argument("--n-examples", type=int, default=None, help="Examples per task (default: from eval.yaml n_examples, or 25)")
     parser.add_argument("--output-dir", default="data/comprehensive_eval")
     parser.add_argument("--tasks", nargs="*", default=None, help="Specific tasks (default: all comprehensive eval tasks)")
     parser.add_argument("--baselines", nargs="*", default=DEFAULT_BASELINES, help="Baselines to run")
@@ -620,6 +759,8 @@ def main():
     output_dir.mkdir(parents=True, exist_ok=True)
 
     config = yaml.safe_load(open(args.config))
+    if args.n_examples is None:
+        args.n_examples = config.get("n_examples", 25)
     method_config = config.get("method_config", {})
 
     # Resolve checkpoint: CLI > config > empty
@@ -750,6 +891,12 @@ def main():
 
             task_json = cache.export_task_json(run_id, task_name)
             (output_dir / f"{task_name}.json").write_text(json.dumps(task_json, indent=2, default=str))
+
+        # Comparative scoring after all methods
+        try:
+            _run_comparative_scoring(cache, run_id, task_name, task_def)
+        except Exception as e:
+            print(f"    [compare] FAILED: {e}")
 
     plot_results(output_dir, cache=cache, run_id=run_id, tasks_order=task_names)
     cache.close()

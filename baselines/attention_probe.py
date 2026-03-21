@@ -91,44 +91,56 @@ class AttentionProbe(nn.Module):
 
 def _train_attention_probe_fold(
     train_acts, y_train, test_acts, *,
-    layers, n_outputs, lr, epochs, patience, batch_size, device,
+    layers, n_outputs, lr, epochs, patience, val_frac=0.2, batch_size, device,
     wandb_run=None, tag="",
 ):
-    """Train AttentionProbe on one fold. Returns test predictions."""
+    """Train AttentionProbe on one fold with val-based early stopping. Returns test predictions."""
+    # Hold out val split from fold training data
+    n_val = max(1, int(len(train_acts) * val_frac))
+    perm = torch.randperm(len(train_acts))
+    val_idx, tr_idx = perm[:n_val], perm[n_val:]
+    tr_acts = [train_acts[i] for i in tr_idx]
+    val_acts = [train_acts[i] for i in val_idx]
+    y_tr_d = y_train[tr_idx].to(device)
+    y_val_d = y_train[val_idx].to(device)
+
     model = AttentionProbe(layers, n_outputs=n_outputs).to(device)
     opt = torch.optim.AdamW(model.parameters(), lr=lr)
     loss_fn = nn.CrossEntropyLoss()
-    y_train_d = y_train.to(device)
 
-    best_loss = float("inf")
+    best_val_loss = float("inf")
     patience_counter = 0
     best_state = None
 
     for epoch in range(epochs):
         model.train()
-        indices = torch.randperm(len(train_acts))
-        for start in range(0, len(train_acts), batch_size):
+        indices = torch.randperm(len(tr_acts))
+        for start in range(0, len(tr_acts), batch_size):
             idx = indices[start:start + batch_size]
-            batch_acts = [train_acts[i] for i in idx]
-            batch_y = y_train_d[idx]
+            batch_acts = [tr_acts[i] for i in idx]
+            batch_y = y_tr_d[idx]
             opt.zero_grad(set_to_none=True)
             loss_fn(model(batch_acts), batch_y).backward()
             opt.step()
 
         model.eval()
         with torch.no_grad():
-            all_logits = []
-            for start in range(0, len(train_acts), batch_size):
-                all_logits.append(model(train_acts[start:start + batch_size]))
-            logits = torch.cat(all_logits)
-            train_loss = loss_fn(logits, y_train_d).item()
-            train_acc = (logits.argmax(1) == y_train_d).float().mean().item()
+            tr_logits = torch.cat([model(tr_acts[s:s + batch_size]) for s in range(0, len(tr_acts), batch_size)])
+            val_logits = torch.cat([model(val_acts[s:s + batch_size]) for s in range(0, len(val_acts), batch_size)])
+            train_loss = loss_fn(tr_logits, y_tr_d).item()
+            val_loss = loss_fn(val_logits, y_val_d).item()
+            train_acc = (tr_logits.argmax(1) == y_tr_d).float().mean().item()
+            val_acc = (val_logits.argmax(1) == y_val_d).float().mean().item()
 
         if wandb_run:
-            wandb_run.log({f"probe/{tag}/train_loss": train_loss, f"probe/{tag}/train_acc": train_acc, "probe/epoch": epoch})
+            wandb_run.log({
+                f"probe/{tag}/train_loss": train_loss, f"probe/{tag}/train_acc": train_acc,
+                f"probe/{tag}/val_loss": val_loss, f"probe/{tag}/val_acc": val_acc,
+                "probe/epoch": epoch,
+            })
 
-        if train_loss < best_loss:
-            best_loss = train_loss
+        if val_loss < best_val_loss:
+            best_val_loss = val_loss
             patience_counter = 0
             best_state = {k: v.cpu().clone() for k, v in model.state_dict().items()}
         else:

@@ -126,8 +126,11 @@ def get_records(task):
                 r["_prompts"][display] = prompt
         records.append(r)
 
-    # Compute agreement
-    for r in records:
+    # Load comparative scores
+    comp_scores = cache.get_comparative_scores(_run_id, task) if hasattr(cache, 'get_comparative_scores') else {}
+
+    # Compute agreement + attach comparative scores
+    for i, r in enumerate(records):
         methods = [k for k in METHOD_ORDER if k in r and r[k]]
         preds = [str(r[m]).strip().lower()[:40] for m in methods]
         if preds:
@@ -135,7 +138,14 @@ def get_records(task):
             r["_pred_agreement"] = round(majority / len(preds), 2)
         else:
             r["_pred_agreement"] = 1.0
-        r["_disagreement"] = 0.0  # no comparative scoring in new system yet
+
+        comp = comp_scores.get(i, {})
+        r["_best_method"] = comp.get("best_method", "")
+        r["_compare_justification"] = comp.get("justification", "")
+        r["llm_comparative_score"] = comp.get("method_scores", {})
+        # Disagreement = 1 - (best_score - worst_score) / 10, higher = more disagreement
+        ms = list(comp.get("method_scores", {}).values())
+        r["_disagreement"] = round(1.0 - (max(ms) - min(ms)) / 10.0, 2) if len(ms) >= 2 else 0.0
 
     return jsonify({
         "records": records,
@@ -181,7 +191,7 @@ def method_scores_api(task):
         model = data.get("model") or _method_model(display)
         result[display] = {
             "primary_score": data.get("primary_score"),
-            "comparative_score": None,
+            "comparative_score": None,  # TODO: compute from comparative_scores table
             "trained": trained,
             "model": model,
             "skipped": False,
@@ -656,6 +666,18 @@ function detailHtml(r,colspan){
     });
     h+=`</table></div>`;
   }
+
+  // Comparative scoring justification
+  if(r._best_method || r._compare_justification){
+    const cmpScores=r.llm_comparative_score||{};
+    const scTxt=Object.entries(cmpScores).map(([m,s])=>`${m}=${s}`).join(', ');
+    h+=`<div style="margin-top:8px;padding:6px 8px;background:var(--bg);border:1px solid var(--border);border-radius:3px;font-size:11px">`;
+    h+=`<div style="font-size:9px;text-transform:uppercase;color:var(--dim);margin-bottom:3px">comparative scoring</div>`;
+    if(r._best_method) h+=`<div><b>best:</b> ${esc(r._best_method)}${scTxt?' &nbsp;|&nbsp; '+esc(scTxt):''}</div>`;
+    if(r._compare_justification) h+=`<div style="margin-top:3px;color:var(--fg);line-height:1.4">${esc(r._compare_justification)}</div>`;
+    h+=`</div>`;
+  }
+
   h+=`</div></td></tr>`;
   return h;
 }

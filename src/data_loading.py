@@ -186,6 +186,9 @@ def _tok_cache_fingerprint(items_to_tok: list[dict], tokenizer, layers: list[int
     return h.hexdigest()[:16]
 
 
+MAX_COT_TOKENS = 1024  # cap CoT length to avoid OOM on long-sequence tasks
+
+
 def prepare_context_ids(
     items: list[dict],
     tokenizer,
@@ -282,6 +285,12 @@ def prepare_context_ids(
             if not cot_positions:
                 cache_entries.append(None)
                 continue
+
+            # Cap long CoT sequences: subsample positions and truncate input_ids
+            if len(cot_positions) > MAX_COT_TOKENS:
+                step = (len(cot_positions) - 1) / (MAX_COT_TOKENS - 1)
+                cot_positions = [cot_positions[int(i * step)] for i in range(MAX_COT_TOKENS - 1)] + [cot_positions[-1]]
+                full_ids = full_ids[:cot_positions[-1] + 1]
 
             all_positions = cot_positions * n_layers
 

@@ -57,7 +57,6 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--model", default="Qwen/Qwen3-8B")
     parser.add_argument("--max-items", type=int, default=24)
     parser.add_argument("--eval-batch-size", type=int, default=4)
-    parser.add_argument("--activation-extract-batch-size", type=int, default=4)
     parser.add_argument("--device", default="cuda")
     parser.add_argument("--tasks", nargs="+", default=DEFAULT_TASKS)
     parser.add_argument("--max-k-values", type=int, nargs="+", default=DEFAULT_MAX_K_VALUES)
@@ -156,7 +155,6 @@ def main() -> None:
             "layer_specs": [{"label": label, "layers": layers} for label, layers in DEFAULT_LAYER_SPECS],
             "max_items": args.max_items,
             "eval_batch_size": args.eval_batch_size,
-            "activation_extract_batch_size": args.activation_extract_batch_size,
             "grid_shape": [len(DEFAULT_LAYER_SPECS), len(args.max_k_values)],
             "world_size": 1,
             "baseline_type": "trained_oracle_maxk_layer_grid",
@@ -192,7 +190,6 @@ def main() -> None:
                 injection_layer=1,
                 oracle_adapter_name="default",
                 skip_rot13=True,
-                activation_extract_batch_size=args.activation_extract_batch_size,
                 no_activations=False,
                 position_mode="stochastic",
                 stochastic_max_k=max_k,

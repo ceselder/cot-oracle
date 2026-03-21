@@ -68,7 +68,6 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--model", default="Qwen/Qwen3-8B")
     parser.add_argument("--max-items", type=int, default=24)
     parser.add_argument("--eval-batch-size", type=int, default=2)
-    parser.add_argument("--activation-extract-batch-size", type=int, default=2)
     parser.add_argument("--device", default="cuda")
     parser.add_argument("--tasks", nargs="+", default=DEFAULT_TASKS)
     parser.add_argument("--layers", type=int, nargs="+", default=DEFAULT_LAYERS)
@@ -201,7 +200,6 @@ def main() -> None:
             "mode_specs": MODE_SPECS,
             "max_items": args.max_items,
             "eval_batch_size": args.eval_batch_size,
-            "activation_extract_batch_size": args.activation_extract_batch_size,
             "world_size": 1,
             "baseline_type": "trained_oracle_position_mode_compare",
         },
@@ -230,7 +228,6 @@ def main() -> None:
             injection_layer=1,
             oracle_adapter_name="default",
             skip_rot13=True,
-            activation_extract_batch_size=args.activation_extract_batch_size,
             no_activations=False,
             position_mode=mode_spec["position_mode"],
             stochastic_max_k=100,

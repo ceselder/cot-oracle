@@ -4,26 +4,28 @@
 # Comment out tasks or baselines to skip them.
 
 score_model: openai/gpt-oss-20b
-score_model_local: Qwen/Qwen3-8B    # local vLLM scorer model (launched automatically if try_local_scorer is true)
+score_model_local: Qwen/Qwen3-0.6B   # small local scorer — fits alongside oracle model
 try_local_scorer: true               # auto-start vLLM on port 8788 if GPU is available (capped at 30% VRAM)
+n_examples: 25                       # examples per task (CLI --n-examples overrides)
 
 # Tasks to evaluate (subset of tasks defined in src/tasks.py).
 # Comment out a line to skip that task.
 tasks:
-  - hint_admission
+  # - hint_admission
   - atypical_answer
   - reasoning_termination
   - answer_trajectory
-  - correctness
-  - decorative_cot
-  - backtrack_prediction
+  # - correctness
+  # - decorative_cot
+  # - backtrack_prediction
   - sycophancy
   - truthfulqa_hint
-  - sqa
+  # - sqa
   - chunked_convqa
   - chunked_compqa_backtrack
   - sentence_insertion
-  - hallucination_detection
+  - cot_description
+  # - hallucination_detection
   # - futurelens          # no cot_text
   # - pastlens            # no cot_text
   # - rot13_reconstruction
@@ -77,7 +79,7 @@ method_config:
     llm_model: xiaomi/mimo-v2-flash
     sae_trainer: 2
     top_k: 20
-    max_tokens: 300
+    max_tokens: 2048
     temperature: 0.0
     max_concurrent: 20
 

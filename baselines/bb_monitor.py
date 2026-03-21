@@ -112,8 +112,8 @@ def run_bb_monitor(
             item = test_data[i]
             cache.store_predictions(run_id, item.get("_task_name", ""), method_name, [{
                 "item_idx": i, "item_id": f"{item.get('_task_name', '')}_{i}",
-                "prediction": result[:500], "score": None,
-                "prompt": user_msg[:2000],
+                "prediction": result, "score": None,
+                "prompt": user_msg,
             }])
 
     pbar.close()
