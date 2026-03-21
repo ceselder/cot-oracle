@@ -732,7 +732,7 @@ def materialize_activations_chunked(
     for start in range(0, len(valid), chunk_size):
         chunk = valid[start:start + chunk_size]
         chunk_acts = _materialize_activations(model, tokenizer, chunk, layers=layers, device=device)
-        all_acts.extend(chunk_acts)
+        all_acts.extend(a.cpu() for a in chunk_acts)
     return valid, all_acts
 
 
