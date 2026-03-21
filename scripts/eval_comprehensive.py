@@ -67,7 +67,7 @@ def _store_failure(cache, run_id, task_name, method_name, method_config, reason:
 
 def _run_and_store_method(cache, run_id, task_name, task_def, method_name,
                           method_config, model, tokenizer, n_examples, layers,
-                          openrouter_available, train_config=None):
+                          openrouter_available, train_config=None, wandb_run=None):
     """Run a single method with incremental recovery."""
     primary = _primary_metric_name(task_name, task_def.scoring)
 
@@ -179,6 +179,7 @@ def _run_and_store_method(cache, run_id, task_name, task_def, method_name,
         predictions = run_linear_probe(
             valid_data, test_acts, layers, task_def,
             train_data=train_valid, train_activations=train_acts, device="cuda",
+            wandb_run=wandb_run,
         )
         targets = [d.get("target_response", "") for d in valid_data]
         eval_items = valid_data
@@ -286,6 +287,7 @@ def _run_and_store_method(cache, run_id, task_name, task_def, method_name,
 
         predictions = run_attention_probe(
             valid_data, activations, layers, task_def, device="cuda",
+            wandb_run=wandb_run,
         )
         targets = [d.get("target_response", "") for d in valid_data]
         eval_items = valid_data
@@ -667,6 +669,13 @@ def main():
             + ". Start local vLLM (port 8788), set SCORER_API_BASE, or set OPENROUTER_API_KEY."
         )
 
+    # Init wandb for probe training if probes are active
+    wandb_run = None
+    needs_probes = any(b in ("linear_probes", "attention_probe") for b in active_baselines)
+    if needs_probes:
+        import wandb
+        wandb_run = wandb.init(project="cot-oracle-probes", group="comprehensive_eval", config={"n_examples": args.n_examples, "checkpoint": checkpoint, "layers": args.layers})
+
     model, tokenizer = None, None
     if needs_model:
         print("Loading Qwen3-8B + adapters...")
@@ -718,6 +727,7 @@ def main():
                     method_config, model, tokenizer, args.n_examples,
                     args.layers, openrouter_available,
                     train_config=train_cfg if needs_model else None,
+                    wandb_run=wandb_run,
                 )
             except Exception as e:
                 import traceback; traceback.print_exc()
@@ -735,6 +745,8 @@ def main():
     plot_results(output_dir, cache=cache, run_id=run_id, tasks_order=task_names)
     cache.close()
     stop_local_scorer()
+    if wandb_run:
+        wandb_run.finish()
     print("\nDone!")
 
 

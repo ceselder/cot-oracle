@@ -92,6 +92,7 @@ class AttentionProbe(nn.Module):
 def _train_attention_probe_fold(
     train_acts, y_train, test_acts, *,
     layers, n_outputs, lr, epochs, patience, batch_size, device,
+    wandb_run=None, tag="",
 ):
     """Train AttentionProbe on one fold. Returns test predictions."""
     model = AttentionProbe(layers, n_outputs=n_outputs).to(device)
@@ -103,7 +104,7 @@ def _train_attention_probe_fold(
     patience_counter = 0
     best_state = None
 
-    for _ in range(epochs):
+    for epoch in range(epochs):
         model.train()
         indices = torch.randperm(len(train_acts))
         for start in range(0, len(train_acts), batch_size):
@@ -119,7 +120,12 @@ def _train_attention_probe_fold(
             all_logits = []
             for start in range(0, len(train_acts), batch_size):
                 all_logits.append(model(train_acts[start:start + batch_size]))
-            train_loss = loss_fn(torch.cat(all_logits), y_train_d).item()
+            logits = torch.cat(all_logits)
+            train_loss = loss_fn(logits, y_train_d).item()
+            train_acc = (logits.argmax(1) == y_train_d).float().mean().item()
+
+        if wandb_run:
+            wandb_run.log({f"probe/{tag}/train_loss": train_loss, f"probe/{tag}/train_acc": train_acc, "probe/epoch": epoch})
 
         if train_loss < best_loss:
             best_loss = train_loss
@@ -153,6 +159,7 @@ def run_attention_probe(
     patience: int = 10,
     batch_size: int = 32,
     device: str = "cuda",
+    wandb_run=None,
 ) -> list[str]:
     """Run Qwen attention probe via k-fold CV. Returns list[str] predictions.
 
@@ -177,7 +184,7 @@ def run_attention_probe(
     all_preds = [None] * len(test_data)
 
     skf = StratifiedKFold(n_splits=min(k_folds, len(test_data)), shuffle=True, random_state=42)
-    for train_idx, test_idx in tqdm(list(skf.split(range(len(test_data)), y_all.numpy())), desc="Qwen attn probe folds"):
+    for fold_i, (train_idx, test_idx) in enumerate(tqdm(list(skf.split(range(len(test_data)), y_all.numpy())), desc="Qwen attn probe folds")):
         train_acts = [all_acts[i] for i in train_idx]
         test_acts_fold = [all_acts[i] for i in test_idx]
         y_tr = y_all[train_idx]
@@ -186,6 +193,7 @@ def run_attention_probe(
             train_acts, y_tr, test_acts_fold,
             layers=layers, n_outputs=n_classes, lr=lr, epochs=epochs,
             patience=patience, batch_size=batch_size, device=device,
+            wandb_run=wandb_run, tag=f"{task_def.name}/fold{fold_i}",
         )
         for i, idx in enumerate(test_idx):
             all_preds[idx] = labels_unique[preds[i].item()]
