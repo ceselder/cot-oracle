@@ -169,7 +169,7 @@ def _run_and_store_method(cache, run_id, task_name, task_def, method_name,
             print("task disabled in train config")
             _store_failure(cache, run_id, task_name, method_name, method_config, "task disabled in train config")
             return
-        train_data = load_and_normalize(task_name, task_n if task_n > 0 else 10000, split="train")
+        train_data = load_and_normalize(task_name, min(task_n, 2000) if task_n > 0 else 2000, split="train")
         if not train_data:
             print("no train data")
             _store_failure(cache, run_id, task_name, method_name, method_config, "no train data")
