@@ -154,6 +154,10 @@ def _run_and_store_method(cache, run_id, task_name, task_def, method_name,
 
     # ── Linear probes ──
     elif method_name == "linear_probes":
+        from tasks import ScoringMode
+        if task_def.scoring != ScoringMode.BINARY:
+            print(f"skipped (non-binary task)")
+            return
         from linear_probe import run_linear_probe
 
         valid_data, test_acts = materialize_activations_chunked(model, tokenizer, test_data, layers, position_mode="all", task_name=task_name)
@@ -278,6 +282,10 @@ def _run_and_store_method(cache, run_id, task_name, task_def, method_name,
 
     # ── Attention probe ──
     elif method_name == "attention_probe":
+        from tasks import ScoringMode
+        if task_def.scoring != ScoringMode.BINARY:
+            print(f"skipped (non-binary task)")
+            return
         from attention_probe import run_attention_probe
 
         valid_data, activations = materialize_activations_chunked(model, tokenizer, test_data, layers, position_mode="all", task_name=task_name)
