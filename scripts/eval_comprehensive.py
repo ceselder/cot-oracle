@@ -674,7 +674,7 @@ def main():
     needs_probes = any(b in ("linear_probes", "attention_probe") for b in active_baselines)
     if needs_probes:
         import wandb
-        wandb_run = wandb.init(project="cot-oracle-probes", group="comprehensive_eval", config={"n_examples": args.n_examples, "checkpoint": checkpoint, "layers": args.layers})
+        wandb_run = wandb.init(project="cot_oracle", entity="MATS10-CS-JB", group="probes", config={"n_examples": args.n_examples, "checkpoint": checkpoint, "layers": args.layers})
 
     model, tokenizer = None, None
     if needs_model:
