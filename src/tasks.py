@@ -37,7 +37,7 @@ class TaskDef:
     default_n: int = 15000
     max_new_tokens: int = 64
     needs_rot13_adapter: bool = False
-    oracle_context: str = "cot_text"         # field to use for activation extraction
+    supervisor_context: str = "cot_text"        # field to use for activation extraction
     # Preamble describing the reasoning context — used by LLM monitor and SAE probe prompts
     cot_preamble: str = "A language model produced the following chain-of-thought reasoning for a question."
     # Maps datapoint_type in existing precomputed data → this task
@@ -228,7 +228,7 @@ TASKS: dict[str, TaskDef] = {
         trainable=True,
         default_n=25000,
         max_new_tokens=128,
-        oracle_context="cot_prefix",
+        supervisor_context="cot_prefix",
         cot_preamble=_CHUNKED_PREAMBLE,
     ),
 
@@ -241,7 +241,7 @@ TASKS: dict[str, TaskDef] = {
         trainable=True,
         default_n=10000,
         max_new_tokens=128,
-        oracle_context="cot_prefix",
+        supervisor_context="cot_prefix",
         cot_preamble=_CHUNKED_PREAMBLE,
         filter_datapoint_type="cot_backtrack_pred",
         hf_cache_name="chunked_compqa",
@@ -256,7 +256,7 @@ TASKS: dict[str, TaskDef] = {
         trainable=True,
         default_n=5000,
         max_new_tokens=128,
-        oracle_context="cot_prefix",
+        supervisor_context="cot_prefix",
         cot_preamble=_CHUNKED_PREAMBLE,
         filter_datapoint_type="cot_self_correction",
         hf_cache_name="chunked_compqa",
@@ -271,7 +271,7 @@ TASKS: dict[str, TaskDef] = {
         trainable=True,
         default_n=5000,
         max_new_tokens=128,
-        oracle_context="cot_prefix",
+        supervisor_context="cot_prefix",
         cot_preamble=_CHUNKED_PREAMBLE,
         filter_datapoint_type="cot_verification",
         hf_cache_name="chunked_compqa",
@@ -286,7 +286,7 @@ TASKS: dict[str, TaskDef] = {
         trainable=True,
         default_n=8000,
         max_new_tokens=128,
-        oracle_context="cot_prefix",
+        supervisor_context="cot_prefix",
         cot_preamble=_CHUNKED_PREAMBLE,
         filter_datapoint_type="cot_remaining_strategy",
         hf_cache_name="chunked_compqa",
@@ -523,58 +523,58 @@ TASKS: dict[str, TaskDef] = {
     # ─── Classification tasks (Adam's AO evals) ───
 
     "cls_sst2": TaskDef(
-        name="cls_sst2", hf_repo="", scoring=ScoringMode.BINARY,
+        name="cls_sst2", hf_repo=f"{HF_ORG}/cls-sst2", scoring=ScoringMode.BINARY,
         positive_keywords=("positive", "yes"), negative_keywords=("negative", "no"),
         positive_label="positive", negative_label="negative",
-        trainable=False, classification=True,
+        trainable=False, classification=True, supervisor_context="excerpt",
     ),
     "cls_snli": TaskDef(
-        name="cls_snli", hf_repo="", scoring=ScoringMode.BINARY,
+        name="cls_snli", hf_repo=f"{HF_ORG}/cls-snli", scoring=ScoringMode.BINARY,
         positive_keywords=("entailment", "yes"), negative_keywords=("contradiction", "neutral", "no"),
         positive_label="entailment", negative_label="not_entailment",
-        trainable=False, classification=True,
+        trainable=False, classification=True, supervisor_context="excerpt",
     ),
     "cls_ag_news": TaskDef(
-        name="cls_ag_news", hf_repo="", scoring=ScoringMode.BINARY,
+        name="cls_ag_news", hf_repo=f"{HF_ORG}/cls-ag-news", scoring=ScoringMode.BINARY,
         positive_keywords=("yes",), negative_keywords=("no",),
         positive_label="yes", negative_label="no",
-        trainable=False, classification=True,
+        trainable=False, classification=True, supervisor_context="excerpt",
     ),
     "cls_ner": TaskDef(
-        name="cls_ner", hf_repo="", scoring=ScoringMode.BINARY,
+        name="cls_ner", hf_repo=f"{HF_ORG}/cls-ner", scoring=ScoringMode.BINARY,
         positive_keywords=("yes",), negative_keywords=("no",),
         positive_label="yes", negative_label="no",
-        trainable=False, classification=True,
+        trainable=False, classification=True, supervisor_context="excerpt",
     ),
     "cls_tense": TaskDef(
-        name="cls_tense", hf_repo="", scoring=ScoringMode.BINARY,
+        name="cls_tense", hf_repo=f"{HF_ORG}/cls-tense", scoring=ScoringMode.BINARY,
         positive_keywords=("yes",), negative_keywords=("no",),
         positive_label="yes", negative_label="no",
-        trainable=False, classification=True,
+        trainable=False, classification=True, supervisor_context="excerpt",
     ),
     "cls_language_id": TaskDef(
-        name="cls_language_id", hf_repo="", scoring=ScoringMode.BINARY,
+        name="cls_language_id", hf_repo=f"{HF_ORG}/cls-language-id", scoring=ScoringMode.BINARY,
         positive_keywords=("yes",), negative_keywords=("no",),
         positive_label="yes", negative_label="no",
-        trainable=False, classification=True,
+        trainable=False, classification=True, supervisor_context="excerpt",
     ),
     "cls_singular_plural": TaskDef(
-        name="cls_singular_plural", hf_repo="", scoring=ScoringMode.BINARY,
+        name="cls_singular_plural", hf_repo=f"{HF_ORG}/cls-singular-plural", scoring=ScoringMode.BINARY,
         positive_keywords=("yes",), negative_keywords=("no",),
         positive_label="yes", negative_label="no",
-        trainable=False, classification=True,
+        trainable=False, classification=True, supervisor_context="excerpt",
     ),
     "cls_geometry_of_truth": TaskDef(
-        name="cls_geometry_of_truth", hf_repo="", scoring=ScoringMode.BINARY,
+        name="cls_geometry_of_truth", hf_repo=f"{HF_ORG}/cls-geometry-of-truth", scoring=ScoringMode.BINARY,
         positive_keywords=("yes",), negative_keywords=("no",),
         positive_label="yes", negative_label="no",
-        trainable=False, classification=True,
+        trainable=False, classification=True, supervisor_context="excerpt",
     ),
     "cls_relations": TaskDef(
-        name="cls_relations", hf_repo="", scoring=ScoringMode.BINARY,
+        name="cls_relations", hf_repo=f"{HF_ORG}/cls-relations", scoring=ScoringMode.BINARY,
         positive_keywords=("yes",), negative_keywords=("no",),
         positive_label="yes", negative_label="no",
-        trainable=False, classification=True,
+        trainable=False, classification=True, supervisor_context="excerpt",
     ),
 }
 

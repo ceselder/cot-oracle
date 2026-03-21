@@ -55,10 +55,10 @@ def run_bb_monitor(
     completed_indices: set | None = None,
 ) -> tuple[list[str | None], list[str | None]]:
     """Run BB monitor. Returns (predictions, prompts) — both per-item lists."""
-    oracle_context = task_def.oracle_context
+    supervisor_context = task_def.supervisor_context
     prompt_template = _MONITOR_TEMPLATE.replace("{cot_preamble}", task_def.cot_preamble)
 
-    test_data = [d for d in test_data if d.get(oracle_context)]
+    test_data = [d for d in test_data if d.get(supervisor_context)]
     if not test_data:
         return [], []
 
@@ -80,7 +80,7 @@ def run_bb_monitor(
         item = test_data[i]
         user_msg = prompt_template.format(
             question=item.get("question", ""),
-            cot=item.get(oracle_context, ""),
+            cot=item.get(supervisor_context, ""),
             prompt=item.get("prompt", ""),
         )
         prompts[i] = user_msg

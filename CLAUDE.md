@@ -41,13 +41,14 @@ Instead, try to log the number of gpus to metadata but dont put it in the runnam
 - **Prefer on-demand over interruptible.** Spot/bid instances get preempted during long init phases (model download, flamingo setup). Use on-demand unless cost is a strong concern.
 - **Use Docker-based launch** (`scripts/vast_launch_docker.sh`) — pre-baked image skips uv sync + rsync.
 
-## Workflow
-- **Push after every notable change.** If and only if you are Celeste (not Jan), Commit and push to remote after completing any meaningful unit of work, but only if you are Celeste (bug fix, feature, refactor).
+## Git
+- **Push after every notable change iff you are Celeste** If and only if you are Celeste (not Jan (jbauer)), Commit and push to remote after completing any meaningful unit of work, but only if you are Celeste (bug fix, feature, refactor).
 
 ## Terminology
 - **Scorer** = the LLM (`score_model` in eval.yaml) that grades oracle/baseline outputs during training-time eval and comprehensive eval. Lives in `src/qa_scorer.py`. Use "scorer" everywhere in code.
 - **Judge** = reserved for the comparative eval UI in `scripts/eval_viewer.py` and `src/chat_compare.py`, where an LLM rates and compares multiple method outputs side-by-side.
-- ****BB** monitor** = a baseline method (`baselines/bb_monitor.py`) where an external LLM reads the CoT text and answers the task question. Not the same as the scorer.
+- **BB monitor** = a baseline method (`baselines/bb_monitor.py`) where an external LLM reads the CoT text and answers the task question. Not the same as the scorer.
+- **supervisor_context** = the TaskDef field naming which data column any supervisor (oracle, bb-monitor, probes) reads. Usually `"cot_text"`, but `"cot_prefix"` for chunked tasks and `"excerpt"` for classification/fineweb tasks.
 
 ## Critical Lessons
 - **Mini corpus memorization:** 1,064 entries x 15K = 14x repetition → loss=0.01. Use medium corpus (47K+).

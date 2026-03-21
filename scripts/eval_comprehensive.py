@@ -273,8 +273,8 @@ def _run_and_store_method(cache, run_id, task_name, task_def, method_name,
         eval_items = test_data
         valid_mask = list(range(len(test_data)))
 
-        oracle_context = task_def.oracle_context
-        item_prompts = [f"Question: {d.get('question', d.get('prompt', ''))}\nChain of thought: {d.get(oracle_context, '')[:4000]}\n\n{d.get('prompt', '')}" for d in test_data]
+        supervisor_context = task_def.supervisor_context
+        item_prompts = [f"Question: {d.get('question', d.get('prompt', ''))}\nChain of thought: {d.get(supervisor_context, '')[:4000]}\n\n{d.get('prompt', '')}" for d in test_data]
         new_pred_rows = [{"item_idx": i, "item_id": f"{task_name}_{i}", "prediction": (p or "")[:500], "score": None,
                           "prompt": item_prompts[i][:2000]}
                          for i, p in enumerate(predictions)]

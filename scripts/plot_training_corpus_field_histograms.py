@@ -38,7 +38,7 @@ DEFAULT_PROMPTS = {
 @dataclass(frozen=True)
 class TaskSpec:
     hf_repo: str
-    oracle_context: str = "cot_text"
+    supervisor_context: str = "cot_text"
 
 
 TASK_SPECS: dict[str, TaskSpec] = {
@@ -47,17 +47,17 @@ TASK_SPECS: dict[str, TaskSpec] = {
     "reasoning_termination": TaskSpec("mats-10-sprint-cs-jb/cot-oracle-reasoning-termination-cleaned"),
     "answer_trajectory": TaskSpec("mats-10-sprint-cs-jb/cot-oracle-answer-trajectory-cleaned"),
     "futurelens_cot": TaskSpec(""),
-    "futurelens_fineweb": TaskSpec("mats-10-sprint-cs-jb/fineweb-futurelens", oracle_context="excerpt"),
+    "futurelens_fineweb": TaskSpec("mats-10-sprint-cs-jb/fineweb-futurelens", supervisor_context="excerpt"),
     "pastlens_cot": TaskSpec(""),
-    "pastlens_fineweb": TaskSpec("mats-10-sprint-cs-jb/fineweb-pastlens", oracle_context="excerpt"),
+    "pastlens_fineweb": TaskSpec("mats-10-sprint-cs-jb/fineweb-pastlens", supervisor_context="excerpt"),
     "reconstruction_cot": TaskSpec(""),
-    "reconstruction_fineweb": TaskSpec("mats-10-sprint-cs-jb/fineweb-reconstruction", oracle_context="excerpt"),
+    "reconstruction_fineweb": TaskSpec("mats-10-sprint-cs-jb/fineweb-reconstruction", supervisor_context="excerpt"),
     "correctness": TaskSpec("mats-10-sprint-cs-jb/cot-oracle-correctness-cleaned"),
     "decorative_cot": TaskSpec("mats-10-sprint-cs-jb/cot-oracle-decorative-cot-cleaned"),
-    "chunked_convqa": TaskSpec("mats-10-sprint-cs-jb/cot-oracle-convqa-chunked", oracle_context="cot_prefix"),
-    "chunked_compqa": TaskSpec("mats-10-sprint-cs-jb/cot-oracle-compqa-chunked", oracle_context="cot_prefix"),
+    "chunked_convqa": TaskSpec("mats-10-sprint-cs-jb/cot-oracle-convqa-chunked", supervisor_context="cot_prefix"),
+    "chunked_compqa": TaskSpec("mats-10-sprint-cs-jb/cot-oracle-compqa-chunked", supervisor_context="cot_prefix"),
     "convqa": TaskSpec("mats-10-sprint-cs-jb/cot-oracle-convqa"),
-    "fineweb_convqa": TaskSpec("mats-10-sprint-cs-jb/fineweb-convqa", oracle_context="excerpt"),
+    "fineweb_convqa": TaskSpec("mats-10-sprint-cs-jb/fineweb-convqa", supervisor_context="excerpt"),
     "sycophancy": TaskSpec("mats-10-sprint-cs-jb/cot-oracle-sycophancy-cleaned"),
     "backtrack_prediction": TaskSpec("mats-10-sprint-cs-jb/cot-oracle-backtrack-prediction-cleaned"),
     "truthfulqa_hint_verbalized": TaskSpec("mats-10-sprint-cs-jb/cot-oracle-truthfulqa-hint-verbalized-cleaned"),
@@ -124,7 +124,7 @@ def default_prompt(task_name: str) -> str:
     return "Analyze the model's reasoning based on its activations."
 
 
-def normalize_item(task_name: str, item: dict, oracle_context: str) -> dict:
+def normalize_item(task_name: str, item: dict, supervisor_context: str) -> dict:
     row = dict(item)
     row["task"] = task_name
     if "datapoint_type" not in row:
@@ -142,8 +142,8 @@ def normalize_item(task_name: str, item: dict, oracle_context: str) -> dict:
             row["target_response"] = row["label"]
     if "prompt" not in row or row["prompt"] is None:
         row["prompt"] = default_prompt(task_name)
-    if oracle_context != "cot_text" and oracle_context in row:
-        row["cot_text"] = row[oracle_context]
+    if supervisor_context != "cot_text" and supervisor_context in row:
+        row["cot_text"] = row[supervisor_context]
     if "num_positions" not in row and "context_positions" in row:
         row["num_positions"] = len(row["context_positions"])
     return row
@@ -294,12 +294,12 @@ def load_hf_task_data(task_name: str, n: int, split: str) -> list[dict]:
                 text = line.strip()
                 if not text:
                     continue
-                rows.append(normalize_item(task_name, json.loads(text), spec.oracle_context))
+                rows.append(normalize_item(task_name, json.loads(text), spec.supervisor_context))
         return rows
     ds = load_dataset(spec.hf_repo, split=hf_slice(split, n))
     rows: list[dict] = []
     for item in ds:
-        rows.append(normalize_item(task_name, item, spec.oracle_context))
+        rows.append(normalize_item(task_name, item, spec.supervisor_context))
     return rows
 
 
