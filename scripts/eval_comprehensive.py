@@ -27,12 +27,13 @@ from pathlib import Path
 
 import yaml
 
-_SRC = Path(__file__).resolve().parent.parent / "src"
-_BASELINES = Path(__file__).resolve().parent.parent / "baselines"
-if str(_SRC) not in sys.path:
-    sys.path.insert(0, str(_SRC))
-if str(_BASELINES) not in sys.path:
-    sys.path.insert(0, str(_BASELINES))
+_ROOT = Path(__file__).resolve().parent.parent
+_SRC = _ROOT / "src"
+_BASELINES = _ROOT / "baselines"
+_AO_REF = _ROOT / "ao_reference"
+for _p in [_SRC, _BASELINES, _AO_REF]:
+    if str(_p) not in sys.path:
+        sys.path.insert(0, str(_p))
 
 from tasks import TASKS, ScoringMode, get_comprehensive_eval_tasks
 from qa_scorer import check_openrouter_available, get_score_model, stop_local_scorer
