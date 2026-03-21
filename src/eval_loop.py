@@ -710,6 +710,31 @@ def load_and_normalize(task_name: str, n: int, split: str = "test") -> list[dict
     return data
 
 
+import hashlib as _hashlib
+import json as _json
+
+_ACT_CACHE_DIR: Path | None = None
+
+
+def _get_act_cache_dir() -> Path:
+    """Get activation cache directory (CACHE_DIR > data/act_cache). Uses ceph for persistence across nodes."""
+    global _ACT_CACHE_DIR
+    if _ACT_CACHE_DIR is None:
+        d = os.environ.get("CACHE_DIR", "")
+        if d:
+            _ACT_CACHE_DIR = Path(d) / "activation_cache"
+        else:
+            _ACT_CACHE_DIR = Path("data/act_cache")
+        _ACT_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    return _ACT_CACHE_DIR
+
+
+def _activation_cache_key(model_name: str, task_name: str, n_items: int, layers: list[int], position_mode: str) -> str:
+    """Hash key for cached activations. Same factors that would require re-extraction."""
+    parts = _json.dumps([model_name, task_name, n_items, sorted(layers), position_mode], sort_keys=True)
+    return _hashlib.sha256(parts.encode()).hexdigest()[:16]
+
+
 def materialize_activations_chunked(
     model, tokenizer, items: list[dict], layers: list[int],
     position_mode: str = "all", task_name: str = "", chunk_size: int = 4,
@@ -718,6 +743,7 @@ def materialize_activations_chunked(
     """Prepare context, resample positions, and materialize activations with OOM-safe chunking.
 
     Returns (valid_items, activations) where valid_items have context_input_ids.
+    Caches activations to disk keyed by (model_name, task_name, n_items, layers, position_mode).
     """
     prepare_context_ids(items, tokenizer, layers=layers)
     valid = [d for d in items if d.get("context_input_ids")]
@@ -728,11 +754,29 @@ def materialize_activations_chunked(
         position_mode=position_mode, stochastic_max_k=stochastic_max_k,
         eval_position_seed=eval_position_seed,
     )
+
+    # Check disk cache
+    model_name = getattr(model.config, "_name_or_path", "unknown") if hasattr(model, "config") else "unknown"
+    cache_key = _activation_cache_key(model_name, task_name, len(valid), layers, position_mode)
+    cache_path = _get_act_cache_dir() / f"{cache_key}.pt"
+
+    if cache_path.exists():
+        cached = torch.load(cache_path, map_location="cpu", weights_only=True)
+        if len(cached) == len(valid):
+            print(f"    [acts] loaded from cache ({cache_path.name})")
+            return valid, cached
+
+    # Extract
     all_acts: list[torch.Tensor] = []
     for start in range(0, len(valid), chunk_size):
         chunk = valid[start:start + chunk_size]
         chunk_acts = _materialize_activations(model, tokenizer, chunk, layers=layers, device=device)
         all_acts.extend(a.cpu() for a in chunk_acts)
+
+    # Save to disk
+    torch.save(all_acts, cache_path)
+    print(f"    [acts] cached to {cache_path.name}")
+
     return valid, all_acts
 
 
