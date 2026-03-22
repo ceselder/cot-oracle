@@ -2,6 +2,7 @@
 """Web viewer for comprehensive eval results (backed by EvalCache SQLite DB)."""
 
 import json
+import os
 import statistics
 import sys
 from pathlib import Path
@@ -25,14 +26,14 @@ _ABS_TYPE = {
 app = Flask(__name__)
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_DB = PROJECT_ROOT / "data" / "comprehensive_eval" / "eval_cache.db"
-METHOD_ORDER = ["weak-bb-monitor", "strong-bb-monitor", "original_ao", "our_ao", "linear_probes", "sae-llm-monitor"]
+METHOD_ORDER = ["weak-bb-monitor", "strong-bb-monitor", "original_ao", "our_ao", "linear_probes", "sae-llm-monitor", "patchscopes"]
 
 # Config-derived metadata
 _train_cfg = yaml.safe_load((PROJECT_ROOT / "configs" / "train.yaml").read_text())
 _eval_cfg = yaml.safe_load((PROJECT_ROOT / "configs" / "eval.yaml").read_text())
 OUR_AO_TRAINING_TASKS = {k for k, v in _train_cfg["tasks"].items() if isinstance(v, dict) and v.get("n", 0) != 0}
 _SCORE_MODEL = _eval_cfg.get("score_model", "")
-_JUDGE_MODEL = "google/gemini-3.1-flash-lite-preview"
+_JUDGE_MODEL = _eval_cfg.get("judge_model", "google/gemini-3.1-flash-lite-preview")
 _BASELINES_CFG = _eval_cfg.get("method_config", {})
 _og_ao_cfg_path = PROJECT_ROOT / "configs" / "og_ao.yaml"
 OG_AO_TRAINING_TASKS = set(yaml.safe_load(_og_ao_cfg_path.read_text()).get("trained_tasks", [])) if _og_ao_cfg_path.exists() else set()
@@ -40,6 +41,9 @@ OG_AO_TRAINING_TASKS = set(yaml.safe_load(_og_ao_cfg_path.read_text()).get("trai
 # Map method group → canonical k-variant used for display
 # original_ao uses best-scoring L{layer}_k{k} variant per task (resolved dynamically)
 _METHOD_K_MAP = {"our_ao": "our_ao_kall"}
+
+# Fields to prioritize in TEXT_COLS display
+_PRIORITY_FIELDS = {"question", "supervisor_context", "target_response"}
 
 # Module-level cache reference (set in main)
 _cache: EvalCache | None = None
@@ -56,7 +60,10 @@ def _task_abs_type(task: str) -> str:
 
 
 def _method_display_name(db_method: str) -> str:
-    """Map DB method names like 'our_ao_kall' back to display names like 'our_ao'."""
+    """Map DB method names like 'our_ao_stride20' back to family display names like 'our_ao'."""
+    for prefix in ("our_ao", "original_ao"):
+        if db_method.startswith(prefix + "_"):
+            return prefix
     for display, canonical in _METHOD_K_MAP.items():
         if db_method == canonical:
             return display
@@ -97,39 +104,57 @@ def get_records(task):
     all_method_results = cache.get_all_method_results(_run_id)
     task_methods = all_method_results.get(task, {})
 
+    # For sweep families, pick the best variant by primary_score
+    best_variant = {}  # family → db_method
+    for db_method, data in task_methods.items():
+        family = _method_display_name(db_method)
+        if family != db_method:  # it's a variant
+            s = data.get("primary_score")
+            if s is not None and (family not in best_variant or s > task_methods[best_variant[family]].get("primary_score", -1)):
+                best_variant[family] = db_method
+
     # Get items (targets)
     task_json = cache.export_task_json(_run_id, task)
     items = task_json.get("items", [])
     if not items:
         return jsonify({"records": [], "abs_type": _task_abs_type(task), "score_model": _SCORE_MODEL, "judge_model": _JUDGE_MODEL, "score_label": LLM_SCORE_LABEL})
 
-    # Build records from items + predictions
+    # Build records from items + predictions + stored extra fields
     records = []
-    for item in items:
+    for idx, item in enumerate(items):
         item_methods = item.get("methods", {})
         r = {
             "example_id": item.get("id", ""),
+            "question": item.get("question", ""),
+            "supervisor_context": item.get("supervisor_context", ""),
             "target_response": item.get("target_response", ""),
             "_abs_scores": {},
+            "_scorer_responses": {},
             "_prompts": {},
             "llm_comparative_score": {},
         }
-        # Add method predictions
+
+        # Add method predictions (skip non-best variants)
         for db_method, pred_data in item_methods.items():
             display = _method_display_name(db_method)
+            if display != db_method and best_variant.get(display) != db_method:
+                continue  # skip non-best variants
             r[display] = pred_data.get("prediction", "")
             score = pred_data.get("score")
             if score is not None:
                 r["_abs_scores"][display] = score
-            prompt = pred_data.get("prompt")
-            if prompt:
-                r["_prompts"][display] = prompt
+            scorer_resp = pred_data.get("scorer_response")
+            if scorer_resp:
+                r["_scorer_responses"][display] = scorer_resp
+            method_prompt = pred_data.get("method_prompt")
+            if method_prompt:
+                r["_prompts"][display] = method_prompt
+        # Surface the task prompt (from _prompts) as "task_prompt"
+        if r["_prompts"]:
+            r["task_prompt"] = next(iter(r["_prompts"].values()))
         records.append(r)
 
-    # Load comparative scores
-    comp_scores = cache.get_comparative_scores(_run_id, task) if hasattr(cache, 'get_comparative_scores') else {}
-
-    # Compute agreement + attach comparative scores
+    # Compute agreement (comparative scores are fetched on-the-fly via /api/compare)
     for i, r in enumerate(records):
         methods = [k for k in METHOD_ORDER if k in r and r[k]]
         preds = [str(r[m]).strip().lower()[:40] for m in methods]
@@ -138,20 +163,24 @@ def get_records(task):
             r["_pred_agreement"] = round(majority / len(preds), 2)
         else:
             r["_pred_agreement"] = 1.0
+        r["_best_method"] = ""
+        r["_compare_justification"] = ""
+        r["llm_comparative_score"] = {}
+        r["_disagreement"] = 0.0
 
-        comp = comp_scores.get(i, {})
-        r["_best_method"] = comp.get("best_method", "")
-        r["_compare_justification"] = comp.get("justification", "")
-        r["llm_comparative_score"] = comp.get("method_scores", {})
-        # Disagreement = 1 - spread, higher = methods scored more similarly (contested)
-        ms = list(comp.get("method_scores", {}).values())
-        r["_disagreement"] = round(1.0 - (max(ms) - min(ms)), 2) if len(ms) >= 2 else 0.0
+    # Resolve which TaskDef fields map to our generic column names
+    td = TASKS.get(task)
+    field_mapping = {}
+    if td:
+        field_mapping["supervisor_context"] = td.supervisor_context  # cot_text / cot_prefix / excerpt
+        field_mapping["scoring"] = td.scoring.value                  # binary / token_f1 / llm_scorer / ...
 
     return jsonify({
         "records": records,
         "abs_type": _task_abs_type(task),
         "score_model": _SCORE_MODEL, "judge_model": _JUDGE_MODEL,
         "score_label": LLM_SCORE_LABEL,
+        "field_mapping": field_mapping,
     })
 
 
@@ -165,26 +194,28 @@ def method_scores_api(task):
     task_results = all_results.get(task, {})
 
     result = {}
-    # For original_ao, pick the best layer×k variant
-    best_orig_ao = None
-    best_orig_ao_score = -1
+    # For families with sweep variants, pick the best per family
+    family_best = {}  # family → (db_method, score)
     for db_method, data in task_results.items():
-        if db_method.startswith("original_ao_"):
-            s = data.get("primary_score")
-            if s is not None and s > best_orig_ao_score:
-                best_orig_ao_score = s
-                best_orig_ao = db_method
+        for prefix in ("our_ao", "original_ao"):
+            if db_method.startswith(prefix + "_"):
+                s = data.get("primary_score")
+                if s is not None and (prefix not in family_best or s > family_best[prefix][1]):
+                    family_best[prefix] = (db_method, s)
+                break
 
     for db_method, data in task_results.items():
         display = _method_display_name(db_method)
-        # For our_ao: only show kall
-        if db_method.startswith("our_ao_k") and not db_method.endswith("kall"):
+        # For sweep families: only show the best variant, collapsed to family name
+        for prefix in ("our_ao", "original_ao"):
+            if db_method.startswith(prefix + "_"):
+                if prefix in family_best and db_method != family_best[prefix][0]:
+                    display = None  # skip non-best variants
+                else:
+                    display = prefix
+                break
+        if display is None:
             continue
-        # For original_ao: only show the best variant
-        if db_method.startswith("original_ao_") and db_method != best_orig_ao:
-            continue
-        if db_method.startswith("original_ao_"):
-            display = "original_ao"
         is_cls = task.startswith("cls_")
         trained = (display == "our_ao" and task in OUR_AO_TRAINING_TASKS) or \
                   (display == "original_ao" and (task in OG_AO_TRAINING_TASKS or is_cls))
@@ -211,6 +242,113 @@ def sae_features_api(task, example_id):
                 if str(rec.get("example_id")) == str(example_id):
                     return jsonify(rec)
     return jsonify({"error": f"SAE features not found for {example_id}"}), 404
+
+
+_COMPARATIVE_PROMPT = """You are evaluating multiple monitoring methods on the same example.
+
+Target answer: {target}
+
+{method_predictions}
+
+Which method's prediction best matches the target? Consider both correctness and quality of reasoning.
+
+Respond in this exact format:
+BEST: <method_name>
+SCORES: <method1>=<score>, <method2>=<score>, ...
+JUSTIFICATION: <1-2 sentence explanation>
+
+Score each method from 0.0 to 1.0 in 0.1 increments (e.g. 0.0, 0.1, 0.2, ..., 1.0). 1.0 = perfect match with target."""
+
+
+@app.route("/api/compare/<task>/<int:item_idx>")
+def compare_on_the_fly(task, item_idx):
+    """Call the judge model on-the-fly to compare methods for a single example."""
+    import re
+    import httpx
+
+    cache = _get_cache()
+    if not cache or not _run_id:
+        return jsonify({"error": "no cache"}), 500
+
+    all_results = cache.get_all_method_results(_run_id)
+    task_results = all_results.get(task, {})
+    scored_methods = [m for m, d in task_results.items()
+                      if d.get("primary_score") is not None and d.get("primary_metric") not in ("error", "failed")]
+
+    def _family(name):
+        for prefix in ("our_ao", "original_ao"):
+            if name.startswith(prefix):
+                return prefix
+        return name
+
+    family_best = {}
+    for m in scored_methods:
+        fam = _family(m)
+        s = task_results[m].get("primary_score", -1)
+        if fam not in family_best or s > family_best[fam][1]:
+            family_best[fam] = (m, s)
+
+    preds_for_item = {}
+    for fam, (variant, _) in family_best.items():
+        preds = cache.get_predictions(_run_id, task, variant)
+        p = preds.get(item_idx, {}).get("prediction", "")
+        if p:
+            preds_for_item[fam] = p
+
+    if len(preds_for_item) < 2:
+        return jsonify({"error": "fewer than 2 methods with predictions"}), 400
+
+    # Get target
+    row = cache._conn.execute(
+        "SELECT target_response FROM items WHERE run_id = ? AND task_name = ? AND item_idx = ?",
+        (_run_id, task, item_idx),
+    ).fetchone()
+    target = row[0] if row else ""
+
+    method_block = "\n".join(f"Method '{fam}': {pred}" for fam, pred in preds_for_item.items())
+    prompt = _COMPARATIVE_PROMPT.format(target=target, method_predictions=method_block)
+
+    # Call judge model via OpenRouter
+    api_key = os.environ.get("OPENROUTER_API_KEY", "")
+    url = "https://openrouter.ai/api/v1/chat/completions"
+    headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+    body = {
+        "model": _JUDGE_MODEL,
+        "messages": [{"role": "user", "content": prompt}],
+        "temperature": 0.0,
+        "max_tokens": 500,
+    }
+    try:
+        resp = httpx.post(url, json=body, headers=headers, timeout=30.0)
+        resp.raise_for_status()
+        raw = (resp.json()["choices"][0]["message"]["content"] or "").strip()
+        raw = re.sub(r"<think>.*?</think>", "", raw, flags=re.DOTALL).strip()
+    except Exception as e:
+        return jsonify({"error": str(e)}), 502
+
+    best_match = re.search(r"BEST:\s*(\S+)", raw)
+    scores_match = re.search(r"SCORES:\s*(.+)", raw)
+    just_match = re.search(r"JUSTIFICATION:\s*(.+)", raw, re.DOTALL)
+
+    best_method = best_match.group(1).strip("'\"") if best_match else ""
+    justification = just_match.group(1).strip() if just_match else raw
+
+    method_scores = {}
+    if scores_match:
+        for pair in scores_match.group(1).split(","):
+            pair = pair.strip()
+            if "=" in pair:
+                k, v = pair.split("=", 1)
+                try:
+                    method_scores[k.strip().strip("'\"")] = round(round(float(v.strip()) * 10) / 10, 1)
+                except ValueError:
+                    pass
+
+    return jsonify({
+        "best_method": best_method,
+        "justification": justification,
+        "method_scores": method_scores,
+    })
 
 
 HTML = r"""<!DOCTYPE html>
@@ -370,10 +508,14 @@ tr.drow>td{padding:0;background:var(--bg2);white-space:normal;border:none}
 <div id="wrap"><div id="empty">Select a task</div></div>
 
 <script>
-let recs=[], methodCols=[], sortKey='idx', sortDir=-1, filterQ='', expanded=new Set(), absType='acc';
+let recs=[], methodCols=[], sortKey='idx', sortDir=-1, filterQ='', expanded=new Set(), absType='acc', fieldMapping={};
 let dtblColWidths={};
 let visTextCols=new Set(['target_response']);
 let visMethodCols=new Set();
+// Per-method annotation columns shown alongside each method prediction
+const ANNOT_COLS=['abs_score','scorer_justification','judge_score'];
+const ANNOT_LABELS={abs_score:'abs score',scorer_justification:'scorer justification',judge_score:'judge score'};
+let visAnnotCols=new Set(['abs_score','judge_score']);
 let colWidths={};
 let currentCols=[];
 let colOrderOverride=[];
@@ -384,9 +526,20 @@ let currentTask='';
 let scoreModel='';
 let scoreLabel='llm-score';
 
-const TEXT_COLS=[
-  {key:'target_response', label:'target_response'},
-];
+// Summary table columns (fixed set for the compact table)
+const TEXT_COLS=[{key:'question', label:'question'},{key:'supervisor_context', label:'supervisor_context'},{key:'target_response', label:'target_response'},{key:'task_prompt', label:'task_prompt'}];
+// Priority text fields shown first in detail view; remaining extra fields shown after
+const TEXT_COLS_PRIORITY=['question','supervisor_context','task_prompt','target_response'];
+function getTextCols(r){
+  const seen=new Set();
+  const cols=[];
+  // Priority fields first
+  TEXT_COLS_PRIORITY.forEach(k=>{if(r[k]!==undefined){cols.push({key:k,label:k});seen.add(k);}});
+  // Then any remaining string fields (skip internal _ fields and method predictions)
+  const skip=new Set([...seen,'example_id','_abs_scores','_scorer_responses','_prompts','_best_method','_compare_justification','_disagreement','_pred_agreement','llm_comparative_score','prompt',...methodCols]);
+  Object.keys(r).forEach(k=>{if(!skip.has(k)&&!k.startsWith('_')&&typeof r[k]==='string'&&r[k].length>0&&r[k].length<10000)cols.push({key:k,label:k});});
+  return cols;
+}
 
 // ── Persistence ───────────────────────────────────────────────────────
 function _gsave(){
@@ -395,7 +548,7 @@ function _gsave(){
 function _tsave(){
   if(!currentTask)return;
   localStorage.setItem('ev_t_'+currentTask,JSON.stringify({
-    vtc:[...visTextCols],vmc:[...visMethodCols],cw:colWidths,co:colOrderOverride,
+    vtc:[...visTextCols],vmc:[...visMethodCols],vac:[...visAnnotCols],cw:colWidths,co:colOrderOverride,
     mc:methodCols,
     ex:[...expanded],sel:Array.from(document.querySelectorAll('#mcbs input:checked')).map(x=>x.value),
     q:document.getElementById('search').value,sc:document.getElementById('wrap').scrollTop,
@@ -407,6 +560,7 @@ function _trestore(){
 function _applyTaskState(s){
   if(!s)return;
   if(s.vtc)visTextCols=new Set(s.vtc);
+  if(s.vac)visAnnotCols=new Set(s.vac);
   if(s.vmc&&s.mc){
     const prevMethods=new Set(s.mc);
     visMethodCols=new Set(s.vmc.filter(m=>methodCols.includes(m)));
@@ -429,6 +583,10 @@ function _applyTaskState(s){
   methodCols.forEach(m=>{
     const lbl=document.getElementById('tl-m-'+m);
     if(lbl){const on=visMethodCols.has(m);lbl.classList.toggle('on',on);lbl.querySelector('input').checked=on;}
+  });
+  ANNOT_COLS.forEach(a=>{
+    const lbl=document.getElementById('tl-a-'+a);
+    if(lbl){const on=visAnnotCols.has(a);lbl.classList.toggle('on',on);lbl.querySelector('input').checked=on;}
   });
 }
 
@@ -458,7 +616,7 @@ async function loadTask(task){
     fetch('/api/records/'+task).then(r=>r.json()),
     fetch('/api/method_scores/'+task).then(r=>r.json()).catch(()=>({}))
   ]);
-  recs=recResp.records; absType=recResp.abs_type||'acc'; scoreModel=recResp.score_model||''; scoreLabel=recResp.score_label||'llm-score'; methodScores=methodScoresResp;
+  recs=recResp.records; absType=recResp.abs_type||'acc'; scoreModel=recResp.score_model||''; scoreLabel=recResp.score_label||'llm-score'; fieldMapping=recResp.field_mapping||{}; methodScores=methodScoresResp;
   const judgeModel=recResp.judge_model||scoreModel||'';
   const _jmShort=judgeModel?judgeModel.split('/').pop():'?';
   const cmpJudgeLbl=document.getElementById('cmp-judge-lbl');
@@ -477,7 +635,7 @@ async function loadTask(task){
 }
 
 function inferMethods(rs, scoreMap){
-  const ord=['weak-bb-monitor','strong-bb-monitor','original_ao','our_ao','linear_probes','sae-llm-monitor'];
+  const ord=['weak-bb-monitor','strong-bb-monitor','original_ao','our_ao','linear_probes','sae-llm-monitor','patchscopes'];
   const have=new Set();
   rs.forEach(r=>ord.forEach(m=>{if(m in r)have.add(m)}));
   Object.keys(scoreMap||{}).forEach(m=>{if(ord.includes(m))have.add(m)});
@@ -485,11 +643,15 @@ function inferMethods(rs, scoreMap){
 }
 
 // ── Column visibility toggles ────────────────────────────────────────
+function _colLabel(key,label){
+  const mapped=fieldMapping[key];
+  return mapped&&mapped!==key?`${label} (${mapped})`:label;
+}
 function renderTextColToggles(){
   const c=document.getElementById('tcols');
   const textHtml=TEXT_COLS.map(({key,label})=>{
     const on=visTextCols.has(key)?'on':'';
-    return `<label class="tcol-lbl ${on}" id="tl-${key}"><input type="checkbox" value="${key}" ${on?'checked':''} onchange="onTcol(this)"> ${label}</label>`;
+    return `<label class="tcol-lbl ${on}" id="tl-${key}"><input type="checkbox" value="${key}" ${on?'checked':''} onchange="onTcol(this)"> ${_colLabel(key,label)}</label>`;
   }).join('');
   c.innerHTML=textHtml+'<span id="meth-col-toggles"></span>';
 }
@@ -497,11 +659,17 @@ function renderTextColToggles(){
 function renderMethodColToggles(){
   const span=document.getElementById('meth-col-toggles');
   if(!span)return;
-  span.innerHTML=(methodCols.length?'<span style="color:var(--dim);font-size:10px;margin:0 4px">|</span>':'')+
+  const methHtml=(methodCols.length?'<span style="color:var(--dim);font-size:10px;margin:0 4px">|</span>':'')+
     methodCols.map(m=>{
       const on=visMethodCols.has(m)?'on':'';
       return `<label class="tcol-lbl ${on}" id="tl-m-${m}"><input type="checkbox" value="${m}" ${on?'checked':''} onchange="onMcol(this)"> ${sn(m)}</label>`;
     }).join('');
+  const annotHtml='<span style="color:var(--dim);font-size:10px;margin:0 4px">|</span>'+
+    ANNOT_COLS.map(a=>{
+      const on=visAnnotCols.has(a)?'on':'';
+      return `<label class="tcol-lbl ${on}" id="tl-a-${a}"><input type="checkbox" value="${a}" ${on?'checked':''} onchange="onAnnotCol(this)"> ${ANNOT_LABELS[a]}</label>`;
+    }).join('');
+  span.innerHTML=methHtml+annotHtml;
 }
 
 function onTcol(cb){
@@ -513,6 +681,12 @@ function onTcol(cb){
 function onMcol(cb){
   if(cb.checked) visMethodCols.add(cb.value); else visMethodCols.delete(cb.value);
   document.getElementById('tl-m-'+cb.value)?.classList.toggle('on',cb.checked);
+  rerender();_tsave();
+}
+
+function onAnnotCol(cb){
+  if(cb.checked) visAnnotCols.add(cb.value); else visAnnotCols.delete(cb.value);
+  document.getElementById('tl-a-'+cb.value)?.classList.toggle('on',cb.checked);
   rerender();_tsave();
 }
 
@@ -574,10 +748,15 @@ function rerender(){
   sorted.forEach((r,vi)=>{
     const oi=recs.indexOf(r);
     h.push(rowHtml(r,oi,vi,cols));
-    if(expanded.has(oi))h.push(detailHtml(r,cols.length));
+    if(expanded.has(oi))h.push(detailHtml(r,cols.length,oi));
   });
   h.push('</tbody></table>');
   document.getElementById('wrap').innerHTML=h.join('');
+  // Auto-trigger comparative scoring for newly expanded items
+  document.querySelectorAll('[data-auto="1"]').forEach(el=>{
+    el.dataset.auto='0';
+    runJudge(el.dataset.task, parseInt(el.dataset.idx), el.id);
+  });
 }
 
 function buildCols(){
@@ -589,7 +768,7 @@ function buildCols(){
   ];
   TEXT_COLS.forEach(({key,label})=>{
     if(!visTextCols.has(key))return;
-    cols.push({id:'t:'+key, cc:'c-txt', lbl:label, sk:'t:'+key, defaultW:180});
+    cols.push({id:'t:'+key, cc:'c-txt', lbl:_colLabel(key,label), sk:'t:'+key, defaultW:180});
   });
   methodCols.filter(m=>visMethodCols.has(m)).forEach(m=>cols.push({id:'m:'+m, cc:'c-meth', lbl:sn(m), sk:'m:'+m, defaultW:140, method:m}));
   if(colOrderOverride.length){
@@ -614,36 +793,45 @@ function rowHtml(r,oi,vi,cols){
   });
   methodCols.filter(m=>visMethodCols.has(m)).forEach(m=>{
     const v=r[m]!==undefined?String(r[m]):'—';
-    const av=r._abs_scores?.[m];
-    const acl=av!==undefined?(av>=0.5?'sh':'sl'):'pu';
-    const absVal=av!==undefined?av.toFixed(1):'';
-    const absBdg=av!==undefined?`<span class="bdg ${acl}">abs:${absVal}</span>`:'';
-    const tip=`abs(${absType}):${absVal}\n${esc(v)}`;
-    h+=`<td class="c-meth" title="${tip}">${absBdg}<span class="pred-txt">${esc(v)}</span></td>`;
+    let badges='';
+    if(visAnnotCols.has('abs_score')){
+      const av=r._abs_scores?.[m];
+      if(av!==undefined){const acl=av>=0.5?'sh':'sl'; badges+=`<span class="bdg ${acl}">abs:${av.toFixed(1)}</span>`;}
+    }
+    if(visAnnotCols.has('judge_score')){
+      const jv=r.llm_comparative_score?.[m];
+      if(jv!==undefined){const jcl=jv>=0.5?'sh':'sl'; badges+=`<span class="bdg ${jcl}">judge:${jv.toFixed(1)}</span>`;}
+    }
+    const tip=esc(v);
+    h+=`<td class="c-meth" title="${tip}">${badges}<span class="pred-txt">${esc(v)}</span></td>`;
   });
   h+='</tr>';
   return h;
 }
 
-function detailHtml(r,colspan){
+function detailHtml(r,colspan,oi){
   let h=`<tr class="drow"><td colspan="${colspan}"><div class="dbox">`;
 
-  // Text fields grid
-  const txts=TEXT_COLS.filter(({key})=>r[key]);
+  // Text fields grid (dynamic per-record)
+  const txts=getTextCols(r);
   if(txts.length){
     h+=`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:8px;margin-bottom:8px">`;
     txts.forEach(({key,label})=>{
       const v=esc(String(r[key]));
-      h+=`<div><div style="font-size:9px;text-transform:uppercase;color:var(--dim);margin-bottom:2px">${label}</div>
+      h+=`<div><div style="font-size:9px;text-transform:uppercase;color:var(--dim);margin-bottom:2px">${_colLabel(key,label)}</div>
           <div style="background:var(--bg);border:1px solid var(--border);border-radius:2px;padding:5px 7px;font-size:11px;line-height:1.5;max-height:180px;overflow-y:auto;white-space:pre-wrap;word-break:break-word">${v}</div></div>`;
     });
     h+=`</div>`;
   }
 
-  // Methods table
+  // Methods table — dynamic columns based on annotation toggles
   const hasPreds=methodCols.some(m=>r[m]!==undefined);
   if(hasPreds){
-    const dcols=[{id:'method',lbl:'method',dw:120},{id:'score',lbl:'score',dw:60},{id:'bar',lbl:'',dw:90},{id:'pred',lbl:'prediction',dw:400}];
+    const dcols=[{id:'method',lbl:'method',dw:110}];
+    dcols.push({id:'abs_score',lbl:'abs',dw:50},{id:'bar',lbl:'',dw:70});
+    if(visAnnotCols.has('judge_score'))dcols.push({id:'judge_score',lbl:'judge',dw:50});
+    if(visAnnotCols.has('scorer_justification'))dcols.push({id:'scorer_justification',lbl:'scorer justification',dw:280});
+    dcols.push({id:'pred',lbl:'prediction',dw:420});
     const cg=`<colgroup>${dcols.map(c=>`<col data-dc="${c.id}" style="width:${dtblColWidths[c.id]??c.dw}px">`).join('')}</colgroup>`;
     const hdr=dcols.map(c=>`<th>${c.lbl}<div class="rh" onpointerdown="dsr(event,'${c.id}')"></div></th>`).join('');
     h+=`<div class="dtbl-wrap"><table class="dtbl">${cg}<tr>${hdr}</tr>`;
@@ -656,27 +844,33 @@ function detailHtml(r,colspan){
         const bw=Math.round(av*80);
         return `<td><span class="sv ${cl}">${av.toFixed(3)}</span></td><td><span class="sbar" style="width:${bw}px;background:${bc}"></span></td>`;
       })():`<td>—</td><td></td>`;
+      let extraCells='';
+      if(visAnnotCols.has('judge_score')){
+        const jv=r.llm_comparative_score?.[m];
+        if(jv!==undefined){const jcl=jv>=.5?'sh':'sl'; extraCells+=`<td><span class="sv ${jcl}">${jv.toFixed(1)}</span></td>`;}
+        else extraCells+=`<td>—</td>`;
+      }
+      if(visAnnotCols.has('scorer_justification')){
+        const sr=r._scorer_responses?.[m];
+        extraCells+=`<td class="pred-cell" style="font-size:10px;color:var(--dim);max-width:280px;overflow:hidden;text-overflow:ellipsis" title="${sr?esc(sr):''}">${sr?esc(sr.slice(0,200)):'—'}</td>`;
+      }
       const pred=esc(String(r[m]));
       const saeCid=`sae-${esc(String(r.example_id??''))}`;
       const isSae=m==='sae-llm-monitor';
       const saeBtn=isSae?` <button class="sae-btn" id="${saeCid}-btn" onclick="toggleSaeInline('${currentTask}','${esc(String(r.example_id??''))}','${saeCid}')">▶ features</button>`:'';
       const itemPrompt=r._prompts?.[m];
       const promptRow=itemPrompt?`<div style="margin-top:3px;padding:3px 5px;background:var(--bg);border:1px solid var(--border);border-radius:2px;font-size:9px;color:var(--dim);white-space:pre-wrap;max-height:120px;overflow-y:auto"><b>prompt:</b> ${esc(itemPrompt)}</div>`:'';
-      h+=`<tr><td style="white-space:nowrap">${m}</td>${scoreCell}<td class="pred-cell">${pred}${promptRow}${isSae?`<div id="${saeCid}"></div>`:''}${saeBtn}</td></tr>`;
+      h+=`<tr><td style="white-space:nowrap">${m}</td>${scoreCell}${extraCells}<td class="pred-cell">${pred}${promptRow}${isSae?`<div id="${saeCid}"></div>`:''}${saeBtn}</td></tr>`;
     });
     h+=`</table></div>`;
   }
 
-  // Comparative scoring justification
-  if(r._best_method || r._compare_justification){
-    const cmpScores=r.llm_comparative_score||{};
-    const scTxt=Object.entries(cmpScores).map(([m,s])=>`${m}=${s}`).join(', ');
-    h+=`<div style="margin-top:8px;padding:6px 8px;background:var(--bg);border:1px solid var(--border);border-radius:3px;font-size:11px">`;
-    h+=`<div style="font-size:9px;text-transform:uppercase;color:var(--dim);margin-bottom:3px">comparative scoring</div>`;
-    if(r._best_method) h+=`<div><b>best:</b> ${esc(r._best_method)}${scTxt?' &nbsp;|&nbsp; '+esc(scTxt):''}</div>`;
-    if(r._compare_justification) h+=`<div style="margin-top:3px;color:var(--fg);line-height:1.4">${esc(r._compare_justification)}</div>`;
-    h+=`</div>`;
-  }
+  // Comparative scoring — auto-triggered on expand
+  const cmpId=`cmp-${oi}`;
+  h+=`<div id="${cmpId}" data-auto="1" data-task="${currentTask}" data-idx="${oi}" style="margin-top:8px;padding:6px 8px;background:var(--bg);border:1px solid var(--border);border-radius:3px;font-size:11px">`;
+  h+=`<div style="font-size:9px;text-transform:uppercase;color:var(--dim);margin-bottom:3px">judge scoring</div>`;
+  h+=`<span style="color:var(--dim)">loading…</span>`;
+  h+=`</div>`;
 
   h+=`</div></td></tr>`;
   return h;
@@ -685,6 +879,28 @@ function detailHtml(r,colspan){
 // ── Toggle / sort ─────────────────────────────────────────────────────
 function tog(oi){expanded.has(oi)?expanded.delete(oi):expanded.add(oi);rerender();_tsave();}
 function setSort(k){sortDir=(sortKey===k)?-sortDir:-1;sortKey=k;['dis','agree','idx'].forEach(x=>document.getElementById('sb-'+x)?.classList.toggle('on',x===k));rerender();_gsave();}
+
+async function runJudge(task, itemIdx, containerId){
+  const box=document.getElementById(containerId);
+  if(!box)return;
+  box.innerHTML=`<div style="font-size:9px;text-transform:uppercase;color:var(--dim);margin-bottom:3px">judge scoring</div><span style="color:var(--dim)">calling judge…</span>`;
+  try{
+    const r=await fetch(`/api/compare/${encodeURIComponent(task)}/${itemIdx}`);
+    const d=await r.json();
+    if(d.error){box.innerHTML+=`<div style="color:#c66">${esc(d.error)}</div>`;return;}
+    // Store judge results back into the record so table cells update on rerender
+    if(recs[itemIdx]){
+      recs[itemIdx].llm_comparative_score=d.method_scores||{};
+      recs[itemIdx]._compare_justification=d.justification||'';
+      recs[itemIdx]._best_method=d.best_method||'';
+    }
+    const scTxt=Object.entries(d.method_scores||{}).map(([m,s])=>`${m}=${s.toFixed(1)}`).join(', ');
+    let h=`<div style="font-size:9px;text-transform:uppercase;color:var(--dim);margin-bottom:3px">judge scoring</div>`;
+    if(d.best_method) h+=`<div><b>best:</b> ${esc(d.best_method)}${scTxt?' &nbsp;|&nbsp; '+esc(scTxt):''}</div>`;
+    if(d.justification) h+=`<div style="margin-top:3px;color:var(--fg);line-height:1.4">${esc(d.justification)}</div>`;
+    box.innerHTML=h;
+  }catch(e){box.innerHTML+=`<div style="color:#c66">${e}</div>`;}
+}
 
 function toggleSaeInline(task, exampleId, containerId){
   const box=document.getElementById(containerId);
@@ -799,12 +1015,19 @@ if __name__ == "__main__":
     parser.add_argument("--port", type=int, default=8788)
     args = parser.parse_args()
 
+    from dotenv import load_dotenv
+    load_dotenv()
+
     db_path = Path(args.db)
     if not db_path.exists():
         print(f"DB not found: {db_path}")
         sys.exit(1)
 
     _cache = EvalCache(db_path)
+
+    # Clear stale comparative scores — now computed on-the-fly
+    _cache._conn.execute("DELETE FROM comparative_scores")
+    _cache._conn.commit()
 
     if args.run_id:
         _run_id = args.run_id
