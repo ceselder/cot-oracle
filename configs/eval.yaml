@@ -3,9 +3,9 @@
 #
 # Comment out tasks or baselines to skip them.
 
-score_model: openai/gpt-oss-20b
-score_model_local: Qwen/Qwen3-0.6B   # small local scorer — fits alongside oracle model
-try_local_scorer: true               # auto-start vLLM on port 8788 if GPU is available (capped at 30% VRAM)
+score_model: xiaomi/mimo-v2-flash
+judge_model: xiaomi/mimo-v2-flash
+try_local_scorer: false
 n_examples: 25                       # examples per task (CLI --n-examples overrides)
 
 # Tasks to evaluate (subset of tasks defined in src/tasks.py).
@@ -88,7 +88,7 @@ method_config:
     injection_layer: 1
     max_new_tokens: 2048
     lr: 0.05                   # learning rate for alpha optimisation
-    n_steps: 60                # gradient descent steps
+    n_steps: 300                # max gradient descent steps (early stopping at convergence)
     wandb_group: patchscopes-alpha  # wandb group for loss curves
     # Legacy sweep settings (only used when mode=sweep):
     steering_coefficients: [0.5, 1.0, 2.0]

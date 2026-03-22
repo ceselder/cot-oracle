@@ -3,8 +3,6 @@ from __future__ import annotations
 import json
 import os
 import re
-import subprocess
-import time
 
 import httpx
 from functools import lru_cache
@@ -22,13 +20,7 @@ def _load_eval_config() -> dict[str, Any]:
     return yaml.safe_load(EVAL_CONFIG_PATH.read_text())
 
 
-_scorer_endpoint_cache: tuple[str, dict, str | None] | None = None
-
-
 def get_score_model(cfg: dict[str, Any] | None = None) -> str:
-    # If a local endpoint was detected, use its model name
-    if _scorer_endpoint_cache is not None and _scorer_endpoint_cache[2] is not None:
-        return _scorer_endpoint_cache[2]
     if cfg is not None:
         if "score_model" in cfg:
             return str(cfg["score_model"])
@@ -48,125 +40,24 @@ OPENROUTER_API_BASE = os.environ.get("OPENROUTER_API_BASE", "https://openrouter.
 OPENROUTER_CHAT_COMPLETIONS_URL = f"{OPENROUTER_API_BASE.rstrip('/')}/chat/completions"
 QA_SCORE_MAX_TOKENS = 256
 
-
-_VLLM_PORT = 8788
-_VLLM_BASE = f"http://localhost:{_VLLM_PORT}/v1"
-_vllm_process: "subprocess.Popen | None" = None
-
-
-def _vllm_is_ready() -> str | None:
-    """Check if local vLLM is serving. Returns model name or None."""
-    try:
-        resp = httpx.get(f"{_VLLM_BASE}/models", timeout=2.0)
-        if resp.status_code == 200:
-            return resp.json()["data"][0]["id"]
-    except Exception:
-        pass
-    return None
-
-
-def start_local_scorer(model: str | None = None, timeout: int = 300) -> str:
-    """Start a local vLLM scorer server if not already running. Returns model name.
-
-    Uses score_model_local from eval.yaml if model is not specified.
-    """
-    import subprocess
-
-    # Already running?
-    existing = _vllm_is_ready()
-    if existing:
-        print(f"  [scorer] Local vLLM already running: {existing}")
-        return existing
-
-    global _vllm_process
-    cfg = _load_eval_config()
-    if model is None:
-        model = cfg.get("score_model_local", "Qwen/Qwen3-8B")
-
-    print(f"  [scorer] Starting local vLLM: {model} on port {_VLLM_PORT}...")
-    cmd = [
-        "vllm", "serve", model,
-        "--port", str(_VLLM_PORT),
-        "--max-model-len", "4096",
-        "--dtype", "auto",
-        "--enable-prefix-caching",
-        "--gpu-memory-utilization", "0.10",  # keep small — 0.6B scorer needs ~2GB
-    ]
-    log_path = REPO_ROOT / "logs" / "vllm_scorer.log"
-    log_path.parent.mkdir(parents=True, exist_ok=True)
-    log_file = open(log_path, "w")
-    _vllm_process = subprocess.Popen(cmd, stdout=log_file, stderr=subprocess.STDOUT)
-
-    # Wait for ready
-    for i in range(timeout):
-        time.sleep(1)
-        if _vllm_process.poll() is not None:
-            raise RuntimeError(f"vLLM exited with code {_vllm_process.returncode}. Check {log_path}")
-        ready = _vllm_is_ready()
-        if ready:
-            print(f"  [scorer] Local vLLM ready: {ready} (took {i+1}s)")
-            return ready
-
-    _vllm_process.terminate()
-    raise RuntimeError(f"vLLM failed to start within {timeout}s. Check {log_path}")
-
-
-def stop_local_scorer():
-    """Stop the local vLLM scorer if we started it."""
-    global _vllm_process
-    if _vllm_process is not None:
-        print("  [scorer] Stopping local vLLM...")
-        _vllm_process.terminate()
-        _vllm_process.wait(timeout=10)
-        _vllm_process = None
+_scorer_endpoint_cache: tuple[str, dict] | None = None
 
 
 def _get_scorer_endpoint() -> tuple[str, dict]:
-    """Return (chat_completions_url, headers) for the scorer.
-
-    Priority: SCORER_API_BASE env var > local vLLM on port 8788
-              (auto-started if try_local_scorer=true) > OpenRouter.
-    """
+    """Return (chat_completions_url, headers) for the scorer via OpenRouter."""
     global _scorer_endpoint_cache
     if _scorer_endpoint_cache is not None:
-        return _scorer_endpoint_cache[0], _scorer_endpoint_cache[1]
+        return _scorer_endpoint_cache
 
-    cfg = _load_eval_config()
-    local_headers = {"Content-Type": "application/json"}
-
-    # Explicit scorer endpoint (env var or config)
-    base = os.environ.get("SCORER_API_BASE", cfg.get("scorer_api_base", ""))
-    if base:
-        url = f"{base.rstrip('/')}/chat/completions"
-        model = _vllm_is_ready() if "localhost" in base else None
-        _scorer_endpoint_cache = (url, local_headers, model)
-        return url, local_headers
-
-    # Try existing local vLLM
-    model = _vllm_is_ready()
-    if model:
-        print(f"  [scorer] Using local vLLM: {model}")
-        _scorer_endpoint_cache = (f"{_VLLM_BASE}/chat/completions", local_headers, model)
-        return _scorer_endpoint_cache[0], local_headers
-
-    # Auto-start local vLLM if configured
-    if cfg.get("try_local_scorer", False):
-        import torch
-        if torch.cuda.is_available():
-            model = start_local_scorer(cfg.get("score_model_local"))
-            _scorer_endpoint_cache = (f"{_VLLM_BASE}/chat/completions", local_headers, model)
-            return _scorer_endpoint_cache[0], local_headers
-
-    # Fall back to OpenRouter
     api_key = os.environ.get("OPENROUTER_API_KEY", "")
-    _scorer_endpoint_cache = (OPENROUTER_CHAT_COMPLETIONS_URL, {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}, None)
-    return _scorer_endpoint_cache[0], _scorer_endpoint_cache[1]
+    headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+    _scorer_endpoint_cache = (OPENROUTER_CHAT_COMPLETIONS_URL, headers)
+    return _scorer_endpoint_cache
 
 
 def check_openrouter_available() -> bool:
-    """Check if any scorer endpoint is reachable (local vLLM, explicit endpoint, or OpenRouter)."""
+    """Check if the OpenRouter scorer endpoint is reachable."""
     url, headers = _get_scorer_endpoint()
-    # For local/explicit endpoints, probe the models endpoint
     base = url.rsplit("/chat/completions", 1)[0]
     try:
         resp = httpx.get(f"{base}/models", headers=headers, timeout=5.0)

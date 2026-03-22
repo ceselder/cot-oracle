@@ -201,6 +201,11 @@ def _optimise_and_generate_single(
     model.eval()
 
     if target:
+        best_loss = float("inf")
+        steps_without_improvement = 0
+        patience = 15
+        rel_tol = 1e-3  # stop when improvement < 0.1% of best loss
+
         for step in range(n_steps):
             with using_adapter(model, None):
                 loss = _teacher_forced_loss(
@@ -212,13 +217,23 @@ def _optimise_and_generate_single(
             loss.backward()
             optimiser.step()
 
-            log_dict = {"step": step, "loss": loss.item()}
+            loss_val = loss.item()
+            log_dict = {"step": step, "loss": loss_val}
             for i, layer in enumerate(layers):
                 log_dict[f"alpha_mean/L{layer}"] = alpha_parts[i].mean().item()
                 log_dict[f"alpha_std/L{layer}"] = alpha_parts[i].std().item()
             wandb.log(log_dict)
             del loss
             torch.cuda.empty_cache()
+
+            if loss_val < best_loss - abs(best_loss) * rel_tol:
+                best_loss = loss_val
+                steps_without_improvement = 0
+            else:
+                steps_without_improvement += 1
+            if steps_without_improvement >= patience:
+                wandb.log({"converged_at_step": step})
+                break
 
     learned_alpha = [a.detach().clone() for a in alpha_parts]
     final_alpha_summary = {f"final_alpha_mean/L{l}": learned_alpha[i].mean().item() for i, l in enumerate(layers)}
