@@ -11,7 +11,7 @@ import sqlite3
 from datetime import datetime
 from pathlib import Path
 
-SCHEMA_VERSION = "v2"
+SCHEMA_VERSION = "v4"
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS eval_runs (
@@ -29,6 +29,8 @@ CREATE TABLE IF NOT EXISTS items (
     task_name TEXT NOT NULL,
     item_idx INTEGER NOT NULL,
     item_id TEXT NOT NULL,
+    question TEXT,
+    supervisor_context TEXT,
     target_response TEXT NOT NULL,
     PRIMARY KEY (run_id, task_name, item_idx)
 );
@@ -55,8 +57,10 @@ CREATE TABLE IF NOT EXISTS predictions (
     item_id TEXT NOT NULL,
     prediction TEXT,
     score REAL,
-    prompt TEXT,
+    method_prompt TEXT,
     scorer_response TEXT,
+    masked_supervisor_context TEXT,
+    activation_summary TEXT,
     PRIMARY KEY (run_id, task_name, method_name, item_idx)
 );
 
@@ -70,11 +74,19 @@ CREATE TABLE IF NOT EXISTS comparative_scores (
     computed_at TEXT NOT NULL,
     PRIMARY KEY (run_id, task_name, item_idx)
 );
+
+CREATE INDEX IF NOT EXISTS idx_items_task ON items(run_id, task_name);
+CREATE INDEX IF NOT EXISTS idx_preds_task_method ON predictions(run_id, task_name, method_name);
+CREATE INDEX IF NOT EXISTS idx_method_results_status ON method_results(run_id, primary_metric);
 """
 
 
 def _sha256_short(*parts) -> str:
     return hashlib.sha256("|".join(str(p) for p in parts).encode()).hexdigest()[:16]
+
+
+def _has_column(conn: sqlite3.Connection, table: str, column: str) -> bool:
+    return any(row[1] == column for row in conn.execute(f"PRAGMA table_info({table})").fetchall())
 
 
 class EvalCache:
@@ -84,13 +96,30 @@ class EvalCache:
         self._conn = sqlite3.connect(str(self.db_path), check_same_thread=False)
         self._conn.execute("PRAGMA journal_mode=WAL")
         self._conn.executescript(_SCHEMA)
-        # Migrations for existing DBs
-        for col in ["prompt TEXT", "scorer_response TEXT"]:
+        self._migrate()
+
+    def _migrate(self):
+        """Incremental migrations for existing DBs."""
+        # ── items: add question, supervisor_context (v4) ──
+        for col in ["question TEXT", "supervisor_context TEXT"]:
+            try:
+                self._conn.execute(f"ALTER TABLE items ADD COLUMN {col}")
+            except sqlite3.OperationalError:
+                pass
+
+        # ── predictions: add columns for old DBs that predate v4 ──
+        for col in ["scorer_response TEXT", "method_prompt TEXT",
+                     "masked_supervisor_context TEXT", "activation_summary TEXT"]:
             try:
                 self._conn.execute(f"ALTER TABLE predictions ADD COLUMN {col}")
             except sqlite3.OperationalError:
                 pass
-        # v2: comparative_scores table
+
+        # ── predictions: migrate old prompt → method_prompt ──
+        if _has_column(self._conn, "predictions", "prompt"):
+            self._conn.execute("UPDATE predictions SET method_prompt = prompt WHERE method_prompt IS NULL AND prompt IS NOT NULL")
+
+        # ── comparative_scores table (v2 migration) ──
         try:
             self._conn.execute("SELECT 1 FROM comparative_scores LIMIT 1")
         except sqlite3.OperationalError:
@@ -102,6 +131,25 @@ class EvalCache:
                 );
             """)
 
+        # ── Backfill question/supervisor_context from extra_fields_json ──
+        if _has_column(self._conn, "items", "extra_fields_json"):
+            rows = self._conn.execute(
+                "SELECT run_id, task_name, item_idx, extra_fields_json FROM items "
+                "WHERE question IS NULL AND extra_fields_json IS NOT NULL"
+            ).fetchall()
+            for run_id, task_name, item_idx, extra_str in rows:
+                extra = json.loads(extra_str)
+                question = extra.get("question") or extra.get("hinted_prompt") or extra.get("prompt", "")
+                sup_ctx = extra.get("cot_text") or extra.get("cot_prefix") or extra.get("excerpt", "")
+                self._conn.execute(
+                    "UPDATE items SET question = ?, supervisor_context = ? WHERE run_id = ? AND task_name = ? AND item_idx = ?",
+                    (question, sup_ctx, run_id, task_name, item_idx),
+                )
+            if rows:
+                self._conn.commit()
+
+        self._conn.commit()
+
     def close(self):
         self._conn.close()
 
@@ -111,7 +159,9 @@ class EvalCache:
                           position_mode: str, layers: list[int],
                           schema_version: str = SCHEMA_VERSION) -> str:
         layers_json = json.dumps(sorted(layers))
-        run_id = _sha256_short(checkpoint, n_examples, position_mode, layers_json, schema_version)
+        # Use basename so /ceph/scratch/.../ckpt and /var/tmp/.../ckpt hash the same
+        import os
+        run_id = _sha256_short(os.path.basename(checkpoint.rstrip("/")), n_examples, position_mode, layers_json, schema_version)
         row = self._conn.execute("SELECT run_id FROM eval_runs WHERE run_id = ?", (run_id,)).fetchone()
         if row is None:
             self._conn.execute(
@@ -192,26 +242,37 @@ class EvalCache:
         return {r[0] for r in rows}
 
     def get_predictions(self, run_id: str, task_name: str, method_name: str) -> dict[int, dict]:
-        """Return {item_idx: {"prediction": str, "score": float|None, "prompt": str|None, "scorer_response": str|None}}."""
+        """Return {item_idx: {"prediction", "score", "method_prompt", "scorer_response", "masked_supervisor_context", "activation_summary"}}."""
         rows = self._conn.execute(
-            "SELECT item_idx, prediction, score, prompt, scorer_response FROM predictions WHERE run_id = ? AND task_name = ? AND method_name = ?",
+            "SELECT item_idx, prediction, score, method_prompt, scorer_response, masked_supervisor_context, activation_summary "
+            "FROM predictions WHERE run_id = ? AND task_name = ? AND method_name = ?",
             (run_id, task_name, method_name),
         ).fetchall()
-        return {r[0]: {"prediction": r[1], "score": r[2], "prompt": r[3], "scorer_response": r[4]} for r in rows}
+        return {r[0]: {"prediction": r[1], "score": r[2], "method_prompt": r[3], "scorer_response": r[4],
+                        "masked_supervisor_context": r[5], "activation_summary": r[6]} for r in rows}
 
     # ── Store ──
 
-    def store_items(self, run_id: str, task_name: str, items: list[dict]):
+    def store_items(self, run_id: str, task_name: str, items: list[dict], supervisor_context_field: str = "cot_text"):
         self._conn.executemany(
-            "INSERT OR REPLACE INTO items (run_id, task_name, item_idx, item_id, target_response) VALUES (?, ?, ?, ?, ?)",
-            [(run_id, task_name, it["item_idx"], it["item_id"], it["target_response"]) for it in items],
+            "INSERT OR REPLACE INTO items (run_id, task_name, item_idx, item_id, question, supervisor_context, target_response) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            [(run_id, task_name, it["item_idx"], it["item_id"],
+              it.get("question") or it.get("hinted_prompt") or it.get("prompt", ""),
+              it.get(supervisor_context_field, ""),
+              it["target_response"])
+             for it in items],
         )
         self._conn.commit()
 
     def store_predictions(self, run_id: str, task_name: str, method_name: str, preds: list[dict]):
         self._conn.executemany(
-            "INSERT OR REPLACE INTO predictions (run_id, task_name, method_name, item_idx, item_id, prediction, score, prompt, scorer_response) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            [(run_id, task_name, method_name, p["item_idx"], p["item_id"], p.get("prediction"), p.get("score"), p.get("prompt"), p.get("scorer_response")) for p in preds],
+            "INSERT OR REPLACE INTO predictions (run_id, task_name, method_name, item_idx, item_id, prediction, score, "
+            "method_prompt, scorer_response, masked_supervisor_context, activation_summary) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            [(run_id, task_name, method_name, p["item_idx"], p["item_id"],
+              p.get("prediction"), p.get("score"),
+              p.get("method_prompt"), p.get("scorer_response"),
+              p.get("masked_supervisor_context"), p.get("activation_summary"))
+             for p in preds],
         )
         self._conn.commit()
 
@@ -269,10 +330,12 @@ class EvalCache:
         """Build complete JSON for one task from DB state."""
         # Items
         item_rows = self._conn.execute(
-            "SELECT item_idx, item_id, target_response FROM items WHERE run_id = ? AND task_name = ? ORDER BY item_idx",
+            "SELECT item_idx, item_id, question, supervisor_context, target_response FROM items WHERE run_id = ? AND task_name = ? ORDER BY item_idx",
             (run_id, task_name),
         ).fetchall()
-        items_by_idx = {r[0]: {"id": r[1], "target_response": r[2], "methods": {}} for r in item_rows}
+        items_by_idx = {}
+        for r in item_rows:
+            items_by_idx[r[0]] = {"id": r[1], "question": r[2], "supervisor_context": r[3], "target_response": r[4], "methods": {}}
 
         # Methods
         method_rows = self._conn.execute(
@@ -282,27 +345,26 @@ class EvalCache:
         methods = {}
         for mr in method_rows:
             extra = json.loads(mr[5]) if mr[5] else {}
-            methods[mr[0]] = {
-                "primary_score": mr[1],
-                "bootstrap_std": mr[2],
-                "primary_metric": mr[3],
-                "n": mr[4],
-                **extra,
-            }
+            methods[mr[0]] = {"primary_score": mr[1], "bootstrap_std": mr[2], "primary_metric": mr[3], "n": mr[4], **extra}
 
         # Predictions
         pred_rows = self._conn.execute(
-            "SELECT method_name, item_idx, prediction, score, prompt, scorer_response FROM predictions WHERE run_id = ? AND task_name = ?",
+            "SELECT method_name, item_idx, prediction, score, method_prompt, scorer_response, masked_supervisor_context, activation_summary "
+            "FROM predictions WHERE run_id = ? AND task_name = ?",
             (run_id, task_name),
         ).fetchall()
         for pr in pred_rows:
-            method_name, item_idx, prediction, score, prompt, scorer_response = pr
+            method_name, item_idx, prediction, score, method_prompt, scorer_response, masked_sup_ctx, act_summary = pr
             if item_idx in items_by_idx:
                 entry = {"prediction": prediction, "score": score}
-                if prompt:
-                    entry["prompt"] = prompt
+                if method_prompt:
+                    entry["method_prompt"] = method_prompt
                 if scorer_response:
                     entry["scorer_response"] = scorer_response
+                if masked_sup_ctx:
+                    entry["masked_supervisor_context"] = masked_sup_ctx
+                if act_summary:
+                    entry["activation_summary"] = act_summary
                 items_by_idx[item_idx]["methods"][method_name] = entry
 
         # Run info
@@ -340,11 +402,5 @@ class EvalCache:
         for r in rows:
             task, method = r[0], r[1]
             extra = json.loads(r[6]) if r[6] else {}
-            result.setdefault(task, {})[method] = {
-                "primary_score": r[2],
-                "bootstrap_std": r[3],
-                "primary_metric": r[4],
-                "n": r[5],
-                **extra,
-            }
+            result.setdefault(task, {})[method] = {"primary_score": r[2], "bootstrap_std": r[3], "primary_metric": r[4], "n": r[5], **extra}
         return result

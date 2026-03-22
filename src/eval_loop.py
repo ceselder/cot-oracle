@@ -1446,6 +1446,26 @@ def _build_manual_prefix_token_ids(
     return prefix_ids, positions
 
 
+def build_masked_supervisor_context(item: dict, n_layers: int, tokenizer) -> str:
+    """Replace activation-position tokens with placeholder in the supervisor context."""
+    _ensure_ao_imports()
+    ph_token = _ao_modules["PLACEHOLDER_TOKEN"]
+    ph_id = tokenizer.encode(ph_token, add_special_tokens=False)[0]
+    ctx_ids = item.get("context_input_ids", [])
+    ctx_pos = item.get("context_positions", [])
+    base_pos = set(ctx_pos[:len(ctx_pos) // n_layers]) if ctx_pos else set()
+    masked_ids = list(ctx_ids)
+    for p in base_pos:
+        if p < len(masked_ids):
+            masked_ids[p] = ph_id
+    return tokenizer.decode(masked_ids, skip_special_tokens=False) if masked_ids else ""
+
+
+def build_activation_summary(num_positions: int, layers: list[int]) -> str:
+    """Build human-readable activation prefix string for inspection."""
+    return _build_oracle_prefix(num_positions, layers=layers)
+
+
 def _build_oracle_prefix(
     num_positions: int,
     layers: list[int] | None = None,
@@ -1907,31 +1927,19 @@ def _eval_single_task(
     qa_scorer_model = result["_qa_scorer_model"] if is_qa_score_task(task_name) else None
 
     # Attach per-example traces for wandb Tables
-    _ensure_ao_imports()
-    ph_token = _ao_modules["PLACEHOLDER_TOKEN"]
-    ph_id = tokenizer.encode(ph_token, add_special_tokens=False)[0]
     n_layers = len(layers)
     traces = []
     for i, (pred, tgt) in enumerate(zip(predictions, targets)):
         item = test_data[i]
-        oracle_prefix = _build_oracle_prefix(all_activations[i].shape[0], layers=layers, placeholder_token=ph_token)
-
-        # Build masked_cot_text: replace activation-position tokens with placeholder
-        ctx_ids = item.get("context_input_ids", [])
-        ctx_pos = item.get("context_positions", [])
-        base_pos = set(ctx_pos[:len(ctx_pos) // n_layers]) if ctx_pos else set()
-        masked_ids = list(ctx_ids)
-        for p in base_pos:
-            if p < len(masked_ids):
-                masked_ids[p] = ph_id
-        masked_cot_text = tokenizer.decode(masked_ids, skip_special_tokens=False) if masked_ids else ""
+        masked_supervisor_context = build_masked_supervisor_context(item, n_layers, tokenizer)
+        activation_summary = build_activation_summary(all_activations[i].shape[0], layers=layers)
 
         trace = {
             "question": item.get("question", item.get("hinted_prompt", "")),
             "cot_text": item.get("cot_text", ""),
-            "masked_cot_text": masked_cot_text,
+            "masked_cot_text": masked_supervisor_context,
             "oracle_prompt": item["prompt"],
-            "oracle_prefix": oracle_prefix,
+            "oracle_prefix": activation_summary,
             "expected": tgt,
             "predicted": pred,
             "correct": f"Scorer={qa_scorer_scores[i]:.2f}" if qa_scorer_scores is not None else _per_example_correct(task_name, task_def, pred, tgt),

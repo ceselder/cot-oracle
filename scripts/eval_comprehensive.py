@@ -36,12 +36,13 @@ for _p in [_SRC, _BASELINES, _AO_REF]:
         sys.path.insert(0, str(_p))
 
 from tasks import TASKS, ScoringMode, get_comprehensive_eval_tasks
-from qa_scorer import check_openrouter_available, get_score_model, stop_local_scorer
+from qa_scorer import check_openrouter_available, get_score_model
 from eval_cache import EvalCache
 from eval_loop import (
     load_and_normalize, materialize_activations_chunked, run_oracle_eval,
     extract_per_item_scores, bootstrap_std, build_method_config, expand_methods,
     score_task, _primary_metric_name, _per_example_correct,
+    build_masked_supervisor_context, build_activation_summary,
 )
 
 _COMPARATIVE_PROMPT = """You are evaluating multiple monitoring methods on the same example.
@@ -224,14 +225,20 @@ def _run_and_store_method(cache, run_id, task_name, task_def, method_name,
         )
 
         if todo_indices:
+            n_layers = len(eval_layers)
             new_pred_rows = []
             for i in todo_indices:
                 if predictions[i] is not None:
-                    new_pred_rows.append({
+                    row = {
                         "item_idx": i, "item_id": f"{task_name}_{i}",
                         "prediction": predictions[i], "score": None,
-                        "prompt": test_data[i].get("prompt", ""),
-                    })
+                        "method_prompt": test_data[i].get("prompt", ""),
+                        "masked_supervisor_context": build_masked_supervisor_context(test_data[i], n_layers, tokenizer),
+                    }
+                    ctx_pos = test_data[i].get("context_positions", [])
+                    if ctx_pos:
+                        row["activation_summary"] = build_activation_summary(len(ctx_pos), layers=eval_layers)
+                    new_pred_rows.append(row)
             if new_pred_rows:
                 cache.store_predictions(run_id, task_name, method_name, new_pred_rows)
 
@@ -339,7 +346,7 @@ def _run_and_store_method(cache, run_id, task_name, task_def, method_name,
         valid_mask = list(range(len(valid_data)))
 
         new_pred_rows = [{"item_idx": i, "item_id": f"{task_name}_{i}", "prediction": (p or ""), "score": None,
-                          "prompt": item_prompts[i] if i < len(item_prompts) else None}
+                          "method_prompt": item_prompts[i] if i < len(item_prompts) else None}
                          for i, p in enumerate(predictions)]
         cache.store_predictions(run_id, task_name, method_name, new_pred_rows)
 
@@ -372,7 +379,7 @@ def _run_and_store_method(cache, run_id, task_name, task_def, method_name,
         item_prompts = [d.get("prompt", "") for d in valid_data]
 
         new_pred_rows = [{"item_idx": i, "item_id": f"{task_name}_{i}", "prediction": (p or ""), "score": None,
-                          "prompt": valid_data[i].get("prompt", "")}
+                          "method_prompt": valid_data[i].get("prompt", "")}
                          for i, p in enumerate(predictions)]
         cache.store_predictions(run_id, task_name, method_name, new_pred_rows)
 
@@ -397,7 +404,7 @@ def _run_and_store_method(cache, run_id, task_name, task_def, method_name,
         supervisor_context = task_def.supervisor_context
         item_prompts = [f"Question: {d.get('question', d.get('prompt', ''))}\nChain of thought: {d.get(supervisor_context, '')[:4000]}\n\n{d.get('prompt', '')}" for d in test_data]
         new_pred_rows = [{"item_idx": i, "item_id": f"{task_name}_{i}", "prediction": (p or ""), "score": None,
-                          "prompt": item_prompts[i]}
+                          "method_prompt": item_prompts[i]}
                          for i, p in enumerate(predictions)]
         cache.store_predictions(run_id, task_name, method_name, new_pred_rows)
 
@@ -438,10 +445,10 @@ def _run_and_store_method(cache, run_id, task_name, task_def, method_name,
         _store_failure(cache, run_id, task_name, method_name, method_config, "no predictions")
         return
 
-    # Store items (targets) and mark as "unscored" before attempting scoring
-    items = [{"item_idx": i, "item_id": f"{task_name}_{i}", "target_response": tgt}
-             for i, tgt in enumerate([d.get("target_response", "") for d in test_data]) if tgt]
-    cache.store_items(run_id, task_name, items)
+    # Store items (question, supervisor_context, target) and mark as "unscored"
+    items = [{"item_idx": i, "item_id": f"{task_name}_{i}", "target_response": d.get("target_response", ""), **d}
+             for i, d in enumerate(test_data) if d.get("target_response")]
+    cache.store_items(run_id, task_name, items, supervisor_context_field=task_def.supervisor_context)
 
     deps_hash = cache.method_deps_hash(run_id, task_name, method_name, build_method_config(method_name, method_config))
     cache.store_method_result(run_id, task_name, method_name, {
@@ -478,7 +485,7 @@ def _score_and_store(cache, run_id, task_name, task_def, method_name, method_con
                 "prediction": predictions[rank], "score": per_item_scores[rank],
             }
             if item_prompts is not None and rank < len(item_prompts) and item_prompts[rank]:
-                entry["prompt"] = item_prompts[rank]
+                entry["method_prompt"] = item_prompts[rank]
             if rank < len(scorer_responses) and scorer_responses[rank]:
                 entry["scorer_response"] = str(scorer_responses[rank])
             score_updates.append(entry)
@@ -716,7 +723,7 @@ def _rescore_from_cache(cache, run_id, config, output_dir, args):
         predictions = [cached_preds[i]["prediction"] for i in valid_mask]
         targets = [test_data[i].get("target_response", "") if i < len(test_data) else "" for i in valid_mask]
         eval_items = [test_data[i] for i in valid_mask if i < len(test_data)]
-        item_prompts = [cached_preds[i].get("prompt") for i in valid_mask]
+        item_prompts = [cached_preds[i].get("method_prompt") for i in valid_mask]
 
         print(f"  [{task_name}/{method_name}] ", end="", flush=True)
         t0 = time.time()
@@ -736,7 +743,7 @@ def _rescore_from_cache(cache, run_id, config, output_dir, args):
         (output_dir / f"{task_name}.json").write_text(json.dumps(task_json, indent=2, default=str))
 
     plot_results(output_dir, cache=cache, run_id=run_id, tasks_order=task_names)
-    stop_local_scorer()
+
     print("\nRescore done!")
 
 
@@ -904,7 +911,7 @@ def main():
 
     plot_results(output_dir, cache=cache, run_id=run_id, tasks_order=task_names)
     cache.close()
-    stop_local_scorer()
+
     if wandb_run:
         wandb_run.finish()
     print("\nDone!")
