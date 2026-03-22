@@ -46,6 +46,7 @@ Instead, try to log the number of gpus to metadata but dont put it in the runnam
 ## Terminology
 - **Scorer** = the LLM (`score_model` in eval.yaml) that grades oracle/baseline outputs during training-time eval and comprehensive eval. Lives in `src/qa_scorer.py`. Use "scorer" everywhere in code.
 - **Judge** = reserved for the comparative eval UI in `scripts/eval_viewer.py` and `src/chat_compare.py`, where an LLM rates and compares multiple method outputs side-by-side.
+- All LLM-as-judge scores (scorers and judges alike) use **0.0–1.0 in 0.1 increments** — never use 0-10 or other scales.
 - **BB monitor** = a baseline method (`baselines/bb_monitor.py`) where an external LLM reads the CoT text and answers the task question. Not the same as the scorer.
 - **supervisor_context** = the TaskDef field naming which data column any supervisor (oracle, bb-monitor, probes) reads. Usually `"cot_text"`, but `"cot_prefix"` for chunked tasks and `"excerpt"` for classification/fineweb tasks.
 

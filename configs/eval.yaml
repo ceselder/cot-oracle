@@ -48,7 +48,7 @@ baselines:
   - original_ao
   - linear_probes
   - sae-llm-monitor
-  # - patchscopes
+  - patchscopes
   # - attention_probe
   # - no_act_oracle
 
@@ -84,10 +84,15 @@ method_config:
     max_concurrent: 20
 
   patchscopes:
-    steering_coefficients: [0.5, 1.0, 2.0]
-    source_layers: null        # null = same as activation layers
+    mode: learned              # "learned" = gradient descent on alpha, "sweep" = legacy grid search
     injection_layer: 1
     max_new_tokens: 2048
+    lr: 0.05                   # learning rate for alpha optimisation
+    n_steps: 60                # gradient descent steps
+    wandb_group: patchscopes-alpha  # wandb group for loss curves
+    # Legacy sweep settings (only used when mode=sweep):
+    steering_coefficients: [0.5, 1.0, 2.0]
+    source_layers: null        # null = same as activation layers
 
   no_act_oracle:
     checkpoint: ""             # path to no-act LoRA

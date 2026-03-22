@@ -143,9 +143,9 @@ def get_records(task):
         r["_best_method"] = comp.get("best_method", "")
         r["_compare_justification"] = comp.get("justification", "")
         r["llm_comparative_score"] = comp.get("method_scores", {})
-        # Disagreement = 1 - (best_score - worst_score) / 10, higher = more disagreement
+        # Disagreement = 1 - spread, higher = methods scored more similarly (contested)
         ms = list(comp.get("method_scores", {}).values())
-        r["_disagreement"] = round(1.0 - (max(ms) - min(ms)) / 10.0, 2) if len(ms) >= 2 else 0.0
+        r["_disagreement"] = round(1.0 - (max(ms) - min(ms)), 2) if len(ms) >= 2 else 0.0
 
     return jsonify({
         "records": records,

@@ -57,7 +57,7 @@ BEST: <method_name>
 SCORES: <method1>=<score>, <method2>=<score>, ...
 JUSTIFICATION: <1-2 sentence explanation>
 
-Score each method 0-10 (10 = perfect match with target)."""
+Score each method from 0.0 to 1.0 (1.0 = perfect match with target)."""
 
 
 def _run_comparative_scoring(cache, run_id, task_name, task_def):
@@ -356,11 +356,15 @@ def _run_and_store_method(cache, run_id, task_name, task_def, method_name,
         ps_cfg = method_config.get("patchscopes", {})
         predictions = run_patchscopes(
             valid_data, activations, layers, task_def, model, tokenizer,
+            mode=ps_cfg.get("mode", "learned"),
             steering_coefficients=ps_cfg.get("steering_coefficients", [0.5, 1.0, 2.0]),
             source_layers=ps_cfg.get("source_layers"),
             injection_layer=ps_cfg.get("injection_layer", 1),
             max_new_tokens=ps_cfg.get("max_new_tokens", 100),
             device="cuda",
+            lr=ps_cfg.get("lr", 0.05),
+            n_steps=ps_cfg.get("n_steps", 60),
+            wandb_group=ps_cfg.get("wandb_group", "patchscopes-alpha"),
         )
         targets = [d.get("target_response", "") for d in valid_data]
         eval_items = valid_data
