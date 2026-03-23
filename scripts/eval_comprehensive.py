@@ -291,6 +291,7 @@ def _run_and_store_method(cache, run_id, task_name, task_def, method_name,
             return
 
         # Load train split for probe training
+        max_train = method_config.get("linear_probes", {}).get("max_train_examples", 2000)
         task_n = -1
         if train_config and "tasks" in train_config:
             task_n = train_config["tasks"].get(task_name, {}).get("n", -1)
@@ -298,7 +299,7 @@ def _run_and_store_method(cache, run_id, task_name, task_def, method_name,
             print("task disabled in train config")
             _store_failure(cache, run_id, task_name, method_name, method_config, "task disabled in train config")
             return
-        train_data = load_and_normalize(task_name, min(task_n, 2000) if task_n > 0 else 2000, split="train")
+        train_data = load_and_normalize(task_name, min(task_n, max_train) if task_n > 0 else max_train, split="train")
         if not train_data:
             print("no train data")
             _store_failure(cache, run_id, task_name, method_name, method_config, "no train data")
@@ -422,9 +423,26 @@ def _run_and_store_method(cache, run_id, task_name, task_def, method_name,
             _store_failure(cache, run_id, task_name, method_name, method_config, "no valid data for activations")
             return
 
+        # Load train split (matching linear_probes)
+        max_train = method_config.get("attention_probe", {}).get("max_train_examples", 2000)
+        task_n = -1
+        if train_config and "tasks" in train_config:
+            task_n = train_config["tasks"].get(task_name, {}).get("n", -1)
+        if task_n == 0:
+            print("task disabled in train config")
+            _store_failure(cache, run_id, task_name, method_name, method_config, "task disabled in train config")
+            return
+        train_data = load_and_normalize(task_name, min(task_n, max_train) if task_n > 0 else max_train, split="train")
+        if not train_data:
+            print("no train data")
+            _store_failure(cache, run_id, task_name, method_name, method_config, "no train data")
+            return
+        train_valid, train_acts = materialize_activations_chunked(model, tokenizer, train_data, layers, position_mode="all", task_name=task_name)
+
         predictions = run_attention_probe(
-            valid_data, activations, layers, task_def, device="cuda",
-            wandb_run=wandb_run,
+            valid_data, activations, layers, task_def,
+            train_data=train_valid, train_activations=train_acts,
+            device="cuda", wandb_run=wandb_run,
         )
         targets = [d.get("target_response", "") for d in valid_data]
         eval_items = valid_data
@@ -764,6 +782,7 @@ def main():
     parser.add_argument("--rescore", action="store_true", help="Re-score methods that have cached predictions but failed scoring")
     parser.add_argument("--list-failed", action="store_true", help="List all failed/unscored evals and exit")
     parser.add_argument("--plot-only", action="store_true", help="Only regenerate the plot from existing results")
+    parser.add_argument("--8bit", dest="use_8bit", action="store_true", help="Load model in 8-bit quantization (for low-VRAM GPUs)")
     args = parser.parse_args()
 
     output_dir = Path(args.output_dir)
@@ -844,7 +863,7 @@ def main():
         from core.ao import load_model_with_ao, load_extra_adapter
 
         train_cfg = yaml.safe_load(open(args.train_config))
-        model, tokenizer = load_model_with_ao(train_cfg["model"]["name"])
+        model, tokenizer = load_model_with_ao(train_cfg["model"]["name"], use_8bit=args.use_8bit)
         model.eval()
 
         if "our_ao" in active_baselines:

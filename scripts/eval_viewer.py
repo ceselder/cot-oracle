@@ -149,6 +149,12 @@ def get_records(task):
             method_prompt = pred_data.get("method_prompt")
             if method_prompt:
                 r["_prompts"][display] = method_prompt
+            masked_ctx = pred_data.get("masked_supervisor_context")
+            if masked_ctx:
+                r.setdefault("_masked_supervisor_contexts", {})[display] = masked_ctx
+            act_summary = pred_data.get("activation_summary")
+            if act_summary:
+                r.setdefault("_activation_summaries", {})[display] = act_summary
         # Surface the task prompt (from _prompts) as "task_prompt"
         if r["_prompts"]:
             r["task_prompt"] = next(iter(r["_prompts"].values()))
@@ -166,7 +172,6 @@ def get_records(task):
         r["_best_method"] = ""
         r["_compare_justification"] = ""
         r["llm_comparative_score"] = {}
-        r["_disagreement"] = 0.0
 
     # Resolve which TaskDef fields map to our generic column names
     td = TASKS.get(task)
@@ -471,8 +476,7 @@ tr.drow>td{padding:0;background:var(--bg2);white-space:normal;border:none}
 
   <div class="row">
     <span class="lbl">sort:</span>
-    <button class="btn on" id="sb-dis"   onclick="setSort('dis')">disagree↓</button>
-    <button class="btn"    id="sb-agree" onclick="setSort('agree')">agree</button>
+    <button class="btn on" id="sb-agree" onclick="setSort('agree')">agree↓</button>
     <button class="btn"    id="sb-idx"   onclick="setSort('idx')">index</button>
   </div>
 
@@ -527,7 +531,7 @@ let scoreModel='';
 let scoreLabel='llm-score';
 
 // Summary table columns (fixed set for the compact table)
-const TEXT_COLS=[{key:'question', label:'question'},{key:'supervisor_context', label:'supervisor_context'},{key:'target_response', label:'target_response'},{key:'task_prompt', label:'task_prompt'}];
+const TEXT_COLS=[{key:'question', label:'question'},{key:'supervisor_context', label:'supervisor_context'},{key:'task_prompt', label:'task_prompt'},{key:'target_response', label:'target_response'}];
 // Priority text fields shown first in detail view; remaining extra fields shown after
 const TEXT_COLS_PRIORITY=['question','supervisor_context','task_prompt','target_response'];
 function getTextCols(r){
@@ -536,7 +540,7 @@ function getTextCols(r){
   // Priority fields first
   TEXT_COLS_PRIORITY.forEach(k=>{if(r[k]!==undefined){cols.push({key:k,label:k});seen.add(k);}});
   // Then any remaining string fields (skip internal _ fields and method predictions)
-  const skip=new Set([...seen,'example_id','_abs_scores','_scorer_responses','_prompts','_best_method','_compare_justification','_disagreement','_pred_agreement','llm_comparative_score','prompt',...methodCols]);
+  const skip=new Set([...seen,'example_id','_abs_scores','_scorer_responses','_prompts','_masked_supervisor_contexts','_activation_summaries','_best_method','_compare_justification','_pred_agreement','llm_comparative_score','prompt',...methodCols]);
   Object.keys(r).forEach(k=>{if(!skip.has(k)&&!k.startsWith('_')&&typeof r[k]==='string'&&r[k].length>0&&r[k].length<10000)cols.push({key:k,label:k});});
   return cols;
 }
@@ -722,8 +726,7 @@ function rerender(){
   const filtered=q?recs.filter(r=>JSON.stringify(r).toLowerCase().includes(q)):recs;
   const sorted=[...filtered].sort((a,b)=>{
     let av,bv;
-    if(sortKey==='dis'){av=a._disagreement||0;bv=b._disagreement||0}
-    else if(sortKey==='agree'){av=a._pred_agreement;bv=b._pred_agreement}
+    if(sortKey==='agree'){av=a._pred_agreement||0;bv=b._pred_agreement||0}
     else if(sortKey==='idx'){av=recs.indexOf(a);bv=recs.indexOf(b)}
     else if(sortKey==='len'){av=a._len||0;bv=b._len||0}
     else if(sortKey.startsWith('m:')){const m=sortKey.slice(2);av=String(a[m]??'');bv=String(b[m]??'')}
@@ -860,7 +863,11 @@ function detailHtml(r,colspan,oi){
       const saeBtn=isSae?` <button class="sae-btn" id="${saeCid}-btn" onclick="toggleSaeInline('${currentTask}','${esc(String(r.example_id??''))}','${saeCid}')">▶ features</button>`:'';
       const itemPrompt=r._prompts?.[m];
       const promptRow=itemPrompt?`<div style="margin-top:3px;padding:3px 5px;background:var(--bg);border:1px solid var(--border);border-radius:2px;font-size:9px;color:var(--dim);white-space:pre-wrap;max-height:120px;overflow-y:auto"><b>prompt:</b> ${esc(itemPrompt)}</div>`:'';
-      h+=`<tr><td style="white-space:nowrap">${m}</td>${scoreCell}${extraCells}<td class="pred-cell">${pred}${promptRow}${isSae?`<div id="${saeCid}"></div>`:''}${saeBtn}</td></tr>`;
+      const maskedCtx=r._masked_supervisor_contexts?.[m];
+      const maskedRow=maskedCtx?`<div style="margin-top:3px;padding:3px 5px;background:var(--bg);border:1px solid var(--border);border-radius:2px;font-size:9px;color:var(--dim);white-space:pre-wrap;max-height:120px;overflow-y:auto"><b>masked context:</b> ${esc(maskedCtx)}</div>`:'';
+      const actSummary=r._activation_summaries?.[m];
+      const actRow=actSummary?`<div style="margin-top:3px;padding:3px 5px;background:var(--bg);border:1px solid var(--border);border-radius:2px;font-size:9px;color:var(--dim);white-space:pre-wrap;max-height:80px;overflow-y:auto"><b>activation summary:</b> ${esc(actSummary)}</div>`:'';
+      h+=`<tr><td style="white-space:nowrap">${m}</td>${scoreCell}${extraCells}<td class="pred-cell">${promptRow}${maskedRow}${actRow}${pred}${isSae?`<div id="${saeCid}"></div>`:''}${saeBtn}</td></tr>`;
     });
     h+=`</table></div>`;
   }
@@ -878,7 +885,7 @@ function detailHtml(r,colspan,oi){
 
 // ── Toggle / sort ─────────────────────────────────────────────────────
 function tog(oi){expanded.has(oi)?expanded.delete(oi):expanded.add(oi);rerender();_tsave();}
-function setSort(k){sortDir=(sortKey===k)?-sortDir:-1;sortKey=k;['dis','agree','idx'].forEach(x=>document.getElementById('sb-'+x)?.classList.toggle('on',x===k));rerender();_gsave();}
+function setSort(k){sortDir=(sortKey===k)?-sortDir:-1;sortKey=k;['agree','idx'].forEach(x=>document.getElementById('sb-'+x)?.classList.toggle('on',x===k));rerender();_gsave();}
 
 async function runJudge(task, itemIdx, containerId){
   const box=document.getElementById(containerId);

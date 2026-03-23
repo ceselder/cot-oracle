@@ -5,12 +5,12 @@ single sequence → joint multi-head self-attention (32 heads) → masked mean-p
 LayerNorm + Linear classification head.
 
 Unified API: accepts test_data + activations from eval_comprehensive.
+Trains on a separate train split, evaluates on test (matching linear_probe).
 """
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from sklearn.model_selection import StratifiedKFold
 from tqdm.auto import tqdm
 
 from activation_utils import split_activations_by_layer
@@ -89,13 +89,12 @@ class AttentionProbe(nn.Module):
         return logits
 
 
-def _train_attention_probe_fold(
+def _train_attention_probe(
     train_acts, y_train, test_acts, *,
     layers, n_outputs, lr, epochs, patience, val_frac=0.2, batch_size, device,
     wandb_run=None, tag="",
 ):
-    """Train AttentionProbe on one fold with val-based early stopping. Returns test predictions."""
-    # Hold out val split from fold training data
+    """Train AttentionProbe with val-based early stopping. Returns test predictions."""
     n_val = max(1, int(len(train_acts) * val_frac))
     perm = torch.randperm(len(train_acts))
     val_idx, tr_idx = perm[:n_val], perm[n_val:]
@@ -165,7 +164,8 @@ def run_attention_probe(
     layers: list[int],
     task_def,
     *,
-    k_folds: int = 5,
+    train_data: list[dict] | None = None,
+    train_activations: list[torch.Tensor] | None = None,
     lr: float = 0.0001,
     epochs: int = 50,
     patience: int = 10,
@@ -173,41 +173,34 @@ def run_attention_probe(
     device: str = "cuda",
     wandb_run=None,
 ) -> list[str]:
-    """Run Qwen attention probe via k-fold CV. Returns list[str] predictions.
+    """Train attention probe on train split, evaluate on test. Returns list[str] predictions.
 
     Only supports BINARY tasks; returns ["?"] * N for non-binary.
     """
     from tasks import ScoringMode
     if task_def.scoring != ScoringMode.BINARY:
         return ["?"] * len(test_data)
+    if not train_data or not train_activations:
+        return ["?"] * len(test_data)
 
     from linear_probe import _extract_label
 
-    labels = [_extract_label(d["target_response"], task_def) for d in test_data]
-    labels_unique = sorted(set(labels))
+    train_labels = [_extract_label(d["target_response"], task_def) for d in train_data]
+    test_labels = [_extract_label(d["target_response"], task_def) for d in test_data]
+    labels_unique = sorted(set(train_labels))
     if len(labels_unique) < 2:
         return ["?"] * len(test_data)
     label_to_idx = {l: i for i, l in enumerate(labels_unique)}
     n_classes = len(labels_unique)
 
-    # Convert unified [nK, D] to per-example {layer: [K, D]} dicts
-    all_acts = [split_activations_by_layer(a, layers) for a in activations]
-    y_all = torch.tensor([label_to_idx[l] for l in labels])
-    all_preds = [None] * len(test_data)
+    train_acts = [split_activations_by_layer(a, layers) for a in train_activations]
+    test_acts = [split_activations_by_layer(a, layers) for a in activations]
+    y_train = torch.tensor([label_to_idx[l] for l in train_labels])
 
-    skf = StratifiedKFold(n_splits=min(k_folds, len(test_data)), shuffle=True, random_state=42)
-    for fold_i, (train_idx, test_idx) in enumerate(tqdm(list(skf.split(range(len(test_data)), y_all.numpy())), desc="Qwen attn probe folds")):
-        train_acts = [all_acts[i] for i in train_idx]
-        test_acts_fold = [all_acts[i] for i in test_idx]
-        y_tr = y_all[train_idx]
-
-        preds = _train_attention_probe_fold(
-            train_acts, y_tr, test_acts_fold,
-            layers=layers, n_outputs=n_classes, lr=lr, epochs=epochs,
-            patience=patience, batch_size=batch_size, device=device,
-            wandb_run=wandb_run, tag=f"{task_def.name}/fold{fold_i}",
-        )
-        for i, idx in enumerate(test_idx):
-            all_preds[idx] = labels_unique[preds[i].item()]
-
-    return all_preds
+    preds = _train_attention_probe(
+        train_acts, y_train, test_acts,
+        layers=layers, n_outputs=n_classes, lr=lr, epochs=epochs,
+        patience=patience, batch_size=batch_size, device=device,
+        wandb_run=wandb_run, tag=task_def.name,
+    )
+    return [labels_unique[p.item()] for p in preds]

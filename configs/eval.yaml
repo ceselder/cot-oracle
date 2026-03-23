@@ -25,6 +25,7 @@ tasks:
   - chunked_compqa_backtrack
   - sentence_insertion
   - cot_description
+  - sae_unverbalized
   # - hallucination_detection
   # - futurelens          # no cot_text
   # - pastlens            # no cot_text
@@ -33,12 +34,12 @@ tasks:
   - cls_sst2
   - cls_ag_news
   - cls_ner
-  # - cls_snli
-  # - cls_singular_plural
-  # - cls_tense
-  # - cls_relations
-  # - cls_language_id
-  # - cls_geometry_of_truth
+  - cls_snli
+  - cls_singular_plural
+  - cls_tense
+  - cls_relations
+  - cls_language_id
+  - cls_geometry_of_truth
 
 # Baselines to run. Comment out a line to skip that method.
 baselines:
@@ -48,14 +49,14 @@ baselines:
   - original_ao
   - linear_probes
   - sae-llm-monitor
-  - patchscopes
+  # - patchscopes
   # - attention_probe
   # - no_act_oracle
 
 # Per-method settings.
 method_config:
   our_ao:
-    checkpoint: /ceph/scratch/jbauer/checkpoints/cot_oracle_v15_stochastic
+    checkpoint: ceselder/cot-oracle-v15-stochastic
     layers: [9, 18, 27]        # all layers simultaneously
     position_slices: ["::20", "::5"]  # numpy slicing: every 20th, 5th
     single_layer: false        # feed all layers at once
@@ -93,6 +94,21 @@ method_config:
     # Legacy sweep settings (only used when mode=sweep):
     steering_coefficients: [0.5, 1.0, 2.0]
     source_layers: null        # null = same as activation layers
+
+  linear_probes:
+    lr: 0.01
+    epochs: 100
+    patience: 10
+    weight_decay: 0.0001
+    pooling: mean              # mean / max / last
+    max_train_examples: 2000
+
+  attention_probe:
+    lr: 0.0001
+    epochs: 50
+    patience: 10
+    batch_size: 32
+    max_train_examples: 2000   # more data helps the deeper architecture
 
   no_act_oracle:
     checkpoint: ""             # path to no-act LoRA
