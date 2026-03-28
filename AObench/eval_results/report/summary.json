@@ -1,30 +1,42 @@
 {
   "number_prediction": {
     "checkpoints_latentqa_cls_past_lens_addition_Qwen3-8B": 0.02666666666666667,
+    "checkpoints_Qwen3-8B_full_mix_synthetic_qa_v3_replace_lqa": 0.02666666666666667,
     "cot-oracle-qwen3-8b-final-sprint-checkpoint-no-DPO": 0.06
   },
   "mmlu_prediction": {
     "checkpoints_latentqa_cls_past_lens_addition_Qwen3-8B": 0.6927000000000001,
+    "checkpoints_Qwen3-8B_full_mix_synthetic_qa_v3_replace_lqa": 0.6973,
     "cot-oracle-qwen3-8b-final-sprint-checkpoint-no-DPO": 0.6829000000000001
   },
   "backtracking_mc": {
     "checkpoints_latentqa_cls_past_lens_addition_Qwen3-8B": 0.7868020304568528,
+    "checkpoints_Qwen3-8B_full_mix_synthetic_qa_v3_replace_lqa": 0.7411167512690355,
     "cot-oracle-qwen3-8b-final-sprint-checkpoint-no-DPO": 0.6548223350253807
   },
   "missing_info": {
     "checkpoints_latentqa_cls_past_lens_addition_Qwen3-8B": 0.6344444444444444,
+    "checkpoints_Qwen3-8B_full_mix_synthetic_qa_v3_replace_lqa": 0.7633333333333333,
     "cot-oracle-qwen3-8b-final-sprint-checkpoint-no-DPO": 0.7344444444444445
   },
   "sycophancy": {
     "checkpoints_latentqa_cls_past_lens_addition_Qwen3-8B": 0.739025,
+    "checkpoints_Qwen3-8B_full_mix_synthetic_qa_v3_replace_lqa": 0.8356499999999999,
     "cot-oracle-qwen3-8b-final-sprint-checkpoint-no-DPO": 0.7556
   },
-  "taboo": {
-    "checkpoints_latentqa_cls_past_lens_addition_Qwen3-8B": 0.414,
-    "cot-oracle-qwen3-8b-final-sprint-checkpoint-no-DPO": 0.44433333333333336
+  "vagueness": {
+    "checkpoints_latentqa_cls_past_lens_addition_Qwen3-8B": 0.5685279187817259,
+    "checkpoints_Qwen3-8B_full_mix_synthetic_qa_v3_replace_lqa": 0.05102040816326531,
+    "cot-oracle-qwen3-8b-final-sprint-checkpoint-no-DPO": 0.2182741116751269
   },
-  "personaqa": {
-    "checkpoints_latentqa_cls_past_lens_addition_Qwen3-8B": 0.10555555555555556,
-    "cot-oracle-qwen3-8b-final-sprint-checkpoint-no-DPO": 0.1272222222222222
+  "domain_confusion": {
+    "checkpoints_latentqa_cls_past_lens_addition_Qwen3-8B": 0.20508474576271185,
+    "checkpoints_Qwen3-8B_full_mix_synthetic_qa_v3_replace_lqa": 0.42203389830508475,
+    "cot-oracle-qwen3-8b-final-sprint-checkpoint-no-DPO": 0.4906937394247039
+  },
+  "activation_sensitivity": {
+    "checkpoints_latentqa_cls_past_lens_addition_Qwen3-8B": 0.8444444444444444,
+    "checkpoints_Qwen3-8B_full_mix_synthetic_qa_v3_replace_lqa": 0.9777777777777777,
+    "cot-oracle-qwen3-8b-final-sprint-checkpoint-no-DPO": 0.8666666666666667
   }
 }

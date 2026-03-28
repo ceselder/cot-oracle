@@ -1,35 +1,47 @@
 AObench Results Summary
 ================================================================================
 
+--- activation_sensitivity (Activation Sensitivity) ---
+  Adam's synth-QA-v3                             0.9778
+  Adam's AO                                      0.8444
+  Ours (no-DPO)                                  0.8667
+
 --- backtracking_mc (MC Accuracy) ---
+  Adam's synth-QA-v3                             0.7411
   Adam's AO                                      0.7868
   Ours (no-DPO)                                  0.6548
   (chance)                                       0.2500
 
+--- domain_confusion (Domain Confusion Rate) ---
+  Adam's synth-QA-v3                             0.4220
+  Adam's AO                                      0.2051
+  Ours (no-DPO)                                  0.4907
+
 --- missing_info (ROC AUC) ---
+  Adam's synth-QA-v3                             0.7633
   Adam's AO                                      0.6344
   Ours (no-DPO)                                  0.7344
   (chance)                                       0.5000
 
 --- mmlu_prediction (ROC AUC) ---
+  Adam's synth-QA-v3                             0.6973
   Adam's AO                                      0.6927
   Ours (no-DPO)                                  0.6829
   (chance)                                       0.5000
 
 --- number_prediction (Model Match Rate) ---
+  Adam's synth-QA-v3                             0.0267
   Adam's AO                                      0.0267
   Ours (no-DPO)                                  0.0600
 
---- personaqa (Accuracy) ---
-  Adam's AO                                      0.1056
-  Ours (no-DPO)                                  0.1272
-
 --- sycophancy (ROC AUC) ---
+  Adam's synth-QA-v3                             0.8356
   Adam's AO                                      0.7390
   Ours (no-DPO)                                  0.7556
   (chance)                                       0.5000
 
---- taboo (Accuracy) ---
-  Adam's AO                                      0.4140
-  Ours (no-DPO)                                  0.4443
+--- vagueness (Vagueness Rate) ---
+  Adam's synth-QA-v3                             0.0510
+  Adam's AO                                      0.5685
+  Ours (no-DPO)                                  0.2183
 
