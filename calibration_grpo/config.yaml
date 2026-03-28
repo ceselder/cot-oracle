@@ -11,14 +11,14 @@ data:
   question_inclusion_rate: 1.0  # always include question (oracle needs context for split CoT)
 
 rollouts:
-  n: 16
+  n: 8
   temperature: 0.8
   max_new_tokens: 150
   generation_batch_size: 16
   repetition_penalty: 1.1
 
 judge:
-  model: "minimax/minimax-m2.7"
+  model: "anthropic/claude-sonnet-4-6"
   temperature: 0.0
   max_concurrent: 16
   timeout_sec: 60
@@ -29,11 +29,7 @@ grpo:
 
 reward:
   criteria_weights:
-    passes_swap_test: 1.0
-    specific_and_falsifiable: 1.0
-    adds_insight: 1.0
-    not_provably_wrong: 1.0
-    follows_instructions: 1.0
+    score: 1.0
 
 training:
   lr: 1.0e-6

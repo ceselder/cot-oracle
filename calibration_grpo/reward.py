@@ -1,30 +1,21 @@
-"""Tiered rubric (0/1/2) → scalar reward → group advantages."""
+"""Single-score rubric → scalar reward → group advantages."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 
 CRITERIA_NAMES = [
-    "passes_swap_test",
-    "specific_and_falsifiable",
-    "adds_insight",
-    "not_provably_wrong",
-    "follows_instructions",
+    "score",
 ]
 
 
 @dataclass
 class RubricResult:
     rollout_idx: int
-    criteria: dict[str, int] = field(default_factory=dict)  # 0, 1, or 2
+    criteria: dict[str, int] = field(default_factory=dict)  # {"score": 0, 1, or 2}
 
     def reward(self, weights: dict[str, float]) -> float:
-        total = sum(weights.get(k, 1.0) * 2 for k in CRITERIA_NAMES)  # max score per criterion is 2
-        earned = sum(
-            weights.get(k, 1.0) * self.criteria.get(k, 0)
-            for k in CRITERIA_NAMES
-        )
-        return earned / total if total > 0 else 0.0
+        return self.criteria.get("score", 0) / 2.0  # normalize to [0, 1]
 
 
 def compute_rewards(
