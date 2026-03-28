@@ -21,7 +21,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-import anthropic
+import httpx
 from tqdm import tqdm
 
 from AObench.base_experiment import (
@@ -60,8 +60,7 @@ VERBALIZER_PROMPTS = VERBALIZER_PROMPTS_HIDDEN_INSTRUCTION
 
 ACTIVATION_MODES = ("system_only", "user_only", "assistant_only", "user_and_assistant")
 
-JUDGE_MODEL = "claude-haiku-4-5-20251001"
-DEFAULT_JUDGE_CONCURRENCY = 20
+from AObench.open_ended_eval.judge import JUDGE_MODEL, DEFAULT_JUDGE_CONCURRENCY, judge_single
 
 JUDGE_SYSTEM_PROMPT = """\
 You are evaluating whether an Activation Oracle (AO) — a model that reads another model's \
@@ -196,74 +195,45 @@ def build_prompt_infos_for_mode(
 
 # --- LLM judge ---
 
-async def judge_single_response(
-    client: anthropic.AsyncAnthropic,
-    ground_truth: str,
-    ao_response: str,
-    semaphore: asyncio.Semaphore,
-) -> dict[str, Any]:
-    user_message = JUDGE_USER_TEMPLATE.format(
-        ground_truth=ground_truth,
-        ao_response=ao_response,
-    )
-
-    async with semaphore:
-        response = await client.messages.create(
-            model=JUDGE_MODEL,
-            max_tokens=300,
-            system=JUDGE_SYSTEM_PROMPT,
-            messages=[{"role": "user", "content": user_message}],
-        )
-
-    text = response.content[0].text.strip()
-    if text.startswith("```"):
-        text = text.split("\n", 1)[1]
-        text = text.rsplit("```", 1)[0]
-        text = text.strip()
-    result = json.loads(text)
-    assert "specificity" in result and "correctness" in result
-    return result
-
 
 async def judge_ao_responses(
     results: list[VerbalizerResults],
     metadata: list[dict[str, Any]],
     concurrency: int = DEFAULT_JUDGE_CONCURRENCY,
 ) -> list[dict[str, Any]]:
-    """Use Claude Haiku to judge AO responses against ground truth."""
-    client = anthropic.AsyncAnthropic()
+    """Use LLM judge (via OpenRouter) to score AO responses against ground truth."""
     semaphore = asyncio.Semaphore(concurrency)
 
     tasks = []
     task_metadata = []
 
-    for i, (result, meta) in enumerate(zip(results, metadata)):
-        ao_response = get_first_ao_response(result)
-        if ao_response is None:
-            continue
+    async with httpx.AsyncClient() as client:
+        for i, (result, meta) in enumerate(zip(results, metadata)):
+            ao_response = get_first_ao_response(result)
+            if ao_response is None:
+                continue
 
-        tasks.append(
-            judge_single_response(
-                client=client,
+            user_message = JUDGE_USER_TEMPLATE.format(
                 ground_truth=meta["ground_truth"],
                 ao_response=ao_response,
-                semaphore=semaphore,
             )
-        )
-        task_metadata.append({
-            "result_index": i,
-            "ao_response": ao_response,
-            **meta,
-        })
+            tasks.append(
+                judge_single(client, JUDGE_SYSTEM_PROMPT, user_message, semaphore)
+            )
+            task_metadata.append({
+                "result_index": i,
+                "ao_response": ao_response,
+                **meta,
+            })
 
-    print(f"Judging {len(tasks)} AO responses with {JUDGE_MODEL} (concurrency={concurrency})...")
-    pbar = tqdm(total=len(tasks), desc="LLM judge")
-    async def _track(coro):
-        result = await coro
-        pbar.update(1)
-        return result
-    judge_results = await asyncio.gather(*[_track(t) for t in tasks], return_exceptions=True)
-    pbar.close()
+        print(f"Judging {len(tasks)} AO responses with {JUDGE_MODEL} (concurrency={concurrency})...")
+        pbar = tqdm(total=len(tasks), desc="LLM judge")
+        async def _track(coro):
+            result = await coro
+            pbar.update(1)
+            return result
+        judge_results = await asyncio.gather(*[_track(t) for t in tasks], return_exceptions=True)
+        pbar.close()
 
     scored_results = []
     for meta, judge_result in zip(task_metadata, judge_results):
