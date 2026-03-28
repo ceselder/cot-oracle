@@ -425,7 +425,7 @@ def run_activation_sensitivity(
     )
 
 
-def run_hallucination(
+def run_hallucination_1pos(
     model,
     tokenizer,
     device,
@@ -433,10 +433,32 @@ def run_hallucination(
     model_name: str,
     verbalizer_lora_paths: list[str],
 ) -> dict[str, Any]:
-    from AObench.open_ended_eval.hallucination import run_hallucination_open_ended_eval
+    from AObench.open_ended_eval.hallucination import run_hallucination_1pos_eval
 
     os.makedirs(output_dir, exist_ok=True)
-    return run_hallucination_open_ended_eval(
+    return run_hallucination_1pos_eval(
+        model_name=model_name,
+        model=model,
+        tokenizer=tokenizer,
+        device=device,
+        output_dir=output_dir,
+        eval_batch_size=32,
+        verbalizer_lora_paths=verbalizer_lora_paths,
+    )
+
+
+def run_hallucination_20pos(
+    model,
+    tokenizer,
+    device,
+    output_dir: str,
+    model_name: str,
+    verbalizer_lora_paths: list[str],
+) -> dict[str, Any]:
+    from AObench.open_ended_eval.hallucination import run_hallucination_20pos_eval
+
+    os.makedirs(output_dir, exist_ok=True)
+    return run_hallucination_20pos_eval(
         model_name=model_name,
         model=model,
         tokenizer=tokenizer,
@@ -465,7 +487,8 @@ EVALS = [
     ("vagueness", run_vagueness),
     ("domain_confusion", run_domain_confusion),
     ("activation_sensitivity", run_activation_sensitivity),
-    ("hallucination", run_hallucination),
+    ("hallucination_1pos", run_hallucination_1pos),
+    ("hallucination_20pos", run_hallucination_20pos),
 ]
 
 DEFAULT_INCLUDE = [name for name, _ in EVALS if name not in {"taboo", "personaqa"}]

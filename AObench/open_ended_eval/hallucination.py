@@ -1,12 +1,14 @@
 """
-Obvious hallucination eval — tests whether the AO confabulates with minimal activations.
+Obvious hallucination eval — tests whether the AO confabulates.
 
 Arya et al. found AOs confidently hallucinate wrong details: ice cubes → "eggs laid by
 hens", plate arrangements → "letters in BANANA". This is worst with few activations.
 
-This eval gives the AO only 1 or 5 activation positions and asks verifiable questions.
-The judge checks whether the response is obviously wrong (mentions objects/concepts
-that don't appear in the problem at all).
+Two modes:
+  hallucination_1pos  — single activation (stress test, elicits most confabulation)
+  hallucination_20pos — 20 activations (standard segment, same as other evals)
+
+Both use the same broad prompts and LLM judge scoring.
 """
 
 import asyncio
@@ -56,8 +58,8 @@ VERBALIZER_PROMPTS: dict[str, str] = {
 JUDGE_SYSTEM_PROMPT = """\
 You are checking whether an Activation Oracle (AO) response contains obvious hallucinations.
 
-The AO was given a single activation from a language model solving a specific \
-problem and asked a question. You need to check if the AO's response is obviously wrong.
+The AO was given activations from a language model solving a specific problem and asked \
+a question. You need to check if the AO's response is obviously wrong.
 
 You will be given:
 1. The ACTUAL PROBLEM the model was solving
@@ -96,8 +98,8 @@ def build_hallucination_verbalizer_prompt_infos(
     entries: list[dict[str, Any]],
     verbalizer_prompts: dict[str, str],
     tokenizer,
+    n_positions: int = 1,
 ) -> tuple[list[VerbalizerInputInfo], list[dict[str, Any]]]:
-    """Build prompt infos with exactly 1 activation position (last token)."""
     prompt_infos: list[VerbalizerInputInfo] = []
     entry_metadata: list[dict[str, Any]] = []
 
@@ -111,9 +113,7 @@ def build_hallucination_verbalizer_prompt_infos(
             add_generation_prompt=False,
             continue_thinking=True,
         )
-
-        # Single activation — last token only
-        positions = compute_segment_positions(len(token_ids), -1)
+        positions = compute_segment_positions(len(token_ids), -n_positions)
 
         for prompt_name, vp in verbalizer_prompts.items():
             prompt_infos.append(
@@ -129,6 +129,7 @@ def build_hallucination_verbalizer_prompt_infos(
                 "problem": entry["problem"],
                 "domain": entry.get("domain", "unknown"),
                 "prompt_name": prompt_name,
+                "n_positions": n_positions,
             })
 
     return prompt_infos, entry_metadata
@@ -206,8 +207,10 @@ def compute_hallucination_metrics(scored_results: list[dict[str, Any]]) -> dict[
     }
 
 
-def run_hallucination_open_ended_eval(
+def _run_hallucination(
     *,
+    n_positions: int,
+    eval_name: str,
     model_name: str,
     model,
     tokenizer,
@@ -224,7 +227,7 @@ def run_hallucination_open_ended_eval(
 
     entries = load_dataset(max_entries=max_entries)
     prompt_infos, entry_metadata = build_hallucination_verbalizer_prompt_infos(
-        entries, VERBALIZER_PROMPTS, tokenizer,
+        entries, VERBALIZER_PROMPTS, tokenizer, n_positions=n_positions,
     )
 
     def score_fn(results: list[VerbalizerResults], metadata: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -233,7 +236,7 @@ def run_hallucination_open_ended_eval(
         )
 
     return run_verbalizer_generation_eval_loop(
-        eval_name="hallucination",
+        eval_name=eval_name,
         model=model,
         tokenizer=tokenizer,
         device=device,
@@ -250,10 +253,18 @@ def run_hallucination_open_ended_eval(
     )
 
 
+def run_hallucination_1pos_eval(**kwargs) -> dict[str, Any]:
+    return _run_hallucination(n_positions=1, eval_name="hallucination_1pos", **kwargs)
+
+
+def run_hallucination_20pos_eval(**kwargs) -> dict[str, Any]:
+    return _run_hallucination(n_positions=20, eval_name="hallucination_20pos", **kwargs)
+
+
 if __name__ == "__main__":
     run_default_eval(
-        eval_name="hallucination",
-        run_eval_fn=run_hallucination_open_ended_eval,
+        eval_name="hallucination_1pos",
+        run_eval_fn=run_hallucination_1pos_eval,
         model_name="Qwen/Qwen3-8B",
         run_eval_kwargs={
             "verbalizer_lora_paths": STANDARD_VERBALIZER_LORAS,
