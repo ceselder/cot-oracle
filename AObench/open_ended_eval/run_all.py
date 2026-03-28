@@ -425,6 +425,28 @@ def run_activation_sensitivity(
     )
 
 
+def run_hallucination(
+    model,
+    tokenizer,
+    device,
+    output_dir: str,
+    model_name: str,
+    verbalizer_lora_paths: list[str],
+) -> dict[str, Any]:
+    from AObench.open_ended_eval.hallucination import run_hallucination_open_ended_eval
+
+    os.makedirs(output_dir, exist_ok=True)
+    return run_hallucination_open_ended_eval(
+        model_name=model_name,
+        model=model,
+        tokenizer=tokenizer,
+        device=device,
+        output_dir=output_dir,
+        eval_batch_size=32,
+        verbalizer_lora_paths=verbalizer_lora_paths,
+    )
+
+
 # ---------------------------------------------------------------------------
 # Eval registry
 # ---------------------------------------------------------------------------
@@ -443,6 +465,7 @@ EVALS = [
     ("vagueness", run_vagueness),
     ("domain_confusion", run_domain_confusion),
     ("activation_sensitivity", run_activation_sensitivity),
+    ("hallucination", run_hallucination),
 ]
 
 DEFAULT_INCLUDE = [name for name, _ in EVALS if name not in {"taboo", "personaqa"}]

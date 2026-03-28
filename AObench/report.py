@@ -70,6 +70,7 @@ EVAL_METRIC_MAP: dict[str, tuple[str, str, bool]] = {
     "vagueness": ("specificity_rate", "Non-Vagueness", True),
     "domain_confusion": ("domain_correct_specific_rate", "Domain Accuracy", True),
     "activation_sensitivity": ("activation_sensitivity", "Activation Sensitivity", True),
+    "hallucination": ("correct_rate", "Correct Rate", True),
 }
 
 # Chance baselines for each eval

@@ -12,7 +12,7 @@ from typing import Any
 import httpx
 
 OPENROUTER_API_BASE = "https://openrouter.ai/api/v1/chat/completions"
-JUDGE_MODEL = "google/gemini-3.1-pro-preview"
+JUDGE_MODEL = "anthropic/claude-sonnet-4-6"
 DEFAULT_JUDGE_CONCURRENCY = 20
 
 
