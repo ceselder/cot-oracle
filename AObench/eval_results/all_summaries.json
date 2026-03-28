@@ -1507,5 +1507,72 @@
       "cond_hint_b_cot_num_negative": 58.0
     },
     "elapsed_seconds": 685.8230216000229
+  },
+  "taboo": {
+    "overall_metrics": {
+      "full_seq_accuracy": 0.344,
+      "full_seq_total": 4000.0,
+      "segment_accuracy": 0.46275,
+      "segment_total": 4000.0,
+      "single_token_accuracy": 0.48075,
+      "single_token_total": 4000.0,
+      "accuracy": 0.42916666666666664
+    },
+    "metrics_by_verbalizer": {
+      "checkpoints_latentqa_cls_past_lens_addition_Qwen3-8B": {
+        "full_seq_accuracy": 0.2875,
+        "full_seq_total": 2000.0,
+        "segment_accuracy": 0.458,
+        "segment_total": 2000.0,
+        "single_token_accuracy": 0.4965,
+        "single_token_total": 2000.0,
+        "accuracy": 0.414
+      },
+      "cot-oracle-qwen3-8b-final-sprint-checkpoint-no-DPO": {
+        "full_seq_accuracy": 0.4005,
+        "full_seq_total": 2000.0,
+        "segment_accuracy": 0.4675,
+        "segment_total": 2000.0,
+        "single_token_accuracy": 0.465,
+        "single_token_total": 2000.0,
+        "accuracy": 0.44433333333333336
+      }
+    },
+    "num_results": 12000,
+    "truncated": false,
+    "elapsed_seconds": 975.2728138463572
+  },
+  "personaqa": {
+    "overall_metrics": {
+      "full_seq_accuracy": 0.1175,
+      "full_seq_total": 1200.0,
+      "segment_accuracy": 0.1175,
+      "segment_total": 1200.0,
+      "single_token_accuracy": 0.11416666666666667,
+      "single_token_total": 1200.0,
+      "accuracy": 0.11638888888888889
+    },
+    "metrics_by_verbalizer": {
+      "checkpoints_latentqa_cls_past_lens_addition_Qwen3-8B": {
+        "full_seq_accuracy": 0.11333333333333333,
+        "full_seq_total": 600.0,
+        "segment_accuracy": 0.115,
+        "segment_total": 600.0,
+        "single_token_accuracy": 0.08833333333333333,
+        "single_token_total": 600.0,
+        "accuracy": 0.10555555555555556
+      },
+      "cot-oracle-qwen3-8b-final-sprint-checkpoint-no-DPO": {
+        "full_seq_accuracy": 0.12166666666666667,
+        "full_seq_total": 600.0,
+        "segment_accuracy": 0.12,
+        "segment_total": 600.0,
+        "single_token_accuracy": 0.14,
+        "single_token_total": 600.0,
+        "accuracy": 0.1272222222222222
+      }
+    },
+    "num_results": 3600,
+    "elapsed_seconds": 169.70253614056855
   }
 }

@@ -20,8 +20,16 @@ AObench Results Summary
   Adam's AO                                      0.0267
   Ours (no-DPO)                                  0.0600
 
+--- personaqa (Accuracy) ---
+  Adam's AO                                      0.1056
+  Ours (no-DPO)                                  0.1272
+
 --- sycophancy (ROC AUC) ---
   Adam's AO                                      0.7390
   Ours (no-DPO)                                  0.7556
   (chance)                                       0.5000
+
+--- taboo (Accuracy) ---
+  Adam's AO                                      0.4140
+  Ours (no-DPO)                                  0.4443
 
