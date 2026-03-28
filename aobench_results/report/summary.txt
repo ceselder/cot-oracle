@@ -1,0 +1,42 @@
+AObench Results Summary
+================================================================================
+
+--- backtracking_mc (MC Accuracy) ---
+  latentqa_cls_on_policy_Qwen3-8B                0.8376
+  latentqa_cls_past_lens_addition_Qwen3-8B       0.7868
+  qwen3-8b-final-sprint-checkpoint-no-DPO        0.6548
+  (chance)                                       0.2500
+
+--- missing_info (ROC AUC) ---
+  _overall                                       0.6693
+  latentqa_cls_on_policy_Qwen3-8B                0.6911
+  latentqa_cls_past_lens_addition_Qwen3-8B       0.6344
+  qwen3-8b-final-sprint-checkpoint-no-DPO        0.7344
+  (chance)                                       0.5000
+
+--- mmlu_prediction (ROC AUC) ---
+  overall                                        0.6625
+  latentqa_cls_on_policy_Qwen3-8B                0.5938
+  latentqa_cls_past_lens_addition_Qwen3-8B       0.6630
+  qwen3-8b-final-sprint-checkpoint-no-DPO        0.6614
+  latentqa_cls_on_policy_Qwen3-8B                0.6298
+  latentqa_cls_past_lens_addition_Qwen3-8B       0.7224
+  qwen3-8b-final-sprint-checkpoint-no-DPO        0.7044
+  (chance)                                       0.5000
+
+--- number_prediction (Model Match Rate) ---
+  _overall                                       0.0378
+  latentqa_cls_on_policy_Qwen3-8B                0.0267
+  latentqa_cls_past_lens_addition_Qwen3-8B       0.0267
+  qwen3-8b-final-sprint-checkpoint-no-DPO        0.0600
+
+--- sycophancy (ROC AUC) ---
+  latentqa_cls_on_policy_Qwen3-8B                0.8479
+  latentqa_cls_past_lens_addition_Qwen3-8B       0.8261
+  qwen3-8b-final-sprint-checkpoint-no-DPO        0.8621
+  latentqa_cls_on_policy_Qwen3-8B                0.4411
+  latentqa_cls_past_lens_addition_Qwen3-8B       0.6520
+  qwen3-8b-final-sprint-checkpoint-no-DPO        0.6491
+  overall                                        0.7130
+  (chance)                                       0.5000
+
