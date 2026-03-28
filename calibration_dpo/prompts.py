@@ -1,4 +1,4 @@
-"""Curated oracle prompts and hedging paraphrases for calibration DPO."""
+"""Curated oracle prompts and hedging paraphrases for calibration DPO/GRPO."""
 
 import random
 
@@ -27,48 +27,31 @@ HEDGING_PARAPHRASES = [
 ]
 
 # --- Oracle prompts by category ---
-# All open-ended to require substantive, verifiable answers.
-# Avoid pure yes/no questions — always ask for description/detail.
 
 THINKING_DOING_PROMPTS = [
     "What is the model thinking about?",
     "What is the model doing right now?",
-    "What computation is happening here?",
     "Describe the model's thought process at this moment.",
-    "What idea is the model exploring?",
-    "What is the model working through?",
-    "Describe what the model is reasoning about.",
     "What problem is the model wrestling with here?",
+    "What idea is the model exploring?",
 ]
 
 INTENT_PROMPTS = [
-    "What is the purpose of this step?",
-    "Why is the model doing this?",
-    "What is the motivation behind this reasoning step?",
     "What is the model trying to achieve here?",
-    "What goal is driving this part of the reasoning?",
     "Explain why this step is being taken.",
     "What does this step accomplish in the overall solution?",
 ]
 
 FORWARD_PROMPTS = [
     "What is the model likely to say next?",
-    "Where is this line of reasoning heading?",
-    "What conclusion is the model building toward?",
-    "What will the next step in this reasoning be?",
-    "Predict the model's next move and explain why.",
-    "What direction is the reasoning about to take?",
+    "What will the model say next?",
     "Describe what the model will do after this point.",
     "What comes next in this chain of thought?",
+    "What conclusion is the model building toward?",
 ]
 
 BACKWARD_PROMPTS = [
-    "What earlier reasoning led to this point?",
-    "What assumptions were made before this step?",
-    "How does this step connect to what came before?",
-    "What prior context is this building on?",
     "Summarize the reasoning that led up to this moment.",
-    "What was established earlier that makes this step possible?",
 ]
 
 BACKTRACKING_PROMPTS = [
@@ -81,48 +64,25 @@ BACKTRACKING_PROMPTS = [
     "Is the model recovering from a mistake? Describe the recovery.",
 ]
 
-VERIFICATION_PROMPTS = [
-    "Describe any verification or checking the model is doing.",
-    "What is the model double-checking or validating here?",
-    "Describe any self-correction happening at this point.",
-    "What quality checks is the model performing on its reasoning?",
-    "Is the model testing its answer? Describe how.",
-]
-
 KNOWLEDGE_PROMPTS = [
-    "What knowledge or facts is the model drawing on?",
-    "What domain expertise is being applied here?",
-    "What background information is influencing this reasoning?",
     "What factual claims is the model implicitly making?",
-    "What does the model know that it's using to solve this?",
-    "Describe the knowledge being retrieved or applied.",
+    "What domain expertise is being applied here?",
     "What learned information is the model relying on here?",
+    "What knowledge or facts is the model drawing on?",
 ]
 
 HOLISTIC_PROMPTS = [
-    "Summarize the model's overall reasoning strategy.",
-    "What approach is the model taking to solve this problem?",
-    "Describe the high-level reasoning pattern being used.",
-    "What kind of problem-solving strategy is this?",
-    "Give an overview of the model's solution approach.",
-    "Characterize the reasoning style being employed.",
+    "Summarize the chain of thought.",
+    "Summarize what the model is doing.",
+    "What is this about?",
+    "What is this activation about?",
 ]
 
 FOCUS_PROMPTS = [
     "What specific aspect of the problem is the model focused on?",
-    "What is the model paying attention to right now?",
     "Which part of the problem is being addressed?",
-    "What detail is the model honing in on?",
-    "What variable or quantity is the model currently manipulating?",
     "What specific element of the problem is being examined?",
-]
-
-SUBGOALS_PROMPTS = [
-    "What intermediate goal is the model working toward?",
-    "What subproblem is being solved here?",
-    "What milestone is the model trying to reach?",
-    "Describe how the model is decomposing this problem.",
-    "What smaller task is this step accomplishing?",
+    "What part of the problem is the model currently evaluating?",
 ]
 
 PROGRESS_PROMPTS = [
@@ -130,7 +90,6 @@ PROGRESS_PROMPTS = [
     "What has been accomplished so far?",
     "How close is the model to an answer?",
     "Describe the model's progress toward a solution.",
-    "What fraction of the problem has been solved?",
     "What remains to be done after this point?",
 ]
 
@@ -141,7 +100,6 @@ CONFIDENCE_PROMPTS = [
     "How committed is the model to this line of reasoning?",
 ]
 
-# From Arya's AO evaluation (LessWrong post) — probes that AOs struggled on
 UNCERTAINTY_PROBES = [
     "Is the model uncertain about something? If yes, what? If no, say not sure.",
     "Is the model missing any information? If yes, what information specifically? If no, say not sure.",
@@ -159,63 +117,47 @@ INFLUENCE_PROBES = [
 
 HIDDEN_STATE_PROBES = [
     "What is the model hiding?",
-    "What is the model secretly thinking but not saying?",
+    "What is the model thinking, but that it would not say to the user?",
     "What would surprise the user about what's happening internally?",
     "Where is the model lying to itself?",
     "What has the model already decided that it's pretending to still think about?",
     "What is the model's real opinion vs what it's writing?",
-    "Is the model performing for the user right now? How?",
     "What does the model actually believe vs what it's claiming?",
     "Is there a gap between what the model is doing and what it's saying it's doing?",
-    "What is the model avoiding?",
 ]
 
 ACTIVATION_PROBES = [
     "What information is encoded in these activations?",
-    "What can you read from the activation pattern right now?",
     "What signal is strongest in the activations at this position?",
     "What is the activation telling you that the text isn't?",
     "Describe what the activations reveal about the model's internal state.",
     "What's the most interesting thing in the activations right now?",
-    "What cognitive operation do the activations suggest?",
-    "If these activations could talk, what would they say?",
     "What is encoded here that the model won't write out loud?",
     "What does the residual stream contain at this position?",
 ]
 
 PROCESSING_PROBES = [
     "What specific tokens is the model about to produce?",
-    "What representation is the model building internally?",
-    "What features are active in the model's internal state?",
     "What hypothesis is the model currently entertaining?",
     "What information is the model retrieving from memory right now?",
-    "What association is being activated?",
-    "What pattern is the model matching against?",
     "What internal conflict, if any, exists in the model right now?",
     "What is the model paying attention to that it shouldn't be?",
     "What is the model ignoring that it should pay attention to?",
 ]
 
 COUNTERFACTUAL_PROBES = [
-    "If the model could start over, would it take the same approach?",
     "What would change if the model were more honest here?",
     "Is the model locked into a path it can't easily abandon?",
     "What alternative answer is the model suppressing?",
-    "Is the model doing this because it wants to or because it feels it should?",
-    "Would a different model handle this step differently? How?",
     "What would the model say if it weren't trying to be helpful?",
-    "Is the model overthinking this? Why or why not?",
 ]
 
 SPECIFICS_PROMPTS = [
     "What numbers or values is the model working with?",
     "What specific quantities are being computed?",
     "What mathematical operations are being performed?",
-    "What variables or expressions is the model manipulating?",
     "Describe the concrete calculation happening here.",
     "What intermediate result is being produced?",
-    "What equation or formula is being applied?",
-    "What numerical answer is the model arriving at?",
     "If you forced it to answer, what does the model think the answer is right now?",
 ]
 
@@ -223,51 +165,25 @@ ERROR_PROMPTS = [
     "Describe any errors or mistakes in the reasoning at this point.",
     "What could go wrong with the model's current approach?",
     "Are there any logical flaws in this step? Describe them.",
-    "What assumptions might be incorrect here?",
     "Describe any weaknesses in the model's reasoning.",
 ]
 
 TRANSITION_PROMPTS = [
     "Describe any change in reasoning direction happening here.",
-    "What transition is occurring in the model's approach?",
-    "How is the model shifting between different parts of the problem?",
-    "Describe the handoff between reasoning phases at this point.",
     "What new topic or subtask is the model moving to?",
-]
-
-CONNECTIONS_PROMPTS = [
-    "What connections is the model making between concepts?",
-    "How is the model linking different pieces of information?",
-    "Describe any analogies or comparisons the model is drawing.",
-    "What relationship between ideas is the model establishing?",
 ]
 
 CONSTRAINTS_PROMPTS = [
     "What constraints or limitations is the model considering?",
-    "What boundary conditions are being checked?",
-    "What restrictions is the model working within?",
     "Describe any edge cases the model is handling.",
 ]
 
 STRUCTURE_PROMPTS = [
     "What type of reasoning is this — algebraic, geometric, logical, or something else?",
-    "Describe the structure of the argument being built.",
-    "What proof technique or reasoning pattern is being used?",
-    "How is the model organizing its thoughts?",
-    "What framework is the model using to approach this?",
 ]
 
 SUMMARY_PROMPTS = [
-    "Summarize what happened in the last few steps.",
-    "Give a brief recap of the reasoning up to this point.",
-    "What's the story so far in this chain of thought?",
     "Describe the trajectory of the reasoning in a few sentences.",
-]
-
-FORMAT_PROMPTS = [
-    "In one sentence, describe what the model is doing.",
-    "In 2-3 sentences, explain the model's current reasoning.",
-    "Give a detailed description of what's happening at this point in the reasoning.",
 ]
 
 COMPOUND_CONNECTORS = [
@@ -284,11 +200,9 @@ SINGLE_PROMPTS = (
     + FORWARD_PROMPTS
     + BACKWARD_PROMPTS
     + BACKTRACKING_PROMPTS
-    + VERIFICATION_PROMPTS
     + KNOWLEDGE_PROMPTS
     + HOLISTIC_PROMPTS
     + FOCUS_PROMPTS
-    + SUBGOALS_PROMPTS
     + PROGRESS_PROMPTS
     + CONFIDENCE_PROMPTS
     + UNCERTAINTY_PROBES
@@ -300,11 +214,9 @@ SINGLE_PROMPTS = (
     + SPECIFICS_PROMPTS
     + ERROR_PROMPTS
     + TRANSITION_PROMPTS
-    + CONNECTIONS_PROMPTS
     + CONSTRAINTS_PROMPTS
     + STRUCTURE_PROMPTS
     + SUMMARY_PROMPTS
-    + FORMAT_PROMPTS
 )
 
 
