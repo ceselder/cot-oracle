@@ -480,7 +480,8 @@ def train(cfg: dict):
         for crit in CRITERIA_NAMES:
             scores = [r.criteria.get(crit, 0) for r in all_rubrics]
             log_dict[f"rubric/{crit}_mean"] = sum(scores) / max(len(scores), 1)
-            log_dict[f"rubric/{crit}_score2"] = sum(1 for s in scores if s == 2) / max(len(scores), 1)
+            log_dict[f"rubric/{crit}_pass_rate"] = sum(1 for s in scores if s >= 1) / max(len(scores), 1)
+            log_dict[f"rubric/{crit}_hallucination_rate"] = sum(1 for s in scores if s == 0) / max(len(scores), 1)
 
         # ── Log every rollout with full text, rubric, reward, advantage ──
         rollout_table_rows = []

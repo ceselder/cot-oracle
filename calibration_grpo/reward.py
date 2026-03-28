@@ -15,7 +15,7 @@ class RubricResult:
     criteria: dict[str, int] = field(default_factory=dict)  # {"score": 0, 1, or 2}
 
     def reward(self, weights: dict[str, float]) -> float:
-        return self.criteria.get("score", 0) / 2.0  # normalize to [0, 1]
+        return float(self.criteria.get("score", 0))  # 0 or 1
 
 
 def compute_rewards(

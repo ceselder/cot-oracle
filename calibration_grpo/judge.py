@@ -25,15 +25,20 @@ You will see:
 - SECOND HALF of the CoT (the oracle did NOT see this — use it to verify predictions)
 - The oracle prompt and oracle responses to evaluate
 
-Score each oracle response 0-2:
-  0 = wrong, generic, or contradicted by the CoT evidence
-  1 = partially correct — some accurate claims mixed with vague or wrong ones
-  2 = correct and specific — claims match what's actually happening, predictions verified by second half
+Score each oracle response 0 or 1:
 
-Check claims against BOTH halves. Forward predictions confirmed by the second half score highest.
-Generic filler like "the model is reasoning step by step" always scores 0.
+  0 = WRONG — contains claims that are demonstrably contradicted by the CoT evidence.
+      For example: says the model is doing multiplication when it's clearly doing division,
+      predicts the model will do X next but the second half shows it does Y,
+      states a specific intermediate value that doesn't match the CoT.
+  1 = NOT WRONG — nothing in the response is contradicted by the available evidence.
+      This includes vague responses, specific responses, good responses, mediocre responses —
+      as long as nothing is provably false, score 1.
 
-Return a JSON array: [{"index": 1, "score": 2}, {"index": 2, "score": 1}, ...]
+Only score 0 if you can point to a SPECIFIC claim that is CONTRADICTED by the CoT.
+When in doubt, score 1.
+
+Return a JSON array: [{"index": 1, "score": 1}, {"index": 2, "score": 0}, ...]
 Return ONLY the JSON array."""
 
 
@@ -92,10 +97,10 @@ def _extract_results(parsed: list[dict], n_rollouts: int) -> list[RubricResult] 
         idx = entry.get("index", len(results) + 1) - 1
         score = entry.get("score", 0)
         if isinstance(score, (int, float)):
-            score = max(0, min(2, int(round(score))))
+            score = max(0, min(1, int(round(score))))
         else:
             try:
-                score = max(0, min(2, int(score)))
+                score = max(0, min(1, int(score)))
             except (ValueError, TypeError):
                 score = 0
         results.append(RubricResult(rollout_idx=idx, criteria={"score": score}))
