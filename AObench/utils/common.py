@@ -22,8 +22,15 @@ def load_model(
 ) -> AutoModelForCausalLM:
     print("🧠 Loading model...")
 
-    # Gemma prefers eager attention; others use FA2
-    attn = "eager" if "gemma" in model_name.lower() else "flash_attention_2"
+    # Try FA2, fall back to SDPA if not installed
+    if "gemma" in model_name.lower():
+        attn = "eager"
+    else:
+        try:
+            import flash_attn  # noqa: F401
+            attn = "flash_attention_2"
+        except ImportError:
+            attn = "sdpa"
 
     # Default to current CUDA device rather than "auto" which spreads across
     # all visible GPUs — dangerous on shared Slurm nodes where other users'

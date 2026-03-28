@@ -143,6 +143,11 @@ TRAINED_CHECKPOINTS = {
     "dpo-final-1": {"path": "ceselder/cot-oracle-dpo-final-attempt-1", "subfolder": "policy", "label": "DPO final attempt 1"},
     "dpo-final-2": {"path": "ceselder/cot-oracle-dpo-final-attempt-2", "subfolder": "policy", "label": "DPO final attempt 2"},
     "dpo-correction-only": {"path": "ceselder/cot-oracle-dpo-correction-only-step400", "label": "DPO correction-only (step 400)"},
+    "grpo-step100": {"path": "ceselder/cot-oracle-grpo-grpo-0320-1849", "subfolder": "step_100", "label": "GRPO step 100"},
+    "grpo-step200": {"path": "ceselder/cot-oracle-grpo-grpo-0320-1849", "subfolder": "step_200", "label": "GRPO step 200"},
+    "grpo-step300": {"path": "ceselder/cot-oracle-grpo-grpo-0320-1849", "subfolder": "step_300", "label": "GRPO step 300"},
+    "grpo-step400": {"path": "ceselder/cot-oracle-grpo-grpo-0320-1849", "subfolder": "step_400", "label": "GRPO step 400"},
+    "grpo-step500": {"path": "ceselder/cot-oracle-grpo-grpo-0320-1849", "subfolder": "step_500", "label": "GRPO step 500"},
 }
 
 # Available checkpoints for the Finetuned Monitor (text baseline, no activations).
@@ -4425,6 +4430,8 @@ def build_parser():
     parser.add_argument("--port", type=int, default=8000, help="Web port")
     parser.add_argument("--share-policy", choices=["never", "auto", "always"], default="auto", help="Create a public Cloudflare quick-tunnel URL: never, auto (only when hostname -f is not *.ucl.ac.uk), or always")
     parser.add_argument("--probes-dir", default="data/saved_probes", help="Directory with saved linear probe .pt files for heatmap display")
+    parser.add_argument("--extra-checkpoints", nargs="+", default=[], metavar="NAME=PATH",
+                        help="Extra oracle LoRA checkpoints as name=path pairs (e.g. grpo=/path/to/ckpt)")
     return parser
 
 

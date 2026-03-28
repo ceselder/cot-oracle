@@ -97,7 +97,6 @@ def load_extra_adapter(
         adapter_path,
         adapter_name=adapter_name,
         is_trainable=False,
-        low_cpu_mem_usage=True,
     )
     return adapter_name
 
@@ -145,7 +144,7 @@ def load_model_with_ao(
     print(f"Loading AO LoRA: {ao_path}")
     sanitized = ao_path.replace(".", "_")
     if sanitized not in model.peft_config:
-        model.load_adapter(ao_path, adapter_name=sanitized, is_trainable=False, low_cpu_mem_usage=True)
+        model.load_adapter(ao_path, adapter_name=sanitized, is_trainable=False)
 
     return model, tokenizer
 

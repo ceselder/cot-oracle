@@ -1202,15 +1202,15 @@ def _materialize_activations(
 
     was_training = model.training
     model.eval()
-    model.disable_adapters()
-    acts_by_layer = collect_activations_multiple_layers(
-        model=model,
-        submodules=submodules,
-        inputs_BL=inputs_BL,
-        min_offset=None,
-        max_offset=None,
-    )
-    model.enable_adapters()
+    # Use peft context manager to disable all adapters for activation extraction
+    with model.disable_adapter():
+        acts_by_layer = collect_activations_multiple_layers(
+            model=model,
+            submodules=submodules,
+            inputs_BL=inputs_BL,
+            min_offset=None,
+            max_offset=None,
+        )
     if was_training:
         model.train()
 
