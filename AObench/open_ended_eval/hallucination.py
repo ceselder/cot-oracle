@@ -44,26 +44,24 @@ GENERATION_KWARGS: dict[str, Any] = {
     "max_new_tokens": 100,
 }
 
-# Verifiable questions — answers can be checked against the actual problem
+# Broad prompts that elicit specific claims from the AO
 VERBALIZER_PROMPTS: dict[str, str] = {
-    "what_about": "What specific problem is the model solving? Be specific about the objects and quantities involved.",
-    "what_numbers": "What numbers or values is the model working with?",
-    "what_method": "What method or formula is the model applying?",
+    "what_doing": "What is the model doing? Be specific.",
+    "activations": "What is in the activations right now? Be specific.",
+    "topic": "What is the main topic currently? Be specific.",
+    "thinking": "What is the model thinking about? Be specific.",
+    "uncertain": "What is the model uncertain about? Be specific.",
 }
-
-# Test with 1 position (stress test) and 5 positions (moderate)
-POSITION_COUNTS = [1, 5]
 
 JUDGE_SYSTEM_PROMPT = """\
 You are checking whether an Activation Oracle (AO) response contains obvious hallucinations.
 
-The AO was given a small number of activations from a language model solving a specific \
+The AO was given a single activation from a language model solving a specific \
 problem and asked a question. You need to check if the AO's response is obviously wrong.
 
 You will be given:
 1. The ACTUAL PROBLEM the model was solving
-2. The NUMBER OF ACTIVATIONS the AO received (fewer = harder)
-3. The AO's RESPONSE
+2. The AO's RESPONSE
 
 Classify the response into exactly one category:
 
@@ -82,8 +80,6 @@ Respond with ONLY a JSON object: {"category": "<one of: correct, vague, plausibl
 JUDGE_USER_TEMPLATE = """\
 ACTUAL PROBLEM: {problem}
 
-NUMBER OF ACTIVATIONS GIVEN TO AO: {n_positions}
-
 AO RESPONSE: {ao_response}"""
 
 
@@ -100,8 +96,8 @@ def build_hallucination_verbalizer_prompt_infos(
     entries: list[dict[str, Any]],
     verbalizer_prompts: dict[str, str],
     tokenizer,
-    position_counts: list[int] = POSITION_COUNTS,
 ) -> tuple[list[VerbalizerInputInfo], list[dict[str, Any]]]:
+    """Build prompt infos with exactly 1 activation position (last token)."""
     prompt_infos: list[VerbalizerInputInfo] = []
     entry_metadata: list[dict[str, Any]] = []
 
@@ -116,26 +112,24 @@ def build_hallucination_verbalizer_prompt_infos(
             continue_thinking=True,
         )
 
-        for n_pos in position_counts:
-            # Take the last n_pos positions
-            positions = compute_segment_positions(len(token_ids), -n_pos)
+        # Single activation — last token only
+        positions = compute_segment_positions(len(token_ids), -1)
 
-            for prompt_name, vp in verbalizer_prompts.items():
-                prompt_infos.append(
-                    VerbalizerInputInfo(
-                        context_token_ids=token_ids,
-                        positions=positions,
-                        ground_truth=entry.get("domain", "unknown"),
-                        verbalizer_prompt=vp,
-                    )
+        for prompt_name, vp in verbalizer_prompts.items():
+            prompt_infos.append(
+                VerbalizerInputInfo(
+                    context_token_ids=token_ids,
+                    positions=positions,
+                    ground_truth=entry.get("domain", "unknown"),
+                    verbalizer_prompt=vp,
                 )
-                entry_metadata.append({
-                    "problem_id": entry.get("problem_id"),
-                    "problem": entry["problem"],
-                    "domain": entry.get("domain", "unknown"),
-                    "prompt_name": prompt_name,
-                    "n_positions": n_pos,
-                })
+            )
+            entry_metadata.append({
+                "problem_id": entry.get("problem_id"),
+                "problem": entry["problem"],
+                "domain": entry.get("domain", "unknown"),
+                "prompt_name": prompt_name,
+            })
 
     return prompt_infos, entry_metadata
 
@@ -157,7 +151,6 @@ async def judge_hallucination(
 
             user_message = JUDGE_USER_TEMPLATE.format(
                 problem=meta["problem"],
-                n_positions=meta["n_positions"],
                 ao_response=ao_response,
             )
             tasks.append(
@@ -200,7 +193,7 @@ def compute_hallucination_metrics(scored_results: list[dict[str, Any]]) -> dict[
         else:
             counts["obviously_wrong"] += 1
 
-    metrics: dict[str, float] = {
+    return {
         "correct_rate": counts["correct"] / total,
         "hallucination_rate": (counts["plausible_but_wrong"] + counts["obviously_wrong"]) / total,
         "obvious_hallucination_rate": counts["obviously_wrong"] / total,
@@ -211,22 +204,6 @@ def compute_hallucination_metrics(scored_results: list[dict[str, Any]]) -> dict[
         "obviously_wrong": counts["obviously_wrong"],
         "total": float(total),
     }
-
-    # Breakdown by n_positions
-    for n_pos in POSITION_COUNTS:
-        subset = [r for r in scored_results if r.get("n_positions") == n_pos]
-        if not subset:
-            continue
-        n = len(subset)
-        n_correct = sum(1 for r in subset if r.get("category") == "correct")
-        n_obvious = sum(1 for r in subset if r.get("category") == "obviously_wrong")
-        n_plausible = sum(1 for r in subset if r.get("category") == "plausible_but_wrong")
-        metrics[f"pos{n_pos}_correct_rate"] = n_correct / n
-        metrics[f"pos{n_pos}_hallucination_rate"] = (n_obvious + n_plausible) / n
-        metrics[f"pos{n_pos}_obvious_hallucination_rate"] = n_obvious / n
-        metrics[f"pos{n_pos}_total"] = float(n)
-
-    return metrics
 
 
 def run_hallucination_open_ended_eval(
