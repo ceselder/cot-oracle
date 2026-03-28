@@ -11,7 +11,7 @@ import httpx
 from reward import CRITERIA_NAMES, RubricResult
 
 ENDPOINT = "https://openrouter.ai/api/v1/chat/completions"
-DEFAULT_MODEL = "deepseek/deepseek-v3.2"
+DEFAULT_MODEL = "google/gemini-2.5-flash"
 
 SYSTEM_PROMPT = """\
 You are evaluating an activation oracle. The oracle reads neural network activations
