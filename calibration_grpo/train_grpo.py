@@ -54,7 +54,7 @@ from online_sampler import OnlineCoTSampler
 
 # GRPO modules
 from grpo_loss import GRPOItem, compute_grpo_loss, compute_old_logprobs
-from judge import judge_batch
+from judge import judge_batch, get_spend
 from reward import CRITERIA_NAMES, compute_group_advantages, compute_rewards
 
 # Reuse helpers from rollouts.py (but NOT train_dpo.py — it has import side effects)
@@ -516,8 +516,10 @@ def train(cfg: dict):
             ])
             log_dict["rollouts"] = table
 
+        log_dict.update(get_spend())
         wandb.log(log_dict, step=step)
 
+        spend = get_spend()
         if step % cfg["logging"]["console_every"] == 0:
             print(
                 f"  step {step}/{tcfg['max_steps']}  "
@@ -526,6 +528,7 @@ def train(cfg: dict):
                 f"rew_std={reward_std:.3f}  "
                 f"clip={total_metrics.get('grpo/clip_frac', 0):.2f}  "
                 f"judge={judge_time:.1f}s  "
+                f"${spend['judge/spend_usd']:.2f}  "
                 f"total={elapsed:.1f}s"
             )
 

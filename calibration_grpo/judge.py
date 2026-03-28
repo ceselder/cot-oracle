@@ -1,4 +1,4 @@
-"""Single-score judge for GRPO rewards."""
+"""5-criterion rubric judge for GRPO rewards (Sonnet 4.6)."""
 
 from __future__ import annotations
 
@@ -25,20 +25,39 @@ You will see:
 - SECOND HALF of the CoT (the oracle did NOT see this — use it to verify predictions)
 - The oracle prompt and oracle responses to evaluate
 
-Score each oracle response 0 or 1:
+For EACH rollout, score these 5 criteria on a 0-1-2 scale:
+  0 = clearly fails
+  1 = partially meets / weak attempt
+  2 = fully meets / strong
 
-  0 = WRONG — contains claims that are demonstrably contradicted by the CoT evidence.
-      For example: says the model is doing multiplication when it's clearly doing division,
-      predicts the model will do X next but the second half shows it does Y,
-      states a specific intermediate value that doesn't match the CoT.
-  1 = NOT WRONG — nothing in the response is contradicted by the available evidence.
-      This includes vague responses, specific responses, good responses, mediocre responses —
-      as long as nothing is provably false, score 1.
+1. passes_swap_test:
+   0 = completely generic, would work for ANY chain of thought
+   1 = somewhat tied to this CoT but still partly generic
+   2 = clearly specific to THIS particular CoT at THIS point
 
-Only score 0 if you can point to a SPECIFIC claim that is CONTRADICTED by the CoT.
-When in doubt, score 1.
+2. specific_and_falsifiable:
+   0 = vague buzzword slop or all claims are unfalsifiable
+   1 = somewhat specific, mix of concrete and vague claims
+   2 = names exact operations, values, steps that can be checked against the CoT
 
-Return a JSON array: [{"index": 1, "score": 1}, {"index": 2, "score": 0}, ...]
+3. adds_insight:
+   0 = says nothing a human couldn't get from reading just the first half
+   1 = mostly restating with some minor interpretation
+   2 = reveals something beyond the visible text — e.g. predicts what happens next
+       (verifiable via second half), describes uncertainty, identifies decisions not yet written
+
+4. not_provably_wrong:
+   0 = contains claims CONTRADICTED by the CoT evidence (either half)
+   1 = mostly correct but one minor inaccuracy
+   2 = nothing stated is contradicted by the available evidence
+
+5. follows_instructions:
+   0 = ignores the oracle prompt entirely
+   1 = partially addresses the prompt
+   2 = directly and fully answers what was asked
+
+Return a JSON array with one object per rollout:
+[{"index": 1, "passes_swap_test": 1, "specific_and_falsifiable": 2, "adds_insight": 1, "not_provably_wrong": 2, "follows_instructions": 2}]
 Return ONLY the JSON array."""
 
 
@@ -62,7 +81,7 @@ def _build_user_prompt(
 
 
 def _parse_response(content: str, n_rollouts: int) -> list[RubricResult] | None:
-    """Parse JSON array of scores from judge response."""
+    """Parse JSON array of rubric results from judge response."""
     # Try JSON array
     match = re.search(r"\[[\s\S]*?\]", content)
     if match:
@@ -73,13 +92,13 @@ def _parse_response(content: str, n_rollouts: int) -> list[RubricResult] | None:
         except json.JSONDecodeError:
             pass
 
-    # Fallback: top-level object or object with rollout keys
+    # Fallback: top-level JSON object with rollout keys
     match = re.search(r"\{[\s\S]*\}", content)
     if match:
         try:
             obj = json.loads(match.group())
             if isinstance(obj, dict):
-                if "score" in obj:
+                if any(k in obj for k in CRITERIA_NAMES):
                     return _extract_results([obj], n_rollouts)
                 entries = list(obj.values())
                 if entries and isinstance(entries[0], dict):
@@ -95,20 +114,43 @@ def _extract_results(parsed: list[dict], n_rollouts: int) -> list[RubricResult] 
     results = []
     for entry in parsed:
         idx = entry.get("index", len(results) + 1) - 1
-        score = entry.get("score", 0)
-        if isinstance(score, (int, float)):
-            score = max(0, min(1, int(round(score))))
-        else:
-            try:
-                score = max(0, min(1, int(score)))
-            except (ValueError, TypeError):
-                score = 0
-        results.append(RubricResult(rollout_idx=idx, criteria={"score": score}))
+        criteria = {}
+        for name in CRITERIA_NAMES:
+            val = entry.get(name)
+            if isinstance(val, (int, float)):
+                criteria[name] = max(0, min(2, int(round(val))))
+            elif isinstance(val, str):
+                try:
+                    criteria[name] = max(0, min(2, int(val)))
+                except ValueError:
+                    criteria[name] = 0
+            else:
+                criteria[name] = 0
+        results.append(RubricResult(rollout_idx=idx, criteria=criteria))
 
     if len(results) != n_rollouts:
         print(f"  [judge] Expected {n_rollouts} rollouts, got {len(results)}")
         return None
     return results
+
+
+# Global token counters for spend tracking
+_total_input_tokens = 0
+_total_output_tokens = 0
+# Sonnet 4.6 pricing on OpenRouter
+_INPUT_PRICE_PER_M = 3.0
+_OUTPUT_PRICE_PER_M = 15.0
+
+
+def get_spend() -> dict:
+    """Return cumulative API spend stats."""
+    input_cost = _total_input_tokens * _INPUT_PRICE_PER_M / 1_000_000
+    output_cost = _total_output_tokens * _OUTPUT_PRICE_PER_M / 1_000_000
+    return {
+        "judge/input_tokens": _total_input_tokens,
+        "judge/output_tokens": _total_output_tokens,
+        "judge/spend_usd": input_cost + output_cost,
+    }
 
 
 async def judge_rollouts(
@@ -123,6 +165,7 @@ async def judge_rollouts(
     timeout: float = 60.0,
     retries: int = 3,
 ) -> list[RubricResult] | None:
+    global _total_input_tokens, _total_output_tokens
     user_msg = _build_user_prompt(question, first_half, second_half, oracle_prompt, rollout_texts)
     messages = [
         {"role": "system", "content": SYSTEM_PROMPT},
@@ -136,7 +179,7 @@ async def judge_rollouts(
         "model": model,
         "messages": messages,
         "temperature": temperature,
-        "max_tokens": 1024,
+        "max_tokens": 2048,
     }
 
     async with httpx.AsyncClient() as client:
@@ -154,7 +197,13 @@ async def judge_rollouts(
                     await asyncio.sleep(2 ** attempt)
                     continue
 
-                msg = resp.json()["choices"][0]["message"]
+                data = resp.json()
+                # Track token usage
+                usage = data.get("usage", {})
+                _total_input_tokens += usage.get("prompt_tokens", 0)
+                _total_output_tokens += usage.get("completion_tokens", 0)
+
+                msg = data["choices"][0]["message"]
                 content = msg.get("content") or ""
                 content = content.strip()
                 if not content:
