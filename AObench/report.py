@@ -196,12 +196,17 @@ def plot_comparison_bar_chart(
     bar_width = 0.8 / max(n_verbs, 1)
     fallback_colors = plt.cm.Set2(np.linspace(0, 1, max(n_verbs, 1)))
 
+    # Normalize 1-5 scale metrics to 0-1 for comparison chart
+    SCALE_1_5 = {"backtracking", "system_prompt_qa_hidden", "system_prompt_qa_latentqa"}
+
     for i, verb_name in enumerate(verb_names):
         display = shorten_lora_name(verb_name)
         color = DISPLAY_COLORS.get(display, fallback_colors[i])
         values = []
         for eval_name in eval_names:
             val = eval_results[eval_name].get(verb_name, 0)
+            if eval_name in SCALE_1_5:
+                val = (val - 1) / 4  # map 1-5 → 0-1
             values.append(val)
         offset = (i - n_verbs / 2 + 0.5) * bar_width
         bars = ax.bar(

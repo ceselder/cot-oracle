@@ -2,9 +2,14 @@ AObench Results Summary
 ================================================================================
 
 --- activation_sensitivity (Activation Sensitivity) ---
-  Adam's synth-QA-v3                             0.9778
-  Adam's AO                                      0.8444
-  Ours (no-DPO)                                  0.8667
+  Adam's synth-QA-v3                             0.6444
+  Adam's AO                                      0.3333
+  Ours (no-DPO)                                  0.6512
+
+--- backtracking (Mean Correctness (1-5)) ---
+  Adam's synth-QA-v3                             2.2893
+  Adam's AO                                      2.1117
+  Ours (no-DPO)                                  1.9239
 
 --- backtracking_mc (MC Accuracy) ---
   Adam's synth-QA-v3                             0.7411
@@ -13,9 +18,19 @@ AObench Results Summary
   (chance)                                       0.2500
 
 --- domain_confusion (Domain Accuracy) ---
-  Adam's synth-QA-v3                             0.5644
-  Adam's AO                                      0.3864
-  Ours (no-DPO)                                  0.4704
+  Adam's synth-QA-v3                             0.3983
+  Adam's AO                                      0.1290
+  Ours (no-DPO)                                  0.2766
+
+--- hallucination_1pos (Correct Rate (1 pos)) ---
+  Adam's synth-QA-v3                             0.0102
+  Adam's AO                                      0.0325
+  Ours (no-DPO)                                  0.0153
+
+--- hallucination_20pos (Correct Rate (20 pos)) ---
+  Adam's synth-QA-v3                             0.2079
+  Adam's AO                                      0.1855
+  Ours (no-DPO)                                  0.1835
 
 --- missing_info (ROC AUC) ---
   Adam's synth-QA-v3                             0.7633
@@ -40,8 +55,18 @@ AObench Results Summary
   Ours (no-DPO)                                  0.7556
   (chance)                                       0.5000
 
+--- system_prompt_qa_hidden (Mean Correctness (1-5)) ---
+  Adam's synth-QA-v3                             2.5000
+  Adam's AO                                      3.8000
+  Ours (no-DPO)                                  1.2000
+
+--- system_prompt_qa_latentqa (Mean Correctness (1-5)) ---
+  Adam's synth-QA-v3                             3.2300
+  Adam's AO                                      3.7100
+  Ours (no-DPO)                                  2.9000
+
 --- vagueness (Non-Vagueness) ---
-  Adam's synth-QA-v3                             0.9490
-  Adam's AO                                      0.4264
-  Ours (no-DPO)                                  0.7766
+  Adam's synth-QA-v3                             0.3980
+  Adam's AO                                      0.1117
+  Ours (no-DPO)                                  0.2183
 
