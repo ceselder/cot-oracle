@@ -88,18 +88,16 @@ def extract_verbalizer_metric(
     result: dict[str, float] = {}
 
     # Handle mode_results (mmlu_prediction, sycophancy have nested modes)
+    # Average the metric across modes per verbalizer
     if "mode_results" in summary:
-        # For multi-mode evals, use the overall_metrics
-        om = summary.get("overall_metrics", {})
-        if metric_key in om:
-            result["overall"] = om[metric_key]
-        # Also check per-mode
+        per_verb_values: dict[str, list[float]] = {}
         for mode_name, mode_result in summary.get("mode_results", {}).items():
             mbv = mode_result.get("metrics_by_verbalizer", {})
             for verb_key, metrics in mbv.items():
-                if metric_key in metrics:
-                    key = f"{mode_name}/{verb_key}" if "/" not in verb_key else verb_key
-                    result[key] = metrics[metric_key]
+                if isinstance(metrics, dict) and metric_key in metrics:
+                    per_verb_values.setdefault(verb_key, []).append(metrics[metric_key])
+        for verb_key, vals in per_verb_values.items():
+            result[verb_key] = sum(vals) / len(vals)
         return result
 
     # Standard: metrics_by_verbalizer
@@ -113,11 +111,6 @@ def extract_verbalizer_metric(
     for verb_key, metrics in mc_mbv.items():
         if isinstance(metrics, dict) and metric_key in metrics:
             result[verb_key] = metrics[metric_key]
-
-    # Overall
-    om = summary.get("overall_metrics", {})
-    if metric_key in om:
-        result["_overall"] = om[metric_key]
 
     return result
 
@@ -136,14 +129,32 @@ def extract_bootstrap_data(
 # Plotting
 # ---------------------------------------------------------------------------
 
+# Canonical display names and colors for known checkpoints
+DISPLAY_NAMES: dict[str, str] = {
+    "checkpoints_latentqa_cls_past_lens_addition_Qwen3-8B": "Adam's AO",
+    "latentqa_cls_past_lens_addition_Qwen3-8B": "Adam's AO",
+    "checkpoints_latentqa_cls_on_policy_Qwen3-8B": "Adam's on-policy",
+    "latentqa_cls_on_policy_Qwen3-8B": "Adam's on-policy",
+    "cot-oracle-qwen3-8b-final-sprint-checkpoint-no-DPO": "Ours (no-DPO)",
+    "qwen3-8b-final-sprint-checkpoint-no-DPO": "Ours (no-DPO)",
+}
+
+DISPLAY_COLORS: dict[str, str] = {
+    "Adam's AO": "#4CAF50",
+    "Adam's on-policy": "#8BC34A",
+    "Ours (no-DPO)": "#2196F3",
+}
+
+
 def shorten_lora_name(name: str) -> str:
     """Shorten a verbalizer LoRA name for display."""
     name = name.split("/")[-1]
+    if name in DISPLAY_NAMES:
+        return DISPLAY_NAMES[name]
     # Common prefixes to strip
     for prefix in ["checkpoints_", "cot-oracle-"]:
         if name.startswith(prefix):
             name = name[len(prefix):]
-    # Truncate if still too long
     if len(name) > 40:
         name = name[:37] + "..."
     return name
@@ -175,9 +186,11 @@ def plot_comparison_bar_chart(
 
     x = np.arange(n_evals)
     bar_width = 0.8 / max(n_verbs, 1)
-    colors = plt.cm.Set2(np.linspace(0, 1, max(n_verbs, 1)))
+    fallback_colors = plt.cm.Set2(np.linspace(0, 1, max(n_verbs, 1)))
 
     for i, verb_name in enumerate(verb_names):
+        display = shorten_lora_name(verb_name)
+        color = DISPLAY_COLORS.get(display, fallback_colors[i])
         values = []
         for eval_name in eval_names:
             val = eval_results[eval_name].get(verb_name, 0)
@@ -185,8 +198,8 @@ def plot_comparison_bar_chart(
         offset = (i - n_verbs / 2 + 0.5) * bar_width
         bars = ax.bar(
             x + offset, values, bar_width * 0.9,
-            label=shorten_lora_name(verb_name),
-            color=colors[i],
+            label=display,
+            color=color,
             edgecolor="white",
             linewidth=0.5,
         )
@@ -246,11 +259,15 @@ def plot_per_eval_detail(
     n = len(verb_names)
 
     fig, ax = plt.subplots(figsize=(max(6, n * 1.2), 5))
-    colors = plt.cm.Set2(np.linspace(0, 1, max(n, 1)))
+    fallback_colors = plt.cm.Set2(np.linspace(0, 1, max(n, 1)))
+    bar_colors = [
+        DISPLAY_COLORS.get(shorten_lora_name(v), fallback_colors[i])
+        for i, v in enumerate(verb_names)
+    ]
 
     bars = ax.bar(
         range(n), values,
-        color=colors[:n],
+        color=bar_colors,
         edgecolor="white",
         linewidth=0.5,
     )
@@ -287,6 +304,7 @@ def plot_per_eval_detail(
 def generate_report(
     results_dir: str,
     output_dir: str | None = None,
+    filter_verbalizers: list[str] | None = None,
 ) -> None:
     """Read all eval summaries and generate comparison report."""
     results_path = Path(results_dir)
@@ -316,7 +334,14 @@ def generate_report(
     for eval_name, summary in all_summaries.items():
         metrics = extract_verbalizer_metric(summary, eval_name)
         if metrics:
-            eval_results[eval_name] = metrics
+            # Filter to requested verbalizers
+            if filter_verbalizers:
+                metrics = {
+                    k: v for k, v in metrics.items()
+                    if any(f in k for f in filter_verbalizers)
+                }
+            if metrics:
+                eval_results[eval_name] = metrics
 
     # 1. Overall comparison chart
     comparison_path = os.path.join(output_dir, "comparison.png")
@@ -359,6 +384,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Generate AObench comparison report")
     parser.add_argument("results_dir", help="Directory containing eval results (all_summaries.json or *_summary.json)")
     parser.add_argument("--output", "-o", default=None, help="Output directory for report")
+    parser.add_argument("--filter", nargs="*", default=None, help="Only include verbalizers containing these substrings")
     args = parser.parse_args()
 
-    generate_report(args.results_dir, args.output)
+    generate_report(args.results_dir, args.output, filter_verbalizers=args.filter)
