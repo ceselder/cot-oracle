@@ -373,7 +373,8 @@ def compute_roc_curve_data(
 
     tpr = tps / positives
     fpr = fps / negatives
-    auc = float(np.trapz(tpr, fpr))
+    _trapz = getattr(np, "trapezoid", None) or np.trapz  # numpy 2.0+ renamed trapz
+    auc = float(_trapz(tpr, fpr))
 
     return {
         "fpr": fpr.tolist(),
