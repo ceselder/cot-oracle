@@ -11,7 +11,7 @@ import httpx
 from reward import CRITERIA_NAMES, RubricResult
 
 ENDPOINT = "https://openrouter.ai/api/v1/chat/completions"
-DEFAULT_MODEL = "anthropic/claude-sonnet-4-6"
+DEFAULT_MODEL = "deepseek/deepseek-v3.2"
 
 SYSTEM_PROMPT = """\
 You are evaluating an activation oracle. The oracle reads neural network activations
@@ -138,8 +138,9 @@ def _extract_results(parsed: list[dict], n_rollouts: int) -> list[RubricResult] 
 _total_input_tokens = 0
 _total_output_tokens = 0
 # Sonnet 4.6 pricing on OpenRouter
-_INPUT_PRICE_PER_M = 3.0
-_OUTPUT_PRICE_PER_M = 15.0
+# Tracks combined spend across all models (approximate)
+_INPUT_PRICE_PER_M = 0.30
+_OUTPUT_PRICE_PER_M = 1.50
 
 
 def get_spend() -> dict:

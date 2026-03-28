@@ -19,12 +19,17 @@ class RubricResult:
     criteria: dict[str, int] = field(default_factory=dict)  # 0, 1, or 2
 
     def reward(self, weights: dict[str, float]) -> float:
-        total = sum(weights.get(k, 1.0) * 2 for k in CRITERIA_NAMES)
+        # not_provably_wrong acts as a multiplier: 0→0x, 1→0.5x, 2→1x
+        correctness = self.criteria.get("not_provably_wrong", 0) / 2.0
+        # Other 4 criteria scored normally
+        other = [k for k in CRITERIA_NAMES if k != "not_provably_wrong"]
+        total = sum(weights.get(k, 1.0) * 2 for k in other)
         earned = sum(
             weights.get(k, 1.0) * self.criteria.get(k, 0)
-            for k in CRITERIA_NAMES
+            for k in other
         )
-        return earned / total if total > 0 else 0.0
+        base = earned / total if total > 0 else 0.0
+        return base * correctness
 
 
 def compute_rewards(

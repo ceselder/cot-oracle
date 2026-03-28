@@ -142,7 +142,7 @@ def _get_fixed_eval_examples(sampler) -> list[dict]:
 def run_fixed_eval(
     model, tokenizer, sampler, act_layers, injection_layer,
     rcfg, tcfg, criteria_weights, judge_model, max_concurrent,
-    api_key, judge_loop, device, step,
+    api_key, judge_loop, device, step, eval_judge_model=None,
 ) -> dict:
     """Run eval on 10 fixed examples, log full rollouts + scores."""
     examples = _get_fixed_eval_examples(sampler)
@@ -186,8 +186,9 @@ def run_fixed_eval(
             "rollout_texts": rollouts,
         })
 
+    use_model = eval_judge_model or judge_model
     rubric_results = judge_loop.run_until_complete(
-        judge_batch(judge_inputs, api_key, judge_model, max_concurrent)
+        judge_batch(judge_inputs, api_key, use_model, max_concurrent)
     )
 
     # Build table + aggregate metrics
@@ -308,6 +309,7 @@ def train(cfg: dict):
     step = 0
     criteria_weights = cfg["reward"]["criteria_weights"]
     judge_model = cfg["judge"]["model"]
+    eval_judge_model = cfg["judge"].get("eval_model", judge_model)
     max_concurrent = cfg["judge"]["max_concurrent"]
     question_inclusion_rate = cfg["data"].get("question_inclusion_rate", 0.4)
     batch_size = tcfg["batch_size"]
@@ -565,6 +567,7 @@ def train(cfg: dict):
                     model, tokenizer, sampler, act_layers, injection_layer,
                     rcfg, tcfg, criteria_weights, judge_model, max_concurrent,
                     api_key, judge_loop, device, step,
+                    eval_judge_model=eval_judge_model,
                 )
                 if eval_results:
                     wandb.log(eval_results, step=step)

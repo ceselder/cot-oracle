@@ -12,13 +12,14 @@ data:
 
 rollouts:
   n: 8
-  temperature: 0.8
+  temperature: 1.25
   max_new_tokens: 150
   generation_batch_size: 16
   repetition_penalty: 1.1
 
 judge:
-  model: "anthropic/claude-sonnet-4-6"
+  model: "deepseek/deepseek-v3.2"
+  eval_model: "anthropic/claude-sonnet-4-6"
   temperature: 0.0
   max_concurrent: 16
   timeout_sec: 60
@@ -36,12 +37,12 @@ reward:
     follows_instructions: 1.0
 
 training:
-  lr: 1.0e-6
+  lr: 5.0e-7
   warmup_steps: 20
   max_grad_norm: 1.0
   batch_size: 4
   gradient_accumulation_steps: 1
-  max_steps: 500
+  max_steps: 1000
   save_every: 100
   temperature_floor: 0.6
 
