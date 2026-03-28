@@ -46,9 +46,11 @@ from core.ao import (
 
 # Reuse from calibration_dpo
 from activations import extract_activations
-from data_sampler import CoTSampler
 from rollouts import generate_rollouts
 from prompts import sample_prompt
+
+# Online sampler (replaces CoTSampler)
+from online_sampler import OnlineCoTSampler
 
 # GRPO modules
 from grpo_loss import GRPOItem, compute_grpo_loss, compute_old_logprobs
@@ -79,7 +81,7 @@ def build_oracle_input_ids(
     prefix = _build_oracle_prefix(num_positions, layers, ph_token)
 
     if question:
-        full_prompt = prefix + f'The model is answering: "{question}"\n{oracle_prompt}'
+        full_prompt = prefix + f'The model is partway through solving: "{question}"\nYou are seeing activations from the middle of its reasoning.\n{oracle_prompt}'
     else:
         full_prompt = prefix + oracle_prompt
 
@@ -118,27 +120,23 @@ _FIXED_EVAL_PROMPTS = [
 
 
 def _get_fixed_eval_examples(sampler) -> list[dict]:
-    """Get 10 deterministic examples (cached after first call)."""
+    """Get 10 deterministic examples (cached after first call).
+
+    Uses the online sampler to generate fresh CoTs for eval.
+    """
     global _FIXED_EVAL_EXAMPLES
     if _FIXED_EVAL_EXAMPLES is not None:
         return _FIXED_EVAL_EXAMPLES
-    eval_rng = random.Random(12345)
-    examples = []
-    for _ in range(10):
-        for _ in range(100):
-            item = eval_rng.choice(sampler.corpus)
-            from data_sampler import prepare_example
-            result = prepare_example(
-                item, sampler.tokenizer, sampler.layers,
-                sampler.stride, sampler.min_positions, sampler.max_positions,
-                eval_rng,
-            )
-            if result is not None:
-                examples.append(result)
-                break
-    _FIXED_EVAL_EXAMPLES = examples
-    print(f"  [fixed_eval] Cached {len(examples)} eval examples")
-    return examples
+    # Save and restore the sampler's RNG state so eval doesn't affect training
+    saved_rng_state = sampler.rng.getstate()
+    saved_idx = sampler._idx
+    sampler.rng = random.Random(12345)
+    _FIXED_EVAL_EXAMPLES = sampler.sample_batch(10)
+    sampler.rng = random.Random(saved_rng_state[1][0])
+    sampler.rng.setstate(saved_rng_state)
+    sampler._idx = saved_idx
+    print(f"  [fixed_eval] Cached {len(_FIXED_EVAL_EXAMPLES)} eval examples")
+    return _FIXED_EVAL_EXAMPLES
 
 
 def run_fixed_eval(
@@ -182,7 +180,8 @@ def run_fixed_eval(
     for ex, rollouts, prompt in zip(examples, all_rollouts, prompts):
         judge_inputs.append({
             "question": ex.get("question", ""),
-            "cot_text": ex.get("cot_response", ""),
+            "first_half": ex.get("first_half", ""),
+            "second_half": ex.get("second_half", ""),
             "oracle_prompt": prompt,
             "rollout_texts": rollouts,
         })
@@ -287,15 +286,13 @@ def train(cfg: dict):
     act_layers = cfg["model"]["act_layers"]
     injection_layer = cfg["model"]["injection_layer"]
 
-    # Data sampler (needs tokenizer + layers)
+    # Data sampler — loads corpus CoTs and splits them at sentence boundaries
     rng = random.Random(42)
-    sampler = CoTSampler(
+    sampler = OnlineCoTSampler(
         corpus_name=cfg["data"]["corpus"],
         tokenizer=tokenizer,
         layers=act_layers,
         stride=cfg["data"]["stride"],
-        min_positions=cfg["data"]["min_positions"],
-        max_positions=cfg["data"]["max_positions"],
     )
 
     # Optimizer
@@ -405,7 +402,8 @@ def train(cfg: dict):
         for ex, rollouts, prompt in zip(examples, all_rollouts, oracle_prompts):
             judge_inputs.append({
                 "question": ex.get("question", ""),
-                "cot_text": ex.get("cot_response", ""),
+                "first_half": ex.get("first_half", ""),
+                "second_half": ex.get("second_half", ""),
                 "oracle_prompt": prompt,
                 "rollout_texts": rollouts,
             })

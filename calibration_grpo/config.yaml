@@ -8,9 +8,7 @@ model:
 data:
   corpus: "ceselder/cot-oracle-corpus-v5"
   stride: 5
-  min_positions: 2
-  max_positions: 2
-  question_inclusion_rate: 0.4
+  question_inclusion_rate: 1.0  # always include question (oracle needs context for split CoT)
 
 rollouts:
   n: 16

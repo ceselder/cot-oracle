@@ -16,16 +16,21 @@ ENDPOINT = "https://openrouter.ai/api/v1/chat/completions"
 DEFAULT_MODEL = "minimax/minimax-m2.7"
 
 SYSTEM_PROMPT = """\
-You are evaluating an activation oracle's responses. The oracle reads neural network
-activations from a language model's chain-of-thought reasoning and answers questions
-about what the model is doing internally. It cannot see the CoT text — only the
-model's internal hidden states.
+You are evaluating an activation oracle. The oracle reads neural network activations
+extracted from a SPECIFIC POINT midway through a language model's chain-of-thought
+reasoning. The oracle cannot see the CoT text — only the model's internal hidden states
+from the first half of the reasoning.
 
 You will see:
-- The original question asked to the language model
-- The language model's chain-of-thought (CoT) reasoning
-- The oracle prompt (the question the oracle was asked about the CoT)
-- One or more oracle responses (rollouts) to evaluate
+- The question the language model was solving
+- FIRST HALF of the chain-of-thought (the oracle's activations were extracted from near the end of this section)
+- SECOND HALF of the chain-of-thought (the oracle did NOT see this — use it to verify forward-looking claims)
+- The oracle prompt (the question asked to the oracle)
+- Oracle responses (rollouts) to evaluate
+
+IMPORTANT: The oracle only had access to activations from near the end of the first half.
+It should be able to describe what the model has done so far AND predict or characterize
+what comes next. Use the second half to verify any forward-looking claims.
 
 For EACH rollout, score these 5 criteria on a 0-1-2 scale:
   0 = clearly fails
@@ -35,22 +40,22 @@ For EACH rollout, score these 5 criteria on a 0-1-2 scale:
 1. passes_swap_test:
    0 = completely generic, would work for ANY chain of thought ("the model is reasoning step by step")
    1 = somewhat tied to this CoT but still partly generic
-   2 = clearly specific to THIS particular CoT — would be wrong or nonsensical for a different one
+   2 = clearly specific to THIS particular CoT at THIS point — would be wrong or nonsensical for a different CoT or a different split point
 
 2. specific_and_falsifiable:
-   0 = vague buzzword slop ("performing structured computation", "multi-step reasoning") or all claims are unfalsifiable
+   0 = vague buzzword slop ("performing structured computation") or all claims are unfalsifiable
    1 = somewhat specific, or a mix of concrete and vague claims
-   2 = names exact operations, values, steps, or quantities that could be checked; makes commitments that would be wrong if the CoT were different
+   2 = names exact operations, values, steps, or quantities that can be checked against the first half (for past claims) or second half (for predictions)
 
 3. adds_insight:
-   0 = pure paraphrase of the visible CoT text, or says nothing a human couldn't get from reading the CoT
+   0 = says nothing a human couldn't get from reading just the first half
    1 = mostly restating with some minor interpretation or inference
-   2 = reveals something about the model's internal state that goes beyond what the text shows — e.g. what the model is uncertain about, what it's about to do, what it decided but hasn't written yet
+   2 = reveals something about the model's internal state beyond the visible text — e.g. predicts what happens next (verifiable via second half), describes uncertainty, or identifies what the model decided but hasn't written yet
 
 4. not_provably_wrong:
-   0 = contains demonstrably false claims about the CoT (e.g. says the model is doing multiplication when it's clearly doing something else)
+   0 = contains demonstrably false claims — contradicted by either half of the CoT
    1 = mostly correct but one minor inaccuracy or questionable claim
-   2 = everything stated is correct (or the claims are specific but not contradicted by the CoT)
+   2 = everything stated is correct when checked against both halves
 
 5. follows_instructions:
    0 = ignores the oracle prompt, answers something else entirely
@@ -74,13 +79,15 @@ Return the JSON array after your reasoning."""
 
 def _build_user_prompt(
     question: str,
-    cot_text: str,
+    first_half: str,
+    second_half: str,
     oracle_prompt: str,
     rollout_texts: list[str],
 ) -> str:
     parts = [
-        f"Question asked to the model:\n{question}\n",
-        f"Model's chain-of-thought:\n{cot_text[:3000]}\n",
+        f"Question the model was solving:\n{question}\n",
+        f"=== FIRST HALF of CoT (oracle has activations from near end of this section) ===\n{first_half}\n",
+        f"=== SECOND HALF of CoT (oracle did NOT see this — use to verify predictions) ===\n{second_half}\n",
         f"Oracle prompt:\n{oracle_prompt}\n",
         "Oracle responses to evaluate:",
     ]
@@ -112,7 +119,7 @@ def _parse_rubric_response(content: str, n_rollouts: int) -> list[RubricResult] 
             elif isinstance(val, float):
                 criteria[name] = max(0, min(2, int(round(val))))
             elif isinstance(val, bool):
-                criteria[name] = 2 if val else 0  # backwards compat
+                criteria[name] = 2 if val else 0
             elif isinstance(val, str):
                 try:
                     criteria[name] = max(0, min(2, int(val)))
@@ -130,7 +137,8 @@ def _parse_rubric_response(content: str, n_rollouts: int) -> list[RubricResult] 
 
 async def judge_rollouts(
     question: str,
-    cot_text: str,
+    first_half: str,
+    second_half: str,
     oracle_prompt: str,
     rollout_texts: list[str],
     api_key: str,
@@ -139,8 +147,8 @@ async def judge_rollouts(
     timeout: float = 60.0,
     retries: int = 3,
 ) -> list[RubricResult] | None:
-    """Score rollouts with the 8-criterion binary rubric. Returns None on failure."""
-    user_msg = _build_user_prompt(question, cot_text, oracle_prompt, rollout_texts)
+    """Score rollouts with the 5-criterion rubric. Returns None on failure."""
+    user_msg = _build_user_prompt(question, first_half, second_half, oracle_prompt, rollout_texts)
     messages = [
         {"role": "system", "content": SYSTEM_PROMPT},
         {"role": "user", "content": user_msg},
@@ -195,14 +203,15 @@ async def judge_batch(
     max_concurrent: int = 16,
 ) -> list[list[RubricResult] | None]:
     """Judge a batch of examples concurrently. Each example has:
-    question, cot_text, oracle_prompt, rollout_texts."""
+    question, first_half, second_half, oracle_prompt, rollout_texts."""
     sem = asyncio.Semaphore(max_concurrent)
 
     async def _one(ex: dict) -> list[RubricResult] | None:
         async with sem:
             return await judge_rollouts(
                 question=ex["question"],
-                cot_text=ex["cot_text"],
+                first_half=ex["first_half"],
+                second_half=ex["second_half"],
                 oracle_prompt=ex["oracle_prompt"],
                 rollout_texts=ex["rollout_texts"],
                 api_key=api_key,
