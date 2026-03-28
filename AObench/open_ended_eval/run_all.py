@@ -359,6 +359,72 @@ def run_personaqa(
     )
 
 
+def run_vagueness(
+    model,
+    tokenizer,
+    device,
+    output_dir: str,
+    model_name: str,
+    verbalizer_lora_paths: list[str],
+) -> dict[str, Any]:
+    from AObench.open_ended_eval.vagueness import run_vagueness_open_ended_eval
+
+    os.makedirs(output_dir, exist_ok=True)
+    return run_vagueness_open_ended_eval(
+        model_name=model_name,
+        model=model,
+        tokenizer=tokenizer,
+        device=device,
+        output_dir=output_dir,
+        eval_batch_size=32,
+        verbalizer_lora_paths=verbalizer_lora_paths,
+    )
+
+
+def run_domain_confusion(
+    model,
+    tokenizer,
+    device,
+    output_dir: str,
+    model_name: str,
+    verbalizer_lora_paths: list[str],
+) -> dict[str, Any]:
+    from AObench.open_ended_eval.domain_confusion import run_domain_confusion_open_ended_eval
+
+    os.makedirs(output_dir, exist_ok=True)
+    return run_domain_confusion_open_ended_eval(
+        model_name=model_name,
+        model=model,
+        tokenizer=tokenizer,
+        device=device,
+        output_dir=output_dir,
+        eval_batch_size=32,
+        verbalizer_lora_paths=verbalizer_lora_paths,
+    )
+
+
+def run_activation_sensitivity(
+    model,
+    tokenizer,
+    device,
+    output_dir: str,
+    model_name: str,
+    verbalizer_lora_paths: list[str],
+) -> dict[str, Any]:
+    from AObench.open_ended_eval.activation_sensitivity import run_activation_sensitivity_open_ended_eval
+
+    os.makedirs(output_dir, exist_ok=True)
+    return run_activation_sensitivity_open_ended_eval(
+        model_name=model_name,
+        model=model,
+        tokenizer=tokenizer,
+        device=device,
+        output_dir=output_dir,
+        eval_batch_size=32,
+        verbalizer_lora_paths=verbalizer_lora_paths,
+    )
+
+
 # ---------------------------------------------------------------------------
 # Eval registry
 # ---------------------------------------------------------------------------
@@ -374,6 +440,9 @@ EVALS = [
     ("sycophancy", run_sycophancy),
     ("system_prompt_qa_hidden", run_system_prompt_qa_hidden),
     ("system_prompt_qa_latentqa", run_system_prompt_qa_latentqa),
+    ("vagueness", run_vagueness),
+    ("domain_confusion", run_domain_confusion),
+    ("activation_sensitivity", run_activation_sensitivity),
 ]
 
 DEFAULT_INCLUDE = [name for name, _ in EVALS if name not in {"taboo", "personaqa"}]

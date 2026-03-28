@@ -67,6 +67,9 @@ EVAL_METRIC_MAP: dict[str, tuple[str, str, bool]] = {
     "system_prompt_qa_latentqa": ("mean_correctness", "Mean Correctness (1-5)", True),
     "taboo": ("accuracy", "Accuracy", True),
     "personaqa": ("accuracy", "Accuracy", True),
+    "vagueness": ("vagueness_rate", "Vagueness Rate", False),
+    "domain_confusion": ("domain_confusion_rate", "Domain Confusion Rate", False),
+    "activation_sensitivity": ("activation_sensitivity", "Activation Sensitivity", True),
 }
 
 # Chance baselines for each eval
@@ -137,11 +140,14 @@ DISPLAY_NAMES: dict[str, str] = {
     "latentqa_cls_on_policy_Qwen3-8B": "Adam's on-policy",
     "cot-oracle-qwen3-8b-final-sprint-checkpoint-no-DPO": "Ours (no-DPO)",
     "qwen3-8b-final-sprint-checkpoint-no-DPO": "Ours (no-DPO)",
+    "checkpoints_Qwen3-8B_full_mix_synthetic_qa_v3_replace_lqa": "Adam's synth-QA-v3",
+    "Qwen3-8B_full_mix_synthetic_qa_v3_replace_lqa": "Adam's synth-QA-v3",
 }
 
 DISPLAY_COLORS: dict[str, str] = {
     "Adam's AO": "#4CAF50",
     "Adam's on-policy": "#8BC34A",
+    "Adam's synth-QA-v3": "#FF9800",
     "Ours (no-DPO)": "#2196F3",
 }
 
