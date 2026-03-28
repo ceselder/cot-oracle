@@ -19,9 +19,6 @@ class RubricResult:
     criteria: dict[str, int] = field(default_factory=dict)  # 0, 1, or 2
 
     def reward(self, weights: dict[str, float]) -> float:
-        # If provably wrong (score 0), entire reward is 0
-        if self.criteria.get("not_provably_wrong", 0) == 0:
-            return 0.0
         total = sum(weights.get(k, 1.0) * 2 for k in CRITERIA_NAMES)
         earned = sum(
             weights.get(k, 1.0) * self.criteria.get(k, 0)

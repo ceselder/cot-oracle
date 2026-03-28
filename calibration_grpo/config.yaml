@@ -24,7 +24,7 @@ judge:
   timeout_sec: 60
 
 grpo:
-  clip_eps: 0.2
+  clip_eps: 0.3
   normalize_advantages: true
 
 reward:
