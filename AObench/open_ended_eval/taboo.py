@@ -76,6 +76,18 @@ PREFERRED_TOKEN_POSITION_BY_MODEL: dict[str, int] = {
 DEFAULT_PREFERRED_TOKEN_POSITION = -7
 
 
+def _cleanup_hf_cache(repo_id: str) -> None:
+    """Remove a HuggingFace model from the local cache to free disk."""
+    import shutil
+    cache_dir = os.environ.get("HF_HUB_CACHE", os.environ.get("HF_HOME", os.path.expanduser("~/.cache/huggingface/hub")))
+    if not cache_dir.endswith("/hub"):
+        cache_dir = os.path.join(cache_dir, "hub")
+    sanitized = "models--" + repo_id.replace("/", "--")
+    cache_path = os.path.join(cache_dir, sanitized)
+    if os.path.isdir(cache_path):
+        shutil.rmtree(cache_path)
+
+
 def normalize_answer(answer: str) -> str:
     return answer.rstrip(".!?,;:").strip().lower()
 
@@ -321,6 +333,10 @@ def run_taboo_open_ended_eval(
 
             if sanitized_target_name is not None and sanitized_target_name in model.peft_config:
                 model.delete_adapter(sanitized_target_name)
+
+            # Free HF cache for this target LoRA to avoid filling disk
+            if target_lora_path is not None:
+                _cleanup_hf_cache(target_lora_path)
 
             combo_pbar.update(1)
 
