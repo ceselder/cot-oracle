@@ -68,7 +68,7 @@ EVAL_METRIC_MAP: dict[str, tuple[str, str, bool]] = {
     "taboo": ("accuracy", "Accuracy", True),
     "personaqa": ("accuracy", "Accuracy", True),
     "vagueness": ("specificity_rate", "Non-Vagueness", True),
-    "domain_confusion": ("domain_confusion_rate", "Domain Confusion Rate", False),
+    "domain_confusion": ("domain_correct_specific_rate", "Domain Accuracy", True),
     "activation_sensitivity": ("activation_sensitivity", "Activation Sensitivity", True),
 }
 

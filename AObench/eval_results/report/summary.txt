@@ -12,10 +12,10 @@ AObench Results Summary
   Ours (no-DPO)                                  0.6548
   (chance)                                       0.2500
 
---- domain_confusion (Domain Confusion Rate) ---
-  Adam's synth-QA-v3                             0.4220
-  Adam's AO                                      0.2051
-  Ours (no-DPO)                                  0.4907
+--- domain_confusion (Domain Accuracy) ---
+  Adam's synth-QA-v3                             0.5644
+  Adam's AO                                      0.3864
+  Ours (no-DPO)                                  0.4704
 
 --- missing_info (ROC AUC) ---
   Adam's synth-QA-v3                             0.7633
