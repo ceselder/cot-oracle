@@ -101,6 +101,140 @@ def build_oracle_input_ids(
     return input_ids, positions
 
 
+# ── Fixed eval: 10 deterministic examples, re-used every eval ──
+_FIXED_EVAL_EXAMPLES = None
+_FIXED_EVAL_PROMPTS = [
+    "What is the model thinking about?",
+    "What computation is happening here?",
+    "What is the model likely to say next?",
+    "Is the model reconsidering a previous step? If so, what and why?",
+    "What knowledge or facts is the model drawing on?",
+    "What is the model hiding?",
+    "What specific tokens is the model about to produce?",
+    "What numbers or values is the model working with?",
+    "Describe any errors or mistakes in the reasoning at this point.",
+    "How far along is the model in solving the problem?",
+]
+
+
+def _get_fixed_eval_examples(sampler) -> list[dict]:
+    """Get 10 deterministic examples (cached after first call)."""
+    global _FIXED_EVAL_EXAMPLES
+    if _FIXED_EVAL_EXAMPLES is not None:
+        return _FIXED_EVAL_EXAMPLES
+    eval_rng = random.Random(12345)
+    examples = []
+    for _ in range(10):
+        for _ in range(100):
+            item = eval_rng.choice(sampler.corpus)
+            from data_sampler import prepare_example
+            result = prepare_example(
+                item, sampler.tokenizer, sampler.layers,
+                sampler.stride, sampler.min_positions, sampler.max_positions,
+                eval_rng,
+            )
+            if result is not None:
+                examples.append(result)
+                break
+    _FIXED_EVAL_EXAMPLES = examples
+    print(f"  [fixed_eval] Cached {len(examples)} eval examples")
+    return examples
+
+
+def run_fixed_eval(
+    model, tokenizer, sampler, act_layers, injection_layer,
+    rcfg, tcfg, criteria_weights, judge_model, max_concurrent,
+    api_key, judge_loop, device, step,
+) -> dict:
+    """Run eval on 10 fixed examples, log full rollouts + scores."""
+    examples = _get_fixed_eval_examples(sampler)
+    if not examples:
+        return {}
+
+    # Use the 10 fixed prompts (one per example)
+    prompts = _FIXED_EVAL_PROMPTS[:len(examples)]
+    # Always include questions in eval
+    questions = [ex.get("question", None) for ex in examples]
+
+    # Extract activations
+    acts_list = extract_activations(
+        model=model, tokenizer=tokenizer, examples=examples,
+        layers=act_layers, device=device,
+    )
+
+    # Generate rollouts (greedy — T=0 for deterministic comparison, plus a few at T=0.8)
+    model.eval()
+    all_rollouts = generate_rollouts(
+        model=model, tokenizer=tokenizer,
+        activations_list=acts_list, oracle_prompts=prompts,
+        layers=act_layers, n_rollouts=rcfg["n"],
+        temperature=max(rcfg["temperature"], tcfg.get("temperature_floor", 0.6)),
+        max_new_tokens=rcfg["max_new_tokens"],
+        generation_batch_size=rcfg.get("generation_batch_size", 8),
+        injection_layer=injection_layer,
+        adapter_name="default", device=device,
+        questions=questions,
+        repetition_penalty=rcfg.get("repetition_penalty", 1.1),
+    )
+
+    # Judge
+    judge_inputs = []
+    for ex, rollouts, prompt in zip(examples, all_rollouts, prompts):
+        judge_inputs.append({
+            "question": ex.get("question", ""),
+            "cot_text": ex.get("cot_response", ""),
+            "oracle_prompt": prompt,
+            "rollout_texts": rollouts,
+        })
+
+    rubric_results = judge_loop.run_until_complete(
+        judge_batch(judge_inputs, api_key, judge_model, max_concurrent)
+    )
+
+    # Build table + aggregate metrics
+    eval_rows = []
+    all_rewards = []
+    for ex_idx, (ex, rollouts, prompt, question, rubrics) in enumerate(
+        zip(examples, all_rollouts, prompts, questions, rubric_results)
+    ):
+        if rubrics is None:
+            continue
+        rewards = compute_rewards(rubrics, criteria_weights)
+        all_rewards.extend(rewards)
+        for r_idx, (text, rubric, rew) in enumerate(zip(rollouts, rubrics, rewards)):
+            row = {
+                "step": step,
+                "example": ex_idx,
+                "rollout": r_idx,
+                "question": ex.get("question", "")[:200],
+                "oracle_prompt": prompt,
+                "response": text,
+                "reward": round(rew, 4),
+            }
+            for crit in CRITERIA_NAMES:
+                row[crit] = rubric.criteria.get(crit, 0)
+            eval_rows.append(row)
+
+    log_dict = {}
+    if eval_rows:
+        columns = list(eval_rows[0].keys())
+        table = wandb.Table(columns=columns, data=[
+            [row[c] for c in columns] for row in eval_rows
+        ])
+        log_dict["eval/rollouts"] = table
+
+    if all_rewards:
+        log_dict["eval/mean_reward"] = sum(all_rewards) / len(all_rewards)
+        log_dict["eval/reward_std"] = (sum((r - log_dict["eval/mean_reward"]) ** 2 for r in all_rewards) / len(all_rewards)) ** 0.5
+        # Per-criterion means
+        all_rubrics = [r for rubrics in rubric_results if rubrics for r in rubrics]
+        for crit in CRITERIA_NAMES:
+            scores = [r.criteria.get(crit, 0) for r in all_rubrics]
+            log_dict[f"eval/{crit}_mean"] = sum(scores) / max(len(scores), 1)
+
+    return log_dict
+
+
 def load_config(path: str = None) -> dict:
     if path is None:
         path = str(Path(__file__).parent / "config.yaml")
@@ -329,24 +463,59 @@ def train(cfg: dict):
         # ── 8. Logging ──
         elapsed = time.time() - iter_t0
         mean_reward = sum(all_rewards) / len(all_rewards) if all_rewards else 0
+        reward_std = (sum((r - mean_reward) ** 2 for r in all_rewards) / max(len(all_rewards), 1)) ** 0.5
 
         log_dict = {
             "step": step,
             "grpo/loss": total_loss,
             "grpo/mean_reward": mean_reward,
+            "grpo/reward_std": reward_std,
             "grpo/lr": scheduler.get_last_lr()[0],
             "grpo/iter_time": elapsed,
             "grpo/judge_time": judge_time,
             "grpo/n_items": len(grpo_items),
+            "grpo/judge_failures": n_judge_failures,
             **total_metrics,
         }
 
         all_rubrics = [r for rubrics in rubric_results if rubrics for r in rubrics]
         for crit in CRITERIA_NAMES:
-            pass_rate = sum(
-                1 for r in all_rubrics if r.criteria.get(crit, False)
-            ) / max(len(all_rubrics), 1)
-            log_dict[f"rubric/{crit}"] = pass_rate
+            scores = [r.criteria.get(crit, 0) for r in all_rubrics]
+            log_dict[f"rubric/{crit}_mean"] = sum(scores) / max(len(scores), 1)
+            log_dict[f"rubric/{crit}_score2"] = sum(1 for s in scores if s == 2) / max(len(scores), 1)
+
+        # ── Log every rollout with full text, rubric, reward, advantage ──
+        rollout_table_rows = []
+        for ex_idx, (ex, rollouts, prompt, question, rubrics) in enumerate(
+            zip(examples, all_rollouts, oracle_prompts, questions, rubric_results)
+        ):
+            if rubrics is None:
+                continue
+            ex_rewards = compute_rewards(rubrics, criteria_weights)
+            ex_advantages = compute_group_advantages(ex_rewards, normalize=gcfg["normalize_advantages"])
+            for r_idx, (text, rubric, rew, adv) in enumerate(
+                zip(rollouts, rubrics, ex_rewards, ex_advantages)
+            ):
+                row = {
+                    "step": step,
+                    "example": ex_idx,
+                    "rollout": r_idx,
+                    "question": ex.get("question", "")[:200],
+                    "oracle_prompt": prompt,
+                    "response": text,
+                    "reward": round(rew, 4),
+                    "advantage": round(adv, 4),
+                }
+                for crit in CRITERIA_NAMES:
+                    row[crit] = rubric.criteria.get(crit, 0)
+                rollout_table_rows.append(row)
+
+        if rollout_table_rows:
+            columns = list(rollout_table_rows[0].keys())
+            table = wandb.Table(columns=columns, data=[
+                [row[c] for c in columns] for row in rollout_table_rows
+            ])
+            log_dict["rollouts"] = table
 
         wandb.log(log_dict, step=step)
 
@@ -355,6 +524,7 @@ def train(cfg: dict):
                 f"  step {step}/{tcfg['max_steps']}  "
                 f"loss={total_loss:.4f}  "
                 f"reward={mean_reward:.3f}  "
+                f"rew_std={reward_std:.3f}  "
                 f"clip={total_metrics.get('grpo/clip_frac', 0):.2f}  "
                 f"judge={judge_time:.1f}s  "
                 f"total={elapsed:.1f}s"
@@ -382,6 +552,24 @@ def train(cfg: dict):
                     print(f"  Uploaded to {repo_name}/step_{step}")
                 except Exception as e:
                     print(f"  Upload failed: {e}")
+
+        # ── Fixed eval (same 10 examples every time) ──
+        eval_every = cfg["logging"].get("eval_every", 100)
+        if step % eval_every == 0 or step == 1:
+            print(f"\n  ── Fixed eval at step {step} ──")
+            t_eval = time.time()
+            try:
+                eval_results = run_fixed_eval(
+                    model, tokenizer, sampler, act_layers, injection_layer,
+                    rcfg, tcfg, criteria_weights, judge_model, max_concurrent,
+                    api_key, judge_loop, device, step,
+                )
+                if eval_results:
+                    wandb.log(eval_results, step=step)
+                    print(f"  ── Fixed eval done ({time.time() - t_eval:.1f}s), "
+                          f"mean_reward={eval_results.get('eval/mean_reward', 0):.3f} ──\n")
+            except Exception as e:
+                print(f"  ── Fixed eval failed: {e} ──\n")
 
     judge_loop.close()
     total_time = time.time() - t0

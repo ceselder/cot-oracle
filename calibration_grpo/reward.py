@@ -5,17 +5,11 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 CRITERIA_NAMES = [
-    "not_provably_wrong",
-    "specific",
-    "follows_instructions",
     "passes_swap_test",
-    "concise",
-    "not_just_restating_text",
-    "numbers_if_applicable",
-    "confident_when_verifiable",
-    "hedged_when_uncertain",
-    "useful_to_a_human",
-    "falsifiable",
+    "specific_and_falsifiable",
+    "adds_insight",
+    "not_provably_wrong",
+    "follows_instructions",
 ]
 
 

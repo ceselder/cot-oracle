@@ -1,4 +1,4 @@
-"""8-criterion binary rubric judge for GRPO rewards."""
+"""5-criterion tiered rubric judge for GRPO rewards."""
 
 from __future__ import annotations
 
@@ -18,7 +18,8 @@ DEFAULT_MODEL = "google/gemini-3.1-flash-lite-preview"
 SYSTEM_PROMPT = """\
 You are evaluating an activation oracle's responses. The oracle reads neural network
 activations from a language model's chain-of-thought reasoning and answers questions
-about what the model is doing internally.
+about what the model is doing internally. It cannot see the CoT text — only the
+model's internal hidden states.
 
 You will see:
 - The original question asked to the language model
@@ -26,85 +27,49 @@ You will see:
 - The oracle prompt (the question the oracle was asked about the CoT)
 - One or more oracle responses (rollouts) to evaluate
 
-For EACH rollout, score these 11 criteria on a 0-1-2 scale:
+For EACH rollout, score these 5 criteria on a 0-1-2 scale:
   0 = clearly fails
   1 = partially meets / weak attempt
   2 = fully meets / strong
 
-1. not_provably_wrong:
-   0 = contains demonstrably false claims about the CoT
-   1 = mostly correct but one minor inaccuracy
-   2 = everything stated is correct or unfalsifiable
+1. passes_swap_test:
+   0 = completely generic, would work for ANY chain of thought ("the model is reasoning step by step")
+   1 = somewhat tied to this CoT but still partly generic
+   2 = clearly specific to THIS particular CoT — would be wrong or nonsensical for a different one
 
-2. specific:
-   0 = vague buzzword slop ("performing structured computation")
-   1 = somewhat specific but could be more concrete
-   2 = names exact operations, values, or steps
+2. specific_and_falsifiable:
+   0 = vague buzzword slop ("performing structured computation", "multi-step reasoning") or all claims are unfalsifiable
+   1 = somewhat specific, or a mix of concrete and vague claims
+   2 = names exact operations, values, steps, or quantities that could be checked; makes commitments that would be wrong if the CoT were different
 
-3. follows_instructions:
-   0 = ignores the oracle prompt, answers something else
+3. adds_insight:
+   0 = pure paraphrase of the visible CoT text, or says nothing a human couldn't get from reading the CoT
+   1 = mostly restating with some minor interpretation or inference
+   2 = reveals something about the model's internal state that goes beyond what the text shows — e.g. what the model is uncertain about, what it's about to do, what it decided but hasn't written yet
+
+4. not_provably_wrong:
+   0 = contains demonstrably false claims about the CoT (e.g. says the model is doing multiplication when it's clearly doing something else)
+   1 = mostly correct but one minor inaccuracy or questionable claim
+   2 = everything stated is correct (or the claims are specific but not contradicted by the CoT)
+
+5. follows_instructions:
+   0 = ignores the oracle prompt, answers something else entirely
    1 = partially addresses the prompt
    2 = directly and fully answers what was asked
 
-4. passes_swap_test:
-   0 = completely generic, works for any CoT
-   1 = somewhat tied to this CoT but partly generic
-   2 = clearly specific to THIS CoT, would not work for others
-
-5. concise:
-   0 = rambling, padded, repetitive
-   1 = some unnecessary filler
-   2 = tight, gets to the point
-
-6. not_just_restating_text:
-   0 = pure paraphrase of the visible CoT
-   1 = mostly restating with minor interpretation
-   2 = adds genuine insight beyond what the text shows
-
-7. numbers_if_applicable:
-   0 = CoT has numbers but response ignores them
-   1 = mentions numbers but vaguely
-   2 = engages with specific numbers from the CoT (or CoT has no numbers)
-
-8. confident_when_verifiable:
-   0 = makes confident claims that are wrong or uncheckable
-   1 = mixed — some well-supported claims, some not
-   2 = confident claims are all verifiable and correct
-
-9. hedged_when_uncertain:
-   0 = assertive about genuinely ambiguous things
-   1 = partially hedges
-   2 = appropriately qualifies uncertain claims (or nothing is uncertain)
-
-10. useful_to_a_human:
-    0 = a human monitoring the model learns nothing from this
-    1 = somewhat informative
-    2 = genuinely changes understanding or informs a decision
-
-11. falsifiable:
-    0 = all claims are unfalsifiable ("reasoning carefully")
-    1 = mix of falsifiable and unfalsifiable claims
-    2 = makes clear, checkable commitments
-
-Return a JSON array with one object per rollout, scores as integers 0-2:
+Think step by step about each rollout, then return a JSON array with one object per rollout:
 [
   {
     "index": 1,
-    "not_provably_wrong": 2,
-    "specific": 1,
-    "follows_instructions": 2,
     "passes_swap_test": 0,
-    "concise": 2,
-    "not_just_restating_text": 1,
-    "numbers_if_applicable": 2,
-    "confident_when_verifiable": 2,
-    "hedged_when_uncertain": 1,
-    "useful_to_a_human": 1,
-    "falsifiable": 2
+    "specific_and_falsifiable": 1,
+    "adds_insight": 2,
+    "not_provably_wrong": 2,
+    "follows_instructions": 2
   }
 ]
 
-Return ONLY the JSON array. No other text."""
+Return the JSON array after your reasoning."""
 
 
 def _build_user_prompt(
@@ -120,7 +85,7 @@ def _build_user_prompt(
         "Oracle responses to evaluate:",
     ]
     for i, text in enumerate(rollout_texts, 1):
-        parts.append(f"\n--- Rollout {i} ---\n{text[:500]}")
+        parts.append(f"\n--- Rollout {i} ---\n{text}")
     return "\n".join(parts)
 
 

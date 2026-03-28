@@ -31,17 +31,11 @@ grpo:
 
 reward:
   criteria_weights:
-    not_provably_wrong: 3.0
-    specific: 1.0
-    follows_instructions: 1.0
     passes_swap_test: 1.0
-    concise: 1.0
-    not_just_restating_text: 1.0
-    numbers_if_applicable: 1.0
-    confident_when_verifiable: 1.0
-    hedged_when_uncertain: 1.0
-    useful_to_a_human: 1.0
-    falsifiable: 1.0
+    specific_and_falsifiable: 1.0
+    adds_insight: 1.0
+    not_provably_wrong: 1.0
+    follows_instructions: 1.0
 
 training:
   lr: 1.0e-6
