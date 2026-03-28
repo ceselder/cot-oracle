@@ -67,7 +67,7 @@ EVAL_METRIC_MAP: dict[str, tuple[str, str, bool]] = {
     "system_prompt_qa_latentqa": ("mean_correctness", "Mean Correctness (1-5)", True),
     "taboo": ("accuracy", "Accuracy", True),
     "personaqa": ("accuracy", "Accuracy", True),
-    "vagueness": ("vagueness_rate", "Vagueness Rate", False),
+    "vagueness": ("specificity_rate", "Non-Vagueness", True),
     "domain_confusion": ("domain_confusion_rate", "Domain Confusion Rate", False),
     "activation_sensitivity": ("activation_sensitivity", "Activation Sensitivity", True),
 }
