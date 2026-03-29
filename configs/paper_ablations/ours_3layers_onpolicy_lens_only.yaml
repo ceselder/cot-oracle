@@ -1,0 +1,100 @@
+tasks:
+  hint_admission:
+    n: 0
+    eval: false
+  atypical_answer:
+    n: 0
+    eval: false
+  reasoning_termination:
+    n: 0
+    eval: false
+  answer_trajectory:
+    n: 0
+    eval: false
+  futurelens:
+    n: 60000
+    eval: true
+  pastlens:
+    n: 60000
+    eval: true
+  correctness:
+    n: 0
+    eval: false
+  decorative_cot:
+    n: 0
+    eval: false
+  resampling_importance:
+    n: 0
+    eval: false
+  chunked_convqa:
+    n: -1
+    eval: true
+  chunked_compqa_backtrack:
+    n: 0
+    eval: false
+  chunked_compqa_self_correction:
+    n: 0
+    eval: false
+  chunked_compqa_verification:
+    n: 0
+    eval: false
+  chunked_compqa_remaining_strategy:
+    n: 0
+    eval: false
+  convqa:
+    n: 0
+    eval: false
+  compqa:
+    n: 0
+    eval: false
+  backtrack_prediction:
+    n: 0
+    eval: false
+  sycophancy:
+    n: 0
+    eval: false
+  probe_sycophancy:
+    n: 0
+    eval: false
+  truthfulqa_hint_verbalized:
+    n: 0
+    eval: false
+  sqa:
+    n: 0
+    eval: false
+  truthfulqa_hint:
+    n: 0
+    eval: false
+  sentence_insertion:
+    eval: false
+  rot13_reconstruction:
+    eval: false
+
+fineweb:
+  enabled: false
+  n: 0
+  variant: futurelens_fineweb,pastlens_fineweb
+  max_context_tokens: 2000
+  min_target_tokens: 5
+  max_target_tokens: 25
+
+classification:
+  enabled: true
+  n: 20000
+  datasets: [sst2, ag_news, snli]
+
+latentqa:
+  enabled: false
+  n: 0
+
+training:
+  task_order: shuffled
+  target_total_tokens: 50000000
+  save_fraction: 0.1
+
+activations:
+  layers: [9, 18, 27]
+
+output:
+  save_dir: checkpoints/paper_ablations/ours_3layers_onpolicy_lens_only
+  wandb_run: paper-ablation-ours-3layers-onpolicy-lens-only
