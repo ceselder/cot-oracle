@@ -89,7 +89,7 @@ latentqa:
 
 training:
   task_order: shuffled
-  target_total_tokens: 100000000
+  target_total_tokens: 50000000
   save_fraction: 0.1
 
 activations:
