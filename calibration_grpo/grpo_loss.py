@@ -115,7 +115,8 @@ def compute_grpo_loss(
     This keeps only 1 computation graph in memory instead of N.
     Returns (total_loss_value, metrics) — gradients already accumulated on params.
     """
-    model.train()
+    # Stay in eval mode to match old_logprob computation (avoid dropout mismatch)
+    model.eval()
     n = len(items)
     total_loss = 0.0
     ratios = []

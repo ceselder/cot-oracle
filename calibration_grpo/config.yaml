@@ -12,7 +12,7 @@ data:
 
 rollouts:
   n: 8
-  temperature: 1.25
+  temperature: 1.0
   max_new_tokens: 250
   generation_batch_size: 16
   repetition_penalty: 1.1
@@ -25,7 +25,7 @@ judge:
   timeout_sec: 60
 
 grpo:
-  clip_eps: 0.3
+  clip_eps: 0.2
   normalize_advantages: true
 
 reward:
@@ -37,7 +37,7 @@ reward:
     follows_instructions: 1.0
 
 training:
-  lr: 2.0e-7
+  lr: 3.0e-6
   warmup_steps: 20
   max_grad_norm: 1.0
   batch_size: 4
@@ -51,4 +51,4 @@ wandb:
 
 logging:
   console_every: 5
-  eval_every: 50
+  eval_every: 100
