@@ -245,10 +245,7 @@ def plot_comparison_bar_chart(
         bbox_to_anchor=(1.02, 1), loc="upper left", fontsize=7,
         title="Verbalizer LoRA",
     )
-    ax.set_ylim(0, min(max(
-        max(v for metrics in eval_results.values() for v in metrics.values()) + 0.15,
-        0.5,
-    ), 5.5))
+    ax.set_ylim(0, 1.05)
 
     plt.tight_layout()
     os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
