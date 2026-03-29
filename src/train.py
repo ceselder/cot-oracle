@@ -1568,8 +1568,8 @@ def apply_config(args, config: dict):
     # FineWeb
     if "fineweb" in config:
         fw = config["fineweb"]
-        if fw.get("enabled", False) and not getattr(args, "_cli_fineweb_n", False):
-            args.fineweb_n = fw.get("n", 50000)
+        if not getattr(args, "_cli_fineweb_n", False):
+            args.fineweb_n = fw.get("n", 50000) if fw.get("enabled", False) else 0
         if "max_context_tokens" in fw and not getattr(args, "_cli_fineweb_max_context_tokens", False):
             args.fineweb_max_context_tokens = fw["max_context_tokens"]
         if "min_target_tokens" in fw:
@@ -1582,12 +1582,16 @@ def apply_config(args, config: dict):
     # Classification
     if "classification" in config:
         cls = config["classification"]
-        if cls.get("enabled", False) and not getattr(args, "_cli_classification_n", False):
-            args.classification_n = cls.get("n", 100000)
+        if not getattr(args, "_cli_classification_n", False):
+            args.classification_n = cls.get("n", 100000) if cls.get("enabled", False) else 0
         if "datasets" in cls and not getattr(args, "_cli_classification_datasets", False):
             args.classification_datasets = cls["datasets"]
 
     # LatentQA
+    if "latentqa" in config:
+        lqa = config["latentqa"]
+        if not getattr(args, "_cli_latentqa_n", False):
+            args.latentqa_n = lqa.get("n", 65000) if lqa.get("enabled", False) else 0
 
     # Output
     if "output" in config:
