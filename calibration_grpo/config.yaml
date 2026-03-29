@@ -13,12 +13,12 @@ data:
 rollouts:
   n: 8
   temperature: 1.25
-  max_new_tokens: 150
+  max_new_tokens: 250
   generation_batch_size: 16
   repetition_penalty: 1.1
 
 judge:
-  model: "google/gemini-2.5-flash"
+  model: "google/gemini-3.1-pro-preview"
   eval_model: "anthropic/claude-sonnet-4-6"
   temperature: 0.0
   max_concurrent: 16

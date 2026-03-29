@@ -11,7 +11,7 @@ import httpx
 from reward import CRITERIA_NAMES, RubricResult
 
 ENDPOINT = "https://openrouter.ai/api/v1/chat/completions"
-DEFAULT_MODEL = "google/gemini-2.5-flash"
+DEFAULT_MODEL = "google/gemini-3.1-pro-preview"
 
 SYSTEM_PROMPT = """\
 You are evaluating an activation oracle. The oracle reads neural network activations
@@ -81,30 +81,49 @@ def _build_user_prompt(
 
 
 def _parse_response(content: str, n_rollouts: int) -> list[RubricResult] | None:
-    """Parse JSON array of rubric results from judge response."""
+    """Parse rubric results from judge response. Handles JSON array, JSON objects,
+    and free-text fallback for models that don't follow JSON instructions."""
     # Try JSON array
     match = re.search(r"\[[\s\S]*?\]", content)
     if match:
         try:
             parsed = json.loads(match.group())
             if isinstance(parsed, list):
-                return _extract_results(parsed, n_rollouts)
+                result = _extract_results(parsed, n_rollouts)
+                if result is not None:
+                    return result
         except json.JSONDecodeError:
             pass
 
-    # Fallback: top-level JSON object with rollout keys
-    match = re.search(r"\{[\s\S]*\}", content)
-    if match:
+    # Try all JSON objects in the response (multiple {...} blocks)
+    json_objects = []
+    for match in re.finditer(r"\{[^{}]*\}", content):
         try:
             obj = json.loads(match.group())
-            if isinstance(obj, dict):
-                if any(k in obj for k in CRITERIA_NAMES):
-                    return _extract_results([obj], n_rollouts)
-                entries = list(obj.values())
-                if entries and isinstance(entries[0], dict):
-                    return _extract_results(entries, n_rollouts)
+            if isinstance(obj, dict) and any(k in obj for k in CRITERIA_NAMES):
+                json_objects.append(obj)
         except json.JSONDecodeError:
             pass
+    if len(json_objects) == n_rollouts:
+        return _extract_results(json_objects, n_rollouts)
+
+    # Fallback: extract scores from free text like "passes_swap_test: 1"
+    rollout_sections = re.split(r"(?:Rollout|rollout)\s*\d+", content)
+    if len(rollout_sections) > 1:
+        sections = rollout_sections[1:]  # skip preamble before "Rollout 1"
+        if len(sections) >= n_rollouts:
+            results = []
+            for i, section in enumerate(sections[:n_rollouts]):
+                criteria = {}
+                for name in CRITERIA_NAMES:
+                    # Match "criterion_name: N" or "criterion_name = N"
+                    m = re.search(rf"{name}\s*[:=]\s*(\d)", section)
+                    if m:
+                        criteria[name] = max(0, min(2, int(m.group(1))))
+                    else:
+                        criteria[name] = 0
+                results.append(RubricResult(rollout_idx=i, criteria=criteria))
+            return results
 
     print(f"  [judge] Could not parse: {content[:200]}")
     return None
