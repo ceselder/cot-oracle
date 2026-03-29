@@ -11,7 +11,7 @@ import httpx
 from reward import CRITERIA_NAMES, RubricResult
 
 ENDPOINT = "https://openrouter.ai/api/v1/chat/completions"
-DEFAULT_MODEL = "google/gemini-3.1-pro-preview"
+DEFAULT_MODEL = "google/gemini-3-flash-preview"
 
 SYSTEM_PROMPT = """\
 You are evaluating an activation oracle. The oracle reads neural network activations
@@ -171,7 +171,7 @@ def _extract_results(parsed: list[dict], n_rollouts: int) -> list[RubricResult] 
 # Global token counters for spend tracking
 _total_input_tokens = 0
 _total_output_tokens = 0
-# Gemini 3.1 Pro pricing on OpenRouter (approximate)
+# Approximate OpenRouter pricing (varies by model)
 _INPUT_PRICE_PER_M = 2.00
 _OUTPUT_PRICE_PER_M = 12.00
 
@@ -196,7 +196,7 @@ async def judge_rollouts(
     api_key: str,
     model: str = DEFAULT_MODEL,
     temperature: float = 0.0,
-    timeout: float = 60.0,
+    timeout: float = 120.0,
     retries: int = 3,
 ) -> list[RubricResult] | None:
     global _total_input_tokens, _total_output_tokens
@@ -213,7 +213,7 @@ async def judge_rollouts(
         "model": model,
         "messages": messages,
         "temperature": temperature,
-        "max_tokens": 8192,
+        "max_tokens": 2048,
         "response_format": {"type": "json_object"},
     }
 

@@ -18,7 +18,7 @@ rollouts:
   repetition_penalty: 1.1
 
 judge:
-  model: "google/gemini-3.1-pro-preview"
+  model: "google/gemini-3-flash-preview"
   eval_model: "anthropic/claude-sonnet-4-6"
   temperature: 0.0
   max_concurrent: 16
