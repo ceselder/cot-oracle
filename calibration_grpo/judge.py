@@ -56,9 +56,8 @@ For EACH rollout, score these 5 criteria on a 0-1-2 scale:
    1 = partially addresses the prompt
    2 = directly and fully answers what was asked
 
-Return a JSON array with one object per rollout:
-[{"index": 1, "passes_swap_test": 1, "specific_and_falsifiable": 2, "adds_insight": 1, "not_provably_wrong": 2, "follows_instructions": 2}]
-Return ONLY the JSON array."""
+Return a JSON object with key "scores" containing an array with one object per rollout:
+{"scores": [{"index": 1, "passes_swap_test": 1, "specific_and_falsifiable": 2, "adds_insight": 1, "not_provably_wrong": 2, "follows_instructions": 2}, ...]}"""
 
 
 def _build_user_prompt(
@@ -81,9 +80,25 @@ def _build_user_prompt(
 
 
 def _parse_response(content: str, n_rollouts: int) -> list[RubricResult] | None:
-    """Parse rubric results from judge response. Handles JSON array, JSON objects,
-    and free-text fallback for models that don't follow JSON instructions."""
-    # Try JSON array
+    """Parse rubric results from judge response. Handles:
+    1. JSON object with "scores" key (response_format: json_object)
+    2. Raw JSON array
+    3. Multiple JSON objects scattered in text
+    4. Free-text fallback
+    """
+    # Try full JSON parse first (handles response_format: json_object)
+    try:
+        parsed = json.loads(content)
+        if isinstance(parsed, dict) and "scores" in parsed:
+            parsed = parsed["scores"]
+        if isinstance(parsed, list):
+            result = _extract_results(parsed, n_rollouts)
+            if result is not None:
+                return result
+    except json.JSONDecodeError:
+        pass
+
+    # Try JSON array embedded in text
     match = re.search(r"\[[\s\S]*?\]", content)
     if match:
         try:
@@ -156,10 +171,9 @@ def _extract_results(parsed: list[dict], n_rollouts: int) -> list[RubricResult] 
 # Global token counters for spend tracking
 _total_input_tokens = 0
 _total_output_tokens = 0
-# Sonnet 4.6 pricing on OpenRouter
-# Tracks combined spend across all models (approximate)
-_INPUT_PRICE_PER_M = 0.30
-_OUTPUT_PRICE_PER_M = 1.50
+# Gemini 3.1 Pro pricing on OpenRouter (approximate)
+_INPUT_PRICE_PER_M = 2.00
+_OUTPUT_PRICE_PER_M = 12.00
 
 
 def get_spend() -> dict:
@@ -199,7 +213,8 @@ async def judge_rollouts(
         "model": model,
         "messages": messages,
         "temperature": temperature,
-        "max_tokens": 2048,
+        "max_tokens": 8192,
+        "response_format": {"type": "json_object"},
     }
 
     async with httpx.AsyncClient() as client:
