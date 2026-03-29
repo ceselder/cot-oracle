@@ -445,19 +445,25 @@ def train(cfg: dict):
         if all_rewards and max(all_rewards) - min(all_rewards) < 0.01:
             print(f"  [iter] WARNING: all rewards identical ({all_rewards[0]:.3f}), advantages will be 0")
 
-        # ── 7. Gradient step ──
-        # compute_grpo_loss does per-item backward internally (1 graph at a time)
-        model.train()
-        optimizer.zero_grad()
+        # ── 7. Gradient steps (multiple iterations per batch) ──
+        num_iterations = gcfg.get("num_iterations", 1)
+        total_loss = 0.0
+        total_metrics = {}
 
-        total_loss, total_metrics = compute_grpo_loss(
-            model, grpo_items, injection_layer, device,
-            clip_eps=gcfg["clip_eps"],
-        )
+        for iteration in range(num_iterations):
+            optimizer.zero_grad()
 
-        torch.nn.utils.clip_grad_norm_(trainable_params, tcfg["max_grad_norm"])
-        optimizer.step()
-        scheduler.step()
+            iter_loss, iter_metrics = compute_grpo_loss(
+                model, grpo_items, injection_layer, device,
+                clip_eps=gcfg["clip_eps"],
+            )
+
+            torch.nn.utils.clip_grad_norm_(trainable_params, tcfg["max_grad_norm"])
+            optimizer.step()
+            scheduler.step()
+            total_loss = iter_loss
+            total_metrics = iter_metrics
+
         step += 1
 
         # ── 8. Logging ──

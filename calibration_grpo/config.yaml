@@ -27,6 +27,7 @@ judge:
 grpo:
   clip_eps: 0.2
   normalize_advantages: true
+  num_iterations: 4  # PPO-style: 4 gradient steps per batch, clipping active on steps 2-4
 
 reward:
   criteria_weights:
@@ -37,7 +38,7 @@ reward:
     follows_instructions: 1.0
 
 training:
-  lr: 3.0e-6
+  lr: 1.0e-6
   warmup_steps: 20
   max_grad_norm: 1.0
   batch_size: 4
