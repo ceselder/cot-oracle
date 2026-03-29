@@ -20,6 +20,7 @@ from tasks import TASKS, TaskDef, get_trainable_tasks
 
 
 _HF_CACHE_DIR = Path(os.environ.get("COT_ORACLE_CACHE_DIR", "data/hf_cache"))
+_LATENTQA_HF_REPO = "ceselder/adam-ao-latentqa"
 
 # Default prompts for tasks whose HF data doesn't include a 'prompt' field
 _DEFAULT_PROMPTS: dict[str, str] = {
@@ -1127,3 +1128,61 @@ def load_classification_data(
     rng.shuffle(all_datapoints)
     print(f"  [classification] Total: {len(all_datapoints)} examples")
     return all_datapoints[:n]
+
+
+def load_latentqa_data(
+    n: int | None = 65000,
+    split: str = "train",
+    layers: list[int] | None = None,
+    seed: int = 42,
+    **_kwargs,
+) -> list[dict]:
+    """Load Adam-style LatentQA datapoints from HuggingFace.
+
+    The dataset stores precomputed single-layer training examples. We convert
+    them back into the unified raw dict format expected by `dicts_to_training_data`.
+    For the single-layer Adam-style runs used in these paper ablations, this
+    preserves the original source positions exactly.
+    """
+    from datasets import load_dataset as hf_load_dataset
+
+    if layers is None:
+        layers = [18]
+
+    hf_split = "train" if split == "train" else "eval"
+    ds = hf_load_dataset(_LATENTQA_HF_REPO, split=hf_split)
+
+    target_n = len(ds) if n in (-1, None) else min(n, len(ds))
+    rng = random.Random(seed)
+    indices = list(range(len(ds)))
+    rng.shuffle(indices)
+
+    datapoints: list[dict] = []
+    n_layers = len(layers)
+
+    print(f"  [latentqa] Loading {target_n}/{len(ds)} examples from {_LATENTQA_HF_REPO} ({hf_split})...")
+
+    for idx in indices[:target_n]:
+        row = ds[int(idx)]
+        raw_dialog = row.get("raw_dialog") or []
+        prompt = raw_dialog[0]["content"] if raw_dialog else row.get("input_text", "")
+        target_response = row.get("target_output") or row.get("label_text", "")
+        base_positions = list(row.get("context_positions") or [])
+        if not base_positions:
+            ctx_ids = list(row["context_input_ids"])
+            base_positions = list(range(len(ctx_ids)))
+
+        datapoints.append({
+            "datapoint_type": row.get("datapoint_type", "latentqa"),
+            "task": "latentqa",
+            "prompt": prompt,
+            "target_response": target_response,
+            "layer": layers[0],
+            "layers": list(layers),
+            "num_positions": len(base_positions) * n_layers,
+            "context_input_ids": list(row["context_input_ids"]),
+            "context_positions": base_positions * n_layers,
+        })
+
+    print(f"  [latentqa] Total: {len(datapoints)} examples")
+    return datapoints

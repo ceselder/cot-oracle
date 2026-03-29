@@ -785,6 +785,82 @@ def _run_unified_eval(model, tokenizer, model_name, global_step, args, log_dir=N
     return metrics, elapsed
 
 
+def _clone_training_datapoint(dp):
+    """Shallow copy is enough: immutable token lists can be shared safely."""
+    return dp.model_copy(deep=False)
+
+
+def _match_token_budget(points, target_tokens: int, rng: random.Random) -> tuple[list, int]:
+    """Take a random subset whose cumulative input token count is near target."""
+    shuffled = list(points)
+    rng.shuffle(shuffled)
+
+    selected = []
+    total = 0
+    for dp in shuffled:
+        dp_tokens = len(dp.input_ids)
+        if total == 0:
+            selected.append(_clone_training_datapoint(dp))
+            total += dp_tokens
+            continue
+
+        next_total = total + dp_tokens
+        if next_total < target_tokens:
+            selected.append(_clone_training_datapoint(dp))
+            total = next_total
+            continue
+
+        if abs(next_total - target_tokens) <= abs(total - target_tokens):
+            selected.append(_clone_training_datapoint(dp))
+            total = next_total
+        break
+
+    return selected, total
+
+
+def _scale_training_data_to_token_budget(training_data, target_total_tokens: int, seed: int, rank: int):
+    """Repeat or subsample examples so total input tokens land near target_total_tokens."""
+    if target_total_tokens <= 0:
+        return training_data
+
+    current_total = sum(len(dp.input_ids) for dp in training_data)
+    if current_total <= 0:
+        raise ValueError("Cannot apply target_total_tokens: training data has zero input tokens")
+
+    if rank == 0:
+        print(
+            f"  Target input-token budget: {target_total_tokens:,} "
+            f"(current={current_total:,}, multiplier={target_total_tokens / current_total:.3f}x)"
+        )
+
+    rng = random.Random(seed)
+
+    if current_total >= target_total_tokens:
+        scaled, scaled_total = _match_token_budget(training_data, target_total_tokens, rng)
+    else:
+        scaled = []
+        scaled_total = 0
+        while scaled_total + current_total < target_total_tokens:
+            cycle = list(training_data)
+            rng.shuffle(cycle)
+            scaled.extend(_clone_training_datapoint(dp) for dp in cycle)
+            scaled_total += current_total
+
+        remainder = target_total_tokens - scaled_total
+        if remainder > 0:
+            extra, extra_total = _match_token_budget(training_data, remainder, rng)
+            scaled.extend(extra)
+            scaled_total += extra_total
+
+    if rank == 0:
+        print(
+            f"  Token-budgeted training set: {len(scaled):,} examples, "
+            f"{scaled_total:,} input tokens ({scaled_total / max(target_total_tokens, 1):.2%} of target)"
+        )
+
+    return scaled
+
+
 # ── Main training loop ──
 def train(
     raw_data: list[dict],
@@ -815,6 +891,12 @@ def train(
 
     # Convert to TrainingDataPoints
     training_data = dicts_to_training_data(raw_data, tokenizer)
+    training_data = _scale_training_data_to_token_budget(
+        training_data,
+        getattr(args, "target_total_tokens", 0),
+        args.seed,
+        rank,
+    )
     if rank == 0:
         print(f"  Converted {len(training_data)} training examples")
 
@@ -1065,6 +1147,11 @@ def train(
             print(f"\n  Dynamic cadence (reference = {reference_steps} steps):")
             print(f"    eval_steps: {args.eval_steps} (~{reference_steps // max(args.eval_steps, 1)}x)")
             print(f"    save_steps: {args.save_steps}")
+
+    if task_order != "interleaved" and getattr(args, "save_fraction", 0.0) > 0:
+        args.save_steps = max(math.ceil(total_steps * args.save_fraction), 1)
+        if rank == 0:
+            print(f"    save_fraction override: {args.save_fraction:.3f} -> save_steps={args.save_steps}")
 
     optimizer = torch.optim.AdamW(ddp_model.parameters(), lr=args.lr)
     scheduler = get_linear_schedule_with_warmup(
@@ -1493,14 +1580,15 @@ def apply_config(args, config: dict):
     # Training params
     if "training" in config:
         t = config["training"]
-        _float_keys = {"lr", "warmup_fraction", "max_grad_norm", "steering_coefficient"}
-        _int_keys = {"epochs", "seed", "interleave_blocks", "length_bucket_window_batches", "max_train_tokens_per_gpu", "max_extract_tokens_per_gpu", "extraction_batch_size", "batch_size", "effective_batch_size"}
+        _float_keys = {"lr", "warmup_fraction", "max_grad_norm", "steering_coefficient", "save_fraction"}
+        _int_keys = {"epochs", "seed", "interleave_blocks", "length_bucket_window_batches", "max_train_tokens_per_gpu", "max_extract_tokens_per_gpu", "extraction_batch_size", "batch_size", "effective_batch_size", "target_total_tokens"}
         for key in ["lr", "epochs",
                      "warmup_fraction", "max_grad_norm", "steering_coefficient",
                      "gradient_checkpointing", "task_order", "seed",
                      "interleave_blocks", "max_train_tokens_per_gpu", "max_extract_tokens_per_gpu",
                      "batch_size", "effective_batch_size", "extraction_batch_size",
                      "length_bucketing", "length_bucket_window_batches",
+                     "target_total_tokens", "save_fraction",
                      "torch_compile", "torch_compile_mode"]:
             if key in t and not getattr(args, f"_cli_{key}", False):
                 val = t[key]
@@ -1588,6 +1676,10 @@ def apply_config(args, config: dict):
             args.classification_datasets = cls["datasets"]
 
     # LatentQA
+    if "latentqa" in config:
+        lqa = config["latentqa"]
+        if lqa.get("enabled", False) and not getattr(args, "_cli_latentqa_n", False):
+            args.latentqa_n = lqa.get("n", 65000)
 
     # Output
     if "output" in config:
@@ -1669,6 +1761,8 @@ def main():
     parser.add_argument("--max-train-tokens-per-gpu", type=int, default=None, help="Approximate per-GPU peak token budget for splitting long train batches (0 disables)")
     parser.add_argument("--max-extract-tokens-per-gpu", type=int, default=None, help="Approximate per-GPU token budget for activation extraction batches (0 = use --max-train-tokens-per-gpu)")
     parser.add_argument("--extraction-batch-size", type=int, default=None, help="Lookahead extraction: extract this many examples at once, then train in batch_size chunks. 0 = same as batch_size (no lookahead). Set to 64-128 for significant speedup.")
+    parser.add_argument("--target-total-tokens", type=int, default=None, help="Approximate total input-token budget for the whole training run (0 disables)")
+    parser.add_argument("--save-fraction", type=float, default=None, help="Save checkpoints every fixed fraction of total steps, e.g. 0.1 for every 10%")
     parser.add_argument("--torch-compile", action="store_true", default=None, help="Compile the training forward path with torch.compile")
     parser.add_argument("--torch-compile-mode", choices=["default", "reduce-overhead", "max-autotune", "max-autotune-no-cudagraphs"], default=None, help="torch.compile mode")
 
@@ -1765,6 +1859,7 @@ def main():
         length_bucketing=True, length_bucket_window_batches=32,
         effective_batch_size=16, max_train_tokens_per_gpu=0,
         max_extract_tokens_per_gpu=0, extraction_batch_size=0,
+        target_total_tokens=0, save_fraction=0.0,
         torch_compile=False, torch_compile_mode="default",
         layer_dropout=False, position_encoding=False, pe_alpha=0.1,
         n_layers=3, eval_steps=2000, save_steps=10000,
@@ -2046,6 +2141,24 @@ def main():
         raw_data.extend(cls_data)
         if rank == 0:
             print(f"  [data]   -> {len(cls_data)} classification examples added (total: {len(raw_data)})")
+
+    # LatentQA data (Adam's SPQA task, if enabled)
+    latentqa_n = getattr(args, "latentqa_n", 0)
+    if latentqa_n != 0 and not NO_ACTIVATIONS:
+        from data_loading import load_latentqa_data
+        latentqa_target_n = None if latentqa_n == -1 else latentqa_n
+        if rank == 0:
+            latentqa_count_str = "all available" if latentqa_target_n is None else str(latentqa_target_n)
+            print(f"  [data] Loading {latentqa_count_str} LatentQA examples...")
+        latentqa_data = load_latentqa_data(
+            n=latentqa_target_n,
+            split="train",
+            layers=MULTI_LAYERS,
+            seed=args.seed,
+        )
+        raw_data.extend(latentqa_data)
+        if rank == 0:
+            print(f"  [data]   -> {len(latentqa_data)} LatentQA examples added (total: {len(raw_data)})")
 
     if not raw_data:
         if rank == 0:
