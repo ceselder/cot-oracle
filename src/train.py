@@ -23,6 +23,7 @@ Usage:
 
 import argparse
 import gc
+import inspect
 import json
 import logging
 import math
@@ -94,6 +95,9 @@ MAX_CONTEXT_LENGTH: int = 0  # drop samples with context_input_ids longer than t
 POSITION_ENCODING: bool = False
 PE_ALPHA: float = 0.1
 _MODEL_N_LAYERS: int = 36  # total layers in the model (set in main())
+_HF_STEERING_HOOK_ACCEPTS_NORM_MODE = (
+    "norm_mode" in inspect.signature(get_hf_activation_steering_hook).parameters
+)
 
 
 def _build_labeled_layer_prefix(num_positions: int, layers: list[int], placeholder_token: str = PLACEHOLDER_TOKEN) -> str:
@@ -591,14 +595,16 @@ def _window_bucket_training_data(training_data: list[TrainingDataPoint], batch_s
 
 
 def train_features_batch(training_batch, model, submodule, steering_coefficient, device, dtype, norm_mode="matched"):
-    hook_fn = get_hf_activation_steering_hook(
+    hook_kwargs = dict(
         vectors=training_batch.steering_vectors,
         positions=training_batch.positions,
         steering_coefficient=steering_coefficient,
         device=device,
         dtype=dtype,
-        norm_mode=norm_mode,
     )
+    if _HF_STEERING_HOOK_ACCEPTS_NORM_MODE:
+        hook_kwargs["norm_mode"] = norm_mode
+    hook_fn = get_hf_activation_steering_hook(**hook_kwargs)
     tokenized_input = {
         "input_ids": training_batch.input_ids,
         "attention_mask": training_batch.attention_mask,
