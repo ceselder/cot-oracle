@@ -826,12 +826,21 @@ def _match_token_budget(points, target_tokens: int, rng: random.Random) -> tuple
 
 def _scale_training_data_to_token_budget(training_data, target_total_tokens: int, seed: int, rank: int):
     """Repeat or subsample examples so total input tokens land near target_total_tokens."""
-    if target_total_tokens <= 0:
-        return training_data
-
     current_total = sum(len(dp.input_ids) for dp in training_data)
     if current_total <= 0:
         raise ValueError("Cannot apply target_total_tokens: training data has zero input tokens")
+
+    if target_total_tokens <= 0:
+        stats = {
+            "full_filtered_examples": len(training_data),
+            "full_filtered_input_tokens": current_total,
+            "budgeted_examples": len(training_data),
+            "budgeted_input_tokens": current_total,
+            "budget_fraction_of_full_filtered": 1.0,
+            "budget_percent_of_full_filtered": 100.0,
+            "requested_target_input_tokens": current_total,
+        }
+        return training_data, stats
 
     if rank == 0:
         print(
@@ -864,7 +873,17 @@ def _scale_training_data_to_token_budget(training_data, target_total_tokens: int
             f"{scaled_total:,} input tokens ({scaled_total / max(target_total_tokens, 1):.2%} of target)"
         )
 
-    return scaled
+    stats = {
+        "full_filtered_examples": len(training_data),
+        "full_filtered_input_tokens": current_total,
+        "budgeted_examples": len(scaled),
+        "budgeted_input_tokens": scaled_total,
+        "budget_fraction_of_full_filtered": scaled_total / current_total,
+        "budget_percent_of_full_filtered": 100.0 * scaled_total / current_total,
+        "requested_target_input_tokens": target_total_tokens,
+    }
+
+    return scaled, stats
 
 
 # ── Main training loop ──
@@ -897,7 +916,7 @@ def train(
 
     # Convert to TrainingDataPoints
     training_data = dicts_to_training_data(raw_data, tokenizer)
-    training_data = _scale_training_data_to_token_budget(
+    training_data, token_budget_stats = _scale_training_data_to_token_budget(
         training_data,
         getattr(args, "target_total_tokens", 0),
         args.seed,
@@ -905,6 +924,28 @@ def train(
     )
     if rank == 0:
         print(f"  Converted {len(training_data)} training examples")
+        print(
+            "  Token budget vs full filtered set: "
+            f"{token_budget_stats['budgeted_input_tokens']:,} / "
+            f"{token_budget_stats['full_filtered_input_tokens']:,} input tokens "
+            f"({token_budget_stats['budget_percent_of_full_filtered']:.2f}% of full filtered set)"
+        )
+        if wandb.run:
+            wandb.config.update(
+                {
+                    "full_filtered_examples": token_budget_stats["full_filtered_examples"],
+                    "full_filtered_input_tokens": token_budget_stats["full_filtered_input_tokens"],
+                    "budgeted_examples": token_budget_stats["budgeted_examples"],
+                    "budgeted_input_tokens": token_budget_stats["budgeted_input_tokens"],
+                    "budget_fraction_of_full_filtered": token_budget_stats["budget_fraction_of_full_filtered"],
+                    "budget_percent_of_full_filtered": token_budget_stats["budget_percent_of_full_filtered"],
+                    "requested_target_input_tokens": token_budget_stats["requested_target_input_tokens"],
+                },
+                allow_val_change=True,
+            )
+            wandb.run.summary["full_filtered_input_tokens"] = token_budget_stats["full_filtered_input_tokens"]
+            wandb.run.summary["budgeted_input_tokens"] = token_budget_stats["budgeted_input_tokens"]
+            wandb.run.summary["budget_fraction_of_full_filtered"] = token_budget_stats["budget_fraction_of_full_filtered"]
 
     # Build mapping: datapoint_type → parent task (for subtask grouping in wandb)
     subtype_to_task = {}
