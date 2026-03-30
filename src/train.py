@@ -30,6 +30,7 @@ import math
 import os
 import random
 import re
+import shutil
 import sys
 
 from contextlib import nullcontext
@@ -627,14 +628,14 @@ def _token_f1(prediction: str, reference: str) -> float:
     return 2 * precision * recall / (precision + recall)
 
 
-def _upload_checkpoint_to_hf(checkpoint_path: Path, args, global_step: int):
+def _upload_checkpoint_to_hf(checkpoint_path: Path, args, global_step: int, cleanup_local: bool = False) -> bool:
     """Upload a LoRA checkpoint to HuggingFace after training completes."""
     try:
         from huggingface_hub import HfApi
         hf_token = os.environ.get("HF_TOKEN") or os.environ.get("HUGGING_FACE_HUB_TOKEN")
         if not hf_token:
             print("  [HF upload] No HF_TOKEN set, skipping upload")
-            return
+            return False
 
         # Build repo name from wandb run name or save_dir
         run_name = getattr(args, "wandb_run", None)
@@ -655,8 +656,36 @@ def _upload_checkpoint_to_hf(checkpoint_path: Path, args, global_step: int):
             commit_message=f"Final checkpoint at step {global_step}",
         )
         print(f"  [HF upload] Done: https://huggingface.co/{repo_name}")
+        if cleanup_local:
+            shutil.rmtree(checkpoint_path, ignore_errors=True)
+            print(f"  [HF upload] Removed local upload cache: {checkpoint_path}")
+        return True
     except Exception as e:
         print(f"  [HF upload] Failed: {e}")
+        return False
+
+
+def _prune_local_step_checkpoints(save_dir: Path, keep: int | None):
+    """Keep only the newest N local step_* checkpoints to cap disk usage."""
+    if keep is None or keep < 0 or not save_dir.exists():
+        return
+
+    step_dirs: list[tuple[int, str, Path]] = []
+    for path in save_dir.iterdir():
+        if not path.is_dir():
+            continue
+        match = re.match(r"^step_(\d+)", path.name)
+        if not match:
+            continue
+        step_dirs.append((int(match.group(1)), path.name, path))
+
+    if len(step_dirs) <= keep:
+        return
+
+    step_dirs.sort(key=lambda item: (item[0], item[1]))
+    for _, _, old_path in step_dirs[:-keep]:
+        print(f"  Removing old local checkpoint {old_path}")
+        shutil.rmtree(old_path, ignore_errors=True)
 
 
 def _log_final_checkpoint_to_wandb(checkpoint_path: Path, global_step: int):
@@ -1527,6 +1556,7 @@ def train(
                 print(f"  Saving phase checkpoint to {ckpt_path}")
                 model.save_pretrained(str(ckpt_path))
                 _save_training_state(ckpt_path, global_step, optimizer, scheduler)
+                _prune_local_step_checkpoints(save_dir, getattr(args, "max_local_step_checkpoints", None))
             if world_size > 1 and task_order in ("sequential", "interleaved") and prev_dominant_task is not None and dominant_task != prev_dominant_task:
                 dist.barrier()
             prev_dominant_task = dominant_task
@@ -1549,6 +1579,7 @@ def train(
                     print(f"  Saving checkpoint to {ckpt_path}")
                     model.save_pretrained(str(ckpt_path))
                     _save_training_state(ckpt_path, global_step, optimizer, scheduler)
+                    _prune_local_step_checkpoints(save_dir, getattr(args, "max_local_step_checkpoints", None))
                 if world_size > 1:
                     dist.barrier()
 
@@ -1557,7 +1588,7 @@ def train(
                 latest_path = save_dir / "latest"
                 latest_path.mkdir(parents=True, exist_ok=True)
                 model.save_pretrained(str(latest_path))
-                _upload_checkpoint_to_hf(latest_path, args, global_step)
+                _upload_checkpoint_to_hf(latest_path, args, global_step, cleanup_local=True)
 
             # Reset accumulators for next grad_accum window
             accum_task_losses = defaultdict(list)
@@ -1578,6 +1609,7 @@ def train(
         print(f"  Saving final checkpoint to {final_path}")
         model.save_pretrained(str(final_path))
         _save_training_state(final_path, global_step, optimizer, scheduler)
+        _prune_local_step_checkpoints(save_dir, 0)
         _log_final_checkpoint_to_wandb(final_path, global_step)
 
         # Upload final checkpoint to HuggingFace
@@ -1628,14 +1660,14 @@ def apply_config(args, config: dict):
     if "training" in config:
         t = config["training"]
         _float_keys = {"lr", "warmup_fraction", "max_grad_norm", "steering_coefficient", "save_fraction"}
-        _int_keys = {"epochs", "seed", "interleave_blocks", "length_bucket_window_batches", "max_train_tokens_per_gpu", "max_extract_tokens_per_gpu", "extraction_batch_size", "batch_size", "effective_batch_size", "target_total_tokens"}
+        _int_keys = {"epochs", "seed", "interleave_blocks", "length_bucket_window_batches", "max_train_tokens_per_gpu", "max_extract_tokens_per_gpu", "extraction_batch_size", "batch_size", "effective_batch_size", "target_total_tokens", "max_local_step_checkpoints"}
         for key in ["lr", "epochs",
                      "warmup_fraction", "max_grad_norm", "steering_coefficient",
                      "gradient_checkpointing", "task_order", "seed",
                      "interleave_blocks", "max_train_tokens_per_gpu", "max_extract_tokens_per_gpu",
                      "batch_size", "effective_batch_size", "extraction_batch_size",
                      "length_bucketing", "length_bucket_window_batches",
-                     "target_total_tokens", "save_fraction",
+                     "target_total_tokens", "save_fraction", "max_local_step_checkpoints",
                      "torch_compile", "torch_compile_mode"]:
             if key in t and not getattr(args, f"_cli_{key}", False):
                 val = t[key]
@@ -1856,6 +1888,8 @@ def main():
     # Eval / save
     parser.add_argument("--eval-steps", type=int, default=None, help="Run evals every N steps (shuffled mode)")
     parser.add_argument("--save-steps", type=int, default=None, help="Save checkpoint every N steps (shuffled mode)")
+    parser.add_argument("--max-local-step-checkpoints", type=int, default=None,
+                        help="Keep at most N local step_* checkpoints (0 deletes all intermediates after save)")
     parser.add_argument("--no-step0-eval", action="store_true", default=False,
                         help="Skip evals at step 0 (for quick ablation launches)")
     parser.add_argument("--start-step", type=int, default=None,

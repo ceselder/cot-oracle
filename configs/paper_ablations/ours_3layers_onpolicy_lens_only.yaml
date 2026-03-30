@@ -90,7 +90,8 @@ latentqa:
 training:
   task_order: shuffled
   target_total_tokens: 50000000
-  save_fraction: 0.1
+  save_fraction: 0.25
+  max_local_step_checkpoints: 1
 
 activations:
   layers: [9, 18, 27]
