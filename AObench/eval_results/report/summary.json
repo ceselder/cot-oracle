@@ -1,67 +1,50 @@
 {
   "number_prediction": {
-    "checkpoints_latentqa_cls_past_lens_addition_Qwen3-8B": 0.02666666666666667,
+    "checkpoints_latentqa_cls_past_lens_addition_Qwen3-8B": 0.03333333333333333,
     "checkpoints_Qwen3-8B_full_mix_synthetic_qa_v3_replace_lqa": 0.02666666666666667,
-    "cot-oracle-qwen3-8b-final-sprint-checkpoint-no-DPO": 0.06
+    "cot-oracle-qwen3-8b-final-sprint-checkpoint-no-DPO": 0.05333333333333334,
+    "cot-oracle-grpo-v1": 0.05333333333333334
   },
   "mmlu_prediction": {
-    "checkpoints_latentqa_cls_past_lens_addition_Qwen3-8B": 0.6927000000000001,
-    "checkpoints_Qwen3-8B_full_mix_synthetic_qa_v3_replace_lqa": 0.6973,
-    "cot-oracle-qwen3-8b-final-sprint-checkpoint-no-DPO": 0.6829000000000001
+    "checkpoints_latentqa_cls_past_lens_addition_Qwen3-8B": 0.6877,
+    "checkpoints_Qwen3-8B_full_mix_synthetic_qa_v3_replace_lqa": 0.693,
+    "cot-oracle-qwen3-8b-final-sprint-checkpoint-no-DPO": 0.6818,
+    "cot-oracle-grpo-v1": 0.6802
   },
   "backtracking": {
     "checkpoints_latentqa_cls_past_lens_addition_Qwen3-8B": 2.1116751269035534,
-    "checkpoints_Qwen3-8B_full_mix_synthetic_qa_v3_replace_lqa": 2.2893401015228427,
-    "cot-oracle-qwen3-8b-final-sprint-checkpoint-no-DPO": 1.9238578680203047
+    "checkpoints_Qwen3-8B_full_mix_synthetic_qa_v3_replace_lqa": 2.3045685279187818,
+    "cot-oracle-qwen3-8b-final-sprint-checkpoint-no-DPO": 1.9187817258883249,
+    "cot-oracle-grpo-v1": 2.233502538071066
   },
   "backtracking_mc": {
     "checkpoints_latentqa_cls_past_lens_addition_Qwen3-8B": 0.7868020304568528,
     "checkpoints_Qwen3-8B_full_mix_synthetic_qa_v3_replace_lqa": 0.7411167512690355,
-    "cot-oracle-qwen3-8b-final-sprint-checkpoint-no-DPO": 0.6548223350253807
+    "cot-oracle-qwen3-8b-final-sprint-checkpoint-no-DPO": 0.6548223350253807,
+    "cot-oracle-grpo-v1": 0.6852791878172588
   },
   "missing_info": {
-    "checkpoints_latentqa_cls_past_lens_addition_Qwen3-8B": 0.6344444444444444,
-    "checkpoints_Qwen3-8B_full_mix_synthetic_qa_v3_replace_lqa": 0.7633333333333333,
-    "cot-oracle-qwen3-8b-final-sprint-checkpoint-no-DPO": 0.7344444444444445
+    "checkpoints_latentqa_cls_past_lens_addition_Qwen3-8B": 0.6422222222222221,
+    "checkpoints_Qwen3-8B_full_mix_synthetic_qa_v3_replace_lqa": 0.7622222222222222,
+    "cot-oracle-qwen3-8b-final-sprint-checkpoint-no-DPO": 0.7377777777777779,
+    "cot-oracle-grpo-v1": 0.7333333333333334
   },
   "sycophancy": {
-    "checkpoints_latentqa_cls_past_lens_addition_Qwen3-8B": 0.739025,
-    "checkpoints_Qwen3-8B_full_mix_synthetic_qa_v3_replace_lqa": 0.8356499999999999,
-    "cot-oracle-qwen3-8b-final-sprint-checkpoint-no-DPO": 0.7556
-  },
-  "system_prompt_qa_hidden": {
-    "checkpoints_latentqa_cls_past_lens_addition_Qwen3-8B": 3.8,
-    "checkpoints_Qwen3-8B_full_mix_synthetic_qa_v3_replace_lqa": 2.5,
-    "cot-oracle-qwen3-8b-final-sprint-checkpoint-no-DPO": 1.2
-  },
-  "system_prompt_qa_latentqa": {
-    "checkpoints_latentqa_cls_past_lens_addition_Qwen3-8B": 3.71,
-    "checkpoints_Qwen3-8B_full_mix_synthetic_qa_v3_replace_lqa": 3.23,
-    "cot-oracle-qwen3-8b-final-sprint-checkpoint-no-DPO": 2.9
+    "checkpoints_latentqa_cls_past_lens_addition_Qwen3-8B": 0.7268,
+    "checkpoints_Qwen3-8B_full_mix_synthetic_qa_v3_replace_lqa": 0.8332999999999999,
+    "cot-oracle-qwen3-8b-final-sprint-checkpoint-no-DPO": 0.749425,
+    "cot-oracle-grpo-v1": 0.659
   },
   "vagueness": {
-    "checkpoints_latentqa_cls_past_lens_addition_Qwen3-8B": 0.1116751269035533,
-    "checkpoints_Qwen3-8B_full_mix_synthetic_qa_v3_replace_lqa": 0.3979591836734694,
-    "cot-oracle-qwen3-8b-final-sprint-checkpoint-no-DPO": 0.2182741116751269
+    "checkpoints_latentqa_cls_past_lens_addition_Qwen3-8B": 0.11224489795918367,
+    "checkpoints_Qwen3-8B_full_mix_synthetic_qa_v3_replace_lqa": 0.37055837563451777,
+    "cot-oracle-qwen3-8b-final-sprint-checkpoint-no-DPO": 0.18781725888324874,
+    "cot-oracle-grpo-v1": 0.2639593908629442
   },
   "domain_confusion": {
-    "checkpoints_latentqa_cls_past_lens_addition_Qwen3-8B": 0.12903225806451613,
-    "checkpoints_Qwen3-8B_full_mix_synthetic_qa_v3_replace_lqa": 0.39827586206896554,
-    "cot-oracle-qwen3-8b-final-sprint-checkpoint-no-DPO": 0.2766323024054983
-  },
-  "activation_sensitivity": {
-    "checkpoints_latentqa_cls_past_lens_addition_Qwen3-8B": 0.3333333333333333,
-    "checkpoints_Qwen3-8B_full_mix_synthetic_qa_v3_replace_lqa": 0.6444444444444445,
-    "cot-oracle-qwen3-8b-final-sprint-checkpoint-no-DPO": 0.6511627906976745
-  },
-  "hallucination_1pos": {
-    "checkpoints_latentqa_cls_past_lens_addition_Qwen3-8B": 0.032520325203252036,
-    "checkpoints_Qwen3-8B_full_mix_synthetic_qa_v3_replace_lqa": 0.010245901639344262,
-    "cot-oracle-qwen3-8b-final-sprint-checkpoint-no-DPO": 0.015306122448979591
-  },
-  "hallucination_20pos": {
-    "checkpoints_latentqa_cls_past_lens_addition_Qwen3-8B": 0.18552497451580022,
-    "checkpoints_Qwen3-8B_full_mix_synthetic_qa_v3_replace_lqa": 0.2078593588417787,
-    "cot-oracle-qwen3-8b-final-sprint-checkpoint-no-DPO": 0.18350515463917524
+    "checkpoints_latentqa_cls_past_lens_addition_Qwen3-8B": 0.12372881355932204,
+    "checkpoints_Qwen3-8B_full_mix_synthetic_qa_v3_replace_lqa": 0.38408304498269896,
+    "cot-oracle-qwen3-8b-final-sprint-checkpoint-no-DPO": 0.27101200686106347,
+    "cot-oracle-grpo-v1": 0.40987654320987654
   }
 }
