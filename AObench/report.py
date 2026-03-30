@@ -140,8 +140,9 @@ DISPLAY_NAMES: dict[str, str] = {
     "latentqa_cls_past_lens_addition_Qwen3-8B": "Adam's AO",
     "checkpoints_latentqa_cls_on_policy_Qwen3-8B": "Adam's on-policy",
     "latentqa_cls_on_policy_Qwen3-8B": "Adam's on-policy",
-    "cot-oracle-qwen3-8b-final-sprint-checkpoint-no-DPO": "Ours (no-DPO)",
-    "qwen3-8b-final-sprint-checkpoint-no-DPO": "Ours (no-DPO)",
+    "cot-oracle-qwen3-8b-final-sprint-checkpoint-no-DPO": "Ours (SFT)",
+    "qwen3-8b-final-sprint-checkpoint-no-DPO": "Ours (SFT)",
+    "cot-oracle-grpo-v1": "Ours (GRPO)",
     "checkpoints_Qwen3-8B_full_mix_synthetic_qa_v3_replace_lqa": "Adam's synth-QA-v3",
     "Qwen3-8B_full_mix_synthetic_qa_v3_replace_lqa": "Adam's synth-QA-v3",
 }
@@ -150,7 +151,8 @@ DISPLAY_COLORS: dict[str, str] = {
     "Adam's AO": "#4CAF50",
     "Adam's on-policy": "#8BC34A",
     "Adam's synth-QA-v3": "#FF9800",
-    "Ours (no-DPO)": "#2196F3",
+    "Ours (SFT)": "#2196F3",
+    "Ours (GRPO)": "#E91E63",
 }
 
 
