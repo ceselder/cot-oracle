@@ -10,8 +10,9 @@ import httpx
 
 from reward import CRITERIA_NAMES, RubricResult
 
-ENDPOINT = "https://openrouter.ai/api/v1/chat/completions"
-DEFAULT_MODEL = "google/gemini-3-flash-preview"
+OPENROUTER_ENDPOINT = "https://openrouter.ai/api/v1/chat/completions"
+LOCAL_ENDPOINT = "http://127.0.0.1:8765/v1/chat/completions"
+DEFAULT_MODEL = "claude-sonnet-4-6"
 
 SYSTEM_PROMPT = """\
 You are evaluating an activation oracle. The oracle reads neural network activations
@@ -201,27 +202,35 @@ async def judge_rollouts(
 ) -> list[RubricResult] | None:
     global _total_input_tokens, _total_output_tokens
     user_msg = _build_user_prompt(question, first_half, second_half, oracle_prompt, rollout_texts)
+    # Fold system prompt into user message (local wrapper may not pass system messages)
     messages = [
-        {"role": "system", "content": SYSTEM_PROMPT},
-        {"role": "user", "content": user_msg},
+        {"role": "user", "content": SYSTEM_PROMPT + "\n\n" + user_msg},
     ]
-    headers = {
-        "Authorization": f"Bearer {api_key}",
-        "Content-Type": "application/json",
-    }
+
+    # Use local wrapper if available, otherwise OpenRouter
+    import os
+    use_local = os.getenv("JUDGE_USE_LOCAL", "1") == "1"
+    endpoint = LOCAL_ENDPOINT if use_local else OPENROUTER_ENDPOINT
+
+    headers = {"Content-Type": "application/json"}
+    if not use_local:
+        headers["Authorization"] = f"Bearer {api_key}"
+
     body = {
         "model": model,
         "messages": messages,
         "temperature": temperature,
         "max_tokens": 2048,
-        "response_format": {"type": "json_object"},
     }
+    # response_format only for OpenRouter (Gemini etc), not local wrapper
+    if not use_local:
+        body["response_format"] = {"type": "json_object"}
 
     async with httpx.AsyncClient() as client:
         for attempt in range(retries):
             try:
                 resp = await client.post(
-                    ENDPOINT, json=body, headers=headers, timeout=timeout,
+                    endpoint, json=body, headers=headers, timeout=timeout,
                 )
                 if resp.status_code == 429:
                     await asyncio.sleep(2 ** attempt)
