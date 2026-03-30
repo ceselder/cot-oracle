@@ -306,6 +306,7 @@ def run_backtracking_mc_eval(
     verbalizer_lora_paths: list[str],
     output_dir: str | None = None,
     max_entries: int | None = None,
+    segment_start: int | None = None,
 ) -> dict[str, Any]:
     """Multiple-choice backtracking eval using logit scoring over A/B/C/D."""
     if generation_kwargs is None:
@@ -316,8 +317,9 @@ def run_backtracking_mc_eval(
     entries = [e for e in entries if "mc_options" in e]
     assert entries, "No entries with mc_options found in dataset"
 
+    seg = segment_start if segment_start is not None else -20
     prompt_infos, entry_metadata = build_backtracking_mc_verbalizer_prompt_infos(
-        entries, tokenizer,
+        entries, tokenizer, segment_start=seg,
     )
 
     candidate_token_groups = build_letter_candidate_token_groups(tokenizer)
@@ -407,6 +409,7 @@ def run_backtracking_open_ended_eval(
     output_dir: str | None = None,
     max_entries: int | None = None,
     judge_concurrency: int = DEFAULT_JUDGE_CONCURRENCY,
+    segment_start: int | None = None,
 ) -> dict[str, Any]:
     """
     Backtracking eval uses an LLM judge, so it can't use the standard score_fn pattern
@@ -416,11 +419,12 @@ def run_backtracking_open_ended_eval(
     if generation_kwargs is None:
         generation_kwargs = GENERATION_KWARGS
 
+    seg = segment_start if segment_start is not None else -20
     entries = load_backtracking_dataset(max_entries=max_entries)
     prompt_infos, entry_metadata = build_backtracking_verbalizer_prompt_infos(
         entries,
         tokenizer=tokenizer,
-        segment_start=-20,
+        segment_start=seg,
     )
 
     # Backtracking uses async LLM judging — wrap it as a score_fn

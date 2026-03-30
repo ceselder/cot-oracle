@@ -188,6 +188,7 @@ def run_number_prediction_open_ended_eval(
     max_entries: int | None = None,
     categories: list[str] | None = None,
     verbalizer_prompts: dict[str, str] | None = None,
+    segment_start: int | None = None,
 ) -> dict[str, Any]:
     if verbalizer_prompts is None:
         verbalizer_prompts = VERBALIZER_PROMPTS
@@ -195,7 +196,10 @@ def run_number_prediction_open_ended_eval(
         generation_kwargs = GENERATION_KWARGS
 
     entries = load_number_prediction_dataset(max_entries=max_entries, categories=categories)
-    prompt_infos, entry_metadata = build_number_prediction_verbalizer_prompt_infos(entries, verbalizer_prompts, tokenizer)
+    build_kwargs = {}
+    if segment_start is not None:
+        build_kwargs["segment_start"] = segment_start
+    prompt_infos, entry_metadata = build_number_prediction_verbalizer_prompt_infos(entries, verbalizer_prompts, tokenizer, **build_kwargs)
 
     return run_verbalizer_generation_eval_loop(
         eval_name="number_prediction",

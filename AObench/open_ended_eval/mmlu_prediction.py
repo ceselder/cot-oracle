@@ -137,16 +137,21 @@ def run_letter_prediction(
     entries: list[dict[str, Any]],
     verbalizer_lora_paths: list[str],
     output_dir: str | None = None,
+    segment_start: int | None = None,
 ) -> dict[str, Any]:
     """Predict which answer letter (A-D) the model will choose, using argmax token.
 
     Uses pre-answer context only (question, no model answer). Checks if the
     AO's argmax output token matches the model's actual answer letter.
     """
+    build_kwargs = {}
+    if segment_start is not None:
+        build_kwargs["segment_start"] = segment_start
     prompt_infos, entry_metadata = build_mmlu_prediction_verbalizer_prompt_infos(
         entries,
         {"predict_letter": LETTER_PREDICTION_PROMPT},
         tokenizer,
+        **build_kwargs,
     )
 
     # We need candidate_token_groups to call run_verbalizer_binary_score,
@@ -239,6 +244,7 @@ def run_mmlu_prediction_open_ended_eval(
     max_entries: int | None = None,
     verbalizer_prompts: dict[str, str] | None = None,
     run_letter_prediction_eval: bool = False,
+    segment_start: int | None = None,
 ) -> dict[str, Any]:
     if verbalizer_prompts is None:
         verbalizer_prompts = VERBALIZER_PROMPTS
@@ -246,7 +252,10 @@ def run_mmlu_prediction_open_ended_eval(
         generation_kwargs = GENERATION_KWARGS
 
     entries = load_mmlu_prediction_dataset(max_entries=max_entries)
-    prompt_infos, entry_metadata = build_mmlu_prediction_verbalizer_prompt_infos(entries, verbalizer_prompts, tokenizer)
+    build_kwargs = {}
+    if segment_start is not None:
+        build_kwargs["segment_start"] = segment_start
+    prompt_infos, entry_metadata = build_mmlu_prediction_verbalizer_prompt_infos(entries, verbalizer_prompts, tokenizer, **build_kwargs)
 
     summary = run_verbalizer_binary_eval_loop(
         eval_name="mmlu_prediction",
@@ -275,6 +284,7 @@ def run_mmlu_prediction_open_ended_eval(
             entries=entries,
             verbalizer_lora_paths=verbalizer_lora_paths,
             output_dir=letter_output_dir,
+            segment_start=segment_start,
         )
         summary.update(letter_results)
 

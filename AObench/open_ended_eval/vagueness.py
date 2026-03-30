@@ -220,13 +220,17 @@ def run_vagueness_open_ended_eval(
     output_dir: str | None = None,
     max_entries: int | None = None,
     judge_concurrency: int = DEFAULT_JUDGE_CONCURRENCY,
+    segment_start: int | None = None,
 ) -> dict[str, Any]:
     if generation_kwargs is None:
         generation_kwargs = GENERATION_KWARGS
 
     entries, prompts = load_data(max_entries=max_entries)
+    build_kwargs = {}
+    if segment_start is not None:
+        build_kwargs["segment_start"] = segment_start
     prompt_infos, entry_metadata = build_vagueness_verbalizer_prompt_infos(
-        entries, prompts, tokenizer,
+        entries, prompts, tokenizer, **build_kwargs,
     )
 
     def score_fn(results: list[VerbalizerResults], metadata: list[dict[str, Any]]) -> list[dict[str, Any]]:
