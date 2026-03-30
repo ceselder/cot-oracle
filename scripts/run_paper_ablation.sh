@@ -16,6 +16,12 @@ export HF_HUB_CACHE="${HF_HUB_CACHE:-$HF_HOME/hub}"
 export HF_DATASETS_CACHE="${HF_DATASETS_CACHE:-$HF_HOME/datasets}"
 export TRANSFORMERS_CACHE="${TRANSFORMERS_CACHE:-$HF_HOME/transformers}"
 export COT_ORACLE_EVAL_CACHE_POLICY="${COT_ORACLE_EVAL_CACHE_POLICY:-refresh}"
+export PATH="$PWD/.venv/bin:$PATH"
+
+TORCHRUN_BIN="${TORCHRUN_BIN:-$PWD/.venv/bin/torchrun}"
+if [[ ! -x "$TORCHRUN_BIN" ]]; then
+  TORCHRUN_BIN="$(command -v torchrun)"
+fi
 
 mkdir -p "$HF_HUB_CACHE" "$HF_DATASETS_CACHE" "$TRANSFORMERS_CACHE" "$CACHE_DIR/cot_oracle"
 
@@ -31,7 +37,7 @@ echo "  NPROC:    ${NPROC}"
 echo "  HF cache: ${HF_HOME}"
 echo "============================================================"
 
-exec torchrun --nproc_per_node="${NPROC}" --master_port="${MASTER_PORT:-29500}" \
+exec "$TORCHRUN_BIN" --nproc_per_node="${NPROC}" --master_port="${MASTER_PORT:-29500}" \
   src/train.py \
   --config "${BASE}" "${ABLATION}" \
   --no-step0-eval \
