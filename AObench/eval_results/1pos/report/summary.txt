@@ -1,0 +1,70 @@
+AObench Results Summary
+================================================================================
+
+--- activation_sensitivity (Activation Sensitivity) ---
+  Adam's synth-QA-v3                             0.8000
+  Ours (GRPO)                                    0.7000
+
+--- backtracking (Mean Correctness (1-5)) ---
+  Adam's synth-QA-v3                             1.0000
+  Adam's AO                                      1.1111
+  Ours (GRPO)                                    1.2000
+
+--- backtracking_mc (MC Accuracy) ---
+  Adam's synth-QA-v3                             0.6599
+  Adam's AO                                      0.6954
+  Ours (GRPO)                                    0.6193
+  Ours (SFT)                                     0.5888
+  (chance)                                       0.2500
+
+--- domain_confusion (Domain Accuracy) ---
+  Adam's synth-QA-v3                             0.0000
+  Adam's AO                                      0.0000
+  Ours (GRPO)                                    0.0000
+  Ours (SFT)                                     0.0000
+
+--- hallucination_1pos (Correct Rate (1 pos)) ---
+  Adam's synth-QA-v3                             0.0000
+  Adam's AO                                      0.1000
+  Ours (GRPO)                                    0.0000
+  Ours (SFT)                                     0.0000
+
+--- hallucination_20pos (Correct Rate (20 pos)) ---
+  Adam's synth-QA-v3                             0.1000
+  Adam's AO                                      0.4444
+  Ours (GRPO)                                    0.5556
+  Ours (SFT)                                     0.4000
+
+--- missing_info (ROC AUC) ---
+  Adam's synth-QA-v3                             0.7622
+  Adam's AO                                      0.6422
+  Ours (GRPO)                                    0.7333
+  Ours (SFT)                                     0.7378
+  (chance)                                       0.5000
+
+--- mmlu_prediction (ROC AUC) ---
+  Adam's synth-QA-v3                             0.6930
+  Adam's AO                                      0.6877
+  Ours (GRPO)                                    0.6802
+  Ours (SFT)                                     0.6818
+  (chance)                                       0.5000
+
+--- number_prediction (Model Match Rate) ---
+  Adam's synth-QA-v3                             0.0400
+  Adam's AO                                      0.0067
+  Ours (GRPO)                                    0.0267
+  Ours (SFT)                                     0.0267
+
+--- sycophancy (ROC AUC) ---
+  Adam's synth-QA-v3                             0.8333
+  Adam's AO                                      0.7268
+  Ours (GRPO)                                    0.6590
+  Ours (SFT)                                     0.7494
+  (chance)                                       0.5000
+
+--- vagueness (Non-Vagueness) ---
+  Adam's synth-QA-v3                             0.3000
+  Adam's AO                                      0.1000
+  Ours (GRPO)                                    0.3333
+  Ours (SFT)                                     0.0000
+
