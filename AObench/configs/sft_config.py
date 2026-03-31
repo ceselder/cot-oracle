@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from huggingface_hub import hf_hub_download, login, whoami
+from huggingface_hub.errors import EntryNotFoundError
 
 from AObench.utils.dataset_utils import SPECIAL_TOKEN
 from AObench.utils.common import layer_percent_to_layer
@@ -17,6 +18,38 @@ TRAINING_CONFIG_SCHEMA_VERSION = 1
 DEFAULT_PREFIX_TEMPLATE = "Layer: {layer}\\n{special_token} * {num_positions} \\n"
 DEPRECATED_CONFIG_FIELDS = {
     "activation_collection_batch_size",
+}
+FALLBACK_REPO_TRAINING_CONFIGS: dict[str, dict[str, Any]] = {
+    # Paper ablations were uploaded as lightweight adapter repos without ao_config.json.
+    # We keep the exact eval-critical metadata here so main-branch AObench can still
+    # resolve the trained layer combinations correctly.
+    "ceselder/cot-oracle-paper-ablation-adam-recipe-1layer": {
+        "model_name": "Qwen/Qwen3-8B",
+        "layer_combinations": [[50]],
+        "act_layer_combinations": [[18]],
+    },
+    "ceselder/cot-oracle-paper-ablation-ours-1layer": {
+        "model_name": "Qwen/Qwen3-8B",
+        "layer_combinations": [[50]],
+        "act_layer_combinations": [[18]],
+    },
+    "ceselder/cot-oracle-paper-ablation-ours-3layers": {
+        "model_name": "Qwen/Qwen3-8B",
+        "layer_combinations": [[25, 50, 75]],
+        "act_layer_combinations": [[9, 18, 27]],
+    },
+    "ceselder/cot-oracle-paper-ablation-ours-3layers-onpolicy-lens-only": {
+        "model_name": "Qwen/Qwen3-8B",
+        "layer_combinations": [[25, 50, 75]],
+        "act_layer_combinations": [[9, 18, 27]],
+    },
+    # Step-500 mirror was re-uploaded without ao_config.json; it matches the
+    # standard 3-layer Qwen3-8B oracle setup.
+    "ceselder/cot-oracle-grpo-step-500": {
+        "model_name": "Qwen/Qwen3-8B",
+        "layer_combinations": [[25, 50, 75]],
+        "act_layer_combinations": [[9, 18, 27]],
+    },
 }
 
 
@@ -169,6 +202,13 @@ def _load_training_config_payload(payload: dict[str, Any]) -> SelfInterpTraining
     return SelfInterpTrainingConfig(**payload)
 
 
+def _load_fallback_training_config(repo_id: str) -> SelfInterpTrainingConfig | None:
+    payload = FALLBACK_REPO_TRAINING_CONFIGS.get(repo_id)
+    if payload is None:
+        return None
+    return SelfInterpTrainingConfig(**payload)
+
+
 def read_training_config(path_or_repo: str) -> SelfInterpTrainingConfig:
     p = Path(path_or_repo)
     if p.exists():
@@ -177,7 +217,13 @@ def read_training_config(path_or_repo: str) -> SelfInterpTrainingConfig:
         cfg_path = p / TRAINING_CONFIG_FILENAME
         return _load_training_config_payload(json.loads(cfg_path.read_text()))
 
-    cfg_path = hf_hub_download(repo_id=path_or_repo, filename=TRAINING_CONFIG_FILENAME)
+    try:
+        cfg_path = hf_hub_download(repo_id=path_or_repo, filename=TRAINING_CONFIG_FILENAME)
+    except EntryNotFoundError:
+        fallback_cfg = _load_fallback_training_config(path_or_repo)
+        if fallback_cfg is not None:
+            return fallback_cfg
+        raise
     return _load_training_config_payload(json.loads(Path(cfg_path).read_text()))
 
 
