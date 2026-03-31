@@ -2,13 +2,9 @@
 Obvious hallucination eval — tests whether the AO confabulates.
 
 Arya et al. found AOs confidently hallucinate wrong details: ice cubes → "eggs laid by
-hens", plate arrangements → "letters in BANANA". This is worst with few activations.
-
-Two modes:
-  hallucination_1pos  — single activation (stress test, elicits most confabulation)
-  hallucination_20pos — 20 activations (standard segment, same as other evals)
-
-Both use the same broad prompts and LLM judge scoring.
+hens", plate arrangements → "letters in BANANA". Historically we tracked 1-position
+and 20-position variants; for current paper comparisons we also support a single 5-position
+variant that better matches the rest of the eval suite.
 """
 
 import asyncio
@@ -255,6 +251,10 @@ def _run_hallucination(
 
 def run_hallucination_1pos_eval(**kwargs) -> dict[str, Any]:
     return _run_hallucination(n_positions=1, eval_name="hallucination_1pos", **kwargs)
+
+
+def run_hallucination_5pos_eval(**kwargs) -> dict[str, Any]:
+    return _run_hallucination(n_positions=5, eval_name="hallucination_5pos", **kwargs)
 
 
 def run_hallucination_20pos_eval(**kwargs) -> dict[str, Any]:
