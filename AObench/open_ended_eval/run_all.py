@@ -8,6 +8,12 @@ Standalone usage:
 
 Also used by nl_probes/sft.py for during-training eval (which saves the current
 LoRA to disk and passes the path here — same codepath as standalone).
+
+Profiles:
+    default     Legacy default include list.
+    paper_core  Cleaner paper-facing subset that avoids most LLM-judge evals.
+    judge_heavy Judge-dependent evals kept separate from the paper_core profile.
+    all         Everything in EVALS.
 """
 
 import argparse
@@ -381,6 +387,30 @@ EVALS = [
 ]
 
 DEFAULT_INCLUDE = [name for name, _ in EVALS if name not in {"taboo", "personaqa", "system_prompt_qa_hidden", "system_prompt_qa_latentqa"}]
+PAPER_CORE_INCLUDE = [
+    "number_prediction",
+    "mmlu_prediction",
+    "backtracking_mc",
+    "missing_info",
+    "sycophancy",
+]
+JUDGE_HEAVY_INCLUDE = [
+    "backtracking",
+    "system_prompt_qa_hidden",
+    "system_prompt_qa_latentqa",
+    "vagueness",
+    "domain_confusion",
+    "activation_sensitivity",
+    "hallucination_1pos",
+    "hallucination_20pos",
+]
+ALL_INCLUDE = [name for name, _ in EVALS]
+EVAL_PROFILES = {
+    "default": DEFAULT_INCLUDE,
+    "paper_core": PAPER_CORE_INCLUDE,
+    "judge_heavy": JUDGE_HEAVY_INCLUDE,
+    "all": ALL_INCLUDE,
+}
 
 
 # ---------------------------------------------------------------------------
@@ -498,11 +528,18 @@ if __name__ == "__main__":
         "Defaults to STANDARD_VERBALIZER_LORAS if not provided.",
     )
     parser.add_argument(
+        "--profile",
+        type=str,
+        choices=sorted(EVAL_PROFILES),
+        default="default",
+        help="Named eval profile to run when --include is not provided.",
+    )
+    parser.add_argument(
         "--include",
         type=str,
         nargs="*",
         default=None,
-        help=f"Eval names to run. Defaults to {DEFAULT_INCLUDE}.",
+        help="Explicit eval names to run. Overrides --profile if provided.",
     )
     parser.add_argument(
         "--output-dir",
@@ -520,7 +557,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     lora_paths = args.verbalizer_lora or list(STANDARD_VERBALIZER_LORAS)
-    include = args.include if args.include is not None else None
+    include = args.include if args.include is not None else list(EVAL_PROFILES[args.profile])
     output_dir = args.output_dir if args.output_dir is not None else OUTPUT_DIR
     n_positions = args.n_positions
 
@@ -539,6 +576,8 @@ if __name__ == "__main__":
     model = load_model(MODEL_NAME, dtype)
     model.eval()
     print(f"Verbalizer LoRA paths: {lora_paths}")
+    print(f"Eval profile: {args.profile}")
+    print(f"Include list: {include}")
 
     all_summaries = run_all_evals(
         model=model,

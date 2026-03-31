@@ -81,6 +81,7 @@ CHANCE_BASELINES: dict[str, float] = {
     "missing_info": 0.50,
     "sycophancy": 0.50,
 }
+SCALE_1_5_EVALS = {"backtracking", "system_prompt_qa_hidden", "system_prompt_qa_latentqa"}
 
 
 def extract_verbalizer_metric(
@@ -140,20 +141,45 @@ DISPLAY_NAMES: dict[str, str] = {
     "latentqa_cls_past_lens_addition_Qwen3-8B": "Adam's AO",
     "checkpoints_latentqa_cls_on_policy_Qwen3-8B": "Adam's on-policy",
     "latentqa_cls_on_policy_Qwen3-8B": "Adam's on-policy",
-    "cot-oracle-qwen3-8b-final-sprint-checkpoint-no-DPO": "Ours (SFT)",
-    "qwen3-8b-final-sprint-checkpoint-no-DPO": "Ours (SFT)",
-    "cot-oracle-grpo-v1": "Ours (GRPO)",
+    "adam-reupload-qwen3-8b-latentqa-cls-past-lens": "Adam original",
+    "adam-reupload-qwen3-8b-full-mix-synthetic-qa-v3-replace-lqa": "Adam synth-QA-v3",
+    "cot-oracle-paper-ablation-adam-recipe-1layer": "Paper Adam recipe",
+    "cot-oracle-paper-ablation-ours-1layer": "Paper ours 1L",
+    "cot-oracle-paper-ablation-ours-3layers": "Paper ours 3L",
+    "cot-oracle-paper-ablation-ours-3layers-onpolicy-lens-only": "Paper ours 3L on-policy",
+    "cot-oracle-qwen3-8b-final-sprint-checkpoint-no-DPO": "Ours final no-DPO",
+    "qwen3-8b-final-sprint-checkpoint-no-DPO": "Ours final no-DPO",
+    "cot-oracle-grpo-v1": "Ours GRPO",
+    "cot-oracle-grpo-step-500": "Ours GRPO step 500",
     "checkpoints_Qwen3-8B_full_mix_synthetic_qa_v3_replace_lqa": "Adam's synth-QA-v3",
     "Qwen3-8B_full_mix_synthetic_qa_v3_replace_lqa": "Adam's synth-QA-v3",
 }
 
 DISPLAY_COLORS: dict[str, str] = {
-    "Adam's AO": "#4CAF50",
-    "Adam's on-policy": "#8BC34A",
-    "Adam's synth-QA-v3": "#FF9800",
-    "Ours (SFT)": "#2196F3",
-    "Ours (GRPO)": "#E91E63",
+    "Adam's AO": "#5C8D4D",
+    "Adam's on-policy": "#8BAA5B",
+    "Adam's synth-QA-v3": "#D8893D",
+    "Adam original": "#4E7F4E",
+    "Adam synth-QA-v3": "#B8742F",
+    "Paper Adam recipe": "#7C9C59",
+    "Paper ours 1L": "#5DA5DA",
+    "Paper ours 3L": "#2F7FB8",
+    "Paper ours 3L on-policy": "#1F5C8B",
+    "Ours final no-DPO": "#2A6FDF",
+    "Ours GRPO": "#E91E63",
+    "Ours GRPO step 500": "#C73E7C",
 }
+DISPLAY_ORDER = [
+    "Adam original",
+    "Adam synth-QA-v3",
+    "Paper Adam recipe",
+    "Paper ours 1L",
+    "Paper ours 3L",
+    "Paper ours 3L on-policy",
+    "Ours final no-DPO",
+    "Ours GRPO",
+    "Ours GRPO step 500",
+]
 
 
 def shorten_lora_name(name: str) -> str:
@@ -170,6 +196,98 @@ def shorten_lora_name(name: str) -> str:
     return name
 
 
+def verbalizer_sort_key(name: str) -> tuple[int, str]:
+    display = shorten_lora_name(name)
+    if display in DISPLAY_ORDER:
+        return (DISPLAY_ORDER.index(display), display)
+    return (len(DISPLAY_ORDER), display)
+
+
+def normalize_metric_for_aggregate(eval_name: str, value: float) -> float:
+    """Map eval metrics to a roughly comparable scale for aggregate plotting."""
+    normalized = float(value)
+    if eval_name in SCALE_1_5_EVALS:
+        normalized = (normalized - 1.0) / 4.0
+
+    chance = CHANCE_BASELINES.get(eval_name)
+    if chance is not None and chance < 1.0:
+        normalized = (normalized - chance) / (1.0 - chance)
+
+    return normalized
+
+
+def compute_aggregate_scores(
+    eval_results: dict[str, dict[str, float]],
+) -> dict[str, dict[str, Any]]:
+    per_verbalizer: dict[str, dict[str, float]] = {}
+    for eval_name, metrics in eval_results.items():
+        for verbalizer_name, metric_value in metrics.items():
+            per_verbalizer.setdefault(verbalizer_name, {})[eval_name] = normalize_metric_for_aggregate(
+                eval_name,
+                metric_value,
+            )
+
+    return {
+        verbalizer_name: {
+            "mean_normalized_score": sum(per_eval.values()) / len(per_eval),
+            "num_evals": len(per_eval),
+            "per_eval_normalized": per_eval,
+        }
+        for verbalizer_name, per_eval in per_verbalizer.items()
+        if per_eval
+    }
+
+
+def plot_aggregate_scores(
+    aggregate_scores: dict[str, dict[str, Any]],
+    output_path: str,
+    title: str = "Chance-Adjusted Aggregate Score",
+) -> str:
+    if not aggregate_scores:
+        return output_path
+
+    items = sorted(
+        aggregate_scores.items(),
+        key=lambda item: item[1]["mean_normalized_score"],
+        reverse=True,
+    )
+    verbalizer_names = [name for name, _ in items]
+    values = [item["mean_normalized_score"] for _, item in items]
+    labels = [shorten_lora_name(name) for name in verbalizer_names]
+
+    fig, ax = plt.subplots(figsize=(max(8, len(labels) * 0.9), 5.5))
+    fallback_colors = plt.cm.Set2(np.linspace(0, 1, max(len(labels), 1)))
+    colors = [DISPLAY_COLORS.get(label, fallback_colors[i]) for i, label in enumerate(labels)]
+
+    y = np.arange(len(labels))
+    bars = ax.barh(y, values, color=colors, edgecolor="white", linewidth=0.5)
+    for bar, value in zip(bars, values, strict=True):
+        ax.text(
+            value + (0.015 if value >= 0 else -0.015),
+            bar.get_y() + bar.get_height() / 2,
+            f"{value:.3f}",
+            va="center",
+            ha="left" if value >= 0 else "right",
+            fontsize=9,
+        )
+
+    ax.axvline(0.0, color="0.4", linestyle="--", linewidth=1.0)
+    ax.set_yticks(y)
+    ax.set_yticklabels(labels, fontsize=9)
+    ax.invert_yaxis()
+    ax.set_xlabel("Mean normalized score (chance-adjusted where applicable)")
+    ax.set_title(title)
+    x_min = min(values)
+    x_max = max(values)
+    ax.set_xlim(min(-0.05, x_min - 0.05), max(1.0, x_max + 0.08))
+
+    plt.tight_layout()
+    os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
+    plt.savefig(output_path, dpi=150, bbox_inches="tight")
+    plt.close()
+    return output_path
+
+
 def plot_comparison_bar_chart(
     eval_results: dict[str, dict[str, float]],
     output_path: str,
@@ -183,7 +301,7 @@ def plot_comparison_bar_chart(
     all_verbs: set[str] = set()
     for metrics in eval_results.values():
         all_verbs.update(metrics.keys())
-    verb_names = sorted(all_verbs)
+    verb_names = sorted(all_verbs, key=verbalizer_sort_key)
 
     eval_names = list(eval_results.keys())
     n_evals = len(eval_names)
@@ -198,16 +316,13 @@ def plot_comparison_bar_chart(
     bar_width = 0.8 / max(n_verbs, 1)
     fallback_colors = plt.cm.Set2(np.linspace(0, 1, max(n_verbs, 1)))
 
-    # Normalize 1-5 scale metrics to 0-1 for comparison chart
-    SCALE_1_5 = {"backtracking", "system_prompt_qa_hidden", "system_prompt_qa_latentqa"}
-
     for i, verb_name in enumerate(verb_names):
         display = shorten_lora_name(verb_name)
         color = DISPLAY_COLORS.get(display, fallback_colors[i])
         values = []
         for eval_name in eval_names:
             val = eval_results[eval_name].get(verb_name, 0)
-            if eval_name in SCALE_1_5:
+            if eval_name in SCALE_1_5_EVALS:
                 val = (val - 1) / 4  # map 1-5 → 0-1
             values.append(val)
         offset = (i - n_verbs / 2 + 0.5) * bar_width
@@ -266,7 +381,7 @@ def plot_per_eval_detail(
     metric_info = EVAL_METRIC_MAP.get(eval_name, ("score", "Score", True))
     _, display_name, _ = metric_info
 
-    verb_names = list(verbalizer_metrics.keys())
+    verb_names = sorted(verbalizer_metrics.keys(), key=verbalizer_sort_key)
     values = list(verbalizer_metrics.values())
     n = len(verb_names)
 
@@ -360,6 +475,12 @@ def generate_report(
     plot_comparison_bar_chart(eval_results, comparison_path, "AObench Results Comparison")
     print(f"Saved comparison chart: {comparison_path}")
 
+    # 1b. Aggregate chance-adjusted ranking
+    aggregate_scores = compute_aggregate_scores(eval_results)
+    aggregate_path = os.path.join(output_dir, "aggregate_scores.png")
+    plot_aggregate_scores(aggregate_scores, aggregate_path)
+    print(f"Saved aggregate chart: {aggregate_path}")
+
     # 2. Per-eval detail charts
     for eval_name, verb_metrics in eval_results.items():
         detail_path = os.path.join(output_dir, f"detail_{eval_name}.png")
@@ -384,12 +505,30 @@ def generate_report(
                 f.write(f"  {'(chance)':45s}  {chance:.4f}\n")
             f.write("\n")
 
+        if aggregate_scores:
+            f.write("--- aggregate (chance-adjusted where applicable) ---\n")
+            for verb, payload in sorted(
+                aggregate_scores.items(),
+                key=lambda item: item[1]["mean_normalized_score"],
+                reverse=True,
+            ):
+                f.write(
+                    f"  {shorten_lora_name(verb):45s}  "
+                    f"{payload['mean_normalized_score']:.4f}  "
+                    f"(n={payload['num_evals']})\n"
+                )
+            f.write("\n")
+
     print(f"Saved summary: {table_path}")
 
     # 4. Summary JSON for programmatic use
     summary_json_path = os.path.join(output_dir, "summary.json")
     with open(summary_json_path, "w") as f:
         json.dump(eval_results, f, indent=2)
+
+    aggregate_json_path = os.path.join(output_dir, "aggregate_scores.json")
+    with open(aggregate_json_path, "w") as f:
+        json.dump(aggregate_scores, f, indent=2)
 
 
 if __name__ == "__main__":

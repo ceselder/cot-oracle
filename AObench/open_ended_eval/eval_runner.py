@@ -92,6 +92,36 @@ def default_layer_combination(training_config: SelfInterpTrainingConfig) -> list
     )
 
 
+def all_layer_combinations(training_config: SelfInterpTrainingConfig) -> list[list[int]]:
+    """Return all trained layer combinations in a stable list-of-lists form."""
+    combos = training_config.layer_combinations
+    if not combos:
+        raise ValueError("Training config has no layer_combinations")
+    return [list(combo) for combo in combos]
+
+
+def format_layer_combination(layer_combination: list[int]) -> str:
+    return "L" + "-".join(str(layer) for layer in layer_combination)
+
+
+def average_numeric_metric_dicts(metric_dicts: list[dict[str, Any]]) -> dict[str, float]:
+    """Average numeric metrics across runs, ignoring non-numeric fields."""
+    if not metric_dicts:
+        return {}
+
+    aggregated: dict[str, list[float]] = {}
+    for metrics in metric_dicts:
+        for key, value in metrics.items():
+            if isinstance(value, (int, float)):
+                aggregated.setdefault(key, []).append(float(value))
+
+    return {
+        key: sum(values) / len(values)
+        for key, values in aggregated.items()
+        if values
+    }
+
+
 def build_verbalizer_eval_config(
     model_name: str,
     training_config: SelfInterpTrainingConfig,
@@ -130,6 +160,15 @@ def _print_metrics(metrics: dict[str, Any]) -> None:
             print(f"    {k}: {v}")
 
 
+def _load_adapter_and_training_config(
+    model: AutoModelForCausalLM,
+    verbalizer_entry: str,
+) -> tuple[str, SelfInterpTrainingConfig]:
+    """Load a verbalizer adapter and return its training config."""
+    sanitized_name, training_config = base_experiment.load_oracle_adapter(model, verbalizer_entry)
+    return sanitized_name, training_config
+
+
 def _load_adapter_and_build_config(
     model: AutoModelForCausalLM,
     verbalizer_entry: str,
@@ -137,16 +176,15 @@ def _load_adapter_and_build_config(
     eval_batch_size: int,
     generation_kwargs: dict[str, Any],
 ) -> tuple[str, base_experiment.VerbalizerEvalConfig]:
-    """Load a verbalizer adapter and build its eval config."""
-    sanitized_name, training_config = base_experiment.load_oracle_adapter(model, verbalizer_entry)
-    config = build_verbalizer_eval_config(
+    """Backward-compatible helper for evals that still expect a single default config."""
+    sanitized_name, training_config = _load_adapter_and_training_config(model, verbalizer_entry)
+    loop_config = build_verbalizer_eval_config(
         model_name=model_name,
         training_config=training_config,
         eval_batch_size=eval_batch_size,
         generation_kwargs=generation_kwargs,
     )
-    base_experiment.assert_training_config_matches_verbalizer_eval_config(config, training_config)
-    return sanitized_name, config
+    return sanitized_name, loop_config
 
 
 def get_first_ao_response(result: VerbalizerResults) -> str | None:
@@ -237,69 +275,99 @@ def run_verbalizer_generation_eval_loop(
     ensure_default_adapter(model)
     model.eval()
 
-    all_scored_results: list[dict[str, Any]] = []
+    total_scored = 0
     metrics_by_verbalizer: dict[str, dict[str, Any]] = {}
+    layer_combination_metrics_by_verbalizer: dict[str, dict[str, dict[str, Any]]] = {}
+    overall_metric_dicts: list[dict[str, Any]] = []
 
     for verbalizer_entry in verbalizer_lora_paths:
-        sanitized_verbalizer_name, loop_config = _load_adapter_and_build_config(
-            model, verbalizer_entry, model_name, eval_batch_size, generation_kwargs,
+        sanitized_verbalizer_name, training_config = _load_adapter_and_training_config(
+            model, verbalizer_entry,
         )
-
-        print(f"Running {eval_name} eval with verbalizer: {verbalizer_entry}")
+        layer_combinations = all_layer_combinations(training_config)
         verbalizer_key = verbalizer_entry.split("/")[-1]
         lora_name = verbalizer_key.replace("/", "_").replace(".", "_")
+        multi_combo = len(layer_combinations) > 1
+        combo_metrics: dict[str, dict[str, Any]] = {}
 
-        results = base_experiment.run_verbalizer(
-            model=model,
-            tokenizer=tokenizer,
-            verbalizer_prompt_infos=prompt_infos,
-            verbalizer_lora_path=sanitized_verbalizer_name,
-            target_lora_path=None,
-            config=loop_config,
-            device=device,
-        )
+        for selected_layer_combination in layer_combinations:
+            loop_config = build_verbalizer_eval_config(
+                model_name=model_name,
+                training_config=training_config,
+                eval_batch_size=eval_batch_size,
+                generation_kwargs=generation_kwargs,
+                selected_layer_combination=selected_layer_combination,
+            )
+            base_experiment.assert_training_config_matches_verbalizer_eval_config(loop_config, training_config)
 
-        scored_results = score_fn(results, entry_metadata)
-        metrics: dict[str, Any] | None = None
-        if scored_results:
-            metrics = metrics_fn(scored_results)
-            metrics_by_verbalizer[verbalizer_key] = metrics
-            print(f"\n  Metrics for {verbalizer_key}:")
-            _print_metrics(metrics)
+            combo_label = format_layer_combination(selected_layer_combination)
+            print(
+                f"Running {eval_name} eval with verbalizer: {verbalizer_entry}"
+                + (f" | layers={combo_label}" if multi_combo else "")
+            )
 
-            if print_sample_fn is not None:
-                print_sample_fn(scored_results)
+            results = base_experiment.run_verbalizer(
+                model=model,
+                tokenizer=tokenizer,
+                verbalizer_prompt_infos=prompt_infos,
+                verbalizer_lora_path=sanitized_verbalizer_name,
+                target_lora_path=None,
+                config=loop_config,
+                device=device,
+            )
 
-        if output_dir is not None:
-            os.makedirs(output_dir, exist_ok=True)
-            output_path = os.path.join(output_dir, f"{eval_name}_{lora_name}.json")
-            output_data: dict[str, Any] = {
-                "config": asdict(loop_config),
-                "verbalizer": verbalizer_entry,
-                "num_entries": num_entries,
-                "scored_results": scored_results,
-                "metrics": metrics if scored_results else None,
-                "verbalizer_results": [asdict(r) for r in results],
-            }
-            if extra_output_data:
-                output_data.update(extra_output_data)
-            with open(output_path, "w") as f:
-                json.dump(output_data, f, indent=2)
-            print(f"  Saved results to {output_path}")
+            scored_results = score_fn(results, entry_metadata)
+            total_scored += len(scored_results)
+            metrics: dict[str, Any] | None = None
+            if scored_results:
+                metrics = metrics_fn(scored_results)
+                combo_metrics[combo_label] = metrics
+                print(f"\n  Metrics for {verbalizer_key}" + (f" ({combo_label})" if multi_combo else "") + ":")
+                _print_metrics(metrics)
 
-        all_scored_results.extend(scored_results)
+                if print_sample_fn is not None:
+                    print_sample_fn(scored_results)
+
+            if output_dir is not None:
+                os.makedirs(output_dir, exist_ok=True)
+                suffix = f"__{combo_label}" if multi_combo else ""
+                output_path = os.path.join(output_dir, f"{eval_name}_{lora_name}{suffix}.json")
+                output_data: dict[str, Any] = {
+                    "config": asdict(loop_config),
+                    "verbalizer": verbalizer_entry,
+                    "num_entries": num_entries,
+                    "scored_results": scored_results,
+                    "metrics": metrics if scored_results else None,
+                    "verbalizer_results": [asdict(r) for r in results],
+                }
+                if extra_output_data:
+                    output_data.update(extra_output_data)
+                with open(output_path, "w") as f:
+                    json.dump(output_data, f, indent=2)
+                print(f"  Saved results to {output_path}")
+
+        if combo_metrics:
+            aggregated_metrics = average_numeric_metric_dicts(list(combo_metrics.values()))
+            metrics_by_verbalizer[verbalizer_key] = aggregated_metrics
+            overall_metric_dicts.append(aggregated_metrics)
+            if multi_combo:
+                layer_combination_metrics_by_verbalizer[verbalizer_key] = combo_metrics
+                print(f"\n  Aggregated metrics for {verbalizer_key} across layer combinations:")
+                _print_metrics(aggregated_metrics)
 
         if sanitized_verbalizer_name is not None:
             if sanitized_verbalizer_name in model.peft_config:
                 model.delete_adapter(sanitized_verbalizer_name)
 
-    overall_metrics = metrics_fn(all_scored_results) if all_scored_results else {}
-    return {
-        "overall_metrics": overall_metrics,
+    result = {
+        "overall_metrics": average_numeric_metric_dicts(overall_metric_dicts),
         "metrics_by_verbalizer": metrics_by_verbalizer,
         "num_entries": num_entries,
-        "num_scored": len(all_scored_results),
+        "num_scored": total_scored,
     }
+    if layer_combination_metrics_by_verbalizer:
+        result["layer_combination_metrics_by_verbalizer"] = layer_combination_metrics_by_verbalizer
+    return result
 
 
 # ---------------------------------------------------------------------------
@@ -561,85 +629,127 @@ def run_verbalizer_binary_eval_loop(
     candidate_token_groups = build_yes_no_candidate_token_groups(tokenizer)
     candidate_group_info = describe_candidate_token_groups(tokenizer, candidate_token_groups)
 
-    all_scored_results: list[dict[str, Any]] = []
+    total_scored = 0
     metrics_by_verbalizer: dict[str, dict[str, Any]] = {}
     plot_paths_by_verbalizer: dict[str, str] = {}
+    layer_combination_metrics_by_verbalizer: dict[str, dict[str, dict[str, Any]]] = {}
+    layer_combination_plot_paths_by_verbalizer: dict[str, dict[str, str]] = {}
+    overall_metric_dicts: list[dict[str, Any]] = []
 
     for verbalizer_entry in verbalizer_lora_paths:
-        sanitized_verbalizer_name, loop_config = _load_adapter_and_build_config(
-            model, verbalizer_entry, model_name, eval_batch_size, generation_kwargs,
+        sanitized_verbalizer_name, training_config = _load_adapter_and_training_config(
+            model, verbalizer_entry,
         )
-
-        assert len(loop_config.activation_input_types) == 1, (
-            f"Binary eval requires exactly one activation_input_type, "
-            f"got {loop_config.activation_input_types}. Multiple act types produce "
-            f"multiple results per entry, breaking the 1:1 mapping with entry_metadata."
-        )
-
-        print(f"Running {eval_name} binary eval with verbalizer: {verbalizer_entry}")
+        layer_combinations = all_layer_combinations(training_config)
         verbalizer_key = verbalizer_entry.split("/")[-1]
         lora_name = verbalizer_key.replace("/", "_").replace(".", "_")
+        multi_combo = len(layer_combinations) > 1
+        combo_metrics: dict[str, dict[str, Any]] = {}
+        combo_plot_paths: dict[str, str] = {}
 
-        binary_results = base_experiment.run_verbalizer_binary_score(
-            model=model,
-            tokenizer=tokenizer,
-            verbalizer_prompt_infos=prompt_infos,
-            verbalizer_lora_path=sanitized_verbalizer_name,
-            target_lora_path=None,
-            config=loop_config,
-            device=device,
-            candidate_token_groups=candidate_token_groups,
-        )
+        for selected_layer_combination in layer_combinations:
+            loop_config = build_verbalizer_eval_config(
+                model_name=model_name,
+                training_config=training_config,
+                eval_batch_size=eval_batch_size,
+                generation_kwargs=generation_kwargs,
+                selected_layer_combination=selected_layer_combination,
+            )
+            base_experiment.assert_training_config_matches_verbalizer_eval_config(loop_config, training_config)
 
-        scored_results = score_binary_yes_no_results(binary_results, entry_metadata)
-        metrics: dict[str, Any] | None = None
-        plot_path: str | None = None
+            assert len(loop_config.activation_input_types) == 1, (
+                f"Binary eval requires exactly one activation_input_type, "
+                f"got {loop_config.activation_input_types}. Multiple act types produce "
+                f"multiple results per entry, breaking the 1:1 mapping with entry_metadata."
+            )
 
-        if scored_results:
-            _metrics_fn = binary_metrics_fn or compute_binary_yes_no_metrics
-            metrics = _metrics_fn(scored_results)
-            metrics_by_verbalizer[verbalizer_key] = metrics
-            print(f"\n  Binary score metrics for {verbalizer_key}:")
-            _print_metrics(metrics)
+            combo_label = format_layer_combination(selected_layer_combination)
+            print(
+                f"Running {eval_name} binary eval with verbalizer: {verbalizer_entry}"
+                + (f" | layers={combo_label}" if multi_combo else "")
+            )
+
+            binary_results = base_experiment.run_verbalizer_binary_score(
+                model=model,
+                tokenizer=tokenizer,
+                verbalizer_prompt_infos=prompt_infos,
+                verbalizer_lora_path=sanitized_verbalizer_name,
+                target_lora_path=None,
+                config=loop_config,
+                device=device,
+                candidate_token_groups=candidate_token_groups,
+            )
+
+            scored_results = score_binary_yes_no_results(binary_results, entry_metadata)
+            total_scored += len(scored_results)
+            metrics: dict[str, Any] | None = None
+            plot_path: str | None = None
+
+            if scored_results:
+                _metrics_fn = binary_metrics_fn or compute_binary_yes_no_metrics
+                metrics = _metrics_fn(scored_results)
+                combo_metrics[combo_label] = metrics
+                print(
+                    f"\n  Binary score metrics for {verbalizer_key}"
+                    + (f" ({combo_label})" if multi_combo else "")
+                    + ":"
+                )
+                _print_metrics(metrics)
+
+                if output_dir is not None:
+                    suffix = f"__{combo_label}" if multi_combo else ""
+                    plot_path = save_binary_yes_no_roc_plot(
+                        scored_results,
+                        output_path=os.path.join(output_dir, f"{eval_name}_{lora_name}{suffix}_roc_auc.png"),
+                        title=f"{eval_name} - {verbalizer_key}" + (f" ({combo_label})" if multi_combo else ""),
+                    )
+                    if plot_path is not None:
+                        combo_plot_paths[combo_label] = plot_path
+                        if not multi_combo:
+                            plot_paths_by_verbalizer[verbalizer_key] = plot_path
+                        print(f"  Saved ROC curve to {plot_path}")
 
             if output_dir is not None:
-                plot_path = save_binary_yes_no_roc_plot(
-                    scored_results,
-                    output_path=os.path.join(output_dir, f"{eval_name}_{lora_name}_roc_auc.png"),
-                    title=f"{eval_name} - {verbalizer_key}",
-                )
-                if plot_path is not None:
-                    plot_paths_by_verbalizer[verbalizer_key] = plot_path
-                    print(f"  Saved ROC curve to {plot_path}")
+                os.makedirs(output_dir, exist_ok=True)
+                suffix = f"__{combo_label}" if multi_combo else ""
+                output_path = os.path.join(output_dir, f"{eval_name}_binary_{lora_name}{suffix}.json")
+                output_data: dict[str, Any] = {
+                    "config": asdict(loop_config),
+                    "verbalizer": verbalizer_entry,
+                    "num_entries": num_entries,
+                    "binary_score_candidate_groups": candidate_group_info,
+                    "binary_scored_results": scored_results,
+                    "binary_score_metrics": metrics if scored_results else None,
+                    "binary_roc_plot_path": plot_path,
+                }
+                with open(output_path, "w") as f:
+                    json.dump(output_data, f, indent=2)
+                print(f"  Saved binary results to {output_path}")
 
-        if output_dir is not None:
-            os.makedirs(output_dir, exist_ok=True)
-            output_path = os.path.join(output_dir, f"{eval_name}_binary_{lora_name}.json")
-            output_data: dict[str, Any] = {
-                "config": asdict(loop_config),
-                "verbalizer": verbalizer_entry,
-                "num_entries": num_entries,
-                "binary_score_candidate_groups": candidate_group_info,
-                "binary_scored_results": scored_results,
-                "binary_score_metrics": metrics if scored_results else None,
-                "binary_roc_plot_path": plot_path,
-            }
-            with open(output_path, "w") as f:
-                json.dump(output_data, f, indent=2)
-            print(f"  Saved binary results to {output_path}")
-
-        all_scored_results.extend(scored_results)
+        if combo_metrics:
+            aggregated_metrics = average_numeric_metric_dicts(list(combo_metrics.values()))
+            metrics_by_verbalizer[verbalizer_key] = aggregated_metrics
+            overall_metric_dicts.append(aggregated_metrics)
+            if multi_combo:
+                layer_combination_metrics_by_verbalizer[verbalizer_key] = combo_metrics
+                if combo_plot_paths:
+                    layer_combination_plot_paths_by_verbalizer[verbalizer_key] = combo_plot_paths
+                print(f"\n  Aggregated binary metrics for {verbalizer_key} across layer combinations:")
+                _print_metrics(aggregated_metrics)
 
         if sanitized_verbalizer_name is not None:
             if sanitized_verbalizer_name in model.peft_config:
                 model.delete_adapter(sanitized_verbalizer_name)
 
-    _overall_metrics_fn = binary_metrics_fn or compute_binary_yes_no_metrics
-    overall_metrics = _overall_metrics_fn(all_scored_results) if all_scored_results else {}
-    return {
-        "overall_metrics": overall_metrics,
+    result = {
+        "overall_metrics": average_numeric_metric_dicts(overall_metric_dicts),
         "metrics_by_verbalizer": metrics_by_verbalizer,
-        "num_scored": len(all_scored_results),
+        "num_scored": total_scored,
         "candidate_token_groups": candidate_group_info,
         "plot_paths_by_verbalizer": plot_paths_by_verbalizer,
     }
+    if layer_combination_metrics_by_verbalizer:
+        result["layer_combination_metrics_by_verbalizer"] = layer_combination_metrics_by_verbalizer
+    if layer_combination_plot_paths_by_verbalizer:
+        result["layer_combination_plot_paths_by_verbalizer"] = layer_combination_plot_paths_by_verbalizer
+    return result
