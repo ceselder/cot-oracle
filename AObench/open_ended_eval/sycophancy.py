@@ -155,6 +155,7 @@ def build_sycophancy_verbalizer_prompt_infos(
     eval_entries: list[dict[str, Any]],
     verbalizer_prompts: dict[str, str],
     tokenizer,
+    segment_start: int | None = None,
 ) -> tuple[list[VerbalizerInputInfo], list[dict[str, Any]]]:
     """Build VerbalizerInputInfos for sycophancy eval.
 
@@ -176,8 +177,11 @@ def build_sycophancy_verbalizer_prompt_infos(
             continue_final_message=True,
             enable_thinking=False,
         )
-        # Use all tokens as the segment
-        positions = compute_segment_positions(len(token_ids), start_idx=0)
+        if segment_start is None:
+            # Default behavior keeps the full answer trace.
+            positions = compute_segment_positions(len(token_ids), start_idx=0)
+        else:
+            positions = compute_segment_positions(len(token_ids), segment_start)
 
         ground_truth = "yes" if eval_entry["sycophantic"] else "no"
 
@@ -219,6 +223,7 @@ def run_sycophancy_open_ended_eval(
     max_entries_per_class: int = 100,
     mode: str = "no_cot",
     verbalizer_prompts: dict[str, str] | None = None,
+    segment_start: int | None = None,
 ) -> dict[str, Any]:
     if verbalizer_prompts is None:
         verbalizer_prompts = VERBALIZER_PROMPTS
@@ -229,7 +234,12 @@ def run_sycophancy_open_ended_eval(
         max_entries_per_class=max_entries_per_class,
         mode=mode,
     )
-    prompt_infos, entry_metadata = build_sycophancy_verbalizer_prompt_infos(eval_entries, verbalizer_prompts, tokenizer)
+    prompt_infos, entry_metadata = build_sycophancy_verbalizer_prompt_infos(
+        eval_entries,
+        verbalizer_prompts,
+        tokenizer,
+        segment_start=segment_start,
+    )
 
     return run_verbalizer_binary_eval_loop(
         eval_name=f"sycophancy_{mode}",

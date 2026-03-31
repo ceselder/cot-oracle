@@ -67,6 +67,7 @@ def build_missing_info_verbalizer_prompt_infos(
     entries: list[dict[str, Any]],
     verbalizer_prompts: dict[str, str],
     tokenizer,
+    segment_start: int | None = None,
 ) -> tuple[list[VerbalizerInputInfo], list[dict[str, Any]]]:
     prompt_infos: list[VerbalizerInputInfo] = []
     entry_metadata: list[dict[str, Any]] = []
@@ -91,10 +92,15 @@ def build_missing_info_verbalizer_prompt_infos(
             add_generation_prompt=False,
             continue_thinking=True,
         )
-        # Segment covers exactly the neutral/teacher-forced segment per entry,
-        # so conditions A and C have identical token windows.
-        segment_token_count = entry["neutral_segment_token_count"]
-        positions = compute_segment_positions(len(token_ids), -segment_token_count)
+        if segment_start is None:
+            # Default behavior: use the full neutral/teacher-forced segment so
+            # conditions A and C see identical token windows.
+            segment_token_count = entry["neutral_segment_token_count"]
+            positions = compute_segment_positions(len(token_ids), -segment_token_count)
+        else:
+            # Fairness override for cross-eval comparisons: use the trailing
+            # activation window regardless of the task-specific segment.
+            positions = compute_segment_positions(len(token_ids), segment_start)
 
         # Prompts where "yes" means the model HAS info / is doing well
         # (ground truth is flipped relative to missing_info)
@@ -176,6 +182,7 @@ def run_missing_info_open_ended_eval(
     output_dir: str | None = None,
     max_entries: int | None = None,
     verbalizer_prompts: dict[str, str] | None = None,
+    segment_start: int | None = None,
 ) -> dict[str, Any]:
     if verbalizer_prompts is None:
         verbalizer_prompts = VERBALIZER_PROMPTS
@@ -188,6 +195,7 @@ def run_missing_info_open_ended_eval(
         entries,
         verbalizer_prompts,
         tokenizer,
+        segment_start=segment_start,
     )
 
     return run_verbalizer_binary_eval_loop(
