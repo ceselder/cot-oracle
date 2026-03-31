@@ -1,0 +1,106 @@
+{
+  "overall_metrics": {
+    "correct_rate": 0.07777777777777777,
+    "hallucination_rate": 0.8472222222222223,
+    "obvious_hallucination_rate": 0.4097222222222222,
+    "vague_rate": 0.075,
+    "correct": 0.75,
+    "vague": 0.75,
+    "plausible_but_wrong": 4.25,
+    "obviously_wrong": 4.0,
+    "total": 9.75
+  },
+  "metrics_by_verbalizer": {
+    "adam-reupload-qwen3-8b-latentqa-cls-past-lens": {
+      "correct_rate": 0.2,
+      "hallucination_rate": 0.8,
+      "obvious_hallucination_rate": 0.4,
+      "vague_rate": 0.0,
+      "correct": 2.0,
+      "vague": 0.0,
+      "plausible_but_wrong": 4.0,
+      "obviously_wrong": 4.0,
+      "total": 10.0
+    },
+    "adam-reupload-qwen3-8b-full-mix-synthetic-qa-v3-replace-lqa": {
+      "correct_rate": 0.0,
+      "hallucination_rate": 0.9,
+      "obvious_hallucination_rate": 0.4,
+      "vague_rate": 0.1,
+      "correct": 0.0,
+      "vague": 1.0,
+      "plausible_but_wrong": 5.0,
+      "obviously_wrong": 4.0,
+      "total": 10.0
+    },
+    "cot-oracle-paper-ablation-adam-recipe-1layer": {
+      "correct_rate": 0.1111111111111111,
+      "hallucination_rate": 0.8888888888888888,
+      "obvious_hallucination_rate": 0.5555555555555556,
+      "vague_rate": 0.0,
+      "correct": 1.0,
+      "vague": 0.0,
+      "plausible_but_wrong": 3.0,
+      "obviously_wrong": 5.0,
+      "total": 9.0
+    },
+    "cot-oracle-paper-ablation-ours-1layer": {
+      "correct_rate": 0.0,
+      "hallucination_rate": 1.0,
+      "obvious_hallucination_rate": 0.6,
+      "vague_rate": 0.0,
+      "correct": 0.0,
+      "vague": 0.0,
+      "plausible_but_wrong": 4.0,
+      "obviously_wrong": 6.0,
+      "total": 10.0
+    },
+    "cot-oracle-paper-ablation-ours-3layers": {
+      "correct_rate": 0.1,
+      "hallucination_rate": 0.9,
+      "obvious_hallucination_rate": 0.4,
+      "vague_rate": 0.0,
+      "correct": 1.0,
+      "vague": 0.0,
+      "plausible_but_wrong": 5.0,
+      "obviously_wrong": 4.0,
+      "total": 10.0
+    },
+    "cot-oracle-paper-ablation-ours-3layers-onpolicy-lens-only": {
+      "correct_rate": 0.1111111111111111,
+      "hallucination_rate": 0.8888888888888888,
+      "obvious_hallucination_rate": 0.2222222222222222,
+      "vague_rate": 0.0,
+      "correct": 1.0,
+      "vague": 0.0,
+      "plausible_but_wrong": 6.0,
+      "obviously_wrong": 2.0,
+      "total": 9.0
+    },
+    "cot-oracle-qwen3-8b-final-sprint-checkpoint-no-DPO": {
+      "correct_rate": 0.0,
+      "hallucination_rate": 1.0,
+      "obvious_hallucination_rate": 0.4,
+      "vague_rate": 0.0,
+      "correct": 0.0,
+      "vague": 0.0,
+      "plausible_but_wrong": 6.0,
+      "obviously_wrong": 4.0,
+      "total": 10.0
+    },
+    "cot-oracle-grpo-step-500": {
+      "correct_rate": 0.1,
+      "hallucination_rate": 0.4,
+      "obvious_hallucination_rate": 0.3,
+      "vague_rate": 0.5,
+      "correct": 1.0,
+      "vague": 5.0,
+      "plausible_but_wrong": 1.0,
+      "obviously_wrong": 3.0,
+      "total": 10.0
+    }
+  },
+  "num_entries": 197,
+  "num_scored": 78,
+  "elapsed_seconds": 1570.4871473759413
+}

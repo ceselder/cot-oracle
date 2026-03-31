@@ -1,0 +1,123 @@
+{
+  "overall_metrics": {
+    "domain_confusion_rate": 0.8125,
+    "specificity_when_correct": 0.037500000000000006,
+    "domain_correct_specific_rate": 0.037500000000000006,
+    "domain_correct_vague_rate": 0.15,
+    "domain_wrong_rate": 0.8125,
+    "refusal_rate": 0.0,
+    "domain_correct_specific": 0.375,
+    "domain_correct_vague": 1.5,
+    "domain_wrong": 8.125,
+    "refuses": 0.0,
+    "total": 10.0
+  },
+  "metrics_by_verbalizer": {
+    "adam-reupload-qwen3-8b-latentqa-cls-past-lens": {
+      "domain_confusion_rate": 0.4,
+      "specificity_when_correct": 0.0,
+      "domain_correct_specific_rate": 0.0,
+      "domain_correct_vague_rate": 0.6,
+      "domain_wrong_rate": 0.4,
+      "refusal_rate": 0.0,
+      "domain_correct_specific": 0.0,
+      "domain_correct_vague": 6.0,
+      "domain_wrong": 4.0,
+      "refuses": 0.0,
+      "total": 10.0
+    },
+    "adam-reupload-qwen3-8b-full-mix-synthetic-qa-v3-replace-lqa": {
+      "domain_confusion_rate": 1.0,
+      "specificity_when_correct": 0.0,
+      "domain_correct_specific_rate": 0.0,
+      "domain_correct_vague_rate": 0.0,
+      "domain_wrong_rate": 1.0,
+      "refusal_rate": 0.0,
+      "domain_correct_specific": 0.0,
+      "domain_correct_vague": 0.0,
+      "domain_wrong": 10.0,
+      "refuses": 0.0,
+      "total": 10.0
+    },
+    "cot-oracle-paper-ablation-adam-recipe-1layer": {
+      "domain_confusion_rate": 1.0,
+      "specificity_when_correct": 0.0,
+      "domain_correct_specific_rate": 0.0,
+      "domain_correct_vague_rate": 0.0,
+      "domain_wrong_rate": 1.0,
+      "refusal_rate": 0.0,
+      "domain_correct_specific": 0.0,
+      "domain_correct_vague": 0.0,
+      "domain_wrong": 10.0,
+      "refuses": 0.0,
+      "total": 10.0
+    },
+    "cot-oracle-paper-ablation-ours-1layer": {
+      "domain_confusion_rate": 0.8,
+      "specificity_when_correct": 0.0,
+      "domain_correct_specific_rate": 0.0,
+      "domain_correct_vague_rate": 0.2,
+      "domain_wrong_rate": 0.8,
+      "refusal_rate": 0.0,
+      "domain_correct_specific": 0.0,
+      "domain_correct_vague": 2.0,
+      "domain_wrong": 8.0,
+      "refuses": 0.0,
+      "total": 10.0
+    },
+    "cot-oracle-paper-ablation-ours-3layers": {
+      "domain_confusion_rate": 0.8,
+      "specificity_when_correct": 0.1,
+      "domain_correct_specific_rate": 0.1,
+      "domain_correct_vague_rate": 0.1,
+      "domain_wrong_rate": 0.8,
+      "refusal_rate": 0.0,
+      "domain_correct_specific": 1.0,
+      "domain_correct_vague": 1.0,
+      "domain_wrong": 8.0,
+      "refuses": 0.0,
+      "total": 10.0
+    },
+    "cot-oracle-paper-ablation-ours-3layers-onpolicy-lens-only": {
+      "domain_confusion_rate": 0.9,
+      "specificity_when_correct": 0.0,
+      "domain_correct_specific_rate": 0.0,
+      "domain_correct_vague_rate": 0.1,
+      "domain_wrong_rate": 0.9,
+      "refusal_rate": 0.0,
+      "domain_correct_specific": 0.0,
+      "domain_correct_vague": 1.0,
+      "domain_wrong": 9.0,
+      "refuses": 0.0,
+      "total": 10.0
+    },
+    "cot-oracle-qwen3-8b-final-sprint-checkpoint-no-DPO": {
+      "domain_confusion_rate": 1.0,
+      "specificity_when_correct": 0.0,
+      "domain_correct_specific_rate": 0.0,
+      "domain_correct_vague_rate": 0.0,
+      "domain_wrong_rate": 1.0,
+      "refusal_rate": 0.0,
+      "domain_correct_specific": 0.0,
+      "domain_correct_vague": 0.0,
+      "domain_wrong": 10.0,
+      "refuses": 0.0,
+      "total": 10.0
+    },
+    "cot-oracle-grpo-step-500": {
+      "domain_confusion_rate": 0.6,
+      "specificity_when_correct": 0.2,
+      "domain_correct_specific_rate": 0.2,
+      "domain_correct_vague_rate": 0.2,
+      "domain_wrong_rate": 0.6,
+      "refusal_rate": 0.0,
+      "domain_correct_specific": 2.0,
+      "domain_correct_vague": 2.0,
+      "domain_wrong": 6.0,
+      "refuses": 0.0,
+      "total": 10.0
+    }
+  },
+  "num_entries": 197,
+  "num_scored": 80
+}

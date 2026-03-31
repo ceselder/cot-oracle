@@ -1,0 +1,79 @@
+{
+  "overall_metrics": {
+    "vagueness_rate": 0.54,
+    "specificity_rate": 0.41999999999999993,
+    "refusal_rate": 0.04,
+    "generic_rate": 0.12,
+    "vague_directional_rate": 0.42000000000000004,
+    "specific_correct": 4.2,
+    "vague_directional": 4.2,
+    "generic": 1.2,
+    "refuses": 0.4,
+    "total": 10.0
+  },
+  "metrics_by_verbalizer": {
+    "adam-reupload-qwen3-8b-full-mix-synthetic-qa-v3-replace-lqa": {
+      "vagueness_rate": 0.5,
+      "specificity_rate": 0.5,
+      "refusal_rate": 0.0,
+      "generic_rate": 0.2,
+      "vague_directional_rate": 0.3,
+      "specific_correct": 5.0,
+      "vague_directional": 3.0,
+      "generic": 2.0,
+      "refuses": 0.0,
+      "total": 10.0
+    },
+    "cot-oracle-paper-ablation-ours-1layer": {
+      "vagueness_rate": 0.5,
+      "specificity_rate": 0.5,
+      "refusal_rate": 0.0,
+      "generic_rate": 0.0,
+      "vague_directional_rate": 0.5,
+      "specific_correct": 5.0,
+      "vague_directional": 5.0,
+      "generic": 0.0,
+      "refuses": 0.0,
+      "total": 10.0
+    },
+    "cot-oracle-paper-ablation-ours-3layers": {
+      "vagueness_rate": 0.6,
+      "specificity_rate": 0.4,
+      "refusal_rate": 0.0,
+      "generic_rate": 0.1,
+      "vague_directional_rate": 0.5,
+      "specific_correct": 4.0,
+      "vague_directional": 5.0,
+      "generic": 1.0,
+      "refuses": 0.0,
+      "total": 10.0
+    },
+    "cot-oracle-paper-ablation-ours-3layers-onpolicy-lens-only": {
+      "vagueness_rate": 0.5,
+      "specificity_rate": 0.4,
+      "refusal_rate": 0.1,
+      "generic_rate": 0.2,
+      "vague_directional_rate": 0.3,
+      "specific_correct": 4.0,
+      "vague_directional": 3.0,
+      "generic": 2.0,
+      "refuses": 1.0,
+      "total": 10.0
+    },
+    "cot-oracle-qwen3-8b-final-sprint-checkpoint-no-DPO": {
+      "vagueness_rate": 0.6,
+      "specificity_rate": 0.3,
+      "refusal_rate": 0.1,
+      "generic_rate": 0.1,
+      "vague_directional_rate": 0.5,
+      "specific_correct": 3.0,
+      "vague_directional": 5.0,
+      "generic": 1.0,
+      "refuses": 1.0,
+      "total": 10.0
+    }
+  },
+  "num_entries": 197,
+  "num_scored": 50,
+  "elapsed_seconds": 448.0787734333426
+}

@@ -1,0 +1,77 @@
+{
+  "adam-reupload-qwen3-8b-latentqa-cls-past-lens": {
+    "mean_normalized_score": 0.2583333333333333,
+    "num_evals": 3,
+    "per_eval_normalized": {
+      "backtracking": 0.07500000000000001,
+      "system_prompt_qa_latentqa": 0.7,
+      "domain_confusion": 0.0
+    }
+  },
+  "adam-reupload-qwen3-8b-full-mix-synthetic-qa-v3-replace-lqa": {
+    "mean_normalized_score": 0.36250000000000004,
+    "num_evals": 4,
+    "per_eval_normalized": {
+      "backtracking": 0.175,
+      "system_prompt_qa_latentqa": 0.675,
+      "vagueness": 0.5,
+      "domain_confusion": 0.1
+    }
+  },
+  "cot-oracle-paper-ablation-ours-1layer": {
+    "mean_normalized_score": 0.26875,
+    "num_evals": 4,
+    "per_eval_normalized": {
+      "backtracking": 0.07500000000000001,
+      "vagueness": 0.5,
+      "domain_confusion": 0.0,
+      "activation_sensitivity": 0.5
+    }
+  },
+  "cot-oracle-paper-ablation-ours-3layers": {
+    "mean_normalized_score": 0.30208333333333337,
+    "num_evals": 4,
+    "per_eval_normalized": {
+      "backtracking": 0.33333333333333337,
+      "system_prompt_qa_latentqa": 0.475,
+      "vagueness": 0.4,
+      "domain_confusion": 0.0
+    }
+  },
+  "cot-oracle-paper-ablation-ours-3layers-onpolicy-lens-only": {
+    "mean_normalized_score": 0.27904411764705883,
+    "num_evals": 4,
+    "per_eval_normalized": {
+      "backtracking": 0.19117647058823528,
+      "system_prompt_qa_latentqa": 0.525,
+      "vagueness": 0.4,
+      "domain_confusion": 0.0
+    }
+  },
+  "cot-oracle-qwen3-8b-final-sprint-checkpoint-no-DPO": {
+    "mean_normalized_score": 0.25,
+    "num_evals": 4,
+    "per_eval_normalized": {
+      "backtracking": 0.09999999999999998,
+      "vagueness": 0.3,
+      "domain_confusion": 0.0,
+      "activation_sensitivity": 0.6
+    }
+  },
+  "cot-oracle-grpo-step-500": {
+    "mean_normalized_score": 0.17500000000000002,
+    "num_evals": 3,
+    "per_eval_normalized": {
+      "backtracking": 0.04999999999999999,
+      "system_prompt_qa_latentqa": 0.375,
+      "domain_confusion": 0.1
+    }
+  },
+  "cot-oracle-paper-ablation-adam-recipe-1layer": {
+    "mean_normalized_score": 0.0,
+    "num_evals": 1,
+    "per_eval_normalized": {
+      "domain_confusion": 0.0
+    }
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "model_name": "Qwen/Qwen3-8B",
+  "positions": [
+    1,
+    3,
+    5,
+    10,
+    100
+  ],
+  "metric": "domain_correct_specific_rate",
+  "verbalizer_lora_paths": [
+    "ceselder/adam-reupload-qwen3-8b-latentqa-cls-past-lens",
+    "ceselder/adam-reupload-qwen3-8b-full-mix-synthetic-qa-v3-replace-lqa",
+    "ceselder/cot-oracle-paper-ablation-adam-recipe-1layer",
+    "ceselder/cot-oracle-paper-ablation-ours-1layer",
+    "ceselder/cot-oracle-paper-ablation-ours-3layers",
+    "ceselder/cot-oracle-paper-ablation-ours-3layers-onpolicy-lens-only",
+    "ceselder/cot-oracle-qwen3-8b-final-sprint-checkpoint-no-DPO",
+    "ceselder/cot-oracle-grpo-step-500"
+  ],
+  "max_entries": null
+}

@@ -1,0 +1,24 @@
+{
+  "model_name": "Qwen/Qwen3-8B",
+  "profile": "judge_heavy",
+  "include": [
+    "backtracking",
+    "system_prompt_qa_hidden",
+    "system_prompt_qa_latentqa",
+    "vagueness",
+    "domain_confusion",
+    "activation_sensitivity",
+    "hallucination_5pos"
+  ],
+  "n_positions": 5,
+  "verbalizer_lora_paths": [
+    "ceselder/adam-reupload-qwen3-8b-latentqa-cls-past-lens",
+    "ceselder/adam-reupload-qwen3-8b-full-mix-synthetic-qa-v3-replace-lqa",
+    "ceselder/cot-oracle-paper-ablation-adam-recipe-1layer",
+    "ceselder/cot-oracle-paper-ablation-ours-1layer",
+    "ceselder/cot-oracle-paper-ablation-ours-3layers",
+    "ceselder/cot-oracle-paper-ablation-ours-3layers-onpolicy-lens-only",
+    "ceselder/cot-oracle-qwen3-8b-final-sprint-checkpoint-no-DPO",
+    "ceselder/cot-oracle-grpo-step-500"
+  ]
+}

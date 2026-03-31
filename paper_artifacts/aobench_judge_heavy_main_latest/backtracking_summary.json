@@ -1,0 +1,79 @@
+{
+  "overall_metrics": {
+    "mean_specificity": 1.950140056022409,
+    "mean_correctness": 1.5711484593837535,
+    "specificity_>=3_rate": 0.2372549019607843,
+    "specificity_>=4_rate": 0.028571428571428574,
+    "correctness_>=3_rate": 0.16918767507002802,
+    "correctness_>=4_rate": 0.028571428571428574,
+    "num_scored": 10.0
+  },
+  "metrics_by_verbalizer": {
+    "adam-reupload-qwen3-8b-latentqa-cls-past-lens": {
+      "mean_specificity": 1.5,
+      "mean_correctness": 1.3,
+      "specificity_>=3_rate": 0.1,
+      "specificity_>=4_rate": 0.0,
+      "correctness_>=3_rate": 0.1,
+      "correctness_>=4_rate": 0.1,
+      "num_scored": 10.0
+    },
+    "adam-reupload-qwen3-8b-full-mix-synthetic-qa-v3-replace-lqa": {
+      "mean_specificity": 2.4,
+      "mean_correctness": 1.7,
+      "specificity_>=3_rate": 0.3,
+      "specificity_>=4_rate": 0.2,
+      "correctness_>=3_rate": 0.1,
+      "correctness_>=4_rate": 0.1,
+      "num_scored": 10.0
+    },
+    "cot-oracle-paper-ablation-ours-1layer": {
+      "mean_specificity": 1.7,
+      "mean_correctness": 1.3,
+      "specificity_>=3_rate": 0.1,
+      "specificity_>=4_rate": 0.0,
+      "correctness_>=3_rate": 0.1,
+      "correctness_>=4_rate": 0.0,
+      "num_scored": 10.0
+    },
+    "cot-oracle-paper-ablation-ours-3layers": {
+      "mean_specificity": 2.3333333333333335,
+      "mean_correctness": 2.3333333333333335,
+      "specificity_>=3_rate": 0.6666666666666666,
+      "specificity_>=4_rate": 0.0,
+      "correctness_>=3_rate": 0.6666666666666666,
+      "correctness_>=4_rate": 0.0,
+      "num_scored": 3.0
+    },
+    "cot-oracle-paper-ablation-ours-3layers-onpolicy-lens-only": {
+      "mean_specificity": 2.1176470588235294,
+      "mean_correctness": 1.7647058823529411,
+      "specificity_>=3_rate": 0.29411764705882354,
+      "specificity_>=4_rate": 0.0,
+      "correctness_>=3_rate": 0.11764705882352941,
+      "correctness_>=4_rate": 0.0,
+      "num_scored": 17.0
+    },
+    "cot-oracle-qwen3-8b-final-sprint-checkpoint-no-DPO": {
+      "mean_specificity": 2.1,
+      "mean_correctness": 1.4,
+      "specificity_>=3_rate": 0.2,
+      "specificity_>=4_rate": 0.0,
+      "correctness_>=3_rate": 0.1,
+      "correctness_>=4_rate": 0.0,
+      "num_scored": 10.0
+    },
+    "cot-oracle-grpo-step-500": {
+      "mean_specificity": 1.5,
+      "mean_correctness": 1.2,
+      "specificity_>=3_rate": 0.0,
+      "specificity_>=4_rate": 0.0,
+      "correctness_>=3_rate": 0.0,
+      "correctness_>=4_rate": 0.0,
+      "num_scored": 10.0
+    }
+  },
+  "num_entries": 197,
+  "num_scored": 70,
+  "elapsed_seconds": 431.2508758958429
+}

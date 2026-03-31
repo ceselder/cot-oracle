@@ -1,0 +1,39 @@
+{
+  "overall_metrics": {
+    "activation_sensitivity": 0.55,
+    "same_rate": 0.1,
+    "divergent_noise_rate": 0.35,
+    "divergent_meaningful": 11,
+    "divergent_noise": 7,
+    "same": 2,
+    "total": 20.0
+  },
+  "metrics_by_verbalizer": {
+    "adam-reupload-qwen3-8b-latentqa-cls-past-lens": {},
+    "adam-reupload-qwen3-8b-full-mix-synthetic-qa-v3-replace-lqa": {},
+    "cot-oracle-paper-ablation-adam-recipe-1layer": {},
+    "cot-oracle-paper-ablation-ours-1layer": {
+      "activation_sensitivity": 0.5,
+      "same_rate": 0.1,
+      "divergent_noise_rate": 0.4,
+      "divergent_meaningful": 5,
+      "divergent_noise": 4,
+      "same": 1,
+      "total": 10.0
+    },
+    "cot-oracle-paper-ablation-ours-3layers": {},
+    "cot-oracle-paper-ablation-ours-3layers-onpolicy-lens-only": {},
+    "cot-oracle-qwen3-8b-final-sprint-checkpoint-no-DPO": {
+      "activation_sensitivity": 0.6,
+      "same_rate": 0.1,
+      "divergent_noise_rate": 0.3,
+      "divergent_meaningful": 6,
+      "divergent_noise": 3,
+      "same": 1,
+      "total": 10.0
+    },
+    "cot-oracle-grpo-step-500": {}
+  },
+  "num_pairs": 20,
+  "elapsed_seconds": 165.2978374119848
+}
