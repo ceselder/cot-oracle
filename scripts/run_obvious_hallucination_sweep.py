@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
 """
-Run a domain-confusion position sweep on the paper checkpoint collection.
+Run an obvious-hallucination position sweep on the paper checkpoint collection.
 
-This keeps the backbone/model load fixed and varies only the number of trailing
-activation positions used for the domain-confusion eval. The main artifact is a
-single line plot with one curve per checkpoint.
+This mirrors the domain-confusion sweep but tracks the obvious-hallucination
+failure mode directly as a function of activation positions.
 """
 
 import argparse
@@ -31,7 +30,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from AObench.open_ended_eval.domain_confusion import run_domain_confusion_open_ended_eval
+from AObench.open_ended_eval.hallucination import _run_hallucination
 from AObench.report import DISPLAY_COLORS, shorten_lora_name, verbalizer_sort_key
 from AObench.utils.common import load_model, load_tokenizer
 
@@ -47,12 +46,12 @@ PAPER_COLLECTION_VERBALIZERS = [
     "ceselder/cot-oracle-grpo-step-500",
 ]
 DEFAULT_POSITIONS = [1, 3, 5, 10, 50, 100]
-PRIMARY_METRIC = "domain_correct_specific_rate"
+PRIMARY_METRIC = "obvious_hallucination_rate"
 
 
 def default_output_dir() -> str:
     timestamp = datetime.datetime.now(datetime.UTC).strftime("%Y%m%d_%H%M%S")
-    return f"experiments/domain_confusion_sweep_{timestamp}"
+    return f"experiments/obvious_hallucination_sweep_{timestamp}"
 
 
 def _metric_by_verbalizer(summary: dict[str, Any], metric_key: str) -> dict[str, float]:
@@ -116,7 +115,7 @@ def plot_sweep(
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Run a domain-confusion position sweep")
+    parser = argparse.ArgumentParser(description="Run an obvious-hallucination position sweep")
     parser.add_argument(
         "--verbalizer-lora",
         type=str,
@@ -147,7 +146,7 @@ def main() -> None:
         "--max-entries",
         type=int,
         default=None,
-        help="Optional cap on number of domain-confusion entries.",
+        help="Optional cap on number of hallucination entries.",
     )
     args = parser.parse_args()
 
@@ -192,11 +191,13 @@ def main() -> None:
 
     for n_positions in positions:
         print(f"\n{'=' * 70}")
-        print(f"RUNNING DOMAIN CONFUSION SWEEP @ n_positions={n_positions}")
+        print(f"RUNNING OBVIOUS HALLUCINATION SWEEP @ n_positions={n_positions}")
         print(f"{'=' * 70}")
 
         position_output_dir = os.path.join(output_dir, f"positions_{n_positions}")
-        summary = run_domain_confusion_open_ended_eval(
+        summary = _run_hallucination(
+            n_positions=n_positions,
+            eval_name=f"hallucination_{n_positions}pos",
             model_name=args.model_name,
             model=model,
             tokenizer=tokenizer,
@@ -205,16 +206,15 @@ def main() -> None:
             eval_batch_size=32,
             verbalizer_lora_paths=verbalizer_lora_paths,
             max_entries=args.max_entries,
-            segment_start=-n_positions,
         )
 
         sweep_payload["summaries_by_position"][str(n_positions)] = summary
         sweep_payload["primary_metric_by_position"][str(n_positions)] = _metric_by_verbalizer(summary, PRIMARY_METRIC)
 
-        with open(os.path.join(output_dir, f"domain_confusion_{n_positions}_summary.json"), "w") as f:
+        with open(os.path.join(output_dir, f"obvious_hallucination_{n_positions}_summary.json"), "w") as f:
             json.dump(summary, f, indent=2)
 
-    sweep_json_path = os.path.join(output_dir, "domain_confusion_sweep.json")
+    sweep_json_path = os.path.join(output_dir, "obvious_hallucination_sweep.json")
     with open(sweep_json_path, "w") as f:
         json.dump(sweep_payload, f, indent=2)
 
@@ -224,13 +224,13 @@ def main() -> None:
     plot_sweep(
         sweep_metrics=primary_metrics,
         positions=positions,
-        output_path=os.path.join(output_dir, "domain_confusion_sweep.png"),
-        title="Domain Confusion vs Activation Positions",
-        ylabel="Domain Accuracy",
+        output_path=os.path.join(output_dir, "obvious_hallucination_sweep.png"),
+        title="Obvious Hallucination vs Activation Positions",
+        ylabel="Obvious Hallucination Rate",
     )
 
     print(f"Sweep summary saved to {sweep_json_path}")
-    print(f"Plot saved to {os.path.join(output_dir, 'domain_confusion_sweep.png')}")
+    print(f"Plot saved to {os.path.join(output_dir, 'obvious_hallucination_sweep.png')}")
 
 
 if __name__ == "__main__":

@@ -71,6 +71,7 @@ EVAL_METRIC_MAP: dict[str, tuple[str, str, bool]] = {
     "domain_confusion": ("domain_correct_specific_rate", "Domain Accuracy", True),
     "activation_sensitivity": ("activation_sensitivity", "Activation Sensitivity", True),
     "hallucination_1pos": ("correct_rate", "Correct Rate (1 pos)", True),
+    "hallucination_5pos": ("correct_rate", "Correct Rate (5 pos)", True),
     "hallucination_20pos": ("correct_rate", "Correct Rate (20 pos)", True),
 }
 
