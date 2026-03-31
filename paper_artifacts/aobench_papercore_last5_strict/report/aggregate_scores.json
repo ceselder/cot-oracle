@@ -1,0 +1,90 @@
+{
+  "adam-reupload-qwen3-8b-latentqa-cls-past-lens": {
+    "mean_normalized_score": 0.3936447715736041,
+    "num_evals": 5,
+    "per_eval_normalized": {
+      "number_prediction": 0.006666666666666667,
+      "mmlu_prediction": 0.3780000000000001,
+      "backtracking_mc": 0.661590524534687,
+      "missing_info": 0.2866666666666666,
+      "sycophancy": 0.6353
+    }
+  },
+  "adam-reupload-qwen3-8b-full-mix-synthetic-qa-v3-replace-lqa": {
+    "mean_normalized_score": 0.4135116356457981,
+    "num_evals": 5,
+    "per_eval_normalized": {
+      "number_prediction": 0.03333333333333333,
+      "mmlu_prediction": 0.38359999999999994,
+      "backtracking_mc": 0.6412859560067682,
+      "missing_info": 0.288888888888889,
+      "sycophancy": 0.72045
+    }
+  },
+  "cot-oracle-paper-ablation-adam-recipe-1layer": {
+    "mean_normalized_score": 0.2903903102086858,
+    "num_evals": 5,
+    "per_eval_normalized": {
+      "number_prediction": 0.0,
+      "mmlu_prediction": 0.2861999999999998,
+      "backtracking_mc": 0.587140439932318,
+      "missing_info": 0.03111111111111109,
+      "sycophancy": 0.5474999999999999
+    }
+  },
+  "cot-oracle-paper-ablation-ours-1layer": {
+    "mean_normalized_score": 0.3962700056401579,
+    "num_evals": 5,
+    "per_eval_normalized": {
+      "number_prediction": 0.03333333333333333,
+      "mmlu_prediction": 0.3460000000000001,
+      "backtracking_mc": 0.5803722504230118,
+      "missing_info": 0.46444444444444444,
+      "sycophancy": 0.5571999999999999
+    }
+  },
+  "cot-oracle-paper-ablation-ours-3layers": {
+    "mean_normalized_score": 0.42328000564015794,
+    "num_evals": 5,
+    "per_eval_normalized": {
+      "number_prediction": 0.04,
+      "mmlu_prediction": 0.39379999999999993,
+      "backtracking_mc": 0.5803722504230118,
+      "missing_info": 0.47777777777777786,
+      "sycophancy": 0.62445
+    }
+  },
+  "cot-oracle-paper-ablation-ours-3layers-onpolicy-lens-only": {
+    "mean_normalized_score": 0.4468582120699379,
+    "num_evals": 5,
+    "per_eval_normalized": {
+      "number_prediction": 0.07333333333333333,
+      "mmlu_prediction": 0.39979999999999993,
+      "backtracking_mc": 0.688663282571912,
+      "missing_info": 0.48444444444444446,
+      "sycophancy": 0.58805
+    }
+  },
+  "cot-oracle-qwen3-8b-final-sprint-checkpoint-no-DPO": {
+    "mean_normalized_score": 0.37227454032712914,
+    "num_evals": 5,
+    "per_eval_normalized": {
+      "number_prediction": 0.04,
+      "mmlu_prediction": 0.36240000000000006,
+      "backtracking_mc": 0.532994923857868,
+      "missing_info": 0.4177777777777776,
+      "sycophancy": 0.5082
+    }
+  },
+  "cot-oracle-grpo-step-500": {
+    "mean_normalized_score": 0.42483305132543714,
+    "num_evals": 5,
+    "per_eval_normalized": {
+      "number_prediction": 0.03333333333333333,
+      "mmlu_prediction": 0.4206000000000003,
+      "backtracking_mc": 0.6480541455160744,
+      "missing_info": 0.4577777777777776,
+      "sycophancy": 0.5644
+    }
+  }
+}

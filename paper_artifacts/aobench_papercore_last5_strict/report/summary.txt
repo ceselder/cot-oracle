@@ -1,0 +1,67 @@
+AObench Results Summary
+================================================================================
+
+--- backtracking_mc (MC Accuracy) ---
+  Adam synth-QA-v3                               0.7310
+  Adam original                                  0.7462
+  Ours GRPO step 500                             0.7360
+  Paper Adam recipe                              0.6904
+  Paper ours 1L                                  0.6853
+  Paper ours 3L                                  0.6853
+  Paper ours 3L on-policy                        0.7665
+  Ours final no-DPO                              0.6497
+  (chance)                                       0.2500
+
+--- missing_info (ROC AUC) ---
+  Adam synth-QA-v3                               0.6444
+  Adam original                                  0.6433
+  Ours GRPO step 500                             0.7289
+  Paper Adam recipe                              0.5156
+  Paper ours 1L                                  0.7322
+  Paper ours 3L                                  0.7389
+  Paper ours 3L on-policy                        0.7422
+  Ours final no-DPO                              0.7089
+  (chance)                                       0.5000
+
+--- mmlu_prediction (ROC AUC) ---
+  Adam synth-QA-v3                               0.6918
+  Adam original                                  0.6890
+  Ours GRPO step 500                             0.7103
+  Paper Adam recipe                              0.6431
+  Paper ours 1L                                  0.6730
+  Paper ours 3L                                  0.6969
+  Paper ours 3L on-policy                        0.6999
+  Ours final no-DPO                              0.6812
+  (chance)                                       0.5000
+
+--- number_prediction (Model Match Rate) ---
+  Adam synth-QA-v3                               0.0333
+  Adam original                                  0.0067
+  Ours GRPO step 500                             0.0333
+  Paper Adam recipe                              0.0000
+  Paper ours 1L                                  0.0333
+  Paper ours 3L                                  0.0400
+  Paper ours 3L on-policy                        0.0733
+  Ours final no-DPO                              0.0400
+
+--- sycophancy (ROC AUC) ---
+  Adam synth-QA-v3                               0.8602
+  Adam original                                  0.8176
+  Ours GRPO step 500                             0.7822
+  Paper Adam recipe                              0.7737
+  Paper ours 1L                                  0.7786
+  Paper ours 3L                                  0.8122
+  Paper ours 3L on-policy                        0.7940
+  Ours final no-DPO                              0.7541
+  (chance)                                       0.5000
+
+--- aggregate (chance-adjusted where applicable) ---
+  Paper ours 3L on-policy                        0.4469  (n=5)
+  Ours GRPO step 500                             0.4248  (n=5)
+  Paper ours 3L                                  0.4233  (n=5)
+  Adam synth-QA-v3                               0.4135  (n=5)
+  Paper ours 1L                                  0.3963  (n=5)
+  Adam original                                  0.3936  (n=5)
+  Ours final no-DPO                              0.3723  (n=5)
+  Paper Adam recipe                              0.2904  (n=5)
+

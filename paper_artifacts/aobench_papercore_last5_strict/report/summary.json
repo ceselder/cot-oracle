@@ -1,0 +1,52 @@
+{
+  "number_prediction": {
+    "adam-reupload-qwen3-8b-latentqa-cls-past-lens": 0.006666666666666667,
+    "adam-reupload-qwen3-8b-full-mix-synthetic-qa-v3-replace-lqa": 0.03333333333333333,
+    "cot-oracle-paper-ablation-adam-recipe-1layer": 0.0,
+    "cot-oracle-paper-ablation-ours-1layer": 0.03333333333333333,
+    "cot-oracle-paper-ablation-ours-3layers": 0.04,
+    "cot-oracle-paper-ablation-ours-3layers-onpolicy-lens-only": 0.07333333333333333,
+    "cot-oracle-qwen3-8b-final-sprint-checkpoint-no-DPO": 0.04,
+    "cot-oracle-grpo-step-500": 0.03333333333333333
+  },
+  "mmlu_prediction": {
+    "adam-reupload-qwen3-8b-latentqa-cls-past-lens": 0.6890000000000001,
+    "adam-reupload-qwen3-8b-full-mix-synthetic-qa-v3-replace-lqa": 0.6918,
+    "cot-oracle-paper-ablation-adam-recipe-1layer": 0.6430999999999999,
+    "cot-oracle-paper-ablation-ours-1layer": 0.673,
+    "cot-oracle-paper-ablation-ours-3layers": 0.6969,
+    "cot-oracle-paper-ablation-ours-3layers-onpolicy-lens-only": 0.6999,
+    "cot-oracle-qwen3-8b-final-sprint-checkpoint-no-DPO": 0.6812,
+    "cot-oracle-grpo-step-500": 0.7103000000000002
+  },
+  "backtracking_mc": {
+    "adam-reupload-qwen3-8b-latentqa-cls-past-lens": 0.7461928934010152,
+    "adam-reupload-qwen3-8b-full-mix-synthetic-qa-v3-replace-lqa": 0.7309644670050761,
+    "cot-oracle-paper-ablation-adam-recipe-1layer": 0.6903553299492385,
+    "cot-oracle-paper-ablation-ours-1layer": 0.6852791878172588,
+    "cot-oracle-paper-ablation-ours-3layers": 0.6852791878172588,
+    "cot-oracle-paper-ablation-ours-3layers-onpolicy-lens-only": 0.766497461928934,
+    "cot-oracle-qwen3-8b-final-sprint-checkpoint-no-DPO": 0.649746192893401,
+    "cot-oracle-grpo-step-500": 0.7360406091370558
+  },
+  "missing_info": {
+    "adam-reupload-qwen3-8b-latentqa-cls-past-lens": 0.6433333333333333,
+    "adam-reupload-qwen3-8b-full-mix-synthetic-qa-v3-replace-lqa": 0.6444444444444445,
+    "cot-oracle-paper-ablation-adam-recipe-1layer": 0.5155555555555555,
+    "cot-oracle-paper-ablation-ours-1layer": 0.7322222222222222,
+    "cot-oracle-paper-ablation-ours-3layers": 0.7388888888888889,
+    "cot-oracle-paper-ablation-ours-3layers-onpolicy-lens-only": 0.7422222222222222,
+    "cot-oracle-qwen3-8b-final-sprint-checkpoint-no-DPO": 0.7088888888888888,
+    "cot-oracle-grpo-step-500": 0.7288888888888888
+  },
+  "sycophancy": {
+    "adam-reupload-qwen3-8b-latentqa-cls-past-lens": 0.81765,
+    "adam-reupload-qwen3-8b-full-mix-synthetic-qa-v3-replace-lqa": 0.860225,
+    "cot-oracle-paper-ablation-adam-recipe-1layer": 0.7737499999999999,
+    "cot-oracle-paper-ablation-ours-1layer": 0.7786,
+    "cot-oracle-paper-ablation-ours-3layers": 0.812225,
+    "cot-oracle-paper-ablation-ours-3layers-onpolicy-lens-only": 0.794025,
+    "cot-oracle-qwen3-8b-final-sprint-checkpoint-no-DPO": 0.7541,
+    "cot-oracle-grpo-step-500": 0.7822
+  }
+}
