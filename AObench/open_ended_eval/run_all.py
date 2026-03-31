@@ -155,6 +155,7 @@ def run_missing_info(
     return run_missing_info_open_ended_eval(
         model_name=model_name, model=model, tokenizer=tokenizer, device=device,
         output_dir=output_dir, eval_batch_size=32, verbalizer_lora_paths=verbalizer_lora_paths,
+        **_seg(n_positions),
     )
 
 
@@ -177,6 +178,7 @@ def run_sycophancy(
             output_dir=mode_output_dir,
             mode=mode,
             verbalizer_lora_paths=verbalizer_lora_paths,
+            **_seg(n_positions),
         )
         all_mode_summaries[mode] = summary
 
