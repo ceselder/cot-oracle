@@ -197,6 +197,8 @@ def main() -> None:
         "input_dir": str(input_dir),
         "output_dir": str(output_dir),
         "judge_concurrency": args.judge_concurrency,
+        "judge_model": os.environ.get("JUDGE_MODEL", ""),
+        "judge_use_local": os.environ.get("JUDGE_USE_LOCAL", "1") != "0",
         "tasks": list(TASK_SPECS),
         "note": "activation_sensitivity omitted because the original run did not save per-verbalizer raw rollout pairs",
     }

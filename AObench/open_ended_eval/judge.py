@@ -20,7 +20,8 @@ LOCAL_API_KEY = "cot-oracle-judge-2026"
 # OpenRouter fallback
 OPENROUTER_API_BASE = "https://openrouter.ai/api/v1/chat/completions"
 
-JUDGE_MODEL = "claude-sonnet-4-6"
+DEFAULT_JUDGE_MODEL = "claude-sonnet-4-6"
+JUDGE_MODEL = os.environ.get("JUDGE_MODEL", DEFAULT_JUDGE_MODEL)
 DEFAULT_JUDGE_CONCURRENCY = 10  # lower for local wrapper rate limits
 
 
@@ -64,12 +65,14 @@ async def judge_single(
     system_prompt: str,
     user_message: str,
     semaphore: asyncio.Semaphore,
-    model: str = JUDGE_MODEL,
-    max_tokens: int = 300,
+    model: str | None = None,
+    max_tokens: int = 120,
     max_retries: int = 3,
 ) -> dict[str, Any]:
     """Call judge endpoint and parse JSON response."""
     api_base, api_key = _get_endpoint()
+    if model is None:
+        model = os.environ.get("JUDGE_MODEL", JUDGE_MODEL)
 
     # Local wrapper doesn't support system messages — fold into user message
     use_local = os.environ.get("JUDGE_USE_LOCAL", "1") != "0"
