@@ -100,6 +100,21 @@ def all_layer_combinations(training_config: SelfInterpTrainingConfig) -> list[li
     return [list(combo) for combo in combos]
 
 
+def eval_layer_combinations(training_config: SelfInterpTrainingConfig) -> list[list[int]]:
+    """Return the layer combinations to evaluate for a checkpoint.
+
+    For checkpoints trained with multiple single-layer combinations (for example
+    [[25], [50], [75]]), use the canonical middle layer [50] only. This keeps
+    "1-layer" models truly single-layer at eval time instead of averaging across
+    several distinct single-layer contexts. Multi-layer checkpoints such as
+    [[25, 50, 75]] still use their full trained combination.
+    """
+    combos = all_layer_combinations(training_config)
+    if len(combos) > 1 and all(len(combo) == 1 for combo in combos) and [50] in combos:
+        return [[50]]
+    return combos
+
+
 def format_layer_combination(layer_combination: list[int]) -> str:
     return "L" + "-".join(str(layer) for layer in layer_combination)
 
@@ -284,7 +299,7 @@ def run_verbalizer_generation_eval_loop(
         sanitized_verbalizer_name, training_config = _load_adapter_and_training_config(
             model, verbalizer_entry,
         )
-        layer_combinations = all_layer_combinations(training_config)
+        layer_combinations = eval_layer_combinations(training_config)
         verbalizer_key = verbalizer_entry.split("/")[-1]
         lora_name = verbalizer_key.replace("/", "_").replace(".", "_")
         multi_combo = len(layer_combinations) > 1
@@ -640,7 +655,7 @@ def run_verbalizer_binary_eval_loop(
         sanitized_verbalizer_name, training_config = _load_adapter_and_training_config(
             model, verbalizer_entry,
         )
-        layer_combinations = all_layer_combinations(training_config)
+        layer_combinations = eval_layer_combinations(training_config)
         verbalizer_key = verbalizer_entry.split("/")[-1]
         lora_name = verbalizer_key.replace("/", "_").replace(".", "_")
         multi_combo = len(layer_combinations) > 1
