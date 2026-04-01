@@ -22,18 +22,50 @@ Open-ended evaluation suite for Activation Oracles, testing whether AOs can extr
 ## Usage
 
 ```bash
-# Run all default evals (excludes taboo/personaqa which need target LoRAs)
+# Run the legacy default profile
 .venv/bin/python -m AObench.open_ended_eval.run_all \
     --verbalizer-lora your-org/your-ao-checkpoint
+
+# Run the current paper-facing 6-task profile
+.venv/bin/python -m AObench.open_ended_eval.run_all \
+    --verbalizer-lora your-org/your-ao-checkpoint \
+    --profile paper_six
+
+# Run the extended paper profile (adds system-prompt, taboo, personaqa)
+.venv/bin/python -m AObench.open_ended_eval.run_all \
+    --verbalizer-lora your-org/your-ao-checkpoint \
+    --profile paper_plus
 
 # Run specific evals
 .venv/bin/python -m AObench.open_ended_eval.run_all \
     --verbalizer-lora your-org/your-ao-checkpoint \
     --include number_prediction mmlu_prediction backtracking
 
+# Run the paper collection helper with tiny caps
+.venv/bin/python scripts/run_paper_collection_aobench.py \
+    --profile paper_plus \
+    --sample-profile paper_tiny10 \
+    --n-positions 5
+
 # Run a single eval standalone
 .venv/bin/python -m AObench.open_ended_eval.number_prediction
 ```
+
+## Profiles
+
+`run_all.py` exposes a few named profiles:
+
+- `paper_core`: objective subset used for earlier paper plots (`number_prediction`, `mmlu_prediction`, `backtracking_mc`, `missing_info`, `sycophancy`)
+- `paper_six`: current default paper comparison subset (`number_prediction`, `mmlu_prediction`, `backtracking`, `vagueness`, `domain_confusion`, `missing_info`)
+- `paper_plus`: `paper_six` plus `system_prompt_qa_hidden`, `system_prompt_qa_latentqa`, `taboo`, and `personaqa`
+- `judge_heavy`: judge-dependent evals only
+- `all`: every eval in the registry
+
+## Notes
+
+- `system_prompt_qa_hidden` and `system_prompt_qa_latentqa` are generation evals scored by an LLM judge.
+- `taboo` and `personaqa` require target LoRAs and therefore need a fresh model pass unless you already have saved raw rollout JSON for those exact checkpoints.
+- The replay-from-saved-rollouts path only works for tasks whose raw rollout files were actually saved. If a task was never generated for a checkpoint set, it cannot be added to the final plot without taking fresh rollouts.
 
 ## Structure
 

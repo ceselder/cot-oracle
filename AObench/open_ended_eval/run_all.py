@@ -279,7 +279,9 @@ def run_taboo(
         output_json_template=output_json_template,
         prompt_type="all_direct",
         dataset_type="test",
-        truncated=False,
+        truncated=sample_limit is not None,
+        truncated_target_lora_count=1 if sample_limit is not None else 10,
+        truncated_context_prompt_count=sample_limit if sample_limit is not None else 10,
         segment_start=settings["segment_start"],
         preferred_token_position=settings["preferred_token_position"],
     )
@@ -306,6 +308,7 @@ def run_personaqa(
         target_lora_path_template=settings["target_lora_path_template"],
         verbalizer_lora_paths=verbalizer_lora_paths,
         output_json_template=output_json_template,
+        max_personas=sample_limit,
         segment_start=settings["segment_start"],
         preferred_token_position=settings["preferred_token_position"],
     )
@@ -430,6 +433,18 @@ PAPER_SIX_INCLUDE = [
     "domain_confusion",
     "missing_info",
 ]
+PAPER_PLUS_INCLUDE = [
+    "number_prediction",
+    "mmlu_prediction",
+    "backtracking",
+    "vagueness",
+    "domain_confusion",
+    "missing_info",
+    "system_prompt_qa_hidden",
+    "system_prompt_qa_latentqa",
+    "taboo",
+    "personaqa",
+]
 JUDGE_HEAVY_INCLUDE = [
     "backtracking",
     "system_prompt_qa_hidden",
@@ -444,6 +459,7 @@ EVAL_PROFILES = {
     "default": DEFAULT_INCLUDE,
     "paper_core": PAPER_CORE_INCLUDE,
     "paper_six": PAPER_SIX_INCLUDE,
+    "paper_plus": PAPER_PLUS_INCLUDE,
     "judge_heavy": JUDGE_HEAVY_INCLUDE,
     "all": ALL_INCLUDE,
 }
