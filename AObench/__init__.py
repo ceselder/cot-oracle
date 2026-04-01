@@ -1,4 +1,4 @@
-# AObench — Open-ended Activation Oracle benchmark
+# AObench — Activation Oracle eval scripts and reporting
 #
 # Ported from Adam Karvonen's activation_oracles_dev repo:
 # https://github.com/adamkarvonen/activation_oracles_dev/tree/main/nl_probes/open_ended_eval

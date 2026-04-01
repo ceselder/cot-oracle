@@ -23,21 +23,21 @@ Open-ended evaluation suite for Activation Oracles, testing whether AOs can extr
 
 ```bash
 # Run the legacy default profile
-.venv/bin/python -m AObench.open_ended_eval.run_all \
+.venv/bin/python -m AObench.eval_scripts.run_all \
     --verbalizer-lora your-org/your-ao-checkpoint
 
 # Run the current paper-facing 6-task profile
-.venv/bin/python -m AObench.open_ended_eval.run_all \
+.venv/bin/python -m AObench.eval_scripts.run_all \
     --verbalizer-lora your-org/your-ao-checkpoint \
     --profile paper_six
 
 # Run the extended paper profile (adds system-prompt, taboo, personaqa)
-.venv/bin/python -m AObench.open_ended_eval.run_all \
+.venv/bin/python -m AObench.eval_scripts.run_all \
     --verbalizer-lora your-org/your-ao-checkpoint \
     --profile paper_plus
 
 # Run specific evals
-.venv/bin/python -m AObench.open_ended_eval.run_all \
+.venv/bin/python -m AObench.eval_scripts.run_all \
     --verbalizer-lora your-org/your-ao-checkpoint \
     --include number_prediction mmlu_prediction backtracking
 
@@ -48,7 +48,7 @@ Open-ended evaluation suite for Activation Oracles, testing whether AOs can extr
     --n-positions 5
 
 # Run a single eval standalone
-.venv/bin/python -m AObench.open_ended_eval.number_prediction
+.venv/bin/python -m AObench.eval_scripts.number_prediction
 ```
 
 ## Profiles
@@ -68,11 +68,14 @@ Open-ended evaluation suite for Activation Oracles, testing whether AOs can extr
 - `system_prompt_qa_hidden` and `system_prompt_qa_latentqa` are generation evals scored by an LLM judge.
 - `taboo` and `personaqa` require target LoRAs and therefore need a fresh model pass unless you already have saved raw rollout JSON for those exact checkpoints.
 - The replay-from-saved-rollouts path only works for tasks whose raw rollout files were actually saved. If a task was never generated for a checkpoint set, it cannot be added to the final plot without taking fresh rollouts.
+- The user-facing CLI alias is `AObench.eval_scripts.*`; the implementation still lives in `AObench.open_ended_eval.*` for compatibility.
+- The current tiny paper-six bundle is available at `AObench/eval_results/paper_six_tiny10_gemini31flashlite/final/report/`.
 
 ## Structure
 
 ```
 AObench/
+├── eval_scripts/        # User-facing CLI aliases for running evals
 ├── open_ended_eval/     # Eval modules (one per eval)
 │   ├── run_all.py       # CLI entrypoint, runs all evals
 │   ├── eval_runner.py   # Shared infrastructure (loops, scoring, metrics)
