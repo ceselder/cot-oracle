@@ -422,6 +422,14 @@ PAPER_CORE_INCLUDE = [
     "missing_info",
     "sycophancy",
 ]
+PAPER_SIX_INCLUDE = [
+    "number_prediction",
+    "mmlu_prediction",
+    "backtracking",
+    "vagueness",
+    "domain_confusion",
+    "missing_info",
+]
 JUDGE_HEAVY_INCLUDE = [
     "backtracking",
     "system_prompt_qa_hidden",
@@ -435,6 +443,7 @@ ALL_INCLUDE = [name for name, _ in EVALS]
 EVAL_PROFILES = {
     "default": DEFAULT_INCLUDE,
     "paper_core": PAPER_CORE_INCLUDE,
+    "paper_six": PAPER_SIX_INCLUDE,
     "judge_heavy": JUDGE_HEAVY_INCLUDE,
     "all": ALL_INCLUDE,
 }

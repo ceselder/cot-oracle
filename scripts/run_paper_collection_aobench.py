@@ -57,6 +57,15 @@ PAPER_SMALL_LIMITS = {
     "system_prompt_qa_latentqa": 30,
 }
 
+PAPER_TINY10_LIMITS = {
+    "number_prediction": 10,
+    "mmlu_prediction": 10,
+    "backtracking": 10,
+    "vagueness": 10,
+    "domain_confusion": 10,
+    "missing_info": 10,
+}
+
 
 def default_output_dir() -> str:
     timestamp = datetime.datetime.now(datetime.UTC).strftime("%Y%m%d_%H%M%S")
@@ -107,7 +116,7 @@ def main() -> None:
     parser.add_argument(
         "--sample-profile",
         type=str,
-        choices=["full", "paper_small"],
+        choices=["full", "paper_small", "paper_tiny10"],
         default="full",
         help="Per-eval sample cap profile. 'paper_small' runs a reduced-size comparison.",
     )
@@ -122,7 +131,12 @@ def main() -> None:
     verbalizer_lora_paths = args.verbalizer_lora or list(PAPER_COLLECTION_VERBALIZERS)
     include = args.include if args.include is not None else list(EVAL_PROFILES[args.profile])
     output_dir = args.output_dir or default_output_dir()
-    sample_limits = dict(PAPER_SMALL_LIMITS) if args.sample_profile == "paper_small" else {}
+    if args.sample_profile == "paper_small":
+        sample_limits = dict(PAPER_SMALL_LIMITS)
+    elif args.sample_profile == "paper_tiny10":
+        sample_limits = dict(PAPER_TINY10_LIMITS)
+    else:
+        sample_limits = {}
 
     random.seed(42)
     torch.manual_seed(42)
