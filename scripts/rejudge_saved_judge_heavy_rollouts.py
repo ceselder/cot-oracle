@@ -18,6 +18,8 @@ from dataclasses import asdict
 from pathlib import Path
 from typing import Any
 
+import httpx
+
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
@@ -29,6 +31,7 @@ from AObench.open_ended_eval import (
     backtracking,
     domain_confusion,
     hallucination,
+    judge as shared_judge,
     system_prompt_qa,
     vagueness,
 )
@@ -93,6 +96,156 @@ def _infer_max_entries(payload: dict[str, Any], results_len: int | None = None, 
     return None
 
 
+def _extract_json_array_payload(text: str) -> list[dict[str, Any]]:
+    text = text.strip()
+    if text.startswith("```"):
+        lines = text.splitlines()
+        if lines and lines[0].startswith("```"):
+            lines = lines[1:]
+        if lines and lines[-1].startswith("```"):
+            lines = lines[:-1]
+        text = "\n".join(lines).strip()
+
+    try:
+        data = json.loads(text)
+        if isinstance(data, list):
+            return data
+    except json.JSONDecodeError:
+        pass
+
+    match = re.search(r"\[.*\]", text, flags=re.DOTALL)
+    if match is None:
+        raise json.JSONDecodeError("No JSON array found", text, 0)
+    data = json.loads(match.group(0))
+    if not isinstance(data, list):
+        raise json.JSONDecodeError("Parsed payload was not a list", text, 0)
+    return data
+
+
+async def _judge_rows_batched(
+    *,
+    rows: list[dict[str, Any]],
+    system_prompt: str,
+    required_fields: tuple[str, ...],
+    concurrency: int,
+    pack_size: int,
+    max_tokens_per_item: int = 120,
+) -> list[dict[str, Any]]:
+    if not rows:
+        return []
+
+    if pack_size <= 1:
+        semaphore = asyncio.Semaphore(concurrency)
+        async with httpx.AsyncClient() as client:
+            tasks = [
+                shared_judge.judge_single(client, system_prompt, row["user_message"], semaphore, max_tokens=max_tokens_per_item)
+                for row in rows
+            ]
+            judge_results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        scored = []
+        for row, result in zip(rows, judge_results):
+            if isinstance(result, Exception):
+                print(f"Judge error for result {row['result_index']}: {result}")
+                continue
+            scored.append({k: v for k, v in row.items() if k != "user_message"} | result)
+        return scored
+
+    api_base, api_key = shared_judge._get_endpoint()
+    use_local = os.environ.get("JUDGE_USE_LOCAL", "1") != "0"
+    model = os.environ.get("JUDGE_MODEL", shared_judge.JUDGE_MODEL)
+    semaphore = asyncio.Semaphore(concurrency)
+
+    field_lines = []
+    if "specificity" in required_fields:
+        field_lines.append('"specificity": <int>')
+    if "correctness" in required_fields:
+        field_lines.append('"correctness": <int>')
+    if "category" in required_fields:
+        field_lines.append('"category": "<string>"')
+    field_lines.append('"reasoning": "<brief explanation>"')
+    field_spec = ", ".join(field_lines)
+
+    async def _judge_batch(client: httpx.AsyncClient, batch_rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        batch_prompt = system_prompt + (
+            "\n\nYou will now judge multiple items at once. "
+            "Return ONLY a JSON array. Each array element must be an object with "
+            '"item_index": <int> and these keys: '
+            f"{field_spec}. "
+            "Use the same item_index numbers that appear below. "
+            "Return exactly one element per item."
+        )
+
+        joined_user = "\n\n".join(
+            f"ITEM {i}\n{row['user_message']}" for i, row in enumerate(batch_rows)
+        )
+        if use_local:
+            messages = [{"role": "user", "content": f"{batch_prompt}\n\n{joined_user}"}]
+        else:
+            messages = [
+                {"role": "system", "content": batch_prompt},
+                {"role": "user", "content": joined_user},
+            ]
+
+        async with semaphore:
+            resp = await client.post(
+                api_base,
+                headers={
+                    "Authorization": f"Bearer {api_key}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "model": model,
+                    "max_tokens": max(256, max_tokens_per_item * len(batch_rows)),
+                    "messages": messages,
+                },
+                timeout=180.0,
+            )
+            resp.raise_for_status()
+        data = resp.json()
+        text = data["choices"][0]["message"]["content"].strip()
+        parsed = _extract_json_array_payload(text)
+        mapped: dict[int, dict[str, Any]] = {}
+        for item in parsed:
+            try:
+                idx = int(item.get("item_index"))
+            except Exception:
+                continue
+            mapped[idx] = item
+        if len(mapped) != len(batch_rows):
+            raise ValueError(f"Expected {len(batch_rows)} batch judgements, got {len(mapped)}")
+        out = []
+        for i, row in enumerate(batch_rows):
+            out.append({k: v for k, v in row.items() if k != "user_message"} | mapped[i])
+        return out
+
+    async with httpx.AsyncClient() as client:
+        tasks = []
+        batch_slices: list[list[dict[str, Any]]] = []
+        for start in range(0, len(rows), pack_size):
+            batch_rows = rows[start:start + pack_size]
+            batch_slices.append(batch_rows)
+            tasks.append(_judge_batch(client, batch_rows))
+        batch_results = await asyncio.gather(*tasks, return_exceptions=True)
+
+    scored: list[dict[str, Any]] = []
+    for batch_rows, batch_result in zip(batch_slices, batch_results):
+        if isinstance(batch_result, Exception):
+            print(f"Batch judge fallback for rows {batch_rows[0]['result_index']}-{batch_rows[-1]['result_index']}: {batch_result}")
+            fallback = await _judge_rows_batched(
+                rows=batch_rows,
+                system_prompt=system_prompt,
+                required_fields=required_fields,
+                concurrency=1,
+                pack_size=1,
+                max_tokens_per_item=max_tokens_per_item,
+            )
+            scored.extend(fallback)
+        else:
+            scored.extend(batch_result)
+    return scored
+
+
 def _rejudge_backtracking(
     payload: dict[str, Any],
     results: list[VerbalizerResults],
@@ -102,7 +255,25 @@ def _rejudge_backtracking(
         max_entries=_infer_max_entries(payload, len(results), prompts_per_entry=1)
     )
     assert len(results) == len(entries), (len(results), len(entries))
-    return asyncio.run(backtracking.judge_ao_responses(results, entries, concurrency=judge_concurrency))
+    rows = []
+    for i, (result, entry) in enumerate(zip(results, entries)):
+        ao_response = backtracking.get_first_ao_response(result)
+        if ao_response is None:
+            continue
+        rows.append(
+            {
+                "result_index": i,
+                "ao_response": ao_response,
+                "ground_truth": entry["uncertainty_description"],
+                "backtrack_rate": entry["backtrack_rate"],
+                "user_message": backtracking.JUDGE_USER_TEMPLATE.format(
+                    prefix=entry["prefix"][-1500:],
+                    ground_truth=entry["uncertainty_description"],
+                    ao_response=ao_response,
+                ),
+            }
+        )
+    return rows
 
 
 def _rejudge_system_prompt_hidden(
@@ -156,7 +327,24 @@ def _rejudge_vagueness(
     )
     _, metadata = vagueness.build_vagueness_verbalizer_prompt_infos(entries, prompts, tokenizer)
     assert len(results) == len(metadata), (len(results), len(metadata))
-    return asyncio.run(vagueness.judge_vagueness(results, metadata, concurrency=judge_concurrency))
+    rows = []
+    for i, (result, meta) in enumerate(zip(results, metadata)):
+        ao_response = vagueness.get_first_ao_response(result)
+        if ao_response is None:
+            continue
+        rows.append(
+            {
+                "result_index": i,
+                "ao_response": ao_response,
+                **meta,
+                "user_message": vagueness.JUDGE_USER_TEMPLATE.format(
+                    problem=meta["problem"][:500],
+                    question=meta["prompt"],
+                    ao_response=ao_response,
+                ),
+            }
+        )
+    return rows
 
 
 def _rejudge_domain_confusion(
@@ -174,7 +362,23 @@ def _rejudge_domain_confusion(
         tokenizer,
     )
     assert len(results) == len(metadata), (len(results), len(metadata))
-    return asyncio.run(domain_confusion.judge_domain_confusion(results, metadata, concurrency=judge_concurrency))
+    rows = []
+    for i, (result, meta) in enumerate(zip(results, metadata)):
+        ao_response = domain_confusion.get_first_ao_response(result)
+        if ao_response is None:
+            continue
+        rows.append(
+            {
+                "result_index": i,
+                "ao_response": ao_response,
+                **meta,
+                "user_message": domain_confusion.JUDGE_USER_TEMPLATE.format(
+                    problem=meta["problem"],
+                    ao_response=ao_response,
+                ),
+            }
+        )
+    return rows
 
 
 def _rejudge_hallucination_5pos(
@@ -193,7 +397,23 @@ def _rejudge_hallucination_5pos(
         n_positions=5,
     )
     assert len(results) == len(metadata), (len(results), len(metadata))
-    return asyncio.run(hallucination.judge_hallucination(results, metadata, concurrency=judge_concurrency))
+    rows = []
+    for i, (result, meta) in enumerate(zip(results, metadata)):
+        ao_response = hallucination.get_first_ao_response(result)
+        if ao_response is None:
+            continue
+        rows.append(
+            {
+                "result_index": i,
+                "ao_response": ao_response,
+                **meta,
+                "user_message": hallucination.JUDGE_USER_TEMPLATE.format(
+                    problem=meta["problem"],
+                    ao_response=ao_response,
+                ),
+            }
+        )
+    return rows
 
 
 def _rejudge_activation_sensitivity(
@@ -201,7 +421,21 @@ def _rejudge_activation_sensitivity(
     pairs: list[dict[str, Any]],
     judge_concurrency: int,
 ) -> list[dict[str, Any]]:
-    return asyncio.run(activation_sensitivity.judge_ac_pairs(pairs, concurrency=judge_concurrency))
+    rows = []
+    for i, pair in enumerate(pairs):
+        rows.append(
+            {
+                "result_index": i,
+                **pair,
+                "user_message": activation_sensitivity.JUDGE_USER_TEMPLATE.format(
+                    problem=pair["problem_text"],
+                    missing_info=pair["missing_info_description"],
+                    response_a=pair["response_a"],
+                    response_c=pair["response_c"],
+                ),
+            }
+        )
+    return rows
 
 
 TASK_SPECS: dict[str, dict[str, Any]] = {
@@ -209,6 +443,7 @@ TASK_SPECS: dict[str, dict[str, Any]] = {
         "rejudge_fn": _rejudge_backtracking,
         "metrics_fn": backtracking.compute_judge_metrics,
         "required_fields": ("specificity", "correctness"),
+        "system_prompt": backtracking.JUDGE_SYSTEM_PROMPT,
     },
     "system_prompt_qa_hidden": {
         "rejudge_fn": _rejudge_system_prompt_hidden,
@@ -224,21 +459,25 @@ TASK_SPECS: dict[str, dict[str, Any]] = {
         "rejudge_fn": _rejudge_vagueness,
         "metrics_fn": vagueness.compute_vagueness_metrics,
         "required_fields": ("category",),
+        "system_prompt": vagueness.JUDGE_SYSTEM_PROMPT,
     },
     "domain_confusion": {
         "rejudge_fn": _rejudge_domain_confusion,
         "metrics_fn": domain_confusion.compute_domain_confusion_metrics,
         "required_fields": ("category",),
+        "system_prompt": domain_confusion.JUDGE_SYSTEM_PROMPT,
     },
     "hallucination_5pos": {
         "rejudge_fn": _rejudge_hallucination_5pos,
         "metrics_fn": hallucination.compute_hallucination_metrics,
         "required_fields": ("category",),
+        "system_prompt": hallucination.JUDGE_SYSTEM_PROMPT,
     },
     "activation_sensitivity": {
         "rejudge_fn": _rejudge_activation_sensitivity,
         "metrics_fn": activation_sensitivity.compute_sensitivity_metrics,
         "required_fields": ("category",),
+        "system_prompt": activation_sensitivity.JUDGE_SYSTEM_PROMPT,
     },
 }
 
@@ -304,6 +543,12 @@ def main() -> None:
         action="store_true",
         help="Skip checkpoint files already rejudged successfully in the output dir.",
     )
+    parser.add_argument(
+        "--judge-pack-size",
+        type=int,
+        default=8,
+        help="Number of judge items to pack into each API request for supported tasks.",
+    )
     args = parser.parse_args()
 
     input_dir = Path(args.input_dir).resolve()
@@ -318,6 +563,7 @@ def main() -> None:
         "input_dir": str(input_dir),
         "output_dir": str(output_dir),
         "judge_concurrency": args.judge_concurrency,
+        "judge_pack_size": args.judge_pack_size,
         "judge_model": os.environ.get("JUDGE_MODEL", ""),
         "judge_use_local": os.environ.get("JUDGE_USE_LOCAL", "1") != "0",
         "tasks": list(TASK_SPECS),
@@ -368,9 +614,23 @@ def main() -> None:
 
             print(f"Rejudging {task_name}: {verbalizer_key}")
             if task_name in {"backtracking", "activation_sensitivity"}:
-                raw_scored_results = rejudge_fn(payload, results, args.judge_concurrency)
+                judge_rows = rejudge_fn(payload, results, args.judge_concurrency)
             else:
-                raw_scored_results = rejudge_fn(payload, results, tokenizer, args.judge_concurrency)
+                judge_rows = rejudge_fn(payload, results, tokenizer, args.judge_concurrency)
+
+            system_prompt = spec.get("system_prompt")
+            if system_prompt is not None:
+                raw_scored_results = asyncio.run(
+                    _judge_rows_batched(
+                        rows=judge_rows,
+                        system_prompt=system_prompt,
+                        required_fields=spec.get("required_fields", ()),
+                        concurrency=args.judge_concurrency,
+                        pack_size=args.judge_pack_size,
+                    )
+                )
+            else:
+                raw_scored_results = judge_rows
 
             scored_results, dropped_results = _sanitize_scored_results(task_name, raw_scored_results)
             if dropped_results:
