@@ -368,6 +368,25 @@ DISPLAY_ORDER = [
     "Ours GRPO step 500 (tok n/a)",
 ]
 
+EVAL_DISPLAY_NAMES: dict[str, str] = {
+    "number_prediction": "Number\nPrediction",
+    "mmlu_prediction": "MMLU\nPrediction",
+    "backtracking": "Backtracking",
+    "backtracking_mc": "Backtracking\nMC",
+    "missing_info": "Missing\nInfo",
+    "sycophancy": "Sycophancy",
+    "system_prompt_qa_hidden": "System Prompt\nHidden",
+    "system_prompt_qa_latentqa": "System Prompt\nPersona",
+    "taboo": "Taboo",
+    "personaqa": "PersonaQA",
+    "vagueness": "Vagueness",
+    "domain_confusion": "Domain\nConfusion",
+    "activation_sensitivity": "Activation\nSensitivity",
+    "hallucination_1pos": "Hallucination\n1 pos",
+    "hallucination_5pos": "Hallucination\n5 pos",
+    "hallucination_20pos": "Hallucination\n20 pos",
+}
+
 
 def shorten_lora_name(name: str) -> str:
     """Shorten a verbalizer LoRA name for display."""
@@ -388,6 +407,16 @@ def verbalizer_sort_key(name: str) -> tuple[int, str]:
     if display in DISPLAY_ORDER:
         return (DISPLAY_ORDER.index(display), display)
     return (len(DISPLAY_ORDER), display)
+
+
+def format_eval_display_name(eval_name: str) -> str:
+    return EVAL_DISPLAY_NAMES.get(eval_name, eval_name.replace("_", "\n").title())
+
+
+def format_metric_value(eval_name: str, value: float) -> str:
+    if eval_name in SCALE_1_5_EVALS:
+        return f"{value:.1f}"
+    return f"{value:.2f}"
 
 
 def normalize_metric_for_aggregate(eval_name: str, value: float) -> float:
@@ -462,7 +491,8 @@ def plot_aggregate_scores(
     values = [item["mean_normalized_score"] for _, item in items]
     labels = [shorten_lora_name(name) for name in verbalizer_names]
 
-    fig, ax = plt.subplots(figsize=(max(8, len(labels) * 0.9), 5.5))
+    fig_height = max(5.8, 0.68 * len(labels) + 1.4)
+    fig, ax = plt.subplots(figsize=(9.2, fig_height))
     fallback_colors = plt.cm.Set2(np.linspace(0, 1, max(len(labels), 1)))
     colors = [DISPLAY_COLORS.get(label, fallback_colors[i]) for i, label in enumerate(labels)]
 
@@ -494,8 +524,10 @@ def plot_aggregate_scores(
     ax.set_yticks(y)
     ax.set_yticklabels(labels, fontsize=9)
     ax.invert_yaxis()
-    ax.set_xlabel("Mean normalized score (chance-adjusted where applicable)")
+    ax.set_xlabel("Mean normalized score (higher is better)")
     ax.set_title(title)
+    ax.xaxis.grid(True, color="#d9d9d9", linewidth=0.8, alpha=0.9)
+    ax.set_axisbelow(True)
     x_min = min(values)
     x_max = max(values)
     ax.set_xlim(min(-0.05, x_min - 0.05), max(1.0, x_max + 0.08))
@@ -513,92 +545,164 @@ def plot_comparison_bar_chart(
     title: str = "AObench Comparison",
     eval_intervals: dict[str, dict[str, dict[str, Any]]] | None = None,
 ) -> str:
-    """Create a grouped bar chart comparing verbalizers across evals.
+    """Create a dashboard-style comparison plot for verbalizers across evals.
 
     eval_results: {eval_name: {verbalizer_name: metric_value}}
     """
-    # Collect all unique verbalizer names
     all_verbs: set[str] = set()
     for metrics in eval_results.values():
         all_verbs.update(metrics.keys())
-    verb_names = sorted(all_verbs, key=verbalizer_sort_key)
-
     eval_names = list(eval_results.keys())
+    aggregate_scores = compute_aggregate_scores(eval_results, eval_intervals=eval_intervals)
+
+    def _row_sort_key(name: str) -> tuple[float, tuple[int, str]]:
+        aggregate = aggregate_scores.get(name, {}).get("mean_normalized_score", float("-inf"))
+        return (-float(aggregate), verbalizer_sort_key(name))
+
+    verb_names = sorted(all_verbs, key=_row_sort_key)
     n_evals = len(eval_names)
     n_verbs = len(verb_names)
 
     if n_evals == 0 or n_verbs == 0:
         return output_path
 
-    fig, ax = plt.subplots(figsize=(max(10, n_evals * 1.5), 6))
+    normalized_matrix = np.full((n_verbs, n_evals), np.nan, dtype=np.float64)
+    raw_matrix = np.full((n_verbs, n_evals), np.nan, dtype=np.float64)
+    for row_idx, verb_name in enumerate(verb_names):
+        for col_idx, eval_name in enumerate(eval_names):
+            value = eval_results.get(eval_name, {}).get(verb_name)
+            if value is None:
+                continue
+            raw_matrix[row_idx, col_idx] = float(value)
+            normalized_matrix[row_idx, col_idx] = normalize_metric_for_aggregate(eval_name, float(value))
 
-    x = np.arange(n_evals)
-    bar_width = 0.8 / max(n_verbs, 1)
+    labels = [shorten_lora_name(name) for name in verb_names]
     fallback_colors = plt.cm.Set2(np.linspace(0, 1, max(n_verbs, 1)))
+    row_colors = [DISPLAY_COLORS.get(label, fallback_colors[i]) for i, label in enumerate(labels)]
 
-    for i, verb_name in enumerate(verb_names):
-        display = shorten_lora_name(verb_name)
-        color = DISPLAY_COLORS.get(display, fallback_colors[i])
-        values = []
-        lowers = []
-        uppers = []
-        for eval_name in eval_names:
-            val = eval_results[eval_name].get(verb_name, 0)
-            lo = hi = val
-            if eval_intervals:
-                interval = eval_intervals.get(eval_name, {}).get(verb_name)
-                if interval is not None:
-                    lo = float(interval.get("lo", val))
-                    hi = float(interval.get("hi", val))
-            if eval_name in SCALE_1_5_EVALS:
-                val = (val - 1) / 4  # map 1-5 → 0-1
-                lo = (lo - 1) / 4
-                hi = (hi - 1) / 4
-            values.append(val)
-            lowers.append(max(0.0, val - lo))
-            uppers.append(max(0.0, hi - val))
-        offset = (i - n_verbs / 2 + 0.5) * bar_width
-        bars = ax.bar(
-            x + offset, values, bar_width * 0.9,
-            label=display,
-            color=color,
-            edgecolor="white",
-            linewidth=0.5,
-            yerr=np.array([lowers, uppers], dtype=np.float64),
-            capsize=2,
+    fig_width = max(13.5, 6.0 + 1.15 * n_evals)
+    fig_height = max(6.2, 0.72 * n_verbs + 2.3)
+    fig = plt.figure(figsize=(fig_width, fig_height))
+    grid = fig.add_gridspec(1, 2, width_ratios=[1.15, max(1.8, 0.62 * n_evals)], wspace=0.04)
+    ax_agg = fig.add_subplot(grid[0, 0])
+    ax_heat = fig.add_subplot(grid[0, 1], sharey=ax_agg)
+
+    y = np.arange(n_verbs)
+    aggregate_values = [aggregate_scores.get(name, {}).get("mean_normalized_score", np.nan) for name in verb_names]
+    xerr = []
+    has_err = False
+    for name, value in zip(verb_names, aggregate_values, strict=True):
+        payload = aggregate_scores.get(name, {})
+        lo = payload.get("ci_lo")
+        hi = payload.get("ci_hi")
+        if lo is None or hi is None or np.isnan(value):
+            xerr.append((0.0, 0.0))
+            continue
+        has_err = True
+        xerr.append((float(value) - float(lo), float(hi) - float(value)))
+    xerr_arr = np.array(xerr, dtype=np.float64).T if has_err else None
+
+    bars = ax_agg.barh(
+        y,
+        aggregate_values,
+        color=row_colors,
+        edgecolor="white",
+        linewidth=0.7,
+        xerr=xerr_arr,
+        capsize=3 if has_err else 0,
+        height=0.74,
+    )
+    for bar, value in zip(bars, aggregate_values, strict=True):
+        if np.isnan(value):
+            continue
+        ax_agg.text(
+            float(value) + 0.015,
+            bar.get_y() + bar.get_height() / 2,
+            f"{float(value):.3f}",
+            va="center",
+            ha="left",
+            fontsize=9,
         )
-        # Add value labels on bars
-        for bar, val in zip(bars, values):
-            if val > 0:
-                ax.text(
-                    bar.get_x() + bar.get_width() / 2,
-                    bar.get_height() + 0.01,
-                    f"{val:.2f}",
-                    ha="center", va="bottom",
-                    fontsize=7, rotation=45,
-                )
 
-    # Add chance baselines
-    for j, eval_name in enumerate(eval_names):
-        if eval_name in CHANCE_BASELINES:
-            chance = CHANCE_BASELINES[eval_name]
-            ax.plot(
-                [j - 0.4, j + 0.4], [chance, chance],
-                color="red", linestyle="--", linewidth=1, alpha=0.7,
+    ax_agg.axvline(0.0, color="0.45", linestyle="--", linewidth=1.0)
+    ax_agg.set_xlim(min(-0.08, np.nanmin(aggregate_values) - 0.06), max(1.0, np.nanmax(aggregate_values) + 0.14))
+    ax_agg.set_xlabel("Aggregate normalized score\n(higher is better)", fontsize=10)
+    ax_agg.set_title("Overall", fontsize=12, pad=10)
+    ax_agg.set_yticks(y)
+    ax_agg.set_yticklabels(labels, fontsize=10)
+    ax_agg.invert_yaxis()
+    ax_agg.xaxis.grid(True, color="#d9d9d9", linewidth=0.8, alpha=0.9)
+    ax_agg.set_axisbelow(True)
+
+    for tick, label in zip(ax_agg.get_yticklabels(), labels, strict=True):
+        tick.set_color(DISPLAY_COLORS.get(label, "#1a1a1a"))
+
+    masked = np.ma.masked_invalid(normalized_matrix)
+    cmap = matplotlib.colormaps.get_cmap("RdYlGn").copy()
+    cmap.set_bad(color="#f2f2f2")
+    image = ax_heat.imshow(
+        masked,
+        aspect="auto",
+        interpolation="nearest",
+        cmap=cmap,
+        vmin=-0.2,
+        vmax=1.0,
+    )
+
+    ax_heat.set_xticks(np.arange(n_evals))
+    ax_heat.set_xticklabels([format_eval_display_name(name) for name in eval_names], fontsize=10)
+    ax_heat.tick_params(top=False, bottom=True, labeltop=False, labelbottom=True)
+    plt.setp(ax_heat.get_xticklabels(), rotation=18, ha="right", rotation_mode="anchor")
+    ax_heat.set_yticks(y)
+    ax_heat.tick_params(axis="y", left=False, labelleft=False)
+    ax_heat.set_xticks(np.arange(-0.5, n_evals, 1), minor=True)
+    ax_heat.set_yticks(np.arange(-0.5, n_verbs, 1), minor=True)
+    ax_heat.grid(which="minor", color="white", linewidth=1.5)
+    ax_heat.tick_params(which="minor", bottom=False, left=False)
+
+    for row_idx in range(n_verbs):
+        for col_idx, eval_name in enumerate(eval_names):
+            raw_value = raw_matrix[row_idx, col_idx]
+            norm_value = normalized_matrix[row_idx, col_idx]
+            if np.isnan(raw_value):
+                ax_heat.text(
+                    col_idx,
+                    row_idx,
+                    "--",
+                    ha="center",
+                    va="center",
+                    fontsize=8,
+                    color="#7a7a7a",
+                )
+                continue
+            text_color = "white" if (norm_value >= 0.62 or norm_value <= -0.05) else "#1d1d1d"
+            ax_heat.text(
+                col_idx,
+                row_idx,
+                format_metric_value(eval_name, float(raw_value)),
+                ha="center",
+                va="center",
+                fontsize=8.5,
+                color=text_color,
+                fontweight="bold",
             )
 
-    ax.set_xlabel("Evaluation")
-    ax.set_ylabel("Score")
-    ax.set_title(title)
-    ax.set_xticks(x)
-    ax.set_xticklabels([e.replace("_", "\n") for e in eval_names], fontsize=8)
-    ax.legend(
-        bbox_to_anchor=(1.02, 1), loc="upper left", fontsize=7,
-        title="Verbalizer LoRA",
-    )
-    ax.set_ylim(0, 1.05)
+    colorbar = fig.colorbar(image, ax=ax_heat, fraction=0.038, pad=0.03)
+    colorbar.set_label("Normalized score (higher is better)", rotation=90, labelpad=12)
 
-    plt.tight_layout()
+    fig.suptitle(title, fontsize=18, y=0.955)
+    fig.text(
+        0.5,
+        0.024,
+        "Rows are sorted by aggregate score. Cell color uses a normalized higher-is-better scale. Cell text shows the raw primary metric.",
+        ha="center",
+        va="bottom",
+        fontsize=10,
+        color="#333333",
+    )
+    left_margin = min(0.30, 0.12 + 0.0045 * max(len(label) for label in labels))
+    bottom_margin = 0.18 if n_evals >= 8 else 0.15
+    fig.subplots_adjust(left=left_margin, right=0.955, top=0.90, bottom=bottom_margin, wspace=0.04)
     os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
     plt.savefig(output_path, dpi=150, bbox_inches="tight")
     plt.close()

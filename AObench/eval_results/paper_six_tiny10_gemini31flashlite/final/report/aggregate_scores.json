@@ -10,8 +10,8 @@
       "domain_confusion": 0.06666666666666667,
       "missing_info": 0.08333333333333326
     },
-    "ci_lo": 0.13332093253968258,
-    "ci_hi": 0.4875863095238095
+    "ci_lo": 0.3089285714285714,
+    "ci_hi": 0.3089285714285714
   },
   "adam-reupload-qwen3-8b-latentqa-cls-past-lens": {
     "mean_normalized_score": 0.2517857142857143,
@@ -24,8 +24,8 @@
       "domain_confusion": 0.16666666666666666,
       "missing_info": -0.08333333333333326
     },
-    "ci_lo": 0.07629629629629629,
-    "ci_hi": 0.43906746031745997
+    "ci_lo": 0.2517857142857143,
+    "ci_hi": 0.2517857142857143
   },
   "cot-oracle-grpo-step-500": {
     "mean_normalized_score": 0.33769841269841266,
@@ -38,8 +38,8 @@
       "domain_confusion": 0.3333333333333333,
       "missing_info": 0.5
     },
-    "ci_lo": 0.13320601851851852,
-    "ci_hi": 0.4982589285714286
+    "ci_lo": 0.33769841269841266,
+    "ci_hi": 0.33769841269841266
   },
   "cot-oracle-paper-ablation-adam-recipe-1layer": {
     "mean_normalized_score": 0.22162698412698412,
@@ -52,8 +52,8 @@
       "domain_confusion": 0.26666666666666666,
       "missing_info": -0.16666666666666674
     },
-    "ci_lo": 0.0541319444444444,
-    "ci_hi": 0.4079464285714286
+    "ci_lo": 0.22162698412698412,
+    "ci_hi": 0.22162698412698412
   },
   "cot-oracle-paper-ablation-ours-1layer": {
     "mean_normalized_score": 0.3623015873015873,
@@ -66,8 +66,8 @@
       "domain_confusion": 0.26666666666666666,
       "missing_info": 0.41666666666666674
     },
-    "ci_lo": 0.15969642857142857,
-    "ci_hi": 0.5319444444444444
+    "ci_lo": 0.3623015873015873,
+    "ci_hi": 0.3623015873015873
   },
   "cot-oracle-paper-ablation-ours-3layers-onpolicy-lens-only": {
     "mean_normalized_score": 0.41746031746031753,
@@ -80,8 +80,8 @@
       "domain_confusion": 0.06666666666666667,
       "missing_info": 0.5
     },
-    "ci_lo": 0.21352678571428574,
-    "ci_hi": 0.5833382936507937
+    "ci_lo": 0.41746031746031753,
+    "ci_hi": 0.41746031746031753
   },
   "cot-oracle-paper-ablation-ours-3layers": {
     "mean_normalized_score": 0.41884920634920636,
@@ -94,8 +94,8 @@
       "domain_confusion": 0.23333333333333334,
       "missing_info": 0.5
     },
-    "ci_lo": 0.2127827380952381,
-    "ci_hi": 0.570858134920635
+    "ci_lo": 0.41884920634920636,
+    "ci_hi": 0.41884920634920636
   },
   "cot-oracle-qwen3-8b-final-sprint-checkpoint-no-DPO": {
     "mean_normalized_score": 0.3759920634920635,
@@ -108,7 +108,7 @@
       "domain_confusion": 0.13333333333333333,
       "missing_info": 0.5
     },
-    "ci_lo": 0.18032242063492065,
-    "ci_hi": 0.5500694444444445
+    "ci_lo": 0.3759920634920635,
+    "ci_hi": 0.3759920634920635
   }
 }
