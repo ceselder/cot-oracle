@@ -62,6 +62,8 @@ PAPER_TINY10_LIMITS = {
     "vagueness": 10,
     "domain_confusion": 10,
     "missing_info": 10,
+    "sycophancy": 10,
+    "activation_sensitivity": 10,
     "hallucination": 10,
     "system_prompt_qa_hidden": 10,
     "system_prompt_qa_latentqa": 10,
