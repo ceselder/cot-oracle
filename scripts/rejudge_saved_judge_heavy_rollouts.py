@@ -25,6 +25,7 @@ if str(ROOT) not in sys.path:
 from AObench import dataset_path
 from AObench.base_experiment import VerbalizerResults
 from AObench.open_ended_eval import (
+    activation_sensitivity,
     backtracking,
     domain_confusion,
     hallucination,
@@ -61,6 +62,11 @@ def _load_verbalizer_results(path: Path) -> tuple[dict[str, Any], list[Verbalize
     return payload, results
 
 
+def _load_activation_sensitivity_pairs(path: Path) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    payload = json.loads(path.read_text())
+    return payload, payload.get("pairs", [])
+
+
 def _task_file_map(input_dir: Path) -> dict[str, list[Path]]:
     return {
         "backtracking": sorted((input_dir / "backtracking").glob("*.json")),
@@ -69,18 +75,45 @@ def _task_file_map(input_dir: Path) -> dict[str, list[Path]]:
         "vagueness": sorted((input_dir / "vagueness").glob("*.json")),
         "domain_confusion": sorted((input_dir / "domain_confusion").glob("*.json")),
         "hallucination_5pos": sorted((input_dir / "hallucination_5pos").glob("*.json")),
+        "activation_sensitivity": sorted(input_dir.glob("activation_sensitivity_*.json")),
     }
 
 
-def _rejudge_backtracking(results: list[VerbalizerResults], judge_concurrency: int) -> list[dict[str, Any]]:
-    entries = backtracking.load_backtracking_dataset()
+def _infer_max_entries(payload: dict[str, Any], results_len: int | None = None, prompts_per_entry: int = 1) -> int | None:
+    for key in ("max_entries", "num_entries", "max_entries_per_condition"):
+        value = _coerce_int(payload.get(key))
+        if value is not None and value > 0:
+            return value
+
+    if results_len is not None and prompts_per_entry > 0:
+        inferred = results_len // prompts_per_entry
+        if inferred > 0:
+            return inferred
+
+    return None
+
+
+def _rejudge_backtracking(
+    payload: dict[str, Any],
+    results: list[VerbalizerResults],
+    judge_concurrency: int,
+) -> list[dict[str, Any]]:
+    entries = backtracking.load_backtracking_dataset(
+        max_entries=_infer_max_entries(payload, len(results), prompts_per_entry=1)
+    )
     assert len(results) == len(entries), (len(results), len(entries))
     return asyncio.run(backtracking.judge_ao_responses(results, entries, concurrency=judge_concurrency))
 
 
-def _rejudge_system_prompt_hidden(results: list[VerbalizerResults], tokenizer, judge_concurrency: int) -> list[dict[str, Any]]:
+def _rejudge_system_prompt_hidden(
+    payload: dict[str, Any],
+    results: list[VerbalizerResults],
+    tokenizer,
+    judge_concurrency: int,
+) -> list[dict[str, Any]]:
     entries = system_prompt_qa.load_dataset(
         dataset_path=dataset_path("datasets/system_prompt_qa/hidden_instruction_eval_dataset.json"),
+        max_entries=_infer_max_entries(payload, len(results), prompts_per_entry=1),
     )
     _, metadata = system_prompt_qa.build_prompt_infos_for_mode(
         entries,
@@ -92,9 +125,15 @@ def _rejudge_system_prompt_hidden(results: list[VerbalizerResults], tokenizer, j
     return asyncio.run(system_prompt_qa.judge_ao_responses(results, metadata, concurrency=judge_concurrency))
 
 
-def _rejudge_system_prompt_latentqa(results: list[VerbalizerResults], tokenizer, judge_concurrency: int) -> list[dict[str, Any]]:
+def _rejudge_system_prompt_latentqa(
+    payload: dict[str, Any],
+    results: list[VerbalizerResults],
+    tokenizer,
+    judge_concurrency: int,
+) -> list[dict[str, Any]]:
     entries = system_prompt_qa.load_dataset(
         dataset_path=dataset_path("datasets/system_prompt_qa/latentqa_eval_dataset.json"),
+        max_entries=_infer_max_entries(payload, len(results), prompts_per_entry=1),
     )
     _, metadata = system_prompt_qa.build_prompt_infos_for_mode(
         entries,
@@ -106,15 +145,29 @@ def _rejudge_system_prompt_latentqa(results: list[VerbalizerResults], tokenizer,
     return asyncio.run(system_prompt_qa.judge_ao_responses(results, metadata, concurrency=judge_concurrency))
 
 
-def _rejudge_vagueness(results: list[VerbalizerResults], tokenizer, judge_concurrency: int) -> list[dict[str, Any]]:
-    entries, prompts = vagueness.load_data()
+def _rejudge_vagueness(
+    payload: dict[str, Any],
+    results: list[VerbalizerResults],
+    tokenizer,
+    judge_concurrency: int,
+) -> list[dict[str, Any]]:
+    entries, prompts = vagueness.load_data(
+        max_entries=_infer_max_entries(payload, len(results), prompts_per_entry=1)
+    )
     _, metadata = vagueness.build_vagueness_verbalizer_prompt_infos(entries, prompts, tokenizer)
     assert len(results) == len(metadata), (len(results), len(metadata))
     return asyncio.run(vagueness.judge_vagueness(results, metadata, concurrency=judge_concurrency))
 
 
-def _rejudge_domain_confusion(results: list[VerbalizerResults], tokenizer, judge_concurrency: int) -> list[dict[str, Any]]:
-    entries = domain_confusion.load_dataset()
+def _rejudge_domain_confusion(
+    payload: dict[str, Any],
+    results: list[VerbalizerResults],
+    tokenizer,
+    judge_concurrency: int,
+) -> list[dict[str, Any]]:
+    entries = domain_confusion.load_dataset(
+        max_entries=_infer_max_entries(payload, len(results), prompts_per_entry=len(domain_confusion.VERBALIZER_PROMPTS))
+    )
     _, metadata = domain_confusion.build_domain_confusion_verbalizer_prompt_infos(
         entries,
         domain_confusion.VERBALIZER_PROMPTS,
@@ -124,8 +177,15 @@ def _rejudge_domain_confusion(results: list[VerbalizerResults], tokenizer, judge
     return asyncio.run(domain_confusion.judge_domain_confusion(results, metadata, concurrency=judge_concurrency))
 
 
-def _rejudge_hallucination_5pos(results: list[VerbalizerResults], tokenizer, judge_concurrency: int) -> list[dict[str, Any]]:
-    entries = hallucination.load_dataset()
+def _rejudge_hallucination_5pos(
+    payload: dict[str, Any],
+    results: list[VerbalizerResults],
+    tokenizer,
+    judge_concurrency: int,
+) -> list[dict[str, Any]]:
+    entries = hallucination.load_dataset(
+        max_entries=_infer_max_entries(payload, len(results), prompts_per_entry=len(hallucination.VERBALIZER_PROMPTS))
+    )
     _, metadata = hallucination.build_hallucination_verbalizer_prompt_infos(
         entries,
         hallucination.VERBALIZER_PROMPTS,
@@ -134,6 +194,14 @@ def _rejudge_hallucination_5pos(results: list[VerbalizerResults], tokenizer, jud
     )
     assert len(results) == len(metadata), (len(results), len(metadata))
     return asyncio.run(hallucination.judge_hallucination(results, metadata, concurrency=judge_concurrency))
+
+
+def _rejudge_activation_sensitivity(
+    payload: dict[str, Any],
+    pairs: list[dict[str, Any]],
+    judge_concurrency: int,
+) -> list[dict[str, Any]]:
+    return asyncio.run(activation_sensitivity.judge_ac_pairs(pairs, concurrency=judge_concurrency))
 
 
 TASK_SPECS: dict[str, dict[str, Any]] = {
@@ -165,6 +233,11 @@ TASK_SPECS: dict[str, dict[str, Any]] = {
     "hallucination_5pos": {
         "rejudge_fn": _rejudge_hallucination_5pos,
         "metrics_fn": hallucination.compute_hallucination_metrics,
+        "required_fields": ("category",),
+    },
+    "activation_sensitivity": {
+        "rejudge_fn": _rejudge_activation_sensitivity,
+        "metrics_fn": activation_sensitivity.compute_sensitivity_metrics,
         "required_fields": ("category",),
     },
 }
@@ -255,7 +328,8 @@ def main() -> None:
     for task_name, spec in TASK_SPECS.items():
         files = task_files[task_name]
         if not files:
-            raise FileNotFoundError(f"No raw files found for task {task_name} under {input_dir}")
+            print(f"Skipping {task_name}: no raw files found under {input_dir}")
+            continue
 
         print(f"\n{'=' * 70}")
         print(f"REJUDGING TASK: {task_name}")
@@ -283,17 +357,20 @@ def main() -> None:
                     print(f"Skipping {task_name}: {verbalizer_key} (already rejudged)")
                     continue
 
-            payload, results = _load_verbalizer_results(raw_path)
+            if task_name == "activation_sensitivity":
+                payload, results = _load_activation_sensitivity_pairs(raw_path)
+            else:
+                payload, results = _load_verbalizer_results(raw_path)
             verbalizer = payload["verbalizer"]
             verbalizer_key = verbalizer.split("/")[-1]
             rejudge_fn = spec["rejudge_fn"]
             metrics_fn = spec["metrics_fn"]
 
             print(f"Rejudging {task_name}: {verbalizer_key}")
-            if task_name == "backtracking":
-                raw_scored_results = rejudge_fn(results, args.judge_concurrency)
+            if task_name in {"backtracking", "activation_sensitivity"}:
+                raw_scored_results = rejudge_fn(payload, results, args.judge_concurrency)
             else:
-                raw_scored_results = rejudge_fn(results, tokenizer, args.judge_concurrency)
+                raw_scored_results = rejudge_fn(payload, results, tokenizer, args.judge_concurrency)
 
             scored_results, dropped_results = _sanitize_scored_results(task_name, raw_scored_results)
             if dropped_results:
