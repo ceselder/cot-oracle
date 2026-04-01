@@ -67,19 +67,21 @@ def _seg(n_positions: int | None) -> dict[str, Any]:
 
 
 def run_number_prediction(
-    model, tokenizer, device, output_dir, model_name, verbalizer_lora_paths, n_positions=None,
+    model, tokenizer, device, output_dir, model_name, verbalizer_lora_paths, n_positions=None, sample_limit=None,
 ) -> dict[str, Any]:
     from AObench.open_ended_eval.number_prediction import run_number_prediction_open_ended_eval
 
     os.makedirs(output_dir, exist_ok=True)
     return run_number_prediction_open_ended_eval(
         model_name=model_name, model=model, tokenizer=tokenizer, device=device,
-        output_dir=output_dir, verbalizer_lora_paths=verbalizer_lora_paths, **_seg(n_positions),
+        output_dir=output_dir, verbalizer_lora_paths=verbalizer_lora_paths,
+        max_entries=sample_limit,
+        **_seg(n_positions),
     )
 
 
 def run_mmlu_prediction(
-    model, tokenizer, device, output_dir, model_name, verbalizer_lora_paths, n_positions=None,
+    model, tokenizer, device, output_dir, model_name, verbalizer_lora_paths, n_positions=None, sample_limit=None,
 ) -> dict[str, Any]:
     from AObench.open_ended_eval.mmlu_prediction import (
         PRE_ANSWER_PROMPTS,
@@ -100,6 +102,7 @@ def run_mmlu_prediction(
             output_dir=mode_output_dir,
             verbalizer_prompts=prompts,
             verbalizer_lora_paths=verbalizer_lora_paths,
+            max_entries=sample_limit,
             run_letter_prediction_eval=(mode_name == "pre_answer"),
         )
         all_summaries[mode_name] = summary
@@ -118,7 +121,7 @@ def run_mmlu_prediction(
 
 
 def run_backtracking(
-    model, tokenizer, device, output_dir, model_name, verbalizer_lora_paths, n_positions=None,
+    model, tokenizer, device, output_dir, model_name, verbalizer_lora_paths, n_positions=None, sample_limit=None,
 ) -> dict[str, Any]:
     from AObench.open_ended_eval.backtracking import (
         GENERATION_KWARGS,
@@ -129,12 +132,12 @@ def run_backtracking(
     return run_backtracking_open_ended_eval(
         model_name=model_name, model=model, tokenizer=tokenizer, device=device,
         output_dir=output_dir, eval_batch_size=32, generation_kwargs=GENERATION_KWARGS,
-        verbalizer_lora_paths=verbalizer_lora_paths, **_seg(n_positions),
+        verbalizer_lora_paths=verbalizer_lora_paths, max_entries=sample_limit, **_seg(n_positions),
     )
 
 
 def run_backtracking_mc(
-    model, tokenizer, device, output_dir, model_name, verbalizer_lora_paths, n_positions=None,
+    model, tokenizer, device, output_dir, model_name, verbalizer_lora_paths, n_positions=None, sample_limit=None,
 ) -> dict[str, Any]:
     from AObench.open_ended_eval.backtracking import run_backtracking_mc_eval
 
@@ -142,12 +145,12 @@ def run_backtracking_mc(
     return run_backtracking_mc_eval(
         model_name=model_name, model=model, tokenizer=tokenizer, device=device,
         output_dir=output_dir, eval_batch_size=64,
-        verbalizer_lora_paths=verbalizer_lora_paths, **_seg(n_positions),
+        verbalizer_lora_paths=verbalizer_lora_paths, max_entries=sample_limit, **_seg(n_positions),
     )
 
 
 def run_missing_info(
-    model, tokenizer, device, output_dir, model_name, verbalizer_lora_paths, n_positions=None,
+    model, tokenizer, device, output_dir, model_name, verbalizer_lora_paths, n_positions=None, sample_limit=None,
 ) -> dict[str, Any]:
     from AObench.open_ended_eval.missing_info import run_missing_info_open_ended_eval
 
@@ -155,12 +158,13 @@ def run_missing_info(
     return run_missing_info_open_ended_eval(
         model_name=model_name, model=model, tokenizer=tokenizer, device=device,
         output_dir=output_dir, eval_batch_size=32, verbalizer_lora_paths=verbalizer_lora_paths,
+        max_entries=sample_limit,
         **_seg(n_positions),
     )
 
 
 def run_sycophancy(
-    model, tokenizer, device, output_dir, model_name, verbalizer_lora_paths, n_positions=None,
+    model, tokenizer, device, output_dir, model_name, verbalizer_lora_paths, n_positions=None, sample_limit=None,
 ) -> dict[str, Any]:
     """Run sycophancy eval on both cot and no_cot modes, average metrics."""
     from AObench.open_ended_eval.sycophancy import run_sycophancy_open_ended_eval
@@ -178,6 +182,7 @@ def run_sycophancy(
             output_dir=mode_output_dir,
             mode=mode,
             verbalizer_lora_paths=verbalizer_lora_paths,
+            max_entries_per_class=sample_limit if sample_limit is not None else 100,
             **_seg(n_positions),
         )
         all_mode_summaries[mode] = summary
@@ -204,7 +209,7 @@ def _flatten_system_prompt_qa_result(result: dict[str, Any]) -> dict[str, Any]:
 
 
 def run_system_prompt_qa_hidden(
-    model, tokenizer, device, output_dir, model_name, verbalizer_lora_paths, n_positions=None,
+    model, tokenizer, device, output_dir, model_name, verbalizer_lora_paths, n_positions=None, sample_limit=None,
 ) -> dict[str, Any]:
     from AObench.open_ended_eval.system_prompt_qa import (
         VERBALIZER_PROMPTS_HIDDEN_INSTRUCTION,
@@ -222,12 +227,13 @@ def run_system_prompt_qa_hidden(
         verbalizer_prompts=VERBALIZER_PROMPTS_HIDDEN_INSTRUCTION,
         verbalizer_lora_paths=verbalizer_lora_paths,
         modes=("user_and_assistant",),
+        max_entries=sample_limit,
     )
     return _flatten_system_prompt_qa_result(result)
 
 
 def run_system_prompt_qa_latentqa(
-    model, tokenizer, device, output_dir, model_name, verbalizer_lora_paths, n_positions=None,
+    model, tokenizer, device, output_dir, model_name, verbalizer_lora_paths, n_positions=None, sample_limit=None,
 ) -> dict[str, Any]:
     from AObench.open_ended_eval.system_prompt_qa import (
         VERBALIZER_PROMPTS_SYSTEM_PROMPT_QA,
@@ -245,12 +251,13 @@ def run_system_prompt_qa_latentqa(
         verbalizer_prompts=VERBALIZER_PROMPTS_SYSTEM_PROMPT_QA,
         verbalizer_lora_paths=verbalizer_lora_paths,
         modes=("user_and_assistant",),
+        max_entries=sample_limit,
     )
     return _flatten_system_prompt_qa_result(result)
 
 
 def run_taboo(
-    model, tokenizer, device, output_dir, model_name, verbalizer_lora_paths, n_positions=None,
+    model, tokenizer, device, output_dir, model_name, verbalizer_lora_paths, n_positions=None, sample_limit=None,
 ) -> dict[str, Any]:
     from AObench.open_ended_eval.taboo import (
         get_default_taboo_model_settings,
@@ -279,7 +286,7 @@ def run_taboo(
 
 
 def run_personaqa(
-    model, tokenizer, device, output_dir, model_name, verbalizer_lora_paths, n_positions=None,
+    model, tokenizer, device, output_dir, model_name, verbalizer_lora_paths, n_positions=None, sample_limit=None,
 ) -> dict[str, Any]:
     from AObench.open_ended_eval.personaqa import (
         get_default_personaqa_model_settings,
@@ -305,7 +312,7 @@ def run_personaqa(
 
 
 def run_vagueness(
-    model, tokenizer, device, output_dir, model_name, verbalizer_lora_paths, n_positions=None,
+    model, tokenizer, device, output_dir, model_name, verbalizer_lora_paths, n_positions=None, sample_limit=None,
 ) -> dict[str, Any]:
     from AObench.open_ended_eval.vagueness import run_vagueness_open_ended_eval
 
@@ -313,12 +320,13 @@ def run_vagueness(
     return run_vagueness_open_ended_eval(
         model_name=model_name, model=model, tokenizer=tokenizer, device=device,
         output_dir=output_dir, eval_batch_size=32, verbalizer_lora_paths=verbalizer_lora_paths,
+        max_entries=sample_limit,
         **_seg(n_positions),
     )
 
 
 def run_domain_confusion(
-    model, tokenizer, device, output_dir, model_name, verbalizer_lora_paths, n_positions=None,
+    model, tokenizer, device, output_dir, model_name, verbalizer_lora_paths, n_positions=None, sample_limit=None,
 ) -> dict[str, Any]:
     from AObench.open_ended_eval.domain_confusion import run_domain_confusion_open_ended_eval
 
@@ -326,12 +334,13 @@ def run_domain_confusion(
     return run_domain_confusion_open_ended_eval(
         model_name=model_name, model=model, tokenizer=tokenizer, device=device,
         output_dir=output_dir, eval_batch_size=32, verbalizer_lora_paths=verbalizer_lora_paths,
+        max_entries=sample_limit,
         **_seg(n_positions),
     )
 
 
 def run_activation_sensitivity(
-    model, tokenizer, device, output_dir, model_name, verbalizer_lora_paths, n_positions=None,
+    model, tokenizer, device, output_dir, model_name, verbalizer_lora_paths, n_positions=None, sample_limit=None,
 ) -> dict[str, Any]:
     from AObench.open_ended_eval.activation_sensitivity import run_activation_sensitivity_open_ended_eval
 
@@ -339,11 +348,12 @@ def run_activation_sensitivity(
     return run_activation_sensitivity_open_ended_eval(
         model_name=model_name, model=model, tokenizer=tokenizer, device=device,
         output_dir=output_dir, eval_batch_size=32, verbalizer_lora_paths=verbalizer_lora_paths,
+        max_entries_per_condition=sample_limit,
     )
 
 
 def run_hallucination_1pos(
-    model, tokenizer, device, output_dir, model_name, verbalizer_lora_paths, n_positions=None,
+    model, tokenizer, device, output_dir, model_name, verbalizer_lora_paths, n_positions=None, sample_limit=None,
 ) -> dict[str, Any]:
     from AObench.open_ended_eval.hallucination import run_hallucination_1pos_eval
 
@@ -351,11 +361,12 @@ def run_hallucination_1pos(
     return run_hallucination_1pos_eval(
         model_name=model_name, model=model, tokenizer=tokenizer, device=device,
         output_dir=output_dir, eval_batch_size=32, verbalizer_lora_paths=verbalizer_lora_paths,
+        max_entries=sample_limit,
     )
 
 
 def run_hallucination_5pos(
-    model, tokenizer, device, output_dir, model_name, verbalizer_lora_paths, n_positions=None,
+    model, tokenizer, device, output_dir, model_name, verbalizer_lora_paths, n_positions=None, sample_limit=None,
 ) -> dict[str, Any]:
     from AObench.open_ended_eval.hallucination import run_hallucination_5pos_eval
 
@@ -363,11 +374,12 @@ def run_hallucination_5pos(
     return run_hallucination_5pos_eval(
         model_name=model_name, model=model, tokenizer=tokenizer, device=device,
         output_dir=output_dir, eval_batch_size=32, verbalizer_lora_paths=verbalizer_lora_paths,
+        max_entries=sample_limit,
     )
 
 
 def run_hallucination_20pos(
-    model, tokenizer, device, output_dir, model_name, verbalizer_lora_paths, n_positions=None,
+    model, tokenizer, device, output_dir, model_name, verbalizer_lora_paths, n_positions=None, sample_limit=None,
 ) -> dict[str, Any]:
     from AObench.open_ended_eval.hallucination import run_hallucination_20pos_eval
 
@@ -375,6 +387,7 @@ def run_hallucination_20pos(
     return run_hallucination_20pos_eval(
         model_name=model_name, model=model, tokenizer=tokenizer, device=device,
         output_dir=output_dir, eval_batch_size=32, verbalizer_lora_paths=verbalizer_lora_paths,
+        max_entries=sample_limit,
     )
 
 
@@ -442,6 +455,7 @@ def run_all_evals(
     verbalizer_lora_paths: list[str],
     include: list[str] | None = None,
     n_positions: int | None = None,
+    sample_limits: dict[str, int] | None = None,
 ) -> dict[str, Any]:
     """Run open-ended evals sequentially, returning a dict of summaries.
 
@@ -474,6 +488,7 @@ def run_all_evals(
             model_name=model_name,
             verbalizer_lora_paths=verbalizer_lora_paths,
             n_positions=n_positions,
+            sample_limit=(sample_limits or {}).get(eval_name),
         )
         elapsed = time.perf_counter() - start
 

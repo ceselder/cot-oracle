@@ -21,6 +21,8 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 
+DEFAULT_BOOTSTRAP_REPS = 600
+
 
 # ---------------------------------------------------------------------------
 # Bootstrap CI
@@ -122,14 +124,198 @@ def extract_verbalizer_metric(
     return result
 
 
-def extract_bootstrap_data(
-    summary: dict[str, Any],
-    eval_name: str,
-) -> list[float] | None:
-    """Try to extract per-example scores for bootstrap CI."""
-    # Look for scored_results or binary_scored_results in the raw output files
-    # These may not be in the summary — would need the detailed output files
+def _slug_verbalizer_name(name: str) -> str:
+    return name.split("/")[-1].replace("/", "_").replace(".", "_")
+
+
+def _binary_auc(labels: list[int], scores: list[float]) -> float | None:
+    if not labels or len(set(labels)) < 2:
+        return None
+    y_true = np.asarray(labels, dtype=np.int64)
+    y_score = np.asarray(scores, dtype=np.float64)
+    order = np.argsort(-y_score, kind="mergesort")
+    y_true = y_true[order]
+    y_score = y_score[order]
+    distinct_indices = np.where(np.diff(y_score))[0]
+    threshold_indices = np.r_[distinct_indices, y_true.size - 1]
+    tps = np.cumsum(y_true)[threshold_indices]
+    fps = 1 + threshold_indices - tps
+    positives = int(y_true.sum())
+    negatives = int(len(y_true) - positives)
+    if positives == 0 or negatives == 0:
+        return None
+    tps = np.r_[0, tps]
+    fps = np.r_[0, fps]
+    tpr = tps / positives
+    fpr = fps / negatives
+    trapz = getattr(np, "trapezoid", None) or np.trapz
+    return float(trapz(tpr, fpr))
+
+
+def _primary_metric_from_rows(eval_name: str, rows: list[dict[str, Any]]) -> float | None:
+    if not rows:
+        return None
+    if eval_name == "number_prediction":
+        return sum(1 for r in rows if r.get("matches_model_answer")) / len(rows)
+    if eval_name in {"mmlu_prediction", "missing_info", "sycophancy"}:
+        auc = _binary_auc(
+            [int(r["binary_label"]) for r in rows],
+            [float(r["margin_yes_minus_no"]) for r in rows],
+        )
+        return auc
+    if eval_name == "backtracking_mc":
+        return sum(1 for r in rows if r.get("is_correct")) / len(rows)
+    if eval_name in {"backtracking", "system_prompt_qa_hidden", "system_prompt_qa_latentqa"}:
+        values = [float(r["correctness"]) for r in rows if "correctness" in r]
+        return sum(values) / len(values) if values else None
+    if eval_name == "vagueness":
+        return sum(1 for r in rows if r.get("category") == "specific_correct") / len(rows)
+    if eval_name == "domain_confusion":
+        return sum(1 for r in rows if r.get("category") == "domain_correct_specific") / len(rows)
+    if eval_name.startswith("hallucination_"):
+        return sum(1 for r in rows if r.get("category") == "correct") / len(rows)
+    if eval_name == "activation_sensitivity":
+        return sum(1 for r in rows if r.get("category") == "divergent_meaningful") / len(rows)
     return None
+
+
+def _bootstrap_metric_samples(
+    eval_name: str,
+    rows: list[dict[str, Any]],
+    n_bootstrap: int,
+    seed: int = 42,
+) -> dict[str, Any] | None:
+    base_metric = _primary_metric_from_rows(eval_name, rows)
+    if base_metric is None:
+        return None
+    if len(rows) < 2:
+        return {
+            "mean": float(base_metric),
+            "lo": float(base_metric),
+            "hi": float(base_metric),
+            "samples": np.full(n_bootstrap, float(base_metric), dtype=np.float64),
+        }
+
+    rng = np.random.default_rng(seed)
+    n = len(rows)
+    samples = np.empty(n_bootstrap, dtype=np.float64)
+    for i in range(n_bootstrap):
+        idx = rng.integers(0, n, size=n)
+        sample_rows = [rows[j] for j in idx]
+        metric = _primary_metric_from_rows(eval_name, sample_rows)
+        samples[i] = float(base_metric if metric is None or math.isnan(metric) else metric)
+    alpha = 0.025
+    return {
+        "mean": float(base_metric),
+        "lo": float(np.percentile(samples, 100 * alpha)),
+        "hi": float(np.percentile(samples, 100 * (1 - alpha))),
+        "samples": samples,
+    }
+
+
+def _load_json(path: Path) -> dict[str, Any] | None:
+    if not path.exists():
+        return None
+    return json.loads(path.read_text())
+
+
+def _raw_payloads_for_eval(
+    results_path: Path,
+    eval_name: str,
+    verbalizer_name: str,
+) -> list[dict[str, Any]]:
+    slug = _slug_verbalizer_name(verbalizer_name)
+    eval_dir = results_path / eval_name
+
+    if eval_name == "mmlu_prediction":
+        paths = [
+            eval_dir / "pre_answer" / f"mmlu_prediction_binary_{slug}.json",
+            eval_dir / "post_answer" / f"mmlu_prediction_binary_{slug}.json",
+        ]
+    elif eval_name == "sycophancy":
+        paths = [
+            eval_dir / "no_cot" / f"sycophancy_no_cot_binary_{slug}.json",
+            eval_dir / "cot" / f"sycophancy_cot_binary_{slug}.json",
+        ]
+    elif eval_name == "backtracking_mc":
+        paths = [eval_dir / f"backtracking_mc_{slug}.json"]
+    elif eval_name in {"mmlu_prediction", "missing_info"}:
+        paths = [eval_dir / f"{eval_name}_binary_{slug}.json"]
+    elif eval_name in {"number_prediction", "backtracking", "vagueness", "domain_confusion", "activation_sensitivity"} or eval_name.startswith("hallucination_") or eval_name.startswith("system_prompt_qa_"):
+        paths = [eval_dir / f"{eval_name}_{slug}.json"]
+    else:
+        paths = [eval_dir / f"{eval_name}_{slug}.json"]
+
+    payloads = []
+    for path in paths:
+        payload = _load_json(path)
+        if payload is not None:
+            payloads.append(payload)
+    return payloads
+
+
+def compute_eval_intervals(
+    results_path: Path,
+    eval_results: dict[str, dict[str, float]],
+    n_bootstrap: int = DEFAULT_BOOTSTRAP_REPS,
+) -> dict[str, dict[str, dict[str, Any]]]:
+    eval_intervals: dict[str, dict[str, dict[str, Any]]] = {}
+
+    for eval_name, verb_metrics in eval_results.items():
+        verb_intervals: dict[str, dict[str, Any]] = {}
+        for verbalizer_name, summary_metric in verb_metrics.items():
+            payloads = _raw_payloads_for_eval(results_path, eval_name, verbalizer_name)
+            if not payloads:
+                verb_intervals[verbalizer_name] = {
+                    "mean": float(summary_metric),
+                    "lo": float(summary_metric),
+                    "hi": float(summary_metric),
+                    "samples": np.full(n_bootstrap, float(summary_metric), dtype=np.float64),
+                    "source": "summary_only",
+                }
+                continue
+
+            per_mode_boots: list[np.ndarray] = []
+            per_mode_means: list[float] = []
+            per_mode_los: list[float] = []
+            per_mode_his: list[float] = []
+            for payload in payloads:
+                rows = payload.get("binary_scored_results")
+                if rows is None:
+                    rows = payload.get("scored_results")
+                if rows is None:
+                    rows = payload.get("pairs")
+                boot = _bootstrap_metric_samples(eval_name, rows or [], n_bootstrap=n_bootstrap)
+                if boot is None:
+                    continue
+                per_mode_boots.append(np.asarray(boot["samples"], dtype=np.float64))
+                per_mode_means.append(float(boot["mean"]))
+                per_mode_los.append(float(boot["lo"]))
+                per_mode_his.append(float(boot["hi"]))
+
+            if not per_mode_boots:
+                verb_intervals[verbalizer_name] = {
+                    "mean": float(summary_metric),
+                    "lo": float(summary_metric),
+                    "hi": float(summary_metric),
+                    "samples": np.full(n_bootstrap, float(summary_metric), dtype=np.float64),
+                    "source": "summary_only",
+                }
+                continue
+
+            stacked = np.stack(per_mode_boots, axis=0)
+            combined_samples = stacked.mean(axis=0)
+            verb_intervals[verbalizer_name] = {
+                "mean": float(np.mean(per_mode_means)),
+                "lo": float(np.percentile(combined_samples, 2.5)),
+                "hi": float(np.percentile(combined_samples, 97.5)),
+                "samples": combined_samples,
+                "source": "raw_outputs",
+            }
+        if verb_intervals:
+            eval_intervals[eval_name] = verb_intervals
+
+    return eval_intervals
 
 
 # ---------------------------------------------------------------------------
@@ -206,7 +392,7 @@ def verbalizer_sort_key(name: str) -> tuple[int, str]:
 
 def normalize_metric_for_aggregate(eval_name: str, value: float) -> float:
     """Map eval metrics to a roughly comparable scale for aggregate plotting."""
-    normalized = float(value)
+    normalized = np.asarray(value, dtype=np.float64)
     if eval_name in SCALE_1_5_EVALS:
         normalized = (normalized - 1.0) / 4.0
 
@@ -214,11 +400,14 @@ def normalize_metric_for_aggregate(eval_name: str, value: float) -> float:
     if chance is not None and chance < 1.0:
         normalized = (normalized - chance) / (1.0 - chance)
 
+    if normalized.ndim == 0:
+        return float(normalized)
     return normalized
 
 
 def compute_aggregate_scores(
     eval_results: dict[str, dict[str, float]],
+    eval_intervals: dict[str, dict[str, dict[str, Any]]] | None = None,
 ) -> dict[str, dict[str, Any]]:
     per_verbalizer: dict[str, dict[str, float]] = {}
     for eval_name, metrics in eval_results.items():
@@ -228,15 +417,32 @@ def compute_aggregate_scores(
                 metric_value,
             )
 
-    return {
-        verbalizer_name: {
+    aggregate: dict[str, dict[str, Any]] = {}
+    for verbalizer_name, per_eval in per_verbalizer.items():
+        if not per_eval:
+            continue
+        payload: dict[str, Any] = {
             "mean_normalized_score": sum(per_eval.values()) / len(per_eval),
             "num_evals": len(per_eval),
             "per_eval_normalized": per_eval,
         }
-        for verbalizer_name, per_eval in per_verbalizer.items()
-        if per_eval
-    }
+        if eval_intervals:
+            sample_arrays = []
+            for eval_name in per_eval:
+                interval = eval_intervals.get(eval_name, {}).get(verbalizer_name)
+                if not interval:
+                    continue
+                samples = np.asarray(interval.get("samples", []), dtype=np.float64)
+                if samples.size == 0:
+                    continue
+                sample_arrays.append(normalize_metric_for_aggregate(eval_name, samples))
+            if sample_arrays:
+                stacked = np.stack(sample_arrays, axis=0)
+                agg_samples = stacked.mean(axis=0)
+                payload["ci_lo"] = float(np.percentile(agg_samples, 2.5))
+                payload["ci_hi"] = float(np.percentile(agg_samples, 97.5))
+        aggregate[verbalizer_name] = payload
+    return aggregate
 
 
 def plot_aggregate_scores(
@@ -261,7 +467,19 @@ def plot_aggregate_scores(
     colors = [DISPLAY_COLORS.get(label, fallback_colors[i]) for i, label in enumerate(labels)]
 
     y = np.arange(len(labels))
-    bars = ax.barh(y, values, color=colors, edgecolor="white", linewidth=0.5)
+    xerr = []
+    has_err = False
+    for _, payload in items:
+        lo = payload.get("ci_lo")
+        hi = payload.get("ci_hi")
+        if lo is None or hi is None:
+            xerr.append((0.0, 0.0))
+            continue
+        has_err = True
+        mean = float(payload["mean_normalized_score"])
+        xerr.append((mean - float(lo), float(hi) - mean))
+    xerr_arr = np.array(xerr, dtype=np.float64).T if has_err else None
+    bars = ax.barh(y, values, color=colors, edgecolor="white", linewidth=0.5, xerr=xerr_arr, capsize=3 if has_err else 0)
     for bar, value in zip(bars, values, strict=True):
         ax.text(
             value + (0.015 if value >= 0 else -0.015),
@@ -293,6 +511,7 @@ def plot_comparison_bar_chart(
     eval_results: dict[str, dict[str, float]],
     output_path: str,
     title: str = "AObench Comparison",
+    eval_intervals: dict[str, dict[str, dict[str, Any]]] | None = None,
 ) -> str:
     """Create a grouped bar chart comparing verbalizers across evals.
 
@@ -321,11 +540,23 @@ def plot_comparison_bar_chart(
         display = shorten_lora_name(verb_name)
         color = DISPLAY_COLORS.get(display, fallback_colors[i])
         values = []
+        lowers = []
+        uppers = []
         for eval_name in eval_names:
             val = eval_results[eval_name].get(verb_name, 0)
+            lo = hi = val
+            if eval_intervals:
+                interval = eval_intervals.get(eval_name, {}).get(verb_name)
+                if interval is not None:
+                    lo = float(interval.get("lo", val))
+                    hi = float(interval.get("hi", val))
             if eval_name in SCALE_1_5_EVALS:
                 val = (val - 1) / 4  # map 1-5 → 0-1
+                lo = (lo - 1) / 4
+                hi = (hi - 1) / 4
             values.append(val)
+            lowers.append(max(0.0, val - lo))
+            uppers.append(max(0.0, hi - val))
         offset = (i - n_verbs / 2 + 0.5) * bar_width
         bars = ax.bar(
             x + offset, values, bar_width * 0.9,
@@ -333,6 +564,8 @@ def plot_comparison_bar_chart(
             color=color,
             edgecolor="white",
             linewidth=0.5,
+            yerr=np.array([lowers, uppers], dtype=np.float64),
+            capsize=2,
         )
         # Add value labels on bars
         for bar, val in zip(bars, values):
@@ -377,6 +610,7 @@ def plot_per_eval_detail(
     verbalizer_metrics: dict[str, float],
     output_path: str,
     chance_baseline: float | None = None,
+    eval_intervals: dict[str, dict[str, Any]] | None = None,
 ) -> str:
     """Create a single-eval bar chart with one bar per verbalizer."""
     metric_info = EVAL_METRIC_MAP.get(eval_name, ("score", "Score", True))
@@ -393,11 +627,24 @@ def plot_per_eval_detail(
         for i, v in enumerate(verb_names)
     ]
 
+    yerr = None
+    if eval_intervals:
+        errs = []
+        for verb_name, val in zip(verb_names, values, strict=True):
+            interval = eval_intervals.get(verb_name)
+            if not interval:
+                errs.append((0.0, 0.0))
+                continue
+            errs.append((max(0.0, val - float(interval.get("lo", val))), max(0.0, float(interval.get("hi", val)) - val)))
+        yerr = np.array(errs, dtype=np.float64).T
+
     bars = ax.bar(
         range(n), values,
         color=bar_colors,
         edgecolor="white",
         linewidth=0.5,
+        yerr=yerr,
+        capsize=3 if yerr is not None else 0,
     )
 
     for bar, val in zip(bars, values):
@@ -433,6 +680,7 @@ def generate_report(
     results_dir: str,
     output_dir: str | None = None,
     filter_verbalizers: list[str] | None = None,
+    bootstrap_reps: int = DEFAULT_BOOTSTRAP_REPS,
 ) -> None:
     """Read all eval summaries and generate comparison report."""
     results_path = Path(results_dir)
@@ -471,13 +719,15 @@ def generate_report(
             if metrics:
                 eval_results[eval_name] = metrics
 
+    eval_intervals = compute_eval_intervals(results_path, eval_results, n_bootstrap=bootstrap_reps)
+
     # 1. Overall comparison chart
     comparison_path = os.path.join(output_dir, "comparison.png")
-    plot_comparison_bar_chart(eval_results, comparison_path, "AObench Results Comparison")
+    plot_comparison_bar_chart(eval_results, comparison_path, "AObench Results Comparison", eval_intervals=eval_intervals)
     print(f"Saved comparison chart: {comparison_path}")
 
     # 1b. Aggregate chance-adjusted ranking
-    aggregate_scores = compute_aggregate_scores(eval_results)
+    aggregate_scores = compute_aggregate_scores(eval_results, eval_intervals=eval_intervals)
     aggregate_path = os.path.join(output_dir, "aggregate_scores.png")
     plot_aggregate_scores(aggregate_scores, aggregate_path)
     print(f"Saved aggregate chart: {aggregate_path}")
@@ -486,7 +736,13 @@ def generate_report(
     for eval_name, verb_metrics in eval_results.items():
         detail_path = os.path.join(output_dir, f"detail_{eval_name}.png")
         chance = CHANCE_BASELINES.get(eval_name)
-        plot_per_eval_detail(eval_name, verb_metrics, detail_path, chance)
+        plot_per_eval_detail(
+            eval_name,
+            verb_metrics,
+            detail_path,
+            chance,
+            eval_intervals=eval_intervals.get(eval_name),
+        )
         print(f"Saved detail chart: {detail_path}")
 
     # 3. Summary table (text)
@@ -500,7 +756,14 @@ def generate_report(
             _, display_name, _ = metric_info
             f.write(f"--- {eval_name} ({display_name}) ---\n")
             for verb, val in sorted(verb_metrics.items()):
-                f.write(f"  {shorten_lora_name(verb):45s}  {val:.4f}\n")
+                interval = eval_intervals.get(eval_name, {}).get(verb)
+                if interval:
+                    f.write(
+                        f"  {shorten_lora_name(verb):45s}  {val:.4f}  "
+                        f"[{interval['lo']:.4f}, {interval['hi']:.4f}]\n"
+                    )
+                else:
+                    f.write(f"  {shorten_lora_name(verb):45s}  {val:.4f}\n")
             chance = CHANCE_BASELINES.get(eval_name)
             if chance is not None:
                 f.write(f"  {'(chance)':45s}  {chance:.4f}\n")
@@ -515,7 +778,12 @@ def generate_report(
             ):
                 f.write(
                     f"  {shorten_lora_name(verb):45s}  "
-                    f"{payload['mean_normalized_score']:.4f}  "
+                    f"{payload['mean_normalized_score']:.4f}"
+                    + (
+                        f"  [{payload['ci_lo']:.4f}, {payload['ci_hi']:.4f}]"
+                        if "ci_lo" in payload and "ci_hi" in payload else ""
+                    )
+                    + "  "
                     f"(n={payload['num_evals']})\n"
                 )
             f.write("\n")
@@ -526,6 +794,25 @@ def generate_report(
     summary_json_path = os.path.join(output_dir, "summary.json")
     with open(summary_json_path, "w") as f:
         json.dump(eval_results, f, indent=2)
+
+    intervals_json_path = os.path.join(output_dir, "eval_intervals.json")
+    with open(intervals_json_path, "w") as f:
+        json.dump(
+            {
+                eval_name: {
+                    verb: {
+                        "mean": payload["mean"],
+                        "lo": payload["lo"],
+                        "hi": payload["hi"],
+                        "source": payload.get("source", "unknown"),
+                    }
+                    for verb, payload in per_eval.items()
+                }
+                for eval_name, per_eval in eval_intervals.items()
+            },
+            f,
+            indent=2,
+        )
 
     aggregate_json_path = os.path.join(output_dir, "aggregate_scores.json")
     with open(aggregate_json_path, "w") as f:

@@ -84,11 +84,16 @@ RESPONSE A (complete info): {response_a}
 RESPONSE C (incomplete info, same tokens): {response_c}"""
 
 
-def load_dataset(conditions: list[str] | None = None) -> list[dict[str, Any]]:
+def load_dataset(
+    conditions: list[str] | None = None,
+    max_entries: int | None = None,
+) -> list[dict[str, Any]]:
     data = json.loads(Path(DATASET_PATH).read_text())
     entries = data["entries"]
     if conditions is not None:
         entries = [e for e in entries if e["condition"] in conditions]
+    if max_entries is not None:
+        entries = entries[:max_entries]
     return entries
 
 
@@ -210,6 +215,7 @@ def run_activation_sensitivity_open_ended_eval(
     verbalizer_lora_paths: list[str],
     output_dir: str | None = None,
     judge_concurrency: int = DEFAULT_JUDGE_CONCURRENCY,
+    max_entries_per_condition: int | None = None,
 ) -> dict[str, Any]:
     """Run A vs C activation sensitivity eval.
 
@@ -219,8 +225,8 @@ def run_activation_sensitivity_open_ended_eval(
     if generation_kwargs is None:
         generation_kwargs = GENERATION_KWARGS
 
-    a_entries = load_dataset(conditions=["A_complete"])
-    c_entries = load_dataset(conditions=["C_forced"])
+    a_entries = load_dataset(conditions=["A_complete"], max_entries=max_entries_per_condition)
+    c_entries = load_dataset(conditions=["C_forced"], max_entries=max_entries_per_condition)
 
     a_prompt_infos, a_metadata = build_prompt_infos_for_condition(
         a_entries, VERBALIZER_PROMPTS, tokenizer,
@@ -295,6 +301,18 @@ def run_activation_sensitivity_open_ended_eval(
             print(f"    {k}: {v:.3f}" if isinstance(v, float) else f"    {k}: {v}")
 
         all_scored.extend(scored)
+
+        if output_dir is not None:
+            Path(output_dir).mkdir(parents=True, exist_ok=True)
+            lora_name = verbalizer_key.replace("/", "_").replace(".", "_")
+            output_path = Path(output_dir) / f"activation_sensitivity_{lora_name}.json"
+            output_path.write_text(json.dumps({
+                "verbalizer": verbalizer_entry,
+                "metrics": metrics,
+                "max_entries_per_condition": max_entries_per_condition,
+                "pairs": pairs,
+                "scored_results": scored,
+            }, indent=2))
 
         if sanitized_name in model.peft_config:
             model.delete_adapter(sanitized_name)

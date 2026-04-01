@@ -43,6 +43,20 @@ PAPER_COLLECTION_VERBALIZERS = [
     "ceselder/cot-oracle-grpo-step-500",
 ]
 
+PAPER_SMALL_LIMITS = {
+    "number_prediction": 30,
+    "mmlu_prediction": 50,
+    "backtracking_mc": 50,
+    "missing_info": 30,
+    "sycophancy": 25,  # per class, per mode
+    "backtracking": 50,
+    "vagueness": 50,
+    "domain_confusion": 50,
+    "hallucination_5pos": 50,
+    "system_prompt_qa_hidden": 10,
+    "system_prompt_qa_latentqa": 30,
+}
+
 
 def default_output_dir() -> str:
     timestamp = datetime.datetime.now(datetime.UTC).strftime("%Y%m%d_%H%M%S")
@@ -90,11 +104,25 @@ def main() -> None:
         default=None,
         help="Override number of activation positions for all evals.",
     )
+    parser.add_argument(
+        "--sample-profile",
+        type=str,
+        choices=["full", "paper_small"],
+        default="full",
+        help="Per-eval sample cap profile. 'paper_small' runs a reduced-size comparison.",
+    )
+    parser.add_argument(
+        "--bootstrap-reps",
+        type=int,
+        default=600,
+        help="Number of bootstrap replicates for report error bars.",
+    )
     args = parser.parse_args()
 
     verbalizer_lora_paths = args.verbalizer_lora or list(PAPER_COLLECTION_VERBALIZERS)
     include = args.include if args.include is not None else list(EVAL_PROFILES[args.profile])
     output_dir = args.output_dir or default_output_dir()
+    sample_limits = dict(PAPER_SMALL_LIMITS) if args.sample_profile == "paper_small" else {}
 
     random.seed(42)
     torch.manual_seed(42)
@@ -109,6 +137,9 @@ def main() -> None:
         "profile": args.profile,
         "include": include,
         "n_positions": args.n_positions,
+        "sample_profile": args.sample_profile,
+        "sample_limits": sample_limits,
+        "bootstrap_reps": args.bootstrap_reps,
         "verbalizer_lora_paths": verbalizer_lora_paths,
     }, indent=2))
 
@@ -119,6 +150,9 @@ def main() -> None:
     model.eval()
     print(f"Running profile: {args.profile}")
     print(f"Include list: {include}")
+    print(f"Sample profile: {args.sample_profile}")
+    if sample_limits:
+        print(f"Sample limits: {sample_limits}")
     print(f"Verbalizer LoRA paths: {verbalizer_lora_paths}")
     print(f"Output dir: {output_dir}")
 
@@ -131,6 +165,7 @@ def main() -> None:
         verbalizer_lora_paths=verbalizer_lora_paths,
         include=include,
         n_positions=args.n_positions,
+        sample_limits=sample_limits,
     )
 
     combined_path = os.path.join(output_dir, "all_summaries.json")
@@ -138,7 +173,7 @@ def main() -> None:
         json.dump(all_summaries, f, indent=2)
     print(f"All eval summaries saved to {combined_path}")
 
-    generate_report(output_dir)
+    generate_report(output_dir, bootstrap_reps=args.bootstrap_reps)
     print_results_comparison(all_summaries)
 
 
