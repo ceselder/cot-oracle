@@ -45,7 +45,6 @@ PAPER_COLLECTION_VERBALIZERS = [
 PAPER_SMALL_LIMITS = {
     "number_prediction": 30,
     "mmlu_prediction": 50,
-    "backtracking_mc": 50,
     "missing_info": 30,
     "sycophancy": 25,  # per class, per mode
     "backtracking": 50,

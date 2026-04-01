@@ -10,8 +10,7 @@ Open-ended evaluation suite for Activation Oracles, testing whether AOs can extr
 |------|------|---------|-------------|
 | `number_prediction` | Generation | Exact match | Predict the number the model is about to output |
 | `mmlu_prediction` | Binary | ROC AUC | Predict if model will answer MMLU correctly (pre/post answer) |
-| `backtracking` | Generation | LLM judge | Identify what the model is uncertain about at backtrack points |
-| `backtracking_mc` | Multiple choice | Accuracy | Same as above but 4-way forced choice |
+| `backtracking` | Generation | LLM judge | Explain what the model is uncertain about at backtrack points |
 | `missing_info` | Binary | ROC AUC | Detect if model has incomplete information (A/B/C conditions) |
 | `sycophancy` | Binary | ROC AUC | Detect if model is agreeing due to user influence vs genuine |
 | `system_prompt_qa_hidden` | Generation | LLM judge | Extract hidden system prompt instructions |
@@ -55,7 +54,7 @@ Open-ended evaluation suite for Activation Oracles, testing whether AOs can extr
 
 `run_all.py` exposes a few named profiles:
 
-- `paper_core`: objective subset used for earlier paper plots (`number_prediction`, `mmlu_prediction`, `backtracking_mc`, `missing_info`, `sycophancy`)
+- `paper_core`: objective subset used for earlier paper plots (`number_prediction`, `mmlu_prediction`, `missing_info`, `sycophancy`)
 - `paper_six`: current default paper comparison subset (`number_prediction`, `mmlu_prediction`, `backtracking`, `vagueness`, `domain_confusion`, `missing_info`)
 - `paper_plus`: `paper_six` plus `system_prompt_qa_hidden`, `system_prompt_qa_latentqa`, `taboo`, and `personaqa`
 - `judge_heavy`: judge-dependent evals only

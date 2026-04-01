@@ -22,6 +22,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 DEFAULT_BOOTSTRAP_REPS = 600
+IGNORED_EVALS = {"backtracking_mc"}
 
 
 # ---------------------------------------------------------------------------
@@ -370,7 +371,7 @@ DISPLAY_ORDER = [
 EVAL_DISPLAY_NAMES: dict[str, str] = {
     "number_prediction": "Number\nPrediction",
     "mmlu_prediction": "MMLU\nPrediction",
-    "backtracking": "Backtracking",
+    "backtracking": "Explaining\nBacktracking",
     "backtracking_mc": "Backtracking\nMC",
     "missing_info": "Missing\nInfo",
     "sycophancy": "Sycophancy",
@@ -381,8 +382,8 @@ EVAL_DISPLAY_NAMES: dict[str, str] = {
     "vagueness": "Vagueness",
     "domain_confusion": "Domain\nConfusion",
     "activation_sensitivity": "Activation\nSensitivity",
-    "hallucination": "Hallucination",
-    "hallucination_5pos": "Hallucination",
+    "hallucination": "AO Hallucination\nRate",
+    "hallucination_5pos": "AO Hallucination\nRate",
 }
 
 
@@ -653,7 +654,7 @@ def plot_comparison_bar_chart(
     legend = fig.legend(
         handles=legend_handles,
         loc="upper center",
-        bbox_to_anchor=(0.5, 0.065),
+        bbox_to_anchor=(0.5, 0.105),
         ncol=min(4, n_verbs),
         fontsize=8,
         title="Checkpoint",
@@ -666,7 +667,7 @@ def plot_comparison_bar_chart(
 
     fig.text(
         0.5,
-        0.02,
+        0.012,
         "All plotted metrics are oriented so higher is better. Overall Score = mean normalized score across available evals.",
         ha="center",
         va="bottom",
@@ -674,7 +675,7 @@ def plot_comparison_bar_chart(
         color="#333333",
     )
     fig.suptitle(title, fontsize=18, y=0.98)
-    fig.subplots_adjust(left=0.06, right=0.99, top=0.9, bottom=0.16, hspace=0.34, wspace=0.2)
+    fig.subplots_adjust(left=0.06, right=0.99, top=0.9, bottom=0.2, hspace=0.34, wspace=0.2)
     os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
     plt.savefig(output_path, dpi=150, bbox_inches="tight")
     plt.close()
@@ -736,7 +737,7 @@ def plot_per_eval_detail(
         ax.legend()
 
     ax.set_ylabel(display_name)
-    ax.set_title(f"{eval_name.replace('_', ' ').title()}")
+    ax.set_title(format_eval_display_name(eval_name).replace("\n", " "))
     ax.set_xticks(range(n))
     ax.set_xticklabels([shorten_lora_name(v) for v in verb_names], fontsize=8, rotation=30, ha="right")
     ax.set_ylim(0, max(max(values) + 0.15 if values else 0.5, 0.5))
@@ -784,6 +785,8 @@ def generate_report(
     # Extract primary metrics per eval per verbalizer
     eval_results: dict[str, dict[str, float]] = {}
     for eval_name, summary in all_summaries.items():
+        if eval_name in IGNORED_EVALS:
+            continue
         metrics = extract_verbalizer_metric(summary, eval_name)
         if metrics:
             # Filter to requested verbalizers

@@ -137,19 +137,6 @@ def run_backtracking(
     )
 
 
-def run_backtracking_mc(
-    model, tokenizer, device, output_dir, model_name, verbalizer_lora_paths, n_positions=None, sample_limit=None,
-) -> dict[str, Any]:
-    from AObench.open_ended_eval.backtracking import run_backtracking_mc_eval
-
-    os.makedirs(output_dir, exist_ok=True)
-    return run_backtracking_mc_eval(
-        model_name=model_name, model=model, tokenizer=tokenizer, device=device,
-        output_dir=output_dir, eval_batch_size=64,
-        verbalizer_lora_paths=verbalizer_lora_paths, max_entries=sample_limit, **_seg(n_positions),
-    )
-
-
 def run_missing_info(
     model, tokenizer, device, output_dir, model_name, verbalizer_lora_paths, n_positions=None, sample_limit=None,
 ) -> dict[str, Any]:
@@ -378,7 +365,6 @@ EVALS = [
     ("number_prediction", run_number_prediction),
     ("mmlu_prediction", run_mmlu_prediction),
     ("backtracking", run_backtracking),
-    ("backtracking_mc", run_backtracking_mc),
     ("missing_info", run_missing_info),
     ("sycophancy", run_sycophancy),
     ("system_prompt_qa_hidden", run_system_prompt_qa_hidden),
@@ -393,7 +379,6 @@ DEFAULT_INCLUDE = [name for name, _ in EVALS if name not in {"taboo", "personaqa
 PAPER_CORE_INCLUDE = [
     "number_prediction",
     "mmlu_prediction",
-    "backtracking_mc",
     "missing_info",
     "sycophancy",
 ]

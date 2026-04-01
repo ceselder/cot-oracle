@@ -1614,40 +1614,6 @@
     "num_entries": 10,
     "num_scored": 80
   },
-  "backtracking_mc": {
-    "eval_name": "backtracking_mc",
-    "metrics_by_verbalizer": {
-      "adam-reupload-qwen3-8b-full-mix-synthetic-qa-v3-replace-lqa": {
-        "accuracy": 0.46
-      },
-      "adam-reupload-qwen3-8b-latentqa-cls-past-lens": {
-        "accuracy": 0.43
-      },
-      "cot-oracle-grpo-step-500": {
-        "accuracy": 0.47
-      },
-      "cot-oracle-paper-ablation-adam-recipe-1layer": {
-        "accuracy": 0.34
-      },
-      "cot-oracle-paper-ablation-ours-1layer": {
-        "accuracy": 0.49
-      },
-      "cot-oracle-paper-ablation-ours-3layers-onpolicy-lens-only": {
-        "accuracy": 0.55
-      },
-      "cot-oracle-paper-ablation-ours-3layers": {
-        "accuracy": 0.57
-      },
-      "cot-oracle-qwen3-8b-final-sprint-checkpoint-no-DPO": {
-        "accuracy": 0.51
-      }
-    },
-    "overall_metrics": {
-      "accuracy": 0.4775
-    },
-    "elapsed_seconds": 0.0,
-    "mock_layout_only": true
-  },
   "sycophancy": {
     "eval_name": "sycophancy",
     "metrics_by_verbalizer": {
