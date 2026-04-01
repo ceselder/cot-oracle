@@ -545,164 +545,113 @@ def plot_comparison_bar_chart(
     title: str = "AObench Comparison",
     eval_intervals: dict[str, dict[str, dict[str, Any]]] | None = None,
 ) -> str:
-    """Create a dashboard-style comparison plot for verbalizers across evals.
+    """Create a grouped bar chart comparing verbalizers across evals.
 
     eval_results: {eval_name: {verbalizer_name: metric_value}}
     """
+    # Collect all unique verbalizer names
     all_verbs: set[str] = set()
     for metrics in eval_results.values():
         all_verbs.update(metrics.keys())
+    verb_names = sorted(all_verbs, key=verbalizer_sort_key)
+
     eval_names = list(eval_results.keys())
-    aggregate_scores = compute_aggregate_scores(eval_results, eval_intervals=eval_intervals)
-
-    def _row_sort_key(name: str) -> tuple[float, tuple[int, str]]:
-        aggregate = aggregate_scores.get(name, {}).get("mean_normalized_score", float("-inf"))
-        return (-float(aggregate), verbalizer_sort_key(name))
-
-    verb_names = sorted(all_verbs, key=_row_sort_key)
     n_evals = len(eval_names)
     n_verbs = len(verb_names)
 
     if n_evals == 0 or n_verbs == 0:
         return output_path
 
-    normalized_matrix = np.full((n_verbs, n_evals), np.nan, dtype=np.float64)
-    raw_matrix = np.full((n_verbs, n_evals), np.nan, dtype=np.float64)
-    for row_idx, verb_name in enumerate(verb_names):
-        for col_idx, eval_name in enumerate(eval_names):
-            value = eval_results.get(eval_name, {}).get(verb_name)
-            if value is None:
-                continue
-            raw_matrix[row_idx, col_idx] = float(value)
-            normalized_matrix[row_idx, col_idx] = normalize_metric_for_aggregate(eval_name, float(value))
+    fig_width = max(15.0, 2.35 * n_evals + 4.8)
+    fig_height = 7.8
+    fig, ax = plt.subplots(figsize=(fig_width, fig_height))
 
-    labels = [shorten_lora_name(name) for name in verb_names]
+    group_spacing = 0.9
+    x = np.arange(n_evals, dtype=np.float64) * group_spacing
+    group_width = 0.84
+    bar_width = group_width / max(n_verbs, 1)
     fallback_colors = plt.cm.Set2(np.linspace(0, 1, max(n_verbs, 1)))
-    row_colors = [DISPLAY_COLORS.get(label, fallback_colors[i]) for i, label in enumerate(labels)]
+    for i, verb_name in enumerate(verb_names):
+        display = shorten_lora_name(verb_name)
+        color = DISPLAY_COLORS.get(display, fallback_colors[i])
+        values = []
+        lowers = []
+        uppers = []
+        for eval_name in eval_names:
+            value = eval_results[eval_name].get(verb_name, 0.0)
+            lo = hi = value
+            if eval_intervals:
+                interval = eval_intervals.get(eval_name, {}).get(verb_name)
+                if interval is not None:
+                    lo = float(interval.get("lo", value))
+                    hi = float(interval.get("hi", value))
+            if eval_name in SCALE_1_5_EVALS:
+                value = (value - 1.0) / 4.0
+                lo = (lo - 1.0) / 4.0
+                hi = (hi - 1.0) / 4.0
+            values.append(value)
+            lowers.append(max(0.0, value - lo))
+            uppers.append(max(0.0, hi - value))
 
-    fig_width = max(13.5, 6.0 + 1.15 * n_evals)
-    fig_height = max(6.2, 0.72 * n_verbs + 2.3)
-    fig = plt.figure(figsize=(fig_width, fig_height))
-    grid = fig.add_gridspec(1, 2, width_ratios=[1.15, max(1.8, 0.62 * n_evals)], wspace=0.04)
-    ax_agg = fig.add_subplot(grid[0, 0])
-    ax_heat = fig.add_subplot(grid[0, 1], sharey=ax_agg)
-
-    y = np.arange(n_verbs)
-    aggregate_values = [aggregate_scores.get(name, {}).get("mean_normalized_score", np.nan) for name in verb_names]
-    xerr = []
-    has_err = False
-    for name, value in zip(verb_names, aggregate_values, strict=True):
-        payload = aggregate_scores.get(name, {})
-        lo = payload.get("ci_lo")
-        hi = payload.get("ci_hi")
-        if lo is None or hi is None or np.isnan(value):
-            xerr.append((0.0, 0.0))
-            continue
-        has_err = True
-        xerr.append((float(value) - float(lo), float(hi) - float(value)))
-    xerr_arr = np.array(xerr, dtype=np.float64).T if has_err else None
-
-    bars = ax_agg.barh(
-        y,
-        aggregate_values,
-        color=row_colors,
-        edgecolor="white",
-        linewidth=0.7,
-        xerr=xerr_arr,
-        capsize=3 if has_err else 0,
-        height=0.74,
-    )
-    for bar, value in zip(bars, aggregate_values, strict=True):
-        if np.isnan(value):
-            continue
-        ax_agg.text(
-            float(value) + 0.015,
-            bar.get_y() + bar.get_height() / 2,
-            f"{float(value):.3f}",
-            va="center",
-            ha="left",
-            fontsize=9,
+        offset = (i - n_verbs / 2 + 0.5) * bar_width
+        ax.bar(
+            x + offset,
+            values,
+            bar_width * 0.96,
+            label=display,
+            color=color,
+            edgecolor="white",
+            linewidth=0.45,
+            yerr=np.array([lowers, uppers], dtype=np.float64),
+            capsize=2,
         )
 
-    ax_agg.axvline(0.0, color="0.45", linestyle="--", linewidth=1.0)
-    ax_agg.set_xlim(min(-0.08, np.nanmin(aggregate_values) - 0.06), max(1.0, np.nanmax(aggregate_values) + 0.14))
-    ax_agg.set_xlabel("Aggregate normalized score\n(higher is better)", fontsize=10)
-    ax_agg.set_title("Overall", fontsize=12, pad=10)
-    ax_agg.set_yticks(y)
-    ax_agg.set_yticklabels(labels, fontsize=10)
-    ax_agg.invert_yaxis()
-    ax_agg.xaxis.grid(True, color="#d9d9d9", linewidth=0.8, alpha=0.9)
-    ax_agg.set_axisbelow(True)
+    for center, eval_name in zip(x, eval_names, strict=True):
+        chance = CHANCE_BASELINES.get(eval_name)
+        if chance is None:
+            continue
+        ax.plot(
+            [center - group_width / 2, center + group_width / 2],
+            [chance, chance],
+            color="#b23b3b",
+            linestyle="--",
+            linewidth=1.0,
+            alpha=0.85,
+        )
 
-    for tick, label in zip(ax_agg.get_yticklabels(), labels, strict=True):
-        tick.set_color(DISPLAY_COLORS.get(label, "#1a1a1a"))
+    ax.set_xlim(x[0] - group_width * 0.68, x[-1] + group_width * 0.68)
+    ax.set_ylim(0, 1.05)
+    ax.set_ylabel("Score (higher is better)")
+    ax.set_xlabel("Evaluation")
+    ax.set_title(title, fontsize=18, pad=12)
+    ax.set_xticks(x)
+    ax.set_xticklabels([format_eval_display_name(name) for name in eval_names], fontsize=10)
+    ax.yaxis.grid(True, color="#dddddd", linewidth=0.8, alpha=0.9)
+    ax.set_axisbelow(True)
 
-    masked = np.ma.masked_invalid(normalized_matrix)
-    cmap = matplotlib.colormaps.get_cmap("RdYlGn").copy()
-    cmap.set_bad(color="#f2f2f2")
-    image = ax_heat.imshow(
-        masked,
-        aspect="auto",
-        interpolation="nearest",
-        cmap=cmap,
-        vmin=-0.2,
-        vmax=1.0,
+    legend = ax.legend(
+        loc="upper center",
+        bbox_to_anchor=(0.5, -0.18),
+        ncol=min(4, n_verbs),
+        fontsize=8,
+        title="Checkpoint",
+        frameon=False,
+        columnspacing=1.1,
+        handlelength=1.6,
     )
+    if legend.get_title() is not None:
+        legend.get_title().set_fontsize(9)
 
-    ax_heat.set_xticks(np.arange(n_evals))
-    ax_heat.set_xticklabels([format_eval_display_name(name) for name in eval_names], fontsize=10)
-    ax_heat.tick_params(top=False, bottom=True, labeltop=False, labelbottom=True)
-    plt.setp(ax_heat.get_xticklabels(), rotation=18, ha="right", rotation_mode="anchor")
-    ax_heat.set_yticks(y)
-    ax_heat.tick_params(axis="y", left=False, labelleft=False)
-    ax_heat.set_xticks(np.arange(-0.5, n_evals, 1), minor=True)
-    ax_heat.set_yticks(np.arange(-0.5, n_verbs, 1), minor=True)
-    ax_heat.grid(which="minor", color="white", linewidth=1.5)
-    ax_heat.tick_params(which="minor", bottom=False, left=False)
-
-    for row_idx in range(n_verbs):
-        for col_idx, eval_name in enumerate(eval_names):
-            raw_value = raw_matrix[row_idx, col_idx]
-            norm_value = normalized_matrix[row_idx, col_idx]
-            if np.isnan(raw_value):
-                ax_heat.text(
-                    col_idx,
-                    row_idx,
-                    "--",
-                    ha="center",
-                    va="center",
-                    fontsize=8,
-                    color="#7a7a7a",
-                )
-                continue
-            text_color = "white" if (norm_value >= 0.62 or norm_value <= -0.05) else "#1d1d1d"
-            ax_heat.text(
-                col_idx,
-                row_idx,
-                format_metric_value(eval_name, float(raw_value)),
-                ha="center",
-                va="center",
-                fontsize=8.5,
-                color=text_color,
-                fontweight="bold",
-            )
-
-    colorbar = fig.colorbar(image, ax=ax_heat, fraction=0.038, pad=0.03)
-    colorbar.set_label("Normalized score (higher is better)", rotation=90, labelpad=12)
-
-    fig.suptitle(title, fontsize=18, y=0.955)
     fig.text(
         0.5,
-        0.024,
-        "Rows are sorted by aggregate score. Cell color uses a normalized higher-is-better scale. Cell text shows the raw primary metric.",
+        0.035,
+        "All plotted metrics are oriented so higher is better.",
         ha="center",
         va="bottom",
-        fontsize=10,
+        fontsize=10.5,
         color="#333333",
     )
-    left_margin = min(0.30, 0.12 + 0.0045 * max(len(label) for label in labels))
-    bottom_margin = 0.18 if n_evals >= 8 else 0.15
-    fig.subplots_adjust(left=left_margin, right=0.955, top=0.90, bottom=bottom_margin, wspace=0.04)
+    fig.subplots_adjust(left=0.07, right=0.99, top=0.87, bottom=0.27)
     os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
     plt.savefig(output_path, dpi=150, bbox_inches="tight")
     plt.close()
