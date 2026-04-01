@@ -12,6 +12,7 @@ import asyncio
 import datetime
 import json
 import os
+import re
 import sys
 from dataclasses import asdict
 from pathlib import Path
@@ -139,28 +140,70 @@ TASK_SPECS: dict[str, dict[str, Any]] = {
     "backtracking": {
         "rejudge_fn": _rejudge_backtracking,
         "metrics_fn": backtracking.compute_judge_metrics,
+        "required_fields": ("specificity", "correctness"),
     },
     "system_prompt_qa_hidden": {
         "rejudge_fn": _rejudge_system_prompt_hidden,
         "metrics_fn": system_prompt_qa.compute_judge_metrics,
+        "required_fields": ("specificity", "correctness"),
     },
     "system_prompt_qa_latentqa": {
         "rejudge_fn": _rejudge_system_prompt_latentqa,
         "metrics_fn": system_prompt_qa.compute_judge_metrics,
+        "required_fields": ("specificity", "correctness"),
     },
     "vagueness": {
         "rejudge_fn": _rejudge_vagueness,
         "metrics_fn": vagueness.compute_vagueness_metrics,
+        "required_fields": ("category",),
     },
     "domain_confusion": {
         "rejudge_fn": _rejudge_domain_confusion,
         "metrics_fn": domain_confusion.compute_domain_confusion_metrics,
+        "required_fields": ("category",),
     },
     "hallucination_5pos": {
         "rejudge_fn": _rejudge_hallucination_5pos,
         "metrics_fn": hallucination.compute_hallucination_metrics,
+        "required_fields": ("category",),
     },
 }
+
+
+def _coerce_int(value: Any) -> int | None:
+    if isinstance(value, bool):
+        return int(value)
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float):
+        return int(round(value))
+    if isinstance(value, str):
+        match = re.search(r"-?\d+", value)
+        if match:
+            return int(match.group(0))
+    return None
+
+
+def _sanitize_scored_results(task_name: str, scored_results: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    required_fields = TASK_SPECS[task_name].get("required_fields", ())
+    sanitized: list[dict[str, Any]] = []
+    dropped: list[dict[str, Any]] = []
+
+    for row in scored_results:
+        normalized = dict(row)
+        if "specificity" in required_fields:
+            normalized["specificity"] = _coerce_int(normalized.get("specificity"))
+        if "correctness" in required_fields:
+            normalized["correctness"] = _coerce_int(normalized.get("correctness"))
+        if "category" in required_fields and isinstance(normalized.get("category"), str):
+            normalized["category"] = normalized["category"].strip().lower()
+
+        if all(normalized.get(field) is not None for field in required_fields):
+            sanitized.append(normalized)
+        else:
+            dropped.append(normalized)
+
+    return sanitized, dropped
 
 
 def main() -> None:
@@ -182,6 +225,11 @@ def main() -> None:
         type=int,
         default=2,
         help="Concurrency for the local Sonnet judge during rejudging.",
+    )
+    parser.add_argument(
+        "--resume",
+        action="store_true",
+        help="Skip checkpoint files already rejudged successfully in the output dir.",
     )
     args = parser.parse_args()
 
@@ -221,6 +269,20 @@ def main() -> None:
         task_output_dir.mkdir(parents=True, exist_ok=True)
 
         for raw_path in files:
+            output_path = task_output_dir / raw_path.name
+            if args.resume and output_path.exists():
+                existing = json.loads(output_path.read_text())
+                if existing.get("rejudged") and existing.get("metrics") is not None:
+                    verbalizer = existing["verbalizer"]
+                    verbalizer_key = verbalizer.split("/")[-1]
+                    metrics = existing["metrics"]
+                    scored_results = existing.get("scored_results", [])
+                    metrics_by_verbalizer[verbalizer_key] = metrics
+                    overall_metric_dicts.append(metrics)
+                    total_scored += len(scored_results)
+                    print(f"Skipping {task_name}: {verbalizer_key} (already rejudged)")
+                    continue
+
             payload, results = _load_verbalizer_results(raw_path)
             verbalizer = payload["verbalizer"]
             verbalizer_key = verbalizer.split("/")[-1]
@@ -229,9 +291,13 @@ def main() -> None:
 
             print(f"Rejudging {task_name}: {verbalizer_key}")
             if task_name == "backtracking":
-                scored_results = rejudge_fn(results, args.judge_concurrency)
+                raw_scored_results = rejudge_fn(results, args.judge_concurrency)
             else:
-                scored_results = rejudge_fn(results, tokenizer, args.judge_concurrency)
+                raw_scored_results = rejudge_fn(results, tokenizer, args.judge_concurrency)
+
+            scored_results, dropped_results = _sanitize_scored_results(task_name, raw_scored_results)
+            if dropped_results:
+                print(f"  dropped {len(dropped_results)} malformed judged rows for {verbalizer_key}")
 
             metrics = metrics_fn(scored_results) if scored_results else {}
             total_scored += len(scored_results)
@@ -241,6 +307,7 @@ def main() -> None:
 
             output_payload = dict(payload)
             output_payload["scored_results"] = scored_results
+            output_payload["dropped_scored_results"] = dropped_results
             output_payload["metrics"] = metrics if scored_results else None
             output_payload["rejudged"] = True
             output_payload["rejudge_metadata"] = {
@@ -248,9 +315,9 @@ def main() -> None:
                 "input_file": str(raw_path),
                 "previous_scored_results_count": len(payload.get("scored_results", [])),
                 "new_scored_results_count": len(scored_results),
+                "dropped_scored_results_count": len(dropped_results),
             }
 
-            output_path = task_output_dir / raw_path.name
             output_path.write_text(json.dumps(output_payload, indent=2))
             print(f"  saved {output_path}")
 
