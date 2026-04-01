@@ -13,6 +13,10 @@ Open-ended evaluation suite for Activation Oracles, testing whether AOs can extr
 | `backtracking` | Generation | LLM judge | Explain what the model is uncertain about at backtrack points |
 | `missing_info` | Binary | ROC AUC | Detect if model has incomplete information (A/B/C conditions) |
 | `sycophancy` | Binary | ROC AUC | Detect if model is agreeing due to user influence vs genuine |
+| `vagueness` | Generation | LLM judge | Measure whether oracle answers are specific vs vague/generic |
+| `domain_confusion` | Generation | LLM judge | Detect when the oracle attributes the wrong problem domain |
+| `activation_sensitivity` | Generation | LLM judge | Test whether matched texts with different hidden state yield meaningfully different oracle answers |
+| `hallucination` | Generation | LLM judge | Measure how often the oracle confidently says concrete wrong things |
 | `system_prompt_qa_hidden` | Generation | LLM judge | Extract hidden system prompt instructions |
 | `system_prompt_qa_latentqa` | Generation | LLM judge | Identify model's adopted persona/instructions |
 | `taboo` | Generation | Exact match | Identify the secret taboo word (requires target LoRAs) |
@@ -34,6 +38,12 @@ Open-ended evaluation suite for Activation Oracles, testing whether AOs can extr
 .venv/bin/python -m AObench.eval_scripts.run_all \
     --verbalizer-lora your-org/your-ao-checkpoint \
     --profile paper_plus
+
+# Run the full all-task benchmark
+.venv/bin/python -m AObench.eval_scripts.run_all \
+    --verbalizer-lora your-org/your-ao-checkpoint \
+    --profile all \
+    --n-positions 5
 
 # Run specific evals
 .venv/bin/python -m AObench.eval_scripts.run_all \
@@ -58,7 +68,7 @@ Open-ended evaluation suite for Activation Oracles, testing whether AOs can extr
 - `paper_six`: current default paper comparison subset (`number_prediction`, `mmlu_prediction`, `backtracking`, `vagueness`, `domain_confusion`, `missing_info`)
 - `paper_plus`: `paper_six` plus `system_prompt_qa_hidden`, `system_prompt_qa_latentqa`, `taboo`, and `personaqa`
 - `judge_heavy`: judge-dependent evals only
-- `all`: every eval in the registry
+- `all`: every eval in the registry (`taboo`, `personaqa`, `number_prediction`, `mmlu_prediction`, `backtracking`, `missing_info`, `sycophancy`, `system_prompt_qa_hidden`, `system_prompt_qa_latentqa`, `vagueness`, `domain_confusion`, `activation_sensitivity`, `hallucination`)
 
 ## Notes
 
@@ -69,6 +79,7 @@ Open-ended evaluation suite for Activation Oracles, testing whether AOs can extr
 - The replay-from-saved-rollouts path only works for tasks whose raw rollout files were actually saved. If a task was never generated for a checkpoint set, it cannot be added to the final plot without taking fresh rollouts.
 - The user-facing CLI alias is `AObench.eval_scripts.*`; the implementation still lives in `AObench.open_ended_eval.*` for compatibility.
 - The current tiny paper-six bundle is available at `AObench/eval_results/paper_six_tiny10_gemini31flashlite/final/report/`.
+- For a canonical overnight all-task paper-collection run, use `scripts/run_paper_collection_full_overnight.sh`.
 
 ## Structure
 
