@@ -75,7 +75,7 @@ def _task_file_map(input_dir: Path) -> dict[str, list[Path]]:
         "vagueness": sorted((input_dir / "vagueness").glob("*.json")),
         "domain_confusion": sorted((input_dir / "domain_confusion").glob("*.json")),
         "hallucination_5pos": sorted((input_dir / "hallucination_5pos").glob("*.json")),
-        "activation_sensitivity": sorted(input_dir.glob("activation_sensitivity_*.json")),
+        "activation_sensitivity": sorted((input_dir / "activation_sensitivity").glob("activation_sensitivity_*.json")),
     }
 
 
@@ -321,7 +321,7 @@ def main() -> None:
         "judge_model": os.environ.get("JUDGE_MODEL", ""),
         "judge_use_local": os.environ.get("JUDGE_USE_LOCAL", "1") != "0",
         "tasks": list(TASK_SPECS),
-        "note": "activation_sensitivity omitted because the original run did not save per-verbalizer raw rollout pairs",
+        "note": "Rejudge saved rollout payloads for judge-heavy tasks, including activation_sensitivity pair files when present.",
     }
     (output_dir / "run_config.json").write_text(json.dumps(run_config, indent=2))
 
