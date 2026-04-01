@@ -1,7 +1,7 @@
 {
   "adam-reupload-qwen3-8b-full-mix-synthetic-qa-v3-replace-lqa": {
-    "mean_normalized_score": 0.3999107142857143,
-    "num_evals": 16,
+    "mean_normalized_score": 0.4041836734693877,
+    "num_evals": 14,
     "per_eval_normalized": {
       "number_prediction": 0.1,
       "mmlu_prediction": 0.4285714285714286,
@@ -16,16 +16,14 @@
       "taboo": 0.58,
       "personaqa": 0.62,
       "activation_sensitivity": 0.31,
-      "hallucination_1pos": 0.3,
-      "hallucination_5pos": 0.38,
-      "hallucination_20pos": 0.44
+      "hallucination": 0.38
     },
-    "ci_lo": 0.39991071428571423,
-    "ci_hi": 0.39991071428571423
+    "ci_lo": 0.40418367346938766,
+    "ci_hi": 0.40418367346938766
   },
   "adam-reupload-qwen3-8b-latentqa-cls-past-lens": {
-    "mean_normalized_score": 0.3756696428571429,
-    "num_evals": 16,
+    "mean_normalized_score": 0.3721938775510204,
+    "num_evals": 14,
     "per_eval_normalized": {
       "number_prediction": 0.03333333333333333,
       "mmlu_prediction": 0.6190476190476191,
@@ -40,16 +38,14 @@
       "taboo": 0.55,
       "personaqa": 0.6,
       "activation_sensitivity": 0.28,
-      "hallucination_1pos": 0.33,
-      "hallucination_5pos": 0.41,
-      "hallucination_20pos": 0.47
+      "hallucination": 0.41
     },
-    "ci_lo": 0.3756696428571428,
-    "ci_hi": 0.3756696428571428
+    "ci_lo": 0.3721938775510204,
+    "ci_hi": 0.3721938775510204
   },
   "cot-oracle-grpo-step-500": {
-    "mean_normalized_score": 0.4240327380952381,
-    "num_evals": 16,
+    "mean_normalized_score": 0.41960884353741496,
+    "num_evals": 14,
     "per_eval_normalized": {
       "number_prediction": 0.06666666666666667,
       "mmlu_prediction": 0.4761904761904763,
@@ -64,16 +60,14 @@
       "taboo": 0.52,
       "personaqa": 0.54,
       "activation_sensitivity": 0.35,
-      "hallucination_1pos": 0.39,
-      "hallucination_5pos": 0.46,
-      "hallucination_20pos": 0.52
+      "hallucination": 0.46
     },
-    "ci_lo": 0.4240327380952381,
-    "ci_hi": 0.4240327380952381
+    "ci_lo": 0.41960884353741496,
+    "ci_hi": 0.41960884353741496
   },
   "cot-oracle-paper-ablation-adam-recipe-1layer": {
-    "mean_normalized_score": 0.29529761904761903,
-    "num_evals": 16,
+    "mean_normalized_score": 0.2939115646258504,
+    "num_evals": 14,
     "per_eval_normalized": {
       "number_prediction": 0.06666666666666667,
       "mmlu_prediction": 0.23809523809523814,
@@ -88,16 +82,14 @@
       "taboo": 0.46,
       "personaqa": 0.48,
       "activation_sensitivity": 0.21,
-      "hallucination_1pos": 0.26,
-      "hallucination_5pos": 0.31,
-      "hallucination_20pos": 0.35
+      "hallucination": 0.31
     },
-    "ci_lo": 0.29529761904761903,
-    "ci_hi": 0.29529761904761903
+    "ci_lo": 0.2939115646258504,
+    "ci_hi": 0.2939115646258504
   },
   "cot-oracle-paper-ablation-ours-1layer": {
-    "mean_normalized_score": 0.46242559523809523,
-    "num_evals": 16,
+    "mean_normalized_score": 0.45848639455782314,
+    "num_evals": 14,
     "per_eval_normalized": {
       "number_prediction": 0.06666666666666667,
       "mmlu_prediction": 0.5238095238095237,
@@ -112,16 +104,14 @@
       "taboo": 0.61,
       "personaqa": 0.63,
       "activation_sensitivity": 0.37,
-      "hallucination_1pos": 0.42,
-      "hallucination_5pos": 0.5,
-      "hallucination_20pos": 0.56
+      "hallucination": 0.5
     },
-    "ci_lo": 0.46242559523809523,
-    "ci_hi": 0.46242559523809523
+    "ci_lo": 0.4584863945578231,
+    "ci_hi": 0.4584863945578231
   },
   "cot-oracle-paper-ablation-ours-3layers-onpolicy-lens-only": {
-    "mean_normalized_score": 0.5262351190476191,
-    "num_evals": 16,
+    "mean_normalized_score": 0.5235544217687075,
+    "num_evals": 14,
     "per_eval_normalized": {
       "number_prediction": 0.26666666666666666,
       "mmlu_prediction": 0.5714285714285716,
@@ -136,16 +126,14 @@
       "taboo": 0.67,
       "personaqa": 0.71,
       "activation_sensitivity": 0.44,
-      "hallucination_1pos": 0.47,
-      "hallucination_5pos": 0.56,
-      "hallucination_20pos": 0.62
+      "hallucination": 0.56
     },
-    "ci_lo": 0.526235119047619,
-    "ci_hi": 0.526235119047619
+    "ci_lo": 0.5235544217687076,
+    "ci_hi": 0.5235544217687076
   },
   "cot-oracle-paper-ablation-ours-3layers": {
-    "mean_normalized_score": 0.541547619047619,
-    "num_evals": 16,
+    "mean_normalized_score": 0.5381972789115647,
+    "num_evals": 14,
     "per_eval_normalized": {
       "number_prediction": 0.13333333333333333,
       "mmlu_prediction": 0.5714285714285714,
@@ -160,16 +148,14 @@
       "taboo": 0.69,
       "personaqa": 0.73,
       "activation_sensitivity": 0.46,
-      "hallucination_1pos": 0.49,
-      "hallucination_5pos": 0.58,
-      "hallucination_20pos": 0.64
+      "hallucination": 0.58
     },
-    "ci_lo": 0.541547619047619,
-    "ci_hi": 0.541547619047619
+    "ci_lo": 0.5381972789115647,
+    "ci_hi": 0.5381972789115647
   },
   "cot-oracle-qwen3-8b-final-sprint-checkpoint-no-DPO": {
-    "mean_normalized_score": 0.48797619047619045,
-    "num_evals": 16,
+    "mean_normalized_score": 0.4834013605442177,
+    "num_evals": 14,
     "per_eval_normalized": {
       "number_prediction": 0.16666666666666666,
       "mmlu_prediction": 0.38095238095238093,
@@ -184,11 +170,9 @@
       "taboo": 0.64,
       "personaqa": 0.68,
       "activation_sensitivity": 0.41,
-      "hallucination_1pos": 0.45,
-      "hallucination_5pos": 0.53,
-      "hallucination_20pos": 0.59
+      "hallucination": 0.53
     },
-    "ci_lo": 0.48797619047619045,
-    "ci_hi": 0.48797619047619045
+    "ci_lo": 0.4834013605442177,
+    "ci_hi": 0.4834013605442177
   }
 }

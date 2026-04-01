@@ -2,9 +2,9 @@
 Obvious hallucination eval — tests whether the AO confabulates.
 
 Arya et al. found AOs confidently hallucinate wrong details: ice cubes → "eggs laid by
-hens", plate arrangements → "letters in BANANA". Historically we tracked 1-position
-and 20-position variants; for current paper comparisons we also support a single 5-position
-variant that better matches the rest of the eval suite.
+hens", plate arrangements → "letters in BANANA". The canonical benchmark variant now
+uses 5 activation positions to match the rest of the eval suite. Legacy 1-position and
+20-position helpers remain for older artifacts and dedicated sweep scripts.
 """
 
 import asyncio
@@ -251,6 +251,10 @@ def _run_hallucination(
 
 def run_hallucination_1pos_eval(**kwargs) -> dict[str, Any]:
     return _run_hallucination(n_positions=1, eval_name="hallucination_1pos", **kwargs)
+
+
+def run_hallucination_eval(**kwargs) -> dict[str, Any]:
+    return _run_hallucination(n_positions=5, eval_name="hallucination", **kwargs)
 
 
 def run_hallucination_5pos_eval(**kwargs) -> dict[str, Any]:

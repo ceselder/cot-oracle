@@ -1,5 +1,7 @@
-This bundle is a layout mock only.
+# All-Task Layout Mock
 
-- The six paper-core tasks come from the real tiny evaluation bundle.
-- The additional tasks in `all_summaries.json` were filled with intentionally fake placeholder values to preview the full-width plot layout.
-- Do not use these numbers for analysis, reporting, or ranking.
+Layout-only mock bundle for the widened grouped-bar AObench plot.
+
+- Additional tasks in this bundle use fake placeholder values.
+- This is not a real evaluation result and should not be used for model comparison.
+- Hallucination is represented only as `hallucination` and corresponds to the 5-position benchmark variant.

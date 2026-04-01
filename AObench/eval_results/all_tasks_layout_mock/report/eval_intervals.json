@@ -649,57 +649,7 @@
       "source": "summary_only"
     }
   },
-  "hallucination_1pos": {
-    "adam-reupload-qwen3-8b-full-mix-synthetic-qa-v3-replace-lqa": {
-      "mean": 0.3,
-      "lo": 0.3,
-      "hi": 0.3,
-      "source": "summary_only"
-    },
-    "adam-reupload-qwen3-8b-latentqa-cls-past-lens": {
-      "mean": 0.33,
-      "lo": 0.33,
-      "hi": 0.33,
-      "source": "summary_only"
-    },
-    "cot-oracle-grpo-step-500": {
-      "mean": 0.39,
-      "lo": 0.39,
-      "hi": 0.39,
-      "source": "summary_only"
-    },
-    "cot-oracle-paper-ablation-adam-recipe-1layer": {
-      "mean": 0.26,
-      "lo": 0.26,
-      "hi": 0.26,
-      "source": "summary_only"
-    },
-    "cot-oracle-paper-ablation-ours-1layer": {
-      "mean": 0.42,
-      "lo": 0.42,
-      "hi": 0.42,
-      "source": "summary_only"
-    },
-    "cot-oracle-paper-ablation-ours-3layers-onpolicy-lens-only": {
-      "mean": 0.47,
-      "lo": 0.47,
-      "hi": 0.47,
-      "source": "summary_only"
-    },
-    "cot-oracle-paper-ablation-ours-3layers": {
-      "mean": 0.49,
-      "lo": 0.49,
-      "hi": 0.49,
-      "source": "summary_only"
-    },
-    "cot-oracle-qwen3-8b-final-sprint-checkpoint-no-DPO": {
-      "mean": 0.45,
-      "lo": 0.45,
-      "hi": 0.45,
-      "source": "summary_only"
-    }
-  },
-  "hallucination_5pos": {
+  "hallucination": {
     "adam-reupload-qwen3-8b-full-mix-synthetic-qa-v3-replace-lqa": {
       "mean": 0.38,
       "lo": 0.38,
@@ -746,56 +696,6 @@
       "mean": 0.53,
       "lo": 0.53,
       "hi": 0.53,
-      "source": "summary_only"
-    }
-  },
-  "hallucination_20pos": {
-    "adam-reupload-qwen3-8b-full-mix-synthetic-qa-v3-replace-lqa": {
-      "mean": 0.44,
-      "lo": 0.44,
-      "hi": 0.44,
-      "source": "summary_only"
-    },
-    "adam-reupload-qwen3-8b-latentqa-cls-past-lens": {
-      "mean": 0.47,
-      "lo": 0.47,
-      "hi": 0.47,
-      "source": "summary_only"
-    },
-    "cot-oracle-grpo-step-500": {
-      "mean": 0.52,
-      "lo": 0.52,
-      "hi": 0.52,
-      "source": "summary_only"
-    },
-    "cot-oracle-paper-ablation-adam-recipe-1layer": {
-      "mean": 0.35,
-      "lo": 0.35,
-      "hi": 0.35,
-      "source": "summary_only"
-    },
-    "cot-oracle-paper-ablation-ours-1layer": {
-      "mean": 0.56,
-      "lo": 0.56,
-      "hi": 0.56,
-      "source": "summary_only"
-    },
-    "cot-oracle-paper-ablation-ours-3layers-onpolicy-lens-only": {
-      "mean": 0.62,
-      "lo": 0.62,
-      "hi": 0.62,
-      "source": "summary_only"
-    },
-    "cot-oracle-paper-ablation-ours-3layers": {
-      "mean": 0.64,
-      "lo": 0.64,
-      "hi": 0.64,
-      "source": "summary_only"
-    },
-    "cot-oracle-qwen3-8b-final-sprint-checkpoint-no-DPO": {
-      "mean": 0.59,
-      "lo": 0.59,
-      "hi": 0.59,
       "source": "summary_only"
     }
   }

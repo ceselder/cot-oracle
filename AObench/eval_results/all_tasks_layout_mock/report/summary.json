@@ -129,17 +129,7 @@
     "cot-oracle-paper-ablation-ours-3layers": 0.46,
     "cot-oracle-qwen3-8b-final-sprint-checkpoint-no-DPO": 0.41
   },
-  "hallucination_1pos": {
-    "adam-reupload-qwen3-8b-full-mix-synthetic-qa-v3-replace-lqa": 0.3,
-    "adam-reupload-qwen3-8b-latentqa-cls-past-lens": 0.33,
-    "cot-oracle-grpo-step-500": 0.39,
-    "cot-oracle-paper-ablation-adam-recipe-1layer": 0.26,
-    "cot-oracle-paper-ablation-ours-1layer": 0.42,
-    "cot-oracle-paper-ablation-ours-3layers-onpolicy-lens-only": 0.47,
-    "cot-oracle-paper-ablation-ours-3layers": 0.49,
-    "cot-oracle-qwen3-8b-final-sprint-checkpoint-no-DPO": 0.45
-  },
-  "hallucination_5pos": {
+  "hallucination": {
     "adam-reupload-qwen3-8b-full-mix-synthetic-qa-v3-replace-lqa": 0.38,
     "adam-reupload-qwen3-8b-latentqa-cls-past-lens": 0.41,
     "cot-oracle-grpo-step-500": 0.46,
@@ -148,15 +138,5 @@
     "cot-oracle-paper-ablation-ours-3layers-onpolicy-lens-only": 0.56,
     "cot-oracle-paper-ablation-ours-3layers": 0.58,
     "cot-oracle-qwen3-8b-final-sprint-checkpoint-no-DPO": 0.53
-  },
-  "hallucination_20pos": {
-    "adam-reupload-qwen3-8b-full-mix-synthetic-qa-v3-replace-lqa": 0.44,
-    "adam-reupload-qwen3-8b-latentqa-cls-past-lens": 0.47,
-    "cot-oracle-grpo-step-500": 0.52,
-    "cot-oracle-paper-ablation-adam-recipe-1layer": 0.35,
-    "cot-oracle-paper-ablation-ours-1layer": 0.56,
-    "cot-oracle-paper-ablation-ours-3layers-onpolicy-lens-only": 0.62,
-    "cot-oracle-paper-ablation-ours-3layers": 0.64,
-    "cot-oracle-qwen3-8b-final-sprint-checkpoint-no-DPO": 0.59
   }
 }

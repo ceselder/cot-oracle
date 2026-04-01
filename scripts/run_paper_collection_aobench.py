@@ -51,7 +51,7 @@ PAPER_SMALL_LIMITS = {
     "backtracking": 50,
     "vagueness": 50,
     "domain_confusion": 50,
-    "hallucination_5pos": 50,
+    "hallucination": 50,
     "system_prompt_qa_hidden": 10,
     "system_prompt_qa_latentqa": 30,
 }

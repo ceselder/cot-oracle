@@ -356,44 +356,17 @@ def run_activation_sensitivity(
     )
 
 
-def run_hallucination_1pos(
+def run_hallucination(
     model, tokenizer, device, output_dir, model_name, verbalizer_lora_paths, n_positions=None, sample_limit=None,
 ) -> dict[str, Any]:
-    from AObench.open_ended_eval.hallucination import run_hallucination_1pos_eval
+    from AObench.open_ended_eval.hallucination import run_hallucination_eval
 
     os.makedirs(output_dir, exist_ok=True)
-    return run_hallucination_1pos_eval(
+    return run_hallucination_eval(
         model_name=model_name, model=model, tokenizer=tokenizer, device=device,
         output_dir=output_dir, eval_batch_size=32, verbalizer_lora_paths=verbalizer_lora_paths,
         max_entries=sample_limit,
     )
-
-
-def run_hallucination_5pos(
-    model, tokenizer, device, output_dir, model_name, verbalizer_lora_paths, n_positions=None, sample_limit=None,
-) -> dict[str, Any]:
-    from AObench.open_ended_eval.hallucination import run_hallucination_5pos_eval
-
-    os.makedirs(output_dir, exist_ok=True)
-    return run_hallucination_5pos_eval(
-        model_name=model_name, model=model, tokenizer=tokenizer, device=device,
-        output_dir=output_dir, eval_batch_size=32, verbalizer_lora_paths=verbalizer_lora_paths,
-        max_entries=sample_limit,
-    )
-
-
-def run_hallucination_20pos(
-    model, tokenizer, device, output_dir, model_name, verbalizer_lora_paths, n_positions=None, sample_limit=None,
-) -> dict[str, Any]:
-    from AObench.open_ended_eval.hallucination import run_hallucination_20pos_eval
-
-    os.makedirs(output_dir, exist_ok=True)
-    return run_hallucination_20pos_eval(
-        model_name=model_name, model=model, tokenizer=tokenizer, device=device,
-        output_dir=output_dir, eval_batch_size=32, verbalizer_lora_paths=verbalizer_lora_paths,
-        max_entries=sample_limit,
-    )
-
 
 # ---------------------------------------------------------------------------
 # Eval registry
@@ -413,9 +386,7 @@ EVALS = [
     ("vagueness", run_vagueness),
     ("domain_confusion", run_domain_confusion),
     ("activation_sensitivity", run_activation_sensitivity),
-    ("hallucination_1pos", run_hallucination_1pos),
-    ("hallucination_5pos", run_hallucination_5pos),
-    ("hallucination_20pos", run_hallucination_20pos),
+    ("hallucination", run_hallucination),
 ]
 
 DEFAULT_INCLUDE = [name for name, _ in EVALS if name not in {"taboo", "personaqa", "system_prompt_qa_hidden", "system_prompt_qa_latentqa"}]
@@ -453,7 +424,7 @@ JUDGE_HEAVY_INCLUDE = [
     "vagueness",
     "domain_confusion",
     "activation_sensitivity",
-    "hallucination_5pos",
+    "hallucination",
 ]
 ALL_INCLUDE = [name for name, _ in EVALS]
 EVAL_PROFILES = {

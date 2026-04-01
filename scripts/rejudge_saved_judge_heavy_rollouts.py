@@ -69,13 +69,15 @@ def _load_activation_sensitivity_pairs(path: Path) -> tuple[dict[str, Any], list
 
 
 def _task_file_map(input_dir: Path) -> dict[str, list[Path]]:
+    hallucination_dir = input_dir / "hallucination"
+    legacy_hallucination_dir = input_dir / "hallucination_5pos"
     return {
         "backtracking": sorted((input_dir / "backtracking").glob("*.json")),
         "system_prompt_qa_hidden": sorted((input_dir / "system_prompt_qa_hidden" / "user_and_assistant").glob("*.json")),
         "system_prompt_qa_latentqa": sorted((input_dir / "system_prompt_qa_latentqa" / "user_and_assistant").glob("*.json")),
         "vagueness": sorted((input_dir / "vagueness").glob("*.json")),
         "domain_confusion": sorted((input_dir / "domain_confusion").glob("*.json")),
-        "hallucination_5pos": sorted((input_dir / "hallucination_5pos").glob("*.json")),
+        "hallucination": sorted((hallucination_dir if hallucination_dir.exists() else legacy_hallucination_dir).glob("*.json")),
         "activation_sensitivity": sorted((input_dir / "activation_sensitivity").glob("activation_sensitivity_*.json")),
     }
 
@@ -379,7 +381,7 @@ def _rejudge_domain_confusion(
     return rows
 
 
-def _rejudge_hallucination_5pos(
+def _rejudge_hallucination(
     payload: dict[str, Any],
     results: list[VerbalizerResults],
     tokenizer,
@@ -465,8 +467,8 @@ TASK_SPECS: dict[str, dict[str, Any]] = {
         "required_fields": ("category",),
         "system_prompt": domain_confusion.JUDGE_SYSTEM_PROMPT,
     },
-    "hallucination_5pos": {
-        "rejudge_fn": _rejudge_hallucination_5pos,
+    "hallucination": {
+        "rejudge_fn": _rejudge_hallucination,
         "metrics_fn": hallucination.compute_hallucination_metrics,
         "required_fields": ("category",),
         "system_prompt": hallucination.JUDGE_SYSTEM_PROMPT,

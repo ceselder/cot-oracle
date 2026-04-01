@@ -72,9 +72,8 @@ EVAL_METRIC_MAP: dict[str, tuple[str, str, bool]] = {
     "vagueness": ("specificity_rate", "Non-Vagueness", True),
     "domain_confusion": ("domain_correct_specific_rate", "Domain Accuracy", True),
     "activation_sensitivity": ("activation_sensitivity", "Activation Sensitivity", True),
-    "hallucination_1pos": ("correct_rate", "Correct Rate (1 pos)", True),
-    "hallucination_5pos": ("correct_rate", "Correct Rate (5 pos)", True),
-    "hallucination_20pos": ("correct_rate", "Correct Rate (20 pos)", True),
+    "hallucination": ("correct_rate", "Correct Rate", True),
+    "hallucination_5pos": ("correct_rate", "Correct Rate", True),
 }
 
 # Chance baselines for each eval
@@ -172,7 +171,7 @@ def _primary_metric_from_rows(eval_name: str, rows: list[dict[str, Any]]) -> flo
         return sum(1 for r in rows if r.get("category") == "specific_correct") / len(rows)
     if eval_name == "domain_confusion":
         return sum(1 for r in rows if r.get("category") == "domain_correct_specific") / len(rows)
-    if eval_name.startswith("hallucination_"):
+    if eval_name == "hallucination" or eval_name.startswith("hallucination_"):
         return sum(1 for r in rows if r.get("category") == "correct") / len(rows)
     if eval_name == "activation_sensitivity":
         return sum(1 for r in rows if r.get("category") == "divergent_meaningful") / len(rows)
@@ -241,7 +240,7 @@ def _raw_payloads_for_eval(
         paths = [eval_dir / f"backtracking_mc_{slug}.json"]
     elif eval_name in {"mmlu_prediction", "missing_info"}:
         paths = [eval_dir / f"{eval_name}_binary_{slug}.json"]
-    elif eval_name in {"number_prediction", "backtracking", "vagueness", "domain_confusion", "activation_sensitivity"} or eval_name.startswith("hallucination_") or eval_name.startswith("system_prompt_qa_"):
+    elif eval_name in {"number_prediction", "backtracking", "vagueness", "domain_confusion", "activation_sensitivity", "hallucination"} or eval_name.startswith("hallucination_") or eval_name.startswith("system_prompt_qa_"):
         paths = [eval_dir / f"{eval_name}_{slug}.json"]
     else:
         paths = [eval_dir / f"{eval_name}_{slug}.json"]
@@ -382,9 +381,8 @@ EVAL_DISPLAY_NAMES: dict[str, str] = {
     "vagueness": "Vagueness",
     "domain_confusion": "Domain\nConfusion",
     "activation_sensitivity": "Activation\nSensitivity",
-    "hallucination_1pos": "Hallucination\n1 pos",
-    "hallucination_5pos": "Hallucination\n5 pos",
-    "hallucination_20pos": "Hallucination\n20 pos",
+    "hallucination": "Hallucination",
+    "hallucination_5pos": "Hallucination",
 }
 
 
