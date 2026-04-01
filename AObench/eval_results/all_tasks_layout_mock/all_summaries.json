@@ -1,0 +1,1957 @@
+{
+  "number_prediction": {
+    "overall_metrics": {
+      "total": 30.0,
+      "matches_model_answer": 3.375,
+      "matches_model_answer_rate": 0.1125,
+      "matches_true_answer": 3.375,
+      "matches_true_answer_rate": 0.1125,
+      "has_number_rate": 1.0,
+      "cat_simple_2op_total": 30.0,
+      "cat_simple_2op_model_match_rate": 0.1125,
+      "cat_simple_2op_true_match_rate": 0.1125,
+      "single_token_model_match_rate": 0.375,
+      "multi_token_model_match_rate": 0.08333333333333333,
+      "prompt_direct_model_match_rate": 0.1125,
+      "prompt_planning_model_match_rate": 0.125,
+      "prompt_predict_model_match_rate": 0.1
+    },
+    "metrics_by_verbalizer": {
+      "adam-reupload-qwen3-8b-full-mix-synthetic-qa-v3-replace-lqa": {
+        "total": 30,
+        "matches_model_answer": 3,
+        "matches_model_answer_rate": 0.1,
+        "matches_true_answer": 3,
+        "matches_true_answer_rate": 0.1,
+        "has_number_rate": 1.0,
+        "cat_simple_2op_total": 30,
+        "cat_simple_2op_model_match_rate": 0.1,
+        "cat_simple_2op_true_match_rate": 0.1,
+        "single_token_model_match_rate": 0.0,
+        "multi_token_model_match_rate": 0.1111111111111111,
+        "prompt_direct_model_match_rate": 0.1,
+        "prompt_planning_model_match_rate": 0.1,
+        "prompt_predict_model_match_rate": 0.1
+      },
+      "adam-reupload-qwen3-8b-latentqa-cls-past-lens": {
+        "total": 30,
+        "matches_model_answer": 1,
+        "matches_model_answer_rate": 0.03333333333333333,
+        "matches_true_answer": 1,
+        "matches_true_answer_rate": 0.03333333333333333,
+        "has_number_rate": 1.0,
+        "cat_simple_2op_total": 30,
+        "cat_simple_2op_model_match_rate": 0.03333333333333333,
+        "cat_simple_2op_true_match_rate": 0.03333333333333333,
+        "single_token_model_match_rate": 0.0,
+        "multi_token_model_match_rate": 0.037037037037037035,
+        "prompt_direct_model_match_rate": 0.0,
+        "prompt_planning_model_match_rate": 0.1,
+        "prompt_predict_model_match_rate": 0.0
+      },
+      "cot-oracle-grpo-step-500": {
+        "total": 30,
+        "matches_model_answer": 2,
+        "matches_model_answer_rate": 0.06666666666666667,
+        "matches_true_answer": 2,
+        "matches_true_answer_rate": 0.06666666666666667,
+        "has_number_rate": 1.0,
+        "cat_simple_2op_total": 30,
+        "cat_simple_2op_model_match_rate": 0.06666666666666667,
+        "cat_simple_2op_true_match_rate": 0.06666666666666667,
+        "single_token_model_match_rate": 0.6666666666666666,
+        "multi_token_model_match_rate": 0.0,
+        "prompt_direct_model_match_rate": 0.1,
+        "prompt_planning_model_match_rate": 0.0,
+        "prompt_predict_model_match_rate": 0.1
+      },
+      "cot-oracle-paper-ablation-adam-recipe-1layer": {
+        "total": 30,
+        "matches_model_answer": 2,
+        "matches_model_answer_rate": 0.06666666666666667,
+        "matches_true_answer": 2,
+        "matches_true_answer_rate": 0.06666666666666667,
+        "has_number_rate": 1.0,
+        "cat_simple_2op_total": 30,
+        "cat_simple_2op_model_match_rate": 0.06666666666666667,
+        "cat_simple_2op_true_match_rate": 0.06666666666666667,
+        "single_token_model_match_rate": 0.0,
+        "multi_token_model_match_rate": 0.07407407407407407,
+        "prompt_direct_model_match_rate": 0.1,
+        "prompt_planning_model_match_rate": 0.1,
+        "prompt_predict_model_match_rate": 0.0
+      },
+      "cot-oracle-paper-ablation-ours-1layer": {
+        "total": 30,
+        "matches_model_answer": 2,
+        "matches_model_answer_rate": 0.06666666666666667,
+        "matches_true_answer": 2,
+        "matches_true_answer_rate": 0.06666666666666667,
+        "has_number_rate": 1.0,
+        "cat_simple_2op_total": 30,
+        "cat_simple_2op_model_match_rate": 0.06666666666666667,
+        "cat_simple_2op_true_match_rate": 0.06666666666666667,
+        "single_token_model_match_rate": 0.0,
+        "multi_token_model_match_rate": 0.07407407407407407,
+        "prompt_direct_model_match_rate": 0.1,
+        "prompt_planning_model_match_rate": 0.1,
+        "prompt_predict_model_match_rate": 0.0
+      },
+      "cot-oracle-paper-ablation-ours-3layers-onpolicy-lens-only": {
+        "total": 30,
+        "matches_model_answer": 8,
+        "matches_model_answer_rate": 0.26666666666666666,
+        "matches_true_answer": 8,
+        "matches_true_answer_rate": 0.26666666666666666,
+        "has_number_rate": 1.0,
+        "cat_simple_2op_total": 30,
+        "cat_simple_2op_model_match_rate": 0.26666666666666666,
+        "cat_simple_2op_true_match_rate": 0.26666666666666666,
+        "single_token_model_match_rate": 1.0,
+        "multi_token_model_match_rate": 0.18518518518518517,
+        "prompt_direct_model_match_rate": 0.2,
+        "prompt_planning_model_match_rate": 0.3,
+        "prompt_predict_model_match_rate": 0.3
+      },
+      "cot-oracle-paper-ablation-ours-3layers": {
+        "total": 30,
+        "matches_model_answer": 4,
+        "matches_model_answer_rate": 0.13333333333333333,
+        "matches_true_answer": 4,
+        "matches_true_answer_rate": 0.13333333333333333,
+        "has_number_rate": 1.0,
+        "cat_simple_2op_total": 30,
+        "cat_simple_2op_model_match_rate": 0.13333333333333333,
+        "cat_simple_2op_true_match_rate": 0.13333333333333333,
+        "single_token_model_match_rate": 0.3333333333333333,
+        "multi_token_model_match_rate": 0.1111111111111111,
+        "prompt_direct_model_match_rate": 0.1,
+        "prompt_planning_model_match_rate": 0.1,
+        "prompt_predict_model_match_rate": 0.2
+      },
+      "cot-oracle-qwen3-8b-final-sprint-checkpoint-no-DPO": {
+        "total": 30,
+        "matches_model_answer": 5,
+        "matches_model_answer_rate": 0.16666666666666666,
+        "matches_true_answer": 5,
+        "matches_true_answer_rate": 0.16666666666666666,
+        "has_number_rate": 1.0,
+        "cat_simple_2op_total": 30,
+        "cat_simple_2op_model_match_rate": 0.16666666666666666,
+        "cat_simple_2op_true_match_rate": 0.16666666666666666,
+        "single_token_model_match_rate": 1.0,
+        "multi_token_model_match_rate": 0.07407407407407407,
+        "prompt_direct_model_match_rate": 0.2,
+        "prompt_planning_model_match_rate": 0.2,
+        "prompt_predict_model_match_rate": 0.1
+      }
+    },
+    "num_entries": 10,
+    "num_scored": 240
+  },
+  "mmlu_prediction": {
+    "mode_results": {
+      "pre_answer": {
+        "overall_metrics": {
+          "total": 10.0,
+          "correct_at_zero": 3.75,
+          "accuracy_at_zero": 0.375,
+          "positive_rate": 0.3,
+          "mean_margin_when_yes": 1.8333484331766763,
+          "mean_margin_when_no": 1.0982483795710973,
+          "roc_auc": 0.7321428571428571,
+          "num_positive": 3.0,
+          "num_negative": 7.0,
+          "prompt_pre_likely_correct_total": 10.0,
+          "prompt_pre_likely_correct_correct_at_zero": 3.75,
+          "prompt_pre_likely_correct_accuracy_at_zero": 0.375,
+          "prompt_pre_likely_correct_positive_rate": 0.3,
+          "prompt_pre_likely_correct_mean_margin_when_yes": 1.8333484331766763,
+          "prompt_pre_likely_correct_mean_margin_when_no": 1.0982483795710973,
+          "prompt_pre_likely_correct_roc_auc": 0.7321428571428571,
+          "prompt_pre_likely_correct_num_positive": 3.0,
+          "prompt_pre_likely_correct_num_negative": 7.0
+        },
+        "metrics_by_verbalizer": {
+          "adam-reupload-qwen3-8b-full-mix-synthetic-qa-v3-replace-lqa": {
+            "total": 10,
+            "correct_at_zero": 3,
+            "accuracy_at_zero": 0.3,
+            "positive_rate": 0.3,
+            "mean_margin_when_yes": 3.333307902018229,
+            "mean_margin_when_no": 2.7321248735700334,
+            "roc_auc": 0.7142857142857143,
+            "num_positive": 3,
+            "num_negative": 7,
+            "prompt_pre_likely_correct_total": 10,
+            "prompt_pre_likely_correct_correct_at_zero": 3,
+            "prompt_pre_likely_correct_accuracy_at_zero": 0.3,
+            "prompt_pre_likely_correct_positive_rate": 0.3,
+            "prompt_pre_likely_correct_mean_margin_when_yes": 3.333307902018229,
+            "prompt_pre_likely_correct_mean_margin_when_no": 2.7321248735700334,
+            "prompt_pre_likely_correct_roc_auc": 0.7142857142857143,
+            "prompt_pre_likely_correct_num_positive": 3,
+            "prompt_pre_likely_correct_num_negative": 7
+          },
+          "adam-reupload-qwen3-8b-latentqa-cls-past-lens": {
+            "total": 10,
+            "correct_at_zero": 3,
+            "accuracy_at_zero": 0.3,
+            "positive_rate": 0.3,
+            "mean_margin_when_yes": 1.000030517578125,
+            "mean_margin_when_no": 0.6250378744942802,
+            "roc_auc": 0.8095238095238095,
+            "num_positive": 3,
+            "num_negative": 7,
+            "prompt_pre_likely_correct_total": 10,
+            "prompt_pre_likely_correct_correct_at_zero": 3,
+            "prompt_pre_likely_correct_accuracy_at_zero": 0.3,
+            "prompt_pre_likely_correct_positive_rate": 0.3,
+            "prompt_pre_likely_correct_mean_margin_when_yes": 1.000030517578125,
+            "prompt_pre_likely_correct_mean_margin_when_no": 0.6250378744942802,
+            "prompt_pre_likely_correct_roc_auc": 0.8095238095238095,
+            "prompt_pre_likely_correct_num_positive": 3,
+            "prompt_pre_likely_correct_num_negative": 7
+          },
+          "cot-oracle-grpo-step-500": {
+            "total": 10,
+            "correct_at_zero": 3,
+            "accuracy_at_zero": 0.3,
+            "positive_rate": 0.3,
+            "mean_margin_when_yes": 2.3333346048990884,
+            "mean_margin_when_no": 1.303647177559989,
+            "roc_auc": 0.8571428571428571,
+            "num_positive": 3,
+            "num_negative": 7,
+            "prompt_pre_likely_correct_total": 10,
+            "prompt_pre_likely_correct_correct_at_zero": 3,
+            "prompt_pre_likely_correct_accuracy_at_zero": 0.3,
+            "prompt_pre_likely_correct_positive_rate": 0.3,
+            "prompt_pre_likely_correct_mean_margin_when_yes": 2.3333346048990884,
+            "prompt_pre_likely_correct_mean_margin_when_no": 1.303647177559989,
+            "prompt_pre_likely_correct_roc_auc": 0.8571428571428571,
+            "prompt_pre_likely_correct_num_positive": 3,
+            "prompt_pre_likely_correct_num_negative": 7
+          },
+          "cot-oracle-paper-ablation-adam-recipe-1layer": {
+            "total": 10,
+            "correct_at_zero": 6,
+            "accuracy_at_zero": 0.6,
+            "positive_rate": 0.3,
+            "mean_margin_when_yes": -0.2499516805013021,
+            "mean_margin_when_no": -0.28566741943359375,
+            "roc_auc": 0.47619047619047616,
+            "num_positive": 3,
+            "num_negative": 7,
+            "prompt_pre_likely_correct_total": 10,
+            "prompt_pre_likely_correct_correct_at_zero": 6,
+            "prompt_pre_likely_correct_accuracy_at_zero": 0.6,
+            "prompt_pre_likely_correct_positive_rate": 0.3,
+            "prompt_pre_likely_correct_mean_margin_when_yes": -0.2499516805013021,
+            "prompt_pre_likely_correct_mean_margin_when_no": -0.28566741943359375,
+            "prompt_pre_likely_correct_roc_auc": 0.47619047619047616,
+            "prompt_pre_likely_correct_num_positive": 3,
+            "prompt_pre_likely_correct_num_negative": 7
+          },
+          "cot-oracle-paper-ablation-ours-1layer": {
+            "total": 10,
+            "correct_at_zero": 5,
+            "accuracy_at_zero": 0.5,
+            "positive_rate": 0.3,
+            "mean_margin_when_yes": 1.2500324249267578,
+            "mean_margin_when_no": 0.3929078238351004,
+            "roc_auc": 0.6666666666666666,
+            "num_positive": 3,
+            "num_negative": 7,
+            "prompt_pre_likely_correct_total": 10,
+            "prompt_pre_likely_correct_correct_at_zero": 5,
+            "prompt_pre_likely_correct_accuracy_at_zero": 0.5,
+            "prompt_pre_likely_correct_positive_rate": 0.3,
+            "prompt_pre_likely_correct_mean_margin_when_yes": 1.2500324249267578,
+            "prompt_pre_likely_correct_mean_margin_when_no": 0.3929078238351004,
+            "prompt_pre_likely_correct_roc_auc": 0.6666666666666666,
+            "prompt_pre_likely_correct_num_positive": 3,
+            "prompt_pre_likely_correct_num_negative": 7
+          },
+          "cot-oracle-paper-ablation-ours-3layers-onpolicy-lens-only": {
+            "total": 10,
+            "correct_at_zero": 3,
+            "accuracy_at_zero": 0.3,
+            "positive_rate": 0.3,
+            "mean_margin_when_yes": 3.0416762034098306,
+            "mean_margin_when_no": 2.0000316074916293,
+            "roc_auc": 0.8095238095238095,
+            "num_positive": 3,
+            "num_negative": 7,
+            "prompt_pre_likely_correct_total": 10,
+            "prompt_pre_likely_correct_correct_at_zero": 3,
+            "prompt_pre_likely_correct_accuracy_at_zero": 0.3,
+            "prompt_pre_likely_correct_positive_rate": 0.3,
+            "prompt_pre_likely_correct_mean_margin_when_yes": 3.0416762034098306,
+            "prompt_pre_likely_correct_mean_margin_when_no": 2.0000316074916293,
+            "prompt_pre_likely_correct_roc_auc": 0.8095238095238095,
+            "prompt_pre_likely_correct_num_positive": 3,
+            "prompt_pre_likely_correct_num_negative": 7
+          },
+          "cot-oracle-paper-ablation-ours-3layers": {
+            "total": 10,
+            "correct_at_zero": 3,
+            "accuracy_at_zero": 0.3,
+            "positive_rate": 0.3,
+            "mean_margin_when_yes": 1.8333479563395183,
+            "mean_margin_when_no": 0.9107396262032645,
+            "roc_auc": 0.7142857142857143,
+            "num_positive": 3,
+            "num_negative": 7,
+            "prompt_pre_likely_correct_total": 10,
+            "prompt_pre_likely_correct_correct_at_zero": 3,
+            "prompt_pre_likely_correct_accuracy_at_zero": 0.3,
+            "prompt_pre_likely_correct_positive_rate": 0.3,
+            "prompt_pre_likely_correct_mean_margin_when_yes": 1.8333479563395183,
+            "prompt_pre_likely_correct_mean_margin_when_no": 0.9107396262032645,
+            "prompt_pre_likely_correct_roc_auc": 0.7142857142857143,
+            "prompt_pre_likely_correct_num_positive": 3,
+            "prompt_pre_likely_correct_num_negative": 7
+          },
+          "cot-oracle-qwen3-8b-final-sprint-checkpoint-no-DPO": {
+            "total": 10,
+            "correct_at_zero": 4,
+            "accuracy_at_zero": 0.4,
+            "positive_rate": 0.3,
+            "mean_margin_when_yes": 2.125009536743164,
+            "mean_margin_when_no": 1.1071654728480749,
+            "roc_auc": 0.8095238095238095,
+            "num_positive": 3,
+            "num_negative": 7,
+            "prompt_pre_likely_correct_total": 10,
+            "prompt_pre_likely_correct_correct_at_zero": 4,
+            "prompt_pre_likely_correct_accuracy_at_zero": 0.4,
+            "prompt_pre_likely_correct_positive_rate": 0.3,
+            "prompt_pre_likely_correct_mean_margin_when_yes": 2.125009536743164,
+            "prompt_pre_likely_correct_mean_margin_when_no": 1.1071654728480749,
+            "prompt_pre_likely_correct_roc_auc": 0.8095238095238095,
+            "prompt_pre_likely_correct_num_positive": 3,
+            "prompt_pre_likely_correct_num_negative": 7
+          }
+        },
+        "num_entries": 10,
+        "num_scored": 80
+      },
+      "post_answer": {
+        "overall_metrics": {
+          "total": 10.0,
+          "correct_at_zero": 3.625,
+          "accuracy_at_zero": 0.3625,
+          "positive_rate": 0.3,
+          "mean_margin_when_yes": 2.151058038075765,
+          "mean_margin_when_no": 1.2187838554382324,
+          "roc_auc": 0.7440476190476191,
+          "num_positive": 3.0,
+          "num_negative": 7.0,
+          "prompt_post_likely_correct_total": 10.0,
+          "prompt_post_likely_correct_correct_at_zero": 3.625,
+          "prompt_post_likely_correct_accuracy_at_zero": 0.3625,
+          "prompt_post_likely_correct_positive_rate": 0.3,
+          "prompt_post_likely_correct_mean_margin_when_yes": 2.151058038075765,
+          "prompt_post_likely_correct_mean_margin_when_no": 1.2187838554382324,
+          "prompt_post_likely_correct_roc_auc": 0.7440476190476191,
+          "prompt_post_likely_correct_num_positive": 3.0,
+          "prompt_post_likely_correct_num_negative": 7.0
+        },
+        "metrics_by_verbalizer": {
+          "adam-reupload-qwen3-8b-full-mix-synthetic-qa-v3-replace-lqa": {
+            "total": 10,
+            "correct_at_zero": 3,
+            "accuracy_at_zero": 0.3,
+            "positive_rate": 0.3,
+            "mean_margin_when_yes": 2.0000247955322266,
+            "mean_margin_when_no": 1.4643203190394811,
+            "roc_auc": 0.7142857142857143,
+            "num_positive": 3,
+            "num_negative": 7,
+            "prompt_post_likely_correct_total": 10,
+            "prompt_post_likely_correct_correct_at_zero": 3,
+            "prompt_post_likely_correct_accuracy_at_zero": 0.3,
+            "prompt_post_likely_correct_positive_rate": 0.3,
+            "prompt_post_likely_correct_mean_margin_when_yes": 2.0000247955322266,
+            "prompt_post_likely_correct_mean_margin_when_no": 1.4643203190394811,
+            "prompt_post_likely_correct_roc_auc": 0.7142857142857143,
+            "prompt_post_likely_correct_num_positive": 3,
+            "prompt_post_likely_correct_num_negative": 7
+          },
+          "adam-reupload-qwen3-8b-latentqa-cls-past-lens": {
+            "total": 10,
+            "correct_at_zero": 3,
+            "accuracy_at_zero": 0.3,
+            "positive_rate": 0.3,
+            "mean_margin_when_yes": 1.9166851043701172,
+            "mean_margin_when_no": 1.2857412610735213,
+            "roc_auc": 0.8095238095238095,
+            "num_positive": 3,
+            "num_negative": 7,
+            "prompt_post_likely_correct_total": 10,
+            "prompt_post_likely_correct_correct_at_zero": 3,
+            "prompt_post_likely_correct_accuracy_at_zero": 0.3,
+            "prompt_post_likely_correct_positive_rate": 0.3,
+            "prompt_post_likely_correct_mean_margin_when_yes": 1.9166851043701172,
+            "prompt_post_likely_correct_mean_margin_when_no": 1.2857412610735213,
+            "prompt_post_likely_correct_roc_auc": 0.8095238095238095,
+            "prompt_post_likely_correct_num_positive": 3,
+            "prompt_post_likely_correct_num_negative": 7
+          },
+          "cot-oracle-grpo-step-500": {
+            "total": 10,
+            "correct_at_zero": 3,
+            "accuracy_at_zero": 0.3,
+            "positive_rate": 0.3,
+            "mean_margin_when_yes": 1.6250279744466145,
+            "mean_margin_when_no": 1.2500408717564173,
+            "roc_auc": 0.6190476190476191,
+            "num_positive": 3,
+            "num_negative": 7,
+            "prompt_post_likely_correct_total": 10,
+            "prompt_post_likely_correct_correct_at_zero": 3,
+            "prompt_post_likely_correct_accuracy_at_zero": 0.3,
+            "prompt_post_likely_correct_positive_rate": 0.3,
+            "prompt_post_likely_correct_mean_margin_when_yes": 1.6250279744466145,
+            "prompt_post_likely_correct_mean_margin_when_no": 1.2500408717564173,
+            "prompt_post_likely_correct_roc_auc": 0.6190476190476191,
+            "prompt_post_likely_correct_num_positive": 3,
+            "prompt_post_likely_correct_num_negative": 7
+          },
+          "cot-oracle-paper-ablation-adam-recipe-1layer": {
+            "total": 10,
+            "correct_at_zero": 3,
+            "accuracy_at_zero": 0.3,
+            "positive_rate": 0.3,
+            "mean_margin_when_yes": 2.416677474975586,
+            "mean_margin_when_no": 1.7500174386160714,
+            "roc_auc": 0.761904761904762,
+            "num_positive": 3,
+            "num_negative": 7,
+            "prompt_post_likely_correct_total": 10,
+            "prompt_post_likely_correct_correct_at_zero": 3,
+            "prompt_post_likely_correct_accuracy_at_zero": 0.3,
+            "prompt_post_likely_correct_positive_rate": 0.3,
+            "prompt_post_likely_correct_mean_margin_when_yes": 2.416677474975586,
+            "prompt_post_likely_correct_mean_margin_when_no": 1.7500174386160714,
+            "prompt_post_likely_correct_roc_auc": 0.761904761904762,
+            "prompt_post_likely_correct_num_positive": 3,
+            "prompt_post_likely_correct_num_negative": 7
+          },
+          "cot-oracle-paper-ablation-ours-1layer": {
+            "total": 10,
+            "correct_at_zero": 4,
+            "accuracy_at_zero": 0.4,
+            "positive_rate": 0.3,
+            "mean_margin_when_yes": 2.5833492279052734,
+            "mean_margin_when_no": 1.0714770725795202,
+            "roc_auc": 0.8571428571428571,
+            "num_positive": 3,
+            "num_negative": 7,
+            "prompt_post_likely_correct_total": 10,
+            "prompt_post_likely_correct_correct_at_zero": 4,
+            "prompt_post_likely_correct_accuracy_at_zero": 0.4,
+            "prompt_post_likely_correct_positive_rate": 0.3,
+            "prompt_post_likely_correct_mean_margin_when_yes": 2.5833492279052734,
+            "prompt_post_likely_correct_mean_margin_when_no": 1.0714770725795202,
+            "prompt_post_likely_correct_roc_auc": 0.8571428571428571,
+            "prompt_post_likely_correct_num_positive": 3,
+            "prompt_post_likely_correct_num_negative": 7
+          },
+          "cot-oracle-paper-ablation-ours-3layers-onpolicy-lens-only": {
+            "total": 10,
+            "correct_at_zero": 4,
+            "accuracy_at_zero": 0.4,
+            "positive_rate": 0.3,
+            "mean_margin_when_yes": 3.7083307902018228,
+            "mean_margin_when_no": 1.8214500972202845,
+            "roc_auc": 0.761904761904762,
+            "num_positive": 3,
+            "num_negative": 7,
+            "prompt_post_likely_correct_total": 10,
+            "prompt_post_likely_correct_correct_at_zero": 4,
+            "prompt_post_likely_correct_accuracy_at_zero": 0.4,
+            "prompt_post_likely_correct_positive_rate": 0.3,
+            "prompt_post_likely_correct_mean_margin_when_yes": 3.7083307902018228,
+            "prompt_post_likely_correct_mean_margin_when_no": 1.8214500972202845,
+            "prompt_post_likely_correct_roc_auc": 0.761904761904762,
+            "prompt_post_likely_correct_num_positive": 3,
+            "prompt_post_likely_correct_num_negative": 7
+          },
+          "cot-oracle-paper-ablation-ours-3layers": {
+            "total": 10,
+            "correct_at_zero": 6,
+            "accuracy_at_zero": 0.6,
+            "positive_rate": 0.3,
+            "mean_margin_when_yes": 1.166699727376302,
+            "mean_margin_when_no": -0.4285022190638951,
+            "roc_auc": 0.8571428571428571,
+            "num_positive": 3,
+            "num_negative": 7,
+            "prompt_post_likely_correct_total": 10,
+            "prompt_post_likely_correct_correct_at_zero": 6,
+            "prompt_post_likely_correct_accuracy_at_zero": 0.6,
+            "prompt_post_likely_correct_positive_rate": 0.3,
+            "prompt_post_likely_correct_mean_margin_when_yes": 1.166699727376302,
+            "prompt_post_likely_correct_mean_margin_when_no": -0.4285022190638951,
+            "prompt_post_likely_correct_roc_auc": 0.8571428571428571,
+            "prompt_post_likely_correct_num_positive": 3,
+            "prompt_post_likely_correct_num_negative": 7
+          },
+          "cot-oracle-qwen3-8b-final-sprint-checkpoint-no-DPO": {
+            "total": 10,
+            "correct_at_zero": 3,
+            "accuracy_at_zero": 0.3,
+            "positive_rate": 0.3,
+            "mean_margin_when_yes": 1.791669209798177,
+            "mean_margin_when_no": 1.5357260022844588,
+            "roc_auc": 0.5714285714285714,
+            "num_positive": 3,
+            "num_negative": 7,
+            "prompt_post_likely_correct_total": 10,
+            "prompt_post_likely_correct_correct_at_zero": 3,
+            "prompt_post_likely_correct_accuracy_at_zero": 0.3,
+            "prompt_post_likely_correct_positive_rate": 0.3,
+            "prompt_post_likely_correct_mean_margin_when_yes": 1.791669209798177,
+            "prompt_post_likely_correct_mean_margin_when_no": 1.5357260022844588,
+            "prompt_post_likely_correct_roc_auc": 0.5714285714285714,
+            "prompt_post_likely_correct_num_positive": 3,
+            "prompt_post_likely_correct_num_negative": 7
+          }
+        },
+        "num_entries": 10,
+        "num_scored": 80
+      }
+    },
+    "metrics_by_verbalizer": {
+      "pre_answer/adam-reupload-qwen3-8b-full-mix-synthetic-qa-v3-replace-lqa": {
+        "total": 10,
+        "correct_at_zero": 3,
+        "accuracy_at_zero": 0.3,
+        "positive_rate": 0.3,
+        "mean_margin_when_yes": 3.333307902018229,
+        "mean_margin_when_no": 2.7321248735700334,
+        "roc_auc": 0.7142857142857143,
+        "num_positive": 3,
+        "num_negative": 7,
+        "prompt_pre_likely_correct_total": 10,
+        "prompt_pre_likely_correct_correct_at_zero": 3,
+        "prompt_pre_likely_correct_accuracy_at_zero": 0.3,
+        "prompt_pre_likely_correct_positive_rate": 0.3,
+        "prompt_pre_likely_correct_mean_margin_when_yes": 3.333307902018229,
+        "prompt_pre_likely_correct_mean_margin_when_no": 2.7321248735700334,
+        "prompt_pre_likely_correct_roc_auc": 0.7142857142857143,
+        "prompt_pre_likely_correct_num_positive": 3,
+        "prompt_pre_likely_correct_num_negative": 7
+      },
+      "pre_answer/adam-reupload-qwen3-8b-latentqa-cls-past-lens": {
+        "total": 10,
+        "correct_at_zero": 3,
+        "accuracy_at_zero": 0.3,
+        "positive_rate": 0.3,
+        "mean_margin_when_yes": 1.000030517578125,
+        "mean_margin_when_no": 0.6250378744942802,
+        "roc_auc": 0.8095238095238095,
+        "num_positive": 3,
+        "num_negative": 7,
+        "prompt_pre_likely_correct_total": 10,
+        "prompt_pre_likely_correct_correct_at_zero": 3,
+        "prompt_pre_likely_correct_accuracy_at_zero": 0.3,
+        "prompt_pre_likely_correct_positive_rate": 0.3,
+        "prompt_pre_likely_correct_mean_margin_when_yes": 1.000030517578125,
+        "prompt_pre_likely_correct_mean_margin_when_no": 0.6250378744942802,
+        "prompt_pre_likely_correct_roc_auc": 0.8095238095238095,
+        "prompt_pre_likely_correct_num_positive": 3,
+        "prompt_pre_likely_correct_num_negative": 7
+      },
+      "pre_answer/cot-oracle-grpo-step-500": {
+        "total": 10,
+        "correct_at_zero": 3,
+        "accuracy_at_zero": 0.3,
+        "positive_rate": 0.3,
+        "mean_margin_when_yes": 2.3333346048990884,
+        "mean_margin_when_no": 1.303647177559989,
+        "roc_auc": 0.8571428571428571,
+        "num_positive": 3,
+        "num_negative": 7,
+        "prompt_pre_likely_correct_total": 10,
+        "prompt_pre_likely_correct_correct_at_zero": 3,
+        "prompt_pre_likely_correct_accuracy_at_zero": 0.3,
+        "prompt_pre_likely_correct_positive_rate": 0.3,
+        "prompt_pre_likely_correct_mean_margin_when_yes": 2.3333346048990884,
+        "prompt_pre_likely_correct_mean_margin_when_no": 1.303647177559989,
+        "prompt_pre_likely_correct_roc_auc": 0.8571428571428571,
+        "prompt_pre_likely_correct_num_positive": 3,
+        "prompt_pre_likely_correct_num_negative": 7
+      },
+      "pre_answer/cot-oracle-paper-ablation-adam-recipe-1layer": {
+        "total": 10,
+        "correct_at_zero": 6,
+        "accuracy_at_zero": 0.6,
+        "positive_rate": 0.3,
+        "mean_margin_when_yes": -0.2499516805013021,
+        "mean_margin_when_no": -0.28566741943359375,
+        "roc_auc": 0.47619047619047616,
+        "num_positive": 3,
+        "num_negative": 7,
+        "prompt_pre_likely_correct_total": 10,
+        "prompt_pre_likely_correct_correct_at_zero": 6,
+        "prompt_pre_likely_correct_accuracy_at_zero": 0.6,
+        "prompt_pre_likely_correct_positive_rate": 0.3,
+        "prompt_pre_likely_correct_mean_margin_when_yes": -0.2499516805013021,
+        "prompt_pre_likely_correct_mean_margin_when_no": -0.28566741943359375,
+        "prompt_pre_likely_correct_roc_auc": 0.47619047619047616,
+        "prompt_pre_likely_correct_num_positive": 3,
+        "prompt_pre_likely_correct_num_negative": 7
+      },
+      "pre_answer/cot-oracle-paper-ablation-ours-1layer": {
+        "total": 10,
+        "correct_at_zero": 5,
+        "accuracy_at_zero": 0.5,
+        "positive_rate": 0.3,
+        "mean_margin_when_yes": 1.2500324249267578,
+        "mean_margin_when_no": 0.3929078238351004,
+        "roc_auc": 0.6666666666666666,
+        "num_positive": 3,
+        "num_negative": 7,
+        "prompt_pre_likely_correct_total": 10,
+        "prompt_pre_likely_correct_correct_at_zero": 5,
+        "prompt_pre_likely_correct_accuracy_at_zero": 0.5,
+        "prompt_pre_likely_correct_positive_rate": 0.3,
+        "prompt_pre_likely_correct_mean_margin_when_yes": 1.2500324249267578,
+        "prompt_pre_likely_correct_mean_margin_when_no": 0.3929078238351004,
+        "prompt_pre_likely_correct_roc_auc": 0.6666666666666666,
+        "prompt_pre_likely_correct_num_positive": 3,
+        "prompt_pre_likely_correct_num_negative": 7
+      },
+      "pre_answer/cot-oracle-paper-ablation-ours-3layers-onpolicy-lens-only": {
+        "total": 10,
+        "correct_at_zero": 3,
+        "accuracy_at_zero": 0.3,
+        "positive_rate": 0.3,
+        "mean_margin_when_yes": 3.0416762034098306,
+        "mean_margin_when_no": 2.0000316074916293,
+        "roc_auc": 0.8095238095238095,
+        "num_positive": 3,
+        "num_negative": 7,
+        "prompt_pre_likely_correct_total": 10,
+        "prompt_pre_likely_correct_correct_at_zero": 3,
+        "prompt_pre_likely_correct_accuracy_at_zero": 0.3,
+        "prompt_pre_likely_correct_positive_rate": 0.3,
+        "prompt_pre_likely_correct_mean_margin_when_yes": 3.0416762034098306,
+        "prompt_pre_likely_correct_mean_margin_when_no": 2.0000316074916293,
+        "prompt_pre_likely_correct_roc_auc": 0.8095238095238095,
+        "prompt_pre_likely_correct_num_positive": 3,
+        "prompt_pre_likely_correct_num_negative": 7
+      },
+      "pre_answer/cot-oracle-paper-ablation-ours-3layers": {
+        "total": 10,
+        "correct_at_zero": 3,
+        "accuracy_at_zero": 0.3,
+        "positive_rate": 0.3,
+        "mean_margin_when_yes": 1.8333479563395183,
+        "mean_margin_when_no": 0.9107396262032645,
+        "roc_auc": 0.7142857142857143,
+        "num_positive": 3,
+        "num_negative": 7,
+        "prompt_pre_likely_correct_total": 10,
+        "prompt_pre_likely_correct_correct_at_zero": 3,
+        "prompt_pre_likely_correct_accuracy_at_zero": 0.3,
+        "prompt_pre_likely_correct_positive_rate": 0.3,
+        "prompt_pre_likely_correct_mean_margin_when_yes": 1.8333479563395183,
+        "prompt_pre_likely_correct_mean_margin_when_no": 0.9107396262032645,
+        "prompt_pre_likely_correct_roc_auc": 0.7142857142857143,
+        "prompt_pre_likely_correct_num_positive": 3,
+        "prompt_pre_likely_correct_num_negative": 7
+      },
+      "pre_answer/cot-oracle-qwen3-8b-final-sprint-checkpoint-no-DPO": {
+        "total": 10,
+        "correct_at_zero": 4,
+        "accuracy_at_zero": 0.4,
+        "positive_rate": 0.3,
+        "mean_margin_when_yes": 2.125009536743164,
+        "mean_margin_when_no": 1.1071654728480749,
+        "roc_auc": 0.8095238095238095,
+        "num_positive": 3,
+        "num_negative": 7,
+        "prompt_pre_likely_correct_total": 10,
+        "prompt_pre_likely_correct_correct_at_zero": 4,
+        "prompt_pre_likely_correct_accuracy_at_zero": 0.4,
+        "prompt_pre_likely_correct_positive_rate": 0.3,
+        "prompt_pre_likely_correct_mean_margin_when_yes": 2.125009536743164,
+        "prompt_pre_likely_correct_mean_margin_when_no": 1.1071654728480749,
+        "prompt_pre_likely_correct_roc_auc": 0.8095238095238095,
+        "prompt_pre_likely_correct_num_positive": 3,
+        "prompt_pre_likely_correct_num_negative": 7
+      },
+      "post_answer/adam-reupload-qwen3-8b-full-mix-synthetic-qa-v3-replace-lqa": {
+        "total": 10,
+        "correct_at_zero": 3,
+        "accuracy_at_zero": 0.3,
+        "positive_rate": 0.3,
+        "mean_margin_when_yes": 2.0000247955322266,
+        "mean_margin_when_no": 1.4643203190394811,
+        "roc_auc": 0.7142857142857143,
+        "num_positive": 3,
+        "num_negative": 7,
+        "prompt_post_likely_correct_total": 10,
+        "prompt_post_likely_correct_correct_at_zero": 3,
+        "prompt_post_likely_correct_accuracy_at_zero": 0.3,
+        "prompt_post_likely_correct_positive_rate": 0.3,
+        "prompt_post_likely_correct_mean_margin_when_yes": 2.0000247955322266,
+        "prompt_post_likely_correct_mean_margin_when_no": 1.4643203190394811,
+        "prompt_post_likely_correct_roc_auc": 0.7142857142857143,
+        "prompt_post_likely_correct_num_positive": 3,
+        "prompt_post_likely_correct_num_negative": 7
+      },
+      "post_answer/adam-reupload-qwen3-8b-latentqa-cls-past-lens": {
+        "total": 10,
+        "correct_at_zero": 3,
+        "accuracy_at_zero": 0.3,
+        "positive_rate": 0.3,
+        "mean_margin_when_yes": 1.9166851043701172,
+        "mean_margin_when_no": 1.2857412610735213,
+        "roc_auc": 0.8095238095238095,
+        "num_positive": 3,
+        "num_negative": 7,
+        "prompt_post_likely_correct_total": 10,
+        "prompt_post_likely_correct_correct_at_zero": 3,
+        "prompt_post_likely_correct_accuracy_at_zero": 0.3,
+        "prompt_post_likely_correct_positive_rate": 0.3,
+        "prompt_post_likely_correct_mean_margin_when_yes": 1.9166851043701172,
+        "prompt_post_likely_correct_mean_margin_when_no": 1.2857412610735213,
+        "prompt_post_likely_correct_roc_auc": 0.8095238095238095,
+        "prompt_post_likely_correct_num_positive": 3,
+        "prompt_post_likely_correct_num_negative": 7
+      },
+      "post_answer/cot-oracle-grpo-step-500": {
+        "total": 10,
+        "correct_at_zero": 3,
+        "accuracy_at_zero": 0.3,
+        "positive_rate": 0.3,
+        "mean_margin_when_yes": 1.6250279744466145,
+        "mean_margin_when_no": 1.2500408717564173,
+        "roc_auc": 0.6190476190476191,
+        "num_positive": 3,
+        "num_negative": 7,
+        "prompt_post_likely_correct_total": 10,
+        "prompt_post_likely_correct_correct_at_zero": 3,
+        "prompt_post_likely_correct_accuracy_at_zero": 0.3,
+        "prompt_post_likely_correct_positive_rate": 0.3,
+        "prompt_post_likely_correct_mean_margin_when_yes": 1.6250279744466145,
+        "prompt_post_likely_correct_mean_margin_when_no": 1.2500408717564173,
+        "prompt_post_likely_correct_roc_auc": 0.6190476190476191,
+        "prompt_post_likely_correct_num_positive": 3,
+        "prompt_post_likely_correct_num_negative": 7
+      },
+      "post_answer/cot-oracle-paper-ablation-adam-recipe-1layer": {
+        "total": 10,
+        "correct_at_zero": 3,
+        "accuracy_at_zero": 0.3,
+        "positive_rate": 0.3,
+        "mean_margin_when_yes": 2.416677474975586,
+        "mean_margin_when_no": 1.7500174386160714,
+        "roc_auc": 0.761904761904762,
+        "num_positive": 3,
+        "num_negative": 7,
+        "prompt_post_likely_correct_total": 10,
+        "prompt_post_likely_correct_correct_at_zero": 3,
+        "prompt_post_likely_correct_accuracy_at_zero": 0.3,
+        "prompt_post_likely_correct_positive_rate": 0.3,
+        "prompt_post_likely_correct_mean_margin_when_yes": 2.416677474975586,
+        "prompt_post_likely_correct_mean_margin_when_no": 1.7500174386160714,
+        "prompt_post_likely_correct_roc_auc": 0.761904761904762,
+        "prompt_post_likely_correct_num_positive": 3,
+        "prompt_post_likely_correct_num_negative": 7
+      },
+      "post_answer/cot-oracle-paper-ablation-ours-1layer": {
+        "total": 10,
+        "correct_at_zero": 4,
+        "accuracy_at_zero": 0.4,
+        "positive_rate": 0.3,
+        "mean_margin_when_yes": 2.5833492279052734,
+        "mean_margin_when_no": 1.0714770725795202,
+        "roc_auc": 0.8571428571428571,
+        "num_positive": 3,
+        "num_negative": 7,
+        "prompt_post_likely_correct_total": 10,
+        "prompt_post_likely_correct_correct_at_zero": 4,
+        "prompt_post_likely_correct_accuracy_at_zero": 0.4,
+        "prompt_post_likely_correct_positive_rate": 0.3,
+        "prompt_post_likely_correct_mean_margin_when_yes": 2.5833492279052734,
+        "prompt_post_likely_correct_mean_margin_when_no": 1.0714770725795202,
+        "prompt_post_likely_correct_roc_auc": 0.8571428571428571,
+        "prompt_post_likely_correct_num_positive": 3,
+        "prompt_post_likely_correct_num_negative": 7
+      },
+      "post_answer/cot-oracle-paper-ablation-ours-3layers-onpolicy-lens-only": {
+        "total": 10,
+        "correct_at_zero": 4,
+        "accuracy_at_zero": 0.4,
+        "positive_rate": 0.3,
+        "mean_margin_when_yes": 3.7083307902018228,
+        "mean_margin_when_no": 1.8214500972202845,
+        "roc_auc": 0.761904761904762,
+        "num_positive": 3,
+        "num_negative": 7,
+        "prompt_post_likely_correct_total": 10,
+        "prompt_post_likely_correct_correct_at_zero": 4,
+        "prompt_post_likely_correct_accuracy_at_zero": 0.4,
+        "prompt_post_likely_correct_positive_rate": 0.3,
+        "prompt_post_likely_correct_mean_margin_when_yes": 3.7083307902018228,
+        "prompt_post_likely_correct_mean_margin_when_no": 1.8214500972202845,
+        "prompt_post_likely_correct_roc_auc": 0.761904761904762,
+        "prompt_post_likely_correct_num_positive": 3,
+        "prompt_post_likely_correct_num_negative": 7
+      },
+      "post_answer/cot-oracle-paper-ablation-ours-3layers": {
+        "total": 10,
+        "correct_at_zero": 6,
+        "accuracy_at_zero": 0.6,
+        "positive_rate": 0.3,
+        "mean_margin_when_yes": 1.166699727376302,
+        "mean_margin_when_no": -0.4285022190638951,
+        "roc_auc": 0.8571428571428571,
+        "num_positive": 3,
+        "num_negative": 7,
+        "prompt_post_likely_correct_total": 10,
+        "prompt_post_likely_correct_correct_at_zero": 6,
+        "prompt_post_likely_correct_accuracy_at_zero": 0.6,
+        "prompt_post_likely_correct_positive_rate": 0.3,
+        "prompt_post_likely_correct_mean_margin_when_yes": 1.166699727376302,
+        "prompt_post_likely_correct_mean_margin_when_no": -0.4285022190638951,
+        "prompt_post_likely_correct_roc_auc": 0.8571428571428571,
+        "prompt_post_likely_correct_num_positive": 3,
+        "prompt_post_likely_correct_num_negative": 7
+      },
+      "post_answer/cot-oracle-qwen3-8b-final-sprint-checkpoint-no-DPO": {
+        "total": 10,
+        "correct_at_zero": 3,
+        "accuracy_at_zero": 0.3,
+        "positive_rate": 0.3,
+        "mean_margin_when_yes": 1.791669209798177,
+        "mean_margin_when_no": 1.5357260022844588,
+        "roc_auc": 0.5714285714285714,
+        "num_positive": 3,
+        "num_negative": 7,
+        "prompt_post_likely_correct_total": 10,
+        "prompt_post_likely_correct_correct_at_zero": 3,
+        "prompt_post_likely_correct_accuracy_at_zero": 0.3,
+        "prompt_post_likely_correct_positive_rate": 0.3,
+        "prompt_post_likely_correct_mean_margin_when_yes": 1.791669209798177,
+        "prompt_post_likely_correct_mean_margin_when_no": 1.5357260022844588,
+        "prompt_post_likely_correct_roc_auc": 0.5714285714285714,
+        "prompt_post_likely_correct_num_positive": 3,
+        "prompt_post_likely_correct_num_negative": 7
+      }
+    },
+    "overall_metrics": {
+      "total": 10.0,
+      "correct_at_zero": 3.6875,
+      "accuracy_at_zero": 0.36875,
+      "positive_rate": 0.3,
+      "mean_margin_when_yes": 1.9922032356262207,
+      "mean_margin_when_no": 1.1585161175046648,
+      "roc_auc": 0.7380952380952381,
+      "num_positive": 3.0,
+      "num_negative": 7.0,
+      "prompt_pre_likely_correct_total": 10.0,
+      "prompt_pre_likely_correct_correct_at_zero": 3.75,
+      "prompt_pre_likely_correct_accuracy_at_zero": 0.375,
+      "prompt_pre_likely_correct_positive_rate": 0.3,
+      "prompt_pre_likely_correct_mean_margin_when_yes": 1.8333484331766763,
+      "prompt_pre_likely_correct_mean_margin_when_no": 1.0982483795710973,
+      "prompt_pre_likely_correct_roc_auc": 0.7321428571428571,
+      "prompt_pre_likely_correct_num_positive": 3.0,
+      "prompt_pre_likely_correct_num_negative": 7.0
+    }
+  },
+  "backtracking": {
+    "overall_metrics": {
+      "mean_specificity": 2.4,
+      "mean_correctness": 1.7875,
+      "specificity_>=3_rate": 0.5125,
+      "specificity_>=4_rate": 0.1,
+      "correctness_>=3_rate": 0.1625,
+      "correctness_>=4_rate": 0.08750000000000001,
+      "num_scored": 10.0
+    },
+    "metrics_by_verbalizer": {
+      "adam-reupload-qwen3-8b-full-mix-synthetic-qa-v3-replace-lqa": {
+        "mean_specificity": 2.6,
+        "mean_correctness": 1.7,
+        "specificity_>=3_rate": 0.7,
+        "specificity_>=4_rate": 0.1,
+        "correctness_>=3_rate": 0.1,
+        "correctness_>=4_rate": 0.1,
+        "num_scored": 10.0
+      },
+      "adam-reupload-qwen3-8b-latentqa-cls-past-lens": {
+        "mean_specificity": 2.0,
+        "mean_correctness": 1.7,
+        "specificity_>=3_rate": 0.2,
+        "specificity_>=4_rate": 0.1,
+        "correctness_>=3_rate": 0.2,
+        "correctness_>=4_rate": 0.1,
+        "num_scored": 10.0
+      },
+      "cot-oracle-grpo-step-500": {
+        "mean_specificity": 2.5,
+        "mean_correctness": 2.0,
+        "specificity_>=3_rate": 0.5,
+        "specificity_>=4_rate": 0.1,
+        "correctness_>=3_rate": 0.2,
+        "correctness_>=4_rate": 0.1,
+        "num_scored": 10.0
+      },
+      "cot-oracle-paper-ablation-adam-recipe-1layer": {
+        "mean_specificity": 2.0,
+        "mean_correctness": 1.9,
+        "specificity_>=3_rate": 0.3,
+        "specificity_>=4_rate": 0.1,
+        "correctness_>=3_rate": 0.2,
+        "correctness_>=4_rate": 0.2,
+        "num_scored": 10.0
+      },
+      "cot-oracle-paper-ablation-ours-1layer": {
+        "mean_specificity": 2.5,
+        "mean_correctness": 1.8,
+        "specificity_>=3_rate": 0.7,
+        "specificity_>=4_rate": 0.0,
+        "correctness_>=3_rate": 0.1,
+        "correctness_>=4_rate": 0.0,
+        "num_scored": 10.0
+      },
+      "cot-oracle-paper-ablation-ours-3layers-onpolicy-lens-only": {
+        "mean_specificity": 2.6,
+        "mean_correctness": 1.8,
+        "specificity_>=3_rate": 0.6,
+        "specificity_>=4_rate": 0.1,
+        "correctness_>=3_rate": 0.2,
+        "correctness_>=4_rate": 0.1,
+        "num_scored": 10.0
+      },
+      "cot-oracle-paper-ablation-ours-3layers": {
+        "mean_specificity": 2.6,
+        "mean_correctness": 1.7,
+        "specificity_>=3_rate": 0.5,
+        "specificity_>=4_rate": 0.2,
+        "correctness_>=3_rate": 0.1,
+        "correctness_>=4_rate": 0.0,
+        "num_scored": 10.0
+      },
+      "cot-oracle-qwen3-8b-final-sprint-checkpoint-no-DPO": {
+        "mean_specificity": 2.4,
+        "mean_correctness": 1.7,
+        "specificity_>=3_rate": 0.6,
+        "specificity_>=4_rate": 0.1,
+        "correctness_>=3_rate": 0.2,
+        "correctness_>=4_rate": 0.1,
+        "num_scored": 10.0
+      }
+    },
+    "num_entries": 8,
+    "num_scored": 80,
+    "rejudged": true
+  },
+  "vagueness": {
+    "overall_metrics": {
+      "vagueness_rate": 0.2125,
+      "specificity_rate": 0.7625,
+      "refusal_rate": 0.025,
+      "generic_rate": 0.07500000000000001,
+      "vague_directional_rate": 0.1375,
+      "specific_correct": 7.625,
+      "vague_directional": 1.375,
+      "generic": 0.75,
+      "refuses": 0.25,
+      "total": 10.0
+    },
+    "metrics_by_verbalizer": {
+      "adam-reupload-qwen3-8b-full-mix-synthetic-qa-v3-replace-lqa": {
+        "vagueness_rate": 0.0,
+        "specificity_rate": 1.0,
+        "refusal_rate": 0.0,
+        "generic_rate": 0.0,
+        "vague_directional_rate": 0.0,
+        "specific_correct": 10,
+        "vague_directional": 0,
+        "generic": 0,
+        "refuses": 0,
+        "total": 10.0
+      },
+      "adam-reupload-qwen3-8b-latentqa-cls-past-lens": {
+        "vagueness_rate": 0.4,
+        "specificity_rate": 0.6,
+        "refusal_rate": 0.0,
+        "generic_rate": 0.1,
+        "vague_directional_rate": 0.3,
+        "specific_correct": 6,
+        "vague_directional": 3,
+        "generic": 1,
+        "refuses": 0,
+        "total": 10.0
+      },
+      "cot-oracle-grpo-step-500": {
+        "vagueness_rate": 0.6,
+        "specificity_rate": 0.4,
+        "refusal_rate": 0.0,
+        "generic_rate": 0.2,
+        "vague_directional_rate": 0.4,
+        "specific_correct": 4,
+        "vague_directional": 4,
+        "generic": 2,
+        "refuses": 0,
+        "total": 10.0
+      },
+      "cot-oracle-paper-ablation-adam-recipe-1layer": {
+        "vagueness_rate": 0.3,
+        "specificity_rate": 0.7,
+        "refusal_rate": 0.0,
+        "generic_rate": 0.1,
+        "vague_directional_rate": 0.2,
+        "specific_correct": 7,
+        "vague_directional": 2,
+        "generic": 1,
+        "refuses": 0,
+        "total": 10.0
+      },
+      "cot-oracle-paper-ablation-ours-1layer": {
+        "vagueness_rate": 0.2,
+        "specificity_rate": 0.7,
+        "refusal_rate": 0.1,
+        "generic_rate": 0.1,
+        "vague_directional_rate": 0.1,
+        "specific_correct": 7,
+        "vague_directional": 1,
+        "generic": 1,
+        "refuses": 1,
+        "total": 10.0
+      },
+      "cot-oracle-paper-ablation-ours-3layers-onpolicy-lens-only": {
+        "vagueness_rate": 0.1,
+        "specificity_rate": 0.9,
+        "refusal_rate": 0.0,
+        "generic_rate": 0.1,
+        "vague_directional_rate": 0.0,
+        "specific_correct": 9,
+        "vague_directional": 0,
+        "generic": 1,
+        "refuses": 0,
+        "total": 10.0
+      },
+      "cot-oracle-paper-ablation-ours-3layers": {
+        "vagueness_rate": 0.0,
+        "specificity_rate": 0.9,
+        "refusal_rate": 0.1,
+        "generic_rate": 0.0,
+        "vague_directional_rate": 0.0,
+        "specific_correct": 9,
+        "vague_directional": 0,
+        "generic": 0,
+        "refuses": 1,
+        "total": 10.0
+      },
+      "cot-oracle-qwen3-8b-final-sprint-checkpoint-no-DPO": {
+        "vagueness_rate": 0.1,
+        "specificity_rate": 0.9,
+        "refusal_rate": 0.0,
+        "generic_rate": 0.0,
+        "vague_directional_rate": 0.1,
+        "specific_correct": 9,
+        "vague_directional": 1,
+        "generic": 0,
+        "refuses": 0,
+        "total": 10.0
+      }
+    },
+    "num_entries": 8,
+    "num_scored": 80,
+    "rejudged": true
+  },
+  "domain_confusion": {
+    "overall_metrics": {
+      "domain_confusion_rate": 0.7166666666666667,
+      "specificity_when_correct": 0.19166666666666665,
+      "domain_correct_specific_rate": 0.19166666666666665,
+      "domain_correct_vague_rate": 0.09166666666666667,
+      "domain_wrong_rate": 0.7166666666666667,
+      "refusal_rate": 0.0,
+      "domain_correct_specific": 5.75,
+      "domain_correct_vague": 2.75,
+      "domain_wrong": 21.5,
+      "refuses": 0.0,
+      "total": 30.0
+    },
+    "metrics_by_verbalizer": {
+      "adam-reupload-qwen3-8b-full-mix-synthetic-qa-v3-replace-lqa": {
+        "domain_confusion_rate": 0.9,
+        "specificity_when_correct": 0.06666666666666667,
+        "domain_correct_specific_rate": 0.06666666666666667,
+        "domain_correct_vague_rate": 0.03333333333333333,
+        "domain_wrong_rate": 0.9,
+        "refusal_rate": 0.0,
+        "domain_correct_specific": 2,
+        "domain_correct_vague": 1,
+        "domain_wrong": 27,
+        "refuses": 0,
+        "total": 30.0
+      },
+      "adam-reupload-qwen3-8b-latentqa-cls-past-lens": {
+        "domain_confusion_rate": 0.4,
+        "specificity_when_correct": 0.16666666666666666,
+        "domain_correct_specific_rate": 0.16666666666666666,
+        "domain_correct_vague_rate": 0.43333333333333335,
+        "domain_wrong_rate": 0.4,
+        "refusal_rate": 0.0,
+        "domain_correct_specific": 5,
+        "domain_correct_vague": 13,
+        "domain_wrong": 12,
+        "refuses": 0,
+        "total": 30.0
+      },
+      "cot-oracle-grpo-step-500": {
+        "domain_confusion_rate": 0.5333333333333333,
+        "specificity_when_correct": 0.3333333333333333,
+        "domain_correct_specific_rate": 0.3333333333333333,
+        "domain_correct_vague_rate": 0.13333333333333333,
+        "domain_wrong_rate": 0.5333333333333333,
+        "refusal_rate": 0.0,
+        "domain_correct_specific": 10,
+        "domain_correct_vague": 4,
+        "domain_wrong": 16,
+        "refuses": 0,
+        "total": 30.0
+      },
+      "cot-oracle-paper-ablation-adam-recipe-1layer": {
+        "domain_confusion_rate": 0.6666666666666666,
+        "specificity_when_correct": 0.26666666666666666,
+        "domain_correct_specific_rate": 0.26666666666666666,
+        "domain_correct_vague_rate": 0.06666666666666667,
+        "domain_wrong_rate": 0.6666666666666666,
+        "refusal_rate": 0.0,
+        "domain_correct_specific": 8,
+        "domain_correct_vague": 2,
+        "domain_wrong": 20,
+        "refuses": 0,
+        "total": 30.0
+      },
+      "cot-oracle-paper-ablation-ours-1layer": {
+        "domain_confusion_rate": 0.7,
+        "specificity_when_correct": 0.26666666666666666,
+        "domain_correct_specific_rate": 0.26666666666666666,
+        "domain_correct_vague_rate": 0.03333333333333333,
+        "domain_wrong_rate": 0.7,
+        "refusal_rate": 0.0,
+        "domain_correct_specific": 8,
+        "domain_correct_vague": 1,
+        "domain_wrong": 21,
+        "refuses": 0,
+        "total": 30.0
+      },
+      "cot-oracle-paper-ablation-ours-3layers-onpolicy-lens-only": {
+        "domain_confusion_rate": 0.9333333333333333,
+        "specificity_when_correct": 0.06666666666666667,
+        "domain_correct_specific_rate": 0.06666666666666667,
+        "domain_correct_vague_rate": 0.0,
+        "domain_wrong_rate": 0.9333333333333333,
+        "refusal_rate": 0.0,
+        "domain_correct_specific": 2,
+        "domain_correct_vague": 0,
+        "domain_wrong": 28,
+        "refuses": 0,
+        "total": 30.0
+      },
+      "cot-oracle-paper-ablation-ours-3layers": {
+        "domain_confusion_rate": 0.7666666666666667,
+        "specificity_when_correct": 0.23333333333333334,
+        "domain_correct_specific_rate": 0.23333333333333334,
+        "domain_correct_vague_rate": 0.0,
+        "domain_wrong_rate": 0.7666666666666667,
+        "refusal_rate": 0.0,
+        "domain_correct_specific": 7,
+        "domain_correct_vague": 0,
+        "domain_wrong": 23,
+        "refuses": 0,
+        "total": 30.0
+      },
+      "cot-oracle-qwen3-8b-final-sprint-checkpoint-no-DPO": {
+        "domain_confusion_rate": 0.8333333333333334,
+        "specificity_when_correct": 0.13333333333333333,
+        "domain_correct_specific_rate": 0.13333333333333333,
+        "domain_correct_vague_rate": 0.03333333333333333,
+        "domain_wrong_rate": 0.8333333333333334,
+        "refusal_rate": 0.0,
+        "domain_correct_specific": 4,
+        "domain_correct_vague": 1,
+        "domain_wrong": 25,
+        "refuses": 0,
+        "total": 30.0
+      }
+    },
+    "num_entries": 8,
+    "num_scored": 240,
+    "rejudged": true
+  },
+  "missing_info": {
+    "overall_metrics": {
+      "total": 10.0,
+      "correct_at_zero": 4.75,
+      "accuracy_at_zero": 0.475,
+      "positive_rate": 0.6,
+      "mean_margin_when_yes": -1.26819642384847,
+      "mean_margin_when_no": -1.8984000086784363,
+      "roc_auc": 0.640625,
+      "num_positive": 6.0,
+      "num_negative": 4.0,
+      "prompt_incomplete_info_total": 10.0,
+      "prompt_incomplete_info_correct_at_zero": 4.75,
+      "prompt_incomplete_info_accuracy_at_zero": 0.475,
+      "prompt_incomplete_info_positive_rate": 0.6,
+      "prompt_incomplete_info_mean_margin_when_yes": -1.26819642384847,
+      "prompt_incomplete_info_mean_margin_when_no": -1.8984000086784363,
+      "prompt_incomplete_info_roc_auc": 0.640625,
+      "prompt_incomplete_info_num_positive": 6.0,
+      "prompt_incomplete_info_num_negative": 4.0,
+      "cond_A_complete_total": 4.0,
+      "cond_A_complete_correct_at_zero": 3.25,
+      "cond_A_complete_accuracy_at_zero": 0.8125,
+      "cond_A_complete_positive_rate": 0.0,
+      "cond_A_complete_mean_margin_when_yes": 0.0,
+      "cond_A_complete_mean_margin_when_no": -1.8984000086784363,
+      "cond_B_incomplete_total": 3.0,
+      "cond_B_incomplete_correct_at_zero": 0.75,
+      "cond_B_incomplete_accuracy_at_zero": 0.25,
+      "cond_B_incomplete_positive_rate": 1.0,
+      "cond_B_incomplete_mean_margin_when_yes": -1.0312175750732422,
+      "cond_B_incomplete_mean_margin_when_no": 0.0,
+      "cond_C_forced_total": 3.0,
+      "cond_C_forced_correct_at_zero": 0.75,
+      "cond_C_forced_accuracy_at_zero": 0.25,
+      "cond_C_forced_positive_rate": 1.0,
+      "cond_C_forced_mean_margin_when_yes": -1.505175272623698,
+      "cond_C_forced_mean_margin_when_no": 0.0,
+      "A_vs_B_roc_auc": 0.6875,
+      "A_vs_B_num_positive": 3.0,
+      "A_vs_B_num_negative": 4.0,
+      "A_vs_B_incomplete_info_roc_auc": 0.6875,
+      "A_vs_C_roc_auc": 0.59375,
+      "A_vs_C_num_positive": 3.0,
+      "A_vs_C_num_negative": 4.0,
+      "A_vs_C_incomplete_info_roc_auc": 0.59375
+    },
+    "metrics_by_verbalizer": {
+      "adam-reupload-qwen3-8b-full-mix-synthetic-qa-v3-replace-lqa": {
+        "total": 10,
+        "correct_at_zero": 4,
+        "accuracy_at_zero": 0.4,
+        "positive_rate": 0.6,
+        "mean_margin_when_yes": 0.3125454584757487,
+        "mean_margin_when_no": -0.15619373321533203,
+        "roc_auc": 0.5416666666666666,
+        "num_positive": 6,
+        "num_negative": 4,
+        "prompt_incomplete_info_total": 10,
+        "prompt_incomplete_info_correct_at_zero": 4,
+        "prompt_incomplete_info_accuracy_at_zero": 0.4,
+        "prompt_incomplete_info_positive_rate": 0.6,
+        "prompt_incomplete_info_mean_margin_when_yes": 0.3125454584757487,
+        "prompt_incomplete_info_mean_margin_when_no": -0.15619373321533203,
+        "prompt_incomplete_info_roc_auc": 0.5416666666666666,
+        "prompt_incomplete_info_num_positive": 6,
+        "prompt_incomplete_info_num_negative": 4,
+        "cond_A_complete_total": 4,
+        "cond_A_complete_correct_at_zero": 2,
+        "cond_A_complete_accuracy_at_zero": 0.5,
+        "cond_A_complete_positive_rate": 0.0,
+        "cond_A_complete_mean_margin_when_yes": 0.0,
+        "cond_A_complete_mean_margin_when_no": -0.15619373321533203,
+        "cond_B_incomplete_total": 3,
+        "cond_B_incomplete_correct_at_zero": 1,
+        "cond_B_incomplete_accuracy_at_zero": 0.3333333333333333,
+        "cond_B_incomplete_positive_rate": 1.0,
+        "cond_B_incomplete_mean_margin_when_yes": 0.45837656656901044,
+        "cond_B_incomplete_mean_margin_when_no": 0.0,
+        "cond_C_forced_total": 3,
+        "cond_C_forced_correct_at_zero": 1,
+        "cond_C_forced_accuracy_at_zero": 0.3333333333333333,
+        "cond_C_forced_positive_rate": 1.0,
+        "cond_C_forced_mean_margin_when_yes": 0.16671435038248697,
+        "cond_C_forced_mean_margin_when_no": 0.0,
+        "A_vs_B_roc_auc": 0.5,
+        "A_vs_B_num_positive": 3,
+        "A_vs_B_num_negative": 4,
+        "A_vs_B_incomplete_info_roc_auc": 0.5,
+        "A_vs_C_roc_auc": 0.5833333333333333,
+        "A_vs_C_num_positive": 3,
+        "A_vs_C_num_negative": 4,
+        "A_vs_C_incomplete_info_roc_auc": 0.5833333333333333
+      },
+      "adam-reupload-qwen3-8b-latentqa-cls-past-lens": {
+        "total": 10,
+        "correct_at_zero": 5,
+        "accuracy_at_zero": 0.5,
+        "positive_rate": 0.6,
+        "mean_margin_when_yes": -0.5416428248087565,
+        "mean_margin_when_no": -0.5937228202819824,
+        "roc_auc": 0.45833333333333337,
+        "num_positive": 6,
+        "num_negative": 4,
+        "prompt_incomplete_info_total": 10,
+        "prompt_incomplete_info_correct_at_zero": 5,
+        "prompt_incomplete_info_accuracy_at_zero": 0.5,
+        "prompt_incomplete_info_positive_rate": 0.6,
+        "prompt_incomplete_info_mean_margin_when_yes": -0.5416428248087565,
+        "prompt_incomplete_info_mean_margin_when_no": -0.5937228202819824,
+        "prompt_incomplete_info_roc_auc": 0.45833333333333337,
+        "prompt_incomplete_info_num_positive": 6,
+        "prompt_incomplete_info_num_negative": 4,
+        "cond_A_complete_total": 4,
+        "cond_A_complete_correct_at_zero": 3,
+        "cond_A_complete_accuracy_at_zero": 0.75,
+        "cond_A_complete_positive_rate": 0.0,
+        "cond_A_complete_mean_margin_when_yes": 0.0,
+        "cond_A_complete_mean_margin_when_no": -0.5937228202819824,
+        "cond_B_incomplete_total": 3,
+        "cond_B_incomplete_correct_at_zero": 1,
+        "cond_B_incomplete_accuracy_at_zero": 0.3333333333333333,
+        "cond_B_incomplete_positive_rate": 1.0,
+        "cond_B_incomplete_mean_margin_when_yes": -0.37497584025065106,
+        "cond_B_incomplete_mean_margin_when_no": 0.0,
+        "cond_C_forced_total": 3,
+        "cond_C_forced_correct_at_zero": 1,
+        "cond_C_forced_accuracy_at_zero": 0.3333333333333333,
+        "cond_C_forced_positive_rate": 1.0,
+        "cond_C_forced_mean_margin_when_yes": -0.7083098093668619,
+        "cond_C_forced_mean_margin_when_no": 0.0,
+        "A_vs_B_roc_auc": 0.5,
+        "A_vs_B_num_positive": 3,
+        "A_vs_B_num_negative": 4,
+        "A_vs_B_incomplete_info_roc_auc": 0.5,
+        "A_vs_C_roc_auc": 0.41666666666666663,
+        "A_vs_C_num_positive": 3,
+        "A_vs_C_num_negative": 4,
+        "A_vs_C_incomplete_info_roc_auc": 0.41666666666666663
+      },
+      "cot-oracle-grpo-step-500": {
+        "total": 10,
+        "correct_at_zero": 5,
+        "accuracy_at_zero": 0.5,
+        "positive_rate": 0.6,
+        "mean_margin_when_yes": -1.1041183471679688,
+        "mean_margin_when_no": -2.0624356269836426,
+        "roc_auc": 0.75,
+        "num_positive": 6,
+        "num_negative": 4,
+        "prompt_incomplete_info_total": 10,
+        "prompt_incomplete_info_correct_at_zero": 5,
+        "prompt_incomplete_info_accuracy_at_zero": 0.5,
+        "prompt_incomplete_info_positive_rate": 0.6,
+        "prompt_incomplete_info_mean_margin_when_yes": -1.1041183471679688,
+        "prompt_incomplete_info_mean_margin_when_no": -2.0624356269836426,
+        "prompt_incomplete_info_roc_auc": 0.75,
+        "prompt_incomplete_info_num_positive": 6,
+        "prompt_incomplete_info_num_negative": 4,
+        "cond_A_complete_total": 4,
+        "cond_A_complete_correct_at_zero": 3,
+        "cond_A_complete_accuracy_at_zero": 0.75,
+        "cond_A_complete_positive_rate": 0.0,
+        "cond_A_complete_mean_margin_when_yes": 0.0,
+        "cond_A_complete_mean_margin_when_no": -2.0624356269836426,
+        "cond_B_incomplete_total": 3,
+        "cond_B_incomplete_correct_at_zero": 1,
+        "cond_B_incomplete_accuracy_at_zero": 0.3333333333333333,
+        "cond_B_incomplete_positive_rate": 1.0,
+        "cond_B_incomplete_mean_margin_when_yes": -0.9582799275716146,
+        "cond_B_incomplete_mean_margin_when_no": 0.0,
+        "cond_C_forced_total": 3,
+        "cond_C_forced_correct_at_zero": 1,
+        "cond_C_forced_accuracy_at_zero": 0.3333333333333333,
+        "cond_C_forced_positive_rate": 1.0,
+        "cond_C_forced_mean_margin_when_yes": -1.249956766764323,
+        "cond_C_forced_mean_margin_when_no": 0.0,
+        "A_vs_B_roc_auc": 0.75,
+        "A_vs_B_num_positive": 3,
+        "A_vs_B_num_negative": 4,
+        "A_vs_B_incomplete_info_roc_auc": 0.75,
+        "A_vs_C_roc_auc": 0.75,
+        "A_vs_C_num_positive": 3,
+        "A_vs_C_num_negative": 4,
+        "A_vs_C_incomplete_info_roc_auc": 0.75
+      },
+      "cot-oracle-paper-ablation-adam-recipe-1layer": {
+        "total": 10,
+        "correct_at_zero": 4,
+        "accuracy_at_zero": 0.4,
+        "positive_rate": 0.6,
+        "mean_margin_when_yes": -3.5833075841267905,
+        "mean_margin_when_no": -3.5937232971191406,
+        "roc_auc": 0.41666666666666663,
+        "num_positive": 6,
+        "num_negative": 4,
+        "prompt_incomplete_info_total": 10,
+        "prompt_incomplete_info_correct_at_zero": 4,
+        "prompt_incomplete_info_accuracy_at_zero": 0.4,
+        "prompt_incomplete_info_positive_rate": 0.6,
+        "prompt_incomplete_info_mean_margin_when_yes": -3.5833075841267905,
+        "prompt_incomplete_info_mean_margin_when_no": -3.5937232971191406,
+        "prompt_incomplete_info_roc_auc": 0.41666666666666663,
+        "prompt_incomplete_info_num_positive": 6,
+        "prompt_incomplete_info_num_negative": 4,
+        "cond_A_complete_total": 4,
+        "cond_A_complete_correct_at_zero": 4,
+        "cond_A_complete_accuracy_at_zero": 1.0,
+        "cond_A_complete_positive_rate": 0.0,
+        "cond_A_complete_mean_margin_when_yes": 0.0,
+        "cond_A_complete_mean_margin_when_no": -3.5937232971191406,
+        "cond_B_incomplete_total": 3,
+        "cond_B_incomplete_correct_at_zero": 0,
+        "cond_B_incomplete_accuracy_at_zero": 0.0,
+        "cond_B_incomplete_positive_rate": 1.0,
+        "cond_B_incomplete_mean_margin_when_yes": -3.583311080932617,
+        "cond_B_incomplete_mean_margin_when_no": 0.0,
+        "cond_C_forced_total": 3,
+        "cond_C_forced_correct_at_zero": 0,
+        "cond_C_forced_accuracy_at_zero": 0.0,
+        "cond_C_forced_positive_rate": 1.0,
+        "cond_C_forced_mean_margin_when_yes": -3.5833040873209634,
+        "cond_C_forced_mean_margin_when_no": 0.0,
+        "A_vs_B_roc_auc": 0.41666666666666663,
+        "A_vs_B_num_positive": 3,
+        "A_vs_B_num_negative": 4,
+        "A_vs_B_incomplete_info_roc_auc": 0.41666666666666663,
+        "A_vs_C_roc_auc": 0.41666666666666663,
+        "A_vs_C_num_positive": 3,
+        "A_vs_C_num_negative": 4,
+        "A_vs_C_incomplete_info_roc_auc": 0.41666666666666663
+      },
+      "cot-oracle-paper-ablation-ours-1layer": {
+        "total": 10,
+        "correct_at_zero": 4,
+        "accuracy_at_zero": 0.4,
+        "positive_rate": 0.6,
+        "mean_margin_when_yes": -2.124962488810221,
+        "mean_margin_when_no": -2.8749594688415527,
+        "roc_auc": 0.7083333333333334,
+        "num_positive": 6,
+        "num_negative": 4,
+        "prompt_incomplete_info_total": 10,
+        "prompt_incomplete_info_correct_at_zero": 4,
+        "prompt_incomplete_info_accuracy_at_zero": 0.4,
+        "prompt_incomplete_info_positive_rate": 0.6,
+        "prompt_incomplete_info_mean_margin_when_yes": -2.124962488810221,
+        "prompt_incomplete_info_mean_margin_when_no": -2.8749594688415527,
+        "prompt_incomplete_info_roc_auc": 0.7083333333333334,
+        "prompt_incomplete_info_num_positive": 6,
+        "prompt_incomplete_info_num_negative": 4,
+        "cond_A_complete_total": 4,
+        "cond_A_complete_correct_at_zero": 4,
+        "cond_A_complete_accuracy_at_zero": 1.0,
+        "cond_A_complete_positive_rate": 0.0,
+        "cond_A_complete_mean_margin_when_yes": 0.0,
+        "cond_A_complete_mean_margin_when_no": -2.8749594688415527,
+        "cond_B_incomplete_total": 3,
+        "cond_B_incomplete_correct_at_zero": 0,
+        "cond_B_incomplete_accuracy_at_zero": 0.0,
+        "cond_B_incomplete_positive_rate": 1.0,
+        "cond_B_incomplete_mean_margin_when_yes": -1.8749650319417317,
+        "cond_B_incomplete_mean_margin_when_no": 0.0,
+        "cond_C_forced_total": 3,
+        "cond_C_forced_correct_at_zero": 0,
+        "cond_C_forced_accuracy_at_zero": 0.0,
+        "cond_C_forced_positive_rate": 1.0,
+        "cond_C_forced_mean_margin_when_yes": -2.374959945678711,
+        "cond_C_forced_mean_margin_when_no": 0.0,
+        "A_vs_B_roc_auc": 0.8333333333333333,
+        "A_vs_B_num_positive": 3,
+        "A_vs_B_num_negative": 4,
+        "A_vs_B_incomplete_info_roc_auc": 0.8333333333333333,
+        "A_vs_C_roc_auc": 0.5833333333333333,
+        "A_vs_C_num_positive": 3,
+        "A_vs_C_num_negative": 4,
+        "A_vs_C_incomplete_info_roc_auc": 0.5833333333333333
+      },
+      "cot-oracle-paper-ablation-ours-3layers-onpolicy-lens-only": {
+        "total": 10,
+        "correct_at_zero": 5,
+        "accuracy_at_zero": 0.5,
+        "positive_rate": 0.6,
+        "mean_margin_when_yes": -1.1458053588867188,
+        "mean_margin_when_no": -2.249967575073242,
+        "roc_auc": 0.75,
+        "num_positive": 6,
+        "num_negative": 4,
+        "prompt_incomplete_info_total": 10,
+        "prompt_incomplete_info_correct_at_zero": 5,
+        "prompt_incomplete_info_accuracy_at_zero": 0.5,
+        "prompt_incomplete_info_positive_rate": 0.6,
+        "prompt_incomplete_info_mean_margin_when_yes": -1.1458053588867188,
+        "prompt_incomplete_info_mean_margin_when_no": -2.249967575073242,
+        "prompt_incomplete_info_roc_auc": 0.75,
+        "prompt_incomplete_info_num_positive": 6,
+        "prompt_incomplete_info_num_negative": 4,
+        "cond_A_complete_total": 4,
+        "cond_A_complete_correct_at_zero": 3,
+        "cond_A_complete_accuracy_at_zero": 0.75,
+        "cond_A_complete_positive_rate": 0.0,
+        "cond_A_complete_mean_margin_when_yes": 0.0,
+        "cond_A_complete_mean_margin_when_no": -2.249967575073242,
+        "cond_B_incomplete_total": 3,
+        "cond_B_incomplete_correct_at_zero": 1,
+        "cond_B_incomplete_accuracy_at_zero": 0.3333333333333333,
+        "cond_B_incomplete_positive_rate": 1.0,
+        "cond_B_incomplete_mean_margin_when_yes": -0.6666393280029297,
+        "cond_B_incomplete_mean_margin_when_no": 0.0,
+        "cond_C_forced_total": 3,
+        "cond_C_forced_correct_at_zero": 1,
+        "cond_C_forced_accuracy_at_zero": 0.3333333333333333,
+        "cond_C_forced_positive_rate": 1.0,
+        "cond_C_forced_mean_margin_when_yes": -1.6249713897705078,
+        "cond_C_forced_mean_margin_when_no": 0.0,
+        "A_vs_B_roc_auc": 0.8333333333333333,
+        "A_vs_B_num_positive": 3,
+        "A_vs_B_num_negative": 4,
+        "A_vs_B_incomplete_info_roc_auc": 0.8333333333333333,
+        "A_vs_C_roc_auc": 0.6666666666666666,
+        "A_vs_C_num_positive": 3,
+        "A_vs_C_num_negative": 4,
+        "A_vs_C_incomplete_info_roc_auc": 0.6666666666666666
+      },
+      "cot-oracle-paper-ablation-ours-3layers": {
+        "total": 10,
+        "correct_at_zero": 6,
+        "accuracy_at_zero": 0.6,
+        "positive_rate": 0.6,
+        "mean_margin_when_yes": -1.020798683166504,
+        "mean_margin_when_no": -1.8437132835388184,
+        "roc_auc": 0.75,
+        "num_positive": 6,
+        "num_negative": 4,
+        "prompt_incomplete_info_total": 10,
+        "prompt_incomplete_info_correct_at_zero": 6,
+        "prompt_incomplete_info_accuracy_at_zero": 0.6,
+        "prompt_incomplete_info_positive_rate": 0.6,
+        "prompt_incomplete_info_mean_margin_when_yes": -1.020798683166504,
+        "prompt_incomplete_info_mean_margin_when_no": -1.8437132835388184,
+        "prompt_incomplete_info_roc_auc": 0.75,
+        "prompt_incomplete_info_num_positive": 6,
+        "prompt_incomplete_info_num_negative": 4,
+        "cond_A_complete_total": 4,
+        "cond_A_complete_correct_at_zero": 4,
+        "cond_A_complete_accuracy_at_zero": 1.0,
+        "cond_A_complete_positive_rate": 0.0,
+        "cond_A_complete_mean_margin_when_yes": 0.0,
+        "cond_A_complete_mean_margin_when_no": -1.8437132835388184,
+        "cond_B_incomplete_total": 3,
+        "cond_B_incomplete_correct_at_zero": 1,
+        "cond_B_incomplete_accuracy_at_zero": 0.3333333333333333,
+        "cond_B_incomplete_positive_rate": 1.0,
+        "cond_B_incomplete_mean_margin_when_yes": -0.5832996368408203,
+        "cond_B_incomplete_mean_margin_when_no": 0.0,
+        "cond_C_forced_total": 3,
+        "cond_C_forced_correct_at_zero": 1,
+        "cond_C_forced_accuracy_at_zero": 0.3333333333333333,
+        "cond_C_forced_positive_rate": 1.0,
+        "cond_C_forced_mean_margin_when_yes": -1.4582977294921875,
+        "cond_C_forced_mean_margin_when_no": 0.0,
+        "A_vs_B_roc_auc": 0.8333333333333333,
+        "A_vs_B_num_positive": 3,
+        "A_vs_B_num_negative": 4,
+        "A_vs_B_incomplete_info_roc_auc": 0.8333333333333333,
+        "A_vs_C_roc_auc": 0.6666666666666666,
+        "A_vs_C_num_positive": 3,
+        "A_vs_C_num_negative": 4,
+        "A_vs_C_incomplete_info_roc_auc": 0.6666666666666666
+      },
+      "cot-oracle-qwen3-8b-final-sprint-checkpoint-no-DPO": {
+        "total": 10,
+        "correct_at_zero": 5,
+        "accuracy_at_zero": 0.5,
+        "positive_rate": 0.6,
+        "mean_margin_when_yes": -0.9374815622965494,
+        "mean_margin_when_no": -1.8124842643737793,
+        "roc_auc": 0.75,
+        "num_positive": 6,
+        "num_negative": 4,
+        "prompt_incomplete_info_total": 10,
+        "prompt_incomplete_info_correct_at_zero": 5,
+        "prompt_incomplete_info_accuracy_at_zero": 0.5,
+        "prompt_incomplete_info_positive_rate": 0.6,
+        "prompt_incomplete_info_mean_margin_when_yes": -0.9374815622965494,
+        "prompt_incomplete_info_mean_margin_when_no": -1.8124842643737793,
+        "prompt_incomplete_info_roc_auc": 0.75,
+        "prompt_incomplete_info_num_positive": 6,
+        "prompt_incomplete_info_num_negative": 4,
+        "cond_A_complete_total": 4,
+        "cond_A_complete_correct_at_zero": 3,
+        "cond_A_complete_accuracy_at_zero": 0.75,
+        "cond_A_complete_positive_rate": 0.0,
+        "cond_A_complete_mean_margin_when_yes": 0.0,
+        "cond_A_complete_mean_margin_when_no": -1.8124842643737793,
+        "cond_B_incomplete_total": 3,
+        "cond_B_incomplete_correct_at_zero": 1,
+        "cond_B_incomplete_accuracy_at_zero": 0.3333333333333333,
+        "cond_B_incomplete_positive_rate": 1.0,
+        "cond_B_incomplete_mean_margin_when_yes": -0.6666463216145834,
+        "cond_B_incomplete_mean_margin_when_no": 0.0,
+        "cond_C_forced_total": 3,
+        "cond_C_forced_correct_at_zero": 1,
+        "cond_C_forced_accuracy_at_zero": 0.3333333333333333,
+        "cond_C_forced_positive_rate": 1.0,
+        "cond_C_forced_mean_margin_when_yes": -1.2083168029785156,
+        "cond_C_forced_mean_margin_when_no": 0.0,
+        "A_vs_B_roc_auc": 0.8333333333333333,
+        "A_vs_B_num_positive": 3,
+        "A_vs_B_num_negative": 4,
+        "A_vs_B_incomplete_info_roc_auc": 0.8333333333333333,
+        "A_vs_C_roc_auc": 0.6666666666666666,
+        "A_vs_C_num_positive": 3,
+        "A_vs_C_num_negative": 4,
+        "A_vs_C_incomplete_info_roc_auc": 0.6666666666666666
+      }
+    },
+    "num_entries": 10,
+    "num_scored": 80
+  },
+  "backtracking_mc": {
+    "eval_name": "backtracking_mc",
+    "metrics_by_verbalizer": {
+      "adam-reupload-qwen3-8b-full-mix-synthetic-qa-v3-replace-lqa": {
+        "accuracy": 0.46
+      },
+      "adam-reupload-qwen3-8b-latentqa-cls-past-lens": {
+        "accuracy": 0.43
+      },
+      "cot-oracle-grpo-step-500": {
+        "accuracy": 0.47
+      },
+      "cot-oracle-paper-ablation-adam-recipe-1layer": {
+        "accuracy": 0.34
+      },
+      "cot-oracle-paper-ablation-ours-1layer": {
+        "accuracy": 0.49
+      },
+      "cot-oracle-paper-ablation-ours-3layers-onpolicy-lens-only": {
+        "accuracy": 0.55
+      },
+      "cot-oracle-paper-ablation-ours-3layers": {
+        "accuracy": 0.57
+      },
+      "cot-oracle-qwen3-8b-final-sprint-checkpoint-no-DPO": {
+        "accuracy": 0.51
+      }
+    },
+    "overall_metrics": {
+      "accuracy": 0.4775
+    },
+    "elapsed_seconds": 0.0,
+    "mock_layout_only": true
+  },
+  "sycophancy": {
+    "eval_name": "sycophancy",
+    "metrics_by_verbalizer": {
+      "adam-reupload-qwen3-8b-full-mix-synthetic-qa-v3-replace-lqa": {
+        "roc_auc": 0.58
+      },
+      "adam-reupload-qwen3-8b-latentqa-cls-past-lens": {
+        "roc_auc": 0.61
+      },
+      "cot-oracle-grpo-step-500": {
+        "roc_auc": 0.63
+      },
+      "cot-oracle-paper-ablation-adam-recipe-1layer": {
+        "roc_auc": 0.54
+      },
+      "cot-oracle-paper-ablation-ours-1layer": {
+        "roc_auc": 0.67
+      },
+      "cot-oracle-paper-ablation-ours-3layers-onpolicy-lens-only": {
+        "roc_auc": 0.71
+      },
+      "cot-oracle-paper-ablation-ours-3layers": {
+        "roc_auc": 0.73
+      },
+      "cot-oracle-qwen3-8b-final-sprint-checkpoint-no-DPO": {
+        "roc_auc": 0.69
+      }
+    },
+    "overall_metrics": {
+      "roc_auc": 0.645
+    },
+    "elapsed_seconds": 0.0,
+    "mock_layout_only": true
+  },
+  "system_prompt_qa_hidden": {
+    "eval_name": "system_prompt_qa_hidden",
+    "metrics_by_verbalizer": {
+      "adam-reupload-qwen3-8b-full-mix-synthetic-qa-v3-replace-lqa": {
+        "mean_correctness": 3.8
+      },
+      "adam-reupload-qwen3-8b-latentqa-cls-past-lens": {
+        "mean_correctness": 3.6
+      },
+      "cot-oracle-grpo-step-500": {
+        "mean_correctness": 3.9
+      },
+      "cot-oracle-paper-ablation-adam-recipe-1layer": {
+        "mean_correctness": 3.2
+      },
+      "cot-oracle-paper-ablation-ours-1layer": {
+        "mean_correctness": 4.0
+      },
+      "cot-oracle-paper-ablation-ours-3layers-onpolicy-lens-only": {
+        "mean_correctness": 4.3
+      },
+      "cot-oracle-paper-ablation-ours-3layers": {
+        "mean_correctness": 4.4
+      },
+      "cot-oracle-qwen3-8b-final-sprint-checkpoint-no-DPO": {
+        "mean_correctness": 4.1
+      }
+    },
+    "overall_metrics": {
+      "mean_correctness": 3.9125
+    },
+    "elapsed_seconds": 0.0,
+    "mock_layout_only": true
+  },
+  "system_prompt_qa_latentqa": {
+    "eval_name": "system_prompt_qa_latentqa",
+    "metrics_by_verbalizer": {
+      "adam-reupload-qwen3-8b-full-mix-synthetic-qa-v3-replace-lqa": {
+        "mean_correctness": 4.1
+      },
+      "adam-reupload-qwen3-8b-latentqa-cls-past-lens": {
+        "mean_correctness": 4.0
+      },
+      "cot-oracle-grpo-step-500": {
+        "mean_correctness": 3.8
+      },
+      "cot-oracle-paper-ablation-adam-recipe-1layer": {
+        "mean_correctness": 3.3
+      },
+      "cot-oracle-paper-ablation-ours-1layer": {
+        "mean_correctness": 3.9
+      },
+      "cot-oracle-paper-ablation-ours-3layers-onpolicy-lens-only": {
+        "mean_correctness": 4.2
+      },
+      "cot-oracle-paper-ablation-ours-3layers": {
+        "mean_correctness": 4.3
+      },
+      "cot-oracle-qwen3-8b-final-sprint-checkpoint-no-DPO": {
+        "mean_correctness": 4.0
+      }
+    },
+    "overall_metrics": {
+      "mean_correctness": 3.9499999999999997
+    },
+    "elapsed_seconds": 0.0,
+    "mock_layout_only": true
+  },
+  "taboo": {
+    "eval_name": "taboo",
+    "metrics_by_verbalizer": {
+      "adam-reupload-qwen3-8b-full-mix-synthetic-qa-v3-replace-lqa": {
+        "accuracy": 0.58
+      },
+      "adam-reupload-qwen3-8b-latentqa-cls-past-lens": {
+        "accuracy": 0.55
+      },
+      "cot-oracle-grpo-step-500": {
+        "accuracy": 0.52
+      },
+      "cot-oracle-paper-ablation-adam-recipe-1layer": {
+        "accuracy": 0.46
+      },
+      "cot-oracle-paper-ablation-ours-1layer": {
+        "accuracy": 0.61
+      },
+      "cot-oracle-paper-ablation-ours-3layers-onpolicy-lens-only": {
+        "accuracy": 0.67
+      },
+      "cot-oracle-paper-ablation-ours-3layers": {
+        "accuracy": 0.69
+      },
+      "cot-oracle-qwen3-8b-final-sprint-checkpoint-no-DPO": {
+        "accuracy": 0.64
+      }
+    },
+    "overall_metrics": {
+      "accuracy": 0.59
+    },
+    "elapsed_seconds": 0.0,
+    "mock_layout_only": true
+  },
+  "personaqa": {
+    "eval_name": "personaqa",
+    "metrics_by_verbalizer": {
+      "adam-reupload-qwen3-8b-full-mix-synthetic-qa-v3-replace-lqa": {
+        "accuracy": 0.62
+      },
+      "adam-reupload-qwen3-8b-latentqa-cls-past-lens": {
+        "accuracy": 0.6
+      },
+      "cot-oracle-grpo-step-500": {
+        "accuracy": 0.54
+      },
+      "cot-oracle-paper-ablation-adam-recipe-1layer": {
+        "accuracy": 0.48
+      },
+      "cot-oracle-paper-ablation-ours-1layer": {
+        "accuracy": 0.63
+      },
+      "cot-oracle-paper-ablation-ours-3layers-onpolicy-lens-only": {
+        "accuracy": 0.71
+      },
+      "cot-oracle-paper-ablation-ours-3layers": {
+        "accuracy": 0.73
+      },
+      "cot-oracle-qwen3-8b-final-sprint-checkpoint-no-DPO": {
+        "accuracy": 0.68
+      }
+    },
+    "overall_metrics": {
+      "accuracy": 0.62375
+    },
+    "elapsed_seconds": 0.0,
+    "mock_layout_only": true
+  },
+  "activation_sensitivity": {
+    "eval_name": "activation_sensitivity",
+    "metrics_by_verbalizer": {
+      "adam-reupload-qwen3-8b-full-mix-synthetic-qa-v3-replace-lqa": {
+        "activation_sensitivity": 0.31
+      },
+      "adam-reupload-qwen3-8b-latentqa-cls-past-lens": {
+        "activation_sensitivity": 0.28
+      },
+      "cot-oracle-grpo-step-500": {
+        "activation_sensitivity": 0.35
+      },
+      "cot-oracle-paper-ablation-adam-recipe-1layer": {
+        "activation_sensitivity": 0.21
+      },
+      "cot-oracle-paper-ablation-ours-1layer": {
+        "activation_sensitivity": 0.37
+      },
+      "cot-oracle-paper-ablation-ours-3layers-onpolicy-lens-only": {
+        "activation_sensitivity": 0.44
+      },
+      "cot-oracle-paper-ablation-ours-3layers": {
+        "activation_sensitivity": 0.46
+      },
+      "cot-oracle-qwen3-8b-final-sprint-checkpoint-no-DPO": {
+        "activation_sensitivity": 0.41
+      }
+    },
+    "overall_metrics": {
+      "activation_sensitivity": 0.35375
+    },
+    "elapsed_seconds": 0.0,
+    "mock_layout_only": true
+  },
+  "hallucination_1pos": {
+    "eval_name": "hallucination_1pos",
+    "metrics_by_verbalizer": {
+      "adam-reupload-qwen3-8b-full-mix-synthetic-qa-v3-replace-lqa": {
+        "correct_rate": 0.3
+      },
+      "adam-reupload-qwen3-8b-latentqa-cls-past-lens": {
+        "correct_rate": 0.33
+      },
+      "cot-oracle-grpo-step-500": {
+        "correct_rate": 0.39
+      },
+      "cot-oracle-paper-ablation-adam-recipe-1layer": {
+        "correct_rate": 0.26
+      },
+      "cot-oracle-paper-ablation-ours-1layer": {
+        "correct_rate": 0.42
+      },
+      "cot-oracle-paper-ablation-ours-3layers-onpolicy-lens-only": {
+        "correct_rate": 0.47
+      },
+      "cot-oracle-paper-ablation-ours-3layers": {
+        "correct_rate": 0.49
+      },
+      "cot-oracle-qwen3-8b-final-sprint-checkpoint-no-DPO": {
+        "correct_rate": 0.45
+      }
+    },
+    "overall_metrics": {
+      "correct_rate": 0.38875
+    },
+    "elapsed_seconds": 0.0,
+    "mock_layout_only": true
+  },
+  "hallucination_5pos": {
+    "eval_name": "hallucination_5pos",
+    "metrics_by_verbalizer": {
+      "adam-reupload-qwen3-8b-full-mix-synthetic-qa-v3-replace-lqa": {
+        "correct_rate": 0.38
+      },
+      "adam-reupload-qwen3-8b-latentqa-cls-past-lens": {
+        "correct_rate": 0.41
+      },
+      "cot-oracle-grpo-step-500": {
+        "correct_rate": 0.46
+      },
+      "cot-oracle-paper-ablation-adam-recipe-1layer": {
+        "correct_rate": 0.31
+      },
+      "cot-oracle-paper-ablation-ours-1layer": {
+        "correct_rate": 0.5
+      },
+      "cot-oracle-paper-ablation-ours-3layers-onpolicy-lens-only": {
+        "correct_rate": 0.56
+      },
+      "cot-oracle-paper-ablation-ours-3layers": {
+        "correct_rate": 0.58
+      },
+      "cot-oracle-qwen3-8b-final-sprint-checkpoint-no-DPO": {
+        "correct_rate": 0.53
+      }
+    },
+    "overall_metrics": {
+      "correct_rate": 0.46625
+    },
+    "elapsed_seconds": 0.0,
+    "mock_layout_only": true
+  },
+  "hallucination_20pos": {
+    "eval_name": "hallucination_20pos",
+    "metrics_by_verbalizer": {
+      "adam-reupload-qwen3-8b-full-mix-synthetic-qa-v3-replace-lqa": {
+        "correct_rate": 0.44
+      },
+      "adam-reupload-qwen3-8b-latentqa-cls-past-lens": {
+        "correct_rate": 0.47
+      },
+      "cot-oracle-grpo-step-500": {
+        "correct_rate": 0.52
+      },
+      "cot-oracle-paper-ablation-adam-recipe-1layer": {
+        "correct_rate": 0.35
+      },
+      "cot-oracle-paper-ablation-ours-1layer": {
+        "correct_rate": 0.56
+      },
+      "cot-oracle-paper-ablation-ours-3layers-onpolicy-lens-only": {
+        "correct_rate": 0.62
+      },
+      "cot-oracle-paper-ablation-ours-3layers": {
+        "correct_rate": 0.64
+      },
+      "cot-oracle-qwen3-8b-final-sprint-checkpoint-no-DPO": {
+        "correct_rate": 0.59
+      }
+    },
+    "overall_metrics": {
+      "correct_rate": 0.52375
+    },
+    "elapsed_seconds": 0.0,
+    "mock_layout_only": true
+  }
+}
