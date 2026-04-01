@@ -507,7 +507,7 @@ def plot_aggregate_scores(
             continue
         has_err = True
         mean = float(payload["mean_normalized_score"])
-        xerr.append((mean - float(lo), float(hi) - mean))
+        xerr.append((max(0.0, mean - float(lo)), max(0.0, float(hi) - mean)))
     xerr_arr = np.array(xerr, dtype=np.float64).T if has_err else None
     bars = ax.barh(y, values, color=colors, edgecolor="white", linewidth=0.5, xerr=xerr_arr, capsize=3 if has_err else 0)
     for bar, value in zip(bars, values, strict=True):
