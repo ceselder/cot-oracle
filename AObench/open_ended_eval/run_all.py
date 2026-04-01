@@ -24,6 +24,7 @@ from AObench import dataset_path
 import random
 import time
 from typing import Any
+from AObench.utils.common import build_eval_results_path
 
 
 # ---------------------------------------------------------------------------
@@ -560,7 +561,7 @@ def print_results_comparison(all_summaries: dict[str, Any]) -> None:
 # ---------------------------------------------------------------------------
 
 MODEL_NAME = "Qwen/Qwen3-8B"
-OUTPUT_DIR = "experiments/all_eval_summaries"
+OUTPUT_DIR = build_eval_results_path("all_eval_summaries")
 
 
 if __name__ == "__main__":

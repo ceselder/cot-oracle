@@ -7,7 +7,6 @@ subset of open-ended evals and avoids mixing in the noisier judge-heavy tasks.
 """
 
 import argparse
-import datetime
 import json
 import os
 import random
@@ -29,8 +28,8 @@ from AObench.open_ended_eval.run_all import (
     print_results_comparison,
     run_all_evals,
 )
-from AObench.report import generate_report
-from AObench.utils.common import load_model, load_tokenizer
+from AObench.utils.common import load_model, load_tokenizer, timestamped_eval_results_dir
+from AObench.utils.report import generate_report
 
 PAPER_COLLECTION_VERBALIZERS = [
     "ceselder/adam-reupload-qwen3-8b-latentqa-cls-past-lens",
@@ -72,8 +71,7 @@ PAPER_TINY10_LIMITS = {
 
 
 def default_output_dir() -> str:
-    timestamp = datetime.datetime.now(datetime.UTC).strftime("%Y%m%d_%H%M%S")
-    return f"experiments/paper_collection_aobench_{timestamp}"
+    return timestamped_eval_results_dir("paper_collection_aobench")
 
 
 def main() -> None:

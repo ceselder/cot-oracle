@@ -24,7 +24,7 @@ from AObench.open_ended_eval.eval_runner import (
     ensure_default_adapter,
 )
 
-from AObench.utils.common import load_model, load_tokenizer
+from AObench.utils.common import build_eval_results_path, load_model, load_tokenizer
 
 from AObench import dataset_path
 DATA_DIR = dataset_path("datasets/personaqa_data/shuffled")
@@ -374,8 +374,8 @@ def run_default_personaqa_open_ended_eval() -> None:
 
         settings = get_default_personaqa_model_settings(model_name)
 
-        experiments_dir = "experiments/personaqa_results"
-        output_json_dir = f"{experiments_dir}/{model_name_str}_open_ended"
+        experiments_dir = build_eval_results_path("personaqa")
+        output_json_dir = os.path.join(experiments_dir, f"{model_name_str}_open_ended")
         os.makedirs(experiments_dir, exist_ok=True)
         os.makedirs(output_json_dir, exist_ok=True)
         output_json_template = f"{output_json_dir}/personaqa_open_" + "{lora}.json"

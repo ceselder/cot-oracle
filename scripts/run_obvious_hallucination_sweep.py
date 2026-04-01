@@ -7,7 +7,6 @@ failure mode directly as a function of activation positions.
 """
 
 import argparse
-import datetime
 import json
 import os
 import random
@@ -31,8 +30,8 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from AObench.open_ended_eval.hallucination import _run_hallucination
-from AObench.report import DISPLAY_COLORS, shorten_lora_name, verbalizer_sort_key
-from AObench.utils.common import load_model, load_tokenizer
+from AObench.utils.common import load_model, load_tokenizer, timestamped_eval_results_dir
+from AObench.utils.report import DISPLAY_COLORS, shorten_lora_name, verbalizer_sort_key
 
 MODEL_NAME = "Qwen/Qwen3-8B"
 PAPER_COLLECTION_VERBALIZERS = [
@@ -50,8 +49,7 @@ PRIMARY_METRIC = "obvious_hallucination_rate"
 
 
 def default_output_dir() -> str:
-    timestamp = datetime.datetime.now(datetime.UTC).strftime("%Y%m%d_%H%M%S")
-    return f"experiments/obvious_hallucination_sweep_{timestamp}"
+    return timestamped_eval_results_dir("obvious_hallucination_sweep")
 
 
 def _metric_by_verbalizer(summary: dict[str, Any], metric_key: str) -> dict[str, float]:

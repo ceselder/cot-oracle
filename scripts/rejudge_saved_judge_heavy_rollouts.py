@@ -9,7 +9,6 @@ emits a fresh report bundle.
 
 import argparse
 import asyncio
-import datetime
 import json
 import os
 import re
@@ -36,15 +35,14 @@ from AObench.open_ended_eval import (
     vagueness,
 )
 from AObench.open_ended_eval.eval_runner import average_numeric_metric_dicts
-from AObench.report import generate_report
-from AObench.utils.common import load_tokenizer
+from AObench.utils.common import load_tokenizer, timestamped_eval_results_dir
+from AObench.utils.report import generate_report
 
 MODEL_NAME = "Qwen/Qwen3-8B"
 
 
 def default_output_dir() -> str:
-    timestamp = datetime.datetime.now(datetime.UTC).strftime("%Y%m%d_%H%M%S")
-    return f"experiments/paper_collection_aobench_judge_heavy_rejudged_{timestamp}"
+    return timestamped_eval_results_dir("paper_collection_aobench_judge_heavy_rejudged")
 
 
 def _load_verbalizer_results(path: Path) -> tuple[dict[str, Any], list[VerbalizerResults]]:

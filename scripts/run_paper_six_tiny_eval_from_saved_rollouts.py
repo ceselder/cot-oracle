@@ -30,7 +30,8 @@ from AObench.open_ended_eval.eval_runner import (  # noqa: E402
 from AObench.open_ended_eval.missing_info import compute_missing_info_binary_metrics  # noqa: E402
 from AObench.open_ended_eval.number_prediction import compute_metrics as compute_number_prediction_metrics  # noqa: E402
 from AObench.open_ended_eval.run_all import _average_numeric_overall_metrics  # noqa: E402
-from AObench.report import generate_report  # noqa: E402
+from AObench.utils.common import build_eval_results_path  # noqa: E402
+from AObench.utils.report import generate_report  # noqa: E402
 
 TARGET_TASKS = [
     "number_prediction",
@@ -52,7 +53,7 @@ DEFAULT_JUDGE_MODEL = "google/gemini-3.1-flash-lite-preview"
 
 
 def _default_output_dir() -> Path:
-    return ROOT / "experiments" / "paper_six_tiny10_gemini31flashlite"
+    return Path(build_eval_results_path("paper_six_tiny10_gemini31flashlite"))
 
 
 def _load_json(path: Path) -> dict[str, Any]:

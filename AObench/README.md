@@ -63,6 +63,8 @@ Open-ended evaluation suite for Activation Oracles, testing whether AOs can extr
 
 ## Notes
 
+- AObench now writes outputs under `AObench/eval_results/...` by default instead of the old top-level `experiments/...` paths.
+- The reporting code lives in [`AObench/utils/report.py`](AObench/utils/report.py); [`AObench/report.py`](AObench/report.py) remains as a backward-compatible shim.
 - `system_prompt_qa_hidden` and `system_prompt_qa_latentqa` are generation evals scored by an LLM judge.
 - `taboo` and `personaqa` require target LoRAs and therefore need a fresh model pass unless you already have saved raw rollout JSON for those exact checkpoints.
 - The replay-from-saved-rollouts path only works for tasks whose raw rollout files were actually saved. If a task was never generated for a checkpoint set, it cannot be added to the final plot without taking fresh rollouts.

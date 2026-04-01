@@ -1,4 +1,6 @@
+import datetime
 import random
+from pathlib import Path
 
 import numpy as np
 import torch
@@ -145,3 +147,19 @@ def layer_percent_to_layer(model_name: str, layer_percent: int) -> int:
     """Convert a layer percent to a layer number."""
     max_layers = get_layer_count(model_name)
     return int(max_layers * (layer_percent / 100))
+
+
+def eval_results_root() -> str:
+    """Return the canonical root directory for AObench outputs."""
+    return str(Path("AObench") / "eval_results")
+
+
+def build_eval_results_path(*parts: str) -> str:
+    """Join path parts under the canonical AObench eval results root."""
+    return str(Path(eval_results_root(), *parts))
+
+
+def timestamped_eval_results_dir(prefix: str) -> str:
+    """Build a UTC-timestamped output directory under AObench/eval_results."""
+    timestamp = datetime.datetime.now(datetime.UTC).strftime("%Y%m%d_%H%M%S")
+    return build_eval_results_path(f"{prefix}_{timestamp}")

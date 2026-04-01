@@ -32,7 +32,7 @@ from AObench.base_experiment import (
     VerbalizerResults,
 )
 from AObench.configs.sft_config import SelfInterpTrainingConfig
-from AObench.utils.common import load_model, load_tokenizer
+from AObench.utils.common import build_eval_results_path, load_model, load_tokenizer
 from AObench.utils.dataset_utils import BinaryFeatureResult
 
 # Standard verbalizer LoRAs for running evals. Not used as a default —
@@ -238,7 +238,7 @@ def run_default_eval(
 
     # Set default output_dir if not provided
     if "output_dir" not in run_eval_kwargs:
-        output_dir = f"experiments/{eval_name}_eval_results/{model_name_str}"
+        output_dir = build_eval_results_path(eval_name, model_name_str)
         os.makedirs(output_dir, exist_ok=True)
         run_eval_kwargs["output_dir"] = output_dir
 

@@ -24,7 +24,7 @@ from AObench.open_ended_eval.eval_runner import (
     ensure_default_adapter,
 )
 
-from AObench.utils.common import load_model, load_tokenizer
+from AObench.utils.common import build_eval_results_path, load_model, load_tokenizer
 from AObench import dataset_path
 
 TABOO_TARGET_LORA_SUFFIXES: list[str] = [
@@ -393,8 +393,8 @@ def run_default_taboo_open_ended_eval() -> None:
 
     settings = get_default_taboo_model_settings(model_name)
 
-    experiments_dir = "experiments/taboo_eval_results"
-    output_json_dir = f"{experiments_dir}/{model_name_str}_open_ended_{prompt_type}_{dataset_type}"
+    experiments_dir = build_eval_results_path("taboo")
+    output_json_dir = os.path.join(experiments_dir, f"{model_name_str}_open_ended_{prompt_type}_{dataset_type}")
     os.makedirs(experiments_dir, exist_ok=True)
     os.makedirs(output_json_dir, exist_ok=True)
     output_json_template = f"{output_json_dir}/taboo_results_open_" + "{lora}.json"

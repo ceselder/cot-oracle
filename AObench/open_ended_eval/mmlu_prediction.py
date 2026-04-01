@@ -17,6 +17,7 @@ from AObench.open_ended_eval.eval_runner import (
     run_default_eval,
     run_verbalizer_binary_eval_loop,
 )
+from AObench.utils.common import build_eval_results_path
 
 from AObench import dataset_path
 DATASET_PATH = dataset_path("datasets/mmlu_prediction/mmlu_prediction_eval_dataset.json")
@@ -321,7 +322,7 @@ if __name__ == "__main__":
     verbalizer_lora_paths = STANDARD_VERBALIZER_LORAS
 
     for mode_name, prompts in eval_modes.items():
-        mode_output_dir = os.path.join(f"experiments/mmlu_prediction_eval_results/{model_name_str}", mode_name)
+        mode_output_dir = build_eval_results_path("mmlu_prediction", model_name_str, mode_name)
         os.makedirs(mode_output_dir, exist_ok=True)
 
         print(f"\n{'=' * 60}")
