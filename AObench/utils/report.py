@@ -543,11 +543,7 @@ def plot_comparison_bar_chart(
     title: str = "AObench Comparison",
     eval_intervals: dict[str, dict[str, dict[str, Any]]] | None = None,
 ) -> str:
-    """Create a grouped bar chart comparing verbalizers across evals.
-
-    eval_results: {eval_name: {verbalizer_name: metric_value}}
-    """
-    # Collect all unique verbalizer names
+    """Create a 2-row comparison figure with overall score first, then per-eval panels."""
     all_verbs: set[str] = set()
     for metrics in eval_results.values():
         all_verbs.update(metrics.keys())
@@ -560,76 +556,104 @@ def plot_comparison_bar_chart(
     if n_evals == 0 or n_verbs == 0:
         return output_path
 
-    fig_width = max(15.0, 2.35 * n_evals + 4.8)
-    fig_height = 7.8
-    fig, ax = plt.subplots(figsize=(fig_width, fig_height))
-
-    group_spacing = 0.9
-    x = np.arange(n_evals, dtype=np.float64) * group_spacing
-    group_width = 0.84
-    bar_width = group_width / max(n_verbs, 1)
     fallback_colors = plt.cm.Set2(np.linspace(0, 1, max(n_verbs, 1)))
-    for i, verb_name in enumerate(verb_names):
-        display = shorten_lora_name(verb_name)
-        color = DISPLAY_COLORS.get(display, fallback_colors[i])
-        values = []
-        lowers = []
-        uppers = []
-        for eval_name in eval_names:
-            value = eval_results[eval_name].get(verb_name, 0.0)
-            lo = hi = value
-            if eval_intervals:
-                interval = eval_intervals.get(eval_name, {}).get(verb_name)
-                if interval is not None:
-                    lo = float(interval.get("lo", value))
-                    hi = float(interval.get("hi", value))
-            if eval_name in SCALE_1_5_EVALS:
-                value = (value - 1.0) / 4.0
-                lo = (lo - 1.0) / 4.0
-                hi = (hi - 1.0) / 4.0
-            values.append(value)
-            lowers.append(max(0.0, value - lo))
-            uppers.append(max(0.0, hi - value))
+    display_labels = [shorten_lora_name(name) for name in verb_names]
+    bar_colors = [DISPLAY_COLORS.get(label, fallback_colors[i]) for i, label in enumerate(display_labels)]
+    aggregate_scores = compute_aggregate_scores(eval_results, eval_intervals)
 
-        offset = (i - n_verbs / 2 + 0.5) * bar_width
+    panel_specs: list[tuple[str, str]] = [("overall", "Overall Score")] + [
+        (eval_name, format_eval_display_name(eval_name)) for eval_name in eval_names
+    ]
+    n_panels = len(panel_specs)
+    n_rows = 2
+    n_cols = math.ceil(n_panels / n_rows)
+    fig_width = max(16.0, 3.2 * n_cols + 2.4)
+    fig_height = 9.2
+    fig, axes = plt.subplots(n_rows, n_cols, figsize=(fig_width, fig_height), squeeze=False)
+    axes_flat = axes.flatten()
+    x = np.arange(n_verbs, dtype=np.float64)
+
+    overall_lo = min(
+        [float(payload.get("ci_lo", payload["mean_normalized_score"])) for payload in aggregate_scores.values()],
+        default=0.0,
+    )
+    overall_hi = max(
+        [float(payload.get("ci_hi", payload["mean_normalized_score"])) for payload in aggregate_scores.values()],
+        default=1.0,
+    )
+    overall_ymin = min(-0.08, overall_lo - 0.05)
+    overall_ymax = max(1.0, overall_hi + 0.08)
+
+    for panel_index, (panel_name, panel_title) in enumerate(panel_specs):
+        ax = axes_flat[panel_index]
+
+        if panel_name == "overall":
+            values = [float(aggregate_scores.get(verb_name, {}).get("mean_normalized_score", 0.0)) for verb_name in verb_names]
+            lowers = []
+            uppers = []
+            for verb_name, value in zip(verb_names, values, strict=True):
+                payload = aggregate_scores.get(verb_name, {})
+                lo = float(payload.get("ci_lo", value))
+                hi = float(payload.get("ci_hi", value))
+                lowers.append(max(0.0, value - lo))
+                uppers.append(max(0.0, hi - value))
+            ax.axhline(0.0, color="#666666", linestyle="--", linewidth=1.0, alpha=0.85)
+            ax.set_ylim(overall_ymin, overall_ymax)
+            ax.set_ylabel("Normalized score")
+        else:
+            values = []
+            lowers = []
+            uppers = []
+            for verb_name in verb_names:
+                value = float(eval_results[panel_name].get(verb_name, 0.0))
+                lo = hi = value
+                if eval_intervals:
+                    interval = eval_intervals.get(panel_name, {}).get(verb_name)
+                    if interval is not None:
+                        lo = float(interval.get("lo", value))
+                        hi = float(interval.get("hi", value))
+                if panel_name in SCALE_1_5_EVALS:
+                    value = (value - 1.0) / 4.0
+                    lo = (lo - 1.0) / 4.0
+                    hi = (hi - 1.0) / 4.0
+                values.append(value)
+                lowers.append(max(0.0, value - lo))
+                uppers.append(max(0.0, hi - value))
+
+            chance = CHANCE_BASELINES.get(panel_name)
+            if chance is not None:
+                ax.axhline(chance, color="#b23b3b", linestyle="--", linewidth=1.0, alpha=0.85)
+            ax.set_ylim(0.0, 1.05)
+            if panel_index % n_cols == 0:
+                ax.set_ylabel("Score")
+
         ax.bar(
-            x + offset,
+            x,
             values,
-            bar_width * 0.96,
-            label=display,
-            color=color,
+            width=0.82,
+            color=bar_colors,
             edgecolor="white",
             linewidth=0.45,
             yerr=np.array([lowers, uppers], dtype=np.float64),
             capsize=2,
         )
+        ax.set_title(panel_title, fontsize=12, pad=8)
+        ax.set_xlim(-0.6, n_verbs - 0.4)
+        ax.set_xticks([])
+        ax.yaxis.grid(True, color="#dddddd", linewidth=0.8, alpha=0.9)
+        ax.set_axisbelow(True)
 
-    for center, eval_name in zip(x, eval_names, strict=True):
-        chance = CHANCE_BASELINES.get(eval_name)
-        if chance is None:
-            continue
-        ax.plot(
-            [center - group_width / 2, center + group_width / 2],
-            [chance, chance],
-            color="#b23b3b",
-            linestyle="--",
-            linewidth=1.0,
-            alpha=0.85,
-        )
+    for extra_ax in axes_flat[n_panels:]:
+        extra_ax.axis("off")
 
-    ax.set_xlim(x[0] - group_width * 0.68, x[-1] + group_width * 0.68)
-    ax.set_ylim(0, 1.05)
-    ax.set_ylabel("Score (higher is better)")
-    ax.set_xlabel("Evaluation")
-    ax.set_title(title, fontsize=18, pad=12)
-    ax.set_xticks(x)
-    ax.set_xticklabels([format_eval_display_name(name) for name in eval_names], fontsize=10)
-    ax.yaxis.grid(True, color="#dddddd", linewidth=0.8, alpha=0.9)
-    ax.set_axisbelow(True)
-
-    legend = ax.legend(
+    legend_handles = [
+        matplotlib.patches.Patch(facecolor=color, edgecolor="white", linewidth=0.45, label=label)
+        for label, color in zip(display_labels, bar_colors, strict=True)
+    ]
+    legend = fig.legend(
+        handles=legend_handles,
         loc="upper center",
-        bbox_to_anchor=(0.5, -0.18),
+        bbox_to_anchor=(0.5, 0.065),
         ncol=min(4, n_verbs),
         fontsize=8,
         title="Checkpoint",
@@ -642,14 +666,15 @@ def plot_comparison_bar_chart(
 
     fig.text(
         0.5,
-        0.035,
-        "All plotted metrics are oriented so higher is better.",
+        0.02,
+        "All plotted metrics are oriented so higher is better. Overall Score = mean normalized score across available evals.",
         ha="center",
         va="bottom",
         fontsize=10.5,
         color="#333333",
     )
-    fig.subplots_adjust(left=0.07, right=0.99, top=0.87, bottom=0.27)
+    fig.suptitle(title, fontsize=18, y=0.98)
+    fig.subplots_adjust(left=0.06, right=0.99, top=0.9, bottom=0.16, hspace=0.34, wspace=0.2)
     os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
     plt.savefig(output_path, dpi=150, bbox_inches="tight")
     plt.close()
