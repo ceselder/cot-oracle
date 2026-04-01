@@ -11,12 +11,30 @@ from AObench.utils.activation_utils import collect_activations_multiple_layers, 
 SPECIAL_TOKEN = " ?"
 
 
-def get_introspection_prefix(layers: list[int], num_positions: int) -> str:
+def _is_inline_l_prefix(prefix_template: str) -> bool:
+    return prefix_template.startswith("L{layer}:")
+
+
+def get_introspection_prefix(
+    layers: list[int],
+    num_positions: int,
+    *,
+    special_token: str = SPECIAL_TOKEN,
+    prefix_template: str | None = None,
+) -> str:
     assert len(layers) > 0, "layers must be non-empty"
+    if prefix_template is None:
+        prefix_template = "Layer: {layer}\n{special_token} * {num_positions} \n"
+
+    if _is_inline_l_prefix(prefix_template):
+        if len(layers) == 1:
+            return f"L{layers[0]}:" + special_token * num_positions + ".\n"
+        return " ".join(f"L{layer}:" + special_token * num_positions for layer in layers) + ".\n"
+
     prefix = ""
     for layer in layers:
         prefix += f"Layer: {layer}\n"
-        prefix += SPECIAL_TOKEN * num_positions
+        prefix += special_token * num_positions
         prefix += " \n"
     return prefix
 
@@ -319,6 +337,8 @@ def find_pattern_in_tokens(
     layers: list[int],
     num_positions: int,
     tokenizer: AutoTokenizer,
+    *,
+    prefix_template: str | None = None,
 ) -> list[int]:
     start_idx = 0
     end_idx = len(token_ids)
@@ -340,13 +360,15 @@ def find_pattern_in_tokens(
     )
     assert positions == sorted(positions), "Positions are not sorted"
 
+    inline_l_prefix = _is_inline_l_prefix(prefix_template or "")
     for layer_idx in range(num_layers):
         block = positions[layer_idx * num_positions : (layer_idx + 1) * num_positions]
         assert block[-1] - block[0] == num_positions - 1, f"Positions are not consecutive: {block}"
-        final_pos = block[-1] + 1
-        final_tokens = token_ids[final_pos : final_pos + 2]
-        final_str = tokenizer.decode(final_tokens, skip_special_tokens=False)
-        assert "\n" in final_str, f"Expected newline in {final_str}"
+        if not inline_l_prefix:
+            final_pos = block[-1] + 1
+            final_tokens = token_ids[final_pos : final_pos + 2]
+            final_str = tokenizer.decode(final_tokens, skip_special_tokens=False)
+            assert "\n" in final_str, f"Expected newline in {final_str}"
 
     return positions
 
@@ -364,10 +386,17 @@ def create_training_datapoint(
     context_positions: list[int] | None = None,
     ds_label: str | None = None,
     meta_info: Mapping[str, Any] | None = None,
+    special_token: str = SPECIAL_TOKEN,
+    prefix_template: str | None = None,
 ) -> TrainingDataPoint:
     if meta_info is None:
         meta_info = {}
-    prefix = get_introspection_prefix(layers, num_positions)
+    prefix = get_introspection_prefix(
+        layers,
+        num_positions,
+        special_token=special_token,
+        prefix_template=prefix_template,
+    )
     assert prefix not in prompt, f"Prefix {prefix} found in prompt {prompt}"
     prompt = prefix + prompt
     input_messages = [{"role": "user", "content": prompt}]
@@ -407,7 +436,14 @@ def create_training_datapoint(
     for i in range(assistant_start_idx):
         labels[i] = -100
 
-    positions = find_pattern_in_tokens(full_prompt_ids, SPECIAL_TOKEN, layers, num_positions, tokenizer)
+    positions = find_pattern_in_tokens(
+        full_prompt_ids,
+        special_token,
+        layers,
+        num_positions,
+        tokenizer,
+        prefix_template=prefix_template,
+    )
 
     if acts_BD is None:
         assert context_input_ids is not None and context_positions is not None, (

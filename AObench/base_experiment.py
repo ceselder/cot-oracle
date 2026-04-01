@@ -54,6 +54,8 @@ class VerbalizerEvalConfig:
 
     steering_coefficient: float = 1.0
     eval_batch_size: int = 256
+    special_token: str = " ?"
+    prefix_template: str = "Layer: {layer}\n{special_token} * {num_positions} \n"
 
     def __post_init__(self):
         if self.selected_layer_combination not in self.layer_combinations:
@@ -196,6 +198,8 @@ def _create_single_verbalizer_input(
     batch_idx: int,
     left_pad: int,
     base_meta: dict[str, Any],
+    special_token: str,
+    prefix_template: str,
 ) -> TrainingDataPoint:
     """Create a single TrainingDataPoint from the given positions."""
     context_positions_abs = [left_pad + p for p in positions]
@@ -219,6 +223,8 @@ def _create_single_verbalizer_input(
         context_positions=positions,
         ds_label="N/A",
         meta_info=base_meta,
+        special_token=special_token,
+        prefix_template=prefix_template,
     )
 
 
@@ -367,6 +373,8 @@ def _prepare_verbalizer_inputs_for_batch(
                     batch_idx=b_idx,
                     left_pad=left_pad,
                     base_meta=base_meta,
+                    special_token=config.special_token,
+                    prefix_template=config.prefix_template,
                 )
             )
 
@@ -567,6 +575,12 @@ def assert_training_config_matches_verbalizer_eval_config(
     )
     assert config.selected_act_layers == act_layer_combo, (
         f"selected_act_layers {config.selected_act_layers} != AO act layers {act_layer_combo}"
+    )
+    assert config.special_token == training_config.special_token, (
+        f"config special_token {config.special_token!r} != training config {training_config.special_token!r}"
+    )
+    assert config.prefix_template == training_config.prefix_template, (
+        f"config prefix_template {config.prefix_template!r} != training config {training_config.prefix_template!r}"
     )
 
 

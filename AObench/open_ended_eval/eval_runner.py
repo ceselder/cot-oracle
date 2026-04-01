@@ -164,6 +164,8 @@ def build_verbalizer_eval_config(
         verbalizer_generation_kwargs=generation_kwargs,
         layer_combinations=layer_combinations,
         selected_layer_combination=selected_layer_combination,
+        special_token=training_config.special_token,
+        prefix_template=training_config.prefix_template,
     )
 
 

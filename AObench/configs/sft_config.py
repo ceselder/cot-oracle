@@ -16,6 +16,7 @@ from AObench.utils.common import layer_percent_to_layer
 TRAINING_CONFIG_FILENAME = "ao_config.json"
 TRAINING_CONFIG_SCHEMA_VERSION = 1
 DEFAULT_PREFIX_TEMPLATE = "Layer: {layer}\\n{special_token} * {num_positions} \\n"
+INLINE_L_PREFIX_TEMPLATE = "L{layer}:{special_token} * {num_positions}.\\n"
 DEPRECATED_CONFIG_FIELDS = {
     "activation_collection_batch_size",
 }
@@ -27,21 +28,31 @@ FALLBACK_REPO_TRAINING_CONFIGS: dict[str, dict[str, Any]] = {
         "model_name": "Qwen/Qwen3-8B",
         "layer_combinations": [[50]],
         "act_layer_combinations": [[18]],
+        "prefix_template": INLINE_L_PREFIX_TEMPLATE,
     },
     "ceselder/cot-oracle-paper-ablation-ours-1layer": {
         "model_name": "Qwen/Qwen3-8B",
         "layer_combinations": [[50]],
         "act_layer_combinations": [[18]],
+        "prefix_template": INLINE_L_PREFIX_TEMPLATE,
     },
     "ceselder/cot-oracle-paper-ablation-ours-3layers": {
         "model_name": "Qwen/Qwen3-8B",
         "layer_combinations": [[25, 50, 75]],
         "act_layer_combinations": [[9, 18, 27]],
+        "prefix_template": INLINE_L_PREFIX_TEMPLATE,
     },
     "ceselder/cot-oracle-paper-ablation-ours-3layers-onpolicy-lens-only": {
         "model_name": "Qwen/Qwen3-8B",
         "layer_combinations": [[25, 50, 75]],
         "act_layer_combinations": [[9, 18, 27]],
+        "prefix_template": INLINE_L_PREFIX_TEMPLATE,
+    },
+    "ceselder/cot-oracle-qwen3-8b-final-sprint-checkpoint-no-DPO": {
+        "model_name": "Qwen/Qwen3-8B",
+        "layer_combinations": [[25, 50, 75]],
+        "act_layer_combinations": [[9, 18, 27]],
+        "prefix_template": INLINE_L_PREFIX_TEMPLATE,
     },
     # Step-500 mirror was re-uploaded without ao_config.json; it matches the
     # standard 3-layer Qwen3-8B oracle setup.
@@ -49,6 +60,28 @@ FALLBACK_REPO_TRAINING_CONFIGS: dict[str, dict[str, Any]] = {
         "model_name": "Qwen/Qwen3-8B",
         "layer_combinations": [[25, 50, 75]],
         "act_layer_combinations": [[9, 18, 27]],
+        "prefix_template": INLINE_L_PREFIX_TEMPLATE,
+    },
+}
+
+REPO_TRAINING_CONFIG_OVERRIDES: dict[str, dict[str, Any]] = {
+    "ceselder/cot-oracle-paper-ablation-adam-recipe-1layer": {
+        "prefix_template": INLINE_L_PREFIX_TEMPLATE,
+    },
+    "ceselder/cot-oracle-paper-ablation-ours-1layer": {
+        "prefix_template": INLINE_L_PREFIX_TEMPLATE,
+    },
+    "ceselder/cot-oracle-paper-ablation-ours-3layers": {
+        "prefix_template": INLINE_L_PREFIX_TEMPLATE,
+    },
+    "ceselder/cot-oracle-paper-ablation-ours-3layers-onpolicy-lens-only": {
+        "prefix_template": INLINE_L_PREFIX_TEMPLATE,
+    },
+    "ceselder/cot-oracle-qwen3-8b-final-sprint-checkpoint-no-DPO": {
+        "prefix_template": INLINE_L_PREFIX_TEMPLATE,
+    },
+    "ceselder/cot-oracle-grpo-step-500": {
+        "prefix_template": INLINE_L_PREFIX_TEMPLATE,
     },
 }
 
@@ -209,6 +242,18 @@ def _load_fallback_training_config(repo_id: str) -> SelfInterpTrainingConfig | N
     return SelfInterpTrainingConfig(**payload)
 
 
+def _apply_repo_training_config_overrides(
+    repo_id: str,
+    cfg: SelfInterpTrainingConfig,
+) -> SelfInterpTrainingConfig:
+    overrides = REPO_TRAINING_CONFIG_OVERRIDES.get(repo_id)
+    if not overrides:
+        return cfg
+    payload = asdict(cfg)
+    payload.update(overrides)
+    return SelfInterpTrainingConfig(**payload)
+
+
 def read_training_config(path_or_repo: str) -> SelfInterpTrainingConfig:
     p = Path(path_or_repo)
     if p.exists():
@@ -222,9 +267,10 @@ def read_training_config(path_or_repo: str) -> SelfInterpTrainingConfig:
     except EntryNotFoundError:
         fallback_cfg = _load_fallback_training_config(path_or_repo)
         if fallback_cfg is not None:
-            return fallback_cfg
+            return _apply_repo_training_config_overrides(path_or_repo, fallback_cfg)
         raise
-    return _load_training_config_payload(json.loads(Path(cfg_path).read_text()))
+    cfg = _load_training_config_payload(json.loads(Path(cfg_path).read_text()))
+    return _apply_repo_training_config_overrides(path_or_repo, cfg)
 
 
 def get_hf_repo_id(hf_repo_name: str) -> str:
