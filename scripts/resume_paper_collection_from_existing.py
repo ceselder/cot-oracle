@@ -82,6 +82,11 @@ def main() -> None:
         default=5,
         help="Override number of activation positions",
     )
+    parser.add_argument(
+        "--skip-report",
+        action="store_true",
+        help="Do not regenerate the report after merging summaries.",
+    )
     args = parser.parse_args()
 
     random.seed(42)
@@ -122,7 +127,8 @@ def main() -> None:
     combined_path.write_text(json.dumps(merged, indent=2))
     print(f"Merged all eval summaries saved to {combined_path}")
 
-    generate_report(str(output_dir), bootstrap_reps=args.bootstrap_reps)
+    if not args.skip_report:
+        generate_report(str(output_dir), bootstrap_reps=args.bootstrap_reps)
 
 
 if __name__ == "__main__":

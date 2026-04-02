@@ -48,6 +48,14 @@ MetricsFn = Callable[[list[dict[str, Any]]], dict[str, Any]]
 BinaryMetricsFn = Callable[[list[dict[str, Any]]], dict[str, Any]]
 PrintSampleFn = Callable[[list[dict[str, Any]]], None] | None
 
+RAW_ONLY_JUDGE_EVAL_PREFIXES = (
+    "backtracking",
+    "system_prompt_qa_",
+    "vagueness",
+    "domain_confusion",
+    "hallucination",
+)
+
 
 # ---------------------------------------------------------------------------
 # Shared utilities
@@ -59,6 +67,15 @@ def ensure_default_adapter(model: AutoModelForCausalLM) -> None:
     if not hasattr(model, "peft_config") or "default" not in model.peft_config:
         dummy_config = LoraConfig()
         model.add_adapter(dummy_config, adapter_name="default")
+
+
+def should_skip_judge_scoring(eval_name: str) -> bool:
+    """Return True when judge-heavy evals should save raw outputs without judging."""
+    if os.environ.get("AOBENCH_SAVE_RAW_ONLY", "0") != "1":
+        return False
+    if eval_name == "activation_sensitivity":
+        return True
+    return eval_name.startswith(RAW_ONLY_JUDGE_EVAL_PREFIXES)
 
 
 def extract_yes_no(response: str) -> str | None:
@@ -296,6 +313,10 @@ def run_verbalizer_generation_eval_loop(
     metrics_by_verbalizer: dict[str, dict[str, Any]] = {}
     layer_combination_metrics_by_verbalizer: dict[str, dict[str, dict[str, Any]]] = {}
     overall_metric_dicts: list[dict[str, Any]] = []
+    raw_only = should_skip_judge_scoring(eval_name)
+
+    if raw_only:
+        print(f"Skipping judge scoring for {eval_name}; saving raw verbalizer outputs only.")
 
     for verbalizer_entry in verbalizer_lora_paths:
         sanitized_verbalizer_name, training_config = _load_adapter_and_training_config(
@@ -333,9 +354,11 @@ def run_verbalizer_generation_eval_loop(
                 device=device,
             )
 
-            scored_results = score_fn(results, entry_metadata)
-            total_scored += len(scored_results)
+            scored_results: list[dict[str, Any]] = []
             metrics: dict[str, Any] | None = None
+            if not raw_only:
+                scored_results = score_fn(results, entry_metadata)
+                total_scored += len(scored_results)
             if scored_results:
                 metrics = metrics_fn(scored_results)
                 combo_metrics[combo_label] = metrics
@@ -353,6 +376,7 @@ def run_verbalizer_generation_eval_loop(
                     "config": asdict(loop_config),
                     "verbalizer": verbalizer_entry,
                     "num_entries": num_entries,
+                    "raw_only": raw_only,
                     "scored_results": scored_results,
                     "metrics": metrics if scored_results else None,
                     "verbalizer_results": [asdict(r) for r in results],
@@ -381,6 +405,7 @@ def run_verbalizer_generation_eval_loop(
         "metrics_by_verbalizer": metrics_by_verbalizer,
         "num_entries": num_entries,
         "num_scored": total_scored,
+        "raw_only": raw_only,
     }
     if layer_combination_metrics_by_verbalizer:
         result["layer_combination_metrics_by_verbalizer"] = layer_combination_metrics_by_verbalizer

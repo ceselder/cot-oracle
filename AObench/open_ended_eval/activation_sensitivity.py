@@ -30,6 +30,7 @@ from AObench.open_ended_eval.eval_runner import (
     ensure_default_adapter,
     _load_adapter_and_build_config,
     get_first_ao_response,
+    should_skip_judge_scoring,
     run_default_eval,
 )
 import AObench.base_experiment as base_experiment
@@ -237,6 +238,9 @@ def run_activation_sensitivity_open_ended_eval(
 
     ensure_default_adapter(model)
     model.eval()
+    raw_only = should_skip_judge_scoring("activation_sensitivity")
+    if raw_only:
+        print("Skipping judge scoring for activation_sensitivity; saving response pairs only.")
 
     all_scored: list[dict[str, Any]] = []
     metrics_by_verbalizer: dict[str, dict[str, Any]] = {}
@@ -292,15 +296,19 @@ def run_activation_sensitivity_open_ended_eval(
                 "verbalizer": verbalizer_key,
             })
 
-        scored = asyncio.run(judge_ac_pairs(pairs, concurrency=judge_concurrency))
-        metrics = compute_sensitivity_metrics(scored)
-        metrics_by_verbalizer[verbalizer_key] = metrics
+        if raw_only:
+            scored = []
+            metrics = None
+        else:
+            scored = asyncio.run(judge_ac_pairs(pairs, concurrency=judge_concurrency))
+            metrics = compute_sensitivity_metrics(scored)
+            metrics_by_verbalizer[verbalizer_key] = metrics
 
-        print(f"\n  Sensitivity metrics for {verbalizer_key}:")
-        for k, v in metrics.items():
-            print(f"    {k}: {v:.3f}" if isinstance(v, float) else f"    {k}: {v}")
+            print(f"\n  Sensitivity metrics for {verbalizer_key}:")
+            for k, v in metrics.items():
+                print(f"    {k}: {v:.3f}" if isinstance(v, float) else f"    {k}: {v}")
 
-        all_scored.extend(scored)
+            all_scored.extend(scored)
 
         if output_dir is not None:
             Path(output_dir).mkdir(parents=True, exist_ok=True)
@@ -308,6 +316,7 @@ def run_activation_sensitivity_open_ended_eval(
             output_path = Path(output_dir) / f"activation_sensitivity_{lora_name}.json"
             output_path.write_text(json.dumps({
                 "verbalizer": verbalizer_entry,
+                "raw_only": raw_only,
                 "metrics": metrics,
                 "max_entries_per_condition": max_entries_per_condition,
                 "pairs": pairs,
@@ -317,11 +326,12 @@ def run_activation_sensitivity_open_ended_eval(
         if sanitized_name in model.peft_config:
             model.delete_adapter(sanitized_name)
 
-    overall = compute_sensitivity_metrics(all_scored)
+    overall = compute_sensitivity_metrics(all_scored) if all_scored else {}
     return {
         "overall_metrics": overall,
         "metrics_by_verbalizer": metrics_by_verbalizer,
         "num_pairs": len(all_scored),
+        "raw_only": raw_only,
     }
 
 
