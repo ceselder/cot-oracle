@@ -492,11 +492,15 @@ TASK_SPECS: dict[str, dict[str, Any]] = {
         "rejudge_fn": _rejudge_system_prompt_hidden,
         "metrics_fn": system_prompt_qa.compute_judge_metrics,
         "required_fields": ("specificity", "correctness"),
+        "pack_size": 1,
+        "max_tokens_per_item": 160,
     },
     "system_prompt_qa_latentqa": {
         "rejudge_fn": _rejudge_system_prompt_latentqa,
         "metrics_fn": system_prompt_qa.compute_judge_metrics,
         "required_fields": ("specificity", "correctness"),
+        "pack_size": 1,
+        "max_tokens_per_item": 160,
     },
     "vagueness": {
         "rejudge_fn": _rejudge_vagueness,
@@ -598,6 +602,13 @@ def main() -> None:
         default=3,
         help="Retries for packed judge requests before falling back to single-item calls.",
     )
+    parser.add_argument(
+        "--tasks",
+        nargs="*",
+        choices=sorted(TASK_SPECS),
+        default=None,
+        help="Optional subset of judge-heavy tasks to run.",
+    )
     args = parser.parse_args()
 
     input_dir = Path(args.input_dir).resolve()
@@ -608,6 +619,8 @@ def main() -> None:
     task_files = _task_file_map(input_dir)
     all_summaries: dict[str, Any] = load_existing_summaries(output_dir)
 
+    selected_tasks = args.tasks or list(TASK_SPECS)
+
     run_config = {
         "input_dir": str(input_dir),
         "output_dir": str(output_dir),
@@ -616,12 +629,13 @@ def main() -> None:
         "batch_retries": args.batch_retries,
         "judge_model": os.environ.get("JUDGE_MODEL", ""),
         "judge_use_local": os.environ.get("JUDGE_USE_LOCAL", "1") != "0",
-        "tasks": list(TASK_SPECS),
+        "tasks": selected_tasks,
         "note": "Rejudge saved rollout payloads for judge-heavy tasks, including activation_sensitivity pair files when present.",
     }
     (output_dir / "run_config.json").write_text(json.dumps(run_config, indent=2))
 
-    for task_name, spec in TASK_SPECS.items():
+    for task_name in selected_tasks:
+        spec = TASK_SPECS[task_name]
         files = task_files[task_name]
         if not files:
             print(f"Skipping {task_name}: no raw files found under {input_dir}")
@@ -681,7 +695,8 @@ def main() -> None:
                         system_prompt=system_prompt,
                         required_fields=spec.get("required_fields", ()),
                         concurrency=args.judge_concurrency,
-                        pack_size=args.judge_pack_size,
+                        pack_size=int(spec.get("pack_size", args.judge_pack_size)),
+                        max_tokens_per_item=int(spec.get("max_tokens_per_item", 120)),
                         batch_retries=args.batch_retries,
                     )
                 )
