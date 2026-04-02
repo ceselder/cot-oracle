@@ -22,7 +22,7 @@ OPENROUTER_API_BASE = "https://openrouter.ai/api/v1/chat/completions"
 
 DEFAULT_JUDGE_MODEL = "claude-sonnet-4-6"
 JUDGE_MODEL = os.environ.get("JUDGE_MODEL", DEFAULT_JUDGE_MODEL)
-DEFAULT_JUDGE_CONCURRENCY = 10  # lower for local wrapper rate limits
+DEFAULT_JUDGE_CONCURRENCY = int(os.environ.get("JUDGE_CONCURRENCY", "10"))
 
 
 def _extract_json_payload(text: str) -> dict[str, Any]:
