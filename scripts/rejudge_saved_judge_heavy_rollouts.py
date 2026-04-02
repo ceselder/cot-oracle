@@ -13,6 +13,7 @@ import json
 import os
 import re
 import sys
+import time
 from dataclasses import asdict
 from pathlib import Path
 from typing import Any
@@ -36,6 +37,7 @@ from AObench.open_ended_eval import (
 )
 from AObench.open_ended_eval.eval_runner import average_numeric_metric_dicts
 from AObench.utils.common import load_tokenizer, timestamped_eval_results_dir
+from AObench.utils.paper_collection import load_existing_summaries
 from AObench.utils.report import generate_report
 
 MODEL_NAME = "Qwen/Qwen3-8B"
@@ -130,6 +132,7 @@ async def _judge_rows_batched(
     concurrency: int,
     pack_size: int,
     max_tokens_per_item: int = 120,
+    batch_retries: int = 3,
 ) -> list[dict[str, Any]]:
     if not rows:
         return []
@@ -187,37 +190,48 @@ async def _judge_rows_batched(
                 {"role": "user", "content": joined_user},
             ]
 
-        async with semaphore:
-            resp = await client.post(
-                api_base,
-                headers={
-                    "Authorization": f"Bearer {api_key}",
-                    "Content-Type": "application/json",
-                },
-                json={
-                    "model": model,
-                    "max_tokens": max(256, max_tokens_per_item * len(batch_rows)),
-                    "messages": messages,
-                },
-                timeout=180.0,
-            )
-            resp.raise_for_status()
-        data = resp.json()
-        text = data["choices"][0]["message"]["content"].strip()
-        parsed = _extract_json_array_payload(text)
-        mapped: dict[int, dict[str, Any]] = {}
-        for item in parsed:
+        last_error: Exception | None = None
+        for attempt in range(batch_retries):
             try:
-                idx = int(item.get("item_index"))
-            except Exception:
-                continue
-            mapped[idx] = item
-        if len(mapped) != len(batch_rows):
-            raise ValueError(f"Expected {len(batch_rows)} batch judgements, got {len(mapped)}")
-        out = []
-        for i, row in enumerate(batch_rows):
-            out.append({k: v for k, v in row.items() if k != "user_message"} | mapped[i])
-        return out
+                async with semaphore:
+                    resp = await client.post(
+                        api_base,
+                        headers={
+                            "Authorization": f"Bearer {api_key}",
+                            "Content-Type": "application/json",
+                        },
+                        json={
+                            "model": model,
+                            "max_tokens": max(256, max_tokens_per_item * len(batch_rows)),
+                            "messages": messages,
+                        },
+                        timeout=180.0,
+                    )
+                    resp.raise_for_status()
+                data = resp.json()
+                text = data["choices"][0]["message"]["content"].strip()
+                parsed = _extract_json_array_payload(text)
+                mapped: dict[int, dict[str, Any]] = {}
+                for item in parsed:
+                    try:
+                        idx = int(item.get("item_index"))
+                    except Exception:
+                        continue
+                    mapped[idx] = item
+                if len(mapped) != len(batch_rows):
+                    raise ValueError(f"Expected {len(batch_rows)} batch judgements, got {len(mapped)}")
+                out = []
+                for i, row in enumerate(batch_rows):
+                    out.append({k: v for k, v in row.items() if k != "user_message"} | mapped[i])
+                return out
+            except (httpx.HTTPError, json.JSONDecodeError, KeyError, IndexError, TypeError, ValueError) as exc:
+                last_error = exc
+                if attempt == batch_retries - 1:
+                    break
+                await asyncio.sleep(1.5 * (attempt + 1))
+
+        assert last_error is not None
+        raise last_error
 
     async with httpx.AsyncClient() as client:
         tasks = []
@@ -236,9 +250,10 @@ async def _judge_rows_batched(
                 rows=batch_rows,
                 system_prompt=system_prompt,
                 required_fields=required_fields,
-                concurrency=1,
+                concurrency=max(1, min(concurrency, 4)),
                 pack_size=1,
                 max_tokens_per_item=max_tokens_per_item,
+                batch_retries=batch_retries,
             )
             scored.extend(fallback)
         else:
@@ -276,24 +291,57 @@ def _rejudge_backtracking(
     return rows
 
 
-def _rejudge_system_prompt_hidden(
+def _build_system_prompt_rows(
     payload: dict[str, Any],
     results: list[VerbalizerResults],
     tokenizer,
-    judge_concurrency: int,
+    *,
+    dataset_path_str: str,
+    verbalizer_prompts: tuple[str, ...],
 ) -> list[dict[str, Any]]:
     entries = system_prompt_qa.load_dataset(
-        dataset_path=dataset_path("datasets/system_prompt_qa/hidden_instruction_eval_dataset.json"),
+        dataset_path=dataset_path_str,
         max_entries=_infer_max_entries(payload, len(results), prompts_per_entry=1),
     )
     _, metadata = system_prompt_qa.build_prompt_infos_for_mode(
         entries,
         "user_and_assistant",
         tokenizer,
-        verbalizer_prompts=system_prompt_qa.VERBALIZER_PROMPTS_HIDDEN_INSTRUCTION,
+        verbalizer_prompts=verbalizer_prompts,
     )
     assert len(results) == len(metadata), (len(results), len(metadata))
-    return asyncio.run(system_prompt_qa.judge_ao_responses(results, metadata, concurrency=judge_concurrency))
+    rows = []
+    for i, (result, meta) in enumerate(zip(results, metadata)):
+        ao_response = system_prompt_qa.get_first_ao_response(result)
+        if ao_response is None:
+            continue
+        rows.append(
+            {
+                "result_index": i,
+                "ao_response": ao_response,
+                **meta,
+                "user_message": system_prompt_qa.JUDGE_USER_TEMPLATE.format(
+                    ground_truth=meta["ground_truth"],
+                    ao_response=ao_response,
+                ),
+            }
+        )
+    return rows
+
+
+def _rejudge_system_prompt_hidden(
+    payload: dict[str, Any],
+    results: list[VerbalizerResults],
+    tokenizer,
+    judge_concurrency: int,
+) -> list[dict[str, Any]]:
+    return _build_system_prompt_rows(
+        payload,
+        results,
+        tokenizer,
+        dataset_path_str=dataset_path("datasets/system_prompt_qa/hidden_instruction_eval_dataset.json"),
+        verbalizer_prompts=system_prompt_qa.VERBALIZER_PROMPTS_HIDDEN_INSTRUCTION,
+    )
 
 
 def _rejudge_system_prompt_latentqa(
@@ -302,18 +350,13 @@ def _rejudge_system_prompt_latentqa(
     tokenizer,
     judge_concurrency: int,
 ) -> list[dict[str, Any]]:
-    entries = system_prompt_qa.load_dataset(
-        dataset_path=dataset_path("datasets/system_prompt_qa/latentqa_eval_dataset.json"),
-        max_entries=_infer_max_entries(payload, len(results), prompts_per_entry=1),
-    )
-    _, metadata = system_prompt_qa.build_prompt_infos_for_mode(
-        entries,
-        "user_and_assistant",
+    return _build_system_prompt_rows(
+        payload,
+        results,
         tokenizer,
+        dataset_path_str=dataset_path("datasets/system_prompt_qa/latentqa_eval_dataset.json"),
         verbalizer_prompts=system_prompt_qa.VERBALIZER_PROMPTS_SYSTEM_PROMPT_QA,
     )
-    assert len(results) == len(metadata), (len(results), len(metadata))
-    return asyncio.run(system_prompt_qa.judge_ao_responses(results, metadata, concurrency=judge_concurrency))
 
 
 def _rejudge_vagueness(
@@ -549,6 +592,12 @@ def main() -> None:
         default=8,
         help="Number of judge items to pack into each API request for supported tasks.",
     )
+    parser.add_argument(
+        "--batch-retries",
+        type=int,
+        default=3,
+        help="Retries for packed judge requests before falling back to single-item calls.",
+    )
     args = parser.parse_args()
 
     input_dir = Path(args.input_dir).resolve()
@@ -557,13 +606,14 @@ def main() -> None:
 
     tokenizer = load_tokenizer(MODEL_NAME)
     task_files = _task_file_map(input_dir)
-    all_summaries: dict[str, Any] = {}
+    all_summaries: dict[str, Any] = load_existing_summaries(output_dir)
 
     run_config = {
         "input_dir": str(input_dir),
         "output_dir": str(output_dir),
         "judge_concurrency": args.judge_concurrency,
         "judge_pack_size": args.judge_pack_size,
+        "batch_retries": args.batch_retries,
         "judge_model": os.environ.get("JUDGE_MODEL", ""),
         "judge_use_local": os.environ.get("JUDGE_USE_LOCAL", "1") != "0",
         "tasks": list(TASK_SPECS),
@@ -580,10 +630,12 @@ def main() -> None:
         print(f"\n{'=' * 70}")
         print(f"REJUDGING TASK: {task_name}")
         print(f"{'=' * 70}")
+        task_start = time.perf_counter()
 
         metrics_by_verbalizer: dict[str, dict[str, Any]] = {}
         overall_metric_dicts: list[dict[str, Any]] = []
         total_scored = 0
+        total_rows = 0
 
         task_output_dir = output_dir / task_name
         task_output_dir.mkdir(parents=True, exist_ok=True)
@@ -611,12 +663,15 @@ def main() -> None:
             verbalizer_key = verbalizer.split("/")[-1]
             rejudge_fn = spec["rejudge_fn"]
             metrics_fn = spec["metrics_fn"]
+            verb_start = time.perf_counter()
 
             print(f"Rejudging {task_name}: {verbalizer_key}")
             if task_name in {"backtracking", "activation_sensitivity"}:
                 judge_rows = rejudge_fn(payload, results, args.judge_concurrency)
             else:
                 judge_rows = rejudge_fn(payload, results, tokenizer, args.judge_concurrency)
+            total_rows += len(judge_rows)
+            print(f"  rows to judge: {len(judge_rows)}")
 
             system_prompt = spec.get("system_prompt")
             if system_prompt is not None:
@@ -627,6 +682,7 @@ def main() -> None:
                         required_fields=spec.get("required_fields", ()),
                         concurrency=args.judge_concurrency,
                         pack_size=args.judge_pack_size,
+                        batch_retries=args.batch_retries,
                     )
                 )
             else:
@@ -653,10 +709,14 @@ def main() -> None:
                 "previous_scored_results_count": len(payload.get("scored_results", [])),
                 "new_scored_results_count": len(scored_results),
                 "dropped_scored_results_count": len(dropped_results),
+                "judge_rows_count": len(judge_rows),
             }
 
             output_path.write_text(json.dumps(output_payload, indent=2))
+            elapsed = time.perf_counter() - verb_start
+            rate = len(judge_rows) / elapsed if elapsed > 0 else 0.0
             print(f"  saved {output_path}")
+            print(f"  elapsed: {elapsed:.1f}s | rows/sec: {rate:.2f}")
 
         summary = {
             "overall_metrics": average_numeric_metric_dicts(overall_metric_dicts),
@@ -667,6 +727,12 @@ def main() -> None:
         }
         all_summaries[task_name] = summary
         (output_dir / f"{task_name}_summary.json").write_text(json.dumps(summary, indent=2))
+        task_elapsed = time.perf_counter() - task_start
+        task_rate = total_rows / task_elapsed if task_elapsed > 0 else 0.0
+        print(
+            f"Task {task_name} complete in {task_elapsed:.1f}s | "
+            f"total rows: {total_rows} | avg rows/sec: {task_rate:.2f}"
+        )
 
     (output_dir / "all_summaries.json").write_text(json.dumps(all_summaries, indent=2))
     generate_report(str(output_dir))

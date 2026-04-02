@@ -241,7 +241,12 @@ def _raw_payloads_for_eval(
         paths = [eval_dir / f"backtracking_mc_{slug}.json"]
     elif eval_name in {"mmlu_prediction", "missing_info"}:
         paths = [eval_dir / f"{eval_name}_binary_{slug}.json"]
-    elif eval_name in {"number_prediction", "backtracking", "vagueness", "domain_confusion", "activation_sensitivity", "hallucination"} or eval_name.startswith("hallucination_") or eval_name.startswith("system_prompt_qa_"):
+    elif eval_name.startswith("system_prompt_qa_"):
+        paths = [
+            eval_dir / f"{eval_name}_{slug}.json",
+            eval_dir / "user_and_assistant" / f"system_prompt_qa_user_and_assistant_{slug}.json",
+        ]
+    elif eval_name in {"number_prediction", "backtracking", "vagueness", "domain_confusion", "activation_sensitivity", "hallucination"} or eval_name.startswith("hallucination_"):
         paths = [eval_dir / f"{eval_name}_{slug}.json"]
     else:
         paths = [eval_dir / f"{eval_name}_{slug}.json"]
