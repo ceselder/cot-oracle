@@ -1,0 +1,14 @@
+{
+  "input_dir": "/home/celeste/cot-oracle-main-latest-eval/AObench/eval_results/paper_collection_full_all13_last5_raw_20260402_134058",
+  "output_dir": "/home/celeste/cot-oracle-main-latest-eval/AObench/eval_results/paper_collection_full_all13_last5_judged_gemini31flashlite",
+  "judge_concurrency": 16,
+  "judge_pack_size": 12,
+  "batch_retries": 4,
+  "judge_model": "google/gemini-3.1-flash-lite-preview",
+  "judge_use_local": false,
+  "tasks": [
+    "system_prompt_qa_hidden",
+    "system_prompt_qa_latentqa"
+  ],
+  "note": "Rejudge saved rollout payloads for judge-heavy tasks, including activation_sensitivity pair files when present."
+}

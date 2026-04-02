@@ -1,0 +1,115 @@
+{
+  "overall_metrics": {
+    "vagueness_rate": 0.3553299492385787,
+    "specificity_rate": 0.6389593908629442,
+    "refusal_rate": 0.005710659898477157,
+    "generic_rate": 0.1034263959390863,
+    "vague_directional_rate": 0.2519035532994924,
+    "specific_correct": 125.875,
+    "vague_directional": 49.625,
+    "generic": 20.375,
+    "refuses": 1.125,
+    "total": 197.0
+  },
+  "metrics_by_verbalizer": {
+    "adam-reupload-qwen3-8b-full-mix-synthetic-qa-v3-replace-lqa": {
+      "vagueness_rate": 0.10152284263959391,
+      "specificity_rate": 0.8934010152284264,
+      "refusal_rate": 0.005076142131979695,
+      "generic_rate": 0.005076142131979695,
+      "vague_directional_rate": 0.09644670050761421,
+      "specific_correct": 176,
+      "vague_directional": 19,
+      "generic": 1,
+      "refuses": 1,
+      "total": 197.0
+    },
+    "adam-reupload-qwen3-8b-latentqa-cls-past-lens": {
+      "vagueness_rate": 0.5685279187817259,
+      "specificity_rate": 0.43147208121827413,
+      "refusal_rate": 0.0,
+      "generic_rate": 0.20812182741116753,
+      "vague_directional_rate": 0.3604060913705584,
+      "specific_correct": 85,
+      "vague_directional": 71,
+      "generic": 41,
+      "refuses": 0,
+      "total": 197.0
+    },
+    "cot-oracle-grpo-step-500": {
+      "vagueness_rate": 0.4720812182741117,
+      "specificity_rate": 0.5228426395939086,
+      "refusal_rate": 0.005076142131979695,
+      "generic_rate": 0.16751269035532995,
+      "vague_directional_rate": 0.30456852791878175,
+      "specific_correct": 103,
+      "vague_directional": 60,
+      "generic": 33,
+      "refuses": 1,
+      "total": 197.0
+    },
+    "cot-oracle-paper-ablation-adam-recipe-1layer": {
+      "vagueness_rate": 0.583756345177665,
+      "specificity_rate": 0.41116751269035534,
+      "refusal_rate": 0.005076142131979695,
+      "generic_rate": 0.2436548223350254,
+      "vague_directional_rate": 0.3401015228426396,
+      "specific_correct": 81,
+      "vague_directional": 67,
+      "generic": 48,
+      "refuses": 1,
+      "total": 197.0
+    },
+    "cot-oracle-paper-ablation-ours-1layer": {
+      "vagueness_rate": 0.22842639593908629,
+      "specificity_rate": 0.7563451776649747,
+      "refusal_rate": 0.015228426395939087,
+      "generic_rate": 0.04060913705583756,
+      "vague_directional_rate": 0.18781725888324874,
+      "specific_correct": 149,
+      "vague_directional": 37,
+      "generic": 8,
+      "refuses": 3,
+      "total": 197.0
+    },
+    "cot-oracle-paper-ablation-ours-3layers-onpolicy-lens-only": {
+      "vagueness_rate": 0.3147208121827411,
+      "specificity_rate": 0.6852791878172588,
+      "refusal_rate": 0.0,
+      "generic_rate": 0.03553299492385787,
+      "vague_directional_rate": 0.27918781725888325,
+      "specific_correct": 135,
+      "vague_directional": 55,
+      "generic": 7,
+      "refuses": 0,
+      "total": 197.0
+    },
+    "cot-oracle-paper-ablation-ours-3layers": {
+      "vagueness_rate": 0.30456852791878175,
+      "specificity_rate": 0.6802030456852792,
+      "refusal_rate": 0.015228426395939087,
+      "generic_rate": 0.04568527918781726,
+      "vague_directional_rate": 0.25888324873096447,
+      "specific_correct": 134,
+      "vague_directional": 51,
+      "generic": 9,
+      "refuses": 3,
+      "total": 197.0
+    },
+    "cot-oracle-qwen3-8b-final-sprint-checkpoint-no-DPO": {
+      "vagueness_rate": 0.26903553299492383,
+      "specificity_rate": 0.7309644670050761,
+      "refusal_rate": 0.0,
+      "generic_rate": 0.08121827411167512,
+      "vague_directional_rate": 0.18781725888324874,
+      "specific_correct": 144,
+      "vague_directional": 37,
+      "generic": 16,
+      "refuses": 0,
+      "total": 197.0
+    }
+  },
+  "num_entries": 8,
+  "num_scored": 1576,
+  "rejudged": true
+}

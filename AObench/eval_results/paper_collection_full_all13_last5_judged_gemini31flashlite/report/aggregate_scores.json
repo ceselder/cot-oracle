@@ -1,0 +1,170 @@
+{
+  "adam-reupload-qwen3-8b-full-mix-synthetic-qa-v3-replace-lqa": {
+    "mean_normalized_score": 0.4292701266866242,
+    "num_evals": 13,
+    "per_eval_normalized": {
+      "activation_sensitivity": 0.9111111111111111,
+      "backtracking": 0.30203045685279184,
+      "domain_confusion": 0.2639593908629442,
+      "hallucination": 0.20101522842639594,
+      "missing_info": 0.288888888888889,
+      "mmlu_prediction": 0.38359999999999994,
+      "number_prediction": 0.03333333333333333,
+      "personaqa": 0.17222222222222222,
+      "sycophancy": 0.72045,
+      "system_prompt_qa_hidden": 0.375,
+      "system_prompt_qa_latentqa": 0.5575,
+      "taboo": 0.478,
+      "vagueness": 0.8934010152284264
+    },
+    "ci_lo": 0.39087840726978673,
+    "ci_hi": 0.46084036371899373
+  },
+  "adam-reupload-qwen3-8b-latentqa-cls-past-lens": {
+    "mean_normalized_score": 0.3866809796520456,
+    "num_evals": 13,
+    "per_eval_normalized": {
+      "activation_sensitivity": 0.5333333333333333,
+      "backtracking": 0.3743654822335025,
+      "domain_confusion": 0.20135363790186125,
+      "hallucination": 0.30558375634517765,
+      "missing_info": 0.2866666666666666,
+      "mmlu_prediction": 0.3780000000000001,
+      "number_prediction": 0.006666666666666667,
+      "personaqa": 0.10611111111111111,
+      "sycophancy": 0.6353,
+      "system_prompt_qa_hidden": 0.675,
+      "system_prompt_qa_latentqa": 0.68,
+      "taboo": 0.413,
+      "vagueness": 0.43147208121827413
+    },
+    "ci_lo": 0.34703337855690686,
+    "ci_hi": 0.4213949036985986
+  },
+  "cot-oracle-grpo-step-500": {
+    "mean_normalized_score": 0.3591867477981691,
+    "num_evals": 13,
+    "per_eval_normalized": {
+      "activation_sensitivity": 0.5777777777777777,
+      "backtracking": 0.3908629441624365,
+      "domain_confusion": 0.272419627749577,
+      "hallucination": 0.3197969543147208,
+      "missing_info": 0.41333333333333333,
+      "mmlu_prediction": 0.45940000000000003,
+      "number_prediction": 0.03333333333333333,
+      "personaqa": 0.08611111111111111,
+      "sycophancy": 0.6070499999999999,
+      "system_prompt_qa_hidden": 0.125,
+      "system_prompt_qa_latentqa": 0.43999999999999995,
+      "taboo": 0.4215,
+      "vagueness": 0.5228426395939086
+    },
+    "ci_lo": 0.3240048119627859,
+    "ci_hi": 0.3915158896501726
+  },
+  "cot-oracle-paper-ablation-adam-recipe-1layer": {
+    "mean_normalized_score": 0.29541905722591,
+    "num_evals": 13,
+    "per_eval_normalized": {
+      "activation_sensitivity": 0.5111111111111111,
+      "backtracking": 0.28299492385786806,
+      "domain_confusion": 0.15228426395939088,
+      "hallucination": 0.20710659898477157,
+      "missing_info": 0.1644444444444444,
+      "mmlu_prediction": 0.2225999999999999,
+      "number_prediction": 0.013333333333333334,
+      "personaqa": 0.07388888888888889,
+      "sycophancy": 0.54935,
+      "system_prompt_qa_hidden": 0.44999999999999996,
+      "system_prompt_qa_latentqa": 0.5225,
+      "taboo": 0.2796666666666667,
+      "vagueness": 0.41116751269035534
+    },
+    "ci_lo": 0.2590292906010532,
+    "ci_hi": 0.32786354411603147
+  },
+  "cot-oracle-paper-ablation-ours-1layer": {
+    "mean_normalized_score": 0.38980792442188383,
+    "num_evals": 13,
+    "per_eval_normalized": {
+      "activation_sensitivity": 0.8888888888888888,
+      "backtracking": 0.30964467005076146,
+      "domain_confusion": 0.23181049069373943,
+      "hallucination": 0.2020304568527919,
+      "missing_info": 0.4444444444444442,
+      "mmlu_prediction": 0.40920000000000023,
+      "number_prediction": 0.03333333333333333,
+      "personaqa": 0.08555555555555555,
+      "sycophancy": 0.62425,
+      "system_prompt_qa_hidden": 0.22499999999999998,
+      "system_prompt_qa_latentqa": 0.485,
+      "taboo": 0.372,
+      "vagueness": 0.7563451776649747
+    },
+    "ci_lo": 0.35032218075844485,
+    "ci_hi": 0.4206161148784095
+  },
+  "cot-oracle-paper-ablation-ours-3layers-onpolicy-lens-only": {
+    "mean_normalized_score": 0.3749434877868888,
+    "num_evals": 13,
+    "per_eval_normalized": {
+      "activation_sensitivity": 0.8,
+      "backtracking": 0.32614213197969544,
+      "domain_confusion": 0.2436548223350254,
+      "hallucination": 0.25076142131979695,
+      "missing_info": 0.4866666666666668,
+      "mmlu_prediction": 0.4453999999999998,
+      "number_prediction": 0.07333333333333333,
+      "personaqa": 0.13944444444444445,
+      "sycophancy": 0.47924999999999995,
+      "system_prompt_qa_hidden": 0.04999999999999999,
+      "system_prompt_qa_latentqa": 0.48750000000000004,
+      "taboo": 0.4068333333333333,
+      "vagueness": 0.6852791878172588
+    },
+    "ci_lo": 0.3384148440852846,
+    "ci_hi": 0.4062841611198098
+  },
+  "cot-oracle-paper-ablation-ours-3layers": {
+    "mean_normalized_score": 0.36931003731181394,
+    "num_evals": 13,
+    "per_eval_normalized": {
+      "activation_sensitivity": 0.7777777777777778,
+      "backtracking": 0.34137055837563457,
+      "domain_confusion": 0.2571912013536379,
+      "hallucination": 0.22030456852791877,
+      "missing_info": 0.46666666666666656,
+      "mmlu_prediction": 0.359,
+      "number_prediction": 0.04,
+      "personaqa": 0.17,
+      "sycophancy": 0.44735000000000014,
+      "system_prompt_qa_hidden": 0.15000000000000002,
+      "system_prompt_qa_latentqa": 0.4625,
+      "taboo": 0.42866666666666664,
+      "vagueness": 0.6802030456852792
+    },
+    "ci_lo": 0.3320946815091022,
+    "ci_hi": 0.40006676245578543
+  },
+  "cot-oracle-qwen3-8b-final-sprint-checkpoint-no-DPO": {
+    "mean_normalized_score": 0.3703859278059785,
+    "num_evals": 13,
+    "per_eval_normalized": {
+      "activation_sensitivity": 0.8222222222222222,
+      "backtracking": 0.33121827411167515,
+      "domain_confusion": 0.24027072758037224,
+      "hallucination": 0.20609137055837565,
+      "missing_info": 0.42222222222222205,
+      "mmlu_prediction": 0.4072,
+      "number_prediction": 0.04666666666666667,
+      "personaqa": 0.11944444444444445,
+      "sycophancy": 0.4695499999999999,
+      "system_prompt_qa_hidden": 0.04999999999999999,
+      "system_prompt_qa_latentqa": 0.51,
+      "taboo": 0.45916666666666667,
+      "vagueness": 0.7309644670050761
+    },
+    "ci_lo": 0.3337624032153287,
+    "ci_hi": 0.4010191020079143
+  }
+}

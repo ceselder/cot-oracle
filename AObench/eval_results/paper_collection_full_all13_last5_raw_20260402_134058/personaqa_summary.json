@@ -1,0 +1,87 @@
+{
+  "overall_metrics": {
+    "full_seq_accuracy": 0.11958333333333333,
+    "full_seq_total": 4800.0,
+    "segment_accuracy": 0.11916666666666667,
+    "segment_total": 4800.0,
+    "single_token_accuracy": 0.11854166666666667,
+    "single_token_total": 4800.0,
+    "accuracy": 0.11909722222222222
+  },
+  "metrics_by_verbalizer": {
+    "adam-reupload-qwen3-8b-latentqa-cls-past-lens": {
+      "full_seq_accuracy": 0.115,
+      "full_seq_total": 600.0,
+      "segment_accuracy": 0.115,
+      "segment_total": 600.0,
+      "single_token_accuracy": 0.08833333333333333,
+      "single_token_total": 600.0,
+      "accuracy": 0.10611111111111111
+    },
+    "adam-reupload-qwen3-8b-full-mix-synthetic-qa-v3-replace-lqa": {
+      "full_seq_accuracy": 0.17,
+      "full_seq_total": 600.0,
+      "segment_accuracy": 0.17,
+      "segment_total": 600.0,
+      "single_token_accuracy": 0.17666666666666667,
+      "single_token_total": 600.0,
+      "accuracy": 0.17222222222222222
+    },
+    "cot-oracle-paper-ablation-adam-recipe-1layer": {
+      "full_seq_accuracy": 0.085,
+      "full_seq_total": 600.0,
+      "segment_accuracy": 0.08166666666666667,
+      "segment_total": 600.0,
+      "single_token_accuracy": 0.055,
+      "single_token_total": 600.0,
+      "accuracy": 0.07388888888888889
+    },
+    "cot-oracle-paper-ablation-ours-1layer": {
+      "full_seq_accuracy": 0.095,
+      "full_seq_total": 600.0,
+      "segment_accuracy": 0.09333333333333334,
+      "segment_total": 600.0,
+      "single_token_accuracy": 0.06833333333333333,
+      "single_token_total": 600.0,
+      "accuracy": 0.08555555555555555
+    },
+    "cot-oracle-paper-ablation-ours-3layers": {
+      "full_seq_accuracy": 0.17333333333333334,
+      "full_seq_total": 600.0,
+      "segment_accuracy": 0.17333333333333334,
+      "segment_total": 600.0,
+      "single_token_accuracy": 0.16333333333333333,
+      "single_token_total": 600.0,
+      "accuracy": 0.17
+    },
+    "cot-oracle-paper-ablation-ours-3layers-onpolicy-lens-only": {
+      "full_seq_accuracy": 0.13666666666666666,
+      "full_seq_total": 600.0,
+      "segment_accuracy": 0.13666666666666666,
+      "segment_total": 600.0,
+      "single_token_accuracy": 0.145,
+      "single_token_total": 600.0,
+      "accuracy": 0.13944444444444445
+    },
+    "cot-oracle-qwen3-8b-final-sprint-checkpoint-no-DPO": {
+      "full_seq_accuracy": 0.10666666666666667,
+      "full_seq_total": 600.0,
+      "segment_accuracy": 0.10666666666666667,
+      "segment_total": 600.0,
+      "single_token_accuracy": 0.145,
+      "single_token_total": 600.0,
+      "accuracy": 0.11944444444444445
+    },
+    "cot-oracle-grpo-step-500": {
+      "full_seq_accuracy": 0.075,
+      "full_seq_total": 600.0,
+      "segment_accuracy": 0.07666666666666666,
+      "segment_total": 600.0,
+      "single_token_accuracy": 0.10666666666666667,
+      "single_token_total": 600.0,
+      "accuracy": 0.08611111111111111
+    }
+  },
+  "num_results": 14400,
+  "elapsed_seconds": 169.64051742095035
+}

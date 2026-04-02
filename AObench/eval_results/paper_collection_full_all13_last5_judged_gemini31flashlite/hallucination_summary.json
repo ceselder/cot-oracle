@@ -1,0 +1,106 @@
+{
+  "overall_metrics": {
+    "correct_rate": 0.23908629441624366,
+    "hallucination_rate": 0.659010152284264,
+    "obvious_hallucination_rate": 0.25279187817258886,
+    "vague_rate": 0.10190355329949238,
+    "correct": 235.5,
+    "vague": 100.375,
+    "plausible_but_wrong": 400.125,
+    "obviously_wrong": 249.0,
+    "total": 985.0
+  },
+  "metrics_by_verbalizer": {
+    "adam-reupload-qwen3-8b-full-mix-synthetic-qa-v3-replace-lqa": {
+      "correct_rate": 0.20101522842639594,
+      "hallucination_rate": 0.7624365482233503,
+      "obvious_hallucination_rate": 0.29035532994923857,
+      "vague_rate": 0.03654822335025381,
+      "correct": 198,
+      "vague": 36,
+      "plausible_but_wrong": 465,
+      "obviously_wrong": 286,
+      "total": 985.0
+    },
+    "adam-reupload-qwen3-8b-latentqa-cls-past-lens": {
+      "correct_rate": 0.30558375634517765,
+      "hallucination_rate": 0.5634517766497462,
+      "obvious_hallucination_rate": 0.20913705583756345,
+      "vague_rate": 0.13096446700507614,
+      "correct": 301,
+      "vague": 129,
+      "plausible_but_wrong": 349,
+      "obviously_wrong": 206,
+      "total": 985.0
+    },
+    "cot-oracle-grpo-step-500": {
+      "correct_rate": 0.3197969543147208,
+      "hallucination_rate": 0.46802030456852795,
+      "obvious_hallucination_rate": 0.132994923857868,
+      "vague_rate": 0.21218274111675126,
+      "correct": 315,
+      "vague": 209,
+      "plausible_but_wrong": 330,
+      "obviously_wrong": 131,
+      "total": 985.0
+    },
+    "cot-oracle-paper-ablation-adam-recipe-1layer": {
+      "correct_rate": 0.20710659898477157,
+      "hallucination_rate": 0.6538071065989848,
+      "obvious_hallucination_rate": 0.29441624365482233,
+      "vague_rate": 0.13908629441624365,
+      "correct": 204,
+      "vague": 137,
+      "plausible_but_wrong": 354,
+      "obviously_wrong": 290,
+      "total": 985.0
+    },
+    "cot-oracle-paper-ablation-ours-1layer": {
+      "correct_rate": 0.2020304568527919,
+      "hallucination_rate": 0.7279187817258883,
+      "obvious_hallucination_rate": 0.3065989847715736,
+      "vague_rate": 0.0700507614213198,
+      "correct": 199,
+      "vague": 69,
+      "plausible_but_wrong": 415,
+      "obviously_wrong": 302,
+      "total": 985.0
+    },
+    "cot-oracle-paper-ablation-ours-3layers-onpolicy-lens-only": {
+      "correct_rate": 0.25076142131979695,
+      "hallucination_rate": 0.6619289340101523,
+      "obvious_hallucination_rate": 0.2598984771573604,
+      "vague_rate": 0.08730964467005076,
+      "correct": 247,
+      "vague": 86,
+      "plausible_but_wrong": 396,
+      "obviously_wrong": 256,
+      "total": 985.0
+    },
+    "cot-oracle-paper-ablation-ours-3layers": {
+      "correct_rate": 0.22030456852791877,
+      "hallucination_rate": 0.7086294416243655,
+      "obvious_hallucination_rate": 0.2609137055837564,
+      "vague_rate": 0.07106598984771574,
+      "correct": 217,
+      "vague": 70,
+      "plausible_but_wrong": 441,
+      "obviously_wrong": 257,
+      "total": 985.0
+    },
+    "cot-oracle-qwen3-8b-final-sprint-checkpoint-no-DPO": {
+      "correct_rate": 0.20609137055837565,
+      "hallucination_rate": 0.7258883248730964,
+      "obvious_hallucination_rate": 0.26802030456852793,
+      "vague_rate": 0.06802030456852792,
+      "correct": 203,
+      "vague": 67,
+      "plausible_but_wrong": 451,
+      "obviously_wrong": 264,
+      "total": 985.0
+    }
+  },
+  "num_entries": 8,
+  "num_scored": 7880,
+  "rejudged": true
+}

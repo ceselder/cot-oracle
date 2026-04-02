@@ -1,0 +1,88 @@
+{
+  "overall_metrics": {
+    "mean_specificity": 2.4460659898477157,
+    "mean_correctness": 2.329314720812183,
+    "specificity_>=3_rate": 0.46256345177664976,
+    "specificity_>=4_rate": 0.1453045685279188,
+    "correctness_>=3_rate": 0.39720812182741116,
+    "correctness_>=4_rate": 0.1649746192893401,
+    "num_scored": 197.0
+  },
+  "metrics_by_verbalizer": {
+    "adam-reupload-qwen3-8b-full-mix-synthetic-qa-v3-replace-lqa": {
+      "mean_specificity": 2.4619289340101522,
+      "mean_correctness": 2.2081218274111674,
+      "specificity_>=3_rate": 0.4467005076142132,
+      "specificity_>=4_rate": 0.19796954314720813,
+      "correctness_>=3_rate": 0.3248730964467005,
+      "correctness_>=4_rate": 0.16751269035532995,
+      "num_scored": 197.0
+    },
+    "adam-reupload-qwen3-8b-latentqa-cls-past-lens": {
+      "mean_specificity": 2.532994923857868,
+      "mean_correctness": 2.49746192893401,
+      "specificity_>=3_rate": 0.49238578680203043,
+      "specificity_>=4_rate": 0.18274111675126903,
+      "correctness_>=3_rate": 0.45685279187817257,
+      "correctness_>=4_rate": 0.22842639593908629,
+      "num_scored": 197.0
+    },
+    "cot-oracle-grpo-step-500": {
+      "mean_specificity": 2.6192893401015227,
+      "mean_correctness": 2.563451776649746,
+      "specificity_>=3_rate": 0.5634517766497462,
+      "specificity_>=4_rate": 0.15228426395939088,
+      "correctness_>=3_rate": 0.49238578680203043,
+      "correctness_>=4_rate": 0.20304568527918782,
+      "num_scored": 197.0
+    },
+    "cot-oracle-paper-ablation-adam-recipe-1layer": {
+      "mean_specificity": 2.0609137055837565,
+      "mean_correctness": 2.1319796954314723,
+      "specificity_>=3_rate": 0.28426395939086296,
+      "specificity_>=4_rate": 0.04060913705583756,
+      "correctness_>=3_rate": 0.3350253807106599,
+      "correctness_>=4_rate": 0.1065989847715736,
+      "num_scored": 197.0
+    },
+    "cot-oracle-paper-ablation-ours-1layer": {
+      "mean_specificity": 2.279187817258883,
+      "mean_correctness": 2.238578680203046,
+      "specificity_>=3_rate": 0.39593908629441626,
+      "specificity_>=4_rate": 0.12690355329949238,
+      "correctness_>=3_rate": 0.3756345177664975,
+      "correctness_>=4_rate": 0.14213197969543148,
+      "num_scored": 197.0
+    },
+    "cot-oracle-paper-ablation-ours-3layers-onpolicy-lens-only": {
+      "mean_specificity": 2.50253807106599,
+      "mean_correctness": 2.3045685279187818,
+      "specificity_>=3_rate": 0.49238578680203043,
+      "specificity_>=4_rate": 0.13705583756345177,
+      "correctness_>=3_rate": 0.39086294416243655,
+      "correctness_>=4_rate": 0.14213197969543148,
+      "num_scored": 197.0
+    },
+    "cot-oracle-paper-ablation-ours-3layers": {
+      "mean_specificity": 2.5380710659898478,
+      "mean_correctness": 2.3654822335025383,
+      "specificity_>=3_rate": 0.5380710659898477,
+      "specificity_>=4_rate": 0.15228426395939088,
+      "correctness_>=3_rate": 0.4365482233502538,
+      "correctness_>=4_rate": 0.16751269035532995,
+      "num_scored": 197.0
+    },
+    "cot-oracle-qwen3-8b-final-sprint-checkpoint-no-DPO": {
+      "mean_specificity": 2.5736040609137056,
+      "mean_correctness": 2.3248730964467006,
+      "specificity_>=3_rate": 0.4873096446700508,
+      "specificity_>=4_rate": 0.17258883248730963,
+      "correctness_>=3_rate": 0.36548223350253806,
+      "correctness_>=4_rate": 0.16243654822335024,
+      "num_scored": 197.0
+    }
+  },
+  "num_entries": 8,
+  "num_scored": 1576,
+  "rejudged": true
+}

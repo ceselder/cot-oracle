@@ -1,0 +1,414 @@
+{
+  "verbalizer": "ceselder/cot-oracle-paper-ablation-ours-3layers",
+  "raw_only": true,
+  "metrics": null,
+  "max_entries_per_condition": null,
+  "pairs": [
+    {
+      "problem_id": "pool_border",
+      "prompt_name": "reasoning_state",
+      "problem_text": "A rectangular swimming pool has an area of 250 square meters. A 2-meter-wide concrete border surrounds the pool on all sides. What is the total area of just the concrete border?",
+      "missing_info_description": "The individual length and width of the pool (only total area given)",
+      "response_a": "The model is currently re-evaluating its calculation of the area of the strip. It is considering whether the strip's area is correctly calculated as the area of the outer rectangle minus the area of the inner rectangle.",
+      "response_c": "The model is currently trying to determine the area of the border by calculating the area of the entire square (including the border) and subtracting the area of the inner garden. It is also considering an alternative approach of calculating the area of the border by considering the four sides.",
+      "verbalizer": "cot-oracle-paper-ablation-ours-3layers"
+    },
+    {
+      "problem_id": "pool_border",
+      "prompt_name": "confused",
+      "problem_text": "A rectangular swimming pool has an area of 250 square meters. A 2-meter-wide concrete border surrounds the pool on all sides. What is the total area of just the concrete border?",
+      "missing_info_description": "The individual length and width of the pool (only total area given)",
+      "response_a": "The model is uncertain about whether to calculate the area of the border by subtracting the inner rectangle from the outer rectangle or by calculating the area of the four sides and the four corners. It also seems to be double-checking its calculations and the interpretation of the problem.",
+      "response_c": "The model is uncertain about whether to calculate the area of the border by subtracting the area of the garden from the area of the entire plot, or by calculating the area of the four borders separately. It also seems to be struggling with the algebraic representation of the border's dimensions.",
+      "verbalizer": "cot-oracle-paper-ablation-ours-3layers"
+    },
+    {
+      "problem_id": "pool_border",
+      "prompt_name": "info",
+      "problem_text": "A rectangular swimming pool has an area of 250 square meters. A 2-meter-wide concrete border surrounds the pool on all sides. What is the total area of just the concrete border?",
+      "missing_info_description": "The individual length and width of the pool (only total area given)",
+      "response_a": "The model has information about the dimensions of the field (20m by 15m), the width of the path (2m), and the area of the path (236 m\u00b2). It also has information about the area of the outer rectangle (300 m\u00b2) and the area of the inner rectangle (26 m\u00b2).",
+      "response_c": "The model has information about the side length of the square garden, the width of the path, and the total area of the garden including the path. It also has information about the area of the garden itself.",
+      "verbalizer": "cot-oracle-paper-ablation-ours-3layers"
+    },
+    {
+      "problem_id": "pool_border",
+      "prompt_name": "reasoning_state",
+      "problem_text": "A rectangular swimming pool has an area of 250 square meters. A 2-meter-wide concrete border surrounds the pool on all sides. What is the total area of just the concrete border?",
+      "missing_info_description": "The individual length and width of the pool (only total area given)",
+      "response_a": "The model is currently re-evaluating its calculation of the area of the strip. It is considering whether the strip's area is correctly calculated as the area of the outer rectangle minus the area of the inner rectangle.",
+      "response_c": "The model is currently trying to find the area of the path by considering the difference between the area of the outer square and the inner square. It is also exploring the possibility of using the perimeter of the inner square and the width of the path to calculate the area.",
+      "verbalizer": "cot-oracle-paper-ablation-ours-3layers"
+    },
+    {
+      "problem_id": "pool_border",
+      "prompt_name": "confused",
+      "problem_text": "A rectangular swimming pool has an area of 250 square meters. A 2-meter-wide concrete border surrounds the pool on all sides. What is the total area of just the concrete border?",
+      "missing_info_description": "The individual length and width of the pool (only total area given)",
+      "response_a": "The model is uncertain about whether to calculate the area of the border by subtracting the inner rectangle from the outer rectangle or by calculating the area of the four sides and the four corners. It also seems to be double-checking its calculations and the interpretation of the problem.",
+      "response_c": "The model is uncertain about the exact dimensions of the garden and the width of the path. It attempts to derive a general formula but gets stuck, indicating a need for more information or a different approach.",
+      "verbalizer": "cot-oracle-paper-ablation-ours-3layers"
+    },
+    {
+      "problem_id": "pool_border",
+      "prompt_name": "info",
+      "problem_text": "A rectangular swimming pool has an area of 250 square meters. A 2-meter-wide concrete border surrounds the pool on all sides. What is the total area of just the concrete border?",
+      "missing_info_description": "The individual length and width of the pool (only total area given)",
+      "response_a": "The model has information about the dimensions of the field (20m by 15m), the width of the path (2m), and the area of the path (236 m\u00b2). It also has information about the area of the outer rectangle (300 m\u00b2) and the area of the inner rectangle (26 m\u00b2).",
+      "response_c": "The model has information about the dimensions of the garden and the width of the path. It also has information about the area of the garden and the area of the garden plus the path.",
+      "verbalizer": "cot-oracle-paper-ablation-ours-3layers"
+    },
+    {
+      "problem_id": "room_cats",
+      "prompt_name": "reasoning_state",
+      "problem_text": "How many cats can fit in my room? The room is a rectangle with total area 81.5 m\u00b2. My fox sits in one corner. Cats cannot be within 5m of the fox. Each cat occupies 0.5 m\u00b2. How many cats can fit outside the fox's zone?",
+      "missing_info_description": "The room dimensions (length and width)",
+      "response_a": "The model is currently trying to determine the number of cats that can fit outside the circle, considering the area of the square minus the area of the circle. It is also considering potential issues with overlapping cats and the need to round down the calculated number.",
+      "response_c": "The model is currently trying to determine the minimum area of the room to ensure that the cats can fit outside the square. It is considering the worst-case scenario where the room's dimensions are just enough to allow the square to be placed such that the cats can fit outside.",
+      "verbalizer": "cot-oracle-paper-ablation-ours-3layers"
+    },
+    {
+      "problem_id": "room_cats",
+      "prompt_name": "confused",
+      "problem_text": "How many cats can fit in my room? The room is a rectangle with total area 81.5 m\u00b2. My fox sits in one corner. Cats cannot be within 5m of the fox. Each cat occupies 0.5 m\u00b2. How many cats can fit outside the fox's zone?",
+      "missing_info_description": "The room dimensions (length and width)",
+      "response_a": "The model is uncertain about whether the cats can be perfectly packed without any wasted space, as it initially calculates the number of cats based on the total area of the room. It then questions if the cats can be packed without overlapping, which is a valid concern.",
+      "response_c": "The model is uncertain about the exact dimensions of the room, as it only knows the area (180 square meters) and the minimum distance from the walls (10 meters). It correctly identifies that without knowing the room's length and width, the number of cats that can fit outside the 10-meter zone cannot be determined.",
+      "verbalizer": "cot-oracle-paper-ablation-ours-3layers"
+    },
+    {
+      "problem_id": "room_cats",
+      "prompt_name": "info",
+      "problem_text": "How many cats can fit in my room? The room is a rectangle with total area 81.5 m\u00b2. My fox sits in one corner. Cats cannot be within 5m of the fox. Each cat occupies 0.5 m\u00b2. How many cats can fit outside the fox's zone?",
+      "missing_info_description": "The room dimensions (length and width)",
+      "response_a": "The model has information about the total area of the room, the area of the square table, and the area of the square table's legs. It also knows the area of the square table's legs is negligible.",
+      "response_c": "The model has information about the room's dimensions (length L, width W, height H), the height of the ceiling fan (h), and the fact that the ceiling fan is located at the center of the ceiling. It also knows that the ceiling fan's height is less than the room's height.",
+      "verbalizer": "cot-oracle-paper-ablation-ours-3layers"
+    },
+    {
+      "problem_id": "box_diagonal",
+      "prompt_name": "reasoning_state",
+      "problem_text": "A rectangular box has a volume of 144 cubic meters. What is the length of the longest straight rod that can fit inside the box?",
+      "missing_info_description": "The individual dimensions of the box (only volume given)",
+      "response_a": "The model is currently considering the possibility of a diagonal in a different orientation, specifically a space diagonal, and is trying to determine if it's longer than the face diagonal. It is also re-evaluating the calculation for the space diagonal.",
+      "response_c": "The model is currently considering the possibility of a longer diagonal by exploring different ratios of length to width. It is testing specific examples and attempting to find a pattern or a way to maximize the diagonal.",
+      "verbalizer": "cot-oracle-paper-ablation-ours-3layers"
+    },
+    {
+      "problem_id": "box_diagonal",
+      "prompt_name": "confused",
+      "problem_text": "A rectangular box has a volume of 144 cubic meters. What is the length of the longest straight rod that can fit inside the box?",
+      "missing_info_description": "The individual dimensions of the box (only volume given)",
+      "response_a": "The model is uncertain about whether the longest diagonal is indeed the space diagonal. It seems to be double-checking its understanding of what constitutes a diagonal in a rectangular prism.",
+      "response_c": "The model is uncertain about whether the maximum diagonal occurs at a specific ratio of length to width, and it's trying to verify this by testing different ratios. It also seems to be questioning if there's a mathematical proof or a more rigorous way to confirm its findings.",
+      "verbalizer": "cot-oracle-paper-ablation-ours-3layers"
+    },
+    {
+      "problem_id": "box_diagonal",
+      "prompt_name": "info",
+      "problem_text": "A rectangular box has a volume of 144 cubic meters. What is the length of the longest straight rod that can fit inside the box?",
+      "missing_info_description": "The individual dimensions of the box (only volume given)",
+      "response_a": "The model has information about the edge length of the cube, the formula for the space diagonal, and the calculation of the space diagonal. It also has information about the face diagonal and the calculation of the face diagonal.",
+      "response_c": "The model has information about the problem, including the formula for the space diagonal of a rectangular prism and the constraint of a fixed surface area. It also has information about the maximum diagonal length and the corresponding dimensions.",
+      "verbalizer": "cot-oracle-paper-ablation-ours-3layers"
+    },
+    {
+      "problem_id": "wrap_present",
+      "prompt_name": "reasoning_state",
+      "problem_text": "I need to wrap a rectangular present with a total surface area of 5200 cm\u00b2. I need 3cm of overlap on each seam for taping. What is the minimum area of wrapping paper I need?",
+      "missing_info_description": "The individual dimensions of the present (only surface area given)",
+      "response_a": "The model is currently trying to understand the problem by considering different ways to wrap the box, specifically focusing on the \"overlapping\" part of the paper. It is trying to visualize how the paper would need to be cut and folded to cover the box, and is considering the implications of the \"overlapping\" requirement.",
+      "response_c": "The model is currently trying to understand how the overlap affects the total area of paper needed. It is considering whether the overlap is an additional area to be covered or if it's simply a part of the existing area calculation. The model is also trying to visualize the problem and is considering different ways to calculate the area.",
+      "verbalizer": "cot-oracle-paper-ablation-ours-3layers"
+    },
+    {
+      "problem_id": "wrap_present",
+      "prompt_name": "confused",
+      "problem_text": "I need to wrap a rectangular present with a total surface area of 5200 cm\u00b2. I need 3cm of overlap on each seam for taping. What is the minimum area of wrapping paper I need?",
+      "missing_info_description": "The individual dimensions of the present (only surface area given)",
+      "response_a": "The model is uncertain about how to account for the overlap when wrapping the box with a single sheet of paper. It seems to be struggling with visualizing the three-dimensional box and how the paper would be cut and folded to cover it.",
+      "response_c": "The model is uncertain about how to incorporate the overlap into the calculation of the total area of paper needed. It seems to be struggling with whether the overlap is an additional area to be covered or if it's simply a part of the existing area.",
+      "verbalizer": "cot-oracle-paper-ablation-ours-3layers"
+    },
+    {
+      "problem_id": "wrap_present",
+      "prompt_name": "info",
+      "problem_text": "I need to wrap a rectangular present with a total surface area of 5200 cm\u00b2. I need 3cm of overlap on each seam for taping. What is the minimum area of wrapping paper I need?",
+      "missing_info_description": "The individual dimensions of the present (only surface area given)",
+      "response_a": "The model has information about the dimensions of the box (length, width, height), the thickness of the paper, and the fact that the paper is rectangular. It also has information about the overlap and the need to add extra length for the overlaps.",
+      "response_c": "The model knows that the box is a cube with a side length of 10 cm. It also knows that the paper has an overlap of 1 cm when pasted. The model is trying to determine the area of the paper required to cover the box.",
+      "verbalizer": "cot-oracle-paper-ablation-ours-3layers"
+    },
+    {
+      "problem_id": "wrap_present",
+      "prompt_name": "reasoning_state",
+      "problem_text": "I need to wrap a rectangular present with a total surface area of 5200 cm\u00b2. I need 3cm of overlap on each seam for taping. What is the minimum area of wrapping paper I need?",
+      "missing_info_description": "The individual dimensions of the present (only surface area given)",
+      "response_a": "The model is currently trying to understand the problem by considering different ways to wrap the box, specifically focusing on the \"overlapping\" part of the paper. It is trying to visualize how the paper would need to be cut and folded to cover the box, and is considering the implications of the \"overlapping\" requirement.",
+      "response_c": "The model is currently trying to visualize how the paper is wrapped around the box. It is considering the possibility of overlapping edges and how the paper might be folded to cover the box. The model is also thinking about the number of edges that need to be covered.",
+      "verbalizer": "cot-oracle-paper-ablation-ours-3layers"
+    },
+    {
+      "problem_id": "wrap_present",
+      "prompt_name": "confused",
+      "problem_text": "I need to wrap a rectangular present with a total surface area of 5200 cm\u00b2. I need 3cm of overlap on each seam for taping. What is the minimum area of wrapping paper I need?",
+      "missing_info_description": "The individual dimensions of the present (only surface area given)",
+      "response_a": "The model is uncertain about how to account for the overlap when wrapping the box with a single sheet of paper. It seems to be struggling with visualizing the three-dimensional box and how the paper would be cut and folded to cover it.",
+      "response_c": "The model is uncertain about the exact number of overlaps and how to calculate the total area of the paper. It seems to be trying to visualize the wrapping process and the resulting overlaps but is struggling to arrive at a definitive answer.",
+      "verbalizer": "cot-oracle-paper-ablation-ours-3layers"
+    },
+    {
+      "problem_id": "wrap_present",
+      "prompt_name": "info",
+      "problem_text": "I need to wrap a rectangular present with a total surface area of 5200 cm\u00b2. I need 3cm of overlap on each seam for taping. What is the minimum area of wrapping paper I need?",
+      "missing_info_description": "The individual dimensions of the present (only surface area given)",
+      "response_a": "The model has information about the dimensions of the box (length, width, height), the thickness of the paper, and the fact that the paper is rectangular. It also has information about the overlap and the need to add extra length for the overlaps.",
+      "response_c": "The model has information about the dimensions of the box (length, width, height) and the dimensions of the paper (length and width). It also knows that the paper must cover the box with no overlaps and no gaps, and that the paper is rectangular.",
+      "verbalizer": "cot-oracle-paper-ablation-ours-3layers"
+    },
+    {
+      "problem_id": "cone_volume",
+      "prompt_name": "reasoning_state",
+      "problem_text": "A cone has a lateral (side) surface area of 60\u03c0 cm\u00b2. What is the volume of the cone? Give your answer in terms of pi.",
+      "missing_info_description": "The base radius and slant height of the cone",
+      "response_a": "The model is currently re-evaluating its calculation of the slant height. It is questioning whether the slant height was correctly calculated using the Pythagorean theorem.",
+      "response_c": "The model is currently trying to solve for the length of the rectangle using the Pythagorean theorem. It has correctly set up the equation $L^2 + 12^2 = 13^2$ and is in the process of simplifying it.",
+      "verbalizer": "cot-oracle-paper-ablation-ours-3layers"
+    },
+    {
+      "problem_id": "cone_volume",
+      "prompt_name": "confused",
+      "problem_text": "A cone has a lateral (side) surface area of 60\u03c0 cm\u00b2. What is the volume of the cone? Give your answer in terms of pi.",
+      "missing_info_description": "The base radius and slant height of the cone",
+      "response_a": "The model is not confused or uncertain. It is confident in its calculations and the final answer. It re-verifies its steps and confirms the answer.",
+      "response_c": "The model is uncertain about whether to use the area formula directly or to first find the length of the diagonal. It also seems to be confused about the relationship between the diagonal and the sides of the rectangle.",
+      "verbalizer": "cot-oracle-paper-ablation-ours-3layers"
+    },
+    {
+      "problem_id": "cone_volume",
+      "prompt_name": "info",
+      "problem_text": "A cone has a lateral (side) surface area of 60\u03c0 cm\u00b2. What is the volume of the cone? Give your answer in terms of pi.",
+      "missing_info_description": "The base radius and slant height of the cone",
+      "response_a": "The model has information about the slant height, radius, and the formula for the curved surface area of a cone. It also knows the formula for the volume of a cone.",
+      "response_c": "The model knows the length of the rectangle (L = 10), the area of the rectangle (A = 60), and the relationship between the length and width (L = 2W). It also knows the formula for the diagonal (D\u00b2 = L\u00b2 + W\u00b2) and the relationship between the diagonal and the area (A = L * W).",
+      "verbalizer": "cot-oracle-paper-ablation-ours-3layers"
+    },
+    {
+      "problem_id": "cone_volume",
+      "prompt_name": "reasoning_state",
+      "problem_text": "A cone has a lateral (side) surface area of 60\u03c0 cm\u00b2. What is the volume of the cone? Give your answer in terms of pi.",
+      "missing_info_description": "The base radius and slant height of the cone",
+      "response_a": "The model is currently re-evaluating its calculation of the slant height. It is questioning whether the slant height was correctly calculated using the Pythagorean theorem.",
+      "response_c": "The model is currently calculating the value of $x$ by substituting the expressions for $r$ and $l$ into the equation $x = \\frac{r}{l} \\sqrt{l^2 - r^2}$. It has correctly substituted $r = \\frac{60}{\\pi}$ and $l = \\frac{10}{\\pi}$.",
+      "verbalizer": "cot-oracle-paper-ablation-ours-3layers"
+    },
+    {
+      "problem_id": "cone_volume",
+      "prompt_name": "confused",
+      "problem_text": "A cone has a lateral (side) surface area of 60\u03c0 cm\u00b2. What is the volume of the cone? Give your answer in terms of pi.",
+      "missing_info_description": "The base radius and slant height of the cone",
+      "response_a": "The model is not confused or uncertain. It is confident in its calculations and the final answer. It re-verifies its steps and confirms the answer.",
+      "response_c": "The model is uncertain about the correct interpretation of the problem statement, specifically whether the slant height is 10 or the radius is 6. It also seems confused about the relationship between the slant height, radius, and height of the cone.",
+      "verbalizer": "cot-oracle-paper-ablation-ours-3layers"
+    },
+    {
+      "problem_id": "cone_volume",
+      "prompt_name": "info",
+      "problem_text": "A cone has a lateral (side) surface area of 60\u03c0 cm\u00b2. What is the volume of the cone? Give your answer in terms of pi.",
+      "missing_info_description": "The base radius and slant height of the cone",
+      "response_a": "The model has information about the slant height, radius, and the formula for the curved surface area of a cone. It also knows the formula for the volume of a cone.",
+      "response_c": "The model has information about the slant height, radius, and height of the cone. It also has information about the cost of painting the curved surface area of the cone.",
+      "verbalizer": "cot-oracle-paper-ablation-ours-3layers"
+    },
+    {
+      "problem_id": "triangle_perimeter",
+      "prompt_name": "reasoning_state",
+      "problem_text": "A triangle has an area of approximately 34.98 cm\u00b2. What is the perimeter of the triangle, and what is its area using Heron's formula?",
+      "missing_info_description": "The individual side lengths of the triangle",
+      "response_a": "The model is currently verifying its calculation of the area using Heron's formula. It has already calculated the area as 120 and is now re-checking the steps to ensure accuracy.",
+      "response_c": "The model is currently trying to determine if there's a way to find the radius of the sphere given the provided information, but it's struggling to see a direct connection. It's considering if the problem might be missing information or if there's a trick involved.",
+      "verbalizer": "cot-oracle-paper-ablation-ours-3layers"
+    },
+    {
+      "problem_id": "triangle_perimeter",
+      "prompt_name": "confused",
+      "problem_text": "A triangle has an area of approximately 34.98 cm\u00b2. What is the perimeter of the triangle, and what is its area using Heron's formula?",
+      "missing_info_description": "The individual side lengths of the triangle",
+      "response_a": "The model is not confused or uncertain. It is confident in its calculations and the final answer. It re-verifies its steps and confirms the result.",
+      "response_c": "Yes, the model is confused. It is unsure whether the problem is asking for the radius of the sphere given the volume, or if there's a misunderstanding in the problem statement. It also questions if the volume is provided in a different unit or if there's a typo.",
+      "verbalizer": "cot-oracle-paper-ablation-ours-3layers"
+    },
+    {
+      "problem_id": "triangle_perimeter",
+      "prompt_name": "info",
+      "problem_text": "A triangle has an area of approximately 34.98 cm\u00b2. What is the perimeter of the triangle, and what is its area using Heron's formula?",
+      "missing_info_description": "The individual side lengths of the triangle",
+      "response_a": "The model has the side lengths of the triangle (a=13, b=14, c=15) and the coordinates of the vertices (A(0,0), B(14,0), C(13,12)). It also has the calculated area using Heron's formula (84) and the area using the shoelace formula (84).",
+      "response_c": "The model has information about the radius of the Earth, the distance from the center of the Earth to the satellite, and the orbital period of the satellite. It also has information about the radius of the Earth and the distance from the center of the Earth to the satellite, which are used to calculate the orbital period.",
+      "verbalizer": "cot-oracle-paper-ablation-ours-3layers"
+    },
+    {
+      "problem_id": "triangle_perimeter",
+      "prompt_name": "reasoning_state",
+      "problem_text": "A triangle has an area of approximately 34.98 cm\u00b2. What is the perimeter of the triangle, and what is its area using Heron's formula?",
+      "missing_info_description": "The individual side lengths of the triangle",
+      "response_a": "The model is currently verifying its calculation of the area using Heron's formula. It has already calculated the area as 120 and is now re-checking the steps to ensure accuracy.",
+      "response_c": "The model is currently trying to find the length of the altitude (h) given the area (A) and the perimeter (P) of a triangle. It is exploring different possibilities for the sides of the triangle, considering if they are integers or if there's a standard triangle type. The model is also considering if the problem might be missing information or if there's a standard assumption it's missing.",
+      "verbalizer": "cot-oracle-paper-ablation-ours-3layers"
+    },
+    {
+      "problem_id": "triangle_perimeter",
+      "prompt_name": "confused",
+      "problem_text": "A triangle has an area of approximately 34.98 cm\u00b2. What is the perimeter of the triangle, and what is its area using Heron's formula?",
+      "missing_info_description": "The individual side lengths of the triangle",
+      "response_a": "The model is not confused or uncertain. It is confident in its calculations and the final answer. It re-verifies its steps and confirms the result.",
+      "response_c": "Yes, the model is confused. It is unsure whether to use the given area to find the height, or if there's a standard height for an equilateral triangle that it should be using. It also seems to be struggling with the units and the relationship between the area and the side length.",
+      "verbalizer": "cot-oracle-paper-ablation-ours-3layers"
+    },
+    {
+      "problem_id": "triangle_perimeter",
+      "prompt_name": "info",
+      "problem_text": "A triangle has an area of approximately 34.98 cm\u00b2. What is the perimeter of the triangle, and what is its area using Heron's formula?",
+      "missing_info_description": "The individual side lengths of the triangle",
+      "response_a": "The model has the side lengths of the triangle (a=13, b=14, c=15) and the coordinates of the vertices (A(0,0), B(14,0), C(13,12)). It also has the calculated area using Heron's formula (84) and the area using the shoelace formula (84).",
+      "response_c": "The model has information about the area of the triangle and the length of one side. It also knows the formula for the area of a triangle in terms of its base and height.",
+      "verbalizer": "cot-oracle-paper-ablation-ours-3layers"
+    },
+    {
+      "problem_id": "field_diagonal",
+      "prompt_name": "reasoning_state",
+      "problem_text": "A rectangular field has an area of 6000 square meters. A person walks diagonally from one corner to the opposite corner. How much shorter is the diagonal path compared to walking along two sides?",
+      "missing_info_description": "The individual length and width of the field",
+      "response_a": "The model is currently verifying its calculations and considering potential misinterpretations of the problem statement. It is also exploring alternative approaches to confirm its answer.",
+      "response_c": "The model is currently trying to find the value of 'b' by setting up an equation using the given information about the perimeter and area of the rectangle. It has correctly derived the equation $120b = 1200 + 20b^2$ and is attempting to solve for 'b'.",
+      "verbalizer": "cot-oracle-paper-ablation-ours-3layers"
+    },
+    {
+      "problem_id": "field_diagonal",
+      "prompt_name": "confused",
+      "problem_text": "A rectangular field has an area of 6000 square meters. A person walks diagonally from one corner to the opposite corner. How much shorter is the diagonal path compared to walking along two sides?",
+      "missing_info_description": "The individual length and width of the field",
+      "response_a": "The model is uncertain about whether the calculated distance of 100 meters is correct. It re-calculates the distance using the Pythagorean theorem and confirms it, but then questions if the problem might be in different units.",
+      "response_c": "The model is uncertain about how to proceed after calculating the sum of the lengths and widths. It seems to be stuck trying to find a relationship between the sum of lengths and widths and the sum of their squares.",
+      "verbalizer": "cot-oracle-paper-ablation-ours-3layers"
+    },
+    {
+      "problem_id": "field_diagonal",
+      "prompt_name": "info",
+      "problem_text": "A rectangular field has an area of 6000 square meters. A person walks diagonally from one corner to the opposite corner. How much shorter is the diagonal path compared to walking along two sides?",
+      "missing_info_description": "The individual length and width of the field",
+      "response_a": "The model has information about the original rectangle's dimensions (length 120m, breadth 90m), the diagonal of the rectangle (150m), the diagonal of the square (150m), the side length of the square (106.066m), and the area of the square (11250m\u00b2). It also has the area of the rectangle (10800m\u00b2) and the difference in area (450m\u00b2).",
+      "response_c": "The model has information about the length and breadth of the field, the speed of the man, and the time taken to cross the field. It also has information about the diagonal of the field and the relationship between the diagonal, length, and breadth.",
+      "verbalizer": "cot-oracle-paper-ablation-ours-3layers"
+    },
+    {
+      "problem_id": "field_diagonal",
+      "prompt_name": "reasoning_state",
+      "problem_text": "A rectangular field has an area of 6000 square meters. A person walks diagonally from one corner to the opposite corner. How much shorter is the diagonal path compared to walking along two sides?",
+      "missing_info_description": "The individual length and width of the field",
+      "response_a": "The model is currently verifying its calculations and considering potential misinterpretations of the problem statement. It is also exploring alternative approaches to confirm its answer.",
+      "response_c": "The model is currently trying to find a relationship between the perimeter and the diagonal of a rectangle, given that the area is fixed. It has derived an expression for the diagonal in terms of the perimeter and the area, but is struggling to find a direct relationship between the perimeter and the diagonal.",
+      "verbalizer": "cot-oracle-paper-ablation-ours-3layers"
+    },
+    {
+      "problem_id": "field_diagonal",
+      "prompt_name": "confused",
+      "problem_text": "A rectangular field has an area of 6000 square meters. A person walks diagonally from one corner to the opposite corner. How much shorter is the diagonal path compared to walking along two sides?",
+      "missing_info_description": "The individual length and width of the field",
+      "response_a": "The model is uncertain about whether the calculated distance of 100 meters is correct. It re-calculates the distance using the Pythagorean theorem and confirms it, but then questions if the problem might be in different units.",
+      "response_c": "The model is uncertain about how to proceed with the problem, as it seems to be stuck trying to find a relationship between the sides of the rectangle and the diagonal. It is exploring different approaches, including using the Pythagorean theorem and considering the area, but hasn't yet found a clear path to the solution.",
+      "verbalizer": "cot-oracle-paper-ablation-ours-3layers"
+    },
+    {
+      "problem_id": "field_diagonal",
+      "prompt_name": "info",
+      "problem_text": "A rectangular field has an area of 6000 square meters. A person walks diagonally from one corner to the opposite corner. How much shorter is the diagonal path compared to walking along two sides?",
+      "missing_info_description": "The individual length and width of the field",
+      "response_a": "The model has information about the original rectangle's dimensions (length 120m, breadth 90m), the diagonal of the rectangle (150m), the diagonal of the square (150m), the side length of the square (106.066m), and the area of the square (11250m\u00b2). It also has the area of the rectangle (10800m\u00b2) and the difference in area (450m\u00b2).",
+      "response_c": "The model has information about the problem's statement, the variables involved (length, breadth, diagonal), and the derived formula for the diagonal. It also explores the relationship between the diagonal and the perimeter, and the potential for a direct formula.",
+      "verbalizer": "cot-oracle-paper-ablation-ours-3layers"
+    },
+    {
+      "problem_id": "paint_walls",
+      "prompt_name": "reasoning_state",
+      "problem_text": "A room has a total wall surface area of 54 square meters. Each wall needs two coats of paint. One liter of paint covers 10 square meters. How many liters of paint are needed for all four walls (not the ceiling or floor)?",
+      "missing_info_description": "The individual length, width, and height of the room (only total wall area given)",
+      "response_a": "The model is currently calculating the total area to be painted and then determining the number of liters of paint needed. It has correctly calculated the total area as 1200 square meters and is now in the process of dividing this by the coverage per liter (12 m\u00b2/liter) to find the number of liters.",
+      "response_c": "The model is currently calculating the total area to be painted, which is 1200 square feet. It is then preparing to calculate the amount of paint needed by dividing the total area by the coverage per liter.",
+      "verbalizer": "cot-oracle-paper-ablation-ours-3layers"
+    },
+    {
+      "problem_id": "paint_walls",
+      "prompt_name": "confused",
+      "problem_text": "A room has a total wall surface area of 54 square meters. Each wall needs two coats of paint. One liter of paint covers 10 square meters. How many liters of paint are needed for all four walls (not the ceiling or floor)?",
+      "missing_info_description": "The individual length, width, and height of the room (only total wall area given)",
+      "response_a": "The model is uncertain about whether to add the 10% extra paint to the total area or to the total liters of paint. It explores both possibilities but ultimately concludes that the 10% is an extra amount, not an extra area.",
+      "response_c": "The model is uncertain about whether to multiply the total area by the number of coats or divide by the coverage per liter. It seems to be trying to determine the correct operation based on the problem statement.",
+      "verbalizer": "cot-oracle-paper-ablation-ours-3layers"
+    },
+    {
+      "problem_id": "paint_walls",
+      "prompt_name": "info",
+      "problem_text": "A room has a total wall surface area of 54 square meters. Each wall needs two coats of paint. One liter of paint covers 10 square meters. How many liters of paint are needed for all four walls (not the ceiling or floor)?",
+      "missing_info_description": "The individual length, width, and height of the room (only total wall area given)",
+      "response_a": "The model has information about the dimensions of the wall, the number of coats of paint, the coverage of one liter of paint, and the cost of one liter of paint. It also has information about the area of the wall and the total area to be painted.",
+      "response_c": "The model has information about the dimensions of the walls, the number of coats of paint, the coverage of one liter of paint, and the cost of one liter of paint. It also has information about the area of the ceiling and the cost of one liter of paint for the ceiling.",
+      "verbalizer": "cot-oracle-paper-ablation-ours-3layers"
+    },
+    {
+      "problem_id": "trapezoid_area",
+      "prompt_name": "reasoning_state",
+      "problem_text": "A trapezoid has a perimeter of 36cm. What is the area of the trapezoid, and what is its perimeter if the non-parallel sides are each 7cm long?",
+      "missing_info_description": "The parallel side lengths and height of the trapezoid",
+      "response_a": "The model is currently verifying its calculation of the legs' length using the Pythagorean theorem. It is also checking if the given leg length of 6 cm is consistent with the calculated length.",
+      "response_c": "The model is currently trying to determine the area of a trapezoid with given side lengths and a height, but it's confused because the problem statement seems to provide all necessary information for calculating the area. It's also questioning the relevance of the side lengths if the height is already given.",
+      "verbalizer": "cot-oracle-paper-ablation-ours-3layers"
+    },
+    {
+      "problem_id": "trapezoid_area",
+      "prompt_name": "confused",
+      "problem_text": "A trapezoid has a perimeter of 36cm. What is the area of the trapezoid, and what is its perimeter if the non-parallel sides are each 7cm long?",
+      "missing_info_description": "The parallel side lengths and height of the trapezoid",
+      "response_a": "The model is confused about whether the legs of the trapezoid are equal to the side length of the square or if they are different. It also seems uncertain about the correct interpretation of the problem statement regarding the legs and the side length.",
+      "response_c": "Yes, the model is confused. It is unsure whether to calculate the area of the trapezoid or the rhombus, and it is also questioning if the trapezoid is a rhombus.",
+      "verbalizer": "cot-oracle-paper-ablation-ours-3layers"
+    },
+    {
+      "problem_id": "trapezoid_area",
+      "prompt_name": "info",
+      "problem_text": "A trapezoid has a perimeter of 36cm. What is the area of the trapezoid, and what is its perimeter if the non-parallel sides are each 7cm long?",
+      "missing_info_description": "The parallel side lengths and height of the trapezoid",
+      "response_a": "The model has information about the side length of the rhombus, the length of the diagonal, and the calculated length of the legs. It also notes a discrepancy between the calculated leg length and the given leg length.",
+      "response_c": "The model has information about the perimeter of the trapezoid, the lengths of the non-parallel sides, and the height. It also has information about the area of the trapezoid and the lengths of the parallel sides.",
+      "verbalizer": "cot-oracle-paper-ablation-ours-3layers"
+    },
+    {
+      "problem_id": "trapezoid_area",
+      "prompt_name": "reasoning_state",
+      "problem_text": "A trapezoid has a perimeter of 36cm. What is the area of the trapezoid, and what is its perimeter if the non-parallel sides are each 7cm long?",
+      "missing_info_description": "The parallel side lengths and height of the trapezoid",
+      "response_a": "The model is currently verifying its calculation of the legs' length using the Pythagorean theorem. It is also checking if the given leg length of 6 cm is consistent with the calculated length.",
+      "response_c": "The model is currently in the process of re-evaluating the problem statement and its implications. It is considering the possibility of a typo in the problem and exploring alternative interpretations, such as the possibility of a right triangle or a different type of trapezoid.",
+      "verbalizer": "cot-oracle-paper-ablation-ours-3layers"
+    },
+    {
+      "problem_id": "trapezoid_area",
+      "prompt_name": "confused",
+      "problem_text": "A trapezoid has a perimeter of 36cm. What is the area of the trapezoid, and what is its perimeter if the non-parallel sides are each 7cm long?",
+      "missing_info_description": "The parallel side lengths and height of the trapezoid",
+      "response_a": "The model is confused about whether the legs of the trapezoid are equal to the side length of the square or if they are different. It also seems uncertain about the correct interpretation of the problem statement regarding the legs and the side length.",
+      "response_c": "The model is confused about the relationship between the perimeter, the sum of the legs, and the sum of the bases. It correctly calculates the sum of the bases (100) but then incorrectly assumes the sum of the legs is 100, leading to a contradiction.",
+      "verbalizer": "cot-oracle-paper-ablation-ours-3layers"
+    },
+    {
+      "problem_id": "trapezoid_area",
+      "prompt_name": "info",
+      "problem_text": "A trapezoid has a perimeter of 36cm. What is the area of the trapezoid, and what is its perimeter if the non-parallel sides are each 7cm long?",
+      "missing_info_description": "The parallel side lengths and height of the trapezoid",
+      "response_a": "The model has information about the side length of the rhombus, the length of the diagonal, and the calculated length of the legs. It also notes a discrepancy between the calculated leg length and the given leg length.",
+      "response_c": "The model has information about the perimeter of the isosceles trapezoid, the area of the trapezoid, and the height of the trapezoid. It also has information about the sum of the bases.",
+      "verbalizer": "cot-oracle-paper-ablation-ours-3layers"
+    }
+  ],
+  "scored_results": []
+}

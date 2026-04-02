@@ -1,0 +1,88 @@
+{
+  "overall_metrics": {
+    "full_seq_accuracy": 0.336,
+    "full_seq_total": 16000.0,
+    "segment_accuracy": 0.418,
+    "segment_total": 16000.0,
+    "single_token_accuracy": 0.4680625,
+    "single_token_total": 16000.0,
+    "accuracy": 0.4073541666666667
+  },
+  "metrics_by_verbalizer": {
+    "adam-reupload-qwen3-8b-latentqa-cls-past-lens": {
+      "full_seq_accuracy": 0.2865,
+      "full_seq_total": 2000.0,
+      "segment_accuracy": 0.456,
+      "segment_total": 2000.0,
+      "single_token_accuracy": 0.4965,
+      "single_token_total": 2000.0,
+      "accuracy": 0.413
+    },
+    "adam-reupload-qwen3-8b-full-mix-synthetic-qa-v3-replace-lqa": {
+      "full_seq_accuracy": 0.435,
+      "full_seq_total": 2000.0,
+      "segment_accuracy": 0.4935,
+      "segment_total": 2000.0,
+      "single_token_accuracy": 0.5055,
+      "single_token_total": 2000.0,
+      "accuracy": 0.478
+    },
+    "cot-oracle-paper-ablation-adam-recipe-1layer": {
+      "full_seq_accuracy": 0.159,
+      "full_seq_total": 2000.0,
+      "segment_accuracy": 0.285,
+      "segment_total": 2000.0,
+      "single_token_accuracy": 0.395,
+      "single_token_total": 2000.0,
+      "accuracy": 0.2796666666666667
+    },
+    "cot-oracle-paper-ablation-ours-1layer": {
+      "full_seq_accuracy": 0.2895,
+      "full_seq_total": 2000.0,
+      "segment_accuracy": 0.3805,
+      "segment_total": 2000.0,
+      "single_token_accuracy": 0.446,
+      "single_token_total": 2000.0,
+      "accuracy": 0.372
+    },
+    "cot-oracle-paper-ablation-ours-3layers": {
+      "full_seq_accuracy": 0.3975,
+      "full_seq_total": 2000.0,
+      "segment_accuracy": 0.435,
+      "segment_total": 2000.0,
+      "single_token_accuracy": 0.4535,
+      "single_token_total": 2000.0,
+      "accuracy": 0.42866666666666664
+    },
+    "cot-oracle-paper-ablation-ours-3layers-onpolicy-lens-only": {
+      "full_seq_accuracy": 0.3395,
+      "full_seq_total": 2000.0,
+      "segment_accuracy": 0.4075,
+      "segment_total": 2000.0,
+      "single_token_accuracy": 0.4735,
+      "single_token_total": 2000.0,
+      "accuracy": 0.4068333333333333
+    },
+    "cot-oracle-qwen3-8b-final-sprint-checkpoint-no-DPO": {
+      "full_seq_accuracy": 0.418,
+      "full_seq_total": 2000.0,
+      "segment_accuracy": 0.458,
+      "segment_total": 2000.0,
+      "single_token_accuracy": 0.5015,
+      "single_token_total": 2000.0,
+      "accuracy": 0.45916666666666667
+    },
+    "cot-oracle-grpo-step-500": {
+      "full_seq_accuracy": 0.363,
+      "full_seq_total": 2000.0,
+      "segment_accuracy": 0.4285,
+      "segment_total": 2000.0,
+      "single_token_accuracy": 0.473,
+      "single_token_total": 2000.0,
+      "accuracy": 0.4215
+    }
+  },
+  "num_results": 48000,
+  "truncated": false,
+  "elapsed_seconds": 1918.126253498951
+}

@@ -1,0 +1,114 @@
+{
+  "adam-reupload-qwen3-8b-latentqa-cls-past-lens": {
+    "mean_normalized_score": 0.30429074074074075,
+    "num_evals": 6,
+    "per_eval_normalized": {
+      "taboo": 0.413,
+      "personaqa": 0.10611111111111111,
+      "number_prediction": 0.006666666666666667,
+      "mmlu_prediction": 0.3780000000000001,
+      "missing_info": 0.2866666666666666,
+      "sycophancy": 0.6353
+    },
+    "ci_lo": 0.22685410598500932,
+    "ci_hi": 0.3688017722153963
+  },
+  "adam-reupload-qwen3-8b-full-mix-synthetic-qa-v3-replace-lqa": {
+    "mean_normalized_score": 0.34608240740740737,
+    "num_evals": 6,
+    "per_eval_normalized": {
+      "taboo": 0.478,
+      "personaqa": 0.17222222222222222,
+      "number_prediction": 0.03333333333333333,
+      "mmlu_prediction": 0.38359999999999994,
+      "missing_info": 0.288888888888889,
+      "sycophancy": 0.72045
+    },
+    "ci_lo": 0.26863443632909906,
+    "ci_hi": 0.4109416279026847
+  },
+  "cot-oracle-paper-ablation-adam-recipe-1layer": {
+    "mean_normalized_score": 0.21721388888888885,
+    "num_evals": 6,
+    "per_eval_normalized": {
+      "taboo": 0.2796666666666667,
+      "personaqa": 0.07388888888888889,
+      "number_prediction": 0.013333333333333334,
+      "mmlu_prediction": 0.2225999999999999,
+      "missing_info": 0.1644444444444444,
+      "sycophancy": 0.54935
+    },
+    "ci_lo": 0.14208968317916554,
+    "ci_hi": 0.28673094334478016
+  },
+  "cot-oracle-paper-ablation-ours-1layer": {
+    "mean_normalized_score": 0.32813055555555554,
+    "num_evals": 6,
+    "per_eval_normalized": {
+      "taboo": 0.372,
+      "personaqa": 0.08555555555555555,
+      "number_prediction": 0.03333333333333333,
+      "mmlu_prediction": 0.40920000000000023,
+      "missing_info": 0.4444444444444442,
+      "sycophancy": 0.62425
+    },
+    "ci_lo": 0.25440202753257163,
+    "ci_hi": 0.38700094063395873
+  },
+  "cot-oracle-paper-ablation-ours-3layers": {
+    "mean_normalized_score": 0.3186138888888889,
+    "num_evals": 6,
+    "per_eval_normalized": {
+      "taboo": 0.42866666666666664,
+      "personaqa": 0.17,
+      "number_prediction": 0.04,
+      "mmlu_prediction": 0.359,
+      "missing_info": 0.46666666666666656,
+      "sycophancy": 0.44735000000000014
+    },
+    "ci_lo": 0.2393949076729715,
+    "ci_hi": 0.37823849839967955
+  },
+  "cot-oracle-paper-ablation-ours-3layers-onpolicy-lens-only": {
+    "mean_normalized_score": 0.3384879629629629,
+    "num_evals": 6,
+    "per_eval_normalized": {
+      "taboo": 0.4068333333333333,
+      "personaqa": 0.13944444444444445,
+      "number_prediction": 0.07333333333333333,
+      "mmlu_prediction": 0.4453999999999998,
+      "missing_info": 0.4866666666666668,
+      "sycophancy": 0.47924999999999995
+    },
+    "ci_lo": 0.26506282881619947,
+    "ci_hi": 0.3996633127289419
+  },
+  "cot-oracle-qwen3-8b-final-sprint-checkpoint-no-DPO": {
+    "mean_normalized_score": 0.3207083333333333,
+    "num_evals": 6,
+    "per_eval_normalized": {
+      "taboo": 0.45916666666666667,
+      "personaqa": 0.11944444444444445,
+      "number_prediction": 0.04666666666666667,
+      "mmlu_prediction": 0.4072,
+      "missing_info": 0.42222222222222205,
+      "sycophancy": 0.4695499999999999
+    },
+    "ci_lo": 0.2469988089850216,
+    "ci_hi": 0.3842234120480164
+  },
+  "cot-oracle-grpo-step-500": {
+    "mean_normalized_score": 0.33678796296296293,
+    "num_evals": 6,
+    "per_eval_normalized": {
+      "taboo": 0.4215,
+      "personaqa": 0.08611111111111111,
+      "number_prediction": 0.03333333333333333,
+      "mmlu_prediction": 0.45940000000000003,
+      "missing_info": 0.41333333333333333,
+      "sycophancy": 0.6070499999999999
+    },
+    "ci_lo": 0.2649257987265486,
+    "ci_hi": 0.3993632977393156
+  }
+}

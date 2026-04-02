@@ -1,0 +1,88 @@
+{
+  "overall_metrics": {
+    "activation_sensitivity": 0.7277777777777777,
+    "same_rate": 0.09722222222222222,
+    "divergent_noise_rate": 0.175,
+    "divergent_meaningful": 32.75,
+    "divergent_noise": 7.875,
+    "same": 4.375,
+    "total": 45.0
+  },
+  "metrics_by_verbalizer": {
+    "adam-reupload-qwen3-8b-full-mix-synthetic-qa-v3-replace-lqa": {
+      "activation_sensitivity": 0.9111111111111111,
+      "same_rate": 0.022222222222222223,
+      "divergent_noise_rate": 0.06666666666666667,
+      "divergent_meaningful": 41,
+      "divergent_noise": 3,
+      "same": 1,
+      "total": 45.0
+    },
+    "adam-reupload-qwen3-8b-latentqa-cls-past-lens": {
+      "activation_sensitivity": 0.5333333333333333,
+      "same_rate": 0.13333333333333333,
+      "divergent_noise_rate": 0.3333333333333333,
+      "divergent_meaningful": 24,
+      "divergent_noise": 15,
+      "same": 6,
+      "total": 45.0
+    },
+    "cot-oracle-grpo-step-500": {
+      "activation_sensitivity": 0.5777777777777777,
+      "same_rate": 0.2,
+      "divergent_noise_rate": 0.2222222222222222,
+      "divergent_meaningful": 26,
+      "divergent_noise": 10,
+      "same": 9,
+      "total": 45.0
+    },
+    "cot-oracle-paper-ablation-adam-recipe-1layer": {
+      "activation_sensitivity": 0.5111111111111111,
+      "same_rate": 0.2222222222222222,
+      "divergent_noise_rate": 0.26666666666666666,
+      "divergent_meaningful": 23,
+      "divergent_noise": 12,
+      "same": 10,
+      "total": 45.0
+    },
+    "cot-oracle-paper-ablation-ours-1layer": {
+      "activation_sensitivity": 0.8888888888888888,
+      "same_rate": 0.0,
+      "divergent_noise_rate": 0.1111111111111111,
+      "divergent_meaningful": 40,
+      "divergent_noise": 5,
+      "same": 0,
+      "total": 45.0
+    },
+    "cot-oracle-paper-ablation-ours-3layers-onpolicy-lens-only": {
+      "activation_sensitivity": 0.8,
+      "same_rate": 0.06666666666666667,
+      "divergent_noise_rate": 0.13333333333333333,
+      "divergent_meaningful": 36,
+      "divergent_noise": 6,
+      "same": 3,
+      "total": 45.0
+    },
+    "cot-oracle-paper-ablation-ours-3layers": {
+      "activation_sensitivity": 0.7777777777777778,
+      "same_rate": 0.022222222222222223,
+      "divergent_noise_rate": 0.2,
+      "divergent_meaningful": 35,
+      "divergent_noise": 9,
+      "same": 1,
+      "total": 45.0
+    },
+    "cot-oracle-qwen3-8b-final-sprint-checkpoint-no-DPO": {
+      "activation_sensitivity": 0.8222222222222222,
+      "same_rate": 0.1111111111111111,
+      "divergent_noise_rate": 0.06666666666666667,
+      "divergent_meaningful": 37,
+      "divergent_noise": 3,
+      "same": 5,
+      "total": 45.0
+    }
+  },
+  "num_entries": 8,
+  "num_scored": 360,
+  "rejudged": true
+}
