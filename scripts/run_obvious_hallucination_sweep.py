@@ -31,19 +31,10 @@ if str(ROOT) not in sys.path:
 
 from AObench.open_ended_eval.hallucination import _run_hallucination
 from AObench.utils.common import load_model, load_tokenizer, timestamped_eval_results_dir
+from AObench.utils.paper_collection import PAPER_COLLECTION_VERBALIZERS
 from AObench.utils.report import DISPLAY_COLORS, shorten_lora_name, verbalizer_sort_key
 
 MODEL_NAME = "Qwen/Qwen3-8B"
-PAPER_COLLECTION_VERBALIZERS = [
-    "ceselder/adam-reupload-qwen3-8b-latentqa-cls-past-lens",
-    "ceselder/adam-reupload-qwen3-8b-full-mix-synthetic-qa-v3-replace-lqa",
-    "ceselder/cot-oracle-paper-ablation-adam-recipe-1layer",
-    "ceselder/cot-oracle-paper-ablation-ours-1layer",
-    "ceselder/cot-oracle-paper-ablation-ours-3layers",
-    "ceselder/cot-oracle-paper-ablation-ours-3layers-onpolicy-lens-only",
-    "ceselder/cot-oracle-qwen3-8b-final-sprint-checkpoint-no-DPO",
-    "ceselder/cot-oracle-grpo-step-500",
-]
 DEFAULT_POSITIONS = [1, 3, 5, 10, 50, 100]
 PRIMARY_METRIC = "obvious_hallucination_rate"
 

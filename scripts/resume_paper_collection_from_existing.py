@@ -12,42 +12,24 @@ Typical use:
 import argparse
 import json
 import os
-import random
-import shutil
 import sys
 from pathlib import Path
 
 os.environ.setdefault("TORCHDYNAMO_DISABLE", "1")
 os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")
 
-import torch
-
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from AObench.open_ended_eval.run_all import MODEL_NAME, EVAL_PROFILES, run_all_evals
-from AObench.utils.common import load_model, load_tokenizer
+from AObench.utils.paper_collection import (
+    PAPER_COLLECTION_VERBALIZERS,
+    clean_eval_outputs,
+    load_existing_summaries,
+    prepare_eval_runtime,
+)
 from AObench.utils.report import generate_report
-from scripts.run_paper_collection_aobench import PAPER_COLLECTION_VERBALIZERS
-
-
-def _load_existing_summaries(output_dir: Path) -> dict[str, dict]:
-    summaries: dict[str, dict] = {}
-    for path in sorted(output_dir.glob("*_summary.json")):
-        eval_name = path.stem.removesuffix("_summary")
-        summaries[eval_name] = json.loads(path.read_text())
-    return summaries
-
-
-def _clean_eval_outputs(output_dir: Path, eval_names: list[str]) -> None:
-    for eval_name in eval_names:
-        eval_dir = output_dir / eval_name
-        if eval_dir.exists():
-            shutil.rmtree(eval_dir)
-        summary_path = output_dir / f"{eval_name}_summary.json"
-        if summary_path.exists():
-            summary_path.unlink()
 
 
 def main() -> None:
@@ -89,26 +71,14 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    random.seed(42)
-    torch.manual_seed(42)
-    torch.set_grad_enabled(False)
-
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
     if args.clean_include_output:
-        _clean_eval_outputs(output_dir, args.include)
+        clean_eval_outputs(output_dir, args.include)
 
-    existing_summaries = _load_existing_summaries(output_dir)
-
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    dtype = torch.bfloat16
-
-    print(f"Loading tokenizer: {args.model_name}")
-    tokenizer = load_tokenizer(args.model_name)
-    print(f"Loading model: {args.model_name} on {device} with dtype={dtype}")
-    model = load_model(args.model_name, dtype)
-    model.eval()
+    existing_summaries = load_existing_summaries(output_dir)
+    device, _, tokenizer, model = prepare_eval_runtime(args.model_name)
 
     rerun_summaries = run_all_evals(
         model=model,

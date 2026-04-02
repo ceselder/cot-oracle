@@ -9,14 +9,11 @@ subset of open-ended evals and avoids mixing in the noisier judge-heavy tasks.
 import argparse
 import json
 import os
-import random
 import sys
 from pathlib import Path
 
 os.environ.setdefault("TORCHDYNAMO_DISABLE", "1")
 os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")
-
-import torch
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
@@ -28,48 +25,14 @@ from AObench.open_ended_eval.run_all import (
     print_results_comparison,
     run_all_evals,
 )
-from AObench.utils.common import load_model, load_tokenizer, timestamped_eval_results_dir
+from AObench.utils.common import timestamped_eval_results_dir
+from AObench.utils.paper_collection import (
+    PAPER_COLLECTION_VERBALIZERS,
+    prepare_eval_runtime,
+    sample_limits_for_profile,
+    write_run_config,
+)
 from AObench.utils.report import generate_report
-
-PAPER_COLLECTION_VERBALIZERS = [
-    "ceselder/adam-reupload-qwen3-8b-latentqa-cls-past-lens",
-    "ceselder/adam-reupload-qwen3-8b-full-mix-synthetic-qa-v3-replace-lqa",
-    "ceselder/cot-oracle-paper-ablation-adam-recipe-1layer",
-    "ceselder/cot-oracle-paper-ablation-ours-1layer",
-    "ceselder/cot-oracle-paper-ablation-ours-3layers",
-    "ceselder/cot-oracle-paper-ablation-ours-3layers-onpolicy-lens-only",
-    "ceselder/cot-oracle-qwen3-8b-final-sprint-checkpoint-no-DPO",
-    "ceselder/cot-oracle-grpo-step-500",
-]
-
-PAPER_SMALL_LIMITS = {
-    "number_prediction": 30,
-    "mmlu_prediction": 50,
-    "missing_info": 30,
-    "sycophancy": 25,  # per class, per mode
-    "backtracking": 50,
-    "vagueness": 50,
-    "domain_confusion": 50,
-    "hallucination": 50,
-    "system_prompt_qa_hidden": 10,
-    "system_prompt_qa_latentqa": 30,
-}
-
-PAPER_TINY10_LIMITS = {
-    "number_prediction": 10,
-    "mmlu_prediction": 10,
-    "backtracking": 10,
-    "vagueness": 10,
-    "domain_confusion": 10,
-    "missing_info": 10,
-    "sycophancy": 10,
-    "activation_sensitivity": 10,
-    "hallucination": 10,
-    "system_prompt_qa_hidden": 10,
-    "system_prompt_qa_latentqa": 10,
-    "taboo": 10,
-    "personaqa": 10,
-}
 
 
 def default_output_dir() -> str:
@@ -135,22 +98,9 @@ def main() -> None:
     verbalizer_lora_paths = args.verbalizer_lora or list(PAPER_COLLECTION_VERBALIZERS)
     include = args.include if args.include is not None else list(EVAL_PROFILES[args.profile])
     output_dir = args.output_dir or default_output_dir()
-    if args.sample_profile == "paper_small":
-        sample_limits = dict(PAPER_SMALL_LIMITS)
-    elif args.sample_profile == "paper_tiny10":
-        sample_limits = dict(PAPER_TINY10_LIMITS)
-    else:
-        sample_limits = {}
+    sample_limits = sample_limits_for_profile(args.sample_profile)
 
-    random.seed(42)
-    torch.manual_seed(42)
-    torch.set_grad_enabled(False)
-
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    dtype = torch.bfloat16
-
-    os.makedirs(output_dir, exist_ok=True)
-    Path(output_dir, "run_config.json").write_text(json.dumps({
+    write_run_config(output_dir, {
         "model_name": args.model_name,
         "profile": args.profile,
         "include": include,
@@ -159,13 +109,9 @@ def main() -> None:
         "sample_limits": sample_limits,
         "bootstrap_reps": args.bootstrap_reps,
         "verbalizer_lora_paths": verbalizer_lora_paths,
-    }, indent=2))
+    })
 
-    print(f"Loading tokenizer: {args.model_name}")
-    tokenizer = load_tokenizer(args.model_name)
-    print(f"Loading model: {args.model_name} on {device} with dtype={dtype}")
-    model = load_model(args.model_name, dtype)
-    model.eval()
+    device, _, tokenizer, model = prepare_eval_runtime(args.model_name)
     print(f"Running profile: {args.profile}")
     print(f"Include list: {include}")
     print(f"Sample profile: {args.sample_profile}")
