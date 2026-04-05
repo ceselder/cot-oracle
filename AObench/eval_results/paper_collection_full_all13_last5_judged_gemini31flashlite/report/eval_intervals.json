@@ -6,12 +6,6 @@
       "hi": 0.9777777777777777,
       "source": "raw_outputs"
     },
-    "adam-reupload-qwen3-8b-latentqa-cls-past-lens": {
-      "mean": 0.5333333333333333,
-      "lo": 0.37777777777777777,
-      "hi": 0.6888888888888889,
-      "source": "raw_outputs"
-    },
     "cot-oracle-grpo-step-500": {
       "mean": 0.5777777777777777,
       "lo": 0.4444444444444444,
@@ -54,12 +48,6 @@
       "mean": 2.2081218274111674,
       "lo": 2.0558375634517767,
       "hi": 2.3706852791878172,
-      "source": "raw_outputs"
-    },
-    "adam-reupload-qwen3-8b-latentqa-cls-past-lens": {
-      "mean": 2.49746192893401,
-      "lo": 2.3299492385786804,
-      "hi": 2.66002538071066,
       "source": "raw_outputs"
     },
     "cot-oracle-grpo-step-500": {
@@ -106,12 +94,6 @@
       "hi": 0.29953468697123514,
       "source": "raw_outputs"
     },
-    "adam-reupload-qwen3-8b-latentqa-cls-past-lens": {
-      "mean": 0.20135363790186125,
-      "lo": 0.17089678510998307,
-      "hi": 0.233502538071066,
-      "source": "raw_outputs"
-    },
     "cot-oracle-grpo-step-500": {
       "mean": 0.272419627749577,
       "lo": 0.23688663282571912,
@@ -156,12 +138,6 @@
       "hi": 0.22741116751269036,
       "source": "raw_outputs"
     },
-    "adam-reupload-qwen3-8b-latentqa-cls-past-lens": {
-      "mean": 0.30558375634517765,
-      "lo": 0.2781472081218274,
-      "hi": 0.33705583756345175,
-      "source": "raw_outputs"
-    },
     "cot-oracle-grpo-step-500": {
       "mean": 0.3197969543147208,
       "lo": 0.2934010152284264,
@@ -200,12 +176,6 @@
     }
   },
   "missing_info": {
-    "adam-reupload-qwen3-8b-latentqa-cls-past-lens": {
-      "mean": 0.6433333333333333,
-      "lo": 0.4453339230429014,
-      "hi": 0.7910021551724137,
-      "source": "raw_outputs"
-    },
     "adam-reupload-qwen3-8b-full-mix-synthetic-qa-v3-replace-lqa": {
       "mean": 0.6444444444444445,
       "lo": 0.4544472502805836,
@@ -250,12 +220,6 @@
     }
   },
   "mmlu_prediction": {
-    "adam-reupload-qwen3-8b-latentqa-cls-past-lens": {
-      "mean": 0.6890000000000001,
-      "lo": 0.5865544704433497,
-      "hi": 0.7762971091089212,
-      "source": "raw_outputs"
-    },
     "adam-reupload-qwen3-8b-full-mix-synthetic-qa-v3-replace-lqa": {
       "mean": 0.6918,
       "lo": 0.5843112395924553,
@@ -300,12 +264,6 @@
     }
   },
   "number_prediction": {
-    "adam-reupload-qwen3-8b-latentqa-cls-past-lens": {
-      "mean": 0.006666666666666667,
-      "lo": 0.0,
-      "hi": 0.02,
-      "source": "raw_outputs"
-    },
     "adam-reupload-qwen3-8b-full-mix-synthetic-qa-v3-replace-lqa": {
       "mean": 0.03333333333333333,
       "lo": 0.006666666666666667,
@@ -350,12 +308,6 @@
     }
   },
   "personaqa": {
-    "adam-reupload-qwen3-8b-latentqa-cls-past-lens": {
-      "mean": 0.10611111111111111,
-      "lo": 0.10611111111111111,
-      "hi": 0.10611111111111111,
-      "source": "summary_only"
-    },
     "adam-reupload-qwen3-8b-full-mix-synthetic-qa-v3-replace-lqa": {
       "mean": 0.17222222222222222,
       "lo": 0.17222222222222222,
@@ -400,12 +352,6 @@
     }
   },
   "sycophancy": {
-    "adam-reupload-qwen3-8b-latentqa-cls-past-lens": {
-      "mean": 0.81765,
-      "lo": 0.7776272418125166,
-      "hi": 0.8551562557225688,
-      "source": "raw_outputs"
-    },
     "adam-reupload-qwen3-8b-full-mix-synthetic-qa-v3-replace-lqa": {
       "mean": 0.860225,
       "lo": 0.826107447476767,
@@ -456,12 +402,6 @@
       "hi": 2.5,
       "source": "summary_only"
     },
-    "adam-reupload-qwen3-8b-latentqa-cls-past-lens": {
-      "mean": 3.7,
-      "lo": 3.7,
-      "hi": 3.7,
-      "source": "summary_only"
-    },
     "cot-oracle-grpo-step-500": {
       "mean": 1.5,
       "lo": 1.5,
@@ -506,12 +446,6 @@
       "hi": 3.23,
       "source": "summary_only"
     },
-    "adam-reupload-qwen3-8b-latentqa-cls-past-lens": {
-      "mean": 3.72,
-      "lo": 3.72,
-      "hi": 3.72,
-      "source": "summary_only"
-    },
     "cot-oracle-grpo-step-500": {
       "mean": 2.76,
       "lo": 2.76,
@@ -550,12 +484,6 @@
     }
   },
   "taboo": {
-    "adam-reupload-qwen3-8b-latentqa-cls-past-lens": {
-      "mean": 0.413,
-      "lo": 0.413,
-      "hi": 0.413,
-      "source": "summary_only"
-    },
     "adam-reupload-qwen3-8b-full-mix-synthetic-qa-v3-replace-lqa": {
       "mean": 0.478,
       "lo": 0.478,
@@ -604,12 +532,6 @@
       "mean": 0.8934010152284264,
       "lo": 0.8526649746192894,
       "hi": 0.934010152284264,
-      "source": "raw_outputs"
-    },
-    "adam-reupload-qwen3-8b-latentqa-cls-past-lens": {
-      "mean": 0.43147208121827413,
-      "lo": 0.36548223350253806,
-      "hi": 0.5025380710659898,
       "source": "raw_outputs"
     },
     "cot-oracle-grpo-step-500": {

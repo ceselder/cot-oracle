@@ -20,27 +20,6 @@
     "ci_lo": 0.39087840726978673,
     "ci_hi": 0.46084036371899373
   },
-  "adam-reupload-qwen3-8b-latentqa-cls-past-lens": {
-    "mean_normalized_score": 0.3866809796520456,
-    "num_evals": 13,
-    "per_eval_normalized": {
-      "activation_sensitivity": 0.5333333333333333,
-      "backtracking": 0.3743654822335025,
-      "domain_confusion": 0.20135363790186125,
-      "hallucination": 0.30558375634517765,
-      "missing_info": 0.2866666666666666,
-      "mmlu_prediction": 0.3780000000000001,
-      "number_prediction": 0.006666666666666667,
-      "personaqa": 0.10611111111111111,
-      "sycophancy": 0.6353,
-      "system_prompt_qa_hidden": 0.675,
-      "system_prompt_qa_latentqa": 0.68,
-      "taboo": 0.413,
-      "vagueness": 0.43147208121827413
-    },
-    "ci_lo": 0.34703337855690686,
-    "ci_hi": 0.4213949036985986
-  },
   "cot-oracle-grpo-step-500": {
     "mean_normalized_score": 0.3591867477981691,
     "num_evals": 13,
