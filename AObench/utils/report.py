@@ -794,6 +794,11 @@ def generate_report(
             continue
         metrics = extract_verbalizer_metric(summary, eval_name)
         if metrics:
+            # Exclude latentqa verbalizers
+            metrics = {
+                k: v for k, v in metrics.items()
+                if "latentqa" not in k
+            }
             # Filter to requested verbalizers
             if filter_verbalizers:
                 metrics = {
