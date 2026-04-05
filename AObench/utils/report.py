@@ -595,16 +595,15 @@ def plot_category_breakdown(
         ax = axes[0, i]
         values = cat_values[cat_name]
         ax.bar(x, values, width=0.82, color=bar_colors, edgecolor="white", linewidth=0.45)
-        ax.set_title(cat_name, fontsize=14, pad=8)
+        if cat_name in LOWER_IS_BETTER:
+            ax.set_title(f"{cat_name}\n(lower is better)", fontsize=14, pad=8)
+        else:
+            ax.set_title(f"{cat_name}\n(higher is better)", fontsize=14, pad=8)
         ax.set_ylim(0.0, 1.05)
         ax.set_xlim(-0.6, n_verbs - 0.4)
         ax.set_xticks([])
         ax.yaxis.grid(True, color="#dddddd", linewidth=0.8, alpha=0.9)
         ax.set_axisbelow(True)
-        if cat_name in LOWER_IS_BETTER:
-            ax.set_ylabel("Rate (lower is better)")
-        elif i == 0:
-            ax.set_ylabel("Normalized score (higher is better)")
 
     legend_handles = [
         matplotlib.patches.Patch(facecolor=color, edgecolor="white", linewidth=0.45, label=label)
