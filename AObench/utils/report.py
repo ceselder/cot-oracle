@@ -542,8 +542,8 @@ def plot_aggregate_scores(
 
 SCORE_CATEGORIES = {
     "Overall": None,  # all evals
-    "Faithfulness": ["domain_confusion", "missing_info", "number_prediction", "hallucination"],
-    "Specificity": ["vagueness"],
+    "Hallucination Rate": ["domain_confusion", "missing_info", "number_prediction", "hallucination"],
+    "Vagueness Rate": ["vagueness"],
 }
 
 
@@ -568,6 +568,9 @@ def plot_category_breakdown(
     cat_names = list(SCORE_CATEGORIES.keys())
     n_cats = len(cat_names)
 
+    # Categories where lower is better (rates to minimize)
+    LOWER_IS_BETTER = {"Hallucination Rate", "Vagueness Rate"}
+
     # Compute per-category scores for each verbalizer
     cat_values: dict[str, list[float]] = {}
     for cat_name, eval_subset in SCORE_CATEGORIES.items():
@@ -579,7 +582,10 @@ def plot_category_breakdown(
                     continue
                 if verb_name in metrics:
                     scores.append(normalize_metric_for_aggregate(eval_name, metrics[verb_name]))
-            vals.append(sum(scores) / len(scores) if scores else 0.0)
+            mean_score = sum(scores) / len(scores) if scores else 0.0
+            if cat_name in LOWER_IS_BETTER:
+                mean_score = 1.0 - mean_score
+            vals.append(mean_score)
         cat_values[cat_name] = vals
 
     fig, axes = plt.subplots(1, n_cats, figsize=(5 * n_cats, 6), squeeze=False)
@@ -595,8 +601,10 @@ def plot_category_breakdown(
         ax.set_xticks([])
         ax.yaxis.grid(True, color="#dddddd", linewidth=0.8, alpha=0.9)
         ax.set_axisbelow(True)
-        if i == 0:
-            ax.set_ylabel("Normalized score")
+        if cat_name in LOWER_IS_BETTER:
+            ax.set_ylabel("Rate (lower is better)")
+        elif i == 0:
+            ax.set_ylabel("Normalized score (higher is better)")
 
     legend_handles = [
         matplotlib.patches.Patch(facecolor=color, edgecolor="white", linewidth=0.45, label=label)
@@ -617,8 +625,7 @@ def plot_category_breakdown(
         fig.legends[0].get_title().set_fontsize(14)
 
     fig.suptitle(title, fontsize=16, y=0.98)
-    fig.subplots_adjust(left=0.06, right=0.99, top=0.90, bottom=0.18, wspace=0.2)
-    fig.text(0.5, 0.012, "Higher is better. Scores are chance-adjusted and normalized to 0\u20131.", ha="center", va="bottom", fontsize=10, color="#333333")
+    fig.subplots_adjust(left=0.08, right=0.99, top=0.90, bottom=0.22, wspace=0.25)
     os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
     plt.savefig(output_path, dpi=150, bbox_inches="tight")
     plt.close()
@@ -762,7 +769,7 @@ def plot_comparison_bar_chart(
         color="#333333",
     )
     fig.suptitle(title, fontsize=18, y=0.98)
-    fig.subplots_adjust(left=0.06, right=0.99, top=0.93, bottom=0.15, hspace=0.38, wspace=0.2)
+    fig.subplots_adjust(left=0.06, right=0.99, top=0.93, bottom=0.18, hspace=0.38, wspace=0.2)
     os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
     plt.savefig(output_path, dpi=150, bbox_inches="tight")
     plt.close()
