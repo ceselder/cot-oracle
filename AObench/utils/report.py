@@ -571,10 +571,10 @@ def plot_comparison_bar_chart(
         (eval_name, format_eval_display_name(eval_name)) for eval_name in eval_names
     ]
     n_panels = len(panel_specs)
-    n_rows = 2
+    n_rows = 3
     n_cols = math.ceil(n_panels / n_rows)
     fig_width = max(16.0, 3.2 * n_cols + 2.4)
-    fig_height = 9.2
+    fig_height = 13.0
     fig, axes = plt.subplots(n_rows, n_cols, figsize=(fig_width, fig_height), squeeze=False)
     axes_flat = axes.flatten()
     x = np.arange(n_verbs, dtype=np.float64)
@@ -659,16 +659,16 @@ def plot_comparison_bar_chart(
     legend = fig.legend(
         handles=legend_handles,
         loc="upper center",
-        bbox_to_anchor=(0.5, 0.105),
+        bbox_to_anchor=(0.5, 0.08),
         ncol=min(4, n_verbs),
-        fontsize=8,
+        fontsize=11,
         title="Checkpoint",
         frameon=False,
-        columnspacing=1.1,
-        handlelength=1.6,
+        columnspacing=1.4,
+        handlelength=1.8,
     )
     if legend.get_title() is not None:
-        legend.get_title().set_fontsize(9)
+        legend.get_title().set_fontsize(12)
 
     fig.text(
         0.5,
@@ -680,7 +680,7 @@ def plot_comparison_bar_chart(
         color="#333333",
     )
     fig.suptitle(title, fontsize=18, y=0.98)
-    fig.subplots_adjust(left=0.06, right=0.99, top=0.9, bottom=0.2, hspace=0.34, wspace=0.2)
+    fig.subplots_adjust(left=0.06, right=0.99, top=0.93, bottom=0.15, hspace=0.38, wspace=0.2)
     os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
     plt.savefig(output_path, dpi=150, bbox_inches="tight")
     plt.close()
