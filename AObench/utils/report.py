@@ -762,6 +762,7 @@ def generate_report(
     results_dir: str,
     output_dir: str | None = None,
     filter_verbalizers: list[str] | None = None,
+    exclude_evals: list[str] | None = None,
     bootstrap_reps: int = DEFAULT_BOOTSTRAP_REPS,
 ) -> None:
     """Read all eval summaries and generate comparison report."""
@@ -791,6 +792,8 @@ def generate_report(
     eval_results: dict[str, dict[str, float]] = {}
     for eval_name, summary in all_summaries.items():
         if eval_name in IGNORED_EVALS:
+            continue
+        if exclude_evals and eval_name in exclude_evals:
             continue
         metrics = extract_verbalizer_metric(summary, eval_name)
         if metrics:
@@ -908,9 +911,15 @@ def main() -> None:
     parser.add_argument("results_dir", help="Directory containing eval results (all_summaries.json or *_summary.json)")
     parser.add_argument("--output", "-o", default=None, help="Output directory for report")
     parser.add_argument("--filter", nargs="*", default=None, help="Only include verbalizers containing these substrings")
+    parser.add_argument("--exclude-evals", nargs="*", default=None, help="Exclude these eval names from the report")
     args = parser.parse_args()
 
-    generate_report(args.results_dir, args.output, filter_verbalizers=args.filter)
+    generate_report(
+        args.results_dir,
+        args.output,
+        filter_verbalizers=args.filter,
+        exclude_evals=args.exclude_evals,
+    )
 
 
 if __name__ == "__main__":

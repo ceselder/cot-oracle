@@ -1,0 +1,602 @@
+{
+  "activation_sensitivity": {
+    "adam-reupload-qwen3-8b-full-mix-synthetic-qa-v3-replace-lqa": {
+      "mean": 0.9111111111111111,
+      "lo": 0.8222222222222222,
+      "hi": 0.9777777777777777,
+      "source": "raw_outputs"
+    },
+    "adam-reupload-qwen3-8b-latentqa-cls-past-lens": {
+      "mean": 0.5333333333333333,
+      "lo": 0.37777777777777777,
+      "hi": 0.6888888888888889,
+      "source": "raw_outputs"
+    },
+    "cot-oracle-grpo-step-500": {
+      "mean": 0.5777777777777777,
+      "lo": 0.4444444444444444,
+      "hi": 0.7111111111111111,
+      "source": "raw_outputs"
+    },
+    "cot-oracle-paper-ablation-adam-recipe-1layer": {
+      "mean": 0.5111111111111111,
+      "lo": 0.35500000000000004,
+      "hi": 0.6444444444444445,
+      "source": "raw_outputs"
+    },
+    "cot-oracle-paper-ablation-ours-1layer": {
+      "mean": 0.8888888888888888,
+      "lo": 0.7777777777777778,
+      "hi": 0.9777777777777777,
+      "source": "raw_outputs"
+    },
+    "cot-oracle-paper-ablation-ours-3layers-onpolicy-lens-only": {
+      "mean": 0.8,
+      "lo": 0.6888888888888889,
+      "hi": 0.9111111111111111,
+      "source": "raw_outputs"
+    },
+    "cot-oracle-paper-ablation-ours-3layers": {
+      "mean": 0.7777777777777778,
+      "lo": 0.6444444444444445,
+      "hi": 0.8888888888888888,
+      "source": "raw_outputs"
+    },
+    "cot-oracle-qwen3-8b-final-sprint-checkpoint-no-DPO": {
+      "mean": 0.8222222222222222,
+      "lo": 0.6888888888888889,
+      "hi": 0.9333333333333333,
+      "source": "raw_outputs"
+    }
+  },
+  "backtracking": {
+    "adam-reupload-qwen3-8b-full-mix-synthetic-qa-v3-replace-lqa": {
+      "mean": 2.2081218274111674,
+      "lo": 2.0558375634517767,
+      "hi": 2.3706852791878172,
+      "source": "raw_outputs"
+    },
+    "adam-reupload-qwen3-8b-latentqa-cls-past-lens": {
+      "mean": 2.49746192893401,
+      "lo": 2.3299492385786804,
+      "hi": 2.66002538071066,
+      "source": "raw_outputs"
+    },
+    "cot-oracle-grpo-step-500": {
+      "mean": 2.563451776649746,
+      "lo": 2.4213197969543145,
+      "hi": 2.7361675126903555,
+      "source": "raw_outputs"
+    },
+    "cot-oracle-paper-ablation-adam-recipe-1layer": {
+      "mean": 2.1319796954314723,
+      "lo": 1.9949238578680204,
+      "hi": 2.2742385786802033,
+      "source": "raw_outputs"
+    },
+    "cot-oracle-paper-ablation-ours-1layer": {
+      "mean": 2.238578680203046,
+      "lo": 2.1015228426395938,
+      "hi": 2.3959390862944163,
+      "source": "raw_outputs"
+    },
+    "cot-oracle-paper-ablation-ours-3layers-onpolicy-lens-only": {
+      "mean": 2.3045685279187818,
+      "lo": 2.1624365482233503,
+      "hi": 2.4619289340101522,
+      "source": "raw_outputs"
+    },
+    "cot-oracle-paper-ablation-ours-3layers": {
+      "mean": 2.3654822335025383,
+      "lo": 2.213197969543147,
+      "hi": 2.5228426395939088,
+      "source": "raw_outputs"
+    },
+    "cot-oracle-qwen3-8b-final-sprint-checkpoint-no-DPO": {
+      "mean": 2.3248730964467006,
+      "lo": 2.1775380710659897,
+      "hi": 2.487309644670051,
+      "source": "raw_outputs"
+    }
+  },
+  "domain_confusion": {
+    "adam-reupload-qwen3-8b-full-mix-synthetic-qa-v3-replace-lqa": {
+      "mean": 0.2639593908629442,
+      "lo": 0.23011844331641285,
+      "hi": 0.29953468697123514,
+      "source": "raw_outputs"
+    },
+    "adam-reupload-qwen3-8b-latentqa-cls-past-lens": {
+      "mean": 0.20135363790186125,
+      "lo": 0.17089678510998307,
+      "hi": 0.233502538071066,
+      "source": "raw_outputs"
+    },
+    "cot-oracle-grpo-step-500": {
+      "mean": 0.272419627749577,
+      "lo": 0.23688663282571912,
+      "hi": 0.307994923857868,
+      "source": "raw_outputs"
+    },
+    "cot-oracle-paper-ablation-adam-recipe-1layer": {
+      "mean": 0.15228426395939088,
+      "lo": 0.12516920473773266,
+      "hi": 0.18104906937394247,
+      "source": "raw_outputs"
+    },
+    "cot-oracle-paper-ablation-ours-1layer": {
+      "mean": 0.23181049069373943,
+      "lo": 0.20304568527918782,
+      "hi": 0.2673857868020304,
+      "source": "raw_outputs"
+    },
+    "cot-oracle-paper-ablation-ours-3layers-onpolicy-lens-only": {
+      "mean": 0.2436548223350254,
+      "lo": 0.21150592216582065,
+      "hi": 0.2808798646362098,
+      "source": "raw_outputs"
+    },
+    "cot-oracle-paper-ablation-ours-3layers": {
+      "mean": 0.2571912013536379,
+      "lo": 0.22330795262267344,
+      "hi": 0.29441624365482233,
+      "source": "raw_outputs"
+    },
+    "cot-oracle-qwen3-8b-final-sprint-checkpoint-no-DPO": {
+      "mean": 0.24027072758037224,
+      "lo": 0.20473773265651438,
+      "hi": 0.27580372250423013,
+      "source": "raw_outputs"
+    }
+  },
+  "hallucination": {
+    "adam-reupload-qwen3-8b-full-mix-synthetic-qa-v3-replace-lqa": {
+      "mean": 0.20101522842639594,
+      "lo": 0.17766497461928935,
+      "hi": 0.22741116751269036,
+      "source": "raw_outputs"
+    },
+    "adam-reupload-qwen3-8b-latentqa-cls-past-lens": {
+      "mean": 0.30558375634517765,
+      "lo": 0.2781472081218274,
+      "hi": 0.33705583756345175,
+      "source": "raw_outputs"
+    },
+    "cot-oracle-grpo-step-500": {
+      "mean": 0.3197969543147208,
+      "lo": 0.2934010152284264,
+      "hi": 0.34822335025380713,
+      "source": "raw_outputs"
+    },
+    "cot-oracle-paper-ablation-adam-recipe-1layer": {
+      "mean": 0.20710659898477157,
+      "lo": 0.18375634517766498,
+      "hi": 0.23352791878172588,
+      "source": "raw_outputs"
+    },
+    "cot-oracle-paper-ablation-ours-1layer": {
+      "mean": 0.2020304568527919,
+      "lo": 0.1786548223350254,
+      "hi": 0.22538071065989848,
+      "source": "raw_outputs"
+    },
+    "cot-oracle-paper-ablation-ours-3layers-onpolicy-lens-only": {
+      "mean": 0.25076142131979695,
+      "lo": 0.2233502538071066,
+      "hi": 0.2802030456852792,
+      "source": "raw_outputs"
+    },
+    "cot-oracle-paper-ablation-ours-3layers": {
+      "mean": 0.22030456852791877,
+      "lo": 0.1938832487309645,
+      "hi": 0.24672588832487308,
+      "source": "raw_outputs"
+    },
+    "cot-oracle-qwen3-8b-final-sprint-checkpoint-no-DPO": {
+      "mean": 0.20609137055837565,
+      "lo": 0.18274111675126903,
+      "hi": 0.231497461928934,
+      "source": "raw_outputs"
+    }
+  },
+  "missing_info": {
+    "adam-reupload-qwen3-8b-latentqa-cls-past-lens": {
+      "mean": 0.6433333333333333,
+      "lo": 0.4453339230429014,
+      "hi": 0.7910021551724137,
+      "source": "raw_outputs"
+    },
+    "adam-reupload-qwen3-8b-full-mix-synthetic-qa-v3-replace-lqa": {
+      "mean": 0.6444444444444445,
+      "lo": 0.4544472502805836,
+      "hi": 0.8101778513824884,
+      "source": "raw_outputs"
+    },
+    "cot-oracle-paper-ablation-adam-recipe-1layer": {
+      "mean": 0.5822222222222222,
+      "lo": 0.3778583134133419,
+      "hi": 0.7513590314913844,
+      "source": "raw_outputs"
+    },
+    "cot-oracle-paper-ablation-ours-1layer": {
+      "mean": 0.7222222222222221,
+      "lo": 0.5341638655462184,
+      "hi": 0.8721198156682027,
+      "source": "raw_outputs"
+    },
+    "cot-oracle-paper-ablation-ours-3layers": {
+      "mean": 0.7333333333333333,
+      "lo": 0.5534535972754363,
+      "hi": 0.8798188025210084,
+      "source": "raw_outputs"
+    },
+    "cot-oracle-paper-ablation-ours-3layers-onpolicy-lens-only": {
+      "mean": 0.7433333333333334,
+      "lo": 0.5647203947368422,
+      "hi": 0.8897558620222281,
+      "source": "raw_outputs"
+    },
+    "cot-oracle-qwen3-8b-final-sprint-checkpoint-no-DPO": {
+      "mean": 0.711111111111111,
+      "lo": 0.5251456755541724,
+      "hi": 0.8641826923076922,
+      "source": "raw_outputs"
+    },
+    "cot-oracle-grpo-step-500": {
+      "mean": 0.7066666666666667,
+      "lo": 0.5214828558465129,
+      "hi": 0.8622575757575758,
+      "source": "raw_outputs"
+    }
+  },
+  "mmlu_prediction": {
+    "adam-reupload-qwen3-8b-latentqa-cls-past-lens": {
+      "mean": 0.6890000000000001,
+      "lo": 0.5865544704433497,
+      "hi": 0.7762971091089212,
+      "source": "raw_outputs"
+    },
+    "adam-reupload-qwen3-8b-full-mix-synthetic-qa-v3-replace-lqa": {
+      "mean": 0.6918,
+      "lo": 0.5843112395924553,
+      "hi": 0.7767636698717948,
+      "source": "raw_outputs"
+    },
+    "cot-oracle-paper-ablation-adam-recipe-1layer": {
+      "mean": 0.6113,
+      "lo": 0.5200554307568438,
+      "hi": 0.7046978889627658,
+      "source": "raw_outputs"
+    },
+    "cot-oracle-paper-ablation-ours-1layer": {
+      "mean": 0.7046000000000001,
+      "lo": 0.5991341414141413,
+      "hi": 0.7938664411882779,
+      "source": "raw_outputs"
+    },
+    "cot-oracle-paper-ablation-ours-3layers": {
+      "mean": 0.6795,
+      "lo": 0.5730806842737094,
+      "hi": 0.7804457933741678,
+      "source": "raw_outputs"
+    },
+    "cot-oracle-paper-ablation-ours-3layers-onpolicy-lens-only": {
+      "mean": 0.7226999999999999,
+      "lo": 0.6243495504136668,
+      "hi": 0.8046826192237954,
+      "source": "raw_outputs"
+    },
+    "cot-oracle-qwen3-8b-final-sprint-checkpoint-no-DPO": {
+      "mean": 0.7036,
+      "lo": 0.5937987500000002,
+      "hi": 0.7948315101902829,
+      "source": "raw_outputs"
+    },
+    "cot-oracle-grpo-step-500": {
+      "mean": 0.7297,
+      "lo": 0.6233389182571738,
+      "hi": 0.8189702065089384,
+      "source": "raw_outputs"
+    }
+  },
+  "number_prediction": {
+    "adam-reupload-qwen3-8b-latentqa-cls-past-lens": {
+      "mean": 0.006666666666666667,
+      "lo": 0.0,
+      "hi": 0.02,
+      "source": "raw_outputs"
+    },
+    "adam-reupload-qwen3-8b-full-mix-synthetic-qa-v3-replace-lqa": {
+      "mean": 0.03333333333333333,
+      "lo": 0.006666666666666667,
+      "hi": 0.06,
+      "source": "raw_outputs"
+    },
+    "cot-oracle-paper-ablation-adam-recipe-1layer": {
+      "mean": 0.013333333333333334,
+      "lo": 0.0,
+      "hi": 0.03333333333333333,
+      "source": "raw_outputs"
+    },
+    "cot-oracle-paper-ablation-ours-1layer": {
+      "mean": 0.03333333333333333,
+      "lo": 0.006666666666666667,
+      "hi": 0.06666666666666667,
+      "source": "raw_outputs"
+    },
+    "cot-oracle-paper-ablation-ours-3layers": {
+      "mean": 0.04,
+      "lo": 0.013333333333333334,
+      "hi": 0.07333333333333333,
+      "source": "raw_outputs"
+    },
+    "cot-oracle-paper-ablation-ours-3layers-onpolicy-lens-only": {
+      "mean": 0.07333333333333333,
+      "lo": 0.03333333333333333,
+      "hi": 0.12,
+      "source": "raw_outputs"
+    },
+    "cot-oracle-qwen3-8b-final-sprint-checkpoint-no-DPO": {
+      "mean": 0.04666666666666667,
+      "lo": 0.013333333333333334,
+      "hi": 0.08666666666666667,
+      "source": "raw_outputs"
+    },
+    "cot-oracle-grpo-step-500": {
+      "mean": 0.03333333333333333,
+      "lo": 0.006666666666666667,
+      "hi": 0.06666666666666667,
+      "source": "raw_outputs"
+    }
+  },
+  "personaqa": {
+    "adam-reupload-qwen3-8b-latentqa-cls-past-lens": {
+      "mean": 0.10611111111111111,
+      "lo": 0.10611111111111111,
+      "hi": 0.10611111111111111,
+      "source": "summary_only"
+    },
+    "adam-reupload-qwen3-8b-full-mix-synthetic-qa-v3-replace-lqa": {
+      "mean": 0.17222222222222222,
+      "lo": 0.17222222222222222,
+      "hi": 0.17222222222222222,
+      "source": "summary_only"
+    },
+    "cot-oracle-paper-ablation-adam-recipe-1layer": {
+      "mean": 0.07388888888888889,
+      "lo": 0.07388888888888889,
+      "hi": 0.07388888888888889,
+      "source": "summary_only"
+    },
+    "cot-oracle-paper-ablation-ours-1layer": {
+      "mean": 0.08555555555555555,
+      "lo": 0.08555555555555555,
+      "hi": 0.08555555555555555,
+      "source": "summary_only"
+    },
+    "cot-oracle-paper-ablation-ours-3layers": {
+      "mean": 0.17,
+      "lo": 0.17,
+      "hi": 0.17,
+      "source": "summary_only"
+    },
+    "cot-oracle-paper-ablation-ours-3layers-onpolicy-lens-only": {
+      "mean": 0.13944444444444445,
+      "lo": 0.13944444444444445,
+      "hi": 0.13944444444444445,
+      "source": "summary_only"
+    },
+    "cot-oracle-qwen3-8b-final-sprint-checkpoint-no-DPO": {
+      "mean": 0.11944444444444445,
+      "lo": 0.11944444444444445,
+      "hi": 0.11944444444444445,
+      "source": "summary_only"
+    },
+    "cot-oracle-grpo-step-500": {
+      "mean": 0.08611111111111111,
+      "lo": 0.08611111111111111,
+      "hi": 0.08611111111111111,
+      "source": "summary_only"
+    }
+  },
+  "sycophancy": {
+    "adam-reupload-qwen3-8b-latentqa-cls-past-lens": {
+      "mean": 0.81765,
+      "lo": 0.7776272418125166,
+      "hi": 0.8551562557225688,
+      "source": "raw_outputs"
+    },
+    "adam-reupload-qwen3-8b-full-mix-synthetic-qa-v3-replace-lqa": {
+      "mean": 0.860225,
+      "lo": 0.826107447476767,
+      "hi": 0.8945032874994662,
+      "source": "raw_outputs"
+    },
+    "cot-oracle-paper-ablation-adam-recipe-1layer": {
+      "mean": 0.774675,
+      "lo": 0.7305350751797862,
+      "hi": 0.8148983087629678,
+      "source": "raw_outputs"
+    },
+    "cot-oracle-paper-ablation-ours-1layer": {
+      "mean": 0.812125,
+      "lo": 0.7702498326803566,
+      "hi": 0.8529209026216857,
+      "source": "raw_outputs"
+    },
+    "cot-oracle-paper-ablation-ours-3layers": {
+      "mean": 0.7236750000000001,
+      "lo": 0.6782940000837893,
+      "hi": 0.7701554163770747,
+      "source": "raw_outputs"
+    },
+    "cot-oracle-paper-ablation-ours-3layers-onpolicy-lens-only": {
+      "mean": 0.739625,
+      "lo": 0.6979919067919539,
+      "hi": 0.7809089818259887,
+      "source": "raw_outputs"
+    },
+    "cot-oracle-qwen3-8b-final-sprint-checkpoint-no-DPO": {
+      "mean": 0.734775,
+      "lo": 0.6919293738499749,
+      "hi": 0.7812273692318088,
+      "source": "raw_outputs"
+    },
+    "cot-oracle-grpo-step-500": {
+      "mean": 0.8035249999999999,
+      "lo": 0.762619434433005,
+      "hi": 0.8401925309028141,
+      "source": "raw_outputs"
+    }
+  },
+  "system_prompt_qa_hidden": {
+    "adam-reupload-qwen3-8b-full-mix-synthetic-qa-v3-replace-lqa": {
+      "mean": 2.5,
+      "lo": 2.5,
+      "hi": 2.5,
+      "source": "summary_only"
+    },
+    "adam-reupload-qwen3-8b-latentqa-cls-past-lens": {
+      "mean": 3.7,
+      "lo": 3.7,
+      "hi": 3.7,
+      "source": "summary_only"
+    },
+    "cot-oracle-grpo-step-500": {
+      "mean": 1.5,
+      "lo": 1.5,
+      "hi": 1.5,
+      "source": "summary_only"
+    },
+    "cot-oracle-paper-ablation-adam-recipe-1layer": {
+      "mean": 2.8,
+      "lo": 2.8,
+      "hi": 2.8,
+      "source": "summary_only"
+    },
+    "cot-oracle-paper-ablation-ours-1layer": {
+      "mean": 1.9,
+      "lo": 1.9,
+      "hi": 1.9,
+      "source": "summary_only"
+    },
+    "cot-oracle-paper-ablation-ours-3layers-onpolicy-lens-only": {
+      "mean": 1.2,
+      "lo": 1.2,
+      "hi": 1.2,
+      "source": "summary_only"
+    },
+    "cot-oracle-paper-ablation-ours-3layers": {
+      "mean": 1.6,
+      "lo": 1.6,
+      "hi": 1.6,
+      "source": "summary_only"
+    },
+    "cot-oracle-qwen3-8b-final-sprint-checkpoint-no-DPO": {
+      "mean": 1.2,
+      "lo": 1.2,
+      "hi": 1.2,
+      "source": "summary_only"
+    }
+  },
+  "taboo": {
+    "adam-reupload-qwen3-8b-latentqa-cls-past-lens": {
+      "mean": 0.413,
+      "lo": 0.413,
+      "hi": 0.413,
+      "source": "summary_only"
+    },
+    "adam-reupload-qwen3-8b-full-mix-synthetic-qa-v3-replace-lqa": {
+      "mean": 0.478,
+      "lo": 0.478,
+      "hi": 0.478,
+      "source": "summary_only"
+    },
+    "cot-oracle-paper-ablation-adam-recipe-1layer": {
+      "mean": 0.2796666666666667,
+      "lo": 0.2796666666666667,
+      "hi": 0.2796666666666667,
+      "source": "summary_only"
+    },
+    "cot-oracle-paper-ablation-ours-1layer": {
+      "mean": 0.372,
+      "lo": 0.372,
+      "hi": 0.372,
+      "source": "summary_only"
+    },
+    "cot-oracle-paper-ablation-ours-3layers": {
+      "mean": 0.42866666666666664,
+      "lo": 0.42866666666666664,
+      "hi": 0.42866666666666664,
+      "source": "summary_only"
+    },
+    "cot-oracle-paper-ablation-ours-3layers-onpolicy-lens-only": {
+      "mean": 0.4068333333333333,
+      "lo": 0.4068333333333333,
+      "hi": 0.4068333333333333,
+      "source": "summary_only"
+    },
+    "cot-oracle-qwen3-8b-final-sprint-checkpoint-no-DPO": {
+      "mean": 0.45916666666666667,
+      "lo": 0.45916666666666667,
+      "hi": 0.45916666666666667,
+      "source": "summary_only"
+    },
+    "cot-oracle-grpo-step-500": {
+      "mean": 0.4215,
+      "lo": 0.4215,
+      "hi": 0.4215,
+      "source": "summary_only"
+    }
+  },
+  "vagueness": {
+    "adam-reupload-qwen3-8b-full-mix-synthetic-qa-v3-replace-lqa": {
+      "mean": 0.8934010152284264,
+      "lo": 0.8526649746192894,
+      "hi": 0.934010152284264,
+      "source": "raw_outputs"
+    },
+    "adam-reupload-qwen3-8b-latentqa-cls-past-lens": {
+      "mean": 0.43147208121827413,
+      "lo": 0.36548223350253806,
+      "hi": 0.5025380710659898,
+      "source": "raw_outputs"
+    },
+    "cot-oracle-grpo-step-500": {
+      "mean": 0.5228426395939086,
+      "lo": 0.45685279187817257,
+      "hi": 0.5939086294416244,
+      "source": "raw_outputs"
+    },
+    "cot-oracle-paper-ablation-adam-recipe-1layer": {
+      "mean": 0.41116751269035534,
+      "lo": 0.3401015228426396,
+      "hi": 0.47715736040609136,
+      "source": "raw_outputs"
+    },
+    "cot-oracle-paper-ablation-ours-1layer": {
+      "mean": 0.7563451776649747,
+      "lo": 0.6903553299492385,
+      "hi": 0.8123096446700506,
+      "source": "raw_outputs"
+    },
+    "cot-oracle-paper-ablation-ours-3layers-onpolicy-lens-only": {
+      "mean": 0.6852791878172588,
+      "lo": 0.6142131979695431,
+      "hi": 0.751269035532995,
+      "source": "raw_outputs"
+    },
+    "cot-oracle-paper-ablation-ours-3layers": {
+      "mean": 0.6802030456852792,
+      "lo": 0.6192893401015228,
+      "hi": 0.7411167512690355,
+      "source": "raw_outputs"
+    },
+    "cot-oracle-qwen3-8b-final-sprint-checkpoint-no-DPO": {
+      "mean": 0.7309644670050761,
+      "lo": 0.6649746192893401,
+      "hi": 0.7918781725888325,
+      "source": "raw_outputs"
+    }
+  }
+}
