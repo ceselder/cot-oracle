@@ -1,54 +1,126 @@
 AObench Results Summary
 ================================================================================
 
+--- activation_sensitivity (Activation Sensitivity) ---
+  Adam synth-QA-v3 (tok ?)                       0.9111  [0.8222, 0.9778]
+  Adam original (66.5M tok)                      0.5333  [0.3778, 0.6889]
+  Ours GRPO step 500 (tok n/a)                   0.5778  [0.4444, 0.7111]
+  Paper Adam recipe (17M tok)                    0.5111  [0.3550, 0.6444]
+  Paper ours 1L (22.5M tok)                      0.8889  [0.7778, 0.9778]
+  Paper ours 3L (18M tok)                        0.7778  [0.6444, 0.8889]
+  Paper ours 3L on-policy (22.3M tok)            0.8000  [0.6889, 0.9111]
+  Ours final no-DPO (100M tok)                   0.8222  [0.6889, 0.9333]
+
 --- backtracking (Mean Correctness (1-5)) ---
-  Adam's synth-QA-v3                             2.3046  [2.3046, 2.3046]
-  Adam's AO                                      2.1117  [2.1117, 2.1117]
-  Ours GRPO                                      2.2335  [2.2335, 2.2335]
-  Ours final no-DPO (100M tok)                   1.9188  [1.9188, 1.9188]
+  Adam synth-QA-v3 (tok ?)                       2.2081  [2.0558, 2.3707]
+  Adam original (66.5M tok)                      2.4975  [2.3299, 2.6600]
+  Ours GRPO step 500 (tok n/a)                   2.5635  [2.4213, 2.7362]
+  Paper Adam recipe (17M tok)                    2.1320  [1.9949, 2.2742]
+  Paper ours 1L (22.5M tok)                      2.2386  [2.1015, 2.3959]
+  Paper ours 3L (18M tok)                        2.3655  [2.2132, 2.5228]
+  Paper ours 3L on-policy (22.3M tok)            2.3046  [2.1624, 2.4619]
+  Ours final no-DPO (100M tok)                   2.3249  [2.1775, 2.4873]
 
 --- domain_confusion (Domain Accuracy) ---
-  Adam's synth-QA-v3                             0.3841  [0.3841, 0.3841]
-  Adam's AO                                      0.1237  [0.1237, 0.1237]
-  Ours GRPO                                      0.4099  [0.4099, 0.4099]
-  Ours final no-DPO (100M tok)                   0.2710  [0.2710, 0.2710]
+  Adam synth-QA-v3 (tok ?)                       0.2640  [0.2301, 0.2995]
+  Adam original (66.5M tok)                      0.2014  [0.1709, 0.2335]
+  Ours GRPO step 500 (tok n/a)                   0.2724  [0.2369, 0.3080]
+  Paper Adam recipe (17M tok)                    0.1523  [0.1252, 0.1810]
+  Paper ours 1L (22.5M tok)                      0.2318  [0.2030, 0.2674]
+  Paper ours 3L (18M tok)                        0.2572  [0.2233, 0.2944]
+  Paper ours 3L on-policy (22.3M tok)            0.2437  [0.2115, 0.2809]
+  Ours final no-DPO (100M tok)                   0.2403  [0.2047, 0.2758]
+
+--- hallucination (Correct Rate) ---
+  Adam synth-QA-v3 (tok ?)                       0.2010  [0.1777, 0.2274]
+  Adam original (66.5M tok)                      0.3056  [0.2781, 0.3371]
+  Ours GRPO step 500 (tok n/a)                   0.3198  [0.2934, 0.3482]
+  Paper Adam recipe (17M tok)                    0.2071  [0.1838, 0.2335]
+  Paper ours 1L (22.5M tok)                      0.2020  [0.1787, 0.2254]
+  Paper ours 3L (18M tok)                        0.2203  [0.1939, 0.2467]
+  Paper ours 3L on-policy (22.3M tok)            0.2508  [0.2234, 0.2802]
+  Ours final no-DPO (100M tok)                   0.2061  [0.1827, 0.2315]
 
 --- missing_info (ROC AUC) ---
-  Adam's synth-QA-v3                             0.7622  [0.7622, 0.7622]
-  Adam's AO                                      0.6422  [0.6422, 0.6422]
-  Ours GRPO                                      0.7333  [0.7333, 0.7333]
-  Ours final no-DPO (100M tok)                   0.7378  [0.7378, 0.7378]
+  Adam synth-QA-v3 (tok ?)                       0.6444  [0.4544, 0.8102]
+  Adam original (66.5M tok)                      0.6433  [0.4453, 0.7910]
+  Ours GRPO step 500 (tok n/a)                   0.7067  [0.5215, 0.8623]
+  Paper Adam recipe (17M tok)                    0.5822  [0.3779, 0.7514]
+  Paper ours 1L (22.5M tok)                      0.7222  [0.5342, 0.8721]
+  Paper ours 3L (18M tok)                        0.7333  [0.5535, 0.8798]
+  Paper ours 3L on-policy (22.3M tok)            0.7433  [0.5647, 0.8898]
+  Ours final no-DPO (100M tok)                   0.7111  [0.5251, 0.8642]
   (chance)                                       0.5000
 
 --- mmlu_prediction (ROC AUC) ---
-  Adam's synth-QA-v3                             0.6930  [0.6930, 0.6930]
-  Adam's AO                                      0.6877  [0.6877, 0.6877]
-  Ours GRPO                                      0.6802  [0.6802, 0.6802]
-  Ours final no-DPO (100M tok)                   0.6818  [0.6818, 0.6818]
+  Adam synth-QA-v3 (tok ?)                       0.6918  [0.5843, 0.7768]
+  Adam original (66.5M tok)                      0.6890  [0.5866, 0.7763]
+  Ours GRPO step 500 (tok n/a)                   0.7297  [0.6233, 0.8190]
+  Paper Adam recipe (17M tok)                    0.6113  [0.5201, 0.7047]
+  Paper ours 1L (22.5M tok)                      0.7046  [0.5991, 0.7939]
+  Paper ours 3L (18M tok)                        0.6795  [0.5731, 0.7804]
+  Paper ours 3L on-policy (22.3M tok)            0.7227  [0.6243, 0.8047]
+  Ours final no-DPO (100M tok)                   0.7036  [0.5938, 0.7948]
   (chance)                                       0.5000
 
 --- number_prediction (Model Match Rate) ---
-  Adam's synth-QA-v3                             0.0267  [0.0267, 0.0267]
-  Adam's AO                                      0.0333  [0.0333, 0.0333]
-  Ours GRPO                                      0.0533  [0.0533, 0.0533]
-  Ours final no-DPO (100M tok)                   0.0533  [0.0533, 0.0533]
+  Adam synth-QA-v3 (tok ?)                       0.0333  [0.0067, 0.0600]
+  Adam original (66.5M tok)                      0.0067  [0.0000, 0.0200]
+  Ours GRPO step 500 (tok n/a)                   0.0333  [0.0067, 0.0667]
+  Paper Adam recipe (17M tok)                    0.0133  [0.0000, 0.0333]
+  Paper ours 1L (22.5M tok)                      0.0333  [0.0067, 0.0667]
+  Paper ours 3L (18M tok)                        0.0400  [0.0133, 0.0733]
+  Paper ours 3L on-policy (22.3M tok)            0.0733  [0.0333, 0.1200]
+  Ours final no-DPO (100M tok)                   0.0467  [0.0133, 0.0867]
+
+--- personaqa (Accuracy) ---
+  Adam synth-QA-v3 (tok ?)                       0.1722  [0.1722, 0.1722]
+  Adam original (66.5M tok)                      0.1061  [0.1061, 0.1061]
+  Ours GRPO step 500 (tok n/a)                   0.0861  [0.0861, 0.0861]
+  Paper Adam recipe (17M tok)                    0.0739  [0.0739, 0.0739]
+  Paper ours 1L (22.5M tok)                      0.0856  [0.0856, 0.0856]
+  Paper ours 3L (18M tok)                        0.1700  [0.1700, 0.1700]
+  Paper ours 3L on-policy (22.3M tok)            0.1394  [0.1394, 0.1394]
+  Ours final no-DPO (100M tok)                   0.1194  [0.1194, 0.1194]
 
 --- sycophancy (ROC AUC) ---
-  Adam's synth-QA-v3                             0.8333  [0.8333, 0.8333]
-  Adam's AO                                      0.7268  [0.7268, 0.7268]
-  Ours GRPO                                      0.6590  [0.6590, 0.6590]
-  Ours final no-DPO (100M tok)                   0.7494  [0.7494, 0.7494]
+  Adam synth-QA-v3 (tok ?)                       0.8602  [0.8261, 0.8945]
+  Adam original (66.5M tok)                      0.8176  [0.7776, 0.8552]
+  Ours GRPO step 500 (tok n/a)                   0.8035  [0.7626, 0.8402]
+  Paper Adam recipe (17M tok)                    0.7747  [0.7305, 0.8149]
+  Paper ours 1L (22.5M tok)                      0.8121  [0.7702, 0.8529]
+  Paper ours 3L (18M tok)                        0.7237  [0.6783, 0.7702]
+  Paper ours 3L on-policy (22.3M tok)            0.7396  [0.6980, 0.7809]
+  Ours final no-DPO (100M tok)                   0.7348  [0.6919, 0.7812]
   (chance)                                       0.5000
 
+--- taboo (Accuracy) ---
+  Adam synth-QA-v3 (tok ?)                       0.4780  [0.4780, 0.4780]
+  Adam original (66.5M tok)                      0.4130  [0.4130, 0.4130]
+  Ours GRPO step 500 (tok n/a)                   0.4215  [0.4215, 0.4215]
+  Paper Adam recipe (17M tok)                    0.2797  [0.2797, 0.2797]
+  Paper ours 1L (22.5M tok)                      0.3720  [0.3720, 0.3720]
+  Paper ours 3L (18M tok)                        0.4287  [0.4287, 0.4287]
+  Paper ours 3L on-policy (22.3M tok)            0.4068  [0.4068, 0.4068]
+  Ours final no-DPO (100M tok)                   0.4592  [0.4592, 0.4592]
+
 --- vagueness (Non-Vagueness) ---
-  Adam's synth-QA-v3                             0.3706  [0.3706, 0.3706]
-  Adam's AO                                      0.1122  [0.1122, 0.1122]
-  Ours GRPO                                      0.2640  [0.2640, 0.2640]
-  Ours final no-DPO (100M tok)                   0.1878  [0.1878, 0.1878]
+  Adam synth-QA-v3 (tok ?)                       0.8934  [0.8527, 0.9340]
+  Adam original (66.5M tok)                      0.4315  [0.3655, 0.5025]
+  Ours GRPO step 500 (tok n/a)                   0.5228  [0.4569, 0.5939]
+  Paper Adam recipe (17M tok)                    0.4112  [0.3401, 0.4772]
+  Paper ours 1L (22.5M tok)                      0.7563  [0.6904, 0.8123]
+  Paper ours 3L (18M tok)                        0.6802  [0.6193, 0.7411]
+  Paper ours 3L on-policy (22.3M tok)            0.6853  [0.6142, 0.7513]
+  Ours final no-DPO (100M tok)                   0.7310  [0.6650, 0.7919]
 
 --- aggregate (chance-adjusted where applicable) ---
-  Adam's synth-QA-v3                             0.3835  [0.3835, 0.3835]  (n=7)
-  Ours GRPO                                      0.3115  [0.3115, 0.3115]  (n=7)
-  Ours final no-DPO (100M tok)                   0.2971  [0.2971, 0.2971]  (n=7)
-  Adam's AO                                      0.2372  [0.2372, 0.2372]  (n=7)
+  Adam synth-QA-v3 (tok ?)                       0.4225  [0.3772, 0.4599]  (n=11)
+  Paper ours 1L (22.5M tok)                      0.3961  [0.3495, 0.4325]  (n=11)
+  Paper ours 3L on-policy (22.3M tok)            0.3943  [0.3511, 0.4313]  (n=11)
+  Ours final no-DPO (100M tok)                   0.3868  [0.3435, 0.4230]  (n=11)
+  Paper ours 3L (18M tok)                        0.3808  [0.3368, 0.4171]  (n=11)
+  Ours GRPO step 500 (tok n/a)                   0.3731  [0.3316, 0.4113]  (n=11)
+  Adam original (66.5M tok)                      0.3338  [0.2869, 0.3748]  (n=11)
+  Paper Adam recipe (17M tok)                    0.2607  [0.2177, 0.2991]  (n=11)
 
