@@ -1,0 +1,142 @@
+{
+  "number_prediction": {
+    "checkpoints_Qwen3-8B_full_mix_synthetic_qa_v3_replace_lqa": {
+      "mean": 0.02666666666666667,
+      "lo": 0.02666666666666667,
+      "hi": 0.02666666666666667,
+      "source": "summary_only"
+    },
+    "cot-oracle-qwen3-8b-final-sprint-checkpoint-no-DPO": {
+      "mean": 0.05333333333333334,
+      "lo": 0.05333333333333334,
+      "hi": 0.05333333333333334,
+      "source": "summary_only"
+    },
+    "cot-oracle-grpo-v1": {
+      "mean": 0.05333333333333334,
+      "lo": 0.05333333333333334,
+      "hi": 0.05333333333333334,
+      "source": "summary_only"
+    }
+  },
+  "mmlu_prediction": {
+    "checkpoints_Qwen3-8B_full_mix_synthetic_qa_v3_replace_lqa": {
+      "mean": 0.693,
+      "lo": 0.693,
+      "hi": 0.693,
+      "source": "summary_only"
+    },
+    "cot-oracle-qwen3-8b-final-sprint-checkpoint-no-DPO": {
+      "mean": 0.6818,
+      "lo": 0.6818,
+      "hi": 0.6818,
+      "source": "summary_only"
+    },
+    "cot-oracle-grpo-v1": {
+      "mean": 0.6802,
+      "lo": 0.6802,
+      "hi": 0.6802,
+      "source": "summary_only"
+    }
+  },
+  "backtracking": {
+    "checkpoints_Qwen3-8B_full_mix_synthetic_qa_v3_replace_lqa": {
+      "mean": 2.3045685279187818,
+      "lo": 2.3045685279187818,
+      "hi": 2.3045685279187818,
+      "source": "summary_only"
+    },
+    "cot-oracle-qwen3-8b-final-sprint-checkpoint-no-DPO": {
+      "mean": 1.9187817258883249,
+      "lo": 1.9187817258883249,
+      "hi": 1.9187817258883249,
+      "source": "summary_only"
+    },
+    "cot-oracle-grpo-v1": {
+      "mean": 2.233502538071066,
+      "lo": 2.233502538071066,
+      "hi": 2.233502538071066,
+      "source": "summary_only"
+    }
+  },
+  "missing_info": {
+    "checkpoints_Qwen3-8B_full_mix_synthetic_qa_v3_replace_lqa": {
+      "mean": 0.7622222222222222,
+      "lo": 0.7622222222222222,
+      "hi": 0.7622222222222222,
+      "source": "summary_only"
+    },
+    "cot-oracle-qwen3-8b-final-sprint-checkpoint-no-DPO": {
+      "mean": 0.7377777777777779,
+      "lo": 0.7377777777777779,
+      "hi": 0.7377777777777779,
+      "source": "summary_only"
+    },
+    "cot-oracle-grpo-v1": {
+      "mean": 0.7333333333333334,
+      "lo": 0.7333333333333334,
+      "hi": 0.7333333333333334,
+      "source": "summary_only"
+    }
+  },
+  "sycophancy": {
+    "checkpoints_Qwen3-8B_full_mix_synthetic_qa_v3_replace_lqa": {
+      "mean": 0.8332999999999999,
+      "lo": 0.8332999999999999,
+      "hi": 0.8332999999999999,
+      "source": "summary_only"
+    },
+    "cot-oracle-qwen3-8b-final-sprint-checkpoint-no-DPO": {
+      "mean": 0.749425,
+      "lo": 0.749425,
+      "hi": 0.749425,
+      "source": "summary_only"
+    },
+    "cot-oracle-grpo-v1": {
+      "mean": 0.659,
+      "lo": 0.659,
+      "hi": 0.659,
+      "source": "summary_only"
+    }
+  },
+  "vagueness": {
+    "checkpoints_Qwen3-8B_full_mix_synthetic_qa_v3_replace_lqa": {
+      "mean": 0.37055837563451777,
+      "lo": 0.37055837563451777,
+      "hi": 0.37055837563451777,
+      "source": "summary_only"
+    },
+    "cot-oracle-qwen3-8b-final-sprint-checkpoint-no-DPO": {
+      "mean": 0.18781725888324874,
+      "lo": 0.18781725888324874,
+      "hi": 0.18781725888324874,
+      "source": "summary_only"
+    },
+    "cot-oracle-grpo-v1": {
+      "mean": 0.2639593908629442,
+      "lo": 0.2639593908629442,
+      "hi": 0.2639593908629442,
+      "source": "summary_only"
+    }
+  },
+  "domain_confusion": {
+    "checkpoints_Qwen3-8B_full_mix_synthetic_qa_v3_replace_lqa": {
+      "mean": 0.38408304498269896,
+      "lo": 0.38408304498269896,
+      "hi": 0.38408304498269896,
+      "source": "summary_only"
+    },
+    "cot-oracle-qwen3-8b-final-sprint-checkpoint-no-DPO": {
+      "mean": 0.27101200686106347,
+      "lo": 0.27101200686106347,
+      "hi": 0.27101200686106347,
+      "source": "summary_only"
+    },
+    "cot-oracle-grpo-v1": {
+      "mean": 0.40987654320987654,
+      "lo": 0.40987654320987654,
+      "hi": 0.40987654320987654,
+      "source": "summary_only"
+    }
+  }
+}
