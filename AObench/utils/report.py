@@ -374,7 +374,7 @@ DISPLAY_ORDER = [
 
 EVAL_DISPLAY_NAMES: dict[str, str] = {
     "number_prediction": "Predict\nHidden Number",
-    "mmlu_prediction": "Predict Answer\nCorrectness",
+    "mmlu_prediction": "Predict MMLU\nCorrectness",
     "backtracking": "Explain\nBacktracking",
     "backtracking_mc": "Backtracking\nMC",
     "missing_info": "Detect\nMissing Info",
@@ -385,9 +385,9 @@ EVAL_DISPLAY_NAMES: dict[str, str] = {
     "personaqa": "Identify Persona\n(model org.)",
     "vagueness": "Response\nSpecificity",
     "domain_confusion": "Identify\nProblem Domain",
-    "activation_sensitivity": "Activation\nSensitivity",
-    "hallucination": "Avoids\nHallucination",
-    "hallucination_5pos": "Avoids\nHallucination",
+    "activation_sensitivity": "Actually Reads\nActivations",
+    "hallucination": "Not Obviously\nWrong",
+    "hallucination_5pos": "Not Obviously\nWrong",
 }
 
 
