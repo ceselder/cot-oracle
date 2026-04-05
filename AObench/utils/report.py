@@ -623,8 +623,8 @@ def plot_category_breakdown(
     if fig.legends:
         fig.legends[0].get_title().set_fontsize(14)
 
-    fig.suptitle(title, fontsize=16, y=0.98)
-    fig.subplots_adjust(left=0.08, right=0.99, top=0.90, bottom=0.22, wspace=0.25)
+    fig.suptitle(title, fontsize=16, y=1.02)
+    fig.subplots_adjust(left=0.08, right=0.99, top=0.88, bottom=0.22, wspace=0.25)
     os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
     plt.savefig(output_path, dpi=150, bbox_inches="tight")
     plt.close()
