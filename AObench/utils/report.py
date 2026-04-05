@@ -605,16 +605,16 @@ def plot_category_breakdown(
     fig.legend(
         handles=legend_handles,
         loc="upper center",
-        bbox_to_anchor=(0.5, 0.08),
+        bbox_to_anchor=(0.5, 0.12),
         ncol=min(4, n_verbs),
-        fontsize=11,
+        fontsize=13,
         title="Checkpoint",
         frameon=False,
-        columnspacing=1.4,
-        handlelength=1.8,
+        columnspacing=1.6,
+        handlelength=2.0,
     )
     if fig.legends:
-        fig.legends[0].get_title().set_fontsize(12)
+        fig.legends[0].get_title().set_fontsize(14)
 
     fig.suptitle(title, fontsize=16, y=0.98)
     fig.subplots_adjust(left=0.06, right=0.99, top=0.90, bottom=0.18, wspace=0.2)
@@ -741,16 +741,16 @@ def plot_comparison_bar_chart(
     legend = fig.legend(
         handles=legend_handles,
         loc="upper center",
-        bbox_to_anchor=(0.5, 0.08),
+        bbox_to_anchor=(0.5, 0.12),
         ncol=min(4, n_verbs),
-        fontsize=11,
+        fontsize=13,
         title="Checkpoint",
         frameon=False,
-        columnspacing=1.4,
-        handlelength=1.8,
+        columnspacing=1.6,
+        handlelength=2.0,
     )
     if legend.get_title() is not None:
-        legend.get_title().set_fontsize(12)
+        legend.get_title().set_fontsize(14)
 
     fig.text(
         0.5,
