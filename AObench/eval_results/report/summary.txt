@@ -2,7 +2,7 @@ AObench Results Summary
 ================================================================================
 
 --- activation_sensitivity (Activation Sensitivity) ---
-  LatentQA + Synth-QA                            0.9111  [0.8222, 0.9778]
+  Latest (Karvonen)                              0.9111  [0.8222, 0.9778]
   Original AO paper                              0.5333  [0.3778, 0.6889]
   Ours (SFT + GRPO)                              0.5778  [0.4444, 0.7111]
   Our repro of LatentQA                          0.5111  [0.3550, 0.6444]
@@ -12,7 +12,7 @@ AObench Results Summary
   Ours SFT (14 datasets)                         0.8222  [0.6889, 0.9333]
 
 --- backtracking (Mean Correctness (1-5)) ---
-  LatentQA + Synth-QA                            2.2081  [2.0558, 2.3707]
+  Latest (Karvonen)                              2.2081  [2.0558, 2.3707]
   Original AO paper                              2.4975  [2.3299, 2.6600]
   Ours (SFT + GRPO)                              2.5635  [2.4213, 2.7362]
   Our repro of LatentQA                          2.1320  [1.9949, 2.2742]
@@ -22,7 +22,7 @@ AObench Results Summary
   Ours SFT (14 datasets)                         2.3249  [2.1775, 2.4873]
 
 --- domain_confusion (Domain Accuracy) ---
-  LatentQA + Synth-QA                            0.2640  [0.2301, 0.2995]
+  Latest (Karvonen)                              0.2640  [0.2301, 0.2995]
   Original AO paper                              0.2014  [0.1709, 0.2335]
   Ours (SFT + GRPO)                              0.2724  [0.2369, 0.3080]
   Our repro of LatentQA                          0.1523  [0.1252, 0.1810]
@@ -32,7 +32,7 @@ AObench Results Summary
   Ours SFT (14 datasets)                         0.2403  [0.2047, 0.2758]
 
 --- hallucination (Not Obviously Wrong Rate) ---
-  LatentQA + Synth-QA                            0.7096  [0.6822, 0.7371]
+  Latest (Karvonen)                              0.7096  [0.6822, 0.7371]
   Original AO paper                              0.7909  [0.7685, 0.8162]
   Ours (SFT + GRPO)                              0.8670  [0.8487, 0.8893]
   Our repro of LatentQA                          0.7056  [0.6771, 0.7371]
@@ -42,7 +42,7 @@ AObench Results Summary
   Ours SFT (14 datasets)                         0.7320  [0.7046, 0.7584]
 
 --- missing_info (ROC AUC) ---
-  LatentQA + Synth-QA                            0.6444  [0.4544, 0.8102]
+  Latest (Karvonen)                              0.6444  [0.4544, 0.8102]
   Original AO paper                              0.6433  [0.4453, 0.7910]
   Ours (SFT + GRPO)                              0.7067  [0.5215, 0.8623]
   Our repro of LatentQA                          0.5822  [0.3779, 0.7514]
@@ -53,7 +53,7 @@ AObench Results Summary
   (chance)                                       0.5000
 
 --- mmlu_prediction (ROC AUC) ---
-  LatentQA + Synth-QA                            0.6918  [0.5843, 0.7768]
+  Latest (Karvonen)                              0.6918  [0.5843, 0.7768]
   Original AO paper                              0.6890  [0.5866, 0.7763]
   Ours (SFT + GRPO)                              0.7297  [0.6233, 0.8190]
   Our repro of LatentQA                          0.6113  [0.5201, 0.7047]
@@ -64,7 +64,7 @@ AObench Results Summary
   (chance)                                       0.5000
 
 --- number_prediction (Model Match Rate) ---
-  LatentQA + Synth-QA                            0.0333  [0.0067, 0.0600]
+  Latest (Karvonen)                              0.0333  [0.0067, 0.0600]
   Original AO paper                              0.0067  [0.0000, 0.0200]
   Ours (SFT + GRPO)                              0.0333  [0.0067, 0.0667]
   Our repro of LatentQA                          0.0133  [0.0000, 0.0333]
@@ -74,7 +74,7 @@ AObench Results Summary
   Ours SFT (14 datasets)                         0.0467  [0.0133, 0.0867]
 
 --- personaqa (Accuracy) ---
-  LatentQA + Synth-QA                            0.1722  [0.1722, 0.1722]
+  Latest (Karvonen)                              0.1722  [0.1722, 0.1722]
   Original AO paper                              0.1061  [0.1061, 0.1061]
   Ours (SFT + GRPO)                              0.0861  [0.0861, 0.0861]
   Our repro of LatentQA                          0.0739  [0.0739, 0.0739]
@@ -84,7 +84,7 @@ AObench Results Summary
   Ours SFT (14 datasets)                         0.1194  [0.1194, 0.1194]
 
 --- sycophancy (ROC AUC) ---
-  LatentQA + Synth-QA                            0.8602  [0.8261, 0.8945]
+  Latest (Karvonen)                              0.8602  [0.8261, 0.8945]
   Original AO paper                              0.8176  [0.7776, 0.8552]
   Ours (SFT + GRPO)                              0.8035  [0.7626, 0.8402]
   Our repro of LatentQA                          0.7747  [0.7305, 0.8149]
@@ -95,7 +95,7 @@ AObench Results Summary
   (chance)                                       0.5000
 
 --- taboo (Accuracy) ---
-  LatentQA + Synth-QA                            0.4780  [0.4780, 0.4780]
+  Latest (Karvonen)                              0.4780  [0.4780, 0.4780]
   Original AO paper                              0.4130  [0.4130, 0.4130]
   Ours (SFT + GRPO)                              0.4215  [0.4215, 0.4215]
   Our repro of LatentQA                          0.2797  [0.2797, 0.2797]
@@ -105,7 +105,7 @@ AObench Results Summary
   Ours SFT (14 datasets)                         0.4592  [0.4592, 0.4592]
 
 --- vagueness (Non-Vagueness) ---
-  LatentQA + Synth-QA                            0.8934  [0.8527, 0.9340]
+  Latest (Karvonen)                              0.8934  [0.8527, 0.9340]
   Original AO paper                              0.4315  [0.3655, 0.5025]
   Ours (SFT + GRPO)                              0.5228  [0.4569, 0.5939]
   Our repro of LatentQA                          0.4112  [0.3401, 0.4772]
@@ -115,7 +115,7 @@ AObench Results Summary
   Ours SFT (14 datasets)                         0.7310  [0.6650, 0.7919]
 
 --- aggregate (chance-adjusted where applicable) ---
-  LatentQA + Synth-QA                            0.4688  [0.4234, 0.5055]  (n=11)
+  Latest (Karvonen)                              0.4688  [0.4234, 0.5055]  (n=11)
   Ours (1 layer)                                 0.4408  [0.3964, 0.4764]  (n=11)
   Ours (3L, on-policy)                           0.4387  [0.3968, 0.4762]  (n=11)
   Ours SFT (14 datasets)                         0.4346  [0.3908, 0.4708]  (n=11)

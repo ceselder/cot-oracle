@@ -337,7 +337,7 @@ DISPLAY_NAMES: dict[str, str] = {
     "checkpoints_latentqa_cls_on_policy_Qwen3-8B": "Adam's on-policy",
     "latentqa_cls_on_policy_Qwen3-8B": "Adam's on-policy",
     "adam-reupload-qwen3-8b-latentqa-cls-past-lens": "Original AO paper",
-    "adam-reupload-qwen3-8b-full-mix-synthetic-qa-v3-replace-lqa": "LatentQA + Synth-QA",
+    "adam-reupload-qwen3-8b-full-mix-synthetic-qa-v3-replace-lqa": "Latest (Karvonen)",
     "cot-oracle-paper-ablation-adam-recipe-1layer": "Our repro of LatentQA",
     "cot-oracle-paper-ablation-ours-1layer": "Ours (1 layer)",
     "cot-oracle-paper-ablation-ours-3layers": "Ours (3 layers)",
@@ -352,7 +352,7 @@ DISPLAY_NAMES: dict[str, str] = {
 
 DISPLAY_COLORS: dict[str, str] = {
     "Original AO paper": "#4E7F4E",
-    "LatentQA + Synth-QA": "#B8742F",
+    "Latest (Karvonen)": "#B8742F",
     "Our repro of LatentQA": "#7C9C59",
     "Ours (1 layer)": "#5DA5DA",
     "Ours (3 layers)": "#2F7FB8",
@@ -362,13 +362,13 @@ DISPLAY_COLORS: dict[str, str] = {
 }
 DISPLAY_ORDER = [
     "Original AO paper",
-    "LatentQA + Synth-QA",
     "Our repro of LatentQA",
     "Ours (1 layer)",
     "Ours (3 layers)",
     "Ours (3L, on-policy)",
     "Ours SFT (14 datasets)",
     "Ours (SFT + GRPO)",
+    "Latest (Karvonen)",
 ]
 
 EVAL_DISPLAY_NAMES: dict[str, str] = {
