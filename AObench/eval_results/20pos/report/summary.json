@@ -1,35 +1,42 @@
 {
   "number_prediction": {
+    "checkpoints_latentqa_cls_past_lens_addition_Qwen3-8B": 0.03333333333333333,
     "checkpoints_Qwen3-8B_full_mix_synthetic_qa_v3_replace_lqa": 0.02666666666666667,
     "cot-oracle-qwen3-8b-final-sprint-checkpoint-no-DPO": 0.05333333333333334,
     "cot-oracle-grpo-v1": 0.05333333333333334
   },
   "mmlu_prediction": {
+    "checkpoints_latentqa_cls_past_lens_addition_Qwen3-8B": 0.6877,
     "checkpoints_Qwen3-8B_full_mix_synthetic_qa_v3_replace_lqa": 0.693,
     "cot-oracle-qwen3-8b-final-sprint-checkpoint-no-DPO": 0.6818,
     "cot-oracle-grpo-v1": 0.6802
   },
   "backtracking": {
+    "checkpoints_latentqa_cls_past_lens_addition_Qwen3-8B": 2.1116751269035534,
     "checkpoints_Qwen3-8B_full_mix_synthetic_qa_v3_replace_lqa": 2.3045685279187818,
     "cot-oracle-qwen3-8b-final-sprint-checkpoint-no-DPO": 1.9187817258883249,
     "cot-oracle-grpo-v1": 2.233502538071066
   },
   "missing_info": {
+    "checkpoints_latentqa_cls_past_lens_addition_Qwen3-8B": 0.6422222222222221,
     "checkpoints_Qwen3-8B_full_mix_synthetic_qa_v3_replace_lqa": 0.7622222222222222,
     "cot-oracle-qwen3-8b-final-sprint-checkpoint-no-DPO": 0.7377777777777779,
     "cot-oracle-grpo-v1": 0.7333333333333334
   },
   "sycophancy": {
+    "checkpoints_latentqa_cls_past_lens_addition_Qwen3-8B": 0.7268,
     "checkpoints_Qwen3-8B_full_mix_synthetic_qa_v3_replace_lqa": 0.8332999999999999,
     "cot-oracle-qwen3-8b-final-sprint-checkpoint-no-DPO": 0.749425,
     "cot-oracle-grpo-v1": 0.659
   },
   "vagueness": {
+    "checkpoints_latentqa_cls_past_lens_addition_Qwen3-8B": 0.11224489795918367,
     "checkpoints_Qwen3-8B_full_mix_synthetic_qa_v3_replace_lqa": 0.37055837563451777,
     "cot-oracle-qwen3-8b-final-sprint-checkpoint-no-DPO": 0.18781725888324874,
     "cot-oracle-grpo-v1": 0.2639593908629442
   },
   "domain_confusion": {
+    "checkpoints_latentqa_cls_past_lens_addition_Qwen3-8B": 0.12372881355932204,
     "checkpoints_Qwen3-8B_full_mix_synthetic_qa_v3_replace_lqa": 0.38408304498269896,
     "cot-oracle-qwen3-8b-final-sprint-checkpoint-no-DPO": 0.27101200686106347,
     "cot-oracle-grpo-v1": 0.40987654320987654

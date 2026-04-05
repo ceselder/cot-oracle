@@ -22,7 +22,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 DEFAULT_BOOTSTRAP_REPS = 600
-IGNORED_EVALS = {"backtracking_mc"}
+IGNORED_EVALS = {"backtracking_mc", "system_prompt_qa_hidden", "system_prompt_qa_latentqa"}
 
 
 # ---------------------------------------------------------------------------
@@ -794,11 +794,6 @@ def generate_report(
             continue
         metrics = extract_verbalizer_metric(summary, eval_name)
         if metrics:
-            # Exclude latentqa verbalizers
-            metrics = {
-                k: v for k, v in metrics.items()
-                if "latentqa" not in k
-            }
             # Filter to requested verbalizers
             if filter_verbalizers:
                 metrics = {

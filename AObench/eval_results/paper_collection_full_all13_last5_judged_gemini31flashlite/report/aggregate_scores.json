@@ -1,7 +1,7 @@
 {
   "adam-reupload-qwen3-8b-full-mix-synthetic-qa-v3-replace-lqa": {
-    "mean_normalized_score": 0.4292701266866242,
-    "num_evals": 13,
+    "mean_normalized_score": 0.42254651335691945,
+    "num_evals": 11,
     "per_eval_normalized": {
       "activation_sensitivity": 0.9111111111111111,
       "backtracking": 0.30203045685279184,
@@ -12,17 +12,34 @@
       "number_prediction": 0.03333333333333333,
       "personaqa": 0.17222222222222222,
       "sycophancy": 0.72045,
-      "system_prompt_qa_hidden": 0.375,
-      "system_prompt_qa_latentqa": 0.5575,
       "taboo": 0.478,
       "vagueness": 0.8934010152284264
     },
-    "ci_lo": 0.39087840726978673,
-    "ci_hi": 0.46084036371899373
+    "ci_lo": 0.3771744813188388,
+    "ci_hi": 0.4598567934860835
+  },
+  "adam-reupload-qwen3-8b-latentqa-cls-past-lens": {
+    "mean_normalized_score": 0.33380479413423575,
+    "num_evals": 11,
+    "per_eval_normalized": {
+      "activation_sensitivity": 0.5333333333333333,
+      "backtracking": 0.3743654822335025,
+      "domain_confusion": 0.20135363790186125,
+      "hallucination": 0.30558375634517765,
+      "missing_info": 0.2866666666666666,
+      "mmlu_prediction": 0.3780000000000001,
+      "number_prediction": 0.006666666666666667,
+      "personaqa": 0.10611111111111111,
+      "sycophancy": 0.6353,
+      "taboo": 0.413,
+      "vagueness": 0.43147208121827413
+    },
+    "ci_lo": 0.2869485382945264,
+    "ci_hi": 0.3748303407347074
   },
   "cot-oracle-grpo-step-500": {
-    "mean_normalized_score": 0.3591867477981691,
-    "num_evals": 13,
+    "mean_normalized_score": 0.3731297928523816,
+    "num_evals": 11,
     "per_eval_normalized": {
       "activation_sensitivity": 0.5777777777777777,
       "backtracking": 0.3908629441624365,
@@ -33,17 +50,15 @@
       "number_prediction": 0.03333333333333333,
       "personaqa": 0.08611111111111111,
       "sycophancy": 0.6070499999999999,
-      "system_prompt_qa_hidden": 0.125,
-      "system_prompt_qa_latentqa": 0.43999999999999995,
       "taboo": 0.4215,
       "vagueness": 0.5228426395939086
     },
-    "ci_lo": 0.3240048119627859,
-    "ci_hi": 0.3915158896501726
+    "ci_lo": 0.3315511414105651,
+    "ci_hi": 0.4113369604956585
   },
   "cot-oracle-paper-ablation-adam-recipe-1layer": {
-    "mean_normalized_score": 0.29541905722591,
-    "num_evals": 13,
+    "mean_normalized_score": 0.26072252217607544,
+    "num_evals": 11,
     "per_eval_normalized": {
       "activation_sensitivity": 0.5111111111111111,
       "backtracking": 0.28299492385786806,
@@ -54,17 +69,15 @@
       "number_prediction": 0.013333333333333334,
       "personaqa": 0.07388888888888889,
       "sycophancy": 0.54935,
-      "system_prompt_qa_hidden": 0.44999999999999996,
-      "system_prompt_qa_latentqa": 0.5225,
       "taboo": 0.2796666666666667,
       "vagueness": 0.41116751269035534
     },
-    "ci_lo": 0.2590292906010532,
-    "ci_hi": 0.32786354411603147
+    "ci_lo": 0.2177164343466992,
+    "ci_hi": 0.2990660066825827
   },
   "cot-oracle-paper-ablation-ours-1layer": {
-    "mean_normalized_score": 0.38980792442188383,
-    "num_evals": 13,
+    "mean_normalized_score": 0.3961366379531354,
+    "num_evals": 11,
     "per_eval_normalized": {
       "activation_sensitivity": 0.8888888888888888,
       "backtracking": 0.30964467005076146,
@@ -75,17 +88,15 @@
       "number_prediction": 0.03333333333333333,
       "personaqa": 0.08555555555555555,
       "sycophancy": 0.62425,
-      "system_prompt_qa_hidden": 0.22499999999999998,
-      "system_prompt_qa_latentqa": 0.485,
       "taboo": 0.372,
       "vagueness": 0.7563451776649747
     },
-    "ci_lo": 0.35032218075844485,
-    "ci_hi": 0.4206161148784095
+    "ci_lo": 0.3494716681690711,
+    "ci_hi": 0.43254631758357487
   },
   "cot-oracle-paper-ablation-ours-3layers-onpolicy-lens-only": {
-    "mean_normalized_score": 0.3749434877868888,
-    "num_evals": 13,
+    "mean_normalized_score": 0.39425139465723225,
+    "num_evals": 11,
     "per_eval_normalized": {
       "activation_sensitivity": 0.8,
       "backtracking": 0.32614213197969544,
@@ -96,17 +107,15 @@
       "number_prediction": 0.07333333333333333,
       "personaqa": 0.13944444444444445,
       "sycophancy": 0.47924999999999995,
-      "system_prompt_qa_hidden": 0.04999999999999999,
-      "system_prompt_qa_latentqa": 0.48750000000000004,
       "taboo": 0.4068333333333333,
       "vagueness": 0.6852791878172588
     },
-    "ci_lo": 0.3384148440852846,
-    "ci_hi": 0.4062841611198098
+    "ci_lo": 0.3510811793735182,
+    "ci_hi": 0.4312903722325026
   },
   "cot-oracle-paper-ablation-ours-3layers": {
-    "mean_normalized_score": 0.36931003731181394,
-    "num_evals": 13,
+    "mean_normalized_score": 0.38077549864123467,
+    "num_evals": 11,
     "per_eval_normalized": {
       "activation_sensitivity": 0.7777777777777778,
       "backtracking": 0.34137055837563457,
@@ -117,17 +126,15 @@
       "number_prediction": 0.04,
       "personaqa": 0.17,
       "sycophancy": 0.44735000000000014,
-      "system_prompt_qa_hidden": 0.15000000000000002,
-      "system_prompt_qa_latentqa": 0.4625,
       "taboo": 0.42866666666666664,
       "vagueness": 0.6802030456852792
     },
-    "ci_lo": 0.3320946815091022,
-    "ci_hi": 0.40006676245578543
+    "ci_lo": 0.33679371451075724,
+    "ci_hi": 0.4171243556295647
   },
   "cot-oracle-qwen3-8b-final-sprint-checkpoint-no-DPO": {
-    "mean_normalized_score": 0.3703859278059785,
-    "num_evals": 13,
+    "mean_normalized_score": 0.38681973286161103,
+    "num_evals": 11,
     "per_eval_normalized": {
       "activation_sensitivity": 0.8222222222222222,
       "backtracking": 0.33121827411167515,
@@ -138,12 +145,10 @@
       "number_prediction": 0.04666666666666667,
       "personaqa": 0.11944444444444445,
       "sycophancy": 0.4695499999999999,
-      "system_prompt_qa_hidden": 0.04999999999999999,
-      "system_prompt_qa_latentqa": 0.51,
       "taboo": 0.45916666666666667,
       "vagueness": 0.7309644670050761
     },
-    "ci_lo": 0.3337624032153287,
-    "ci_hi": 0.4010191020079143
+    "ci_lo": 0.3435373856181158,
+    "ci_hi": 0.42302257510026237
   }
 }

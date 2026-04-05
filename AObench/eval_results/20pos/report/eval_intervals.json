@@ -1,5 +1,11 @@
 {
   "number_prediction": {
+    "checkpoints_latentqa_cls_past_lens_addition_Qwen3-8B": {
+      "mean": 0.03333333333333333,
+      "lo": 0.03333333333333333,
+      "hi": 0.03333333333333333,
+      "source": "summary_only"
+    },
     "checkpoints_Qwen3-8B_full_mix_synthetic_qa_v3_replace_lqa": {
       "mean": 0.02666666666666667,
       "lo": 0.02666666666666667,
@@ -20,6 +26,12 @@
     }
   },
   "mmlu_prediction": {
+    "checkpoints_latentqa_cls_past_lens_addition_Qwen3-8B": {
+      "mean": 0.6877,
+      "lo": 0.6877,
+      "hi": 0.6877,
+      "source": "summary_only"
+    },
     "checkpoints_Qwen3-8B_full_mix_synthetic_qa_v3_replace_lqa": {
       "mean": 0.693,
       "lo": 0.693,
@@ -40,6 +52,12 @@
     }
   },
   "backtracking": {
+    "checkpoints_latentqa_cls_past_lens_addition_Qwen3-8B": {
+      "mean": 2.1116751269035534,
+      "lo": 2.1116751269035534,
+      "hi": 2.1116751269035534,
+      "source": "summary_only"
+    },
     "checkpoints_Qwen3-8B_full_mix_synthetic_qa_v3_replace_lqa": {
       "mean": 2.3045685279187818,
       "lo": 2.3045685279187818,
@@ -60,6 +78,12 @@
     }
   },
   "missing_info": {
+    "checkpoints_latentqa_cls_past_lens_addition_Qwen3-8B": {
+      "mean": 0.6422222222222221,
+      "lo": 0.6422222222222221,
+      "hi": 0.6422222222222221,
+      "source": "summary_only"
+    },
     "checkpoints_Qwen3-8B_full_mix_synthetic_qa_v3_replace_lqa": {
       "mean": 0.7622222222222222,
       "lo": 0.7622222222222222,
@@ -80,6 +104,12 @@
     }
   },
   "sycophancy": {
+    "checkpoints_latentqa_cls_past_lens_addition_Qwen3-8B": {
+      "mean": 0.7268,
+      "lo": 0.7268,
+      "hi": 0.7268,
+      "source": "summary_only"
+    },
     "checkpoints_Qwen3-8B_full_mix_synthetic_qa_v3_replace_lqa": {
       "mean": 0.8332999999999999,
       "lo": 0.8332999999999999,
@@ -100,6 +130,12 @@
     }
   },
   "vagueness": {
+    "checkpoints_latentqa_cls_past_lens_addition_Qwen3-8B": {
+      "mean": 0.11224489795918367,
+      "lo": 0.11224489795918367,
+      "hi": 0.11224489795918367,
+      "source": "summary_only"
+    },
     "checkpoints_Qwen3-8B_full_mix_synthetic_qa_v3_replace_lqa": {
       "mean": 0.37055837563451777,
       "lo": 0.37055837563451777,
@@ -120,6 +156,12 @@
     }
   },
   "domain_confusion": {
+    "checkpoints_latentqa_cls_past_lens_addition_Qwen3-8B": {
+      "mean": 0.12372881355932204,
+      "lo": 0.12372881355932204,
+      "hi": 0.12372881355932204,
+      "source": "summary_only"
+    },
     "checkpoints_Qwen3-8B_full_mix_synthetic_qa_v3_replace_lqa": {
       "mean": 0.38408304498269896,
       "lo": 0.38408304498269896,

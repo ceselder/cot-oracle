@@ -7,38 +7,45 @@ AObench Results Summary
 
 --- backtracking (Mean Correctness (1-5)) ---
   Adam's synth-QA-v3                             1.0000  [1.0000, 1.0000]
+  Adam's AO                                      1.1111  [1.1111, 1.1111]
   Ours GRPO                                      1.2000  [1.2000, 1.2000]
 
 --- domain_confusion (Domain Accuracy) ---
   Adam's synth-QA-v3                             0.0000  [0.0000, 0.0000]
+  Adam's AO                                      0.0000  [0.0000, 0.0000]
   Ours GRPO                                      0.0000  [0.0000, 0.0000]
   Ours final no-DPO (100M tok)                   0.0000  [0.0000, 0.0000]
 
 --- missing_info (ROC AUC) ---
   Adam's synth-QA-v3                             0.7622  [0.7622, 0.7622]
+  Adam's AO                                      0.6422  [0.6422, 0.6422]
   Ours GRPO                                      0.7333  [0.7333, 0.7333]
   Ours final no-DPO (100M tok)                   0.7378  [0.7378, 0.7378]
   (chance)                                       0.5000
 
 --- mmlu_prediction (ROC AUC) ---
   Adam's synth-QA-v3                             0.6930  [0.6930, 0.6930]
+  Adam's AO                                      0.6877  [0.6877, 0.6877]
   Ours GRPO                                      0.6802  [0.6802, 0.6802]
   Ours final no-DPO (100M tok)                   0.6818  [0.6818, 0.6818]
   (chance)                                       0.5000
 
 --- number_prediction (Model Match Rate) ---
   Adam's synth-QA-v3                             0.0400  [0.0400, 0.0400]
+  Adam's AO                                      0.0067  [0.0067, 0.0067]
   Ours GRPO                                      0.0267  [0.0267, 0.0267]
   Ours final no-DPO (100M tok)                   0.0267  [0.0267, 0.0267]
 
 --- sycophancy (ROC AUC) ---
   Adam's synth-QA-v3                             0.8333  [0.8333, 0.8333]
+  Adam's AO                                      0.7268  [0.7268, 0.7268]
   Ours GRPO                                      0.6590  [0.6590, 0.6590]
   Ours final no-DPO (100M tok)                   0.7494  [0.7494, 0.7494]
   (chance)                                       0.5000
 
 --- vagueness (Non-Vagueness) ---
   Adam's synth-QA-v3                             0.3000  [0.3000, 0.3000]
+  Adam's AO                                      0.1000  [0.1000, 0.1000]
   Ours GRPO                                      0.3333  [0.3333, 0.3333]
   Ours final no-DPO (100M tok)                   0.0000  [0.0000, 0.0000]
 
@@ -46,4 +53,5 @@ AObench Results Summary
   Adam's synth-QA-v3                             0.3396  [0.3396, 0.3396]  (n=8)
   Ours GRPO                                      0.2819  [0.2819, 0.2819]  (n=8)
   Ours final no-DPO (100M tok)                   0.2274  [0.2274, 0.2274]  (n=6)
+  Adam's AO                                      0.1783  [0.1783, 0.1783]  (n=7)
 

@@ -1,4 +1,19 @@
 {
+  "checkpoints_latentqa_cls_past_lens_addition_Qwen3-8B": {
+    "mean_normalized_score": 0.17826984126984122,
+    "num_evals": 7,
+    "per_eval_normalized": {
+      "number_prediction": 0.006666666666666667,
+      "mmlu_prediction": 0.37539999999999996,
+      "backtracking": 0.02777777777777779,
+      "missing_info": 0.2844444444444443,
+      "sycophancy": 0.4536,
+      "vagueness": 0.1,
+      "domain_confusion": 0.0
+    },
+    "ci_lo": 0.17826984126984127,
+    "ci_hi": 0.17826984126984127
+  },
   "checkpoints_Qwen3-8B_full_mix_synthetic_qa_v3_replace_lqa": {
     "mean_normalized_score": 0.33963055555555555,
     "num_evals": 8,
