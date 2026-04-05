@@ -1,12 +1,12 @@
 {
   "adam-reupload-qwen3-8b-full-mix-synthetic-qa-v3-replace-lqa": {
-    "mean_normalized_score": 0.42254651335691945,
+    "mean_normalized_score": 0.46878555350458906,
     "num_evals": 11,
     "per_eval_normalized": {
       "activation_sensitivity": 0.9111111111111111,
       "backtracking": 0.30203045685279184,
       "domain_confusion": 0.2639593908629442,
-      "hallucination": 0.20101522842639594,
+      "hallucination": 0.7096446700507615,
       "missing_info": 0.288888888888889,
       "mmlu_prediction": 0.38359999999999994,
       "number_prediction": 0.03333333333333333,
@@ -15,17 +15,17 @@
       "taboo": 0.478,
       "vagueness": 0.8934010152284264
     },
-    "ci_lo": 0.3771744813188388,
-    "ci_hi": 0.4598567934860835
+    "ci_lo": 0.4234431313099096,
+    "ci_hi": 0.5054565528604826
   },
   "adam-reupload-qwen3-8b-latentqa-cls-past-lens": {
-    "mean_normalized_score": 0.33380479413423575,
+    "mean_normalized_score": 0.37792108393580476,
     "num_evals": 11,
     "per_eval_normalized": {
       "activation_sensitivity": 0.5333333333333333,
       "backtracking": 0.3743654822335025,
       "domain_confusion": 0.20135363790186125,
-      "hallucination": 0.30558375634517765,
+      "hallucination": 0.7908629441624365,
       "missing_info": 0.2866666666666666,
       "mmlu_prediction": 0.3780000000000001,
       "number_prediction": 0.006666666666666667,
@@ -34,17 +34,17 @@
       "taboo": 0.413,
       "vagueness": 0.43147208121827413
     },
-    "ci_lo": 0.2869485382945264,
-    "ci_hi": 0.3748303407347074
+    "ci_lo": 0.3302625578254187,
+    "ci_hi": 0.4180753043695018
   },
   "cot-oracle-grpo-step-500": {
-    "mean_normalized_score": 0.3731297928523816,
+    "mean_normalized_score": 0.4228759857457827,
     "num_evals": 11,
     "per_eval_normalized": {
       "activation_sensitivity": 0.5777777777777777,
       "backtracking": 0.3908629441624365,
       "domain_confusion": 0.272419627749577,
-      "hallucination": 0.3197969543147208,
+      "hallucination": 0.867005076142132,
       "missing_info": 0.41333333333333333,
       "mmlu_prediction": 0.45940000000000003,
       "number_prediction": 0.03333333333333333,
@@ -53,17 +53,17 @@
       "taboo": 0.4215,
       "vagueness": 0.5228426395939086
     },
-    "ci_lo": 0.3315511414105651,
-    "ci_hi": 0.4113369604956585
+    "ci_lo": 0.3807898543899571,
+    "ci_hi": 0.4606481279543643
   },
   "cot-oracle-paper-ablation-adam-recipe-1layer": {
-    "mean_normalized_score": 0.26072252217607544,
+    "mean_normalized_score": 0.30603862739065785,
     "num_evals": 11,
     "per_eval_normalized": {
       "activation_sensitivity": 0.5111111111111111,
       "backtracking": 0.28299492385786806,
       "domain_confusion": 0.15228426395939088,
-      "hallucination": 0.20710659898477157,
+      "hallucination": 0.7055837563451777,
       "missing_info": 0.1644444444444444,
       "mmlu_prediction": 0.2225999999999999,
       "number_prediction": 0.013333333333333334,
@@ -72,17 +72,17 @@
       "taboo": 0.2796666666666667,
       "vagueness": 0.41116751269035534
     },
-    "ci_lo": 0.2177164343466992,
-    "ci_hi": 0.2990660066825827
+    "ci_lo": 0.26325603139347126,
+    "ci_hi": 0.34397685709456155
   },
   "cot-oracle-paper-ablation-ours-1layer": {
-    "mean_normalized_score": 0.3961366379531354,
+    "mean_normalized_score": 0.44080668871455675,
     "num_evals": 11,
     "per_eval_normalized": {
       "activation_sensitivity": 0.8888888888888888,
       "backtracking": 0.30964467005076146,
       "domain_confusion": 0.23181049069373943,
-      "hallucination": 0.2020304568527919,
+      "hallucination": 0.6934010152284265,
       "missing_info": 0.4444444444444442,
       "mmlu_prediction": 0.40920000000000023,
       "number_prediction": 0.03333333333333333,
@@ -91,17 +91,17 @@
       "taboo": 0.372,
       "vagueness": 0.7563451776649747
     },
-    "ci_lo": 0.3494716681690711,
-    "ci_hi": 0.43254631758357487
+    "ci_lo": 0.3964360154974229,
+    "ci_hi": 0.47644607855349513
   },
   "cot-oracle-paper-ablation-ours-3layers-onpolicy-lens-only": {
-    "mean_normalized_score": 0.39425139465723225,
+    "mean_normalized_score": 0.4387368584320361,
     "num_evals": 11,
     "per_eval_normalized": {
       "activation_sensitivity": 0.8,
       "backtracking": 0.32614213197969544,
       "domain_confusion": 0.2436548223350254,
-      "hallucination": 0.25076142131979695,
+      "hallucination": 0.7401015228426395,
       "missing_info": 0.4866666666666668,
       "mmlu_prediction": 0.4453999999999998,
       "number_prediction": 0.07333333333333333,
@@ -110,17 +110,17 @@
       "taboo": 0.4068333333333333,
       "vagueness": 0.6852791878172588
     },
-    "ci_lo": 0.3510811793735182,
-    "ci_hi": 0.4312903722325026
+    "ci_lo": 0.39680731856186596,
+    "ci_hi": 0.4762466092335299
   },
   "cot-oracle-paper-ablation-ours-3layers": {
-    "mean_normalized_score": 0.38077549864123467,
+    "mean_normalized_score": 0.4279374737219915,
     "num_evals": 11,
     "per_eval_normalized": {
       "activation_sensitivity": 0.7777777777777778,
       "backtracking": 0.34137055837563457,
       "domain_confusion": 0.2571912013536379,
-      "hallucination": 0.22030456852791877,
+      "hallucination": 0.7390862944162436,
       "missing_info": 0.46666666666666656,
       "mmlu_prediction": 0.359,
       "number_prediction": 0.04,
@@ -129,17 +129,17 @@
       "taboo": 0.42866666666666664,
       "vagueness": 0.6802030456852792
     },
-    "ci_lo": 0.33679371451075724,
-    "ci_hi": 0.4171243556295647
+    "ci_lo": 0.38477353592260954,
+    "ci_hi": 0.46438712021688394
   },
   "cot-oracle-qwen3-8b-final-sprint-checkpoint-no-DPO": {
-    "mean_normalized_score": 0.38681973286161103,
+    "mean_normalized_score": 0.43462776239552886,
     "num_evals": 11,
     "per_eval_normalized": {
       "activation_sensitivity": 0.8222222222222222,
       "backtracking": 0.33121827411167515,
       "domain_confusion": 0.24027072758037224,
-      "hallucination": 0.20609137055837565,
+      "hallucination": 0.7319796954314721,
       "missing_info": 0.42222222222222205,
       "mmlu_prediction": 0.4072,
       "number_prediction": 0.04666666666666667,
@@ -148,7 +148,7 @@
       "taboo": 0.45916666666666667,
       "vagueness": 0.7309644670050761
     },
-    "ci_lo": 0.3435373856181158,
-    "ci_hi": 0.42302257510026237
+    "ci_lo": 0.3907857569117768,
+    "ci_hi": 0.4708479582865902
   }
 }

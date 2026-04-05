@@ -73,8 +73,8 @@ EVAL_METRIC_MAP: dict[str, tuple[str, str, bool]] = {
     "vagueness": ("specificity_rate", "Non-Vagueness", True),
     "domain_confusion": ("domain_correct_specific_rate", "Domain Accuracy", True),
     "activation_sensitivity": ("activation_sensitivity", "Activation Sensitivity", True),
-    "hallucination": ("correct_rate", "Correct Rate", True),
-    "hallucination_5pos": ("correct_rate", "Correct Rate", True),
+    "hallucination": ("not_obviously_wrong_rate", "Not Obviously Wrong Rate", True),
+    "hallucination_5pos": ("not_obviously_wrong_rate", "Not Obviously Wrong Rate", True),
 }
 
 # Chance baselines for each eval
@@ -112,8 +112,12 @@ def extract_verbalizer_metric(
     # Standard: metrics_by_verbalizer
     mbv = summary.get("metrics_by_verbalizer", {})
     for verb_key, metrics in mbv.items():
-        if isinstance(metrics, dict) and metric_key in metrics:
-            result[verb_key] = metrics[metric_key]
+        if isinstance(metrics, dict):
+            # Derive not_obviously_wrong_rate from obvious_hallucination_rate
+            if metric_key == "not_obviously_wrong_rate" and "obvious_hallucination_rate" in metrics:
+                result[verb_key] = 1.0 - metrics["obvious_hallucination_rate"]
+            elif metric_key in metrics:
+                result[verb_key] = metrics[metric_key]
 
     # mc_results_by_verbalizer (backtracking_mc)
     mc_mbv = summary.get("mc_results_by_verbalizer", {})
@@ -173,7 +177,7 @@ def _primary_metric_from_rows(eval_name: str, rows: list[dict[str, Any]]) -> flo
     if eval_name == "domain_confusion":
         return sum(1 for r in rows if r.get("category") == "domain_correct_specific") / len(rows)
     if eval_name == "hallucination" or eval_name.startswith("hallucination_"):
-        return sum(1 for r in rows if r.get("category") == "correct") / len(rows)
+        return 1.0 - sum(1 for r in rows if r.get("category") == "obviously_wrong") / len(rows)
     if eval_name == "activation_sensitivity":
         return sum(1 for r in rows if r.get("category") == "divergent_meaningful") / len(rows)
     return None
@@ -333,62 +337,57 @@ DISPLAY_NAMES: dict[str, str] = {
     "latentqa_cls_past_lens_addition_Qwen3-8B": "Adam's AO",
     "checkpoints_latentqa_cls_on_policy_Qwen3-8B": "Adam's on-policy",
     "latentqa_cls_on_policy_Qwen3-8B": "Adam's on-policy",
-    "adam-reupload-qwen3-8b-latentqa-cls-past-lens": "Adam original (66.5M tok)",
-    "adam-reupload-qwen3-8b-full-mix-synthetic-qa-v3-replace-lqa": "Adam synth-QA-v3 (tok ?)",
-    "cot-oracle-paper-ablation-adam-recipe-1layer": "Paper Adam recipe (17M tok)",
-    "cot-oracle-paper-ablation-ours-1layer": "Paper ours 1L (22.5M tok)",
-    "cot-oracle-paper-ablation-ours-3layers": "Paper ours 3L (18M tok)",
-    "cot-oracle-paper-ablation-ours-3layers-onpolicy-lens-only": "Paper ours 3L on-policy (22.3M tok)",
-    "cot-oracle-qwen3-8b-final-sprint-checkpoint-no-DPO": "Ours final no-DPO (100M tok)",
-    "qwen3-8b-final-sprint-checkpoint-no-DPO": "Ours final no-DPO (100M tok)",
-    "cot-oracle-grpo-v1": "Ours GRPO",
-    "cot-oracle-grpo-step-500": "Ours GRPO step 500 (tok n/a)",
+    "adam-reupload-qwen3-8b-latentqa-cls-past-lens": "LatentQA (Karvonen)",
+    "adam-reupload-qwen3-8b-full-mix-synthetic-qa-v3-replace-lqa": "LatentQA + Synth-QA",
+    "cot-oracle-paper-ablation-adam-recipe-1layer": "Our repro of LatentQA",
+    "cot-oracle-paper-ablation-ours-1layer": "Ours (1 layer)",
+    "cot-oracle-paper-ablation-ours-3layers": "Ours (3 layers)",
+    "cot-oracle-paper-ablation-ours-3layers-onpolicy-lens-only": "Ours (3L, on-policy)",
+    "cot-oracle-qwen3-8b-final-sprint-checkpoint-no-DPO": "Ours SFT (14 datasets)",
+    "qwen3-8b-final-sprint-checkpoint-no-DPO": "Ours SFT (14 datasets)",
+    "cot-oracle-grpo-v1": "Ours (SFT + GRPO)",
+    "cot-oracle-grpo-step-500": "Ours (SFT + GRPO)",
     "checkpoints_Qwen3-8B_full_mix_synthetic_qa_v3_replace_lqa": "Adam's synth-QA-v3",
     "Qwen3-8B_full_mix_synthetic_qa_v3_replace_lqa": "Adam's synth-QA-v3",
 }
 
 DISPLAY_COLORS: dict[str, str] = {
-    "Adam's AO": "#5C8D4D",
-    "Adam's on-policy": "#8BAA5B",
-    "Adam's synth-QA-v3": "#D8893D",
-    "Adam original (66.5M tok)": "#4E7F4E",
-    "Adam synth-QA-v3 (tok ?)": "#B8742F",
-    "Paper Adam recipe (17M tok)": "#7C9C59",
-    "Paper ours 1L (22.5M tok)": "#5DA5DA",
-    "Paper ours 3L (18M tok)": "#2F7FB8",
-    "Paper ours 3L on-policy (22.3M tok)": "#1F5C8B",
-    "Ours final no-DPO (100M tok)": "#2A6FDF",
-    "Ours GRPO": "#E91E63",
-    "Ours GRPO step 500 (tok n/a)": "#C73E7C",
+    "LatentQA (Karvonen)": "#4E7F4E",
+    "LatentQA + Synth-QA": "#B8742F",
+    "Our repro of LatentQA": "#7C9C59",
+    "Ours (1 layer)": "#5DA5DA",
+    "Ours (3 layers)": "#2F7FB8",
+    "Ours (3L, on-policy)": "#1F5C8B",
+    "Ours SFT (14 datasets)": "#2A6FDF",
+    "Ours (SFT + GRPO)": "#C73E7C",
 }
 DISPLAY_ORDER = [
-    "Adam original (66.5M tok)",
-    "Adam synth-QA-v3 (tok ?)",
-    "Paper Adam recipe (17M tok)",
-    "Paper ours 1L (22.5M tok)",
-    "Paper ours 3L (18M tok)",
-    "Paper ours 3L on-policy (22.3M tok)",
-    "Ours final no-DPO (100M tok)",
-    "Ours GRPO",
-    "Ours GRPO step 500 (tok n/a)",
+    "LatentQA (Karvonen)",
+    "LatentQA + Synth-QA",
+    "Our repro of LatentQA",
+    "Ours (1 layer)",
+    "Ours (3 layers)",
+    "Ours (3L, on-policy)",
+    "Ours SFT (14 datasets)",
+    "Ours (SFT + GRPO)",
 ]
 
 EVAL_DISPLAY_NAMES: dict[str, str] = {
-    "number_prediction": "Number\nPrediction",
-    "mmlu_prediction": "MMLU\nPrediction",
-    "backtracking": "Explaining\nBacktracking",
+    "number_prediction": "Predict\nHidden Number",
+    "mmlu_prediction": "Predict Answer\nCorrectness",
+    "backtracking": "Explain\nBacktracking",
     "backtracking_mc": "Backtracking\nMC",
-    "missing_info": "Missing\nInfo",
-    "sycophancy": "Sycophancy",
+    "missing_info": "Detect\nMissing Info",
+    "sycophancy": "Detect\nSycophancy",
     "system_prompt_qa_hidden": "System Prompt\nHidden",
     "system_prompt_qa_latentqa": "System Prompt\nPersona",
-    "taboo": "Taboo",
-    "personaqa": "PersonaQA",
-    "vagueness": "Vagueness",
-    "domain_confusion": "Domain\nConfusion",
+    "taboo": "Detect Taboo\nWord (model org.)",
+    "personaqa": "Identify Persona\n(model org.)",
+    "vagueness": "Response\nSpecificity",
+    "domain_confusion": "Identify\nProblem Domain",
     "activation_sensitivity": "Activation\nSensitivity",
-    "hallucination": "AO Hallucination\nRate",
-    "hallucination_5pos": "AO Hallucination\nRate",
+    "hallucination": "Avoids\nHallucination",
+    "hallucination_5pos": "Avoids\nHallucination",
 }
 
 
@@ -673,7 +672,7 @@ def plot_comparison_bar_chart(
     fig.text(
         0.5,
         0.012,
-        "All plotted metrics are oriented so higher is better. Overall Score = mean normalized score across available evals.",
+        "Higher is better for all metrics. Overall Score = mean chance-adjusted normalized score across evals.",
         ha="center",
         va="bottom",
         fontsize=10.5,
