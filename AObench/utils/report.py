@@ -337,7 +337,7 @@ DISPLAY_NAMES: dict[str, str] = {
     "latentqa_cls_past_lens_addition_Qwen3-8B": "Adam's AO",
     "checkpoints_latentqa_cls_on_policy_Qwen3-8B": "Adam's on-policy",
     "latentqa_cls_on_policy_Qwen3-8B": "Adam's on-policy",
-    "adam-reupload-qwen3-8b-latentqa-cls-past-lens": "LatentQA (Karvonen)",
+    "adam-reupload-qwen3-8b-latentqa-cls-past-lens": "Original AO paper",
     "adam-reupload-qwen3-8b-full-mix-synthetic-qa-v3-replace-lqa": "LatentQA + Synth-QA",
     "cot-oracle-paper-ablation-adam-recipe-1layer": "Our repro of LatentQA",
     "cot-oracle-paper-ablation-ours-1layer": "Ours (1 layer)",
@@ -352,7 +352,7 @@ DISPLAY_NAMES: dict[str, str] = {
 }
 
 DISPLAY_COLORS: dict[str, str] = {
-    "LatentQA (Karvonen)": "#4E7F4E",
+    "Original AO paper": "#4E7F4E",
     "LatentQA + Synth-QA": "#B8742F",
     "Our repro of LatentQA": "#7C9C59",
     "Ours (1 layer)": "#5DA5DA",
@@ -362,7 +362,7 @@ DISPLAY_COLORS: dict[str, str] = {
     "Ours (SFT + GRPO)": "#C73E7C",
 }
 DISPLAY_ORDER = [
-    "LatentQA (Karvonen)",
+    "Original AO paper",
     "LatentQA + Synth-QA",
     "Our repro of LatentQA",
     "Ours (1 layer)",

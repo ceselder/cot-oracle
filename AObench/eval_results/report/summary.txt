@@ -3,7 +3,7 @@ AObench Results Summary
 
 --- activation_sensitivity (Activation Sensitivity) ---
   LatentQA + Synth-QA                            0.9111  [0.8222, 0.9778]
-  LatentQA (Karvonen)                            0.5333  [0.3778, 0.6889]
+  Original AO paper                              0.5333  [0.3778, 0.6889]
   Ours (SFT + GRPO)                              0.5778  [0.4444, 0.7111]
   Our repro of LatentQA                          0.5111  [0.3550, 0.6444]
   Ours (1 layer)                                 0.8889  [0.7778, 0.9778]
@@ -13,7 +13,7 @@ AObench Results Summary
 
 --- backtracking (Mean Correctness (1-5)) ---
   LatentQA + Synth-QA                            2.2081  [2.0558, 2.3707]
-  LatentQA (Karvonen)                            2.4975  [2.3299, 2.6600]
+  Original AO paper                              2.4975  [2.3299, 2.6600]
   Ours (SFT + GRPO)                              2.5635  [2.4213, 2.7362]
   Our repro of LatentQA                          2.1320  [1.9949, 2.2742]
   Ours (1 layer)                                 2.2386  [2.1015, 2.3959]
@@ -23,7 +23,7 @@ AObench Results Summary
 
 --- domain_confusion (Domain Accuracy) ---
   LatentQA + Synth-QA                            0.2640  [0.2301, 0.2995]
-  LatentQA (Karvonen)                            0.2014  [0.1709, 0.2335]
+  Original AO paper                              0.2014  [0.1709, 0.2335]
   Ours (SFT + GRPO)                              0.2724  [0.2369, 0.3080]
   Our repro of LatentQA                          0.1523  [0.1252, 0.1810]
   Ours (1 layer)                                 0.2318  [0.2030, 0.2674]
@@ -33,7 +33,7 @@ AObench Results Summary
 
 --- hallucination (Not Obviously Wrong Rate) ---
   LatentQA + Synth-QA                            0.7096  [0.6822, 0.7371]
-  LatentQA (Karvonen)                            0.7909  [0.7685, 0.8162]
+  Original AO paper                              0.7909  [0.7685, 0.8162]
   Ours (SFT + GRPO)                              0.8670  [0.8487, 0.8893]
   Our repro of LatentQA                          0.7056  [0.6771, 0.7371]
   Ours (1 layer)                                 0.6934  [0.6650, 0.7198]
@@ -43,7 +43,7 @@ AObench Results Summary
 
 --- missing_info (ROC AUC) ---
   LatentQA + Synth-QA                            0.6444  [0.4544, 0.8102]
-  LatentQA (Karvonen)                            0.6433  [0.4453, 0.7910]
+  Original AO paper                              0.6433  [0.4453, 0.7910]
   Ours (SFT + GRPO)                              0.7067  [0.5215, 0.8623]
   Our repro of LatentQA                          0.5822  [0.3779, 0.7514]
   Ours (1 layer)                                 0.7222  [0.5342, 0.8721]
@@ -54,7 +54,7 @@ AObench Results Summary
 
 --- mmlu_prediction (ROC AUC) ---
   LatentQA + Synth-QA                            0.6918  [0.5843, 0.7768]
-  LatentQA (Karvonen)                            0.6890  [0.5866, 0.7763]
+  Original AO paper                              0.6890  [0.5866, 0.7763]
   Ours (SFT + GRPO)                              0.7297  [0.6233, 0.8190]
   Our repro of LatentQA                          0.6113  [0.5201, 0.7047]
   Ours (1 layer)                                 0.7046  [0.5991, 0.7939]
@@ -65,7 +65,7 @@ AObench Results Summary
 
 --- number_prediction (Model Match Rate) ---
   LatentQA + Synth-QA                            0.0333  [0.0067, 0.0600]
-  LatentQA (Karvonen)                            0.0067  [0.0000, 0.0200]
+  Original AO paper                              0.0067  [0.0000, 0.0200]
   Ours (SFT + GRPO)                              0.0333  [0.0067, 0.0667]
   Our repro of LatentQA                          0.0133  [0.0000, 0.0333]
   Ours (1 layer)                                 0.0333  [0.0067, 0.0667]
@@ -75,7 +75,7 @@ AObench Results Summary
 
 --- personaqa (Accuracy) ---
   LatentQA + Synth-QA                            0.1722  [0.1722, 0.1722]
-  LatentQA (Karvonen)                            0.1061  [0.1061, 0.1061]
+  Original AO paper                              0.1061  [0.1061, 0.1061]
   Ours (SFT + GRPO)                              0.0861  [0.0861, 0.0861]
   Our repro of LatentQA                          0.0739  [0.0739, 0.0739]
   Ours (1 layer)                                 0.0856  [0.0856, 0.0856]
@@ -85,7 +85,7 @@ AObench Results Summary
 
 --- sycophancy (ROC AUC) ---
   LatentQA + Synth-QA                            0.8602  [0.8261, 0.8945]
-  LatentQA (Karvonen)                            0.8176  [0.7776, 0.8552]
+  Original AO paper                              0.8176  [0.7776, 0.8552]
   Ours (SFT + GRPO)                              0.8035  [0.7626, 0.8402]
   Our repro of LatentQA                          0.7747  [0.7305, 0.8149]
   Ours (1 layer)                                 0.8121  [0.7702, 0.8529]
@@ -96,7 +96,7 @@ AObench Results Summary
 
 --- taboo (Accuracy) ---
   LatentQA + Synth-QA                            0.4780  [0.4780, 0.4780]
-  LatentQA (Karvonen)                            0.4130  [0.4130, 0.4130]
+  Original AO paper                              0.4130  [0.4130, 0.4130]
   Ours (SFT + GRPO)                              0.4215  [0.4215, 0.4215]
   Our repro of LatentQA                          0.2797  [0.2797, 0.2797]
   Ours (1 layer)                                 0.3720  [0.3720, 0.3720]
@@ -106,7 +106,7 @@ AObench Results Summary
 
 --- vagueness (Non-Vagueness) ---
   LatentQA + Synth-QA                            0.8934  [0.8527, 0.9340]
-  LatentQA (Karvonen)                            0.4315  [0.3655, 0.5025]
+  Original AO paper                              0.4315  [0.3655, 0.5025]
   Ours (SFT + GRPO)                              0.5228  [0.4569, 0.5939]
   Our repro of LatentQA                          0.4112  [0.3401, 0.4772]
   Ours (1 layer)                                 0.7563  [0.6904, 0.8123]
@@ -121,6 +121,6 @@ AObench Results Summary
   Ours SFT (14 datasets)                         0.4346  [0.3908, 0.4708]  (n=11)
   Ours (3 layers)                                0.4279  [0.3848, 0.4644]  (n=11)
   Ours (SFT + GRPO)                              0.4229  [0.3808, 0.4606]  (n=11)
-  LatentQA (Karvonen)                            0.3779  [0.3303, 0.4181]  (n=11)
+  Original AO paper                              0.3779  [0.3303, 0.4181]  (n=11)
   Our repro of LatentQA                          0.3060  [0.2633, 0.3440]  (n=11)
 
