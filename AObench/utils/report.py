@@ -384,7 +384,7 @@ EVAL_DISPLAY_NAMES: dict[str, str] = {
     "personaqa": "Identify Persona\n(model org.)",
     "vagueness": "Response\nSpecificity",
     "domain_confusion": "Identify\nProblem Domain",
-    "activation_sensitivity": "Actually Reads\nActivations",
+    "activation_sensitivity": "Not Just\nReading Tokens",
     "hallucination": "Not Obviously\nWrong",
 }
 
@@ -540,6 +540,91 @@ def plot_aggregate_scores(
     return output_path
 
 
+SCORE_CATEGORIES = {
+    "Overall": None,  # all evals
+    "Faithfulness": ["domain_confusion", "missing_info", "number_prediction", "hallucination"],
+    "Specificity": ["vagueness"],
+}
+
+
+def plot_category_breakdown(
+    eval_results: dict[str, dict[str, float]],
+    output_path: str,
+    title: str = "Score Breakdown by Category",
+) -> str:
+    """Grouped bar chart: 3 score categories × N checkpoints."""
+    all_verbs: set[str] = set()
+    for metrics in eval_results.values():
+        all_verbs.update(metrics.keys())
+    verb_names = sorted(all_verbs, key=verbalizer_sort_key)
+    n_verbs = len(verb_names)
+    if n_verbs == 0:
+        return output_path
+
+    display_labels = [shorten_lora_name(name) for name in verb_names]
+    fallback_colors = plt.cm.Set2(np.linspace(0, 1, max(n_verbs, 1)))
+    bar_colors = [DISPLAY_COLORS.get(label, fallback_colors[i]) for i, label in enumerate(display_labels)]
+
+    cat_names = list(SCORE_CATEGORIES.keys())
+    n_cats = len(cat_names)
+
+    # Compute per-category scores for each verbalizer
+    cat_values: dict[str, list[float]] = {}
+    for cat_name, eval_subset in SCORE_CATEGORIES.items():
+        vals = []
+        for verb_name in verb_names:
+            scores = []
+            for eval_name, metrics in eval_results.items():
+                if eval_subset is not None and eval_name not in eval_subset:
+                    continue
+                if verb_name in metrics:
+                    scores.append(normalize_metric_for_aggregate(eval_name, metrics[verb_name]))
+            vals.append(sum(scores) / len(scores) if scores else 0.0)
+        cat_values[cat_name] = vals
+
+    fig, axes = plt.subplots(1, n_cats, figsize=(5 * n_cats, 6), squeeze=False)
+    x = np.arange(n_verbs)
+
+    for i, cat_name in enumerate(cat_names):
+        ax = axes[0, i]
+        values = cat_values[cat_name]
+        ax.bar(x, values, width=0.82, color=bar_colors, edgecolor="white", linewidth=0.45)
+        ax.set_title(cat_name, fontsize=14, pad=8)
+        ax.set_ylim(0.0, 1.05)
+        ax.set_xlim(-0.6, n_verbs - 0.4)
+        ax.set_xticks([])
+        ax.yaxis.grid(True, color="#dddddd", linewidth=0.8, alpha=0.9)
+        ax.set_axisbelow(True)
+        if i == 0:
+            ax.set_ylabel("Normalized score")
+
+    legend_handles = [
+        matplotlib.patches.Patch(facecolor=color, edgecolor="white", linewidth=0.45, label=label)
+        for label, color in zip(display_labels, bar_colors, strict=True)
+    ]
+    fig.legend(
+        handles=legend_handles,
+        loc="upper center",
+        bbox_to_anchor=(0.5, 0.08),
+        ncol=min(4, n_verbs),
+        fontsize=11,
+        title="Checkpoint",
+        frameon=False,
+        columnspacing=1.4,
+        handlelength=1.8,
+    )
+    if fig.legends:
+        fig.legends[0].get_title().set_fontsize(12)
+
+    fig.suptitle(title, fontsize=16, y=0.98)
+    fig.subplots_adjust(left=0.06, right=0.99, top=0.90, bottom=0.18, wspace=0.2)
+    fig.text(0.5, 0.012, "Higher is better. Scores are chance-adjusted and normalized to 0\u20131.", ha="center", va="bottom", fontsize=10, color="#333333")
+    os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
+    plt.savefig(output_path, dpi=150, bbox_inches="tight")
+    plt.close()
+    return output_path
+
+
 def plot_comparison_bar_chart(
     eval_results: dict[str, dict[str, float]],
     output_path: str,
@@ -585,7 +670,7 @@ def plot_comparison_bar_chart(
         default=1.0,
     )
     overall_ymin = min(-0.08, overall_lo - 0.05)
-    overall_ymax = max(1.0, overall_hi + 0.08)
+    overall_ymax = 1.05
 
     for panel_index, (panel_name, panel_title) in enumerate(panel_specs):
         ax = axes_flat[panel_index]
@@ -812,6 +897,11 @@ def generate_report(
     aggregate_path = os.path.join(output_dir, "aggregate_scores.png")
     plot_aggregate_scores(aggregate_scores, aggregate_path)
     print(f"Saved aggregate chart: {aggregate_path}")
+
+    # 1c. Category breakdown (overall / faithfulness / specificity)
+    category_path = os.path.join(output_dir, "category_breakdown.png")
+    plot_category_breakdown(eval_results, category_path)
+    print(f"Saved category breakdown: {category_path}")
 
     # 2. Per-eval detail charts
     for eval_name, verb_metrics in eval_results.items():
