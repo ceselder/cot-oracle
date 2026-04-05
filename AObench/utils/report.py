@@ -74,7 +74,6 @@ EVAL_METRIC_MAP: dict[str, tuple[str, str, bool]] = {
     "domain_confusion": ("domain_correct_specific_rate", "Domain Accuracy", True),
     "activation_sensitivity": ("activation_sensitivity", "Activation Sensitivity", True),
     "hallucination": ("not_obviously_wrong_rate", "Not Obviously Wrong Rate", True),
-    "hallucination_5pos": ("not_obviously_wrong_rate", "Not Obviously Wrong Rate", True),
 }
 
 # Chance baselines for each eval
@@ -387,7 +386,6 @@ EVAL_DISPLAY_NAMES: dict[str, str] = {
     "domain_confusion": "Identify\nProblem Domain",
     "activation_sensitivity": "Actually Reads\nActivations",
     "hallucination": "Not Obviously\nWrong",
-    "hallucination_5pos": "Not Obviously\nWrong",
 }
 
 
