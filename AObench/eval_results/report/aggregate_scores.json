@@ -56,25 +56,6 @@
     "ci_lo": 0.3807898543899571,
     "ci_hi": 0.4606481279543643
   },
-  "cot-oracle-paper-ablation-adam-recipe-1layer": {
-    "mean_normalized_score": 0.30603862739065785,
-    "num_evals": 11,
-    "per_eval_normalized": {
-      "activation_sensitivity": 0.5111111111111111,
-      "backtracking": 0.28299492385786806,
-      "domain_confusion": 0.15228426395939088,
-      "hallucination": 0.7055837563451777,
-      "missing_info": 0.1644444444444444,
-      "mmlu_prediction": 0.2225999999999999,
-      "number_prediction": 0.013333333333333334,
-      "personaqa": 0.07388888888888889,
-      "sycophancy": 0.54935,
-      "taboo": 0.2796666666666667,
-      "vagueness": 0.41116751269035534
-    },
-    "ci_lo": 0.26325603139347126,
-    "ci_hi": 0.34397685709456155
-  },
   "cot-oracle-paper-ablation-ours-1layer": {
     "mean_normalized_score": 0.44080668871455675,
     "num_evals": 11,

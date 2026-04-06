@@ -336,38 +336,39 @@ DISPLAY_NAMES: dict[str, str] = {
     "latentqa_cls_past_lens_addition_Qwen3-8B": "Adam's AO",
     "checkpoints_latentqa_cls_on_policy_Qwen3-8B": "Adam's on-policy",
     "latentqa_cls_on_policy_Qwen3-8B": "Adam's on-policy",
-    "adam-reupload-qwen3-8b-latentqa-cls-past-lens": "Original AO paper",
+    "adam-reupload-qwen3-8b-latentqa-cls-past-lens": "Original AO paper (66.5M tok)",
     "adam-reupload-qwen3-8b-full-mix-synthetic-qa-v3-replace-lqa": "Latest (Karvonen)",
-    "cot-oracle-paper-ablation-adam-recipe-1layer": "Our repro of LatentQA",
-    "cot-oracle-paper-ablation-ours-1layer": "Ours (1 layer)",
-    "cot-oracle-paper-ablation-ours-3layers": "Ours (3 layers)",
-    "cot-oracle-paper-ablation-ours-3layers-onpolicy-lens-only": "Ours (3L, on-policy)",
-    "cot-oracle-qwen3-8b-final-sprint-checkpoint-no-DPO": "Ours SFT (14 datasets)",
-    "qwen3-8b-final-sprint-checkpoint-no-DPO": "Ours SFT (14 datasets)",
-    "cot-oracle-grpo-v1": "Ours (SFT + GRPO)",
-    "cot-oracle-grpo-step-500": "Ours (SFT + GRPO)",
+    "cot-oracle-paper-ablation-ours-1layer": "Ours 1 layer (22.5M tok)",
+    "cot-oracle-paper-ablation-ours-3layers": "Ours 3 layers (18M tok)",
+    "cot-oracle-paper-ablation-ours-3layers-onpolicy-lens-only": "Ours 3L on-policy (22.3M tok)",
+    "cot-oracle-qwen3-8b-final-sprint-checkpoint-no-DPO": "Ours SFT 14 datasets (100M tok)",
+    "qwen3-8b-final-sprint-checkpoint-no-DPO": "Ours SFT 14 datasets (100M tok)",
+    "cot-oracle-grpo-v1": "Ours SFT + GRPO",
+    "cot-oracle-grpo-step-500": "Ours SFT + GRPO",
     "checkpoints_Qwen3-8B_full_mix_synthetic_qa_v3_replace_lqa": "Adam's synth-QA-v3",
     "Qwen3-8B_full_mix_synthetic_qa_v3_replace_lqa": "Adam's synth-QA-v3",
 }
 
+EXCLUDED_VERBALIZERS = {
+    "cot-oracle-paper-ablation-adam-recipe-1layer",
+}
+
 DISPLAY_COLORS: dict[str, str] = {
-    "Original AO paper": "#4E7F4E",
+    "Original AO paper (66.5M tok)": "#7C9C59",
     "Latest (Karvonen)": "#B8742F",
-    "Our repro of LatentQA": "#7C9C59",
-    "Ours (1 layer)": "#5DA5DA",
-    "Ours (3 layers)": "#2F7FB8",
-    "Ours (3L, on-policy)": "#1F5C8B",
-    "Ours SFT (14 datasets)": "#2A6FDF",
-    "Ours (SFT + GRPO)": "#C73E7C",
+    "Ours 1 layer (22.5M tok)": "#5DA5DA",
+    "Ours 3 layers (18M tok)": "#2F7FB8",
+    "Ours 3L on-policy (22.3M tok)": "#1F5C8B",
+    "Ours SFT 14 datasets (100M tok)": "#2A6FDF",
+    "Ours SFT + GRPO": "#C73E7C",
 }
 DISPLAY_ORDER = [
-    "Original AO paper",
-    "Our repro of LatentQA",
-    "Ours (1 layer)",
-    "Ours (3 layers)",
-    "Ours (3L, on-policy)",
-    "Ours SFT (14 datasets)",
-    "Ours (SFT + GRPO)",
+    "Original AO paper (66.5M tok)",
+    "Ours 1 layer (22.5M tok)",
+    "Ours 3 layers (18M tok)",
+    "Ours 3L on-policy (22.3M tok)",
+    "Ours SFT 14 datasets (100M tok)",
+    "Ours SFT + GRPO",
     "Latest (Karvonen)",
 ]
 
@@ -882,6 +883,8 @@ def generate_report(
             continue
         metrics = extract_verbalizer_metric(summary, eval_name)
         if metrics:
+            # Exclude specific verbalizers
+            metrics = {k: v for k, v in metrics.items() if k not in EXCLUDED_VERBALIZERS}
             # Filter to requested verbalizers
             if filter_verbalizers:
                 metrics = {
