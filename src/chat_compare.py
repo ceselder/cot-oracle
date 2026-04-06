@@ -35,7 +35,7 @@ from pathlib import Path
 import openai
 import torch
 import yaml
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import HTMLResponse, JSONResponse
 from dotenv import load_dotenv
 from peft import PeftModel
@@ -824,6 +824,13 @@ class ChatCompareWebApp:
         self.log_dir.mkdir(parents=True, exist_ok=True)
         self.session_id = time.strftime("%Y%m%d-%H%M%S")
         self.session_log = self.log_dir / f"session_{self.session_id}.jsonl"
+        # Gemma bridge (multimodal → Qwen oracle). Loaded lazily on first request,
+        # because the 12B Gemma + 8B Qwen together only fit comfortably on an H100.
+        self._gemma_bridge_path = getattr(args, "gemma_bridge", None)
+        self._gemma_model = None
+        self._gemma_processor = None
+        self._gemma_bridge = None
+        self._gemma_load_lock = threading.Lock()
         self.app = FastAPI(title="chat_compare")
         self._register_routes()
         self._log_event("session_start", {
@@ -2515,6 +2522,256 @@ class ChatCompareWebApp:
                 payload.get("answer_ratings"),
                 payload.get("rating_summary", ""),
             )
+
+        # --- Gemma bridge (multimodal image+text → Qwen oracle) ---
+        @self.app.get("/gemma", response_class=HTMLResponse)
+        async def gemma_page():
+            if not self._gemma_bridge_path:
+                return HTMLResponse(
+                    "<h3>Gemma bridge disabled.</h3><p>Launch chat_compare with "
+                    "<code>--gemma-bridge &lt;path.pt&gt;</code> to enable this tab.</p>",
+                    status_code=503,
+                )
+            return HTMLResponse(self._render_gemma_html())
+
+        @self.app.post("/api/run_gemma_bridge")
+        async def run_gemma_bridge(
+            image: UploadFile | None = File(default=None),
+            text: str = Form(...),
+            oracle_prompt: str = Form(...),
+            k_positions: int = Form(32),
+            max_tokens: int = Form(150),
+            oracle_temperature: float = Form(0.0),
+        ):
+            if not self._gemma_bridge_path:
+                raise HTTPException(status_code=503, detail="Gemma bridge not enabled (--gemma-bridge not passed).")
+            img_bytes = await image.read() if image is not None else None
+            result = await asyncio.to_thread(
+                self._run_gemma_bridge,
+                img_bytes,
+                text,
+                oracle_prompt,
+                int(k_positions),
+                int(max_tokens),
+                float(oracle_temperature),
+            )
+            return result
+
+        @self.app.post("/api/run_gemma_direct")
+        async def run_gemma_direct(
+            image: UploadFile | None = File(default=None),
+            text: str = Form(...),
+            max_tokens: int = Form(200),
+        ):
+            """Diagnostic: run Gemma-3-12B-it's own generate() on the same inputs the
+            bridge endpoint uses, so we can compare bridge-via-oracle output to what
+            Gemma itself would say."""
+            if not self._gemma_bridge_path:
+                raise HTTPException(status_code=503, detail="Gemma bridge not enabled.")
+            img_bytes = await image.read() if image is not None else None
+            result = await asyncio.to_thread(self._run_gemma_direct, img_bytes, text, int(max_tokens))
+            return result
+
+    def _run_gemma_direct(self, image_bytes, text, max_tokens):
+        import io
+        from PIL import Image as _PILImage
+        self._ensure_gemma_loaded()
+        pil_image = _PILImage.open(io.BytesIO(image_bytes)).convert("RGB") if image_bytes else None
+        if pil_image is not None:
+            messages = [{"role": "user", "content": [{"type": "image", "image": pil_image}, {"type": "text", "text": text}]}]
+        else:
+            messages = [{"role": "user", "content": [{"type": "text", "text": text}]}]
+        inputs = self._gemma_processor.apply_chat_template(
+            messages, add_generation_prompt=True, tokenize=True, return_dict=True, return_tensors="pt"
+        )
+        device = next(self._gemma_model.parameters()).device
+        inputs = {k: (v.to(device) if isinstance(v, torch.Tensor) else v) for k, v in inputs.items()}
+        input_len = inputs["input_ids"].shape[1]
+        with self.model_lock, torch.no_grad():
+            out = self._gemma_model.generate(**inputs, max_new_tokens=max_tokens, do_sample=False)
+        text_out = self._gemma_processor.tokenizer.decode(out[0, input_len:], skip_special_tokens=True)
+        return {"response": text_out, "meta": {"input_tokens": int(input_len), "generated_tokens": int(out.shape[1] - input_len)}}
+
+    def _ensure_gemma_loaded(self):
+        if self._gemma_model is not None and self._gemma_bridge is not None:
+            return
+        with self._gemma_load_lock:
+            if self._gemma_model is not None and self._gemma_bridge is not None:
+                return
+            from gemma_bridge import load_bridge, load_gemma
+            qwen_device = get_model_input_device(self.model)
+            quant = getattr(self.args, "gemma_quantization", "auto")
+            if quant == "auto":
+                total_mem = torch.cuda.get_device_properties(0).total_memory if torch.cuda.is_available() else 0
+                quant = "4bit" if total_mem < 28 * 1024 ** 3 else "none"
+                logging.info("Gemma quantization auto-selected: %s (GPU total=%.1f GiB)", quant, total_mem / 1024 ** 3)
+            logging.info("Loading Gemma-3-12B-it on %s (quant=%s)...", qwen_device, quant)
+            gemma_model, gemma_processor = load_gemma(device=str(qwen_device), dtype=torch.bfloat16, quantization=quant)
+            logging.info("Loading GemmaBridge from %s", self._gemma_bridge_path)
+            bridge = load_bridge(self._gemma_bridge_path, device=qwen_device, dtype=torch.bfloat16)
+            self._gemma_model = gemma_model
+            self._gemma_processor = gemma_processor
+            self._gemma_bridge = bridge
+
+    def _run_gemma_bridge(self, image_bytes, text, oracle_prompt, k_positions, max_tokens, temperature):
+        import io
+        from PIL import Image as _PILImage
+        from gemma_bridge import (
+            QWEN_LAYERS,
+            GEMMA_LAYERS,
+            extract_gemma_residuals,
+            project_text_residuals_to_qwen,
+        )
+
+        self._ensure_gemma_loaded()
+
+        pil_image = None
+        if image_bytes:
+            pil_image = _PILImage.open(io.BytesIO(image_bytes)).convert("RGB")
+
+        with self.model_lock:
+            gemma_resid, meta = extract_gemma_residuals(
+                self._gemma_model,
+                self._gemma_processor,
+                text=text,
+                image=pil_image,
+                layers=GEMMA_LAYERS,
+            )
+            n_text_tokens = int(meta["text_mask"].sum().item())
+            n_image_tokens = int(meta["image_mask"].sum().item())
+
+            qwen_device = get_model_input_device(self.model)
+            projected = project_text_residuals_to_qwen(
+                bridge=self._gemma_bridge,
+                gemma_resid=gemma_resid,
+                text_mask=meta["text_mask"],
+                k_positions=k_positions,
+                target_dtype=torch.bfloat16,
+                target_device=qwen_device,
+            )  # [3*K, 4096]
+
+            layer_counts = [k_positions] * len(QWEN_LAYERS)
+            response = query_trained_oracle(
+                self.model,
+                self.tokenizer,
+                projected,
+                oracle_prompt,
+                selected_layers=list(QWEN_LAYERS),
+                layer_counts=layer_counts,
+                max_new_tokens=max_tokens,
+                device=self.args.device,
+                adapter_name=self._active_trained_adapter,
+                temperature=temperature,
+            )
+
+        return {
+            "response": response,
+            "meta": {
+                "gemma_seq_len": int(meta["input_ids"].shape[0]),
+                "text_tokens": n_text_tokens,
+                "image_tokens": n_image_tokens,
+                "k_positions": k_positions,
+                "qwen_layers": list(QWEN_LAYERS),
+                "gemma_layers": list(GEMMA_LAYERS),
+            },
+        }
+
+    def _render_gemma_html(self):
+        return """<!doctype html>
+<html><head><meta charset=\"utf-8\"><title>Gemma bridge</title>
+<style>
+body { font-family: sans-serif; background: #0f172a; color: #e2e8f0; margin: 0; padding: 24px; }
+.container { max-width: 860px; margin: 0 auto; }
+h1 { margin-top: 0; }
+textarea, input, button { background: #0f172a; color: #e2e8f0; border: 1px solid #475569; border-radius: 8px; padding: 8px; box-sizing: border-box; }
+textarea { width: 100%; min-height: 80px; resize: vertical; font-family: inherit; }
+input[type=text], input[type=number] { width: 100%; }
+button { background: #2563eb; color: white; border: 0; padding: 10px 14px; cursor: pointer; font-weight: 600; }
+button:disabled { opacity: 0.5; cursor: default; }
+.row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+.panel { background: #111827; border: 1px solid #334155; border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+label { display: block; font-size: 12px; color: #94a3b8; margin-bottom: 4px; }
+#preview { max-width: 100%; max-height: 240px; border-radius: 8px; display: none; margin-top: 8px; }
+#out { white-space: pre-wrap; background: #020617; border: 1px solid #1e293b; border-radius: 8px; padding: 12px; min-height: 60px; }
+.meta { color: #94a3b8; font-size: 12px; margin-top: 8px; font-family: monospace; }
+.status { color: #60a5fa; font-size: 13px; min-height: 18px; margin-top: 8px; }
+</style></head><body>
+<div class=\"container\">
+<h1>Gemma-3-12B → Qwen3-8B oracle bridge</h1>
+<p class=\"meta\">Image + text go into Gemma. Text-token residuals at Gemma L12/L24/L36 are projected through a rank-16 adapter into Qwen's L9/L18/L27 space, then fed into the trained CoT oracle.</p>
+
+<div class=\"panel\">
+  <label>Image</label>
+  <input id=\"img\" type=\"file\" accept=\"image/*\">
+  <img id=\"preview\">
+</div>
+
+<div class=\"panel\">
+  <label>Text (sent to Gemma alongside the image)</label>
+  <textarea id=\"text\">Describe what is in this image.</textarea>
+</div>
+
+<div class=\"panel\">
+  <label>Oracle question (what the CoT oracle will be asked about the projected residuals)</label>
+  <textarea id=\"prompt\">What is the model thinking about?</textarea>
+  <div class=\"row\" style=\"margin-top:12px\">
+    <div><label>K positions per layer</label><input id=\"k\" type=\"number\" value=\"32\" min=\"1\" max=\"256\"></div>
+    <div><label>Max new tokens</label><input id=\"maxTok\" type=\"number\" value=\"200\" min=\"16\" max=\"1024\"></div>
+  </div>
+  <div style=\"margin-top:12px\"><button id=\"go\">Run</button></div>
+  <div id=\"status\" class=\"status\"></div>
+</div>
+
+<div class=\"panel\">
+  <label>Oracle response</label>
+  <div id=\"out\"></div>
+  <div id=\"meta\" class=\"meta\"></div>
+</div>
+</div>
+
+<script>
+const imgEl = document.getElementById('img');
+const previewEl = document.getElementById('preview');
+imgEl.addEventListener('change', () => {
+  const f = imgEl.files[0];
+  if (!f) { previewEl.style.display = 'none'; return; }
+  previewEl.src = URL.createObjectURL(f);
+  previewEl.style.display = 'block';
+});
+
+document.getElementById('go').addEventListener('click', async () => {
+  const btn = document.getElementById('go');
+  const status = document.getElementById('status');
+  const out = document.getElementById('out');
+  const metaEl = document.getElementById('meta');
+  btn.disabled = true;
+  status.textContent = 'Running Gemma forward + bridge + oracle…';
+  out.textContent = '';
+  metaEl.textContent = '';
+  try {
+    const fd = new FormData();
+    if (imgEl.files[0]) fd.append('image', imgEl.files[0]);
+    fd.append('text', document.getElementById('text').value);
+    fd.append('oracle_prompt', document.getElementById('prompt').value);
+    fd.append('k_positions', document.getElementById('k').value);
+    fd.append('max_tokens', document.getElementById('maxTok').value);
+    const resp = await fetch('/api/run_gemma_bridge', { method: 'POST', body: fd });
+    if (!resp.ok) {
+      const err = await resp.text();
+      throw new Error(`HTTP ${resp.status}: ${err}`);
+    }
+    const data = await resp.json();
+    out.textContent = data.response;
+    metaEl.textContent = JSON.stringify(data.meta);
+    status.textContent = 'Done.';
+  } catch (e) {
+    status.textContent = 'Error: ' + e.message;
+  } finally {
+    btn.disabled = false;
+  }
+});
+</script>
+</body></html>"""
 
     def _render_html(self):
         return """<!doctype html>
@@ -4432,6 +4689,10 @@ def build_parser():
     parser.add_argument("--probes-dir", default="data/saved_probes", help="Directory with saved linear probe .pt files for heatmap display")
     parser.add_argument("--extra-checkpoints", nargs="+", default=[], metavar="NAME=PATH",
                         help="Extra oracle LoRA checkpoints as name=path pairs (e.g. grpo=/path/to/ckpt)")
+    parser.add_argument("--gemma-bridge", default=None,
+                        help="Path to a trained GemmaBridge checkpoint (.pt). Enables the /gemma multimodal tab.")
+    parser.add_argument("--gemma-quantization", choices=["auto", "none", "4bit", "8bit"], default="auto",
+                        help="Gemma model precision. 'auto' picks 4bit on GPUs <28 GiB, else none (bf16).")
     return parser
 
 
