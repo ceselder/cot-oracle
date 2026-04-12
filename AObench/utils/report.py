@@ -673,6 +673,8 @@ def plot_category_breakdown(
         fig.legends[0].get_title().set_fontsize(14)
 
     fig.suptitle(title, fontsize=16, y=1.02)
+    fig.text(0.99, 0.01, "Error bars: 95% bootstrap CI over per-example scores",
+             ha="right", va="bottom", fontsize=8, color="#888888", style="italic")
     fig.subplots_adjust(left=0.08, right=0.99, top=0.88, bottom=0.22, wspace=0.25)
     os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
     plt.savefig(output_path, dpi=150, bbox_inches="tight")
@@ -810,7 +812,8 @@ def plot_comparison_bar_chart(
     fig.text(
         0.5,
         0.012,
-        "Higher is better for all metrics. Overall Score = mean chance-adjusted normalized score across evals.",
+        "Higher is better for all metrics. Overall Score = mean chance-adjusted normalized score across evals.\n"
+        "Error bars: 95% bootstrap CI over per-example scores.",
         ha="center",
         va="bottom",
         fontsize=10.5,
