@@ -62,6 +62,39 @@ FALLBACK_REPO_TRAINING_CONFIGS: dict[str, dict[str, Any]] = {
         "act_layer_combinations": [[9, 18, 27]],
         "prefix_template": INLINE_L_PREFIX_TEMPLATE,
     },
+    # 12-layer ablation: every 3rd decoder layer of Qwen3-8B (36 layers).
+    # Trained with r=512 alpha=1024 LoRA, no dropout, fresh init.
+    # Percentages picked so that int(36 * pct/100) gives exactly the target layer.
+    "ceselder/cot-oracle-paper-ablation-ours-12layers-r512-a1024": {
+        "model_name": "Qwen/Qwen3-8B",
+        "layer_combinations": [[7, 15, 24, 32, 40, 49, 57, 65, 74, 82, 90, 99]],
+        "act_layer_combinations": [[2, 5, 8, 11, 14, 17, 20, 23, 26, 29, 32, 35]],
+        "prefix_template": INLINE_L_PREFIX_TEMPLATE,
+    },
+    "ceselder/cot-oracle-paper-12layers-scaled-r1024-a1024-lr3e5-100m-pastonly": {
+        "model_name": "Qwen/Qwen3-8B",
+        "layer_combinations": [[7, 15, 24, 32, 40, 49, 57, 65, 74, 82, 90, 99]],
+        "act_layer_combinations": [[2, 5, 8, 11, 14, 17, 20, 23, 26, 29, 32, 35]],
+        "prefix_template": INLINE_L_PREFIX_TEMPLATE,
+    },
+    "ceselder/cot-oracle-paper-12layers-stage2-convqa-bs4": {
+        "model_name": "Qwen/Qwen3-8B",
+        "layer_combinations": [[7, 15, 24, 32, 40, 49, 57, 65, 74, 82, 90, 99]],
+        "act_layer_combinations": [[2, 5, 8, 11, 14, 17, 20, 23, 26, 29, 32, 35]],
+        "prefix_template": INLINE_L_PREFIX_TEMPLATE,
+    },
+    "ceselder/cot-oracle-paper-3layers-r1024-a128": {
+        "model_name": "Qwen/Qwen3-8B",
+        "layer_combinations": [[25, 50, 75]],
+        "act_layer_combinations": [[9, 18, 27]],
+        "prefix_template": INLINE_L_PREFIX_TEMPLATE,
+    },
+    "ceselder/cot-oracle-paper-3layers-r1024-a16-exact-match": {
+        "model_name": "Qwen/Qwen3-8B",
+        "layer_combinations": [[25, 50, 75]],
+        "act_layer_combinations": [[9, 18, 27]],
+        "prefix_template": INLINE_L_PREFIX_TEMPLATE,
+    },
 }
 
 REPO_TRAINING_CONFIG_OVERRIDES: dict[str, dict[str, Any]] = {
@@ -81,6 +114,21 @@ REPO_TRAINING_CONFIG_OVERRIDES: dict[str, dict[str, Any]] = {
         "prefix_template": INLINE_L_PREFIX_TEMPLATE,
     },
     "ceselder/cot-oracle-grpo-step-500": {
+        "prefix_template": INLINE_L_PREFIX_TEMPLATE,
+    },
+    "ceselder/cot-oracle-paper-ablation-ours-12layers-r512-a1024": {
+        "prefix_template": INLINE_L_PREFIX_TEMPLATE,
+    },
+    "ceselder/cot-oracle-paper-12layers-scaled-r1024-a1024-lr3e5-100m-pastonly": {
+        "prefix_template": INLINE_L_PREFIX_TEMPLATE,
+    },
+    "ceselder/cot-oracle-paper-12layers-stage2-convqa-bs4": {
+        "prefix_template": INLINE_L_PREFIX_TEMPLATE,
+    },
+    "ceselder/cot-oracle-paper-3layers-r1024-a128": {
+        "prefix_template": INLINE_L_PREFIX_TEMPLATE,
+    },
+    "ceselder/cot-oracle-paper-3layers-r1024-a16-exact-match": {
         "prefix_template": INLINE_L_PREFIX_TEMPLATE,
     },
 }

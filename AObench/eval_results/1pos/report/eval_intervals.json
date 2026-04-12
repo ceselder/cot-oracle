@@ -1,0 +1,58 @@
+{
+  "number_prediction": {
+    "checkpoints_latentqa_cls_past_lens_addition_Qwen3-8B": {
+      "mean": 0.006666666666666667,
+      "lo": 0.006666666666666667,
+      "hi": 0.006666666666666667,
+      "source": "summary_only"
+    }
+  },
+  "mmlu_prediction": {
+    "checkpoints_latentqa_cls_past_lens_addition_Qwen3-8B": {
+      "mean": 0.6877,
+      "lo": 0.6877,
+      "hi": 0.6877,
+      "source": "summary_only"
+    }
+  },
+  "backtracking": {
+    "checkpoints_latentqa_cls_past_lens_addition_Qwen3-8B": {
+      "mean": 1.1111111111111112,
+      "lo": 1.1111111111111112,
+      "hi": 1.1111111111111112,
+      "source": "summary_only"
+    }
+  },
+  "missing_info": {
+    "checkpoints_latentqa_cls_past_lens_addition_Qwen3-8B": {
+      "mean": 0.6422222222222221,
+      "lo": 0.6422222222222221,
+      "hi": 0.6422222222222221,
+      "source": "summary_only"
+    }
+  },
+  "sycophancy": {
+    "checkpoints_latentqa_cls_past_lens_addition_Qwen3-8B": {
+      "mean": 0.7268,
+      "lo": 0.7268,
+      "hi": 0.7268,
+      "source": "summary_only"
+    }
+  },
+  "vagueness": {
+    "checkpoints_latentqa_cls_past_lens_addition_Qwen3-8B": {
+      "mean": 0.1,
+      "lo": 0.1,
+      "hi": 0.1,
+      "source": "summary_only"
+    }
+  },
+  "domain_confusion": {
+    "checkpoints_latentqa_cls_past_lens_addition_Qwen3-8B": {
+      "mean": 0.0,
+      "lo": 0.0,
+      "hi": 0.0,
+      "source": "summary_only"
+    }
+  }
+}

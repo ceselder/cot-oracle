@@ -589,13 +589,39 @@ def plot_category_breakdown(
             vals.append(mean_score)
         cat_values[cat_name] = vals
 
+    # Bootstrap CIs per category: resample over contributing evals
+    cat_errors: dict[str, list[float]] = {}
+    for cat_name, eval_subset in SCORE_CATEGORIES.items():
+        errs = []
+        for verb_name in verb_names:
+            scores = []
+            for eval_name, metrics in eval_results.items():
+                if eval_subset is not None and eval_name not in eval_subset:
+                    continue
+                if verb_name in metrics:
+                    scores.append(normalize_metric_for_aggregate(eval_name, metrics[verb_name]))
+            if len(scores) >= 3:
+                rng = np.random.default_rng(42)
+                arr = np.array(scores)
+                boot = np.array([rng.choice(arr, size=len(arr), replace=True).mean() for _ in range(2000)])
+                lo, hi = np.percentile(boot, [2.5, 97.5])
+                mean = arr.mean()
+                if cat_name in LOWER_IS_BETTER:
+                    mean, lo, hi = 1.0 - mean, 1.0 - hi, 1.0 - lo
+                errs.append(max(hi - mean, mean - lo))
+            else:
+                errs.append(0.0)
+        cat_errors[cat_name] = errs
+
     fig, axes = plt.subplots(1, n_cats, figsize=(5 * n_cats, 6), squeeze=False)
     x = np.arange(n_verbs)
 
     for i, cat_name in enumerate(cat_names):
         ax = axes[0, i]
         values = cat_values[cat_name]
-        ax.bar(x, values, width=0.82, color=bar_colors, edgecolor="white", linewidth=0.45)
+        yerr = cat_errors[cat_name]
+        ax.bar(x, values, width=0.82, color=bar_colors, edgecolor="white", linewidth=0.45,
+               yerr=yerr, capsize=4, error_kw={"linewidth": 1.2, "color": "black"})
         if cat_name in LOWER_IS_BETTER:
             ax.set_title(f"{cat_name}\n(lower is better)", fontsize=14, pad=8)
         else:

@@ -92,6 +92,8 @@ def default_layer_combination(training_config: SelfInterpTrainingConfig) -> list
     """Select which layer combination to use from a training config.
 
     Prefers multi-layer [25, 50, 75] if available, falls back to single-layer [50].
+    For other custom combinations (e.g. 12-layer ablations), returns the single
+    combo if there's only one — there's no ambiguity.
     """
     combos = training_config.layer_combinations
 
@@ -103,9 +105,13 @@ def default_layer_combination(training_config: SelfInterpTrainingConfig) -> list
     if [50] in combos:
         return [50]
 
+    # Custom ablations (e.g. 12-layer): if there's exactly one combination, use it as-is.
+    if len(combos) == 1:
+        return list(combos[0])
+
     raise ValueError(
         f"No recognized layer combination found in {combos}. "
-        f"Expected [25, 50, 75] (multi-layer) or [50] (single-layer)."
+        f"Expected [25, 50, 75] (multi-layer), [50] (single-layer), or a unique custom combo."
     )
 
 

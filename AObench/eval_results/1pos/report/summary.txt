@@ -1,0 +1,30 @@
+AObench Results Summary
+================================================================================
+
+--- backtracking (Mean Correctness (1-5)) ---
+  Adam's AO                                      1.1111  [1.1111, 1.1111]
+
+--- domain_confusion (Domain Accuracy) ---
+  Adam's AO                                      0.0000  [0.0000, 0.0000]
+
+--- missing_info (ROC AUC) ---
+  Adam's AO                                      0.6422  [0.6422, 0.6422]
+  (chance)                                       0.5000
+
+--- mmlu_prediction (ROC AUC) ---
+  Adam's AO                                      0.6877  [0.6877, 0.6877]
+  (chance)                                       0.5000
+
+--- number_prediction (Model Match Rate) ---
+  Adam's AO                                      0.0067  [0.0067, 0.0067]
+
+--- sycophancy (ROC AUC) ---
+  Adam's AO                                      0.7268  [0.7268, 0.7268]
+  (chance)                                       0.5000
+
+--- vagueness (Non-Vagueness) ---
+  Adam's AO                                      0.1000  [0.1000, 0.1000]
+
+--- aggregate (chance-adjusted where applicable) ---
+  Adam's AO                                      0.1783  [0.1783, 0.1783]  (n=7)
+
