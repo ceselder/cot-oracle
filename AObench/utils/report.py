@@ -675,7 +675,7 @@ def plot_category_breakdown(
     fig.suptitle(title, fontsize=16, y=1.02)
     fig.text(0.99, 0.01, "Error bars: 95% bootstrap CI over per-example scores",
              ha="right", va="bottom", fontsize=8, color="#888888", style="italic")
-    fig.subplots_adjust(left=0.08, right=0.99, top=0.88, bottom=0.22, wspace=0.25)
+    fig.subplots_adjust(left=0.08, right=0.99, top=0.88, bottom=0.26, wspace=0.25)
     os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
     plt.savefig(output_path, dpi=150, bbox_inches="tight")
     plt.close()
@@ -820,7 +820,7 @@ def plot_comparison_bar_chart(
         color="#333333",
     )
     fig.suptitle(title, fontsize=18, y=0.98)
-    fig.subplots_adjust(left=0.06, right=0.99, top=0.93, bottom=0.18, hspace=0.38, wspace=0.2)
+    fig.subplots_adjust(left=0.06, right=0.99, top=0.93, bottom=0.21, hspace=0.38, wspace=0.2)
     os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
     plt.savefig(output_path, dpi=150, bbox_inches="tight")
     plt.close()
