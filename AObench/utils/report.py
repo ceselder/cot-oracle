@@ -664,18 +664,16 @@ def plot_category_breakdown(
         bbox_to_anchor=(0.5, 0.12),
         ncol=min(4, n_verbs),
         fontsize=13,
-        title="Checkpoint",
+        title="Checkpoint\n(error bars: 95% bootstrap CI over per-example scores)",
         frameon=False,
         columnspacing=1.6,
         handlelength=2.0,
     )
     if fig.legends:
-        fig.legends[0].get_title().set_fontsize(14)
+        fig.legends[0].get_title().set_fontsize(11)
 
     fig.suptitle(title, fontsize=16, y=1.02)
-    fig.text(0.99, 0.01, "Error bars: 95% bootstrap CI over per-example scores",
-             ha="right", va="bottom", fontsize=8, color="#888888", style="italic")
-    fig.subplots_adjust(left=0.08, right=0.99, top=0.88, bottom=0.26, wspace=0.25)
+    fig.subplots_adjust(left=0.08, right=0.99, top=0.88, bottom=0.22, wspace=0.25)
     os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
     plt.savefig(output_path, dpi=150, bbox_inches="tight")
     plt.close()
