@@ -552,6 +552,7 @@ def plot_category_breakdown(
     eval_results: dict[str, dict[str, float]],
     output_path: str,
     title: str = "Score Breakdown by Category",
+    eval_intervals: dict[str, dict[str, dict[str, Any]]] | None = None,
 ) -> str:
     """Grouped bar chart: 3 score categories × N checkpoints."""
     all_verbs: set[str] = set()
@@ -589,25 +590,46 @@ def plot_category_breakdown(
             vals.append(mean_score)
         cat_values[cat_name] = vals
 
-    # Bootstrap CIs per category: resample over contributing evals
+    # Propagate per-example CIs from eval_intervals into category aggregates.
+    # For each category, average the bootstrap sample vectors across contributing
+    # evals, then take percentiles. This gives CIs that reflect per-example
+    # uncertainty, not cross-eval variance.
     cat_errors: dict[str, list[float]] = {}
+    n_boot = 2000
     for cat_name, eval_subset in SCORE_CATEGORIES.items():
         errs = []
         for verb_name in verb_names:
-            scores = []
+            boot_vectors = []
             for eval_name, metrics in eval_results.items():
                 if eval_subset is not None and eval_name not in eval_subset:
                     continue
-                if verb_name in metrics:
-                    scores.append(normalize_metric_for_aggregate(eval_name, metrics[verb_name]))
-            if len(scores) >= 3:
-                rng = np.random.default_rng(42)
-                arr = np.array(scores)
-                boot = np.array([rng.choice(arr, size=len(arr), replace=True).mean() for _ in range(2000)])
-                lo, hi = np.percentile(boot, [2.5, 97.5])
-                mean = arr.mean()
+                if verb_name not in metrics:
+                    continue
+                if eval_intervals and eval_name in eval_intervals:
+                    vi = eval_intervals[eval_name].get(verb_name)
+                    if vi and vi.get("source") == "raw_outputs" and "samples" in vi:
+                        # Normalize the bootstrap samples the same way as the metric
+                        raw_samples = np.asarray(vi["samples"], dtype=np.float64)
+                        raw_mean = vi["mean"]
+                        summary_val = metrics[verb_name]
+                        norm_val = normalize_metric_for_aggregate(eval_name, summary_val)
+                        if raw_mean != 0:
+                            norm_samples = raw_samples * (norm_val / raw_mean)
+                        else:
+                            norm_samples = np.full(len(raw_samples), norm_val)
+                        boot_vectors.append(norm_samples[:n_boot])
+                        continue
+                # Fallback: no per-example data, use point estimate
+                boot_vectors.append(np.full(n_boot, normalize_metric_for_aggregate(eval_name, metrics[verb_name])))
+
+            if boot_vectors:
+                min_len = min(len(v) for v in boot_vectors)
+                boot_vectors = [v[:min_len] for v in boot_vectors]
+                combined = np.stack(boot_vectors, axis=0).mean(axis=0)
                 if cat_name in LOWER_IS_BETTER:
-                    mean, lo, hi = 1.0 - mean, 1.0 - hi, 1.0 - lo
+                    combined = 1.0 - combined
+                lo, hi = np.percentile(combined, [2.5, 97.5])
+                mean = combined.mean()
                 errs.append(max(hi - mean, mean - lo))
             else:
                 errs.append(0.0)
@@ -935,7 +957,7 @@ def generate_report(
 
     # 1c. Category breakdown (overall / faithfulness / specificity)
     category_path = os.path.join(output_dir, "category_breakdown.png")
-    plot_category_breakdown(eval_results, category_path)
+    plot_category_breakdown(eval_results, category_path, eval_intervals=eval_intervals)
     print(f"Saved category breakdown: {category_path}")
 
     # 2. Per-eval detail charts
