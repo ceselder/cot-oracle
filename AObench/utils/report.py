@@ -621,7 +621,7 @@ def plot_category_breakdown(
         values = cat_values[cat_name]
         yerr = cat_errors[cat_name]
         ax.bar(x, values, width=0.82, color=bar_colors, edgecolor="white", linewidth=0.45,
-               yerr=yerr, capsize=4, error_kw={"linewidth": 1.2, "color": "black"})
+               yerr=yerr, capsize=6, error_kw={"linewidth": 2.0, "color": "black", "capthick": 2.0})
         if cat_name in LOWER_IS_BETTER:
             ax.set_title(f"{cat_name}\n(lower is better)", fontsize=14, pad=8)
         else:
