@@ -35,6 +35,9 @@ class OnlineCoTSampler:
         stride: int = 5,
         min_cot_sentences: int = 4,
         seed: int = 42,
+        position_mode_probs: dict[str, float] | None = None,
+        contiguous_window_fraction: float = 0.4,
+        max_contiguous_positions: int = 64,
         **kwargs,
     ):
         self.tokenizer = tokenizer
@@ -42,12 +45,31 @@ class OnlineCoTSampler:
         self.stride = stride
         self.min_cot_sentences = min_cot_sentences
         self.rng = random.Random(seed)
+        self.contiguous_window_fraction = contiguous_window_fraction
+        self.max_contiguous_positions = max_contiguous_positions
+        self.position_mode_probs = position_mode_probs or {
+            "single": 0.25,
+            "last2": 0.125,
+            "last3": 0.125,
+            "contiguous": 0.5,
+        }
+        total_prob = sum(self.position_mode_probs.values())
+        if total_prob <= 0:
+            raise ValueError('position_mode_probs must sum to a positive value')
+        self.position_mode_probs = {
+            key: value / total_prob for key, value in self.position_mode_probs.items()
+        }
 
         ds = load_dataset(corpus_name, split="train")
         self.corpus = list(ds)
         self.rng.shuffle(self.corpus)
         self._idx = 0
         print(f"[online_sampler] Loaded {len(self.corpus)} corpus items")
+        print(
+            f"[online_sampler] Position mix: {self.position_mode_probs}, "
+            f"window_fraction={self.contiguous_window_fraction}, "
+            f"max_contiguous_positions={self.max_contiguous_positions}"
+        )
 
     def sample_batch(self, batch_size: int) -> list[dict[str, Any]]:
         results = []
@@ -64,6 +86,35 @@ class OnlineCoTSampler:
         if len(results) < batch_size:
             print(f"  [sampler] WARNING: only got {len(results)}/{batch_size} valid examples")
         return results
+
+    def _sample_position_mode(self) -> str:
+        draw = self.rng.random()
+        running = 0.0
+        last_mode = "contiguous"
+        for mode, prob in self.position_mode_probs.items():
+            running += prob
+            last_mode = mode
+            if draw <= running:
+                return mode
+        return last_mode
+
+    def _select_base_positions(self, cot_start: int, split_token_pos: int) -> list[int]:
+        span = max(split_token_pos - cot_start, 0)
+        window_start = cot_start + int((1.0 - self.contiguous_window_fraction) * span)
+        candidate_positions = list(range(window_start, split_token_pos + 1))
+        if not candidate_positions:
+            return [split_token_pos]
+        if len(candidate_positions) > self.max_contiguous_positions:
+            candidate_positions = candidate_positions[-self.max_contiguous_positions:]
+
+        mode = self._sample_position_mode()
+        if mode == "single":
+            return candidate_positions[-1:]
+        if mode == "last2":
+            return candidate_positions[-2:]
+        if mode == "last3":
+            return candidate_positions[-3:]
+        return candidate_positions
 
     def _prepare_example(self, item: dict) -> dict[str, Any] | None:
         question = item.get("question", item.get("prompt", ""))
@@ -136,13 +187,8 @@ class OnlineCoTSampler:
         first_half_ids = self.tokenizer.encode(first_half, add_special_tokens=False)
         split_token_pos = min(cot_start + len(first_half_ids), cot_end - 1)
 
-        # Select stride positions from last ~40% of first half (near split)
-        window_start = cot_start + int(0.6 * (split_token_pos - cot_start))
-        stride_positions = list(range(window_start, split_token_pos + 1, self.stride))
-        if not stride_positions:
-            stride_positions = [split_token_pos]
-        if len(stride_positions) > 10:
-            stride_positions = stride_positions[-10:]
+        # Sample a local position pattern near the split point.
+        base_positions = self._select_base_positions(cot_start, split_token_pos)
 
         return {
             "question": question,
@@ -150,8 +196,8 @@ class OnlineCoTSampler:
             "first_half": first_half,
             "second_half": second_half,
             "context_input_ids": full_ids,
-            "base_positions": stride_positions,
-            "selected_positions": stride_positions * len(self.layers),
+            "base_positions": base_positions,
+            "selected_positions": base_positions * len(self.layers),
             "cot_start": cot_start,
             "cot_end": cot_end,
         }

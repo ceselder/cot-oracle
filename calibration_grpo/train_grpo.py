@@ -39,14 +39,11 @@ from peft import PeftModel
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
 import wandb
-from core.ao import (
-    TRAINED_PLACEHOLDER,
-    choose_attn_implementation,
-)
+from core.ao import choose_attn_implementation
 
 # Reuse from calibration_dpo
 from activations import extract_activations
-from rollouts import generate_rollouts
+from rollouts import build_oracle_input_ids, generate_rollouts
 from prompts import sample_prompt
 
 # Online sampler (replaces CoTSampler)
@@ -57,70 +54,32 @@ from grpo_loss import GRPOItem, compute_grpo_loss, compute_old_logprobs
 from judge import judge_batch, get_spend
 from reward import CRITERIA_NAMES, compute_group_advantages, compute_rewards
 
-# Reuse helpers from rollouts.py (but NOT train_dpo.py — it has import side effects)
-from rollouts import _build_oracle_prefix, _build_manual_prefix_token_ids
 
 
-def build_oracle_input_ids(
-    tokenizer,
-    activations: torch.Tensor,
-    oracle_prompt: str,
-    layers: list[int],
-    question: str | None = None,
-) -> tuple[list[int], list[int]]:
-    """Build tokenized oracle input with placeholder positions.
-
-    Copied from calibration_dpo/train_dpo.py to avoid import side effects.
-    """
-    ph_token = TRAINED_PLACEHOLDER
-    ph_id_list = tokenizer.encode(ph_token, add_special_tokens=False)
-    assert len(ph_id_list) == 1
-    ph_id = ph_id_list[0]
-
-    num_positions = activations.shape[0]
-    prefix = _build_oracle_prefix(num_positions, layers, ph_token)
-
-    if question:
-        full_prompt = prefix + f'The model is partway through solving: "{question}"\nYou are seeing activations from the middle of its reasoning.\n{oracle_prompt}'
-    else:
-        full_prompt = prefix + oracle_prompt
-
-    messages = [{"role": "user", "content": full_prompt}]
-    formatted = tokenizer.apply_chat_template(
-        messages, tokenize=False, add_generation_prompt=True, enable_thinking=False,
-    )
-
-    prefix_idx = formatted.find(prefix)
-    assert prefix_idx >= 0, "Prefix not found in formatted text"
-    before_ids = tokenizer.encode(formatted[:prefix_idx], add_special_tokens=False)
-    after_ids = tokenizer.encode(formatted[prefix_idx + len(prefix):], add_special_tokens=False)
-    prefix_ids, rel_positions = _build_manual_prefix_token_ids(
-        tokenizer, num_positions, layers, ph_id,
-    )
-
-    input_ids = before_ids + prefix_ids + after_ids
-    positions = [len(before_ids) + p for p in rel_positions]
-    return input_ids, positions
-
-
-# ── Fixed eval: 10 deterministic examples, re-used every eval ──
+# ── Fixed eval: trajectory probes re-used every eval ──
 _FIXED_EVAL_EXAMPLES = None
 _FIXED_EVAL_PROMPTS = [
     "What is the model thinking about?",
     "What computation is happening here?",
     "What is the model likely to say next?",
+    "What comes after this point in the reasoning?",
+    "Is the model about to backtrack? If so, why?",
     "Is the model reconsidering a previous step? If so, what and why?",
+    "Is the model branching between alternatives right now? Describe the alternatives.",
     "What knowledge or facts is the model drawing on?",
-    "What is the model hiding?",
+    "What constraints is the model actively tracking?",
     "What specific tokens is the model about to produce?",
     "What numbers or values is the model working with?",
+    "What intermediate result does the model seem to have reached?",
     "Describe any errors or mistakes in the reasoning at this point.",
+    "What could go wrong with the model's current approach?",
     "How far along is the model in solving the problem?",
+    "How confident is the model in its current plan?",
 ]
 
 
 def _get_fixed_eval_examples(sampler) -> list[dict]:
-    """Get 10 deterministic examples (cached after first call).
+    """Get a deterministic eval set (cached after first call).
 
     Uses the online sampler to generate fresh CoTs for eval.
     """
@@ -131,7 +90,7 @@ def _get_fixed_eval_examples(sampler) -> list[dict]:
     saved_rng_state = sampler.rng.getstate()
     saved_idx = sampler._idx
     sampler.rng = random.Random(12345)
-    _FIXED_EVAL_EXAMPLES = sampler.sample_batch(10)
+    _FIXED_EVAL_EXAMPLES = sampler.sample_batch(len(_FIXED_EVAL_PROMPTS))
     sampler.rng = random.Random(saved_rng_state[1][0])
     sampler.rng.setstate(saved_rng_state)
     sampler._idx = saved_idx
@@ -144,12 +103,12 @@ def run_fixed_eval(
     rcfg, tcfg, criteria_weights, judge_model, max_concurrent,
     api_key, judge_loop, device, step, eval_judge_model=None,
 ) -> dict:
-    """Run eval on 10 fixed examples, log full rollouts + scores."""
+    """Run eval on the fixed trajectory-probe set, log full rollouts + scores."""
     examples = _get_fixed_eval_examples(sampler)
     if not examples:
         return {}
 
-    # Use the 10 fixed prompts (one per example)
+    # Use the fixed prompt bank (one per example)
     prompts = _FIXED_EVAL_PROMPTS[:len(examples)]
     # Always include questions in eval
     questions = [ex.get("question", None) for ex in examples]
@@ -271,6 +230,173 @@ def load_model(cfg: dict, device: str = "cuda") -> tuple[PeftModel, AutoTokenize
     return model, tokenizer
 
 
+
+
+def _viz_scale_01(value: float, max_value: float, floor: float = 0.05) -> float:
+    """Display-only remapping for W&B plots.
+
+    Maps [0, max_value] -> [floor, 1.0]. Training still uses raw values.
+    """
+    if max_value <= 0:
+        return floor
+    clipped = max(0.0, min(value / max_value, 1.0))
+    return floor + (1.0 - floor) * clipped
+
+
+def _aggregate_grpo_metrics(metrics_list: list[dict[str, float]]) -> dict[str, float]:
+    """Aggregate GRPO metrics across accumulated microbatches."""
+    if not metrics_list:
+        return {}
+
+    total_tokens = sum(m.get("grpo/n_response_tokens", 0.0) for m in metrics_list)
+    total_sequences = sum(m.get("grpo/n_sequences", 0.0) for m in metrics_list)
+
+    def weighted_mean(key: str, weight_key: str, total_weight: float, default: float) -> float:
+        if total_weight <= 0:
+            return default
+        return sum(m.get(key, default) * m.get(weight_key, 0.0) for m in metrics_list) / total_weight
+
+    return {
+        "grpo/loss": sum(m.get("grpo/loss", 0.0) for m in metrics_list) / len(metrics_list),
+        "grpo/mean_ratio": weighted_mean("grpo/mean_ratio", "grpo/n_response_tokens", total_tokens, 1.0),
+        "grpo/clip_frac": weighted_mean("grpo/clip_frac", "grpo/n_response_tokens", total_tokens, 0.0),
+        "grpo/max_ratio": max(m.get("grpo/max_ratio", 1.0) for m in metrics_list),
+        "grpo/min_ratio": min(m.get("grpo/min_ratio", 1.0) for m in metrics_list),
+        "grpo/mean_advantage": weighted_mean("grpo/mean_advantage", "grpo/n_sequences", total_sequences, 0.0),
+        "grpo/mean_response_tokens": weighted_mean("grpo/mean_response_tokens", "grpo/n_sequences", total_sequences, 0.0),
+        "grpo/n_response_tokens": total_tokens,
+        "grpo/n_sequences": total_sequences,
+    }
+
+
+def collect_grpo_batch(
+    model,
+    tokenizer,
+    sampler,
+    rng,
+    act_layers,
+    injection_layer,
+    rcfg,
+    tcfg,
+    gcfg,
+    criteria_weights,
+    judge_model,
+    max_concurrent,
+    question_inclusion_rate,
+    batch_size,
+    api_key,
+    judge_loop,
+    device,
+):
+    """Collect one on-policy GRPO microbatch without updating parameters."""
+    examples = sampler.sample_batch(batch_size)
+    if not examples:
+        return None
+
+    oracle_prompts = [sample_prompt(rng) for _ in range(batch_size)]
+    questions = []
+    for ex in examples:
+        if rng.random() < question_inclusion_rate:
+            questions.append(ex.get("question", None))
+        else:
+            questions.append(None)
+
+    acts_list = extract_activations(
+        model=model,
+        tokenizer=tokenizer,
+        examples=examples,
+        layers=act_layers,
+        device=device,
+    )
+
+    model.eval()
+    all_rollouts = generate_rollouts(
+        model=model,
+        tokenizer=tokenizer,
+        activations_list=acts_list,
+        oracle_prompts=oracle_prompts,
+        layers=act_layers,
+        n_rollouts=rcfg["n"],
+        temperature=max(rcfg["temperature"], tcfg.get("temperature_floor", 0.6)),
+        max_new_tokens=rcfg["max_new_tokens"],
+        generation_batch_size=rcfg.get("generation_batch_size", 8),
+        injection_layer=injection_layer,
+        adapter_name="default",
+        device=device,
+        questions=questions,
+        repetition_penalty=rcfg.get("repetition_penalty", 1.1),
+        return_token_ids=True,
+    )
+
+    all_items: list[list[GRPOItem]] = []
+    for acts, rollouts, prompt, question in zip(acts_list, all_rollouts, oracle_prompts, questions):
+        prompt_ids, ph_pos = build_oracle_input_ids(
+            tokenizer, acts.shape[0], prompt, act_layers, question,
+        )
+        ex_items = []
+        for rollout in rollouts:
+            ex_items.append(GRPOItem(
+                prompt_ids=prompt_ids,
+                response_ids=rollout.token_ids,
+                activations=acts,
+                ph_positions=ph_pos,
+                advantage=0.0,
+                old_token_logprobs=[],
+            ))
+        old_lps = compute_old_logprobs(model, ex_items, injection_layer, device)
+        for item, lp in zip(ex_items, old_lps):
+            item.old_token_logprobs = lp
+        all_items.append(ex_items)
+
+    judge_inputs = []
+    for ex, rollouts, prompt in zip(examples, all_rollouts, oracle_prompts):
+        judge_inputs.append({
+            "question": ex.get("question", ""),
+            "first_half": ex.get("first_half", ""),
+            "second_half": ex.get("second_half", ""),
+            "oracle_prompt": prompt,
+            "rollout_texts": [rollout.text for rollout in rollouts],
+        })
+
+    t_judge = time.time()
+    rubric_results = judge_loop.run_until_complete(
+        judge_batch(judge_inputs, api_key, judge_model, max_concurrent)
+    )
+    judge_time = time.time() - t_judge
+
+    grpo_items: list[GRPOItem] = []
+    all_rewards: list[float] = []
+    n_judge_failures = 0
+
+    for ex_items, rubrics in zip(all_items, rubric_results):
+        if rubrics is None:
+            n_judge_failures += 1
+            continue
+
+        rewards = compute_rewards(rubrics, criteria_weights)
+        advantages = compute_group_advantages(rewards, normalize=gcfg["normalize_advantages"])
+        all_rewards.extend(rewards)
+
+        for item, adv in zip(ex_items, advantages):
+            item.advantage = adv
+            grpo_items.append(item)
+
+    if not grpo_items:
+        return None
+
+    return {
+        "examples": examples,
+        "oracle_prompts": oracle_prompts,
+        "questions": questions,
+        "all_rollouts": all_rollouts,
+        "rubric_results": rubric_results,
+        "grpo_items": grpo_items,
+        "all_rewards": all_rewards,
+        "n_judge_failures": n_judge_failures,
+        "judge_time": judge_time,
+    }
+
+
 def train(cfg: dict):
     device = "cuda"
     tcfg = cfg["training"]
@@ -281,22 +407,20 @@ def train(cfg: dict):
     if not api_key:
         raise RuntimeError("Set OPENROUTER_API_KEY")
 
-    # Load model
     print("Loading model...")
     model, tokenizer = load_model(cfg, device)
     act_layers = cfg["model"]["act_layers"]
     injection_layer = cfg["model"]["injection_layer"]
 
-    # Data sampler — loads corpus CoTs and splits them at sentence boundaries
     rng = random.Random(42)
     sampler = OnlineCoTSampler(
         corpus_name=cfg["data"]["corpus"],
         tokenizer=tokenizer,
         layers=act_layers,
         stride=cfg["data"]["stride"],
+        **cfg["data"].get("position_sampling", {}),
     )
 
-    # Optimizer
     trainable_params = [p for p in model.parameters() if p.requires_grad]
     optimizer = torch.optim.AdamW(trainable_params, lr=tcfg["lr"], weight_decay=0.01)
 
@@ -305,7 +429,6 @@ def train(cfg: dict):
         optimizer, start_factor=0.1, end_factor=1.0, total_iters=tcfg["warmup_steps"],
     )
 
-    # Training state
     step = 0
     criteria_weights = cfg["reward"]["criteria_weights"]
     judge_model = cfg["judge"]["model"]
@@ -313,14 +436,17 @@ def train(cfg: dict):
     max_concurrent = cfg["judge"]["max_concurrent"]
     question_inclusion_rate = cfg["data"].get("question_inclusion_rate", 0.4)
     batch_size = tcfg["batch_size"]
+    accum_steps = max(1, int(tcfg.get("gradient_accumulation_steps", 1)))
 
-    # Wandb
     run_name = f"grpo-{time.strftime('%m%d-%H%M')}"
     wandb.init(project=cfg["wandb"]["project"], name=run_name, config=cfg)
 
-    print(f"\nStarting GRPO training: {tcfg['max_steps']} steps")
+    print()
+    print(f"Starting GRPO training: {tcfg['max_steps']} steps")
     print(f"  Rollouts per example: {rcfg['n']}")
     print(f"  Batch size: {batch_size}")
+    print(f"  Gradient accumulation: {accum_steps}")
+    print(f"  Effective prompt batch: {batch_size * accum_steps}")
     print(f"  Clip eps: {gcfg['clip_eps']}")
     print(f"  Criteria weights: {criteria_weights}")
 
@@ -330,192 +456,155 @@ def train(cfg: dict):
     while step < tcfg["max_steps"]:
         iter_t0 = time.time()
 
-        # ── 1. Sample CoT examples + oracle prompts ──
-        examples = sampler.sample_batch(batch_size)
-        oracle_prompts = [sample_prompt(rng) for _ in range(batch_size)]
-
-        # Decide which examples get question prepended
-        questions = []
-        for ex in examples:
-            if rng.random() < question_inclusion_rate:
-                questions.append(ex.get("question", None))
-            else:
-                questions.append(None)
-
-        # ── 2. Extract activations (base model, adapter disabled) ──
-        # extract_activations expects list[dict] with context_input_ids + selected_positions
-        acts_list = extract_activations(
-            model=model,
-            tokenizer=tokenizer,
-            examples=examples,
-            layers=act_layers,
-            device=device,
-        )
-
-        # ── 3. Generate rollouts from current policy ──
-        model.eval()
-        # generate_rollouts expects lists — processes all examples in one call
-        all_rollouts = generate_rollouts(
-            model=model,
-            tokenizer=tokenizer,
-            activations_list=acts_list,
-            oracle_prompts=oracle_prompts,
-            layers=act_layers,
-            n_rollouts=rcfg["n"],
-            temperature=max(rcfg["temperature"], tcfg.get("temperature_floor", 0.6)),
-            max_new_tokens=rcfg["max_new_tokens"],
-            generation_batch_size=rcfg.get("generation_batch_size", 8),
-            injection_layer=injection_layer,
-            adapter_name="default",  # PeftModel.from_pretrained uses "default"
-            device=device,
-            questions=questions,
-            repetition_penalty=rcfg.get("repetition_penalty", 1.1),
-        )
-        # all_rollouts: list[list[str]], one inner list per example
-
-        # ── 4. Compute old log-probs (no grad, snapshot of current policy) ──
-        all_items: list[list[GRPOItem]] = []
-        for ex_idx, (ex, acts, rollouts, prompt, question) in enumerate(
-            zip(examples, acts_list, all_rollouts, oracle_prompts, questions)
-        ):
-            ex_items = []
-            for rollout_text in rollouts:
-                # build_oracle_input_ids(tokenizer, activations, oracle_prompt, layers, question)
-                prompt_ids, ph_pos = build_oracle_input_ids(
-                    tokenizer, acts, prompt, act_layers, question,
-                )
-                response_ids = tokenizer.encode(rollout_text, add_special_tokens=False)
-                full_ids = prompt_ids + response_ids
-                ex_items.append(GRPOItem(
-                    input_ids=full_ids,
-                    response_start=len(prompt_ids),
-                    activations=acts,
-                    ph_positions=ph_pos,
-                    advantage=0.0,
-                    old_logprob=0.0,
-                ))
-            old_lps = compute_old_logprobs(model, ex_items, injection_layer, device)
-            for item, lp in zip(ex_items, old_lps):
-                item.old_logprob = lp
-            all_items.append(ex_items)
-
-        # ── 5. Score with judge ──
-        judge_inputs = []
-        for ex, rollouts, prompt in zip(examples, all_rollouts, oracle_prompts):
-            judge_inputs.append({
-                "question": ex.get("question", ""),
-                "first_half": ex.get("first_half", ""),
-                "second_half": ex.get("second_half", ""),
-                "oracle_prompt": prompt,
-                "rollout_texts": rollouts,
-            })
-
-        t_judge = time.time()
-        rubric_results = judge_loop.run_until_complete(
-            judge_batch(judge_inputs, api_key, judge_model, max_concurrent)
-        )
-        judge_time = time.time() - t_judge
-
-        # ── 6. Compute rewards and advantages per group ──
-        grpo_items: list[GRPOItem] = []
-        all_rewards = []
-        n_judge_failures = 0
-
-        for ex_items, rubrics in zip(all_items, rubric_results):
-            if rubrics is None:
-                n_judge_failures += 1
+        microbatches = []
+        collect_attempts = 0
+        max_collect_attempts = max(accum_steps * 3, accum_steps)
+        while len(microbatches) < accum_steps and collect_attempts < max_collect_attempts:
+            collect_attempts += 1
+            batch = collect_grpo_batch(
+                model=model,
+                tokenizer=tokenizer,
+                sampler=sampler,
+                rng=rng,
+                act_layers=act_layers,
+                injection_layer=injection_layer,
+                rcfg=rcfg,
+                tcfg=tcfg,
+                gcfg=gcfg,
+                criteria_weights=criteria_weights,
+                judge_model=judge_model,
+                max_concurrent=max_concurrent,
+                question_inclusion_rate=question_inclusion_rate,
+                batch_size=batch_size,
+                api_key=api_key,
+                judge_loop=judge_loop,
+                device=device,
+            )
+            if batch is None:
+                print("  [iter] All judge calls failed for one microbatch, retrying")
                 continue
+            microbatches.append(batch)
 
-            rewards = compute_rewards(rubrics, criteria_weights)
-            advantages = compute_group_advantages(rewards, normalize=gcfg["normalize_advantages"])
-            all_rewards.extend(rewards)
-
-            for item, adv in zip(ex_items, advantages):
-                item.advantage = adv
-                grpo_items.append(item)
-
-        if not grpo_items:
-            print(f"  [iter] All judge calls failed, skipping")
+        if not microbatches:
+            print("  [iter] Could not collect any valid microbatches, skipping optimizer step")
             continue
+        if len(microbatches) < accum_steps:
+            print(f"  [iter] Only collected {len(microbatches)}/{accum_steps} microbatches")
 
-        if n_judge_failures > 0:
-            print(f"  [iter] {n_judge_failures}/{batch_size} judge failures")
-
-        # Log reward distribution for debugging
-        if all_rewards and max(all_rewards) - min(all_rewards) < 0.01:
-            print(f"  [iter] WARNING: all rewards identical ({all_rewards[0]:.3f}), advantages will be 0")
-
-        # ── 7. Gradient steps (multiple iterations per batch) ──
         num_iterations = gcfg.get("num_iterations", 1)
         total_loss = 0.0
         total_metrics = {}
+        grad_scale = 1.0 / len(microbatches)
 
         for iteration in range(num_iterations):
             optimizer.zero_grad()
+            iter_losses = []
+            iter_metrics_list = []
 
-            iter_loss, iter_metrics = compute_grpo_loss(
-                model, grpo_items, injection_layer, device,
-                clip_eps=gcfg["clip_eps"],
-            )
+            for batch in microbatches:
+                iter_loss, iter_metrics = compute_grpo_loss(
+                    model,
+                    batch["grpo_items"],
+                    injection_layer,
+                    device,
+                    clip_eps=gcfg["clip_eps"],
+                    grad_scale=grad_scale,
+                )
+                iter_losses.append(iter_loss)
+                iter_metrics_list.append(iter_metrics)
 
             torch.nn.utils.clip_grad_norm_(trainable_params, tcfg["max_grad_norm"])
             optimizer.step()
             scheduler.step()
-            total_loss = iter_loss
-            total_metrics = iter_metrics
+
+            total_loss = sum(iter_losses) / len(iter_losses) if iter_losses else 0.0
+            total_metrics = _aggregate_grpo_metrics(iter_metrics_list)
 
         step += 1
 
-        # ── 8. Logging ──
         elapsed = time.time() - iter_t0
-        mean_reward = sum(all_rewards) / len(all_rewards) if all_rewards else 0
-        reward_std = (sum((r - mean_reward) ** 2 for r in all_rewards) / max(len(all_rewards), 1)) ** 0.5
+        all_rewards = [r for batch in microbatches for r in batch["all_rewards"]]
+        mean_reward = sum(all_rewards) / len(all_rewards) if all_rewards else 0.0
+        reward_std = (
+            sum((r - mean_reward) ** 2 for r in all_rewards) / max(len(all_rewards), 1)
+        ) ** 0.5
+        judge_time = sum(batch["judge_time"] for batch in microbatches)
+        n_judge_failures = sum(batch["n_judge_failures"] for batch in microbatches)
+        n_items = sum(len(batch["grpo_items"]) for batch in microbatches)
+
+        if all_rewards and max(all_rewards) - min(all_rewards) < 0.01:
+            print(f"  [iter] WARNING: all rewards nearly identical ({all_rewards[0]:.3f}), advantages may be weak")
 
         log_dict = {
             "step": step,
             "grpo/loss": total_loss,
-            "grpo/mean_reward": mean_reward,
+            "grpo/mean_reward": _viz_scale_01(mean_reward, 1.0),
+            "grpo/mean_reward_raw": mean_reward,
             "grpo/reward_std": reward_std,
             "grpo/lr": scheduler.get_last_lr()[0],
             "grpo/iter_time": elapsed,
             "grpo/judge_time": judge_time,
-            "grpo/n_items": len(grpo_items),
+            "grpo/n_items": n_items,
             "grpo/judge_failures": n_judge_failures,
+            "grpo/microbatches": len(microbatches),
             **total_metrics,
         }
 
-        all_rubrics = [r for rubrics in rubric_results if rubrics for r in rubrics]
+        all_rubrics = [
+            r
+            for batch in microbatches
+            for rubrics in batch["rubric_results"]
+            if rubrics
+            for r in rubrics
+        ]
         for crit in CRITERIA_NAMES:
             scores = [r.criteria.get(crit, 0) for r in all_rubrics]
-            log_dict[f"rubric/{crit}_mean"] = sum(scores) / max(len(scores), 1)
-            log_dict[f"rubric/{crit}_pass_rate"] = sum(1 for s in scores if s >= 1) / max(len(scores), 1)
-            log_dict[f"rubric/{crit}_hallucination_rate"] = sum(1 for s in scores if s == 0) / max(len(scores), 1)
+            mean_score = sum(scores) / max(len(scores), 1)
+            mean_score_01 = mean_score / 2.0
+            pass_rate = sum(1 for s in scores if s >= 1) / max(len(scores), 1)
+            hallucination_rate = sum(1 for s in scores if s == 0) / max(len(scores), 1)
+            log_dict[f"rubric/{crit}_mean"] = _viz_scale_01(mean_score, 2.0)
+            log_dict[f"rubric/{crit}_mean_raw"] = mean_score
+            log_dict[f"rubric/{crit}_mean_01"] = mean_score_01
+            log_dict[f"rubric/{crit}_pass_rate"] = _viz_scale_01(pass_rate, 1.0)
+            log_dict[f"rubric/{crit}_pass_rate_raw"] = pass_rate
+            log_dict[f"rubric/{crit}_hallucination_rate"] = _viz_scale_01(hallucination_rate, 1.0)
+            log_dict[f"rubric/{crit}_hallucination_rate_raw"] = hallucination_rate
 
-        # ── Log every rollout with full text, rubric, reward, advantage ──
         rollout_table_rows = []
-        for ex_idx, (ex, rollouts, prompt, question, rubrics) in enumerate(
-            zip(examples, all_rollouts, oracle_prompts, questions, rubric_results)
-        ):
-            if rubrics is None:
-                continue
-            ex_rewards = compute_rewards(rubrics, criteria_weights)
-            ex_advantages = compute_group_advantages(ex_rewards, normalize=gcfg["normalize_advantages"])
-            for r_idx, (text, rubric, rew, adv) in enumerate(
-                zip(rollouts, rubrics, ex_rewards, ex_advantages)
+        global_example_idx = 0
+        for batch in microbatches:
+            for ex, rollouts, prompt, question, rubrics in zip(
+                batch["examples"],
+                batch["all_rollouts"],
+                batch["oracle_prompts"],
+                batch["questions"],
+                batch["rubric_results"],
             ):
-                row = {
-                    "step": step,
-                    "example": ex_idx,
-                    "rollout": r_idx,
-                    "question": ex.get("question", "")[:200],
-                    "oracle_prompt": prompt,
-                    "response": text,
-                    "reward": round(rew, 4),
-                    "advantage": round(adv, 4),
-                }
-                for crit in CRITERIA_NAMES:
-                    row[crit] = rubric.criteria.get(crit, 0)
-                rollout_table_rows.append(row)
+                if rubrics is None:
+                    global_example_idx += 1
+                    continue
+                ex_rewards = compute_rewards(rubrics, criteria_weights)
+                ex_advantages = compute_group_advantages(
+                    ex_rewards, normalize=gcfg["normalize_advantages"]
+                )
+                for r_idx, (rollout, rubric, rew, adv) in enumerate(
+                    zip(rollouts, rubrics, ex_rewards, ex_advantages)
+                ):
+                    row = {
+                        "step": step,
+                        "example": global_example_idx,
+                        "rollout": r_idx,
+                        "question": ex.get("question", "")[:200],
+                        "oracle_prompt": prompt,
+                        "response": rollout.text,
+                        "reward": round(rew, 4),
+                        "advantage": round(adv, 4),
+                    }
+                    for crit in CRITERIA_NAMES:
+                        row[crit] = rubric.criteria.get(crit, 0)
+                    rollout_table_rows.append(row)
+                global_example_idx += 1
 
         if rollout_table_rows:
             columns = list(rollout_table_rows[0].keys())
@@ -540,7 +629,6 @@ def train(cfg: dict):
                 f"total={elapsed:.1f}s"
             )
 
-        # ── Save checkpoint ──
         if step % tcfg["save_every"] == 0:
             save_dir = f"checkpoints/grpo_step_{step}"
             model.save_pretrained(save_dir)
@@ -563,7 +651,6 @@ def train(cfg: dict):
                 except Exception as e:
                     print(f"  Upload failed: {e}")
 
-        # ── Fixed eval (same 10 examples every time) ──
         eval_every = cfg["logging"].get("eval_every", 100)
         if step % eval_every == 0 or step == 1:
             print(f"\n  ── Fixed eval at step {step} ──")
@@ -577,16 +664,18 @@ def train(cfg: dict):
                 )
                 if eval_results:
                     wandb.log(eval_results, step=step)
-                    print(f"  ── Fixed eval done ({time.time() - t_eval:.1f}s), "
-                          f"mean_reward={eval_results.get('eval/mean_reward', 0):.3f} ──\n")
+                    print(
+                        f"  ── Fixed eval done ({time.time() - t_eval:.1f}s), "
+                        f"mean_reward={eval_results.get('eval/mean_reward', 0):.3f} ──\n"
+                    )
             except Exception as e:
                 print(f"  ── Fixed eval failed: {e} ──\n")
 
     judge_loop.close()
     total_time = time.time() - t0
-    print(f"\nTraining complete: {step} steps in {total_time:.0f}s")
+    print()
+    print(f"Training complete: {step} steps in {total_time:.0f}s")
     wandb.finish()
-
 
 def main():
     parser = argparse.ArgumentParser()

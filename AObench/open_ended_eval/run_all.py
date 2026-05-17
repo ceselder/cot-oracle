@@ -565,41 +565,68 @@ if __name__ == "__main__":
         help="Override number of activation positions for all evals. "
         "If not set, each eval uses its own default (typically 20).",
     )
+    parser.add_argument(
+        "--gpus",
+        type=str,
+        default=None,
+        help="Comma-separated GPU ids (e.g. '0,1,2,3') to run evals across in parallel. "
+        "Each GPU runs one eval at a time, pulling from a shared queue. If "
+        "CUDA_VISIBLE_DEVICES is set in the parent, ids are interpreted as "
+        "offsets into that list. Omit for single-GPU sequential execution.",
+    )
     args = parser.parse_args()
 
     lora_paths = args.verbalizer_lora or list(STANDARD_VERBALIZER_LORAS)
     include = args.include if args.include is not None else list(EVAL_PROFILES[args.profile])
     output_dir = args.output_dir if args.output_dir is not None else OUTPUT_DIR
     n_positions = args.n_positions
-
-    random.seed(42)
-    torch.manual_seed(42)
-    torch.set_grad_enabled(False)
-
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    dtype = torch.bfloat16
+    gpu_ids = [g.strip() for g in args.gpus.split(",") if g.strip()] if args.gpus else None
 
     os.makedirs(output_dir, exist_ok=True)
-
-    print(f"Loading tokenizer: {MODEL_NAME}")
-    tokenizer = load_tokenizer(MODEL_NAME)
-    print(f"Loading model: {MODEL_NAME} on {device} with dtype={dtype}")
-    model = load_model(MODEL_NAME, dtype)
-    model.eval()
     print(f"Verbalizer LoRA paths: {lora_paths}")
     print(f"Eval profile: {args.profile}")
     print(f"Include list: {include}")
 
-    all_summaries = run_all_evals(
-        model=model,
-        tokenizer=tokenizer,
-        device=device,
-        model_name=MODEL_NAME,
-        output_dir=output_dir,
-        verbalizer_lora_paths=lora_paths,
-        include=include,
-        n_positions=n_positions,
-    )
+    if gpu_ids and len(gpu_ids) > 1:
+        from AObench.open_ended_eval.parallel import run_all_evals_parallel
+
+        print(f"Multi-GPU mode: {gpu_ids}")
+        all_summaries = run_all_evals_parallel(
+            gpus=gpu_ids,
+            model_name=MODEL_NAME,
+            output_dir=output_dir,
+            verbalizer_lora_paths=lora_paths,
+            include=include,
+            n_positions=n_positions,
+        )
+    else:
+        # If a single GPU was specified, pin to it before importing model.
+        if gpu_ids:
+            os.environ["CUDA_VISIBLE_DEVICES"] = gpu_ids[0]
+
+        random.seed(42)
+        torch.manual_seed(42)
+        torch.set_grad_enabled(False)
+
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        dtype = torch.bfloat16
+
+        print(f"Loading tokenizer: {MODEL_NAME}")
+        tokenizer = load_tokenizer(MODEL_NAME)
+        print(f"Loading model: {MODEL_NAME} on {device} with dtype={dtype}")
+        model = load_model(MODEL_NAME, dtype)
+        model.eval()
+
+        all_summaries = run_all_evals(
+            model=model,
+            tokenizer=tokenizer,
+            device=device,
+            model_name=MODEL_NAME,
+            output_dir=output_dir,
+            verbalizer_lora_paths=lora_paths,
+            include=include,
+            n_positions=n_positions,
+        )
 
     combined_path = os.path.join(output_dir, "all_summaries.json")
     with open(combined_path, "w") as f:

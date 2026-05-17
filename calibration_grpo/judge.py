@@ -1,4 +1,4 @@
-"""5-criterion rubric judge for GRPO rewards (Sonnet 4.6)."""
+"""5-criterion rubric judge for GRPO rewards."""
 
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ from reward import CRITERIA_NAMES, RubricResult
 
 OPENROUTER_ENDPOINT = "https://openrouter.ai/api/v1/chat/completions"
 LOCAL_ENDPOINT = "http://127.0.0.1:8765/v1/chat/completions"
-DEFAULT_MODEL = "claude-sonnet-4-6"
+DEFAULT_MODEL = "qwen/qwen3.5-flash-02-23"
 
 SYSTEM_PROMPT = """\
 You are evaluating an activation oracle. The oracle reads neural network activations
@@ -58,7 +58,10 @@ For EACH rollout, score these 5 criteria on a 0-1-2 scale:
    2 = directly and fully answers what was asked
 
 Return a JSON object with key "scores" containing an array with one object per rollout:
-{"scores": [{"index": 1, "passes_swap_test": 1, "specific_and_falsifiable": 2, "adds_insight": 1, "not_provably_wrong": 2, "follows_instructions": 2}, ...]}"""
+{"scores": [{"index": 1, "passes_swap_test": 1, "specific_and_falsifiable": 2, "adds_insight": 1, "not_provably_wrong": 2, "follows_instructions": 2}, ...]}
+
+Do not overthink. Use the minimum reasoning needed to score accurately.
+Return only compact JSON with no commentary."""
 
 
 def _build_user_prompt(
@@ -172,19 +175,30 @@ def _extract_results(parsed: list[dict], n_rollouts: int) -> list[RubricResult] 
 # Global token counters for spend tracking
 _total_input_tokens = 0
 _total_output_tokens = 0
+_total_cost_usd = 0.0
 # Approximate OpenRouter pricing (varies by model)
 _INPUT_PRICE_PER_M = 2.00
 _OUTPUT_PRICE_PER_M = 12.00
 
 
+def _use_local_judge() -> bool:
+    import os
+    return os.getenv("JUDGE_USE_LOCAL", "1") == "1"
+
+
 def get_spend() -> dict:
-    """Return cumulative API spend stats."""
+    """Return cumulative judge usage stats.
+
+    When routing through the local Claude wrapper, token counts are still useful,
+    but USD spend should remain zero because we are not paying OpenRouter.
+    """
     input_cost = _total_input_tokens * _INPUT_PRICE_PER_M / 1_000_000
     output_cost = _total_output_tokens * _OUTPUT_PRICE_PER_M / 1_000_000
     return {
         "judge/input_tokens": _total_input_tokens,
         "judge/output_tokens": _total_output_tokens,
-        "judge/spend_usd": input_cost + output_cost,
+        "judge/spend_usd": 0.0 if _use_local_judge() else (_total_cost_usd or (input_cost + output_cost)),
+        "judge/is_local": 1.0 if _use_local_judge() else 0.0,
     }
 
 
@@ -200,7 +214,7 @@ async def judge_rollouts(
     timeout: float = 120.0,
     retries: int = 3,
 ) -> list[RubricResult] | None:
-    global _total_input_tokens, _total_output_tokens
+    global _total_input_tokens, _total_output_tokens, _total_cost_usd
     user_msg = _build_user_prompt(question, first_half, second_half, oracle_prompt, rollout_texts)
     # Fold system prompt into user message (local wrapper may not pass system messages)
     messages = [
@@ -220,11 +234,13 @@ async def judge_rollouts(
         "model": model,
         "messages": messages,
         "temperature": temperature,
-        "max_tokens": 2048,
     }
-    # response_format only for OpenRouter (Gemini etc), not local wrapper
+    # OpenRouter gets an explicit output cap + JSON mode. The local Claude wrapper
+    # should decide its own reasoning depth, and we steer brevity through the prompt.
     if not use_local:
+        body["max_tokens"] = 2048
         body["response_format"] = {"type": "json_object"}
+        body["reasoning"] = {"effort": "none", "exclude": True}
 
     async with httpx.AsyncClient() as client:
         for attempt in range(retries):
@@ -246,6 +262,9 @@ async def judge_rollouts(
                 usage = data.get("usage", {})
                 _total_input_tokens += usage.get("prompt_tokens", 0)
                 _total_output_tokens += usage.get("completion_tokens", 0)
+                cost = usage.get("cost")
+                if isinstance(cost, (int, float)):
+                    _total_cost_usd += float(cost)
 
                 msg = data["choices"][0]["message"]
                 content = msg.get("content") or ""

@@ -48,6 +48,8 @@ FORWARD_PROMPTS = [
     "Describe what the model will do after this point.",
     "What comes next in this chain of thought?",
     "What conclusion is the model building toward?",
+    "What branch of reasoning is the model about to pursue?",
+    "Is the next step more likely to confirm the current plan or revise it?",
 ]
 
 BACKWARD_PROMPTS = [
@@ -62,6 +64,9 @@ BACKTRACKING_PROMPTS = [
     "Is the model changing its mind about something? Describe what.",
     "Why is the model backtracking?",
     "Is the model recovering from a mistake? Describe the recovery.",
+    "Is the model about to backtrack? If so, what seems to trigger it?",
+    "Is the model undoing a previous assumption or inference?",
+    "What evidence suggests the model is losing confidence in its current path?",
 ]
 
 KNOWLEDGE_PROMPTS = [
@@ -91,6 +96,8 @@ PROGRESS_PROMPTS = [
     "How close is the model to an answer?",
     "Describe the model's progress toward a solution.",
     "What remains to be done after this point?",
+    "Is the model still exploring, or has it mostly converged on an answer?",
+    "Has the model effectively decided on the final answer already?",
 ]
 
 CONFIDENCE_PROMPTS = [
@@ -98,6 +105,8 @@ CONFIDENCE_PROMPTS = [
     "How certain does the model seem about its current approach?",
     "Describe any hesitation or uncertainty in the reasoning.",
     "How committed is the model to this line of reasoning?",
+    "Is the model locked into its current plan or still wavering?",
+    "How fragile does the current plan look from the activations?",
 ]
 
 UNCERTAINTY_PROBES = [
@@ -143,6 +152,8 @@ PROCESSING_PROBES = [
     "What internal conflict, if any, exists in the model right now?",
     "What is the model paying attention to that it shouldn't be?",
     "What is the model ignoring that it should pay attention to?",
+    "What candidate next step is most active right now?",
+    "Is the model preparing to verify something or simply continue?",
 ]
 
 COUNTERFACTUAL_PROBES = [
@@ -171,6 +182,8 @@ ERROR_PROMPTS = [
 TRANSITION_PROMPTS = [
     "Describe any change in reasoning direction happening here.",
     "What new topic or subtask is the model moving to?",
+    "Is the model switching from exploration to commitment?",
+    "Is the model transitioning from setup to execution, or from execution to verification?",
 ]
 
 CONSTRAINTS_PROMPTS = [

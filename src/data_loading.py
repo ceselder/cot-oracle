@@ -522,8 +522,8 @@ def load_futurelens_data(
 
         cot_positions = list(range(cot_start, cot_end))
 
-        # Pick up to 3 random cutoff positions per entry
-        n_picks = min(3, len(cot_positions))
+        # Pick up to 5 random cutoff positions per entry
+        n_picks = min(5, len(cot_positions))
 
         for _ in range(n_picks):
             if target_n is not None and len(datapoints) >= target_n:
@@ -599,7 +599,7 @@ def load_pastlens_data(
     """Generate PastLens training/eval data from corpus-v5.
 
     Like FutureLens but reversed: picks a random position in the CoT and
-    the oracle must predict the preceding ~50 tokens of reasoning.
+    the oracle must predict the preceding tokens of reasoning.
 
     Args:
         tokenizer: HuggingFace tokenizer.
@@ -667,8 +667,8 @@ def load_pastlens_data(
 
         cot_positions = list(range(cot_start, cot_end))
 
-        # Pick up to 3 random positions per entry
-        n_picks = min(3, len(cot_positions))
+        # Pick up to 5 random positions per entry
+        n_picks = min(5, len(cot_positions))
 
         for _ in range(n_picks):
             if target_n is not None and len(datapoints) >= target_n:

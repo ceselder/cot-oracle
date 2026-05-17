@@ -26,7 +26,7 @@ judge:
 
 grpo:
   clip_eps: 0.2
-  normalize_advantages: true
+  normalize_advantages: false  # Dr.GRPO keeps centered rewards but does not divide by group std
   num_iterations: 2  # PPO-style: 2 gradient steps per batch, clipping active on step 2
 
 reward:

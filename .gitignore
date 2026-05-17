@@ -44,3 +44,7 @@ five-CoT-faith/
 *.swo
 plots/**
 scripts/slurm_*.sh
+
+# secrets — never commit
+.remote_env.tmp
+.remote_env*

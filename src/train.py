@@ -88,6 +88,7 @@ MULTI_LAYERS: list[int] = []
 NO_ACTIVATIONS: bool = False
 RANDOM_LAYERS: bool = False
 LAYER_DROPOUT: bool = False
+DELTA_LAYERS: bool = False  # If True, feed deltas: layer_0 raw, then (layer_i - layer_{i-1}) for i>0
 POSITION_MODE: str = "stochastic"  # "last_only", "stochastic", "all"
 STOCHASTIC_MAX_K: int = 100  # upper bound for Poisson position sampling
 MAX_CONTEXT_LENGTH: int = 0  # drop samples with context_input_ids longer than this (0 = no filter)
@@ -236,6 +237,12 @@ def materialize_multilayer_steering_vectors(
                     f"Activation index out of range for item {b}: {adjusted} with L={L}"
                 )
             layer_vecs = acts_BLD[b, adjusted, :]  # [K, D]
+            # Delta-layers ablation: layer 0 raw, layer i>0 is (layer_i - layer_{i-1})
+            if DELTA_LAYERS and li > 0:
+                prev_layer = item_layers[li - 1]
+                prev_acts_BLD = acts_by_layer[prev_layer]
+                prev_layer_vecs = prev_acts_BLD[b, adjusted, :]
+                layer_vecs = layer_vecs - prev_layer_vecs
             if POSITION_ENCODING:
                 from position_encoding import apply_position_encoding
                 total_length = len(contexts[b])
@@ -444,6 +451,12 @@ def _apply_position_mode(base_positions: list[int], task_name: str = "") -> list
             return sample_endweighted_positions(base_positions)
     elif POSITION_MODE == "stochastic":
         return sample_poisson_positions(base_positions, max_k=STOCHASTIC_MAX_K)
+    elif POSITION_MODE == "uniform_contiguous":
+        # Pick k ~ Uniform(1, 5) contiguous positions from a random start
+        k = random.randint(1, min(5, len(base_positions)))
+        max_start = len(base_positions) - k
+        start = random.randint(0, max_start) if max_start > 0 else 0
+        return base_positions[start:start + k]
     return base_positions  # "all"
 
 
@@ -1408,13 +1421,18 @@ def train(
                     dist.barrier()
 
             # Save checkpoint (rank 0 only)
+            _save_every_tokens = getattr(args, "save_every_tokens", 0)
+            _tokens_since_save = total_tokens - getattr(args, "_last_save_tokens", 0)
             should_save = (global_step > 0 and global_step % args.save_steps == 0) or global_step in block_save_steps
+            if _save_every_tokens > 0 and _tokens_since_save >= _save_every_tokens:
+                should_save = True
             if should_save:
                 if rank == 0:
                     ckpt_path = save_dir / f"step_{global_step}"
-                    print(f"  Saving checkpoint to {ckpt_path}")
+                    print(f"  Saving checkpoint to {ckpt_path} (total_tokens={total_tokens:,})")
                     model.save_pretrained(str(ckpt_path))
                     _save_training_state(ckpt_path, global_step, optimizer, scheduler)
+                    args._last_save_tokens = total_tokens
                 if world_size > 1:
                     dist.barrier()
 
@@ -1494,14 +1512,15 @@ def apply_config(args, config: dict):
     if "training" in config:
         t = config["training"]
         _float_keys = {"lr", "warmup_fraction", "max_grad_norm", "steering_coefficient"}
-        _int_keys = {"epochs", "seed", "interleave_blocks", "length_bucket_window_batches", "max_train_tokens_per_gpu", "max_extract_tokens_per_gpu", "extraction_batch_size", "batch_size", "effective_batch_size"}
+        _int_keys = {"epochs", "seed", "interleave_blocks", "length_bucket_window_batches", "max_train_tokens_per_gpu", "max_extract_tokens_per_gpu", "extraction_batch_size", "batch_size", "effective_batch_size", "save_every_tokens"}
         for key in ["lr", "epochs",
                      "warmup_fraction", "max_grad_norm", "steering_coefficient",
                      "gradient_checkpointing", "task_order", "seed",
                      "interleave_blocks", "max_train_tokens_per_gpu", "max_extract_tokens_per_gpu",
                      "batch_size", "effective_batch_size", "extraction_batch_size",
                      "length_bucketing", "length_bucket_window_batches",
-                     "torch_compile", "torch_compile_mode"]:
+                     "torch_compile", "torch_compile_mode",
+                     "save_every_tokens"]:
             if key in t and not getattr(args, f"_cli_{key}", False):
                 val = t[key]
                 if key in _float_keys:
@@ -1518,6 +1537,8 @@ def apply_config(args, config: dict):
                 setattr(args, key, a[key])
         if "layers" in a and not getattr(args, "_cli_layers", False):
             args.layers = a["layers"]  # list of ints, e.g. [9, 18, 27]
+        if "delta_layers" in a and not getattr(args, "_cli_delta_layers", False):
+            args.delta_layers = bool(a["delta_layers"])
         if "position_encoding" in a and not getattr(args, "_cli_position_encoding", False):
             args.position_encoding = a["position_encoding"]
         if "pe_alpha" in a and not getattr(args, "_cli_pe_alpha", False):
@@ -1715,10 +1736,13 @@ def main():
                         help="Injection normalization: matched (default), sigmoid, none (raw vectors)")
     parser.add_argument("--random-layers", action="store_true", default=False,
                         help="Randomize layer count and indices per training sequence")
+    parser.add_argument("--delta-layers", action="store_true", default=False,
+                        help="Feed deltas: layer 0 raw, then (layer_i - layer_{i-1}) for i>0")
 
     # Eval / save
     parser.add_argument("--eval-steps", type=int, default=None, help="Run evals every N steps (shuffled mode)")
     parser.add_argument("--save-steps", type=int, default=None, help="Save checkpoint every N steps (shuffled mode)")
+    parser.add_argument("--save-every-tokens", type=int, default=0, help="Save checkpoint every N label tokens (0 = disabled, use save_steps instead)")
     parser.add_argument("--no-step0-eval", action="store_true", default=False,
                         help="Skip evals at step 0 (for quick ablation launches)")
     parser.add_argument("--start-step", type=int, default=None,
@@ -1793,9 +1817,10 @@ def main():
     set_seed(args.seed)
 
     # Multi-layer config
-    global MULTI_LAYERS, NO_ACTIVATIONS, RANDOM_LAYERS, LAYER_DROPOUT, POSITION_MODE, STOCHASTIC_MAX_K, MAX_CONTEXT_LENGTH, POSITION_ENCODING, PE_ALPHA, _MODEL_N_LAYERS
+    global MULTI_LAYERS, NO_ACTIVATIONS, RANDOM_LAYERS, LAYER_DROPOUT, DELTA_LAYERS, POSITION_MODE, STOCHASTIC_MAX_K, MAX_CONTEXT_LENGTH, POSITION_ENCODING, PE_ALPHA, _MODEL_N_LAYERS
     NO_ACTIVATIONS = getattr(args, "no_activations", False)
     RANDOM_LAYERS = getattr(args, "random_layers", False)
+    DELTA_LAYERS = getattr(args, "delta_layers", False)
     LAYER_DROPOUT = args.layer_dropout
     POSITION_MODE = args.position_mode
     STOCHASTIC_MAX_K = args.stochastic_max_k
@@ -1823,6 +1848,8 @@ def main():
             print(f"Layer dropout: ON (random non-empty subsets of {MULTI_LAYERS} per example)")
         if RANDOM_LAYERS:
             print("Ablation: RANDOM LAYERS (per-item random layer sampling)")
+        if DELTA_LAYERS:
+            print("Ablation: DELTA LAYERS (layer 0 raw, then layer_i - layer_{i-1})")
         print(f"Position mode: {POSITION_MODE}")
         if POSITION_MODE == "stochastic":
             print(f"Stochastic max_k: {STOCHASTIC_MAX_K}")
@@ -1879,35 +1906,14 @@ def main():
                 print(f"  Loaded training_state.pt: step={_resume_state['global_step']}, wandb_id={_resume_state.get('wandb_run_id')}")
     elif args.fresh_lora:
         if rank == 0:
-            print("Starting with FRESH LoRA (random init)")
-        if args.ao_checkpoint:
-            try:
-                # Try loading AO checkpoint structure, then reinit weights
-                model = PeftModel.from_pretrained(
-                    base_model, args.ao_checkpoint,
-                    is_trainable=True, autocast_adapter_dtype=False,
-                )
-            except RuntimeError:
-                # Checkpoint doesn't match model (e.g. 8B checkpoint on 0.6B model) — create fresh LoRA
-                if rank == 0:
-                    print("  AO checkpoint incompatible, creating LoRA from scratch")
-                from peft import LoraConfig, get_peft_model
-                lora_config = LoraConfig(
-                    r=64, lora_alpha=16, lora_dropout=0.0,
-                    target_modules=["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"],
-                    bias="none", task_type="CAUSAL_LM",
-                )
-                model = get_peft_model(base_model, lora_config)
-        else:
-            if rank == 0:
-                print("  No AO checkpoint, creating LoRA from scratch")
-            from peft import LoraConfig, get_peft_model
-            lora_config = LoraConfig(
-                r=64, lora_alpha=16, lora_dropout=0.0,
-                target_modules=["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"],
-                bias="none", task_type="CAUSAL_LM",
-            )
-            model = get_peft_model(base_model, lora_config)
+            print("Starting with FRESH LoRA (random init) — ignoring ao_checkpoint structure if present")
+        from peft import LoraConfig, get_peft_model
+        lora_config = LoraConfig(
+            r=1024, lora_alpha=64, lora_dropout=0.0,
+            target_modules=["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"],
+            bias="none", task_type="CAUSAL_LM",
+        )
+        model = get_peft_model(base_model, lora_config)
         for name, param in model.named_parameters():
             if "lora_A" in name:
                 torch.nn.init.kaiming_uniform_(param, a=5**0.5)
@@ -1924,7 +1930,7 @@ def main():
     # Ensure trainable params are fp32 (optimizer states stay fp32; autocast handles forward pass)
     # Skip embedding weight when using per-layer tokens — it must stay bf16
     # (mixed dtypes in the embedding table break downstream linear layers)
-    _embed_param_id = id(model.get_input_embeddings().weight) if PER_LAYER_TOKENS else None
+    _embed_param_id = id(model.get_input_embeddings().weight) if args.per_layer_tokens else None
     for p in model.parameters():
         if p.requires_grad and id(p) != _embed_param_id:
             p.data = p.data.float()

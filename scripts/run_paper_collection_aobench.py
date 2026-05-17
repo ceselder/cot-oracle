@@ -93,12 +93,22 @@ def main() -> None:
         default=600,
         help="Number of bootstrap replicates for report error bars.",
     )
+    parser.add_argument(
+        "--gpus",
+        type=str,
+        default=None,
+        help="Comma-separated GPU ids (e.g. '0,1,2,3') to run evals across in parallel. "
+        "Each GPU runs one eval at a time, pulling from a shared queue. If "
+        "CUDA_VISIBLE_DEVICES is set in the parent, ids are interpreted as "
+        "offsets into that list. Omit for single-GPU sequential execution.",
+    )
     args = parser.parse_args()
 
     verbalizer_lora_paths = args.verbalizer_lora or list(PAPER_COLLECTION_VERBALIZERS)
     include = args.include if args.include is not None else list(EVAL_PROFILES[args.profile])
     output_dir = args.output_dir or default_output_dir()
     sample_limits = sample_limits_for_profile(args.sample_profile)
+    gpu_ids = [g.strip() for g in args.gpus.split(",") if g.strip()] if args.gpus else None
 
     write_run_config(output_dir, {
         "model_name": args.model_name,
@@ -109,9 +119,9 @@ def main() -> None:
         "sample_limits": sample_limits,
         "bootstrap_reps": args.bootstrap_reps,
         "verbalizer_lora_paths": verbalizer_lora_paths,
+        "gpus": gpu_ids,
     })
 
-    device, _, tokenizer, model = prepare_eval_runtime(args.model_name)
     print(f"Running profile: {args.profile}")
     print(f"Include list: {include}")
     print(f"Sample profile: {args.sample_profile}")
@@ -120,17 +130,34 @@ def main() -> None:
     print(f"Verbalizer LoRA paths: {verbalizer_lora_paths}")
     print(f"Output dir: {output_dir}")
 
-    all_summaries = run_all_evals(
-        model=model,
-        tokenizer=tokenizer,
-        device=device,
-        model_name=args.model_name,
-        output_dir=output_dir,
-        verbalizer_lora_paths=verbalizer_lora_paths,
-        include=include,
-        n_positions=args.n_positions,
-        sample_limits=sample_limits,
-    )
+    if gpu_ids and len(gpu_ids) > 1:
+        from AObench.open_ended_eval.parallel import run_all_evals_parallel
+
+        print(f"Multi-GPU mode: {gpu_ids}")
+        all_summaries = run_all_evals_parallel(
+            gpus=gpu_ids,
+            model_name=args.model_name,
+            output_dir=output_dir,
+            verbalizer_lora_paths=verbalizer_lora_paths,
+            include=include,
+            n_positions=args.n_positions,
+            sample_limits=sample_limits,
+        )
+    else:
+        if gpu_ids:
+            os.environ["CUDA_VISIBLE_DEVICES"] = gpu_ids[0]
+        device, _, tokenizer, model = prepare_eval_runtime(args.model_name)
+        all_summaries = run_all_evals(
+            model=model,
+            tokenizer=tokenizer,
+            device=device,
+            model_name=args.model_name,
+            output_dir=output_dir,
+            verbalizer_lora_paths=verbalizer_lora_paths,
+            include=include,
+            n_positions=args.n_positions,
+            sample_limits=sample_limits,
+        )
 
     combined_path = os.path.join(output_dir, "all_summaries.json")
     with open(combined_path, "w") as f:

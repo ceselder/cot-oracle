@@ -1147,6 +1147,12 @@ def _resample_eval_positions(
             sampled = sample_poisson_positions(base_positions, rng=rng, max_k=stochastic_max_k, include_boundaries=True)
         elif position_mode == "all":
             sampled = base_positions
+        elif position_mode == "uniform_contiguous":
+            rng = random.Random(f"{eval_position_seed}:{task_name}:{item_idx}")
+            k = min(rng.randint(1, 5), len(base_positions))
+            max_start = len(base_positions) - k
+            start = rng.randint(0, max_start) if max_start > 0 else 0
+            sampled = base_positions[start:start + k]
         else:
             raise ValueError(f"Unknown eval position_mode: {position_mode!r}")
         item["context_positions"] = sampled * n_layers

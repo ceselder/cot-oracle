@@ -36,7 +36,7 @@ def compute_rewards(
 
 def compute_group_advantages(
     rewards: list[float],
-    normalize: bool = True,
+    normalize: bool = False,
     eps: float = 1e-6,
 ) -> list[float]:
     """Compute GRPO advantages: (r_i - mean) / std within a group."""
