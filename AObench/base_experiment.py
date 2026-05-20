@@ -599,6 +599,25 @@ def load_plain_adapter(
             low_cpu_mem_usage=True,
         )
 
+    # If a block_aggregator.pt sits next to the LoRA, load it and attach to the
+    # model so AObench's materialize_missing_steering_vectors can use it for the
+    # block-attn injection path. No-op for standard (non-block-attn) LoRAs.
+    from AObench.utils.block_attn_aggregator import load_block_aggregator_from_dir
+    device = next(model.parameters()).device
+    dtype = next(model.parameters()).dtype
+    d_model = model.config.hidden_size
+    agg = load_block_aggregator_from_dir(lora_path, d_model, device=device, dtype=dtype)
+    if agg is not None:
+        # Stash on the model keyed by the sanitized adapter name so multiple
+        # block-attn LoRAs can coexist in one process (used by AObench when it
+        # iterates through several verbalizers).
+        if not hasattr(model, "_block_aggregators"):
+            model._block_aggregators = {}
+        model._block_aggregators[sanitized_lora_name] = agg
+        # Also set the currently-active aggregator alias so call sites can do
+        # `getattr(model, "block_aggregator", None)` without name plumbing.
+        model.block_aggregator = agg
+
     return sanitized_lora_name
 
 

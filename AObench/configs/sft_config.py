@@ -186,6 +186,16 @@ class SelfInterpTrainingConfig:
     lora_dropout: float = 0.05
     lora_target_modules: str = "all-linear"
 
+    # --- Block AttnRes (Kimi-style learned per-block layer compression) ---
+    # Populated by training code when the LoRA was trained with block-attn.
+    # AObench inference reads these to reconstruct + load a BlockAttnAggregator
+    # at eval time. If False / empty, AObench falls back to the standard
+    # fixed-multi-layer activation injection.
+    use_block_attn_res: bool = False
+    block_attn_num_blocks: int = 5
+    block_attn_init_scale: float = 0.02
+    block_attn_layer_groups: list[list[int]] = field(default_factory=list)
+
     # --- Training ---
     num_epochs: int = 1
     lr: float = 1e-5

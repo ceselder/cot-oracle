@@ -285,7 +285,17 @@ def materialize_missing_steering_vectors(
                 "attention_mask": torch.stack(attn_masks_tensors, dim=0),
             }
 
-            layers_needed = sorted({layer for _, dp in to_fill for layer in dp.layers})
+            # Detect a block-attn aggregator attached by load_plain_adapter.
+            # When present, we capture every layer referenced by its
+            # block_layer_groups, apply the aggregator per-sample, and write the
+            # aggregator output (K_blocks * P, d) as the steering_vectors. The
+            # downstream norm-matched injection then uses these block vectors.
+            block_aggregator = getattr(model, "block_aggregator", None)
+
+            if block_aggregator is None:
+                layers_needed = sorted({layer for _, dp in to_fill for layer in dp.layers})
+            else:
+                layers_needed = sorted({l for g in block_aggregator.block_layer_groups for l in g})
             submodules = {layer: get_hf_submodule(model, layer, use_lora=True) for layer in layers_needed}
 
             acts_by_layer = collect_activations_multiple_layers(
@@ -300,22 +310,37 @@ def materialize_missing_steering_vectors(
             for b in range(len(to_fill)):
                 idx, dp = to_fill[b]
                 idxs = [p + left_offsets[b] for p in positions_per_item[b]]
-                any_layer = dp.layers[0]
+                any_layer = next(iter(acts_by_layer))
                 acts_BLD_any = acts_by_layer[any_layer]
                 L = acts_BLD_any.shape[1]
                 if any(i < 0 or i >= L for i in idxs):
                     raise IndexError(f"Activation index out of range for item {b}: {idxs} with L={L}")
 
-                layer_vectors = []
-                for layer in dp.layers:
-                    acts_BLD = acts_by_layer[layer]
-                    vectors_layer = acts_BLD[b, idxs, :].detach().contiguous()
-                    assert len(vectors_layer.shape) == 2, (
-                        f"Expected 2D tensor, got vectors_layer.shape={vectors_layer.shape}"
-                    )
-                    layer_vectors.append(vectors_layer)
+                if block_aggregator is None:
+                    layer_vectors = []
+                    for layer in dp.layers:
+                        acts_BLD = acts_by_layer[layer]
+                        vectors_layer = acts_BLD[b, idxs, :].detach().contiguous()
+                        assert len(vectors_layer.shape) == 2, (
+                            f"Expected 2D tensor, got vectors_layer.shape={vectors_layer.shape}"
+                        )
+                        layer_vectors.append(vectors_layer)
 
-                vectors = torch.cat(layer_vectors, dim=0)
+                    vectors = torch.cat(layer_vectors, dim=0)
+                else:
+                    # Per-layer (B=1, P, d) slices fed to aggregator. No grad needed at eval.
+                    with torch.no_grad():
+                        layer_acts = {
+                            l: acts_by_layer[l][b, idxs, :].unsqueeze(0).detach().contiguous()
+                            for l in layers_needed
+                        }
+                        block_vecs = block_aggregator(layer_acts)  # (1, K, P, d)
+                    K_blocks, P_ctx = block_vecs.shape[1], block_vecs.shape[2]
+                    assert K_blocks == len(dp.layers), (
+                        f"aggregator num_blocks={K_blocks} must equal len(dp.layers)={len(dp.layers)} "
+                        f"(the prompt template's per-layer-header slots)"
+                    )
+                    vectors = block_vecs[0].reshape(K_blocks * P_ctx, -1).contiguous()
 
                 assert len(vectors.shape) == 2, f"Expected 2D tensor, got vectors.shape={vectors.shape}"
                 assert vectors.shape[0] == len(dp.positions), "steering_vectors length must match positions length"
