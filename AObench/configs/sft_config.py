@@ -277,9 +277,12 @@ def write_training_config(save_dir: str | Path, cfg: SelfInterpTrainingConfig) -
 
 
 def _load_training_config_payload(payload: dict[str, Any]) -> SelfInterpTrainingConfig:
+    from dataclasses import fields as _dc_fields
     for deprecated_field in DEPRECATED_CONFIG_FIELDS:
         if deprecated_field in payload:
             del payload[deprecated_field]
+    valid = {f.name for f in _dc_fields(SelfInterpTrainingConfig)}
+    payload = {k: v for k, v in payload.items() if k in valid}
     return SelfInterpTrainingConfig(**payload)
 
 

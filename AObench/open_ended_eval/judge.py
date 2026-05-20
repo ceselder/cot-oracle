@@ -1,8 +1,12 @@
 """
 Shared LLM judge for AObench evals.
 
-Uses a local Sonnet wrapper (free, via Claude subscription) by default and,
-when enabled, falls back to OpenRouter Sonnet on every failed local attempt.
+Endpoint priority (configurable via env):
+1. Native Anthropic API (when ANTHROPIC_API_KEY is set and JUDGE_USE_ANTHROPIC=1)
+   — preferred: cheaper, supports prompt caching, first-class features.
+   On persistent rate-limits, swaps to ANTHROPIC_API_KEY_FALLBACK.
+2. Local Sonnet wrapper (free Hetzner box) when JUDGE_USE_LOCAL=1.
+3. OpenRouter fallback when OPENROUTER_API_KEY is set.
 """
 
 import asyncio
@@ -20,6 +24,10 @@ LOCAL_API_KEY = "cot-oracle-judge-2026"
 # OpenRouter fallback
 OPENROUTER_API_BASE = "https://openrouter.ai/api/v1/chat/completions"
 
+# Native Anthropic
+ANTHROPIC_API_BASE = "https://api.anthropic.com/v1/messages"
+ANTHROPIC_VERSION = "2023-06-01"
+
 DEFAULT_JUDGE_MODEL = "claude-sonnet-4-6"
 JUDGE_MODEL = os.environ.get("JUDGE_MODEL", DEFAULT_JUDGE_MODEL)
 DEFAULT_JUDGE_CONCURRENCY = int(os.environ.get("JUDGE_CONCURRENCY", "10"))
@@ -27,6 +35,26 @@ DEFAULT_OPENROUTER_FALLBACK_MODEL = os.environ.get(
     "OPENROUTER_JUDGE_FALLBACK_MODEL",
     "anthropic/claude-sonnet-4.6",
 )
+
+
+def _use_anthropic() -> bool:
+    return os.environ.get("JUDGE_USE_ANTHROPIC", "1") != "0" and bool(
+        os.environ.get("ANTHROPIC_API_KEY")
+    )
+
+
+def _use_local() -> bool:
+    # Default off when Anthropic native is available, else on for back-compat.
+    if _use_anthropic():
+        return os.environ.get("JUDGE_USE_LOCAL", "0") != "0"
+    return os.environ.get("JUDGE_USE_LOCAL", "1") != "0"
+
+
+def _anthropic_model(model: str) -> str:
+    """Strip OpenRouter prefix if present so the same JUDGE_MODEL works for both."""
+    if model.startswith("anthropic/"):
+        return model.split("/", 1)[1].replace("claude-sonnet-4.6", "claude-sonnet-4-6")
+    return model
 
 
 def _extract_json_payload(text: str | None) -> dict[str, Any]:
@@ -61,18 +89,6 @@ def _extract_json_payload(text: str | None) -> dict[str, Any]:
     return payload
 
 
-def _get_endpoint() -> tuple[str, str]:
-    """Return (api_base, api_key) for the judge endpoint."""
-    use_local = os.environ.get("JUDGE_USE_LOCAL", "1") != "0"
-    if use_local:
-        return LOCAL_API_BASE, LOCAL_API_KEY
-    # OpenRouter fallback
-    key = os.environ.get("OPENROUTER_API_KEY", "")
-    if not key:
-        raise RuntimeError("OPENROUTER_API_KEY not set and local judge unavailable.")
-    return OPENROUTER_API_BASE, key
-
-
 def _openrouter_fallback_model(model: str) -> str:
     """Map local wrapper aliases to a concrete OpenRouter Sonnet model."""
     if model.startswith("anthropic/"):
@@ -89,7 +105,46 @@ def _openrouter_fallback_model(model: str) -> str:
     return alias_map.get(model, DEFAULT_OPENROUTER_FALLBACK_MODEL)
 
 
-async def _call_judge_endpoint(
+async def _call_anthropic_native(
+    *,
+    client: httpx.AsyncClient,
+    api_key: str,
+    model: str,
+    system_prompt: str,
+    user_message: str,
+    max_tokens: int,
+    semaphore: asyncio.Semaphore,
+) -> dict[str, Any]:
+    """Call Anthropic native /v1/messages with prompt caching on the system block."""
+    async with semaphore:
+        resp = await client.post(
+            ANTHROPIC_API_BASE,
+            headers={
+                "x-api-key": api_key,
+                "anthropic-version": ANTHROPIC_VERSION,
+                "content-type": "application/json",
+            },
+            json={
+                "model": _anthropic_model(model),
+                "max_tokens": max_tokens,
+                "system": [
+                    {
+                        "type": "text",
+                        "text": system_prompt,
+                        "cache_control": {"type": "ephemeral"},
+                    }
+                ],
+                "messages": [{"role": "user", "content": user_message}],
+            },
+            timeout=120.0,
+        )
+        resp.raise_for_status()
+    data = resp.json()
+    text = data["content"][0]["text"]
+    return _extract_json_payload(text)
+
+
+async def _call_chat_completions(
     *,
     client: httpx.AsyncClient,
     api_base: str,
@@ -131,14 +186,24 @@ async def judge_single(
 ) -> dict[str, Any]:
     """Call judge endpoint and parse JSON response.
 
-    When `JUDGE_USE_LOCAL=1`, each retry cycle attempts the local Sonnet
-    wrapper first, then falls back to OpenRouter Sonnet if the local call or
-    parse fails.
+    Order on each attempt: native Anthropic (low-prio key, then fallback key)
+    -> local Sonnet wrapper -> OpenRouter Sonnet.
     """
     if model is None:
         model = os.environ.get("JUDGE_MODEL", JUDGE_MODEL)
 
-    use_local = os.environ.get("JUDGE_USE_LOCAL", "1") != "0"
+    use_anthropic = _use_anthropic()
+    use_local = _use_local()
+
+    anthropic_keys: list[str] = []
+    if use_anthropic:
+        primary = os.environ.get("ANTHROPIC_API_KEY", "")
+        if primary:
+            anthropic_keys.append(primary)
+        fallback = os.environ.get("ANTHROPIC_API_KEY_FALLBACK", "")
+        if fallback and fallback != primary:
+            anthropic_keys.append(fallback)
+
     local_messages = [
         {"role": "user", "content": f"{system_prompt}\n\n{user_message}"},
     ]
@@ -149,9 +214,30 @@ async def judge_single(
 
     last_error: Exception | None = None
     for attempt in range(max_retries):
+        for ant_key in anthropic_keys:
+            try:
+                return await _call_anthropic_native(
+                    client=client,
+                    api_key=ant_key,
+                    model=model,
+                    system_prompt=system_prompt,
+                    user_message=user_message,
+                    max_tokens=max_tokens,
+                    semaphore=semaphore,
+                )
+            except (
+                httpx.HTTPError,
+                json.JSONDecodeError,
+                KeyError,
+                IndexError,
+                TypeError,
+                ValueError,
+            ) as exc:
+                last_error = exc
+
         if use_local:
             try:
-                return await _call_judge_endpoint(
+                return await _call_chat_completions(
                     client=client,
                     api_base=LOCAL_API_BASE,
                     api_key=LOCAL_API_KEY,
@@ -160,27 +246,46 @@ async def judge_single(
                     max_tokens=max_tokens,
                     semaphore=semaphore,
                 )
-            except (httpx.HTTPError, json.JSONDecodeError, KeyError, IndexError, TypeError, ValueError) as exc:
+            except (
+                httpx.HTTPError,
+                json.JSONDecodeError,
+                KeyError,
+                IndexError,
+                TypeError,
+                ValueError,
+            ) as exc:
                 last_error = exc
 
-        try:
-            _, api_key = _get_endpoint() if not use_local else (OPENROUTER_API_BASE, os.environ.get("OPENROUTER_API_KEY", ""))
-            if not api_key:
-                raise RuntimeError("OPENROUTER_API_KEY not set for judge fallback.")
-            return await _call_judge_endpoint(
-                client=client,
-                api_base=OPENROUTER_API_BASE,
-                api_key=api_key,
-                model=_openrouter_fallback_model(model),
-                messages=openrouter_messages,
-                max_tokens=max_tokens,
-                semaphore=semaphore,
-            )
-        except (httpx.HTTPError, json.JSONDecodeError, KeyError, IndexError, TypeError, ValueError, RuntimeError) as exc:
-            last_error = exc
-            if attempt == max_retries - 1:
-                break
-            await asyncio.sleep(1.0 * (attempt + 1))
+        openrouter_key = os.environ.get("OPENROUTER_API_KEY", "")
+        if openrouter_key:
+            try:
+                return await _call_chat_completions(
+                    client=client,
+                    api_base=OPENROUTER_API_BASE,
+                    api_key=openrouter_key,
+                    model=_openrouter_fallback_model(model),
+                    messages=openrouter_messages,
+                    max_tokens=max_tokens,
+                    semaphore=semaphore,
+                )
+            except (
+                httpx.HTTPError,
+                json.JSONDecodeError,
+                KeyError,
+                IndexError,
+                TypeError,
+                ValueError,
+                RuntimeError,
+            ) as exc:
+                last_error = exc
 
-    assert last_error is not None
+        if attempt == max_retries - 1:
+            break
+        await asyncio.sleep(1.0 * (attempt + 1))
+
+    if last_error is None:
+        last_error = RuntimeError(
+            "No judge endpoint configured: set ANTHROPIC_API_KEY, "
+            "JUDGE_USE_LOCAL=1, or OPENROUTER_API_KEY."
+        )
     raise last_error

@@ -77,15 +77,9 @@ DEFAULT_PREFERRED_TOKEN_POSITION = -7
 
 
 def _cleanup_hf_cache(repo_id: str) -> None:
-    """Remove a HuggingFace model from the local cache to free disk."""
-    import shutil
-    cache_dir = os.environ.get("HF_HUB_CACHE", os.environ.get("HF_HOME", os.path.expanduser("~/.cache/huggingface/hub")))
-    if not cache_dir.endswith("/hub"):
-        cache_dir = os.path.join(cache_dir, "hub")
-    sanitized = "models--" + repo_id.replace("/", "--")
-    cache_path = os.path.join(cache_dir, sanitized)
-    if os.path.isdir(cache_path):
-        shutil.rmtree(cache_path)
+    """No-op: deleting cached target LoRAs races with concurrent AObench runs that
+    share the same HF cache. Disk is cheap; skipping cleanup is safer."""
+    return
 
 
 def normalize_answer(answer: str) -> str:
