@@ -524,13 +524,27 @@ class ChatCompareWebApp:
         # Per-adapter post-injection norm rescale (matches training-time
         # AO_FINAL_NORM_SCALE env var). None = natural ~√2× additive.
         scales = getattr(self.args, "_target_norm_scales", {}) or {}
-        ao_response = query_original_ao(
-            self.model, self.tokenizer, ctx["selected_ao"], ctx["prompt"],
-            model_name=self.args.model,
-            max_new_tokens=max_tokens,
-            temperature=temperature,
-            target_norm_scale=scales.get("original_ao"),
-        )
+        # When --original-ao-override is set, the "left" adapter is also a
+        # multi-layer v3 LoRA — feed it through the multi-layer trained-prompt
+        # template instead of the legacy single-layer "L{layer}:[?]*N.\n" format
+        # (which is only valid for Adam's reference single-layer AO).
+        if getattr(self.args, "original_ao_override", None):
+            ao_response = query_trained_oracle(
+                self.model, self.tokenizer, ctx["selected_ml"], ctx["prompt"],
+                ctx["selected_layers"], ctx["layer_counts"],
+                max_new_tokens=max_tokens,
+                temperature=temperature,
+                adapter_name="original_ao",
+                target_norm_scale=scales.get("original_ao"),
+            )
+        else:
+            ao_response = query_original_ao(
+                self.model, self.tokenizer, ctx["selected_ao"], ctx["prompt"],
+                model_name=self.args.model,
+                max_new_tokens=max_tokens,
+                temperature=temperature,
+                target_norm_scale=scales.get("original_ao"),
+            )
         trained_response = query_trained_oracle(
             self.model, self.tokenizer, ctx["selected_ml"], ctx["prompt"],
             ctx["selected_layers"], ctx["layer_counts"],
