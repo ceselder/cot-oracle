@@ -164,11 +164,14 @@ def collect_multilayer_activations(model, tokenizer, text, layers, positions, co
 def encode_prompt_with_positions(tokenizer, full_prompt, relative_spans):
     messages = [{"role": "user", "content": full_prompt}]
     formatted = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True, enable_thinking=False)
-    # Force-prime "no thinking" mode: if the chat template didn't already insert
-    # the empty <think></think> block (newer Qwen3 templates sometimes don't),
-    # append it ourselves so the model continues with the answer directly.
-    if "<think>" not in formatted[-200:]:
-        formatted = formatted + "<think>\n\n</think>\n\n"
+    # Hard-disable thinking by REMOVING any <think>...</think> block the template
+    # added and appending a bare close-think marker. The model continues
+    # generation from immediately after `</think>\n\n`, locked out of the
+    # thinking state entirely — empty-think blocks alone weren't reliably
+    # preventing the LoRA from emitting thinking-like outputs.
+    import re
+    formatted = re.sub(r"<think>.*?</think>\s*", "", formatted, flags=re.DOTALL)
+    formatted = formatted.rstrip() + "\n</think>\n\n"
     content_start = formatted.index(full_prompt)
     encoded = tokenizer(formatted, add_special_tokens=False, return_offsets_mapping=True)
     input_ids = encoded["input_ids"]
