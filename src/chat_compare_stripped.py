@@ -362,6 +362,14 @@ class ChatCompareWebApp:
         # report a position in the queue to the frontend.
         self._queue_lock = asyncio.Lock()
         self._queue_waiting = 0
+
+        # --- Usage counters (in-memory, process-lifetime only) ---
+        # `visits` = # times the HTML home page has been served.
+        # `generations` = # /api/generate calls (CoT generations).
+        # `oracle_runs` = # /api/run calls (side-by-side AO comparisons).
+        # `unique_ips` = distinct client IPs seen across all routes.
+        self._stats = {"visits": 0, "generations": 0, "oracle_runs": 0}
+        self._unique_ips: set[str] = set()
         self._queue_counter = 0  # total requests ever queued (for unique slot IDs)
 
         self.app = FastAPI(title="CoT Oracle Demo")
@@ -572,8 +580,17 @@ class ChatCompareWebApp:
                 log.error("Unhandled exception on %s:\n%s", request.url.path, tb_str)
                 return JSONResponse(status_code=500, content={"detail": tb_str})
 
+        def _client_ip(req: Request) -> str:
+            fwd = req.headers.get("x-forwarded-for")
+            if fwd:
+                return fwd.split(",")[0].strip()
+            return req.client.host if req.client else "unknown"
+
         @self.app.get("/", response_class=HTMLResponse)
-        async def index():
+        async def index(request: Request):
+            self._stats["visits"] += 1
+            self._unique_ips.add(_client_ip(request))
+            log.info("[visit] ip=%s total_visits=%d unique=%d", _client_ip(request), self._stats["visits"], len(self._unique_ips))
             return HTMLResponse(self._render_html())
 
         @self.app.get("/api/config")
@@ -592,20 +609,35 @@ class ChatCompareWebApp:
         async def queue_status():
             return {"waiting": self._queue_waiting, "locked": self._queue_lock.locked()}
 
+        @self.app.get("/stats")
+        async def stats():
+            return {
+                "visits": self._stats["visits"],
+                "unique_ips": len(self._unique_ips),
+                "generations": self._stats["generations"],
+                "oracle_runs": self._stats["oracle_runs"],
+            }
+
         @self.app.post("/api/generate")
-        async def generate(payload: dict):
+        async def generate(payload: dict, request: Request):
             question = (payload.get("question") or "").strip()
             if not question:
                 raise HTTPException(status_code=400, detail="Question is empty")
+            self._stats["generations"] += 1
+            self._unique_ips.add(_client_ip(request))
+            log.info("[generate] ip=%s total=%d", _client_ip(request), self._stats["generations"])
             temperature = float(payload.get("temperature", 0))
             return await self._run_queued(self._generate_and_extract, question, temperature)
 
         @self.app.post("/api/run")
-        async def run(payload: dict):
+        async def run(payload: dict, request: Request):
             prompt = payload.get("prompt", "")
             selected_cells = payload.get("selected_cells", [])
             max_tokens = int(payload.get("max_tokens", self.args.max_tokens))
             temperature = float(payload.get("oracle_temperature", 0))
+            self._stats["oracle_runs"] += 1
+            self._unique_ips.add(_client_ip(request))
+            log.info("[oracle_run] ip=%s total=%d", _client_ip(request), self._stats["oracle_runs"])
             return await self._run_queued(self._run_both, prompt, selected_cells, max_tokens, temperature)
 
     # --- HTML template ---
@@ -752,9 +784,12 @@ HTML_TEMPLATE = """<!doctype html>
         try {
           const r = await fetch('/queue-status');
           const j = await r.json();
-          if (j.waiting > 0 || j.locked) {
+          if (j.waiting > 0) {
             queueBanner.classList.add('show');
             queueBanner.textContent = 'Your request is queued. ' + j.waiting + ' ahead of you; GPU busy.';
+          } else if (j.locked) {
+            queueBanner.classList.add('show');
+            queueBanner.textContent = 'Running your request on the GPU…';
           } else {
             queueBanner.classList.remove('show');
           }
