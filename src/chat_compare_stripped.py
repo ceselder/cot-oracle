@@ -227,6 +227,12 @@ def query_trained_oracle(model, tokenizer, selected_acts, prompt, selected_layer
     prefix = ""
     relative_spans = []
     cursor = 0
+    # Training-time prefix (nl_probes/utils/dataset_utils.py:get_introspection_prefix):
+    #   for layer in layers:
+    #     prefix += f"Layer: {layer}\n"
+    #     prefix += SPECIAL_TOKEN * num_positions
+    #     prefix += " \n"          ← note: SPACE then newline
+    # Earlier demo used "\n" only (off-by-one byte → wrong BPE token after last slot).
     for layer, count in zip(selected_layers, layer_counts):
         label = f"Layer: {layer}\n"
         prefix += label
@@ -236,9 +242,8 @@ def query_trained_oracle(model, tokenizer, selected_acts, prompt, selected_layer
             prefix += TRAINED_PLACEHOLDER
             cursor += len(TRAINED_PLACEHOLDER)
             relative_spans.append((start, cursor))
-        # trailing newline ending the layer block (matches training prefix)
-        prefix += "\n"
-        cursor += 1
+        prefix += " \n"
+        cursor += 2
     full_prompt = prefix + prompt
     input_ids, positions = encode_prompt_with_positions(tokenizer, full_prompt, relative_spans)
     input_tensor = torch.tensor([input_ids], device=get_model_input_device(model))
