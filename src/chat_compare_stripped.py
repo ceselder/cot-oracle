@@ -734,9 +734,9 @@ HTML_TEMPLATE = """<!doctype html>
   <header>
     <h1>Play with the models from "Building Better Activation Oracles"</h1>
     <div class="training-anchor-banner">
-      <b>The first CoT token is always injected</b> (shown in <span style="background:#16a085;color:#eff6ff;padding:1px 4px;border-radius:3px">teal</span>, non-toggleable). This matches training: the
-      <code>cot_oracle_convqa</code> sampler always includes the first context position as an anchor,
-      and not injecting it pushes the oracle off-distribution. You select additional positions on top.
+      <b>The first CoT token is always injected</b> (shown in <span style="background:#16a085;color:#eff6ff;padding:1px 4px;border-radius:3px">teal</span>, non-toggleable).
+      This was a quirk in early training &mdash; the oracle always saw the first context position as an anchor &mdash;
+      and presumably helps with grounding. You select additional positions on top.
     </div>
     <ol class="how-to">
       <li><b>Ask a question.</b> The model generates a chain of thought; we record its internal activations while it thinks.</li>
