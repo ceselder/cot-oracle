@@ -164,6 +164,11 @@ def collect_multilayer_activations(model, tokenizer, text, layers, positions, co
 def encode_prompt_with_positions(tokenizer, full_prompt, relative_spans):
     messages = [{"role": "user", "content": full_prompt}]
     formatted = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True, enable_thinking=False)
+    # Force-prime "no thinking" mode: if the chat template didn't already insert
+    # the empty <think></think> block (newer Qwen3 templates sometimes don't),
+    # append it ourselves so the model continues with the answer directly.
+    if "<think>" not in formatted[-200:]:
+        formatted = formatted + "<think>\n\n</think>\n\n"
     content_start = formatted.index(full_prompt)
     encoded = tokenizer(formatted, add_special_tokens=False, return_offsets_mapping=True)
     input_ids = encoded["input_ids"]
@@ -177,6 +182,12 @@ def encode_prompt_with_positions(tokenizer, full_prompt, relative_spans):
             raise ValueError(f"Expected exactly one token for span {(rel_start, rel_end)}, found {token_positions}")
         positions.append(token_positions[0])
     return input_ids, positions
+
+
+def _strip_thinking(text: str) -> str:
+    """Strip any <think>…</think> blocks from oracle output (safety net)."""
+    import re
+    return re.sub(r"<think>.*?</think>\s*", "", text, flags=re.DOTALL).strip()
 
 
 def query_original_ao(model, tokenizer, acts_l50, prompt, model_name, max_new_tokens=150, temperature=0.0, adapter_name="original_ao", target_norm_scale=None):
@@ -200,7 +211,7 @@ def query_original_ao(model, tokenizer, acts_l50, prompt, model_name, max_new_to
         gen_kwargs["do_sample"] = False
     with torch.no_grad(), add_hook(injection_submodule, hook_fn):
         output = model.generate(input_ids=input_tensor, attention_mask=attn_mask, **gen_kwargs)
-    return tokenizer.decode(output[0][len(input_ids):], skip_special_tokens=True)
+    return _strip_thinking(tokenizer.decode(output[0][len(input_ids):], skip_special_tokens=True))
 
 
 def query_trained_oracle(model, tokenizer, selected_acts, prompt, selected_layers, layer_counts, max_new_tokens=150, temperature=0.0, adapter_name="trained", target_norm_scale=None):
@@ -242,7 +253,7 @@ def query_trained_oracle(model, tokenizer, selected_acts, prompt, selected_layer
         gen_kwargs["do_sample"] = False
     with torch.no_grad(), add_hook(injection_submodule, hook_fn):
         output = model.generate(input_ids=input_tensor, attention_mask=attn_mask, **gen_kwargs)
-    return tokenizer.decode(output[0][len(input_ids):], skip_special_tokens=True)
+    return _strip_thinking(tokenizer.decode(output[0][len(input_ids):], skip_special_tokens=True))
 
 
 def select_activation_cells(multilayer_acts, ao_acts, all_layers, n_positions_per_layer, selected_cells):
