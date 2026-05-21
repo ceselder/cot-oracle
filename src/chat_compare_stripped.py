@@ -527,12 +527,26 @@ class ChatCompareWebApp:
         prompt = (prompt or "").strip()
         if not prompt:
             raise HTTPException(status_code=400, detail="Prompt is empty")
+        # Force-include the FIRST stride position to match training-time
+        # cot_oracle_convqa sampler (sample_cot_oracle_stochastic_positions
+        # always includes base_positions[0] as a context anchor; not doing so
+        # pushes the LoRA off-distribution).
+        forced_cells = []
+        if self.state.stride_positions and self.layers:
+            for layer in self.layers:
+                forced_cells.append({"layer": layer, "position": 0})
+        cells = list(selected_cells) if selected_cells else []
+        # Avoid duplicates with the forced anchor.
+        existing = {(c.get("layer"), c.get("position")) for c in cells}
+        for fc in forced_cells:
+            if (fc["layer"], fc["position"]) not in existing:
+                cells.append(fc)
         selected_ml, selected_ao, selected_layers, layer_counts, selected_positions = select_activation_cells(
             self.state.multilayer_acts,
             self.state.ao_acts,
             self.layers,
             len(self.state.stride_positions),
-            selected_cells if selected_cells else None,
+            cells if cells else None,
         )
         return {
             "prompt": prompt,
@@ -698,6 +712,9 @@ HTML_TEMPLATE = """<!doctype html>
     .tok.sampled { cursor: pointer; background: rgba(51, 65, 85, 0.35); }
     .tok.sampled:hover { background: rgba(96, 165, 250, 0.22); }
     .tok.sampled.selected { background: #1d4ed8; color: #eff6ff; }
+    /* Always-on training anchor — visually marked + non-toggleable */
+    .tok.sampled.forced { background: #16a085 !important; color: #eff6ff !important; cursor: not-allowed; box-shadow: 0 0 0 1px #0e6655 inset; }
+    .training-anchor-banner { background: #064e3b; color: #d1fae5; padding: 8px 12px; border-radius: 8px; margin: 8px 0 12px 0; font-size: 13px; border-left: 3px solid #16a085; }
     .tok.unsampled { color: #64748b; }
     .selection-box { position: fixed; border: 1px solid #60a5fa; background: rgba(96,165,250,0.14); pointer-events: none; display: none; z-index: 50; }
     .outputs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
@@ -716,9 +733,14 @@ HTML_TEMPLATE = """<!doctype html>
 <body>
   <header>
     <h1>Play with the models from "Building Better Activation Oracles"</h1>
+    <div class="training-anchor-banner">
+      <b>The first CoT token is always injected</b> (shown in <span style="background:#16a085;color:#eff6ff;padding:1px 4px;border-radius:3px">teal</span>, non-toggleable). This matches training: the
+      <code>cot_oracle_convqa</code> sampler always includes the first context position as an anchor,
+      and not injecting it pushes the oracle off-distribution. You select additional positions on top.
+    </div>
     <ol class="how-to">
       <li><b>Ask a question.</b> The model generates a chain of thought; we record its internal activations while it thinks.</li>
-      <li><b>Select tokens.</b> Click or drag across the chain of thought to pick which positions the oracle gets to peek at.</li>
+      <li><b>Select tokens.</b> Click or drag across the chain of thought to pick which positions the oracle gets to peek at. The first sampled position is always-on.</li>
       <li><b>Ask the oracle.</b> Type a question about the model's reasoning (e.g. "is it confident?", "what answer is it heading toward?"). Both Adam Original and Ours answer using only the selected activations &mdash; no access to the CoT text.</li>
     </ol>
   </header>
@@ -832,6 +854,9 @@ HTML_TEMPLATE = """<!doctype html>
       if (!sessionData) { wrap.innerHTML = '<div class="muted">No session yet.</div>'; return; }
       const sampledMap = sessionData.sampled_token_to_stride_index || [];
       const cotTokenTexts = sessionData.cot_token_texts || [];
+      // Force-select the first sampled stride position (matches training-time
+      // cot_oracle_convqa sampler: base_positions[0] is always included).
+      selectedPositions.add(0);
       const para = document.createElement('div');
       para.className = 'token-paragraph';
       for (let i = 0; i < cotTokenTexts.length; i++) {
@@ -844,6 +869,10 @@ HTML_TEMPLATE = """<!doctype html>
           span.className = 'tok sampled';
           span.dataset.position = strideIdx;
           if (selectedPositions.has(strideIdx)) span.classList.add('selected');
+          if (strideIdx === 0) {
+            span.classList.add('forced');
+            span.title = 'Always-injected anchor (matches training distribution)';
+          }
         }
         span.textContent = t;
         para.appendChild(span);
@@ -893,9 +922,11 @@ HTML_TEMPLATE = """<!doctype html>
         const hit = r.left < x2 && r.right > x1 && r.top < y2 && r.bottom > y1;
         if (hit) {
           const k = Number(el.dataset.position);
+          if (k === 0) { newSel.add(0); return; }  // anchor — always on
           if (dragAdditive) newSel.add(k); else newSel.delete(k);
         }
       });
+      newSel.add(0);  // belt + suspenders
       selectedPositions = newSel;
       document.querySelectorAll('.tok.sampled').forEach((el) => {
         const k = Number(el.dataset.position);
