@@ -273,8 +273,15 @@ def add_hook(module, hook):
         handle.remove()
 
 
-def get_steering_hook(vectors, positions, device, dtype, steering_coefficient=1.0):
-    """Norm-matched additive steering hook (batch=1 only)."""
+def get_steering_hook(vectors, positions, device, dtype, steering_coefficient=1.0, target_norm_scale=None):
+    """Norm-matched additive steering hook (batch=1 only).
+
+    Args:
+        target_norm_scale: if set, rescale the post-injection residual to exactly
+            (target_norm_scale * ‖orig‖). Matches the training-time
+            AO_FINAL_NORM_SCALE env var behaviour. Use ~1.41 (≈√2) or None for
+            natural norm-matched injection; use 2.0 for the steering 2.0× LoRA.
+    """
     normed = torch.nn.functional.normalize(vectors, dim=-1).detach()
 
     def hook_fn(module, _input, output):
@@ -295,7 +302,11 @@ def get_steering_hook(vectors, positions, device, dtype, steering_coefficient=1.
         orig = resid[0, pos, :]
         norms = orig.norm(dim=-1, keepdim=True)
         steered = (normed.to(device=orig.device, dtype=orig.dtype) * norms.to(orig.dtype) * steering_coefficient).to(orig.dtype).detach()
-        resid[0, pos, :] = steered + orig
+        combined = steered + orig
+        if target_norm_scale is not None:
+            cur = combined.norm(dim=-1, keepdim=True).clamp(min=1e-6)
+            combined = combined * (target_norm_scale * norms / cur)
+        resid[0, pos, :] = combined
 
         return (resid, *rest) if is_tuple else resid
 

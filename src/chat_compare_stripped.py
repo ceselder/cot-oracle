@@ -179,7 +179,7 @@ def encode_prompt_with_positions(tokenizer, full_prompt, relative_spans):
     return input_ids, positions
 
 
-def query_original_ao(model, tokenizer, acts_l50, prompt, model_name, max_new_tokens=150, temperature=0.0, adapter_name="original_ao"):
+def query_original_ao(model, tokenizer, acts_l50, prompt, model_name, max_new_tokens=150, temperature=0.0, adapter_name="original_ao", target_norm_scale=None):
     dtype = torch.bfloat16
     num_positions = acts_l50.shape[0]
     act_layer = layer_percent_to_layer(model_name, 50)
@@ -192,7 +192,7 @@ def query_original_ao(model, tokenizer, acts_l50, prompt, model_name, max_new_to
     attn_mask = torch.ones_like(input_tensor)
     model.set_adapter(adapter_name)
     injection_submodule = get_hf_submodule(model, 1, use_lora=True)
-    hook_fn = get_steering_hook(vectors=acts_l50, positions=positions, device=get_module_device(injection_submodule), dtype=dtype)
+    hook_fn = get_steering_hook(vectors=acts_l50, positions=positions, device=get_module_device(injection_submodule), dtype=dtype, target_norm_scale=target_norm_scale)
     gen_kwargs = dict(max_new_tokens=max_new_tokens)
     if temperature > 0:
         gen_kwargs.update(do_sample=True, temperature=temperature)
@@ -203,7 +203,7 @@ def query_original_ao(model, tokenizer, acts_l50, prompt, model_name, max_new_to
     return tokenizer.decode(output[0][len(input_ids):], skip_special_tokens=True)
 
 
-def query_trained_oracle(model, tokenizer, selected_acts, prompt, selected_layers, layer_counts, max_new_tokens=150, temperature=0.0, adapter_name="trained"):
+def query_trained_oracle(model, tokenizer, selected_acts, prompt, selected_layers, layer_counts, max_new_tokens=150, temperature=0.0, adapter_name="trained", target_norm_scale=None):
     dtype = torch.bfloat16
     if len(selected_layers) != len(layer_counts):
         raise ValueError(f"selected_layers={selected_layers} and layer_counts={layer_counts} must align")
@@ -234,7 +234,7 @@ def query_trained_oracle(model, tokenizer, selected_acts, prompt, selected_layer
     attn_mask = torch.ones_like(input_tensor)
     model.set_adapter(adapter_name)
     injection_submodule = get_hf_submodule(model, 1, use_lora=True)
-    hook_fn = get_steering_hook(vectors=selected_acts, positions=positions, device=get_module_device(injection_submodule), dtype=dtype)
+    hook_fn = get_steering_hook(vectors=selected_acts, positions=positions, device=get_module_device(injection_submodule), dtype=dtype, target_norm_scale=target_norm_scale)
     gen_kwargs = dict(max_new_tokens=max_new_tokens)
     if temperature > 0:
         gen_kwargs.update(do_sample=True, temperature=temperature)
@@ -521,17 +521,22 @@ class ChatCompareWebApp:
 
     def _run_both(self, prompt, selected_cells, max_tokens, temperature):
         ctx = self._resolve_context(prompt, selected_cells)
+        # Per-adapter post-injection norm rescale (matches training-time
+        # AO_FINAL_NORM_SCALE env var). None = natural ~√2× additive.
+        scales = getattr(self.args, "_target_norm_scales", {}) or {}
         ao_response = query_original_ao(
             self.model, self.tokenizer, ctx["selected_ao"], ctx["prompt"],
             model_name=self.args.model,
             max_new_tokens=max_tokens,
             temperature=temperature,
+            target_norm_scale=scales.get("original_ao"),
         )
         trained_response = query_trained_oracle(
             self.model, self.tokenizer, ctx["selected_ml"], ctx["prompt"],
             ctx["selected_layers"], ctx["layer_counts"],
             max_new_tokens=max_tokens,
             temperature=temperature,
+            target_norm_scale=scales.get("trained"),
         )
         return {
             "prompt": ctx["prompt"],
@@ -963,11 +968,37 @@ def build_parser():
     parser.add_argument("--port", type=int, default=8000, help="Web port")
     parser.add_argument("--extra-checkpoints", nargs="+", default=[], metavar="NAME=PATH",
                         help="Extra oracle LoRA checkpoints as name=path pairs")
+    parser.add_argument("--original-ao-override", default=None,
+                        help="Override the hardcoded original_ao LoRA (AO_CHECKPOINTS[model]) "
+                             "with a different HF repo or local path. Use to put e.g. Best v3 "
+                             "in the 'left' side of the side-by-side instead of Adam's reference.")
+    parser.add_argument("--target-norm-scales", nargs="+", default=[], metavar="NAME=SCALE",
+                        help="Per-adapter post-injection norm rescale, mirroring training-time "
+                             "AO_FINAL_NORM_SCALE. e.g. --target-norm-scales trained=2.0 keeps "
+                             "the left/original side at natural ~√2× and rescales the right "
+                             "(trained) side's injection to 2.0×‖orig‖.")
     return parser
 
 
 def main():
     args = build_parser().parse_args()
+    # Override AO_CHECKPOINTS so 'original_ao' can be a different LoRA than the
+    # default Adam reference. Done before ChatCompareWebApp instantiation so
+    # load_dual_model picks it up.
+    if args.original_ao_override:
+        from core import ao as _ao_mod
+        _ao_mod.AO_CHECKPOINTS[args.model] = args.original_ao_override
+        print(f"[override] AO_CHECKPOINTS[{args.model}] = {args.original_ao_override}")
+    # Parse per-adapter target norm scales.
+    scales: dict[str, float] = {}
+    for item in (args.target_norm_scales or []):
+        if "=" not in item:
+            continue
+        name, scale = item.split("=", 1)
+        scales[name.strip()] = float(scale)
+    args._target_norm_scales = scales
+    if scales:
+        print(f"[target-norm-scales] {scales}")
     web_app = ChatCompareWebApp(args)
     print(f"Serving CoT Oracle demo on http://{args.host}:{args.port}")
     uvicorn.run(web_app.app, host=args.host, port=args.port, log_level="info")
