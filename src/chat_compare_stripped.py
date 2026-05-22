@@ -418,7 +418,13 @@ class ChatCompareWebApp:
             device=args.device,
         )
         self._active_cot_adapter = args.cot_adapter or None
-        self.state = SessionState()
+        # Per-client session state — keyed by random session_id returned from
+        # /api/generate. Prevents concurrent users from clobbering each other's
+        # `multilayer_acts` / `stride_positions` etc. between their generate
+        # and run calls. Bounded to MAX_SESSIONS LRU; eldest evicted.
+        self._sessions: dict[str, "SessionState"] = {}
+        self._session_order: list[str] = []
+        self._max_sessions = 64
 
         # --- Queue machinery ---
         # Global FIFO queue: any GPU-touching request acquires this lock.
@@ -466,9 +472,14 @@ class ChatCompareWebApp:
 
     # --- GPU-touching operations ---
 
-    def _compute_stride_info(self, full_text):
+    def _compute_stride_info_with_question(self, full_text, question):
+        return self._compute_stride_info(full_text, question=question)
+
+    def _compute_stride_info(self, full_text, question=None):
         all_ids = self.tokenizer.encode(full_text, add_special_tokens=False)
-        messages = [{"role": "user", "content": self.state.question}]
+        if question is None:
+            raise ValueError("question must be passed explicitly (per-session state)")
+        messages = [{"role": "user", "content": question}]
         formatted = self.tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True, enable_thinking=True)
         prompt_ids = self.tokenizer.encode(formatted, add_special_tokens=False)
         prompt_len = len(prompt_ids)
@@ -545,14 +556,16 @@ class ChatCompareWebApp:
         formatted = self.tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True, enable_thinking=True)
         full_text = formatted + cot_response
         cot_text, answer_text = split_cot_answer(cot_response)
-        self.state = SessionState(
+        import uuid
+        session_id = uuid.uuid4().hex
+        state = SessionState(
             question=question,
             cot_response=cot_response,
             cot_text=cot_text,
             answer_text=answer_text,
             full_text=full_text,
         )
-        info = self._compute_stride_info(full_text)
+        info = self._compute_stride_info_with_question(full_text, question)
         stride_positions = info["stride_positions"]
         multilayer_acts = collect_multilayer_activations(
             self.model, self.tokenizer, full_text, self.layers, stride_positions,
@@ -563,17 +576,23 @@ class ChatCompareWebApp:
             self.model, self.tokenizer, full_text, self.layer_50, stride_positions,
             device=input_device, adapter_name=None,
         )
-        self.state.stride_positions = stride_positions
-        self.state.stride_token_ids = info["stride_token_ids"]
-        self.state.token_labels = info["token_labels"]
-        self.state.cot_token_texts = info["cot_token_texts"]
-        self.state.answer_token_texts = info["answer_token_texts"]
-        self.state.sampled_token_to_stride_index = info["sampled_token_to_stride_index"]
-        self.state.prompt_len = info["prompt_len"]
-        self.state.cot_end = info["cot_end"]
-        self.state.multilayer_acts = multilayer_acts
-        self.state.ao_acts = ao_acts
+        state.stride_positions = stride_positions
+        state.stride_token_ids = info["stride_token_ids"]
+        state.token_labels = info["token_labels"]
+        state.cot_token_texts = info["cot_token_texts"]
+        state.answer_token_texts = info["answer_token_texts"]
+        state.sampled_token_to_stride_index = info["sampled_token_to_stride_index"]
+        state.prompt_len = info["prompt_len"]
+        state.cot_end = info["cot_end"]
+        state.multilayer_acts = multilayer_acts
+        state.ao_acts = ao_acts
+        self._sessions[session_id] = state
+        self._session_order.append(session_id)
+        while len(self._session_order) > self._max_sessions:
+            evict = self._session_order.pop(0)
+            self._sessions.pop(evict, None)
         return {
+            "session_id": session_id,
             "question": question,
             "cot_response": cot_response,
             "cot_text": cot_text,
@@ -590,18 +609,21 @@ class ChatCompareWebApp:
             "n_vectors": int(multilayer_acts.shape[0]),
         }
 
-    def _resolve_context(self, prompt, selected_cells):
-        if self.state.multilayer_acts is None:
+    def _resolve_context(self, prompt, selected_cells, session_id=None):
+        # Per-session state lookup. If no session_id given, fall back to legacy
+        # singleton self.state (which won't exist anymore, but maintain compat).
+        if session_id and session_id in self._sessions:
+            state = self._sessions[session_id]
+        else:
+            raise HTTPException(status_code=400, detail="Unknown or expired session — please regenerate the CoT")
+        if state.multilayer_acts is None:
             raise HTTPException(status_code=400, detail="Generate a CoT first")
         prompt = (prompt or "").strip()
         if not prompt:
             raise HTTPException(status_code=400, detail="Prompt is empty")
-        # Force-include the FIRST stride position to match training-time
-        # cot_oracle_convqa sampler (sample_cot_oracle_stochastic_positions
-        # always includes base_positions[0] as a context anchor; not doing so
-        # pushes the LoRA off-distribution).
+        # Force-include the FIRST stride position (training-time anchor).
         forced_cells = []
-        if self.state.stride_positions and self.layers:
+        if state.stride_positions and self.layers:
             for layer in self.layers:
                 forced_cells.append({"layer": layer, "position": 0})
         cells = list(selected_cells) if selected_cells else []
@@ -611,10 +633,10 @@ class ChatCompareWebApp:
             if (fc["layer"], fc["position"]) not in existing:
                 cells.append(fc)
         selected_ml, selected_ao, selected_layers, layer_counts, selected_positions = select_activation_cells(
-            self.state.multilayer_acts,
-            self.state.ao_acts,
+            state.multilayer_acts,
+            state.ao_acts,
             self.layers,
-            len(self.state.stride_positions),
+            len(state.stride_positions),
             cells if cells else None,
         )
         return {
@@ -626,8 +648,8 @@ class ChatCompareWebApp:
             "selected_positions": selected_positions,
         }
 
-    def _run_both(self, prompt, selected_cells, max_tokens, temperature):
-        ctx = self._resolve_context(prompt, selected_cells)
+    def _run_both(self, prompt, selected_cells, max_tokens, temperature, session_id=None):
+        ctx = self._resolve_context(prompt, selected_cells, session_id=session_id)
         # Per-adapter post-injection norm rescale (matches training-time
         # AO_FINAL_NORM_SCALE env var). None = natural ~√2× additive.
         scales = getattr(self.args, "_target_norm_scales", {}) or {}
@@ -732,12 +754,13 @@ class ChatCompareWebApp:
         async def run(payload: dict, request: Request):
             prompt = payload.get("prompt", "")
             selected_cells = payload.get("selected_cells", [])
+            session_id = payload.get("session_id")
             max_tokens = int(payload.get("max_tokens", self.args.max_tokens))
             temperature = float(payload.get("oracle_temperature", 0))
             self._stats["oracle_runs"] += 1
             self._unique_ips.add(_client_ip(request))
-            log.info("[oracle_run] ip=%s total=%d", _client_ip(request), self._stats["oracle_runs"])
-            return await self._run_queued(self._run_both, prompt, selected_cells, max_tokens, temperature)
+            log.info("[oracle_run] ip=%s sess=%s total=%d", _client_ip(request), (session_id or "")[:8], self._stats["oracle_runs"])
+            return await self._run_queued(self._run_both, prompt, selected_cells, max_tokens, temperature, session_id=session_id)
 
     # --- HTML template ---
 
@@ -1089,6 +1112,7 @@ HTML_TEMPLATE = """<!doctype html>
             body: JSON.stringify({
               prompt,
               selected_cells: cells,
+              session_id: sessionData ? sessionData.session_id : null,
               oracle_temperature: Number(oracleTemp.value),
             }),
           });
