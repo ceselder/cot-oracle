@@ -128,6 +128,51 @@ def get_module_device(module):
 # Generation + oracle querying
 # ---------------------------------------------------------------------------
 
+def generate_cot_via_openrouter(question, model="qwen/qwen3-8b", max_new_tokens=16384, temperature=0.0):
+    """Generate the CoT remotely via OpenRouter — much faster than local generate.
+
+    Returns the response text in the SAME format generate_cot_base produces,
+    i.e. starting with `<think>` and including `</think>` separator if the
+    model produced one. We then run the LOCAL model forward over (question +
+    this text) to capture activations at stride positions.
+    """
+    import httpx
+    api_key = os.environ.get("OPENROUTER_API_KEY")
+    if not api_key:
+        raise RuntimeError("OPENROUTER_API_KEY env var not set")
+    payload = {
+        "model": model,
+        "messages": [{"role": "user", "content": question}],
+        "max_tokens": max_new_tokens,
+        "temperature": temperature,
+        # Qwen3 reasoning: ask provider to expose the thinking trace inline.
+        "reasoning": {"effort": "high"},
+    }
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+    }
+    with httpx.Client(timeout=120.0) as client:
+        r = client.post("https://openrouter.ai/api/v1/chat/completions",
+                        headers=headers, json=payload)
+        r.raise_for_status()
+        data = r.json()
+    msg = data["choices"][0]["message"]
+    # OpenRouter returns the user-visible answer in `content`, and Qwen3's
+    # reasoning trace either inline (already wrapped in <think>) or as a
+    # separate `reasoning` field depending on the provider. Reconstruct the
+    # `<think>…</think>{answer}` shape generate_cot_base returns.
+    content = msg.get("content") or ""
+    reasoning = msg.get("reasoning") or ""
+    if "<think>" in content:
+        return content  # provider already inlined it
+    if reasoning:
+        return f"<think>\n{reasoning}\n</think>\n\n{content}"
+    # No reasoning surfaced — return the bare content. _compute_stride_info
+    # will treat the whole response as CoT (no <think> boundary).
+    return content
+
+
 def generate_cot_base(model, tokenizer, question, max_new_tokens=16384, cot_adapter=None, temperature=0.0):
     messages = [{"role": "user", "content": question}]
     formatted = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True, enable_thinking=True)
@@ -469,12 +514,33 @@ class ChatCompareWebApp:
 
     def _generate_and_extract(self, question, temperature):
         cot_adapter = self._active_cot_adapter
-        cot_response = generate_cot_base(
-            self.model, self.tokenizer, question,
-            max_new_tokens=16384,
-            cot_adapter=cot_adapter,
-            temperature=temperature,
-        )
+        # If OPENROUTER_API_KEY is set, skip the slow local generate and call
+        # OpenRouter for the CoT instead. We still need the local forward
+        # pass downstream (collect_multilayer_activations) to capture the
+        # residuals — but autoregressive generation is what's slow, so this
+        # alone cuts ~30s → ~2s per request.
+        if os.environ.get("OPENROUTER_API_KEY") and not cot_adapter:
+            try:
+                cot_response = generate_cot_via_openrouter(
+                    question,
+                    max_new_tokens=16384,
+                    temperature=temperature,
+                )
+            except Exception as exc:
+                log.warning("OpenRouter CoT failed (%s); falling back to local generate", exc)
+                cot_response = generate_cot_base(
+                    self.model, self.tokenizer, question,
+                    max_new_tokens=16384,
+                    cot_adapter=cot_adapter,
+                    temperature=temperature,
+                )
+        else:
+            cot_response = generate_cot_base(
+                self.model, self.tokenizer, question,
+                max_new_tokens=16384,
+                cot_adapter=cot_adapter,
+                temperature=temperature,
+            )
         messages = [{"role": "user", "content": question}]
         formatted = self.tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True, enable_thinking=True)
         full_text = formatted + cot_response
